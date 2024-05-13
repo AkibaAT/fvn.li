@@ -75,7 +75,7 @@ class RatingResource extends Resource
                         ->wrap()
                         ->description('Review', position: 'above'),
                 ])
-                    ->from('xl')
+                    ->from('xl'),
             ])
             ->filters([
                 SelectFilter::make('game')

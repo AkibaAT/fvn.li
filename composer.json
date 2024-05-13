@@ -11,6 +11,7 @@
         "php": "^8.3",
         "filament/filament": "^v3.2",
         "guzzlehttp/guzzle": "^7.8",
+        "hydrat/filament-table-layout-toggle": "^1.2",
         "itsgoingd/clockwork": "^v5.2",
         "laravel/framework": "^11.0",
         "laravel/octane": "^v2.3",
@@ -21,7 +22,6 @@
     },
     "require-dev": {
         "fakerphp/faker": "^v1.23",
-        "laravel/pint": "^v1.14",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^v8.1",
         "phpunit/phpunit": "^11.0",

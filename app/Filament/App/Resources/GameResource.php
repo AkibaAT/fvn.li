@@ -25,7 +25,7 @@ class GameResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
-                $query->where('visible', true);
+                $query->with('raters')->where('visible', true);
             })
             ->columns([
                 Tables\Columns\ImageColumn::make('thumb_url')
@@ -39,6 +39,9 @@ class GameResource extends Resource
                     ->sortable()
                     ->url(fn (Game $record) => ($record->devlog ?: $record->url))
                     ->openUrlInNewTab(),
+                Tables\Columns\TextColumn::make('raters.name')
+                    ->label('Creators')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('initially_published_at')
                     ->width('1%')
                     ->dateTime()
