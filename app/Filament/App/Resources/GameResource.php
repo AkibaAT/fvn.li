@@ -85,14 +85,14 @@ class GameResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('nsfw')
                     ->disabledClick()
-                    ->tooltip('Filter by NSFW status')
+                    ->tooltip('Filter by 18+ status')
                     ->extraAttributes(function (Game $record) {
                         return [
                             'wire:click' => '$set("tableFilters.nsfw.value", "' . (int) $record->nsfw . '")',
                             'class' => 'transition hover:text-primary-500 cursor-pointer',
                         ];
                     })
-                    ->label('NSFW')
+                    ->label('18+')
                     ->width('1%')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('tags')
@@ -171,7 +171,7 @@ class GameResource extends Resource
             ])
             ->filters([
                 TernaryFilter::make('nsfw')
-                    ->label('NSFW'),
+                    ->label('18+'),
                 TernaryFilter::make('platform_windows')
                     ->label('Windows'),
                 TernaryFilter::make('platform_linux')
