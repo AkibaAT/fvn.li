@@ -76,12 +76,12 @@ class GameResource extends Resource
                 Tables\Columns\TextColumn::make('rating')
                     ->width('1%')
                     ->numeric()
-                    ->sortable()
+                    ->sortable(true, fn ($query, $direction) => $direction === 'desc' ? $query->orderByRaw('rating ' . $direction . ' NULLS LAST') : null)
                     ->url(fn (Game $record) => RatingResource::getUrl('index', ['tableFilters' => ['game' => ['value' => $record->id]]])),
                 Tables\Columns\TextColumn::make('rating_count')
                     ->width('1%')
                     ->numeric()
-                    ->sortable()
+                    ->sortable(true, fn ($query, $direction) => $direction === 'desc' ? $query->orderByRaw('rating_count ' . $direction . ' NULLS LAST') : null)
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('nsfw')
                     ->disabledClick()
