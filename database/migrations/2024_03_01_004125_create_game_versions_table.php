@@ -26,7 +26,7 @@ return new class extends Migration
             $table->unsignedInteger('stats_menus')->nullable();
             $table->unsignedInteger('stats_options')->nullable();
             $table->unsignedInteger('stats_words')->nullable();
-            $table->unsignedFloat('rating')->nullable();
+            $table->float('rating')->nullable();
             $table->unsignedInteger('rating_count')->nullable();
         });
     }

@@ -8,7 +8,6 @@ use App\Filament\App\Resources\GameResource\Pages;
 use App\Models\Game;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;

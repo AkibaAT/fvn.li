@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('thumb_url')->nullable();
             $table->string('version')->nullable();
             $table->string('tags')->nullable();
-            $table->unsignedFloat('rating')->nullable();
+            $table->float('rating')->nullable();
             $table->unsignedInteger('rating_count')->nullable();
             $table->string('devlog', 250)->nullable();
             $table->string('languages')->nullable();
