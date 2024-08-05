@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Resources;
 
-use App\Filament\App\Resources\GameResource\Pages;
+use App\Filament\App\Resources\GameResource\Pages\ListGames;
 use App\Models\Game;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -28,61 +30,61 @@ class GameResource extends Resource
                 $query->where('visible', true);
             })
             ->columns([
-                Tables\Columns\ImageColumn::make('thumb_url')
+                ImageColumn::make('thumb_url')
                     ->width('125px')
                     ->height('100px')
                     ->label('Thumbnail')
                     ->url(fn (Game $record) => ($record->devlog ?: $record->url))
                     ->openUrlInNewTab(),
-                Tables\Columns\TextColumn::make('name')
+                TextColumn::make('name')
                     ->searchable()
                     ->sortable()
                     ->url(fn (Game $record) => ($record->devlog ?: $record->url))
                     ->openUrlInNewTab(),
-                Tables\Columns\TextColumn::make('authors')
+                TextColumn::make('authors')
                     ->searchable()
                     ->sortable()
                     ->html(),
-                Tables\Columns\TextColumn::make('initially_published_at')
+                TextColumn::make('initially_published_at')
                     ->width('1%')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('version_published_at')
+                TextColumn::make('version_published_at')
                     ->width('1%')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('version')
+                TextColumn::make('version')
                     ->url(fn (Game $record) => GameVersionResource::getUrl('index', ['tableFilters' => ['game' => ['value' => $record->id]]])),
-                Tables\Columns\TextColumn::make('stats_blocks')
+                TextColumn::make('stats_blocks')
                     ->numeric()
                     ->sortable(true, fn ($query, $direction) => $query->orderByRaw('stats_blocks ' . $direction . ' NULLS LAST'))
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stats_menus')
+                TextColumn::make('stats_menus')
                     ->numeric()
                     ->sortable(true, fn ($query, $direction) => $query->orderByRaw('stats_menus ' . $direction . ' NULLS LAST'))
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stats_options')
+                TextColumn::make('stats_options')
                     ->numeric()
                     ->sortable(true, fn ($query, $direction) => $query->orderByRaw('stats_options ' . $direction . ' NULLS LAST'))
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stats_words')
+                TextColumn::make('stats_words')
                     ->numeric()
                     ->sortable(true, fn ($query, $direction) => $query->orderByRaw('stats_words ' . $direction . ' NULLS LAST')),
-                Tables\Columns\TextColumn::make('status')
+                TextColumn::make('status')
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('rating')
+                TextColumn::make('rating')
                     ->width('1%')
                     ->numeric()
                     ->sortable(true, fn ($query, $direction) => $query->orderByRaw('rating ' . $direction . ' NULLS LAST'))
                     ->url(fn (Game $record) => RatingResource::getUrl('index', ['tableFilters' => ['game' => ['value' => $record->id]]])),
-                Tables\Columns\TextColumn::make('rating_count')
+                TextColumn::make('rating_count')
                     ->width('1%')
                     ->numeric()
                     ->sortable(true, fn ($query, $direction) => $query->orderByRaw('rating_count ' . $direction . ' NULLS LAST'))
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\IconColumn::make('nsfw')
+                IconColumn::make('nsfw')
                     ->disabledClick()
                     ->tooltip('Filter by NSFW status')
                     ->extraAttributes(function (Game $record) {
@@ -94,12 +96,12 @@ class GameResource extends Resource
                     ->label('NSFW')
                     ->width('1%')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('tags')
+                TextColumn::make('tags')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('languages')
+                TextColumn::make('languages')
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\IconColumn::make('platform_windows')
+                IconColumn::make('platform_windows')
                     ->disabledClick()
                     ->tooltip('Filter by Windows status')
                     ->extraAttributes(function (Game $record) {
@@ -110,7 +112,7 @@ class GameResource extends Resource
                     })
                     ->label('Windows')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_linux')
+                IconColumn::make('platform_linux')
                     ->disabledClick()
                     ->tooltip('Filter by Linux status')
                     ->extraAttributes(function (Game $record) {
@@ -121,7 +123,7 @@ class GameResource extends Resource
                     })
                     ->label('Linux')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_mac')
+                IconColumn::make('platform_mac')
                     ->disabledClick()
                     ->tooltip('Filter by Mac status')
                     ->extraAttributes(function (Game $record) {
@@ -132,7 +134,7 @@ class GameResource extends Resource
                     })
                     ->label('Mac')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_android')
+                IconColumn::make('platform_android')
                     ->disabledClick()
                     ->tooltip('Filter by Android status')
                     ->extraAttributes(function (Game $record) {
@@ -143,7 +145,7 @@ class GameResource extends Resource
                     })
                     ->label('Android')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_web')
+                IconColumn::make('platform_web')
                     ->disabledClick()
                     ->tooltip('Filter by Web status')
                     ->extraAttributes(function (Game $record) {
@@ -154,7 +156,7 @@ class GameResource extends Resource
                     })
                     ->label('Web')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('game_engine')
+                TextColumn::make('game_engine')
                     ->disabledClick()
                     ->tooltip('Filter by game engine')
                     ->extraAttributes(function (Game $record) {
@@ -164,7 +166,7 @@ class GameResource extends Resource
                         ];
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('custom_tags')
+                TextColumn::make('custom_tags')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -214,7 +216,7 @@ class GameResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListGames::route('/'),
+            'index' => ListGames::route('/'),
         ];
     }
 }

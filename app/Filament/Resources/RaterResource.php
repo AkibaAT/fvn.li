@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\RaterResource\Pages;
+use App\Filament\Resources\RaterResource\Pages\CreateRater;
+use App\Filament\Resources\RaterResource\Pages\EditRater;
+use App\Filament\Resources\RaterResource\Pages\ListRaters;
 use App\Models\Rater;
-use Filament\Forms;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class RaterResource extends Resource
@@ -22,10 +27,10 @@ class RaterResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('user_id')
+                TextInput::make('user_id')
                     ->required()
                     ->numeric(),
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->required()
                     ->maxLength(100),
             ]);
@@ -35,29 +40,29 @@ class RaterResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('user_id')
+                TextColumn::make('user_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('name')
+                TextColumn::make('name')
                     ->searchable(),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -72,9 +77,9 @@ class RaterResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListRaters::route('/'),
-            'create' => Pages\CreateRater::route('/create'),
-            'edit' => Pages\EditRater::route('/{record}/edit'),
+            'index' => ListRaters::route('/'),
+            'create' => CreateRater::route('/create'),
+            'edit' => EditRater::route('/{record}/edit'),
         ];
     }
 }

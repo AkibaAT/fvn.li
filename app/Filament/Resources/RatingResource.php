@@ -4,12 +4,22 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\RatingResource\Pages;
+use App\Filament\Resources\RatingResource\Pages\CreateRating;
+use App\Filament\Resources\RatingResource\Pages\EditRating;
+use App\Filament\Resources\RatingResource\Pages\ListRatings;
 use App\Models\Rating;
-use Filament\Forms;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class RatingResource extends Resource
@@ -22,30 +32,30 @@ class RatingResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\DateTimePicker::make('published_at')
+                DateTimePicker::make('published_at')
                     ->required(),
-                Forms\Components\TextInput::make('event_id')
+                TextInput::make('event_id')
                     ->required()
                     ->numeric(),
-                Forms\Components\Select::make('game_id')
+                Select::make('game_id')
                     ->searchable()
                     ->relationship('game', 'name')
                     ->optionsLimit(10)
                     ->required(),
-                Forms\Components\Select::make('rater_id')
+                Select::make('rater_id')
                     ->searchable()
                     ->relationship('rater', 'name')
                     ->optionsLimit(10)
                     ->required(),
-                Forms\Components\TextInput::make('rating')
+                TextInput::make('rating')
                     ->required()
                     ->numeric(),
-                Forms\Components\Textarea::make('review')
+                Textarea::make('review')
                     ->required()
                     ->columnSpanFull(),
-                Forms\Components\Toggle::make('visible')
+                Toggle::make('visible')
                     ->required(),
-                Forms\Components\Toggle::make('has_review')
+                Toggle::make('has_review')
                     ->required(),
             ]);
     }
@@ -54,43 +64,43 @@ class RatingResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('published_at')
+                TextColumn::make('published_at')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('event_id')
+                TextColumn::make('event_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('game.name')
+                TextColumn::make('game.name')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('rater.name')
+                TextColumn::make('rater.name')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('rating')
+                TextColumn::make('rating')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\IconColumn::make('visible')
+                IconColumn::make('visible')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('has_review')
+                IconColumn::make('has_review')
                     ->boolean(),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -105,9 +115,9 @@ class RatingResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListRatings::route('/'),
-            'create' => Pages\CreateRating::route('/create'),
-            'edit' => Pages\EditRating::route('/{record}/edit'),
+            'index' => ListRatings::route('/'),
+            'create' => CreateRating::route('/create'),
+            'edit' => EditRating::route('/{record}/edit'),
         ];
     }
 }

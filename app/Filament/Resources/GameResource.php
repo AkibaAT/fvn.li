@@ -4,12 +4,21 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\GameResource\Pages;
+use App\Filament\Resources\GameResource\Pages\CreateGame;
+use App\Filament\Resources\GameResource\Pages\EditGame;
+use App\Filament\Resources\GameResource\Pages\ListGames;
 use App\Models\Game;
-use Filament\Forms;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -25,62 +34,62 @@ class GameResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\DateTimePicker::make('initially_published_at')
+                DateTimePicker::make('initially_published_at')
                     ->required(),
-                Forms\Components\DateTimePicker::make('version_published_at')
+                DateTimePicker::make('version_published_at')
                     ->required(),
-                Forms\Components\TextInput::make('game_id')
+                TextInput::make('game_id')
                     ->required()
                     ->numeric(),
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->required(),
-                Forms\Components\TextInput::make('status')
+                TextInput::make('status')
                     ->maxLength(50),
-                Forms\Components\Toggle::make('visible')
+                Toggle::make('visible')
                     ->required(),
-                Forms\Components\Toggle::make('nsfw')
+                Toggle::make('nsfw')
                     ->required(),
-                Forms\Components\Textarea::make('description')
+                Textarea::make('description')
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('url')
+                TextInput::make('url')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('thumb_url')
+                TextInput::make('thumb_url')
                     ->maxLength(255),
-                Forms\Components\TextInput::make('version')
+                TextInput::make('version')
                     ->maxLength(255),
-                Forms\Components\TextInput::make('tags')
+                TextInput::make('tags')
                     ->maxLength(255),
-                Forms\Components\TextInput::make('rating')
+                TextInput::make('rating')
                     ->numeric(),
-                Forms\Components\TextInput::make('rating_count')
+                TextInput::make('rating_count')
                     ->numeric(),
-                Forms\Components\TextInput::make('devlog')
+                TextInput::make('devlog')
                     ->maxLength(255),
-                Forms\Components\TextInput::make('languages')
+                TextInput::make('languages')
                     ->maxLength(255),
-                Forms\Components\Toggle::make('platform_windows')
+                Toggle::make('platform_windows')
                     ->required(),
-                Forms\Components\Toggle::make('platform_linux')
+                Toggle::make('platform_linux')
                     ->required(),
-                Forms\Components\Toggle::make('platform_mac')
+                Toggle::make('platform_mac')
                     ->required(),
-                Forms\Components\Toggle::make('platform_android')
+                Toggle::make('platform_android')
                     ->required(),
-                Forms\Components\Toggle::make('platform_web')
+                Toggle::make('platform_web')
                     ->required(),
-                Forms\Components\TextInput::make('stats_blocks')
+                TextInput::make('stats_blocks')
                     ->numeric(),
-                Forms\Components\TextInput::make('stats_menus')
+                TextInput::make('stats_menus')
                     ->numeric(),
-                Forms\Components\TextInput::make('stats_options')
+                TextInput::make('stats_options')
                     ->numeric(),
-                Forms\Components\TextInput::make('stats_words')
+                TextInput::make('stats_words')
                     ->numeric(),
-                Forms\Components\TextInput::make('game_engine')
+                TextInput::make('game_engine')
                     ->required()
                     ->maxLength(50),
-                Forms\Components\Textarea::make('error')
+                Textarea::make('error')
                     ->columnSpanFull(),
             ]);
     }
@@ -89,71 +98,71 @@ class GameResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('initially_published_at')
+                TextColumn::make('initially_published_at')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('version_published_at')
+                TextColumn::make('version_published_at')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('game_id')
+                TextColumn::make('game_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('name'),
-                Tables\Columns\TextColumn::make('status')
+                TextColumn::make('name'),
+                TextColumn::make('status')
                     ->searchable(),
-                Tables\Columns\IconColumn::make('visible')
+                IconColumn::make('visible')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('nsfw')
+                IconColumn::make('nsfw')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('url')
+                TextColumn::make('url')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('thumb_url')
+                TextColumn::make('thumb_url')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('version')
+                TextColumn::make('version')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('tags')
+                TextColumn::make('tags')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('rating')
+                TextColumn::make('rating')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('rating_count')
+                TextColumn::make('rating_count')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('devlog')
+                TextColumn::make('devlog')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('languages')
+                TextColumn::make('languages')
                     ->searchable(),
-                Tables\Columns\IconColumn::make('platform_windows')
+                IconColumn::make('platform_windows')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_linux')
+                IconColumn::make('platform_linux')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_mac')
+                IconColumn::make('platform_mac')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_android')
+                IconColumn::make('platform_android')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_web')
+                IconColumn::make('platform_web')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('stats_blocks')
+                TextColumn::make('stats_blocks')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('stats_menus')
+                TextColumn::make('stats_menus')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('stats_options')
+                TextColumn::make('stats_options')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('stats_words')
+                TextColumn::make('stats_words')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('game_engine')
+                TextColumn::make('game_engine')
                     ->searchable(),
             ])
             ->filters([
@@ -176,11 +185,11 @@ class GameResource extends Resource
                     ->query(fn (Builder $query): Builder => $query->where('platform_web', true)),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -195,9 +204,9 @@ class GameResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListGames::route('/'),
-            'create' => Pages\CreateGame::route('/create'),
-            'edit' => Pages\EditGame::route('/{record}/edit'),
+            'index' => ListGames::route('/'),
+            'create' => CreateGame::route('/create'),
+            'edit' => EditGame::route('/{record}/edit'),
         ];
     }
 }

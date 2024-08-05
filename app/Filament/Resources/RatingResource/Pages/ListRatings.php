@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\RatingResource\Pages;
 
 use App\Filament\Resources\RatingResource;
-use Filament\Actions;
+use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListRatings extends ListRecords
@@ -15,7 +15,7 @@ class ListRatings extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            CreateAction::make(),
         ];
     }
 }

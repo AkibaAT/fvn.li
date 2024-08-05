@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Resources;
 
-use App\Filament\App\Resources\GameVersionResource\Pages;
+use App\Filament\App\Resources\GameVersionResource\Pages\ListGameVersions;
 use App\Models\GameVersion;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,10 +23,10 @@ class GameVersionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('published_at')
+                TextColumn::make('published_at')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('game.name')
+                TextColumn::make('game.name')
                     ->searchable()
                     ->sortable()
                     ->tooltip('Filter by this game')
@@ -37,36 +38,36 @@ class GameVersionResource extends Resource
                         ];
                     })
                     ->sortable(),
-                Tables\Columns\TextColumn::make('version'),
-                Tables\Columns\IconColumn::make('platform_windows')
+                TextColumn::make('version'),
+                IconColumn::make('platform_windows')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_linux')
+                IconColumn::make('platform_linux')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_mac')
+                IconColumn::make('platform_mac')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_android')
+                IconColumn::make('platform_android')
                     ->boolean(),
-                Tables\Columns\IconColumn::make('platform_web')
+                IconColumn::make('platform_web')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('stats_blocks')
+                TextColumn::make('stats_blocks')
                     ->numeric()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stats_menus')
+                TextColumn::make('stats_menus')
                     ->numeric()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stats_options')
+                TextColumn::make('stats_options')
                     ->numeric()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stats_words')
+                TextColumn::make('stats_words')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('rating')
+                TextColumn::make('rating')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('rating_count')
+                TextColumn::make('rating_count')
                     ->numeric()
                     ->sortable(),
             ])
@@ -88,7 +89,7 @@ class GameVersionResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListGameVersions::route('/'),
+            'index' => ListGameVersions::route('/'),
         ];
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\GameVersionResource\Pages;
 
 use App\Filament\Resources\GameVersionResource;
-use Filament\Actions;
+use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditGameVersion extends EditRecord
@@ -15,7 +15,7 @@ class EditGameVersion extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            DeleteAction::make(),
         ];
     }
 }

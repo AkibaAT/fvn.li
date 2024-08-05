@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Resources;
 
-use App\Filament\App\Resources\RatingResource\Pages;
+use App\Filament\App\Resources\RatingResource\Pages\ListRatings;
 use App\Models\Rating;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -113,7 +113,7 @@ class RatingResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListRatings::route('/'),
+            'index' => ListRatings::route('/'),
         ];
     }
 }
