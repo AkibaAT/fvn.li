@@ -1,14 +1,14 @@
 name: itch-web
 type: laravel
 docroot: public
-php_version: "8.3"
+php_version: "8.4"
 webserver_type: nginx-fpm
 xdebug_enabled: true
 additional_hostnames: []
 additional_fqdns: []
 database:
     type: postgres
-    version: "16"
+    version: "17"
 use_dns_when_possible: true
 composer_version: "2"
 web_environment: []
