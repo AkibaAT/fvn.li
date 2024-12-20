@@ -46,6 +46,24 @@ class Game extends Model
         'error',
     ];
 
+    protected $casts = [
+        'initially_published_at' => 'datetime',
+        'version_published_at' => 'datetime',
+        'rating' => 'float',
+        'rating_count' => 'integer',
+        'stats_blocks' => 'integer',
+        'stats_menus' => 'integer',
+        'stats_options' => 'integer',
+        'stats_words' => 'integer',
+        'platform_windows' => 'boolean',
+        'platform_linux' => 'boolean',
+        'platform_mac' => 'boolean',
+        'platform_android' => 'boolean',
+        'platform_web' => 'boolean',
+        'nsfw' => 'boolean',
+        'visible' => 'boolean',
+    ];
+
     public function gameVersions(): HasMany
     {
         return $this->hasMany(GameVersion::class);
