@@ -23,6 +23,13 @@ class Rating extends Model
         'has_review',
     ];
 
+    protected $casts = [
+        'published_at' => 'datetime',
+        'rating' => 'float',
+        'visible' => 'boolean',
+        'has_review' => 'boolean',
+    ];
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);

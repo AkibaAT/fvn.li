@@ -30,6 +30,21 @@ class GameVersion extends Model
         'rating_count',
     ];
 
+    protected $casts = [
+        'published_at' => 'datetime',
+        'rating' => 'float',
+        'rating_count' => 'integer',
+        'stats_blocks' => 'integer',
+        'stats_menus' => 'integer',
+        'stats_options' => 'integer',
+        'stats_words' => 'integer',
+        'platform_windows' => 'boolean',
+        'platform_linux' => 'boolean',
+        'platform_mac' => 'boolean',
+        'platform_android' => 'boolean',
+        'platform_web' => 'boolean',
+    ];
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
