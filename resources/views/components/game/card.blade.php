@@ -11,13 +11,16 @@
             <a href="{{ $game->url }}" target="_blank" class="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400">
                 {{ $game->name }}
             </a>
-            <x-platform-icons :platforms="[
-                'windows' => $game->platform_windows,
-                'linux' => $game->platform_linux,
-                'mac' => $game->platform_mac,
-                'android' => $game->platform_android,
-                'web' => $game->platform_web,
-            ]" />
+            <x-platform-icons
+                :platforms="[
+                    'windows' => $game->platform_windows,
+                    'linux' => $game->platform_linux,
+                    'mac' => $game->platform_mac,
+                    'android' => $game->platform_android,
+                    'web' => $game->platform_web,
+                ]"
+                :selected-platforms="$selectedPlatforms"
+            />
         </div>
         <p class="text-sm text-gray-500 dark:text-gray-400">{!! $game->authors !!}</p>
         @if($game->languages)

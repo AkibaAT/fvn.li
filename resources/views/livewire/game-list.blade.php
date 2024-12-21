@@ -7,7 +7,9 @@
             @foreach($games as $game)
                 <x-game-card :game="$game"
                              :selected-statuses="$selectedStatuses"
-                             :selected-engines="$selectedEngines" />
+                             :selected-engines="$selectedEngines"
+                             :selected-platforms="$selectedPlatforms"
+                             :nsfw="$nsfw" />
             @endforeach
         </div>
 

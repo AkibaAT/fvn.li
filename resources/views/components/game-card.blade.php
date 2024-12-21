@@ -1,4 +1,4 @@
-@props(['game', 'selectedStatuses' => [], 'selectedEngines' => []])
+@props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'nsfw' => false])
 
 <div class="bg-white dark:bg-gray-800/50 rounded-lg shadow p-4 flex flex-col backdrop-blur-sm border border-gray-200 dark:border-transparent">
     <div class="flex gap-4">
@@ -12,19 +12,34 @@
                class="text-base font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400 line-clamp-2">
                 {{ $game->name }}
             </a>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{!! $game->authors !!}</p>
-            <div class="mt-2">
-                <x-platform-icons :platforms="$game->platforms" />
+            <div class="flex items-center gap-3 my-2">
+                <x-platform-icons :platforms="$game->platforms" :selected-platforms="$selectedPlatforms" />
+                @if($game->nsfw)
+                    <button
+                        wire:click="$toggle('nsfw')"
+                        @class([
+                            'text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors',
+                            'bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-200/90 ring-2 ring-red-500 dark:ring-red-500' => $nsfw,
+                            'bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300 hover:bg-red-200 hover:text-red-800 dark:hover:bg-red-800/50 dark:hover:text-red-300' => !$nsfw,
+                        ])>
+                        NSFW
+                    </button>
+                @endif
             </div>
+            @if($game->authors)
+                <p class="text-sm text-gray-600 dark:text-gray-300">{!! $game->authors !!}</p>
+            @endif
         </div>
     </div>
 
     <div class="mt-4 grid grid-cols-2 gap-4 text-sm border-t border-gray-100 dark:border-gray-700/50 pt-4">
         @foreach([
-            ['label' => 'Status', 'value' => $game->status, 'type' => 'status'],
-            ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine'],
+            ['label' => 'Status', 'value' => $game->status, 'type' => 'status', 'isActive' => in_array($this->encodeFilterValue($game->status), $selectedStatuses ?? [])],
+            ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine', 'isActive' => in_array($this->encodeFilterValue($game->game_engine), $selectedEngines ?? [])],
             ['label' => 'Words', 'value' => number_format($game->stats_words), 'isFilter' => false],
-            ['label' => 'Reviews', 'value' => $game->rating_count ?? '-', 'isFilter' => false]
+            ['label' => 'Reviews', 'value' => $game->rating_count ?? '-', 'isFilter' => false],
+            ['label' => 'Released', 'value' => $game->initially_published_at->format('M j, Y'), 'isFilter' => false],
+            ['label' => 'Updated', 'value' => $game->version_published_at->format('M j, Y'), 'isFilter' => false],
         ] as $detail)
             <div>
                 <span class="text-gray-500 dark:text-gray-400">{{ $detail['label'] }}:</span>
@@ -32,8 +47,8 @@
                     <button wire:click="toggleFilter('{{ $detail['type'] }}', '{{ $this->encodeFilterValue($detail['value']) }}')"
                         @class([
                             'ml-1 hover:text-blue-400',
-                            'text-blue-400 font-medium' => in_array($this->encodeFilterValue($detail['value']), $selectedStatuses),
-                            'text-gray-700 dark:text-gray-200' => !in_array($this->encodeFilterValue($detail['value']), $selectedStatuses),
+                            'text-blue-400 font-medium' => $detail['isActive'] ?? false,
+                            'text-gray-700 dark:text-gray-200' => !$detail['isActive'] ?? true,
                         ])>
                         {{ $detail['value'] }}
                     </button>
