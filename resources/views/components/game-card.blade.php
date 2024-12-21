@@ -1,6 +1,6 @@
 @props(['game', 'selectedStatuses' => [], 'selectedEngines' => []])
 
-<div class="bg-white/10 dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-sm">
+<div class="bg-white dark:bg-gray-800/50 rounded-lg shadow p-4 flex flex-col backdrop-blur-sm border border-gray-200 dark:border-transparent">
     <div class="flex gap-4">
         <img
             src="{{ $game->thumb_url }}"
@@ -9,17 +9,17 @@
         >
         <div class="flex flex-col min-w-0 flex-1">
             <a href="{{ $game->url }}" target="_blank"
-               class="text-base font-medium text-gray-100 hover:text-blue-400 line-clamp-2">
+               class="text-base font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400 line-clamp-2">
                 {{ $game->name }}
             </a>
-            <p class="text-sm text-gray-300 mt-1">{!! $game->authors !!}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{!! $game->authors !!}</p>
             <div class="mt-2">
                 <x-platform-icons :platforms="$game->platforms" />
             </div>
         </div>
     </div>
 
-    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+    <div class="mt-4 grid grid-cols-2 gap-4 text-sm border-t border-gray-100 dark:border-gray-700/50 pt-4">
         @foreach([
             ['label' => 'Status', 'value' => $game->status, 'type' => 'status'],
             ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine'],
@@ -27,27 +27,29 @@
             ['label' => 'Reviews', 'value' => $game->rating_count ?? '-', 'isFilter' => false]
         ] as $detail)
             <div>
-                <span class="text-gray-400">{{ $detail['label'] }}:</span>
+                <span class="text-gray-500 dark:text-gray-400">{{ $detail['label'] }}:</span>
                 @if($detail['isFilter'] ?? true)
                     <button wire:click="toggleFilter('{{ $detail['type'] }}', '{{ $this->encodeFilterValue($detail['value']) }}')"
                         @class([
                             'ml-1 hover:text-blue-400',
                             'text-blue-400 font-medium' => in_array($this->encodeFilterValue($detail['value']), $selectedStatuses),
-                            'text-gray-200' => !in_array($this->encodeFilterValue($detail['value']), $selectedStatuses),
+                            'text-gray-700 dark:text-gray-200' => !in_array($this->encodeFilterValue($detail['value']), $selectedStatuses),
                         ])>
                         {{ $detail['value'] }}
                     </button>
                 @else
-                    <span class="ml-1 text-gray-200">{{ $detail['value'] }}</span>
+                    <span class="ml-1 text-gray-700 dark:text-gray-200">{{ $detail['value'] }}</span>
                 @endif
             </div>
         @endforeach
     </div>
 
     @if($game->tags)
-        <div class="mt-4 flex flex-wrap gap-1">
+        <div class="mt-4 flex flex-wrap gap-1.5">
             @foreach(explode(',', $game->tags) as $tag)
-                <x-badge class="bg-gray-700/50 text-gray-200">{{ trim($tag) }}</x-badge>
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors">
+                    {{ trim($tag) }}
+                </span>
             @endforeach
         </div>
     @endif

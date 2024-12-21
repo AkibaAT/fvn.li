@@ -4,7 +4,7 @@
             wire:model.live="search"
             type="search"
             placeholder="Search games, authors, or tags..."
-            class="px-4 py-3 w-full rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            class="px-4 py-3 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
         >
     </div>
     <div class="flex gap-2">
@@ -22,7 +22,7 @@
         ] as $type => $config)
             <button
                 @click="document.getElementById('{{ $config['modal'] }}').showModal()"
-                class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 shadow-sm"
             >
                 <x-dynamic-component :component="$config['icon']" class="w-5 h-5" />
                 {{ ucfirst($type) }}

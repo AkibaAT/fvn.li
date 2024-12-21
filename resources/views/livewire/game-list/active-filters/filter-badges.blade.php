@@ -3,17 +3,17 @@
         'platform' => [
             'items' => $selectedPlatforms,
             'class' => 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-            'label' => fn($item) => $platforms[$this->decodeFilterValue($item)]
+            'label' => fn($item) => $platforms[rawurldecode($this->decodeFilterValue($item))]
         ],
         'status' => [
             'items' => $selectedStatuses,
             'class' => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-            'label' => fn($item) => $this->decodeFilterValue($item)
+            'label' => fn($item) => rawurldecode($this->decodeFilterValue($item))
         ],
         'engine' => [
             'items' => $selectedEngines,
             'class' => 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-            'label' => fn($item) => $this->decodeFilterValue($item)
+            'label' => fn($item) => rawurldecode($this->decodeFilterValue($item))
         ]
     ];
 @endphp
