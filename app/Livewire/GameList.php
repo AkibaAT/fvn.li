@@ -18,7 +18,8 @@ class GameList extends Component
     public bool $nsfw = false;
     public string $sortField = 'version_published_at';
     public string $sortDirection = 'desc';
-    public int $perPage = 10;
+    public int $perPage = 12;
+    public int $page = 1;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -28,7 +29,7 @@ class GameList extends Component
         'nsfw' => ['except' => false],
         'sortField' => ['except' => 'version_published_at'],
         'sortDirection' => ['except' => 'desc'],
-        'perPage' => ['except' => 10],
+        'perPage' => ['except' => 12],
         'page' => ['except' => 1],
     ];
 
@@ -81,6 +82,8 @@ class GameList extends Component
         $this->selectedEngines = [];
         $this->selectedPlatforms = [];
         $this->nsfw = false;
+        $this->sortField = 'version_published_at';
+        $this->sortDirection = 'desc';
         $this->resetPage();
     }
 
@@ -135,7 +138,7 @@ class GameList extends Component
         ]);
     }
 
-    private function getFilterOptions(): array
+    public function getFilterOptions(): array
     {
         $baseQuery = Game::query()
             ->when(!auth()->user()?->can('viewHidden', Game::class), fn($q) => $q->where('visible', true));
@@ -146,7 +149,7 @@ class GameList extends Component
                 ->distinct()
                 ->orderBy('status')
                 ->pluck('status')
-                ->mapWithKeys(fn($status) => [$status => $status])
+                ->mapWithKeys(fn($status) => [$this->encodeFilterValue($status) => $status])
                 ->all(),
 
             'gameEngines' => $baseQuery->clone()
@@ -154,7 +157,7 @@ class GameList extends Component
                 ->distinct()
                 ->orderBy('game_engine')
                 ->pluck('game_engine')
-                ->mapWithKeys(fn($engine) => [$engine => $engine])
+                ->mapWithKeys(fn($engine) => [$this->encodeFilterValue($engine) => $engine])
                 ->all(),
 
             'platforms' => [
@@ -165,5 +168,13 @@ class GameList extends Component
                 'web' => 'Web',
             ],
         ];
+    }
+
+    // In GameList.php
+    public function resetSort(): void
+    {
+        $this->sortField = 'version_published_at';
+        $this->sortDirection = 'desc';
+        $this->resetPage();
     }
 }

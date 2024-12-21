@@ -2,18 +2,58 @@
 
 <div class="flex space-x-1">
     @if($platforms['windows'] ?? false)
-        <span title="Windows" class="text-base">🪟</span>
+        <button
+            wire:click="toggleFilter('platform', 'windows')"
+            title="Filter by Windows"
+            @class([
+                'text-base hover:opacity-80 rounded px-0.5',
+                'bg-blue-500 shadow-sm' => in_array('windows', $selectedPlatforms ?? []),
+            ])>
+            🪟
+        </button>
     @endif
     @if($platforms['linux'] ?? false)
-        <span title="Linux" class="text-base">🐧</span>
+        <button
+            wire:click="toggleFilter('platform', 'linux')"
+            title="Filter by Linux"
+            @class([
+                'text-base hover:opacity-80 rounded px-0.5',
+                'bg-blue-500 shadow-sm' => in_array('linux', $selectedPlatforms ?? []),
+            ])>
+            🐧
+        </button>
     @endif
     @if($platforms['mac'] ?? false)
-        <span title="Mac" class="text-base">🍎</span>
+        <button
+            wire:click="toggleFilter('platform', 'mac')"
+            title="Filter by Mac"
+            @class([
+                'text-base hover:opacity-80 rounded px-0.5',
+                'bg-blue-500 shadow-sm' => in_array('mac', $selectedPlatforms ?? []),
+            ])>
+            🍎
+        </button>
     @endif
     @if($platforms['android'] ?? false)
-        <span title="Android" class="text-base">📱</span>
+        <button
+            wire:click="toggleFilter('platform', 'android')"
+            title="Filter by Android"
+            @class([
+                'text-base hover:opacity-80 rounded px-0.5',
+                'bg-blue-500 shadow-sm' => in_array('android', $selectedPlatforms ?? []),
+            ])>
+            📱
+        </button>
     @endif
     @if($platforms['web'] ?? false)
-        <span title="Web" class="text-base">🌐</span>
+        <button
+            wire:click="toggleFilter('platform', 'web')"
+            title="Filter by Web"
+            @class([
+                'text-base hover:opacity-80 rounded px-0.5',
+                'bg-blue-500 shadow-sm' => in_array('web', $selectedPlatforms ?? []),
+            ])>
+            🌐
+        </button>
     @endif
 </div>
