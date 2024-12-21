@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Game;
+use App\Traits\HasSocialMetaTags;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class GameList extends Component
 {
-    use WithPagination;
+    use WithPagination, HasSocialMetaTags;
 
     public string $search = '';
     public array $selectedStatuses = [];
@@ -37,6 +39,8 @@ class GameList extends Component
         'perPage' => ['except' => 12],
         'page' => ['except' => 1],
     ];
+
+    private LengthAwarePaginator $games;
 
     public function mount(): void
     {
@@ -128,6 +132,15 @@ class GameList extends Component
         }
     }
 
+    public function getMetaTags(): array
+    {
+        return [
+            'title' => $this->getMetaTitle(),
+            'description' => $this->getMetaDescription(),
+            'image' => $this->getMetaImage(),
+        ];
+    }
+
     public function render(): View
     {
         $query = Game::query()
@@ -156,17 +169,29 @@ class GameList extends Component
             })
             ->when($this->nsfw, fn($q) => $q->where('nsfw', true));
 
-        // Handle sorting with NULLS LAST for specific fields
         if (in_array($this->sortField, ['rating', 'rating_count', 'stats_words'])) {
             $query->orderByRaw("{$this->sortField} {$this->sortDirection} NULLS LAST");
         } else {
             $query->orderBy($this->sortField, $this->sortDirection);
         }
 
+        $this->games = $query->paginate($this->perPage);
+        $metaTags = $this->getMetaTags();
+        app('view')->share('metaTags', $metaTags);
+        $this->updateMeta($metaTags);
+
         return view('livewire.game-list', [
-            'games' => $query->paginate($this->perPage),
+            'games' => $this->games,
+            'metaTags' => $metaTags,
             ...$this->getFilterOptions(),
         ]);
+    }
+
+    protected function updateMeta(array $metaTags): void
+    {
+        if (method_exists($this, 'dispatch')) {
+            $this->dispatch('updateMetaTags', metaTags: $metaTags);
+        }
     }
 
     public function getFilterOptions(): array

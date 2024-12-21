@@ -28,4 +28,6 @@
             });
         });
     </script>
+
+    @include('components.meta-data-refresh')
 </div>
