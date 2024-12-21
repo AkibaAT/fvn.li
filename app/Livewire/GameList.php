@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Livewire;
 
 use App\Models\Game;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -18,8 +21,10 @@ class GameList extends Component
     public bool $nsfw = false;
     public string $sortField = 'version_published_at';
     public string $sortDirection = 'desc';
-    public int $perPage = 12;
+    public string|int $perPage = 12; // Changed from int type to allow any value temporarily
     public int $page = 1;
+
+    protected array $validPerPageValues = [12, 24, 36];
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -33,7 +38,33 @@ class GameList extends Component
         'page' => ['except' => 1],
     ];
 
-    public function updatingSearch()
+    public function mount(): void
+    {
+        $this->normalizePerPage();
+    }
+
+    public function updated($name): void
+    {
+        if ($name === 'perPage') {
+            $this->normalizePerPage();
+        }
+    }
+
+    protected function normalizePerPage(): void
+    {
+        // Convert to integer if possible
+        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
+
+        // If not a valid integer or not in allowed values, reset to default
+        if ($intValue === false || !in_array($intValue, $this->validPerPageValues)) {
+            $this->perPage = $this->validPerPageValues[0];
+            return;
+        }
+
+        $this->perPage = $intValue;
+    }
+
+    public function updatingSearch(): void
     {
         $this->resetPage();
     }
@@ -87,7 +118,7 @@ class GameList extends Component
         $this->resetPage();
     }
 
-    public function sortBy($field)
+    public function sortBy($field): void
     {
         if ($this->sortField === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
@@ -97,7 +128,7 @@ class GameList extends Component
         }
     }
 
-    public function render()
+    public function render(): View
     {
         $query = Game::query()
             ->when(!auth()->user()?->can('viewHidden', Game::class), fn($q) => $q->where('visible', true))

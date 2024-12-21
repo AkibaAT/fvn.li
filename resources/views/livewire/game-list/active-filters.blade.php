@@ -1,0 +1,14 @@
+@if(!empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || $nsfw || ($sortField !== 'version_published_at' || $sortDirection !== 'desc'))
+    <div class="mb-4">
+        <div class="flex items-center justify-between">
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Active Filters:</div>
+            <button wire:click="clearFilters" class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200">
+                Reset All
+            </button>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2">
+            @include('livewire.game-list.active-filters.sort-indicator')
+            @include('livewire.game-list.active-filters.filter-badges')
+        </div>
+    </div>
+@endif
