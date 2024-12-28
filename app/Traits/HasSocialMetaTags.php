@@ -26,26 +26,27 @@ trait HasSocialMetaTags
             // Add filter information
             $filters = [];
 
-            if (! empty($this->selectedPlatforms)) {
-                $platforms = array_map(fn ($p) => ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
-                $filters[] = 'for ' . implode('/', $platforms);
-            }
-
-            if (! empty($this->selectedStatuses)) {
+            if (!empty($this->selectedStatuses)) {
                 $statuses = array_map(fn ($s) => strtolower($this->decodeFilterValue($s)), $this->selectedStatuses);
                 $filters[] = implode('/', $statuses);
             }
 
-            if (! empty($this->selectedEngines)) {
-                $engines = array_map(fn ($e) => $this->decodeFilterValue($e), $this->selectedEngines);
-                $filters[] = 'made with ' . implode('/', $engines);
+            if (!empty($this->selectedEngines)) {
+                $engines = array_map(fn ($e) => "made with {$this->decodeFilterValue($e)}", $this->selectedEngines);
+                $filters[] = implode(' and ', $engines);
             }
 
-            if (! empty($this->selectedLanguages)) {
+            if (!empty($this->selectedPlatforms)) {
+                $platforms = array_map(fn ($p) => "for " . ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
+                $filters[] = implode(' and ', $platforms);
+            }
+
+            if (!empty($this->selectedLanguages)) {
                 $languages = Language::whereIn('id', array_map([$this, 'decodeFilterValue'], $this->selectedLanguages))
                     ->pluck('ref_name')
-                    ->implode('/');
-                $filters[] = 'in ' . $languages;
+                    ->map(fn ($lang) => "in {$lang}")
+                    ->implode(' and ');
+                $filters[] = $languages;
             }
 
             if ($this->nsfw) {
@@ -56,8 +57,8 @@ trait HasSocialMetaTags
                 $filters[] = "matching '{$this->search}'";
             }
 
-            if (! empty($filters)) {
-                $title .= ', ' . implode(', ', $filters);
+            if (!empty($filters)) {
+                $title .= ' that are ' . implode(', ', $filters);
             }
         }
 
@@ -68,41 +69,63 @@ trait HasSocialMetaTags
     {
         // For game list
         if (property_exists($this, 'games')) {
-            $description = 'Browse';
+            $description = "Browse";
 
-            if ($this->nsfw) {
-                $description .= ' NSFW';
+            $filters = [];
+
+            // Build status filter
+            if (!empty($this->selectedStatuses)) {
+                $statuses = array_map(fn ($s) => strtolower($this->decodeFilterValue($s)), $this->selectedStatuses);
+                $filters[] = implode(' and ', $statuses);
             }
 
-            if (! empty($this->selectedPlatforms)) {
+            // Build engine filter
+            if (!empty($this->selectedEngines)) {
+                $engines = array_map(fn ($e) => $this->decodeFilterValue($e), $this->selectedEngines);
+                $filters[] = 'created with ' . implode(' and ', $engines);
+            }
+
+            // Add NSFW/SFW status
+            if ($this->nsfw) {
+                $description .= ' NSFW';
+            } elseif ($this->sfw) {
+                $description .= ' SFW';
+            }
+
+            // Add platform information
+            if (!empty($this->selectedPlatforms)) {
                 $platforms = array_map(fn ($p) => ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
                 $description .= ' ' . implode('/', $platforms);
             }
 
             $description .= ' FVNs';
 
-            if (! empty($this->selectedStatuses)) {
-                $statuses = array_map(fn ($s) => strtolower($this->decodeFilterValue($s)), $this->selectedStatuses);
-                $description .= ' that are ' . implode('/', $statuses);
+            // Add filters
+            if (!empty($filters)) {
+                $description .= ' that are ' . implode(' and ', $filters);
             }
 
-            if (! empty($this->selectedEngines)) {
-                $engines = array_map(fn ($e) => $this->decodeFilterValue($e), $this->selectedEngines);
-                $description .= ' created with ' . implode('/', $engines);
-            }
-
-            if (! empty($this->selectedLanguages)) {
+            // Add language information
+            if (!empty($this->selectedLanguages)) {
                 $languages = Language::whereIn('id', array_map([$this, 'decodeFilterValue'], $this->selectedLanguages))
                     ->pluck('ref_name')
                     ->implode('/');
-                $description .= ' in ' . $languages;
+                $description .= " in {$languages}";
             }
 
+            // Add search term
             if ($this->search) {
                 $description .= " matching '{$this->search}'";
             }
 
+            // Add game count
             $description .= ". Featuring {$this->games->total()} titles";
+
+            // Add featured games
+            $featuredGames = $this->games->take(4)->pluck('name')->implode(', ');
+            if ($featuredGames) {
+                $description .= ", including: {$featuredGames}";
+            }
 
             // Add sort information if not default
             if (property_exists($this, 'sortField') &&
