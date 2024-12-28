@@ -19,15 +19,15 @@ class Rating extends Model
         'rater_id',
         'rating',
         'review',
-        'visible',
-        'has_review',
+        'is_visible',
+        'is_reviewed',
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'rating' => 'float',
-        'visible' => 'boolean',
-        'has_review' => 'boolean',
+        'is_visible' => 'boolean',
+        'is_reviewed' => 'boolean',
     ];
 
     public function game(): BelongsTo

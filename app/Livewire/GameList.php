@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Game;
+use App\Models\GameVersion;
+use App\Models\Language;
 use App\Traits\HasSocialMetaTags;
+use App\Traits\HasSortableColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
@@ -14,29 +17,41 @@ use Livewire\WithPagination;
 
 class GameList extends Component
 {
-    use WithPagination, HasSocialMetaTags;
+    use HasSocialMetaTags, HasSortableColumns, WithPagination;
+
+    protected const array AVAILABLE_SORT_FIELDS = [
+        'latest_version_published_at' => 'Latest Update',
+        'initially_published_at' => 'Initial Release',
+        'english_word_count' => 'Word Count',
+        'rating_count' => 'Review Count',
+        'name' => 'Name',
+    ];
 
     public string $search = '';
     public array $selectedStatuses = [];
     public array $selectedEngines = [];
     public array $selectedPlatforms = [];
+    public array $selectedLanguages = [];
     public bool $nsfw = false;
-    public string $sortField = 'version_published_at';
+    public bool $sfw = false;
+    public string $sortField = 'latest_version_published_at';
     public string $sortDirection = 'desc';
-    public string|int $perPage = 12; // Changed from int type to allow any value temporarily
+    public string|int $perPage = 9;
     public int $page = 1;
 
-    protected array $validPerPageValues = [12, 24, 36];
+    protected array $validPerPageValues = [9, 18, 27];
 
     protected $queryString = [
         'search' => ['except' => ''],
         'selectedStatuses' => ['except' => []],
         'selectedEngines' => ['except' => []],
         'selectedPlatforms' => ['except' => []],
+        'selectedLanguages' => ['except' => []],
         'nsfw' => ['except' => false],
-        'sortField' => ['except' => 'version_published_at'],
+        'sfw' => ['except' => false],
+        'sortField' => ['except' => 'latest_version_published_at'],
         'sortDirection' => ['except' => 'desc'],
-        'perPage' => ['except' => 12],
+        'perPage' => ['except' => 9],
         'page' => ['except' => 1],
     ];
 
@@ -54,41 +69,18 @@ class GameList extends Component
         }
     }
 
-    protected function normalizePerPage(): void
-    {
-        // Convert to integer if possible
-        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
-
-        // If not a valid integer or not in allowed values, reset to default
-        if ($intValue === false || !in_array($intValue, $this->validPerPageValues)) {
-            $this->perPage = $this->validPerPageValues[0];
-            return;
-        }
-
-        $this->perPage = $intValue;
-    }
-
     public function updatingSearch(): void
     {
         $this->resetPage();
     }
 
-    protected function encodeFilterValue(string $value): string
-    {
-        return rawurlencode($value);
-    }
-
-    protected function decodeFilterValue(string $value): string
-    {
-        return rawurldecode($value);
-    }
-
     public function toggleFilter(string $type, string $value): void
     {
-        $property = match($type) {
+        $property = match ($type) {
             'status' => 'selectedStatuses',
             'engine' => 'selectedEngines',
             'platform' => 'selectedPlatforms',
+            'language' => 'selectedLanguages',
             default => null,
         };
 
@@ -96,7 +88,6 @@ class GameList extends Component
             return;
         }
 
-        // Decode the incoming value
         $decodedValue = $this->decodeFilterValue($value);
         $array = array_map([$this, 'decodeFilterValue'], $this->{$property});
 
@@ -106,7 +97,6 @@ class GameList extends Component
             $array[] = $decodedValue;
         }
 
-        // Encode values before saving to property
         $this->{$property} = array_map([$this, 'encodeFilterValue'], array_values($array));
         $this->resetPage();
     }
@@ -116,8 +106,10 @@ class GameList extends Component
         $this->selectedStatuses = [];
         $this->selectedEngines = [];
         $this->selectedPlatforms = [];
+        $this->selectedLanguages = [];
         $this->nsfw = false;
-        $this->sortField = 'version_published_at';
+        $this->sfw = false;
+        $this->sortField = 'latest_version_published_at';
         $this->sortDirection = 'desc';
         $this->resetPage();
     }
@@ -144,38 +136,77 @@ class GameList extends Component
     public function render(): View
     {
         $query = Game::query()
-            ->when(!auth()->user()?->can('viewHidden', Game::class), fn($q) => $q->where('visible', true))
-            ->when($this->search, function($q) {
-                $q->where(function(Builder $query) {
+            ->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true))
+            ->when($this->search, function ($q) {
+                $q->where(function (Builder $query) {
                     $query->where('name', 'ilike', "%{$this->search}%")
                         ->orWhere('authors', 'ilike', "%{$this->search}%")
                         ->orWhere('tags', 'ilike', "%{$this->search}%")
                         ->orWhere('custom_tags', 'ilike', "%{$this->search}%");
                 });
             })
-            ->when(!empty($this->selectedStatuses), function($q) {
+            ->when(! empty($this->selectedStatuses), function ($q) {
                 $decodedStatuses = array_map([$this, 'decodeFilterValue'], $this->selectedStatuses);
                 $q->whereIn('status', $decodedStatuses);
             })
-            ->when(!empty($this->selectedEngines), function($q) {
+            ->when(! empty($this->selectedEngines), function ($q) {
                 $decodedEngines = array_map([$this, 'decodeFilterValue'], $this->selectedEngines);
                 $q->whereIn('game_engine', $decodedEngines);
             })
-            ->when(!empty($this->selectedPlatforms), function($q) {
+            ->when(! empty($this->selectedPlatforms), function ($q) {
                 foreach ($this->selectedPlatforms as $platform) {
                     $decodedPlatform = $this->decodeFilterValue($platform);
-                    $q->where("platform_{$decodedPlatform}", true);
+                    $q->where("is_{$decodedPlatform}", true);
                 }
             })
-            ->when($this->nsfw, fn($q) => $q->where('nsfw', true));
+            ->when(! empty($this->selectedLanguages), function ($q) {
+                $decodedLanguages = array_map([$this, 'decodeFilterValue'], $this->selectedLanguages);
+                $q->whereHas('gameVersions', function ($query) use ($decodedLanguages) {
+                    $query->whereHas('languageStats', function ($q) use ($decodedLanguages) {
+                        $q->whereIn('iso_code', $decodedLanguages);
+                    });
+                });
+            })
+            ->when($this->nsfw || $this->sfw, function ($q) {
+                if ($this->sfw && ! $this->nsfw) {
+                    $q->where('is_nsfw', false);
+                } elseif (! $this->sfw && $this->nsfw) {
+                    $q->where('is_nsfw', true);
+                }
+            });
 
-        if (in_array($this->sortField, ['rating', 'rating_count', 'stats_words'])) {
-            $query->orderByRaw("{$this->sortField} {$this->sortDirection} NULLS LAST");
-        } else {
-            $query->orderBy($this->sortField, $this->sortDirection);
+        // Handle sorting
+        switch ($this->sortField) {
+            case 'latest_version_published_at':
+                $query->orderBy(
+                    GameVersion::select('published_at')
+                        ->whereColumn('game_id', 'games.id')
+                        ->latest('published_at')
+                        ->limit(1),
+                    $this->sortDirection
+                );
+                break;
+            case 'english_word_count':
+                $query->orderByRaw('(
+                    SELECT words
+                    FROM version_language_stats
+                    JOIN game_versions ON game_versions.id = version_language_stats.game_version_id
+                    WHERE game_versions.game_id = games.id
+                    AND version_language_stats.iso_code = \'eng\'
+                    ORDER BY game_versions.published_at DESC
+                    LIMIT 1
+                ) ' . $this->sortDirection . ' NULLS LAST');
+                break;
+            case 'rating':
+            case 'rating_count':
+                $query->orderByRaw("{$this->sortField} {$this->sortDirection} NULLS LAST");
+                break;
+            default:
+                $query->orderBy($this->sortField, $this->sortDirection);
         }
 
         $this->games = $query->paginate($this->perPage);
+
         $metaTags = $this->getMetaTags();
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
@@ -187,6 +218,29 @@ class GameList extends Component
         ]);
     }
 
+    protected function normalizePerPage(): void
+    {
+        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
+            $this->perPage = $this->validPerPageValues[0];
+
+            return;
+        }
+
+        $this->perPage = $intValue;
+    }
+
+    protected function encodeFilterValue(string $value): string
+    {
+        return rawurlencode($value);
+    }
+
+    protected function decodeFilterValue(string $value): string
+    {
+        return rawurldecode($value);
+    }
+
     protected function updateMeta(array $metaTags): void
     {
         if (method_exists($this, 'dispatch')) {
@@ -194,10 +248,10 @@ class GameList extends Component
         }
     }
 
-    public function getFilterOptions(): array
+    protected function getFilterOptions(): array
     {
         $baseQuery = Game::query()
-            ->when(!auth()->user()?->can('viewHidden', Game::class), fn($q) => $q->where('visible', true));
+            ->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true));
 
         return [
             'statuses' => $baseQuery->clone()
@@ -205,7 +259,7 @@ class GameList extends Component
                 ->distinct()
                 ->orderBy('status')
                 ->pluck('status')
-                ->mapWithKeys(fn($status) => [$this->encodeFilterValue($status) => $status])
+                ->mapWithKeys(fn ($status) => [$this->encodeFilterValue($status) => $status])
                 ->all(),
 
             'gameEngines' => $baseQuery->clone()
@@ -213,7 +267,7 @@ class GameList extends Component
                 ->distinct()
                 ->orderBy('game_engine')
                 ->pluck('game_engine')
-                ->mapWithKeys(fn($engine) => [$this->encodeFilterValue($engine) => $engine])
+                ->mapWithKeys(fn ($engine) => [$this->encodeFilterValue($engine) => $engine])
                 ->all(),
 
             'platforms' => [
@@ -223,14 +277,18 @@ class GameList extends Component
                 'android' => 'Android',
                 'web' => 'Web',
             ],
-        ];
-    }
 
-    // In GameList.php
-    public function resetSort(): void
-    {
-        $this->sortField = 'version_published_at';
-        $this->sortDirection = 'desc';
-        $this->resetPage();
+            'languages' => Language::query()
+                ->whereExists(function ($query) {
+                    $query->select('version_language_stats.id')
+                        ->from('version_language_stats')
+                        ->whereColumn('version_language_stats.iso_code', 'iso_639_3_languages.id')
+                        ->limit(1);
+                })
+                ->orderBy('ref_name')
+                ->get()
+                ->mapWithKeys(fn ($lang) => [$lang->id => $lang->ref_name])
+                ->all(),
+        ];
     }
 }

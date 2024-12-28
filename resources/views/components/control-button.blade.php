@@ -5,7 +5,7 @@
 ]) }}>
     <x-dynamic-component :component="$icon" class="w-5 h-5" />
     {{ $slot }}
-    @if($active)
+    @if ($active)
         <span class="w-2 h-2 rounded-full bg-blue-500"></span>
     @endif
 </button>

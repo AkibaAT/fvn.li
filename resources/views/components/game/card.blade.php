@@ -23,14 +23,14 @@
             />
         </div>
         <p class="text-sm text-gray-500 dark:text-gray-400">{!! $game->authors !!}</p>
-        @if($game->languages)
+        @if ($game->languages)
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 Languages: {{ $game->languages }}
             </p>
         @endif
-        @if($game->tags)
+        @if ($game->tags)
             <div class="mt-1 flex flex-wrap gap-1">
-                @foreach(explode(',', $game->tags) as $tag)
+                @foreach (explode(',', $game->tags) as $tag)
                     <x-badge>{{ trim($tag) }}</x-badge>
                 @endforeach
             </div>

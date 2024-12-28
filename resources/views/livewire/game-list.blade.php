@@ -4,12 +4,14 @@
         @include('livewire.game-list.active-filters')
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            @foreach($games as $game)
+            @foreach ($games as $game)
                 <x-game-card :game="$game"
                              :selected-statuses="$selectedStatuses"
                              :selected-engines="$selectedEngines"
                              :selected-platforms="$selectedPlatforms"
-                             :nsfw="$nsfw" />
+                             :selected-languages="$selectedLanguages"
+                             :nsfw="$nsfw"
+                             :sfw="$sfw" />
             @endforeach
         </div>
 

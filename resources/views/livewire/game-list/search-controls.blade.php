@@ -8,7 +8,7 @@
         >
     </div>
     <div class="flex gap-2">
-        @foreach([
+        @foreach ([
             'sort' => [
                 'icon' => 'heroicon-o-arrows-up-down',
                 'modal' => 'sort-modal',
@@ -26,7 +26,7 @@
             >
                 <x-dynamic-component :component="$config['icon']" class="w-5 h-5" />
                 {{ ucfirst($type) }}
-                @if($config['active'])
+                @if ($config['active'])
                     <span class="w-2 h-2 rounded-full bg-blue-500"></span>
                 @endif
             </button>

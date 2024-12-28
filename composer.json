@@ -9,14 +9,14 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
-        "filament/filament": "*",
+        "blade-ui-kit/blade-heroicons": "^2.5",
         "guzzlehttp/guzzle": "*",
-        "hydrat/filament-table-layout-toggle": "*",
         "itsgoingd/clockwork": "*",
         "laravel/framework": "^11.16",
         "laravel/octane": "*",
         "laravel/sanctum": "*",
         "laravel/tinker": "*",
+        "livewire/livewire": "^3.5",
         "predis/predis": "*",
         "tpetry/laravel-postgresql-enhanced": "*"
     },
@@ -43,8 +43,7 @@
     "scripts": {
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi",
-            "@php artisan filament:upgrade"
+            "@php artisan package:discover --ansi"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"

@@ -12,13 +12,13 @@ use Livewire\WithPagination;
 
 class GameDetail extends Component
 {
-    use WithPagination, HasSocialMetaTags;
+    use HasSocialMetaTags, WithPagination;
 
     public Game $game;
 
     public function mount(Game $game): void
     {
-        abort_if(!$game->visible && !auth()->user()?->can('viewHidden', Game::class), 404);
+        abort_if(! $game->is_visible && ! auth()->user()?->can('viewHidden', Game::class), 404);
         $this->game = $game;
     }
 
@@ -38,8 +38,8 @@ class GameDetail extends Component
         $this->updateMeta($metaTags);
 
         $reviews = $this->game->ratings()
-            ->where('visible', true)
-            ->where('has_review', true)
+            ->where('is_visible', true)
+            ->where('is_reviewed', true)
             ->with('rater')
             ->orderByDesc('published_at')
             ->paginate(10);

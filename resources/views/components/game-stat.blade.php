@@ -2,7 +2,7 @@
 
 <div>
     <span class="text-gray-400">{{ $label }}:</span>
-    @if($isFilter && $type)
+    @if ($isFilter && $type)
         <button wire:click="toggleFilter('{{ $type }}', '{{ $this->encodeFilterValue($value) }}')"
             @class([
                 'ml-1 hover:text-blue-400',

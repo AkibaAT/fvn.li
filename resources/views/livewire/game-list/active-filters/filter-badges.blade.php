@@ -14,24 +14,45 @@
             'items' => $selectedEngines,
             'class' => 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
             'label' => fn($item) => rawurldecode($this->decodeFilterValue($item))
+        ],
+        'language' => [
+            'items' => $selectedLanguages,
+            'class' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
+            'label' => fn($item) => $languages[$this->decodeFilterValue($item)] ?? '???'
         ]
     ];
 @endphp
 
-@foreach($filterConfigs as $type => $config)
-    @foreach($config['items'] as $item)
+@foreach ($filterConfigs as $type => $config)
+    @foreach ($config['items'] as $item)
         <button wire:click="toggleFilter('{{ $type }}', '{{ $item }}')"
                 class="inline-flex items-center px-3 py-1 rounded-full text-sm {{ $config['class'] }}">
+            @if ($type === 'language')
+                @php
+                    $language = App\Models\Language::find($this->decodeFilterValue($item));
+                @endphp
+                @if ($language)
+                    <span class="fi fi-{{ $language->flag_code }} rounded-sm mr-2"></span>
+                @endif
+            @endif
             {{ $config['label']($item) }}
             <span class="ml-2">&times;</span>
         </button>
     @endforeach
 @endforeach
 
-@if($nsfw)
+@if ($nsfw)
     <button wire:click="$toggle('nsfw')"
             class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
         NSFW
+        <span class="ml-2">&times;</span>
+    </button>
+@endif
+
+@if ($sfw)
+    <button wire:click="$toggle('sfw')"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+        SFW
         <span class="ml-2">&times;</span>
     </button>
 @endif

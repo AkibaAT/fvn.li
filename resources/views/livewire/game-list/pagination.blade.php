@@ -3,9 +3,9 @@
         wire:model.live="perPage"
         :value="$perPage"
         :options="[
-            12 => '12 per page',
-            24 => '24 per page',
-            36 => '36 per page'
+            9 => '9 per page',
+            18 => '18 per page',
+            27 => '27 per page'
         ]"
         class="w-full sm:w-auto"
     />
