@@ -50,7 +50,7 @@
                     <x-platform-icons :platforms="$game->platforms" :selected-platforms="$selectedPlatforms" />
                 </div>
 
-                @if($game->supported_languages && $game->supported_languages->isNotEmpty())
+                @if ($game->supported_languages && $game->supported_languages->isNotEmpty())
                     @php
                         // Pre-decode the JSON if it's a string (from the aggregation)
                         $languages = is_string($game->supported_languages)
