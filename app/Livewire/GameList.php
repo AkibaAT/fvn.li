@@ -192,24 +192,24 @@ class GameList extends Component
         $query->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true))
             ->when($this->search, function ($q) {
                 $q->where(function (Builder $query) {
-                    $query->where('name', 'ilike', "%{$this->search}%")
-                        ->orWhere('authors', 'ilike', "%{$this->search}%")
-                        ->orWhere('tags', 'ilike', "%{$this->search}%")
-                        ->orWhere('custom_tags', 'ilike', "%{$this->search}%");
+                    $query->where('games.name', 'ilike', "%{$this->search}%")
+                        ->orWhere('games.authors', 'ilike', "%{$this->search}%")
+                        ->orWhere('games.tags', 'ilike', "%{$this->search}%")
+                        ->orWhere('games.custom_tags', 'ilike', "%{$this->search}%");
                 });
             })
             ->when(! empty($this->selectedStatuses), function ($q) {
                 $decodedStatuses = array_map([$this, 'decodeFilterValue'], $this->selectedStatuses);
-                $q->whereIn('status', $decodedStatuses);
+                $q->whereIn('games.status', $decodedStatuses);
             })
             ->when(! empty($this->selectedEngines), function ($q) {
                 $decodedEngines = array_map([$this, 'decodeFilterValue'], $this->selectedEngines);
-                $q->whereIn('game_engine', $decodedEngines);
+                $q->whereIn('games.game_engine', $decodedEngines);
             })
             ->when(! empty($this->selectedPlatforms), function ($q) {
                 foreach ($this->selectedPlatforms as $platform) {
                     $decodedPlatform = $this->decodeFilterValue($platform);
-                    $q->where("is_{$decodedPlatform}", true);
+                    $q->where("games.is_{$decodedPlatform}", true);
                 }
             })
             ->when(! empty($this->selectedLanguages), function ($q) {
@@ -227,9 +227,9 @@ class GameList extends Component
             })
             ->when($this->nsfw || $this->sfw, function ($q) {
                 if ($this->sfw && ! $this->nsfw) {
-                    $q->where('is_nsfw', false);
+                    $q->where('games.is_nsfw', false);
                 } elseif (! $this->sfw && $this->nsfw) {
-                    $q->where('is_nsfw', true);
+                    $q->where('games.is_nsfw', true);
                 }
             });
 
