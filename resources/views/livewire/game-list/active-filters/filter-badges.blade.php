@@ -18,22 +18,20 @@
         'language' => [
             'items' => $selectedLanguages,
             'class' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
-            'label' => fn($item) => $languages[$this->decodeFilterValue($item)] ?? '???'
+            'label' => fn($item) => $languages[$this->decodeFilterValue($item)]['ref_name'] ?? '???'
         ]
     ];
 @endphp
 
 @foreach ($filterConfigs as $type => $config)
     @foreach ($config['items'] as $item)
+        @php
+            $decodedItem = $this->decodeFilterValue($item);
+        @endphp
         <button wire:click="toggleFilter('{{ $type }}', '{{ $item }}')"
                 class="inline-flex items-center px-3 py-1 rounded-full text-sm {{ $config['class'] }}">
-            @if ($type === 'language')
-                @php
-                    $language = App\Models\Language::find($this->decodeFilterValue($item));
-                @endphp
-                @if ($language)
-                    <span class="fi fi-{{ $language->flag_code }} rounded-sm mr-2"></span>
-                @endif
+            @if ($type === 'language' && isset($languages[$decodedItem]))
+                <span class="fi fi-{{ $languages[$decodedItem]['flag_code'] }} rounded-sm mr-2"></span>
             @endif
             {{ $config['label']($item) }}
             <span class="ml-2">&times;</span>

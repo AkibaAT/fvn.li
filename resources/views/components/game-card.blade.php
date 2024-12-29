@@ -50,12 +50,15 @@
                     <x-platform-icons :platforms="$game->platforms" :selected-platforms="$selectedPlatforms" />
                 </div>
 
-                @php
-                    $supportedLanguages = $game->getLatestSupportedLanguages();
-                @endphp
-                @if($supportedLanguages->isNotEmpty())
+                @if($game->supported_languages && $game->supported_languages->isNotEmpty())
+                    @php
+                        // Pre-decode the JSON if it's a string (from the aggregation)
+                        $languages = is_string($game->supported_languages)
+                            ? json_decode($game->supported_languages, true)
+                            : $game->supported_languages->toArray();
+                    @endphp
                     <x-language-flags
-                        :languages="$supportedLanguages"
+                        :languages="$languages"
                         :selected-languages="$selectedLanguages"
                     />
                 @endif
@@ -67,10 +70,10 @@
         @foreach ([
             ['label' => 'Status', 'value' => $game->status, 'type' => 'status', 'isActive' => in_array($this->encodeFilterValue($game->status), $selectedStatuses ?? [])],
             ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine', 'isActive' => in_array($this->encodeFilterValue($game->game_engine), $selectedEngines ?? [])],
-            ['label' => 'Words (EN)', 'value' => number_format($game->getEnglishWordCount() ?? 0) ?: '-', 'isFilter' => false],
+            ['label' => 'Words (EN)', 'value' => number_format($game->english_word_count ?? 0) ?: '-', 'isFilter' => false],
             ['label' => 'Reviews', 'value' => $game->rating_count ?? '-', 'isFilter' => false],
             ['label' => 'Released', 'value' => $game->initially_published_at?->format('M j, Y') ?? '-', 'isFilter' => false],
-            ['label' => 'Updated', 'value' => optional($game->latestVersion())->published_at?->format('M j, Y') ?? '-', 'isFilter' => false],
+            ['label' => 'Updated', 'value' => $game->latest_version_published_at?->format('M j, Y') ?? '-', 'isFilter' => false],
         ] as $detail)
             <div>
                 <span class="text-gray-500 dark:text-gray-400">{{ $detail['label'] }}:</span>

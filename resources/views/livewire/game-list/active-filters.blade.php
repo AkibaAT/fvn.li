@@ -1,4 +1,4 @@
-@if (!empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || $nsfw || ($sortField !== 'version_published_at' || $sortDirection !== 'desc'))
+@if (!empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || !empty($selectedLanguages) || $nsfw || $sfw || ($sortField !== 'latest_version_published_at' || $sortDirection !== 'desc'))
     <div class="mb-4">
         <div class="flex items-center justify-between">
             <div class="text-sm font-medium text-gray-900 dark:text-gray-300">Active Filters:</div>

@@ -14,7 +14,6 @@
                     'items' => $languages,
                     'selected' => $selectedLanguages,
                     'class' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
-                    'useLanguageFlag' => true
                 ],
                 [
                     'title' => 'Platforms',
@@ -63,15 +62,15 @@
                 <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ $section['title'] }}</div>
                 <div class="flex flex-wrap gap-2">
                     @foreach ($section['items'] as $value => $label)
-                        @php $encodedValue = $this->encodeFilterValue($value); @endphp
-                        <button wire:click="toggleFilter('{{ $section['type'] }}', '{{ $encodedValue }}')"
-                                class="px-3 py-1 rounded-lg text-sm {{ in_array($encodedValue, $section['selected'])
+                        <button wire:click="toggleFilter('{{ $section['type'] }}', '{{ $value }}')"
+                                class="px-3 py-1 rounded-lg text-sm {{ in_array($value, $section['selected'])
                                     ? $section['class']
                                     : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
-                            @if (($section['useLanguageFlag'] ?? false) && ($language = \App\Models\Language::find($value)))
-                                <span class="fi fi-{{ $language->flag_code }} rounded-sm mr-1"></span>
+                            @if ($section['type'] === 'language')
+                                <span class="fi fi-{{ $label['flag_code'] }} rounded-sm mr-1"></span>{{ $label['ref_name'] }}
+                            @else
+                                {{ $label }}
                             @endif
-                            {{ $label }}
                         </button>
                     @endforeach
                 </div>

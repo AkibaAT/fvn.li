@@ -99,7 +99,7 @@ return new class extends Migration
             'فارسی' => 'fas',
             'Hebrew' => 'heb',
             'עברית' => 'heb',
-            'العربية' => 'ara'
+            'العربية' => 'ara',
         ];
 
         $now = now();

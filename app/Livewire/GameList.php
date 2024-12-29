@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Game;
-use App\Models\GameVersion;
 use App\Models\Language;
+use App\Models\VersionLanguageStats;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -18,6 +20,8 @@ use Livewire\WithPagination;
 class GameList extends Component
 {
     use HasSocialMetaTags, HasSortableColumns, WithPagination;
+
+    private static array $filterOptions = [];
 
     protected const array AVAILABLE_SORT_FIELDS = [
         'latest_version_published_at' => 'Latest Update',
@@ -56,6 +60,14 @@ class GameList extends Component
     ];
 
     private LengthAwarePaginator $games;
+
+    // Add a method to bust the cache when needed (e.g., when a new game is added)
+    public static function clearFilterCache(): void
+    {
+        Cache::forget('game-filter-options');
+        Cache::forget('game-languages');
+        self::$filterOptions = [];
+    }
 
     public function mount(): void
     {
@@ -136,7 +148,48 @@ class GameList extends Component
     public function render(): View
     {
         $query = Game::query()
-            ->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true))
+            ->select([
+                'games.*',
+                'latest_versions.published_at as latest_version_published_at',
+                'latest_versions.id as latest_version_id',
+                'english_stats.words as english_word_count',
+                DB::raw('(
+                    SELECT json_agg(json_build_object(
+                        \'iso_code\', l.id,
+                        \'ref_name\', l.ref_name,
+                        \'flag_code\', l.flag_code
+                    ) ORDER BY l.ref_name)
+                    FROM version_language_stats vls
+                    JOIN iso_639_3_languages l ON l.id = vls.iso_code
+                    WHERE vls.game_version_id = latest_versions.id
+                ) as supported_languages'),
+            ])
+            ->leftJoin('game_versions as latest_versions', function ($join) {
+                $join->on('games.id', '=', 'latest_versions.game_id')
+                    ->where('latest_versions.is_latest', true);
+            })
+            ->leftJoin('version_language_stats as english_stats', function ($join) {
+                $join->on('latest_versions.id', '=', 'english_stats.game_version_id')
+                    ->where('english_stats.iso_code', '=', 'eng');
+            });
+
+        // Add language stats subquery to get supported languages in one go
+        $query->addSelect([
+            'supported_languages' => VersionLanguageStats::query()
+                ->select(DB::raw('json_agg(json_build_object(
+                    \'iso_code\', version_language_stats.iso_code,
+                    \'ref_name\', iso_639_3_languages.ref_name,
+                    \'flag_code\', iso_639_3_languages.flag_code
+                ) ORDER BY iso_639_3_languages.ref_name)'))
+                ->join('game_versions', 'game_versions.id', '=', 'version_language_stats.game_version_id')
+                ->join('iso_639_3_languages', 'iso_639_3_languages.id', '=', 'version_language_stats.iso_code')
+                ->whereColumn('game_versions.game_id', 'games.id')
+                ->where('game_versions.is_latest', true)
+                ->groupBy('game_versions.game_id'),
+        ]);
+
+        // Apply filters
+        $query->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true))
             ->when($this->search, function ($q) {
                 $q->where(function (Builder $query) {
                     $query->where('name', 'ilike', "%{$this->search}%")
@@ -161,10 +214,15 @@ class GameList extends Component
             })
             ->when(! empty($this->selectedLanguages), function ($q) {
                 $decodedLanguages = array_map([$this, 'decodeFilterValue'], $this->selectedLanguages);
-                $q->whereHas('gameVersions', function ($query) use ($decodedLanguages) {
-                    $query->whereHas('languageStats', function ($q) use ($decodedLanguages) {
-                        $q->whereIn('iso_code', $decodedLanguages);
-                    });
+                $q->whereExists(function ($query) use ($decodedLanguages) {
+                    $query->select(DB::raw(1))
+                        ->from('version_language_stats')
+                        ->join('game_versions', function ($join) {
+                            $join->on('game_versions.id', '=', 'version_language_stats.game_version_id')
+                                ->where('game_versions.is_latest', true);
+                        })
+                        ->whereColumn('game_versions.game_id', 'games.id')
+                        ->whereIn('version_language_stats.iso_code', $decodedLanguages);
                 });
             })
             ->when($this->nsfw || $this->sfw, function ($q) {
@@ -176,43 +234,27 @@ class GameList extends Component
             });
 
         // Handle sorting
-        switch ($this->sortField) {
-            case 'latest_version_published_at':
-                $query->orderBy(
-                    GameVersion::select('published_at')
-                        ->whereColumn('game_id', 'games.id')
-                        ->latest('published_at')
-                        ->limit(1),
-                    $this->sortDirection
-                );
-                break;
-            case 'english_word_count':
-                $query->orderByRaw('(
-                    SELECT words
-                    FROM version_language_stats
-                    JOIN game_versions ON game_versions.id = version_language_stats.game_version_id
-                    WHERE game_versions.game_id = games.id
-                    AND version_language_stats.iso_code = \'eng\'
-                    ORDER BY game_versions.published_at DESC
-                    LIMIT 1
-                ) ' . $this->sortDirection . ' NULLS LAST');
-                break;
-            case 'rating':
-            case 'rating_count':
-                $query->orderByRaw("{$this->sortField} {$this->sortDirection} NULLS LAST");
-                break;
-            default:
-                $query->orderBy($this->sortField, $this->sortDirection);
+        $query->orderBy(match ($this->sortField) {
+            'latest_version_published_at' => 'latest_versions.published_at',
+            'english_word_count' => 'english_stats.words',
+            default => "games.{$this->sortField}"
+        }, $this->sortDirection);
+
+        $games = $query->paginate($this->perPage);
+
+        // Transform supported languages into collection
+        foreach ($games as $game) {
+            $game->supported_languages = collect($game->supported_languages ?? '[]');
         }
 
-        $this->games = $query->paginate($this->perPage);
+        $this->games = $games;
 
         $metaTags = $this->getMetaTags();
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
 
         return view('livewire.game-list', [
-            'games' => $this->games,
+            'games' => $games,
             'metaTags' => $metaTags,
             ...$this->getFilterOptions(),
         ]);
@@ -250,36 +292,53 @@ class GameList extends Component
 
     protected function getFilterOptions(): array
     {
-        $baseQuery = Game::query()
-            ->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true));
+        if (!empty(self::$filterOptions)) {
+            return self::$filterOptions;
+        }
 
-        return [
-            'statuses' => $baseQuery->clone()
-                ->whereNotNull('status')
-                ->distinct()
-                ->orderBy('status')
-                ->pluck('status')
-                ->mapWithKeys(fn ($status) => [$this->encodeFilterValue($status) => $status])
-                ->all(),
+        $visibilityScope = function($query) {
+            return !auth()->user()?->can('viewHidden', Game::class)
+                ? $query->where('is_visible', true)
+                : $query;
+        };
 
-            'gameEngines' => $baseQuery->clone()
-                ->whereNotNull('game_engine')
-                ->distinct()
-                ->orderBy('game_engine')
-                ->pluck('game_engine')
-                ->mapWithKeys(fn ($engine) => [$this->encodeFilterValue($engine) => $engine])
-                ->all(),
+        // Cache the status and engine options for 1 hour - they change infrequently
+        self::$filterOptions = Cache::remember('game-filter-options', 3600, function() use ($visibilityScope) {
+            $baseQuery = Game::query()->tap($visibilityScope);
 
-            'platforms' => [
-                'windows' => 'Windows',
-                'linux' => 'Linux',
-                'mac' => 'Mac',
-                'android' => 'Android',
-                'web' => 'Web',
-            ],
+            return [
+                'statuses' => $baseQuery->clone()
+                    ->select('status')
+                    ->whereNotNull('status')
+                    ->distinct()
+                    ->orderBy('status')
+                    ->pluck('status')
+                    ->mapWithKeys(fn($status) => [$this->encodeFilterValue($status) => $status])
+                    ->all(),
 
-            'languages' => Language::query()
-                ->whereExists(function ($query) {
+                'gameEngines' => $baseQuery->clone()
+                    ->select('game_engine')
+                    ->whereNotNull('game_engine')
+                    ->distinct()
+                    ->orderBy('game_engine')
+                    ->pluck('game_engine')
+                    ->mapWithKeys(fn($engine) => [$this->encodeFilterValue($engine) => $engine])
+                    ->all(),
+
+                'platforms' => [
+                    'windows' => 'Windows',
+                    'linux' => 'Linux',
+                    'mac' => 'Mac',
+                    'android' => 'Android',
+                    'web' => 'Web',
+                ],
+            ];
+        });
+
+        // Cache languages for 24 hours since they change very rarely
+        self::$filterOptions['languages'] = Cache::remember('game-languages', 86400, function() use ($visibilityScope) {
+            return Language::query()
+                ->whereExists(function($query) {
                     $query->select('version_language_stats.id')
                         ->from('version_language_stats')
                         ->whereColumn('version_language_stats.iso_code', 'iso_639_3_languages.id')
@@ -287,8 +346,17 @@ class GameList extends Component
                 })
                 ->orderBy('ref_name')
                 ->get()
-                ->mapWithKeys(fn ($lang) => [$lang->id => $lang->ref_name])
-                ->all(),
-        ];
+                ->mapWithKeys(fn($lang) => [$lang->id => ['ref_name' => $lang->ref_name, 'flag_code' => $lang->flag_code]])
+                ->all();
+        });
+
+        return self::$filterOptions;
+    }
+
+    public function resetSort(): void
+    {
+        $this->sortField = 'latest_version_published_at';
+        $this->sortDirection = 'desc';
+        $this->resetPage();
     }
 }
