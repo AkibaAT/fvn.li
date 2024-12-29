@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Game;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class ItchCollectionService
 {
@@ -27,6 +28,8 @@ class ItchCollectionService
 
     private function processPage(int $page): bool
     {
+        Log::info("Processing page {$page}...");
+
         $response = $this->proxy->request()
             ->withToken($this->itchApiKey)
             ->get("https://api.itch.io/collections/{$this->collectionId}/collection-games", [
@@ -41,6 +44,7 @@ class ItchCollectionService
         $collection = $response->json();
 
         if (empty($collection['collection_games'])) {
+            Log::info("No games found on page {$page}.");
             return false;
         }
 
