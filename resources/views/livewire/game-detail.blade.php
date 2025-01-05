@@ -1,9 +1,3 @@
-@php
-    $latestVersion = $game->latestVersion();
-    $supportedLanguages = $game->getLatestSupportedLanguages();
-    $englishWordCount = $game->getEnglishWordCount();
-@endphp
-
 <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {{-- Game Header --}}
@@ -27,7 +21,13 @@
 
                     <div class="mt-2 flex items-center gap-4">
                         <x-platform-icons
-                            :platforms="$game->platforms"
+                            :platforms="[
+                                'windows' => $game->is_windows,
+                                'linux' => $game->is_linux,
+                                'mac' => $game->is_mac,
+                                'android' => $game->is_android,
+                                'web' => $game->is_web,
+                            ]"
                             :selected-platforms="[]" />
 
                         @if ($game->is_nsfw)
@@ -36,6 +36,12 @@
                             </span>
                         @endif
                     </div>
+
+                    @if ($game->authors)
+                        <div class="mt-2 text-gray-600 dark:text-gray-300">
+                            {{ $game->authors }}
+                        </div>
+                    @endif
 
                     <div class="mt-4 prose dark:prose-invert max-w-none">
                         {!! $game->description !!}
@@ -54,29 +60,38 @@
 
                 <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4">
                     @foreach ([
-                        'Status' => [$game->status, 'text-gray-900 dark:text-gray-100'],
+                        'Status' => $game->status,
                         'Engine' => $game->game_engine,
                         'Initial Release' => $game->initially_published_at?->format('M j, Y'),
                         'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
                         'Current Version' => $latestVersion?->version,
-                        'Word Count (English)' => $englishWordCount ? number_format($englishWordCount) : '-',
+                        'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
                         'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                         'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
-                        'Languages' => $supportedLanguages->count() > 0 ? $supportedLanguages->pluck('ref_name')->join(', ') : '-',
-                    ] as $label => $data)
-                        @php
-                            if (!is_array($data)) {
-                                $data = [$data, 'text-gray-900 dark:text-gray-100'];
-                            }
-                        @endphp
-                        @if ($data[0])
+                    ] as $label => $value)
+                        @if ($value)
                             <div>
                                 <dt class="text-gray-500 dark:text-gray-400 text-sm">{{ $label }}</dt>
-                                <dd class="{{ $data[1] }}">{{ $data[0] }}</dd>
+                                <dd class="text-gray-900 dark:text-gray-100">{{ $value }}</dd>
                             </div>
                         @endif
                     @endforeach
                 </dl>
+
+                @if($languageStats && $languageStats->isNotEmpty())
+                    <div class="mt-4">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages</h3>
+                        <x-language-flags
+                            :languages="$languageStats->map(fn($stat) => [
+                                'iso_code' => $stat->iso_code,
+                                'ref_name' => $stat->language->ref_name,
+                                'flag_code' => $stat->language->flag_code
+                            ])"
+                            :selected-languages="[]"
+                            :show-labels="true"
+                        />
+                    </div>
+                @endif
             </div>
 
             {{-- Right Column: Tags --}}
@@ -85,9 +100,12 @@
                     Tags
                 </h2>
 
-                @if ($game->tags)
+                @if ($game->tags || $game->custom_tags)
                     <div class="flex flex-wrap gap-2">
-                        @foreach (explode(',', $game->tags) as $tag)
+                        @foreach (array_merge(
+                            $game->tags ? explode(',', $game->tags) : [],
+                            $game->custom_tags ? explode(',', $game->custom_tags) : []
+                        ) as $tag)
                             <span class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
                                 {{ trim($tag) }}
                             </span>
@@ -123,7 +141,14 @@
                                 <td class="px-4 py-2">{{ $version->version }}</td>
                                 <td class="px-4 py-2">{{ $version->published_at->format('M j, Y') }}</td>
                                 <td class="px-4 py-2">
-                                    {{ $version->languageStats->map(fn($stat) => $stat->language->ref_name)->join(', ') }}
+                                    <x-language-flags
+                                        :languages="$version->languageStats->map(fn($stat) => [
+                                            'iso_code' => $stat->iso_code,
+                                            'ref_name' => $stat->language->ref_name,
+                                            'flag_code' => $stat->language->flag_code
+                                        ])"
+                                        :selected-languages="[]"
+                                    />
                                 </td>
                                 <td class="px-4 py-2">
                                     @php
@@ -142,7 +167,8 @@
                                             'android' => $version->is_android,
                                             'web' => $version->is_web,
                                         ]"
-                                        :selected-platforms="[]" />
+                                        :selected-platforms="[]"
+                                    />
                                 </td>
                             </tr>
                         @endforeach
@@ -150,46 +176,46 @@
                     </table>
                 </div>
             </div>
-            @endif
+        @endif
 
-            {{-- Reviews Section --}}
-            @if ($reviews->isNotEmpty())
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Reviews
-                    </h2>
+        {{-- Reviews Section --}}
+        @if ($reviews->isNotEmpty())
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    Reviews
+                </h2>
 
-                    <div class="space-y-6">
-                        @foreach ($reviews as $review)
-                            <div class="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
-                                <div class="flex items-center justify-between mb-2">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-medium text-gray-900 dark:text-gray-100">
-                                            {{ $review->rater->name }}
-                                        </span>
-                                            <span class="text-sm text-gray-500 dark:text-gray-400">
-                                            {{ $review->published_at->format('M j, Y') }}
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center gap-1 text-yellow-400">
-                                        @for ($i = 0; $i < $review->rating; $i++)
-                                            <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
-                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                                            </svg>
-                                        @endfor
-                                    </div>
+                <div class="space-y-6">
+                    @foreach ($reviews as $review)
+                        <div class="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-gray-900 dark:text-gray-100">
+                                        {{ $review->rater->name }}
+                                    </span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                        {{ $review->published_at->format('M j, Y') }}
+                                    </span>
                                 </div>
-
-                                <div class="prose dark:prose-invert max-w-none">
-                                    {!! $review->review !!}
+                                <div class="flex items-center gap-1 text-yellow-400">
+                                    @for ($i = 0; $i < $review->rating; $i++)
+                                        <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                        </svg>
+                                    @endfor
                                 </div>
                             </div>
-                        @endforeach
-                    </div>
 
-                    {{ $reviews->links() }}
+                            <div class="prose dark:prose-invert max-w-none">
+                                {!! $review->review !!}
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
-            @endif
+
+                {{ $reviews->links() }}
+            </div>
+        @endif
     </div>
 
     @include('components.meta-data-refresh')

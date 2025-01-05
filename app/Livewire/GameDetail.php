@@ -18,8 +18,18 @@ class GameDetail extends Component
 
     public function mount(Game $game): void
     {
-        abort_if(! $game->is_visible && ! auth()->user()?->can('viewHidden', Game::class), 404);
+        abort_if(!$game->is_visible && !auth()->user()?->can('viewHidden', Game::class), 404);
         $this->game = $game;
+    }
+
+    protected function encodeFilterValue(string $value): string
+    {
+        return rawurlencode($value);
+    }
+
+    protected function decodeFilterValue(string $value): string
+    {
+        return rawurldecode($value);
     }
 
     public function getMetaTags(): array
@@ -37,6 +47,12 @@ class GameDetail extends Component
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
 
+        // Eager load all the relationships we need
+        $this->game->load([
+            'latestVersion.languageStats.language',
+            'gameVersions' => fn($query) => $query->with(['languageStats.language'])->orderByDesc('published_at'),
+        ]);
+
         $reviews = $this->game->ratings()
             ->where('is_visible', true)
             ->where('is_reviewed', true)
@@ -44,13 +60,12 @@ class GameDetail extends Component
             ->orderByDesc('published_at')
             ->paginate(10);
 
-        $versions = $this->game->gameVersions()
-            ->orderByDesc('published_at')
-            ->get();
-
         return view('livewire.game-detail', [
             'reviews' => $reviews,
-            'versions' => $versions,
+            'versions' => $this->game->gameVersions,
+            'latestVersion' => $this->game->latestVersion,
+            'englishStats' => $this->game->latestVersion?->getStatsForLanguage('eng'),
+            'languageStats' => $this->game->latestVersion?->languageStats ?? collect(),
             'metaTags' => $metaTags,
         ]);
     }
