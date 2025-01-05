@@ -18,8 +18,7 @@
         "laravel/tinker": "*",
         "livewire/livewire": "^3.5",
         "predis/predis": "*",
-        "tpetry/laravel-postgresql-enhanced": "*",
-        "ext-zip": "*"
+        "tpetry/laravel-postgresql-enhanced": "*"
     },
     "require-dev": {
         "fakerphp/faker": "*",

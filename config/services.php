@@ -33,17 +33,4 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'itch' => [
-        'api_key' => env('ITCH_API_KEY'),
-        'user' => env('ITCH_USER'),
-        'password' => env('ITCH_PASSWORD'),
-        'collection_id' => env('ITCH_COLLECTION_ID'),
-    ],
-
-    'proxy' => [
-        'user' => env('PROXY_USER'),
-        'password' => env('PROXY_PASSWORD'),
-        'list' => explode(',', env('PROXY_LIST', '')),
-    ],
-
 ];

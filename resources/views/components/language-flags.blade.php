@@ -6,7 +6,7 @@
 @endphp
 
 <div class="flex flex-wrap gap-2">
-    @foreach ($languages as $language)
+    @foreach($languages as $language)
         @php
             $encodedCode = $this->encodeFilterValue($language['iso_code']);
             $isSelected = isset($encodedSelectedLanguages[$encodedCode]);
@@ -22,7 +22,7 @@
             title="{{ $language['ref_name'] }}"
         >
             <span class="fi fi-{{ $language['flag_code'] }} rounded-sm {{ $isFiltered ? 'opacity-100 scale-110' : 'opacity-80' }}"></span>
-            @if ($showLabels)
+            @if($showLabels)
                 <span class="text-xs">{{ $language['ref_name'] }}</span>
             @endif
         </button>

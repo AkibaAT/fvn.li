@@ -260,13 +260,6 @@ class GameList extends Component
         ]);
     }
 
-    public function resetSort(): void
-    {
-        $this->sortField = 'latest_version_published_at';
-        $this->sortDirection = 'desc';
-        $this->resetPage();
-    }
-
     protected function normalizePerPage(): void
     {
         $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
@@ -299,18 +292,18 @@ class GameList extends Component
 
     protected function getFilterOptions(): array
     {
-        if (! empty(self::$filterOptions)) {
+        if (!empty(self::$filterOptions)) {
             return self::$filterOptions;
         }
 
-        $visibilityScope = function ($query) {
-            return ! auth()->user()?->can('viewHidden', Game::class)
+        $visibilityScope = function($query) {
+            return !auth()->user()?->can('viewHidden', Game::class)
                 ? $query->where('is_visible', true)
                 : $query;
         };
 
         // Cache the status and engine options for 1 hour - they change infrequently
-        self::$filterOptions = Cache::remember('game-filter-options', 3600, function () use ($visibilityScope) {
+        self::$filterOptions = Cache::remember('game-filter-options', 3600, function() use ($visibilityScope) {
             $baseQuery = Game::query()->tap($visibilityScope);
 
             return [
@@ -320,7 +313,7 @@ class GameList extends Component
                     ->distinct()
                     ->orderBy('status')
                     ->pluck('status')
-                    ->mapWithKeys(fn ($status) => [$this->encodeFilterValue($status) => $status])
+                    ->mapWithKeys(fn($status) => [$this->encodeFilterValue($status) => $status])
                     ->all(),
 
                 'gameEngines' => $baseQuery->clone()
@@ -329,7 +322,7 @@ class GameList extends Component
                     ->distinct()
                     ->orderBy('game_engine')
                     ->pluck('game_engine')
-                    ->mapWithKeys(fn ($engine) => [$this->encodeFilterValue($engine) => $engine])
+                    ->mapWithKeys(fn($engine) => [$this->encodeFilterValue($engine) => $engine])
                     ->all(),
 
                 'platforms' => [
@@ -343,9 +336,9 @@ class GameList extends Component
         });
 
         // Cache languages for 24 hours since they change very rarely
-        self::$filterOptions['languages'] = Cache::remember('game-languages', 86400, function () {
+        self::$filterOptions['languages'] = Cache::remember('game-languages', 86400, function() use ($visibilityScope) {
             return Language::query()
-                ->whereExists(function ($query) {
+                ->whereExists(function($query) {
                     $query->select('version_language_stats.id')
                         ->from('version_language_stats')
                         ->whereColumn('version_language_stats.iso_code', 'iso_639_3_languages.id')
@@ -353,10 +346,17 @@ class GameList extends Component
                 })
                 ->orderBy('ref_name')
                 ->get()
-                ->mapWithKeys(fn ($lang) => [$lang->id => ['ref_name' => $lang->ref_name, 'flag_code' => $lang->flag_code]])
+                ->mapWithKeys(fn($lang) => [$lang->id => ['ref_name' => $lang->ref_name, 'flag_code' => $lang->flag_code]])
                 ->all();
         });
 
         return self::$filterOptions;
+    }
+
+    public function resetSort(): void
+    {
+        $this->sortField = 'latest_version_published_at';
+        $this->sortDirection = 'desc';
+        $this->resetPage();
     }
 }
