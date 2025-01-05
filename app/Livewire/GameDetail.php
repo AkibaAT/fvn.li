@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Game;
+use App\Models\Rating;
 use App\Traits\HasSocialMetaTags;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -109,34 +110,41 @@ class GameDetail extends Component
         // Prepare basic game info for description
         $descriptionParts = [];
 
-        if ($this->game->status) {
-            $descriptionParts[] = "A {$this->game->status} game";
-        }
-
-        if ($this->game->game_engine) {
-            $descriptionParts[] = "made with {$this->game->game_engine}";
-        }
-
-        // Add platforms
-        $platforms = [];
-        foreach (['windows', 'linux', 'mac', 'android', 'web'] as $platform) {
-            if ($this->game->{"is_{$platform}"}) {
-                $platforms[] = ucfirst($platform);
+        if ($this->game->is_visible) {
+            if ($this->game->status) {
+                $descriptionParts[] = "A {$this->game->status} game";
             }
-        }
-        if (! empty($platforms)) {
-            $descriptionParts[] = 'available on ' . implode(', ', $platforms);
-        }
 
-        // Add word count if available
-        $englishWordCount = $this->game->getEnglishWordCount();
-        if ($englishWordCount) {
-            $descriptionParts[] = number_format($englishWordCount) . ' words long';
-        }
+            if ($this->game->game_engine && $this->game->game_engine !== 'unknown') {
+                $descriptionParts[] = "made with {$this->game->game_engine}";
+            }
 
-        // Add rating if available
-        if ($this->game->rating_count) {
-            $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
+            // Add platforms
+            $platforms = [];
+            foreach (['windows', 'linux', 'mac', 'android', 'web'] as $platform) {
+                if ($this->game->{"is_{$platform}"}) {
+                    $platforms[] = ucfirst($platform);
+                }
+            }
+            if (!empty($platforms)) {
+                $descriptionParts[] = 'available on '.implode(', ', $platforms);
+            }
+
+            // Add word count if available
+            $englishWordCount = $this->game->getEnglishWordCount();
+            if ($englishWordCount) {
+                $descriptionParts[] = number_format($englishWordCount).' words long';
+            }
+
+            // Add rating if available
+            if ($this->game->rating_count) {
+                $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
+            }
+        } else {
+            // Get rating count from ratings table
+            $ratingCount = Rating::where('game_id', $this->game->id)->where('is_visible', true)->count();
+
+            $descriptionParts[] = 'An unlisted game rated '.number_format($ratingCount).' times';
         }
 
         // Truncate description to around 160 characters

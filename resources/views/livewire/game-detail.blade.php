@@ -11,9 +11,11 @@
 
             {{-- Section Navigation --}}
             <nav class="flex space-x-4">
-                <a href="#details" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                    Details
-                </a>
+                @if ($game->is_visible)
+                    <a href="#details" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                        Details
+                    </a>
+                @endif
                 @if ($versions->isNotEmpty())
                     <a href="#versions" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                         Versions
@@ -30,11 +32,13 @@
         {{-- Game Header --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
             <div class="flex flex-col sm:flex-row gap-6">
-                <div class="flex-shrink-0">
-                    <img src="{{ $game->thumb_url }}"
-                         alt="{{ $game->name }}"
-                         class="object-cover rounded-lg max-w-80 max-h-64">
-                </div>
+                @if ($game->is_visible && $game->thumb_url)
+                    <div class="flex-shrink-0">
+                        <img src="{{ $game->thumb_url }}"
+                             alt="{{ $game->name }}"
+                             class="object-cover rounded-lg max-w-80 max-h-64">
+                    </div>
+                @endif
 
                 <div class="flex-1">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -82,71 +86,73 @@
         </div>
 
         {{-- Game Details --}}
-        <div id="details" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 scroll-mt-14">
-            {{-- Left Column: Basic Info --}}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                    Game Details
-                </h2>
+        @if ($game->is_visible)
+            <div id="details" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 scroll-mt-14">
+                {{-- Left Column: Basic Info --}}
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        Game Details
+                    </h2>
 
-                <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4">
-                    @foreach ([
-                        'Status' => $game->status,
-                        'Engine' => $game->game_engine,
-                        'Initial Release' => $game->initially_published_at?->format('M j, Y'),
-                        'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
-                        'Current Version' => $latestVersion?->version,
-                        'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
-                        'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
-                        'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
-                    ] as $label => $value)
-                        @if ($value)
-                            <div>
-                                <dt class="text-gray-500 dark:text-gray-400 text-sm">{{ $label }}</dt>
-                                <dd class="text-gray-900 dark:text-gray-100">{{ $value }}</dd>
-                            </div>
-                        @endif
-                    @endforeach
-                </dl>
-
-                @if ($languageStats && $languageStats->isNotEmpty())
-                    <div class="mt-4">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages</h3>
-                        <x-language-flags
-                            :languages="$languageStats->map(fn($stat) => [
-                                'iso_code' => $stat->iso_code,
-                                'ref_name' => $stat->language->ref_name,
-                                'flag_code' => $stat->language->flag_code
-                            ])"
-                            :selected-languages="[]"
-                            :show-labels="false"
-                            :clickable="false"
-                        />
-                    </div>
-                @endif
-            </div>
-
-            {{-- Right Column: Tags --}}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                    Tags
-                </h2>
-
-                @if ($game->tags || $game->custom_tags)
-                    <div class="flex flex-wrap gap-2">
-                        @foreach (array_merge(
-                            $game->tags ? explode(',', $game->tags) : [],
-                            $game->custom_tags ? explode(',', $game->custom_tags) : []
-                        ) as $tag)
-                            <span
-                                class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-                                {{ trim($tag) }}
-                            </span>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4">
+                        @foreach ([
+                            'Status' => $game->status,
+                            'Engine' => $game->game_engine,
+                            'Initial Release' => $game->initially_published_at?->format('M j, Y'),
+                            'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
+                            'Current Version' => $latestVersion?->version,
+                            'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
+                            'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
+                            'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
+                        ] as $label => $value)
+                            @if ($value)
+                                <div>
+                                    <dt class="text-gray-500 dark:text-gray-400 text-sm">{{ $label }}</dt>
+                                    <dd class="text-gray-900 dark:text-gray-100">{{ $value }}</dd>
+                                </div>
+                            @endif
                         @endforeach
-                    </div>
-                @endif
+                    </dl>
+
+                    @if ($languageStats && $languageStats->isNotEmpty())
+                        <div class="mt-4">
+                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages</h3>
+                            <x-language-flags
+                                :languages="$languageStats->map(fn($stat) => [
+                                    'iso_code' => $stat->iso_code,
+                                    'ref_name' => $stat->language->ref_name,
+                                    'flag_code' => $stat->language->flag_code
+                                ])"
+                                :selected-languages="[]"
+                                :show-labels="false"
+                                :clickable="false"
+                            />
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Right Column: Tags --}}
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        Tags
+                    </h2>
+
+                    @if ($game->tags || $game->custom_tags)
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (array_merge(
+                                $game->tags ? explode(',', $game->tags) : [],
+                                $game->custom_tags ? explode(',', $game->custom_tags) : []
+                            ) as $tag)
+                                <span
+                                    class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+                                    {{ trim($tag) }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
             </div>
-        </div>
+        @endif
 
         {{-- Game Versions --}}
         @if ($versions->isNotEmpty())
