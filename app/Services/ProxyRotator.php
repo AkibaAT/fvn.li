@@ -63,9 +63,7 @@ class ProxyRotator
             })->withCookies(
                 $this->getSessionCookies($attempt),
                 'itch.io'
-            )->beforeSending(function ($request, $options) {
-                Log::info('HTTP Request URL: ' . $request->url());
-            });
+            );
 
             // Add small delay before request to avoid rate limits
             usleep(mt_rand(100000, 500000)); // 0.1-0.5 second

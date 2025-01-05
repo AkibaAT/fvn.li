@@ -9,18 +9,17 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
-        "ext-zip": "*",
         "blade-ui-kit/blade-heroicons": "^2.5",
         "guzzlehttp/guzzle": "*",
         "itsgoingd/clockwork": "*",
         "laravel/framework": "^11.16",
         "laravel/octane": "*",
-        "laravel/pail": "^1.2",
         "laravel/sanctum": "*",
         "laravel/tinker": "*",
         "livewire/livewire": "^3.5",
         "predis/predis": "*",
-        "tpetry/laravel-postgresql-enhanced": "*"
+        "tpetry/laravel-postgresql-enhanced": "*",
+        "ext-zip": "*"
     },
     "require-dev": {
         "fakerphp/faker": "*",

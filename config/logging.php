@@ -56,7 +56,7 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
-            'channels' => ['single', 'stdout'],
+            'channels' => ['single'],
             'ignore_exceptions' => false,
         ],
 
@@ -92,17 +92,6 @@ return [
                 'host' => env('PAPERTRAIL_URL'),
                 'port' => env('PAPERTRAIL_PORT'),
                 'connectionString' => 'tls://' . env('PAPERTRAIL_URL') . ':' . env('PAPERTRAIL_PORT'),
-            ],
-            'processors' => [PsrLogMessageProcessor::class],
-        ],
-
-        'stdout' => [
-            'driver' => 'monolog',
-            'level' => 'info',
-            'handler' => StreamHandler::class,
-            'formatter' => env('LOG_STDERR_FORMATTER'),
-            'with' => [
-                'stream' => 'php://stdout',
             ],
             'processors' => [PsrLogMessageProcessor::class],
         ],
