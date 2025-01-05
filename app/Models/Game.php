@@ -12,6 +12,20 @@ use Illuminate\Support\Collection;
 
 class Game extends Model
 {
+    protected $fillable = [
+        'slug',
+        'name',
+        'status',
+        'is_visible',
+        'is_nsfw',
+        'description',
+        'url',
+        'thumb_url',
+        'game_engine',
+        'authors',
+        'custom_tags',
+    ];
+
     protected $casts = [
         'initially_published_at' => 'datetime',
         'latest_version_published_at' => 'datetime',
@@ -59,10 +73,10 @@ class Game extends Model
     {
         if ($this->relationLoaded('latestVersion') &&
             $this->latestVersion?->relationLoaded('languageStats')) {
-            return $this->latestVersion->languageStats->map(fn($stat) => [
+            return $this->latestVersion->languageStats->map(fn ($stat) => [
                 'iso_code' => $stat->iso_code,
                 'ref_name' => $stat->language->ref_name,
-                'flag_code' => $stat->language->flag_code
+                'flag_code' => $stat->language->flag_code,
             ])->collect();
         }
 
@@ -82,10 +96,28 @@ class Game extends Model
         // Otherwise load from the latest version
         if ($this->relationLoaded('latestVersion')) {
             $englishStats = $this->latestVersion?->getStatsForLanguage('eng');
+
             return $englishStats?->words;
         }
 
         return null;
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    public function resolveRouteBinding($value, $field = null): Game
+    {
+        $query = $this->where('slug', $value);
+
+        // Only show visible games when accessing via slug
+        if (! auth()->user()?->can('viewHidden', Game::class)) {
+            $query->where('is_visible', true);
+        }
+
+        return $query->firstOrFail();
     }
 
     /**

@@ -21,6 +21,7 @@ class GameDetail extends Component
     public ?int $selectedRating = null;
     public string|int $versionsPerPage = 5;
     public string|int $reviewsPerPage = 5;
+
     protected array $validPerPageValues = [5, 10, 25];
 
     protected $queryString = [
@@ -34,7 +35,7 @@ class GameDetail extends Component
 
     public function mount(Game $game): void
     {
-        abort_if(!$game->is_visible && !auth()->user()?->can('viewHidden', Game::class), 404);
+        abort_if(! $game->is_visible && ! auth()->user()?->can('viewHidden', Game::class), 404);
         $this->game = $game;
         $this->normalizePerPage('versionsPerPage');
         $this->normalizePerPage('reviewsPerPage');
@@ -47,21 +48,9 @@ class GameDetail extends Component
         }
     }
 
-    protected function normalizePerPage(string $property): void
-    {
-        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
-
-        if ($intValue === false || !in_array($intValue, $this->validPerPageValues)) {
-            $this->{$property} = $this->validPerPageValues[0];
-            return;
-        }
-
-        $this->{$property} = $intValue;
-    }
-
     public function toggleRatingsView(): void
     {
-        $this->showAllRatings = !$this->showAllRatings;
+        $this->showAllRatings = ! $this->showAllRatings;
         $this->selectedRating = null;
         $this->reviewsPage = 1;
         $this->setPage(1, 'reviewsPage');
@@ -82,15 +71,15 @@ class GameDetail extends Component
 
         $reviews = $this->game->ratings()
             ->where('is_visible', true)
-            ->when(!$this->showAllRatings, fn($query) => $query->where('is_reviewed', true))
-            ->when($this->selectedRating !== null, fn($query) => $query->where('rating', $this->selectedRating))
+            ->when(! $this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
+            ->when($this->selectedRating !== null, fn ($query) => $query->where('rating', $this->selectedRating))
             ->with('rater')
             ->orderByDesc('published_at')
             ->paginate($this->reviewsPerPage, pageName: 'reviewsPage');
 
         $availableRatings = $this->game->ratings()
             ->where('is_visible', true)
-            ->when(!$this->showAllRatings, fn($query) => $query->where('is_reviewed', true))
+            ->when(! $this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->distinct()
             ->pluck('rating')
             ->sort()
@@ -116,16 +105,6 @@ class GameDetail extends Component
         ]);
     }
 
-    protected function encodeFilterValue(string $value): string
-    {
-        return rawurlencode($value);
-    }
-
-    protected function decodeFilterValue(string $value): string
-    {
-        return rawurldecode($value);
-    }
-
     public function getMetaTags(): array
     {
         // Prepare basic game info for description
@@ -146,19 +125,19 @@ class GameDetail extends Component
                 $platforms[] = ucfirst($platform);
             }
         }
-        if (!empty($platforms)) {
-            $descriptionParts[] = "available on " . implode(', ', $platforms);
+        if (! empty($platforms)) {
+            $descriptionParts[] = 'available on ' . implode(', ', $platforms);
         }
 
         // Add word count if available
         $englishWordCount = $this->game->getEnglishWordCount();
         if ($englishWordCount) {
-            $descriptionParts[] = number_format($englishWordCount) . " words long";
+            $descriptionParts[] = number_format($englishWordCount) . ' words long';
         }
 
         // Add rating if available
         if ($this->game->rating_count) {
-            $descriptionParts[] = "rated " . number_format($this->game->rating_count) . " times";
+            $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
         }
 
         // Truncate description to around 160 characters
@@ -170,6 +149,29 @@ class GameDetail extends Component
             'description' => $description,
             'image' => $this->game->thumb_url ?: asset('favicon.ico'),
         ];
+    }
+
+    protected function normalizePerPage(string $property): void
+    {
+        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
+            $this->{$property} = $this->validPerPageValues[0];
+
+            return;
+        }
+
+        $this->{$property} = $intValue;
+    }
+
+    protected function encodeFilterValue(string $value): string
+    {
+        return rawurlencode($value);
+    }
+
+    protected function decodeFilterValue(string $value): string
+    {
+        return rawurldecode($value);
     }
 
     protected function updateMeta(array $metaTags): void

@@ -1,7 +1,7 @@
 @props(['platforms' => [], 'selectedPlatforms' => [], 'clickable' => true])
 
 <div class="flex gap-2 text-lg">
-    @foreach([
+    @foreach ([
         'windows' => ['icon' => 'fa-brands fa-windows', 'color' => 'text-[#00A4EF]'],
         'linux' => ['icon' => 'fa-brands fa-linux', 'color' => 'dark:text-[#F0B90B]'],
         'mac' => ['icon' => 'fa-brands fa-apple', 'color' => 'text-[#555555] dark:text-gray-300'],
@@ -9,7 +9,7 @@
         'web' => ['icon' => 'fa-solid fa-globe', 'color' => 'text-[#4285F4]']
     ] as $platform => $config)
         @if ($platforms[$platform] ?? false)
-            @if($clickable)
+            @if ($clickable)
                 <button
                     wire:click="toggleFilter('platform', '{{ $platform }}')"
                     title="Filter by {{ ucfirst($platform) }}"

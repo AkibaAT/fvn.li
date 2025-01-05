@@ -14,12 +14,12 @@
                 <a href="#details" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                     Details
                 </a>
-                @if($versions->isNotEmpty())
+                @if ($versions->isNotEmpty())
                     <a href="#versions" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                         Versions
                     </a>
                 @endif
-                @if($reviews->isNotEmpty())
+                @if ($reviews->isNotEmpty())
                     <a href="#reviews" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                         {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
                     </a>
@@ -109,7 +109,7 @@
                     @endforeach
                 </dl>
 
-                @if($languageStats && $languageStats->isNotEmpty())
+                @if ($languageStats && $languageStats->isNotEmpty())
                     <div class="mt-4">
                         <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages</h3>
                         <x-language-flags
@@ -216,7 +216,7 @@
                                         <span class="ml-1 text-gray-900 dark:text-gray-100">
                                     {{ $version->rating ? number_format($version->rating, 1) : '-' }}
                                 </span>
-                                        @if($version->rating_count)
+                                        @if ($version->rating_count)
                                             <span class="ml-1 text-gray-500">({{ $version->rating_count }})</span>
                                         @endif
                                     </div>
@@ -250,7 +250,7 @@
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
                             {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
                         </h2>
-                        @if($availableRatings->isNotEmpty())
+                        @if ($availableRatings->isNotEmpty())
                             <x-filters.select
                                 wire:model.live="selectedRating"
                                 :value="$selectedRating"
@@ -291,7 +291,7 @@
                                 </div>
                             </div>
 
-                            @if($review->review && (!$showAllRatings || $review->is_reviewed))
+                            @if ($review->review && (!$showAllRatings || $review->is_reviewed))
                                 <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
                                     {!! $review->review !!}
                                 </div>

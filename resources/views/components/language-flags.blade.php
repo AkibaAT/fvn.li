@@ -1,13 +1,13 @@
 @props(['languages' => collect(), 'selectedLanguages' => [], 'showLabels' => false, 'clickable' => true])
 
 <div class="flex flex-wrap gap-2">
-    @foreach($languages as $language)
+    @foreach ($languages as $language)
         @php
             $encodedCode = $this->encodeFilterValue($language['iso_code']);
             $isSelected = isset($encodedSelectedLanguages[$encodedCode]);
             $isFiltered = !empty($selectedLanguages) && $isSelected;
         @endphp
-        @if($clickable)
+        @if ($clickable)
             <button
                 wire:click="toggleFilter('language', '{{ $encodedCode }}')"
                 @class([
@@ -18,7 +18,7 @@
                 title="{{ $language['ref_name'] }}"
             >
                 <span class="fi fi-{{ $language['flag_code'] }} rounded-sm {{ $isFiltered ? 'opacity-100 scale-110' : 'opacity-80' }}"></span>
-                @if($showLabels)
+                @if ($showLabels)
                     <span class="text-xs">{{ $language['ref_name'] }}</span>
                 @endif
             </button>
@@ -28,7 +28,7 @@
                 title="{{ $language['ref_name'] }}"
             >
                 <span class="fi fi-{{ $language['flag_code'] }} rounded-sm opacity-80"></span>
-                @if($showLabels)
+                @if ($showLabels)
                     <span class="text-xs">{{ $language['ref_name'] }}</span>
                 @endif
             </div>
