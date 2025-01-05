@@ -18,6 +18,7 @@ class GameDetail extends Component
     public bool $showAllRatings = false;
     public int $reviewsPage = 1;
     public int $versionsPage = 1;
+    public ?int $selectedRating = null;
     public string|int $versionsPerPage = 5;
     public string|int $reviewsPerPage = 5;
     protected array $validPerPageValues = [5, 10, 25];
@@ -28,6 +29,7 @@ class GameDetail extends Component
         'versionsPage' => ['except' => 1],
         'versionsPerPage' => ['except' => 5],
         'reviewsPerPage' => ['except' => 5],
+        'selectedRating' => ['except' => null],
     ];
 
     public function mount(Game $game): void
@@ -60,7 +62,15 @@ class GameDetail extends Component
     public function toggleRatingsView(): void
     {
         $this->showAllRatings = !$this->showAllRatings;
-        $this->reviewsPage = 1; // Reset to first page when toggling
+        $this->selectedRating = null;
+        $this->reviewsPage = 1;
+        $this->setPage(1, 'reviewsPage');
+    }
+
+    public function updatedSelectedRating(): void
+    {
+        $this->reviewsPage = 1;
+        $this->setPage(1, 'reviewsPage');
     }
 
     public function render(): View
@@ -73,9 +83,18 @@ class GameDetail extends Component
         $reviews = $this->game->ratings()
             ->where('is_visible', true)
             ->when(!$this->showAllRatings, fn($query) => $query->where('is_reviewed', true))
+            ->when($this->selectedRating !== null, fn($query) => $query->where('rating', $this->selectedRating))
             ->with('rater')
             ->orderByDesc('published_at')
             ->paginate($this->reviewsPerPage, pageName: 'reviewsPage');
+
+        $availableRatings = $this->game->ratings()
+            ->where('is_visible', true)
+            ->when(!$this->showAllRatings, fn($query) => $query->where('is_reviewed', true))
+            ->distinct()
+            ->pluck('rating')
+            ->sort()
+            ->values();
 
         // Paginate game versions
         $versions = $this->game->gameVersions()
@@ -93,6 +112,7 @@ class GameDetail extends Component
             'englishStats' => $this->game->latestVersion?->getStatsForLanguage('eng'),
             'languageStats' => $this->game->latestVersion?->languageStats ?? collect(),
             'metaTags' => $this->getMetaTags(),
+            'availableRatings' => $availableRatings,
         ]);
     }
 

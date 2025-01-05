@@ -246,9 +246,20 @@
         @if ($reviews->isNotEmpty())
             <div id="reviews" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 scroll-mt-14">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                        {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
-                    </h2>
+                    <div class="flex items-center gap-4">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                            {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
+                        </h2>
+                        @if($availableRatings->isNotEmpty())
+                            <x-filters.select
+                                wire:model.live="selectedRating"
+                                :value="$selectedRating"
+                                :options="$availableRatings->mapWithKeys(fn($rating) => [$rating => $rating.' Star' . ($rating !== 1 ? 's' : '')])->all()"
+                                placeholder="Any Stars"
+                                class="w-40"
+                            />
+                        @endif
+                    </div>
                     <button
                         wire:click="toggleRatingsView"
                         class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
