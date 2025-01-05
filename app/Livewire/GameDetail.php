@@ -35,7 +35,6 @@ class GameDetail extends Component
 
     public function mount(Game $game): void
     {
-        abort_if(! $game->is_visible && ! auth()->user()?->can('viewHidden', Game::class), 404);
         $this->game = $game;
         $this->normalizePerPage('versionsPerPage');
         $this->normalizePerPage('reviewsPerPage');

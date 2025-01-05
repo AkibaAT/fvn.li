@@ -110,13 +110,7 @@ class Game extends Model
 
     public function resolveRouteBinding($value, $field = null): Game
     {
-        $query = $this->where('slug', $value);
-
-        // Only show visible games when accessing via slug
-        if (! auth()->user()?->can('viewHidden', Game::class)) {
-            $query->where('is_visible', true);
-        }
-
+        $query = $this->where($field, $value);
         return $query->firstOrFail();
     }
 
