@@ -12,17 +12,20 @@
             {{-- Section Navigation --}}
             <nav class="flex space-x-4">
                 @if ($game->is_visible)
-                    <a href="#details" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                    <a href="#details"
+                       class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                         Details
                     </a>
                 @endif
                 @if ($versions->isNotEmpty())
-                    <a href="#versions" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                    <a href="#versions"
+                       class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                         Versions
                     </a>
                 @endif
                 @if ($reviews->isNotEmpty())
-                    <a href="#reviews" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                    <a href="#reviews"
+                       class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                         {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
                     </a>
                 @endif
@@ -116,7 +119,8 @@
 
                     @if ($languageStats && $languageStats->isNotEmpty())
                         <div class="mt-4">
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported Languages</h3>
+                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported
+                                Languages</h3>
                             <x-language-flags
                                 :languages="$languageStats->map(fn($stat) => [
                                     'iso_code' => $stat->iso_code,

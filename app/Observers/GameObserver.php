@@ -20,6 +20,28 @@ class GameObserver
         }
     }
 
+    protected function generateSlug(Game $game): void
+    {
+        // Get base slug from game URL
+        $baseSlug = basename($game->url);
+
+        // If URL doesn't provide a usable slug, generate from name
+        if (empty($baseSlug) || $baseSlug === '/') {
+            $baseSlug = Str::slug($game->name);
+        }
+
+        // Find a unique slug
+        $slug = $baseSlug;
+        $counter = 1;
+
+        while (Game::where('slug', $slug)->where('id', '!=', $game->id)->exists()) {
+            $slug = $baseSlug.'-'.$counter++;
+        }
+
+        $game->slug = $slug;
+        $game->saveQuietly();
+    }
+
     public function updated(Game $game): void
     {
         if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
@@ -40,27 +62,5 @@ class GameObserver
     public function deleted(Game $game): void
     {
         GameList::clearFilterCache();
-    }
-
-    protected function generateSlug(Game $game): void
-    {
-        // Get base slug from game URL
-        $baseSlug = basename($game->url);
-
-        // If URL doesn't provide a usable slug, generate from name
-        if (empty($baseSlug) || $baseSlug === '/') {
-            $baseSlug = Str::slug($game->name);
-        }
-
-        // Find a unique slug
-        $slug = $baseSlug;
-        $counter = 1;
-
-        while (Game::where('slug', $slug)->where('id', '!=', $game->id)->exists()) {
-            $slug = $baseSlug . '-' . $counter++;
-        }
-
-        $game->slug = $slug;
-        $game->saveQuietly();
     }
 }

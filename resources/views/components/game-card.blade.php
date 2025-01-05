@@ -1,6 +1,7 @@
 @props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'selectedLanguages' => [], 'nsfw' => false, 'sfw' => false])
 
-<div class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow p-4 flex flex-col backdrop-blur-sm border border-gray-200 dark:border-transparent transition-all duration-150">
+<div
+    class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow p-4 flex flex-col backdrop-blur-sm border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         <a href="{{ route('games.show', $game) }}">
             <img
@@ -53,7 +54,7 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <x-platform-icons :platforms="$game->platforms" :selected-platforms="$selectedPlatforms" />
+                    <x-platform-icons :platforms="$game->platforms" :selected-platforms="$selectedPlatforms"/>
                 </div>
 
                 @if ($game->supported_languages && $game->supported_languages->isNotEmpty())
@@ -84,7 +85,8 @@
             <div>
                 <span class="text-gray-500 dark:text-gray-400">{{ $detail['label'] }}:</span>
                 @if ($detail['isFilter'] ?? true)
-                    <button wire:click="toggleFilter('{{ $detail['type'] }}', '{{ $this->encodeFilterValue($detail['value']) }}')"
+                    <button
+                        wire:click="toggleFilter('{{ $detail['type'] }}', '{{ $this->encodeFilterValue($detail['value']) }}')"
                         @class([
                             'ml-1 hover:text-blue-400',
                             'text-blue-400 font-medium' => $detail['isActive'] ?? false,
@@ -102,7 +104,8 @@
     @if ($game->tags)
         <div class="mt-4 flex flex-wrap gap-1.5">
             @foreach (explode(',', $game->tags) as $tag)
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors">
+                <span
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors">
                     {{ trim($tag) }}
                 </span>
             @endforeach

@@ -1,7 +1,9 @@
 @import 'fontawesome.css';
 @import 'flag-icons/css/flag-icons.min.css';
 
-[x-cloak] { display: none !important; }
+[x-cloak] {
+    display: none !important;
+}
 
 @tailwind base;
 @tailwind components;

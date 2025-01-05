@@ -26,7 +26,7 @@
                         @click="document.getElementById('{{ $config['modal'] }}').showModal()"
                         class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 shadow-sm"
                     >
-                        <x-dynamic-component :component="$config['icon']" class="w-5 h-5" />
+                        <x-dynamic-component :component="$config['icon']" class="w-5 h-5"/>
                         {{ ucfirst($type) }}
                         @if ($config['active'])
                             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -40,7 +40,8 @@
             <div class="mb-4">
                 <div class="flex items-center justify-between">
                     <div class="text-sm font-medium text-gray-900 dark:text-gray-300">Active Filters:</div>
-                    <button wire:click="clearFilters" class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200">
+                    <button wire:click="clearFilters"
+                            class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200">
                         Reset All
                     </button>
                 </div>
@@ -84,18 +85,22 @@
                     <tr>
                         <x-table.header>Game</x-table.header>
                         <x-table.header>Version</x-table.header>
-                        <x-table.sortable-header :field="'published_at'" :currentField="$sortField" :direction="$sortDirection">
+                        <x-table.sortable-header :field="'published_at'" :currentField="$sortField"
+                                                 :direction="$sortDirection">
                             Published
                         </x-table.sortable-header>
                         <x-table.header class="text-center">Platforms</x-table.header>
                         <x-table.header class="text-center">Languages</x-table.header>
-                        <x-table.sortable-header :field="'stats_words'" :currentField="$sortField" :direction="$sortDirection">
+                        <x-table.sortable-header :field="'stats_words'" :currentField="$sortField"
+                                                 :direction="$sortDirection">
                             Words
                         </x-table.sortable-header>
-                        <x-table.sortable-header :field="'rating'" :currentField="$sortField" :direction="$sortDirection">
+                        <x-table.sortable-header :field="'rating'" :currentField="$sortField"
+                                                 :direction="$sortDirection">
                             Rating
                         </x-table.sortable-header>
-                        <x-table.sortable-header :field="'rating_count'" :currentField="$sortField" :direction="$sortDirection">
+                        <x-table.sortable-header :field="'rating_count'" :currentField="$sortField"
+                                                 :direction="$sortDirection">
                             Reviews
                         </x-table.sortable-header>
                     </tr>
@@ -105,7 +110,8 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <x-table.cell>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('games.show', $version->game) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                    <a href="{{ route('games.show', $version->game) }}"
+                                       class="text-blue-600 dark:text-blue-400 hover:underline">
                                         {{ $version->game->name }}
                                     </a>
                                     <a href="{{ $version->game->url }}"
@@ -198,7 +204,7 @@
         id="sort-modal"
         class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-sm dark:text-gray-100 backdrop:backdrop-blur-md"
     >
-        <x-dialog-header title="Sort Versions" />
+        <x-dialog-header title="Sort Versions"/>
 
         <div class="space-y-2">
             @foreach ([
@@ -219,7 +225,7 @@
             @endforeach
         </div>
 
-        <x-dialog-footer />
+        <x-dialog-footer/>
     </dialog>
 
     {{-- Filters Dialog --}}
@@ -228,7 +234,7 @@
         id="filters-modal"
         class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
     >
-        <x-dialog-header title="Filter Versions" />
+        <x-dialog-header title="Filter Versions"/>
 
         <div class="space-y-6">
             <div>
@@ -264,7 +270,7 @@
             </div>
         </div>
 
-        <x-dialog-footer />
+        <x-dialog-footer/>
     </dialog>
 
     @include('components.meta-data-refresh')

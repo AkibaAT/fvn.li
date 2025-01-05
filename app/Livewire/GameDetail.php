@@ -16,11 +16,17 @@ class GameDetail extends Component
     use HasSocialMetaTags, WithPagination;
 
     public Game $game;
+
     public bool $showAllRatings = false;
+
     public int $reviewsPage = 1;
+
     public int $versionsPage = 1;
+
     public ?int $selectedRating = null;
+
     public string|int $versionsPerPage = 5;
+
     public string|int $reviewsPerPage = 5;
 
     protected array $validPerPageValues = [5, 10, 25];
@@ -39,6 +45,19 @@ class GameDetail extends Component
         $this->game = $game;
         $this->normalizePerPage('versionsPerPage');
         $this->normalizePerPage('reviewsPerPage');
+    }
+
+    protected function normalizePerPage(string $property): void
+    {
+        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
+            $this->{$property} = $this->validPerPageValues[0];
+
+            return;
+        }
+
+        $this->{$property} = $intValue;
     }
 
     public function updated($name): void
@@ -126,7 +145,7 @@ class GameDetail extends Component
                     $platforms[] = ucfirst($platform);
                 }
             }
-            if (!empty($platforms)) {
+            if (! empty($platforms)) {
                 $descriptionParts[] = 'available on '.implode(', ', $platforms);
             }
 
@@ -138,7 +157,7 @@ class GameDetail extends Component
 
             // Add rating if available
             if ($this->game->rating_count) {
-                $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
+                $descriptionParts[] = 'rated '.number_format($this->game->rating_count).' times';
             }
         } else {
             // Get rating count from ratings table
@@ -148,27 +167,21 @@ class GameDetail extends Component
         }
 
         // Truncate description to around 160 characters
-        $description = implode(', ', $descriptionParts) . '.';
+        $description = implode(', ', $descriptionParts).'.';
         $description = substr($description, 0, 160);
 
         return [
-            'title' => $this->game->name . ' - ' . config('app.name'),
+            'title' => $this->game->name.' - '.config('app.name'),
             'description' => $description,
             'image' => $this->game->thumb_url ?: asset('favicon.ico'),
         ];
     }
 
-    protected function normalizePerPage(string $property): void
+    protected function updateMeta(array $metaTags): void
     {
-        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
-
-        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
-            $this->{$property} = $this->validPerPageValues[0];
-
-            return;
+        if (method_exists($this, 'dispatch')) {
+            $this->dispatch('updateMetaTags', metaTags: $metaTags);
         }
-
-        $this->{$property} = $intValue;
     }
 
     protected function encodeFilterValue(string $value): string
@@ -179,12 +192,5 @@ class GameDetail extends Component
     protected function decodeFilterValue(string $value): string
     {
         return rawurldecode($value);
-    }
-
-    protected function updateMeta(array $metaTags): void
-    {
-        if (method_exists($this, 'dispatch')) {
-            $this->dispatch('updateMetaTags', metaTags: $metaTags);
-        }
     }
 }

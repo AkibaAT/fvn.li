@@ -47,11 +47,6 @@ class GameVersion extends Model
         return $this->belongsTo(Game::class);
     }
 
-    public function languageStats(): HasMany
-    {
-        return $this->hasMany(VersionLanguageStats::class);
-    }
-
     public function characterStats(): HasMany
     {
         return $this->hasMany(VersionCharacterStats::class);
@@ -62,5 +57,10 @@ class GameVersion extends Model
         return $this->languageStats()
             ->where('iso_code', $isoCode)
             ->first();
+    }
+
+    public function languageStats(): HasMany
+    {
+        return $this->hasMany(VersionLanguageStats::class);
     }
 }

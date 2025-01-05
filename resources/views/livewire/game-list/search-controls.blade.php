@@ -24,7 +24,7 @@
                 @click="document.getElementById('{{ $config['modal'] }}').showModal()"
                 class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 shadow-sm"
             >
-                <x-dynamic-component :component="$config['icon']" class="w-5 h-5" />
+                <x-dynamic-component :component="$config['icon']" class="w-5 h-5"/>
                 {{ ucfirst($type) }}
                 @if ($config['active'])
                     <span class="w-2 h-2 rounded-full bg-blue-500"></span>

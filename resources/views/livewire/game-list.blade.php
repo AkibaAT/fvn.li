@@ -11,7 +11,7 @@
                              :selected-platforms="$selectedPlatforms"
                              :selected-languages="$selectedLanguages"
                              :nsfw="$nsfw"
-                             :sfw="$sfw" />
+                             :sfw="$sfw"/>
             @endforeach
         </div>
 

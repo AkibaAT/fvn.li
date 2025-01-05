@@ -22,6 +22,7 @@
     },
     "require-dev": {
         "fakerphp/faker": "*",
+        "laravel/pint": "^1.19",
         "mockery/mockery": "*",
         "nunomaduro/collision": "*",
         "phpunit/phpunit": "*",

@@ -111,6 +111,7 @@ class Game extends Model
     public function resolveRouteBinding($value, $field = null): Game
     {
         $query = $this->where($field, $value);
+
         return $query->firstOrFail();
     }
 

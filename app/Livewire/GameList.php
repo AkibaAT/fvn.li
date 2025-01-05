@@ -21,8 +21,6 @@ class GameList extends Component
 {
     use HasSocialMetaTags, HasSortableColumns, WithPagination;
 
-    private static array $filterOptions = [];
-
     protected const array AVAILABLE_SORT_FIELDS = [
         'latest_version_published_at' => 'Latest Update',
         'initially_published_at' => 'Initial Release',
@@ -31,16 +29,28 @@ class GameList extends Component
         'name' => 'Name',
     ];
 
+    private static array $filterOptions = [];
+
     public string $search = '';
+
     public array $selectedStatuses = [];
+
     public array $selectedEngines = [];
+
     public array $selectedPlatforms = [];
+
     public array $selectedLanguages = [];
+
     public bool $nsfw = false;
+
     public bool $sfw = false;
+
     public string $sortField = 'latest_version_published_at';
+
     public string $sortDirection = 'desc';
+
     public string|int $perPage = 9;
+
     public int $page = 1;
 
     protected array $validPerPageValues = [9, 18, 27];
@@ -72,6 +82,19 @@ class GameList extends Component
     public function mount(): void
     {
         $this->normalizePerPage();
+    }
+
+    protected function normalizePerPage(): void
+    {
+        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
+            $this->perPage = $this->validPerPageValues[0];
+
+            return;
+        }
+
+        $this->perPage = $intValue;
     }
 
     public function updated($name): void
@@ -113,6 +136,11 @@ class GameList extends Component
         $this->resetPage();
     }
 
+    protected function decodeFilterValue(string $value): string
+    {
+        return rawurldecode($value);
+    }
+
     public function clearFilters(): void
     {
         $this->selectedStatuses = [];
@@ -134,15 +162,6 @@ class GameList extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
-    }
-
-    public function getMetaTags(): array
-    {
-        return [
-            'title' => $this->getMetaTitle(),
-            'description' => $this->getMetaDescription(),
-            'image' => $this->getMetaImage(),
-        ];
     }
 
     public function render(): View
@@ -263,34 +282,13 @@ class GameList extends Component
         ]);
     }
 
-    public function resetSort(): void
+    public function getMetaTags(): array
     {
-        $this->sortField = 'latest_version_published_at';
-        $this->sortDirection = 'desc';
-        $this->resetPage();
-    }
-
-    protected function normalizePerPage(): void
-    {
-        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
-
-        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
-            $this->perPage = $this->validPerPageValues[0];
-
-            return;
-        }
-
-        $this->perPage = $intValue;
-    }
-
-    protected function encodeFilterValue(string $value): string
-    {
-        return rawurlencode($value);
-    }
-
-    protected function decodeFilterValue(string $value): string
-    {
-        return rawurldecode($value);
+        return [
+            'title' => $this->getMetaTitle(),
+            'description' => $this->getMetaDescription(),
+            'image' => $this->getMetaImage(),
+        ];
     }
 
     protected function updateMeta(array $metaTags): void
@@ -361,5 +359,17 @@ class GameList extends Component
         });
 
         return self::$filterOptions;
+    }
+
+    protected function encodeFilterValue(string $value): string
+    {
+        return rawurlencode($value);
+    }
+
+    public function resetSort(): void
+    {
+        $this->sortField = 'latest_version_published_at';
+        $this->sortDirection = 'desc';
+        $this->resetPage();
     }
 }

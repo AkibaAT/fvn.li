@@ -11,6 +11,11 @@ trait HasSortableColumns
         return static::AVAILABLE_SORT_FIELDS;
     }
 
+    protected function getSortLabelLowercase(string $field): string
+    {
+        return strtolower($this->getSortLabel($field));
+    }
+
     protected function getSortLabel(string $field): string
     {
         return match ($field) {
@@ -22,10 +27,5 @@ trait HasSortableColumns
             'name' => 'Name',
             default => ucfirst(str_replace('_', ' ', $field))
         };
-    }
-
-    protected function getSortLabelLowercase(string $field): string
-    {
-        return strtolower($this->getSortLabel($field));
     }
 }

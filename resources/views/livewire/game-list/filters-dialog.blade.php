@@ -3,7 +3,7 @@
     id="filters-modal"
     class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
 >
-    <x-dialog-header title="Filter Games" />
+    <x-dialog-header title="Filter Games"/>
 
     <div class="space-y-6">
         @php
@@ -67,7 +67,8 @@
                                     ? $section['class']
                                     : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
                             @if ($section['type'] === 'language')
-                                <span class="fi fi-{{ $label['flag_code'] }} rounded-sm mr-1"></span>{{ $label['ref_name'] }}
+                                <span
+                                    class="fi fi-{{ $label['flag_code'] }} rounded-sm mr-1"></span>{{ $label['ref_name'] }}
                             @else
                                 {{ $label }}
                             @endif
@@ -78,5 +79,5 @@
         @endforeach
     </div>
 
-    <x-dialog-footer />
+    <x-dialog-footer/>
 </dialog>
