@@ -16,7 +16,7 @@
                 <div class="flex-shrink-0">
                     <img src="{{ $game->thumb_url }}"
                          alt="{{ $game->name }}"
-                         class="object-cover rounded-lg">
+                         class="object-cover rounded-lg max-w-80 max-h-64">
                 </div>
 
                 <div class="flex-1">
