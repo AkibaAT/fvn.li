@@ -16,23 +16,84 @@ class GameDetail extends Component
 
     public Game $game;
     public bool $showAllRatings = false;
-    public int $page = 1;
+    public int $reviewsPage = 1;
+    public int $versionsPage = 1;
+    public string|int $versionsPerPage = 5;
+    public string|int $reviewsPerPage = 5;
+    protected array $validPerPageValues = [5, 10, 25];
 
     protected $queryString = [
         'showAllRatings' => ['except' => false],
-        'page' => ['except' => 1],
+        'reviewsPage' => ['except' => 1],
+        'versionsPage' => ['except' => 1],
+        'versionsPerPage' => ['except' => 5],
+        'reviewsPerPage' => ['except' => 5],
     ];
 
     public function mount(Game $game): void
     {
         abort_if(!$game->is_visible && !auth()->user()?->can('viewHidden', Game::class), 404);
         $this->game = $game;
+        $this->normalizePerPage('versionsPerPage');
+        $this->normalizePerPage('reviewsPerPage');
+    }
+
+    public function updated($name): void
+    {
+        if (in_array($name, ['versionsPerPage', 'reviewsPerPage'])) {
+            $this->normalizePerPage($name);
+        }
+    }
+
+    protected function normalizePerPage(string $property): void
+    {
+        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || !in_array($intValue, $this->validPerPageValues)) {
+            $this->{$property} = $this->validPerPageValues[0];
+            return;
+        }
+
+        $this->{$property} = $intValue;
     }
 
     public function toggleRatingsView(): void
     {
         $this->showAllRatings = !$this->showAllRatings;
-        $this->resetPage();
+        $this->reviewsPage = 1; // Reset to first page when toggling
+    }
+
+    public function render(): View
+    {
+        // Eager load all the relationships we need
+        $this->game->load([
+            'latestVersion.languageStats.language',
+        ]);
+
+        $reviews = $this->game->ratings()
+            ->where('is_visible', true)
+            ->when(!$this->showAllRatings, fn($query) => $query->where('is_reviewed', true))
+            ->with('rater')
+            ->orderByDesc('published_at')
+            ->paginate($this->reviewsPerPage, pageName: 'reviewsPage');
+
+        // Paginate game versions
+        $versions = $this->game->gameVersions()
+            ->with(['languageStats.language'])
+            ->paginate($this->versionsPerPage, pageName: 'versionsPage');
+
+        $metaTags = $this->getMetaTags();
+        app('view')->share('metaTags', $metaTags);
+        $this->updateMeta($metaTags);
+
+        return view('livewire.game-detail', [
+            'reviews' => $reviews,
+            'versions' => $versions,
+            'latestVersion' => $this->game->latestVersion,
+            'englishStats' => $this->game->latestVersion?->getStatsForLanguage('eng'),
+            'languageStats' => $this->game->latestVersion?->languageStats ?? collect(),
+            'metaTags' => $this->getMetaTags(),
+        ]);
     }
 
     protected function encodeFilterValue(string $value): string
@@ -89,36 +150,6 @@ class GameDetail extends Component
             'description' => $description,
             'image' => $this->game->thumb_url ?: asset('favicon.ico'),
         ];
-    }
-
-    public function render(): View
-    {
-        // Eager load all the relationships we need
-        $this->game->load([
-            'latestVersion.languageStats.language',
-            'gameVersions' => fn($query) => $query->with(['languageStats.language'])->orderByDesc('published_at'),
-        ]);
-
-        $ratingsQuery = $this->game->ratings()
-            ->where('is_visible', true)
-            ->when(!$this->showAllRatings, fn($query) => $query->where('is_reviewed', true))
-            ->with('rater')
-            ->orderByDesc('published_at');
-
-        $reviews = $ratingsQuery->paginate(10);
-
-        $metaTags = $this->getMetaTags();
-        app('view')->share('metaTags', $metaTags);
-        $this->updateMeta($metaTags);
-
-        return view('livewire.game-detail', [
-            'reviews' => $reviews,
-            'versions' => $this->game->gameVersions,
-            'latestVersion' => $this->game->latestVersion,
-            'englishStats' => $this->game->latestVersion?->getStatsForLanguage('eng'),
-            'languageStats' => $this->game->latestVersion?->languageStats ?? collect(),
-            'metaTags' => $this->getMetaTags(),
-        ]);
     }
 
     protected function updateMeta(array $metaTags): void

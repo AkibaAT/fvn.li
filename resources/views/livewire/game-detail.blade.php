@@ -1,6 +1,6 @@
 <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="mb-4">
+        <div class="mb-4 flex items-center justify-between sticky top-0 z-10 bg-gray-100 dark:bg-gray-900 py-4">
             <a href="{{ route('games.index') }}"
                class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8,6 +8,23 @@
                 </svg>
                 Back to Game List
             </a>
+
+            {{-- Section Navigation --}}
+            <nav class="flex space-x-4">
+                <a href="#details" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                    Details
+                </a>
+                @if($versions->isNotEmpty())
+                    <a href="#versions" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                        Versions
+                    </a>
+                @endif
+                @if($reviews->isNotEmpty())
+                    <a href="#reviews" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                        {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
+                    </a>
+                @endif
+            </nav>
         </div>
 
         {{-- Game Header --}}
@@ -65,7 +82,7 @@
         </div>
 
         {{-- Game Details --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div id="details" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 scroll-mt-14">
             {{-- Left Column: Basic Info --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -133,7 +150,7 @@
 
         {{-- Game Versions --}}
         @if ($versions->isNotEmpty())
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <div id="versions" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6 scroll-mt-14">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     Version History
                 </h2>
@@ -208,12 +225,26 @@
                         </div>
                     @endforeach
                 </div>
+
+                <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <x-filters.select
+                        wire:model.live="versionsPerPage"
+                        :value="$versionsPerPage"
+                        :options="[
+                            5 => '5 per page',
+                            10 => '10 per page',
+                            25 => '25 per page'
+                        ]"
+                        class="w-full sm:w-auto"
+                    />
+                    {{ $versions->links(data: ['scrollTo' => '#versions']) }}
+                </div>
             </div>
         @endif
 
         {{-- Reviews Section --}}
         @if ($reviews->isNotEmpty())
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div id="reviews" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 scroll-mt-14">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
                         {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
@@ -258,7 +289,19 @@
                     @endforeach
                 </div>
 
-                {{ $reviews->links(data: ['scrollTo' => false]) }}
+                <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <x-filters.select
+                        wire:model.live="reviewsPerPage"
+                        :value="$reviewsPerPage"
+                        :options="[
+                            5 => '5 per page',
+                            10 => '10 per page',
+                            25 => '25 per page'
+                        ]"
+                        class="w-full sm:w-auto"
+                    />
+                    {{ $reviews->links(data: ['scrollTo' => '#reviews']) }}
+                </div>
             </div>
         @endif
     </div>
