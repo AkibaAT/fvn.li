@@ -104,10 +104,15 @@
                     @foreach ($versions as $version)
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <x-table.cell>
-                                <div class="flex items-start gap-2">
-                                    <img src="{{ $version->game->thumb_url }}" alt="{{ $version->game->name }}" class="w-12 h-10 object-cover rounded">
-                                    <a href="{{ $version->game->url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('games.show', $version->game) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
                                         {{ $version->game->name }}
+                                    </a>
+                                    <a href="{{ $version->game->url }}"
+                                       target="_blank"
+                                       class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                       title="Open on itch.io">
+                                        <i class="fas fa-external-link-alt text-sm"></i>
                                     </a>
                                 </div>
                             </x-table.cell>

@@ -2,19 +2,25 @@
 
 <div class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow p-4 flex flex-col backdrop-blur-sm border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
-        <img
-            src="{{ $game->thumb_url }}"
-            alt="{{ $game->name }}"
-            class="h-24 w-32 object-cover rounded"
-        >
+        <a href="{{ route('games.show', $game) }}">
+            <img
+                src="{{ $game->thumb_url }}"
+                alt="{{ $game->name }}"
+                class="h-24 w-32 object-cover rounded"
+            >
+        </a>
         <div class="flex flex-col min-w-0 flex-1">
-            <div class="flex justify-between items-start gap-2">
-                <div class="min-w-0">
-                    <a href="{{ $game->url }}" target="_blank"
-                       class="text-base font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400 line-clamp-2">
-                        {{ $game->name }}
-                    </a>
-                </div>
+            <div class="min-w-0 flex items-top gap-2">
+                <a href="{{ route('games.show', $game) }}"
+                   class="text-base font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400 line-clamp-2">
+                    {{ $game->name }}
+                </a>
+                <a href="{{ $game->url }}"
+                   target="_blank"
+                   class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                   title="Open on itch.io">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
             </div>
 
             @if ($game->authors)

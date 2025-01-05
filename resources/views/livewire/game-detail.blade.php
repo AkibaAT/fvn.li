@@ -164,12 +164,12 @@
                             <div class="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center gap-2">
-                                    <span class="font-medium text-gray-900 dark:text-gray-100">
-                                        {{ $review->rater->name }}
-                                    </span>
-                                        <span class="text-sm text-gray-500 dark:text-gray-400">
-                                        {{ $review->published_at->format('M j, Y') }}
-                                    </span>
+                                        <span class="font-medium text-gray-900 dark:text-gray-100">
+                                            {{ $review->rater->name }}
+                                        </span>
+                                            <span class="text-sm text-gray-500 dark:text-gray-400">
+                                            {{ $review->published_at->format('M j, Y') }}
+                                        </span>
                                     </div>
                                     <div class="flex items-center gap-1 text-yellow-400">
                                         @for ($i = 0; $i < $review->rating; $i++)
