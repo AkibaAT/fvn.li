@@ -234,11 +234,14 @@ class GameList extends Component
             });
 
         // Handle sorting
-        $query->orderBy(match ($this->sortField) {
+        $column = match ($this->sortField) {
             'latest_version_published_at' => 'latest_versions.published_at',
             'english_word_count' => 'english_stats.words',
             default => "games.{$this->sortField}"
-        }, $this->sortDirection);
+        };
+
+        // Now apply the sort direction + NULLS LAST
+        $query->orderByRaw("{$column} {$this->sortDirection} NULLS LAST");
 
         $games = $query->paginate($this->perPage);
 
