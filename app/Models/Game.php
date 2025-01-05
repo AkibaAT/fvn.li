@@ -24,6 +24,7 @@ class Game extends Model
         'is_web' => 'boolean',
         'is_nsfw' => 'boolean',
         'is_visible' => 'boolean',
+        'supported_languages' => 'collection',
         'uploads' => 'array',
     ];
 

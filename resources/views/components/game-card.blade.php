@@ -56,12 +56,12 @@
                     <x-platform-icons :platforms="$game->platforms" :selected-platforms="$selectedPlatforms" />
                 </div>
 
-                @if ($game->supported_languages)
+                @if($game->supported_languages && $game->supported_languages->isNotEmpty())
                     @php
-                        // Handle both string data from aggregation and collection from relationships
+                        // Pre-decode the JSON if it's a string (from the aggregation)
                         $languages = is_string($game->supported_languages)
                             ? json_decode($game->supported_languages, true)
-                            : $game->getSupportedLanguages()->toArray();
+                            : $game->supported_languages->toArray();
                     @endphp
                     <x-language-flags
                         :languages="$languages"
