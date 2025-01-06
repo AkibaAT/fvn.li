@@ -4,7 +4,7 @@
     @foreach ($languages as $language)
         @php
             $encodedCode = $this->encodeFilterValue($language['iso_code']);
-            $isSelected = isset($encodedSelectedLanguages[$encodedCode]);
+            $isSelected = in_array($encodedCode, $selectedLanguages);
             $isFiltered = !empty($selectedLanguages) && $isSelected;
         @endphp
         @if ($clickable)

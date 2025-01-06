@@ -153,6 +153,14 @@ class GameList extends Component
                 'games.*',
                 'latest_versions.published_at as latest_version_published_at',
                 'latest_versions.id as latest_version_id',
+                'latest_versions.rating as rating',
+                'latest_versions.rating_count as rating_count',
+                'latest_versions.devlog as devlog',
+                'latest_versions.is_windows as is_windows',
+                'latest_versions.is_linux as is_linux',
+                'latest_versions.is_mac as is_mac',
+                'latest_versions.is_android as is_android',
+                'latest_versions.is_web as is_web',
                 'english_stats.words as english_word_count',
                 DB::raw('(
                     SELECT json_agg(json_build_object(
@@ -210,7 +218,7 @@ class GameList extends Component
             ->when(! empty($this->selectedPlatforms), function ($q) {
                 foreach ($this->selectedPlatforms as $platform) {
                     $decodedPlatform = $this->decodeFilterValue($platform);
-                    $q->where("games.is_{$decodedPlatform}", true);
+                    $q->where("latest_versions.is_{$decodedPlatform}", true);
                 }
             })
             ->when(! empty($this->selectedLanguages), function ($q) {

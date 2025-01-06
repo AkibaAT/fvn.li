@@ -115,18 +115,39 @@ class Game extends Model
         return $query->firstOrFail();
     }
 
+    protected function devlog(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->latestVersion?->devlog
+        );
+    }
+
+    protected function rating(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->latestVersion?->rating
+        );
+    }
+
+    protected function ratingCount(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->latestVersion?->rating_count
+        );
+    }
+
     /**
      * Get the platforms attribute.
      */
     protected function platforms(): Attribute
     {
         return Attribute::make(
-            get: fn (mixed $value, array $attributes) => [
-                'windows' => (bool) ($attributes['is_windows'] ?? false),
-                'linux' => (bool) ($attributes['is_linux'] ?? false),
-                'mac' => (bool) ($attributes['is_mac'] ?? false),
-                'android' => (bool) ($attributes['is_android'] ?? false),
-                'web' => (bool) ($attributes['is_web'] ?? false),
+            get: fn () => [
+                'windows' => $this->latestVersion?->is_windows ?? false,
+                'linux' => $this->latestVersion?->is_linux ?? false,
+                'mac' => $this->latestVersion?->is_mac ?? false,
+                'android' => $this->latestVersion?->is_android ?? false,
+                'web' => $this->latestVersion?->is_web ?? false,
             ],
         );
     }

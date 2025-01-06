@@ -57,13 +57,7 @@
 
                     <div class="mt-4 sm:mt-2 flex flex-wrap items-center gap-4">
                         <x-platform-icons
-                            :platforms="[
-                        'windows' => $game->is_windows,
-                        'linux' => $game->is_linux,
-                        'mac' => $game->is_mac,
-                        'android' => $game->is_android,
-                        'web' => $game->is_web,
-                    ]"
+                            :platforms="$platforms"
                             :selected-platforms="[]"
                             :clickable="false"/>
 

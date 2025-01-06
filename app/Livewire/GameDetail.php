@@ -77,7 +77,7 @@ class GameDetail extends Component
 
         $reviews = $this->game->ratings()
             ->where('is_visible', true)
-            ->when(! $this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
+            ->when(!$this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->when($this->selectedRating !== null, fn ($query) => $query->where('rating', $this->selectedRating))
             ->with('rater')
             ->orderByDesc('published_at')
@@ -85,7 +85,7 @@ class GameDetail extends Component
 
         $availableRatings = $this->game->ratings()
             ->where('is_visible', true)
-            ->when(! $this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
+            ->when(!$this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->distinct()
             ->pluck('rating')
             ->sort()
@@ -100,12 +100,25 @@ class GameDetail extends Component
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
 
+        // Pass the latestVersion data explicitly to make it clear we're using version data
+        $latestVersion = $this->game->latestVersion;
+
         return view('livewire.game-detail', [
             'reviews' => $reviews,
             'versions' => $versions,
-            'latestVersion' => $this->game->latestVersion,
-            'englishStats' => $this->game->latestVersion?->getStatsForLanguage('eng'),
-            'languageStats' => $this->game->latestVersion?->languageStats ?? collect(),
+            'latestVersion' => $latestVersion,
+            'platforms' => [
+                'windows' => $latestVersion?->is_windows ?? false,
+                'linux' => $latestVersion?->is_linux ?? false,
+                'mac' => $latestVersion?->is_mac ?? false,
+                'android' => $latestVersion?->is_android ?? false,
+                'web' => $latestVersion?->is_web ?? false,
+            ],
+            'rating' => $latestVersion?->rating,
+            'ratingCount' => $latestVersion?->rating_count,
+            'devlog' => $latestVersion?->devlog,
+            'englishStats' => $latestVersion?->getStatsForLanguage('eng'),
+            'languageStats' => $latestVersion?->languageStats ?? collect(),
             'metaTags' => $this->getMetaTags(),
             'availableRatings' => $availableRatings,
         ]);
@@ -113,6 +126,9 @@ class GameDetail extends Component
 
     public function getMetaTags(): array
     {
+        // Get latest version
+        $latestVersion = $this->game->latestVersion;
+
         // Prepare basic game info for description
         $descriptionParts = [];
 
@@ -125,26 +141,28 @@ class GameDetail extends Component
                 $descriptionParts[] = "made with {$this->game->game_engine}";
             }
 
-            // Add platforms
+            // Add platforms from latest version
             $platforms = [];
-            foreach (['windows', 'linux', 'mac', 'android', 'web'] as $platform) {
-                if ($this->game->{"is_{$platform}"}) {
-                    $platforms[] = ucfirst($platform);
-                }
+            if ($latestVersion) {
+                if ($latestVersion->is_windows) $platforms[] = 'Windows';
+                if ($latestVersion->is_linux) $platforms[] = 'Linux';
+                if ($latestVersion->is_mac) $platforms[] = 'Mac';
+                if ($latestVersion->is_android) $platforms[] = 'Android';
+                if ($latestVersion->is_web) $platforms[] = 'Web';
             }
-            if (! empty($platforms)) {
+            if (!empty($platforms)) {
                 $descriptionParts[] = 'available on ' . implode(', ', $platforms);
             }
 
-            // Add word count if available
+            // Add word count from latest version if available
             $englishWordCount = $this->game->getEnglishWordCount();
             if ($englishWordCount) {
                 $descriptionParts[] = number_format($englishWordCount) . ' words long';
             }
 
-            // Add rating if available
-            if ($this->game->rating_count) {
-                $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
+            // Add rating from latest version if available
+            if ($latestVersion?->rating_count) {
+                $descriptionParts[] = 'rated ' . number_format($latestVersion->rating_count) . ' times';
             }
         } else {
             // Get rating count from ratings table
