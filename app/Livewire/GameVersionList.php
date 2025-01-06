@@ -61,19 +61,6 @@ class GameVersionList extends Component
         $this->normalizePerPage();
     }
 
-    protected function normalizePerPage(): void
-    {
-        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
-
-        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
-            $this->perPage = $this->validPerPageValues[0];
-
-            return;
-        }
-
-        $this->perPage = $intValue;
-    }
-
     public function updated($name): void
     {
         if ($name === 'perPage') {
@@ -109,11 +96,6 @@ class GameVersionList extends Component
 
         $this->{$property} = array_map([$this, 'encodeFilterValue'], array_values($array));
         $this->resetPage();
-    }
-
-    protected function decodeFilterValue(string $value): string
-    {
-        return rawurldecode($value);
     }
 
     public function clearFilters(): void
@@ -171,7 +153,7 @@ class GameVersionList extends Component
                         FROM games
                         WHERE games.id = game_versions.game_id
                     )
-                ) '.$this->sortDirection.' NULLS LAST');
+                ) ' . $this->sortDirection . ' NULLS LAST');
                 break;
             case 'rating':
             case 'rating_count':
@@ -191,6 +173,24 @@ class GameVersionList extends Component
             'metaTags' => $metaTags,
             ...$this->getFilterOptions(),
         ]);
+    }
+
+    protected function normalizePerPage(): void
+    {
+        $intValue = filter_var($this->perPage, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
+            $this->perPage = $this->validPerPageValues[0];
+
+            return;
+        }
+
+        $this->perPage = $intValue;
+    }
+
+    protected function decodeFilterValue(string $value): string
+    {
+        return rawurldecode($value);
     }
 
     protected function updateMeta(array $metaTags): void

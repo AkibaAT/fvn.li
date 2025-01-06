@@ -47,19 +47,6 @@ class GameDetail extends Component
         $this->normalizePerPage('reviewsPerPage');
     }
 
-    protected function normalizePerPage(string $property): void
-    {
-        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
-
-        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
-            $this->{$property} = $this->validPerPageValues[0];
-
-            return;
-        }
-
-        $this->{$property} = $intValue;
-    }
-
     public function updated($name): void
     {
         if (in_array($name, ['versionsPerPage', 'reviewsPerPage'])) {
@@ -146,35 +133,48 @@ class GameDetail extends Component
                 }
             }
             if (! empty($platforms)) {
-                $descriptionParts[] = 'available on '.implode(', ', $platforms);
+                $descriptionParts[] = 'available on ' . implode(', ', $platforms);
             }
 
             // Add word count if available
             $englishWordCount = $this->game->getEnglishWordCount();
             if ($englishWordCount) {
-                $descriptionParts[] = number_format($englishWordCount).' words long';
+                $descriptionParts[] = number_format($englishWordCount) . ' words long';
             }
 
             // Add rating if available
             if ($this->game->rating_count) {
-                $descriptionParts[] = 'rated '.number_format($this->game->rating_count).' times';
+                $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
             }
         } else {
             // Get rating count from ratings table
             $ratingCount = Rating::where('game_id', $this->game->id)->where('is_visible', true)->count();
 
-            $descriptionParts[] = 'An unlisted game rated '.number_format($ratingCount).' times';
+            $descriptionParts[] = 'An unlisted game rated ' . number_format($ratingCount) . ' times';
         }
 
         // Truncate description to around 160 characters
-        $description = implode(', ', $descriptionParts).'.';
+        $description = implode(', ', $descriptionParts) . '.';
         $description = substr($description, 0, 160);
 
         return [
-            'title' => $this->game->name.' - '.config('app.name'),
+            'title' => $this->game->name . ' - ' . config('app.name'),
             'description' => $description,
             'image' => $this->game->thumb_url ?: asset('favicon.ico'),
         ];
+    }
+
+    protected function normalizePerPage(string $property): void
+    {
+        $intValue = filter_var($this->{$property}, FILTER_VALIDATE_INT);
+
+        if ($intValue === false || ! in_array($intValue, $this->validPerPageValues)) {
+            $this->{$property} = $this->validPerPageValues[0];
+
+            return;
+        }
+
+        $this->{$property} = $intValue;
     }
 
     protected function updateMeta(array $metaTags): void

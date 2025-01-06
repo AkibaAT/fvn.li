@@ -15,7 +15,7 @@ trait HasSocialMetaTags
 
         if (method_exists($this, 'getHeading')) {
             $totalRecords = $this->getAllTableRecordsCount();
-            $title = "{$totalRecords} ".Str::plural(rtrim(strtolower($this->getHeading()), 's'), $totalRecords);
+            $title = "{$totalRecords} " . Str::plural(rtrim(strtolower($this->getHeading()), 's'), $totalRecords);
         }
 
         // For Livewire game list
@@ -37,7 +37,7 @@ trait HasSocialMetaTags
             }
 
             if (! empty($this->selectedPlatforms)) {
-                $platforms = array_map(fn ($p) => 'for '.ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
+                $platforms = array_map(fn ($p) => 'for ' . ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
                 $filters[] = implode(' and ', $platforms);
             }
 
@@ -58,11 +58,11 @@ trait HasSocialMetaTags
             }
 
             if (! empty($filters)) {
-                $title .= ' that are '.implode(', ', $filters);
+                $title .= ' that are ' . implode(', ', $filters);
             }
         }
 
-        return $title.' - '.config('app.name');
+        return $title . ' - ' . config('app.name');
     }
 
     protected function getMetaDescription(): string
@@ -82,7 +82,7 @@ trait HasSocialMetaTags
             // Build engine filter
             if (! empty($this->selectedEngines)) {
                 $engines = array_map(fn ($e) => $this->decodeFilterValue($e), $this->selectedEngines);
-                $filters[] = 'created with '.implode(' and ', $engines);
+                $filters[] = 'created with ' . implode(' and ', $engines);
             }
 
             // Add NSFW/SFW status
@@ -95,14 +95,14 @@ trait HasSocialMetaTags
             // Add platform information
             if (! empty($this->selectedPlatforms)) {
                 $platforms = array_map(fn ($p) => ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
-                $description .= ' '.implode('/', $platforms);
+                $description .= ' ' . implode('/', $platforms);
             }
 
             $description .= ' FVNs';
 
             // Add filters
             if (! empty($filters)) {
-                $description .= ' that are '.implode(' and ', $filters);
+                $description .= ' that are ' . implode(' and ', $filters);
             }
 
             // Add language information
@@ -132,7 +132,7 @@ trait HasSocialMetaTags
                 ($this->sortField !== 'latest_version_published_at' || $this->sortDirection !== 'desc')) {
                 $sortLabels = $this::AVAILABLE_SORT_FIELDS;
 
-                $description .= ", sorted by {$sortLabels[$this->sortField]} ".
+                $description .= ", sorted by {$sortLabels[$this->sortField]} " .
                     ($this->sortDirection === 'asc' ? 'ascending' : 'descending');
             }
 
