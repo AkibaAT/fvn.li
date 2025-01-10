@@ -77,7 +77,7 @@ class GameDetail extends Component
 
         $reviews = $this->game->ratings()
             ->where('is_visible', true)
-            ->when(!$this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
+            ->when(! $this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->when($this->selectedRating !== null, fn ($query) => $query->where('rating', $this->selectedRating))
             ->with('rater')
             ->orderByDesc('published_at')
@@ -85,7 +85,7 @@ class GameDetail extends Component
 
         $availableRatings = $this->game->ratings()
             ->where('is_visible', true)
-            ->when(!$this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
+            ->when(! $this->showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->distinct()
             ->pluck('rating')
             ->sort()
@@ -144,13 +144,23 @@ class GameDetail extends Component
             // Add platforms from latest version
             $platforms = [];
             if ($latestVersion) {
-                if ($latestVersion->is_windows) $platforms[] = 'Windows';
-                if ($latestVersion->is_linux) $platforms[] = 'Linux';
-                if ($latestVersion->is_mac) $platforms[] = 'Mac';
-                if ($latestVersion->is_android) $platforms[] = 'Android';
-                if ($latestVersion->is_web) $platforms[] = 'Web';
+                if ($latestVersion->is_windows) {
+                    $platforms[] = 'Windows';
+                }
+                if ($latestVersion->is_linux) {
+                    $platforms[] = 'Linux';
+                }
+                if ($latestVersion->is_mac) {
+                    $platforms[] = 'Mac';
+                }
+                if ($latestVersion->is_android) {
+                    $platforms[] = 'Android';
+                }
+                if ($latestVersion->is_web) {
+                    $platforms[] = 'Web';
+                }
             }
-            if (!empty($platforms)) {
+            if (! empty($platforms)) {
                 $descriptionParts[] = 'available on ' . implode(', ', $platforms);
             }
 

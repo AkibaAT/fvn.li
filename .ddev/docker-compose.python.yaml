@@ -1,0 +1,22 @@
+services:
+  python:
+    container_name: ddev-${DDEV_SITENAME}-python
+    image: ghcr.io/akibaat/itchbot-docker/python:0.14
+    command: tail -f /dev/null
+    working_dir: /app
+    volumes:
+      - ../../app:/app:rw
+      - .:/mnt/ddev_config
+    environment:
+      - DB=db
+      - DB_USER=db
+      - DB_PASSWORD=db
+      - ITCH_API_KEY
+      - ITCH_COLLECTION_ID
+      - ITCH_USER
+      - ITCH_PASSWORD
+      - SDL_VIDEODRIVER=dummy
+      - PYTHONUNBUFFERED=1
+      - TZ=Europe/Vienna
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
