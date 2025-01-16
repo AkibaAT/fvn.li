@@ -246,6 +246,7 @@ class GameList extends Component
         $column = match ($this->sortField) {
             'latest_version_published_at' => 'latest_versions.published_at',
             'english_word_count' => 'english_stats.words',
+            'rating_count' => 'latest_versions.rating_count',
             default => "games.{$this->sortField}"
         };
 
