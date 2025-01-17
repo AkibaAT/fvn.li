@@ -79,6 +79,8 @@ init 10000 python:
                 if match:
                     display_name = match.group(1)
                     translated_display_name = renpy.translate_string(display_name, None)
+                    if translated_display_name:
+                        display_name = translated_display_name
                 else:
                     # 2) Next, fall back to Character("Name", ...)
                     match = re.search(r"Character\s*\(\s*[\"']([^\"']+)[\"']", code_str)
@@ -86,7 +88,7 @@ init 10000 python:
                         display_name = match.group(1)
 
                 # If neither pattern matched, default to the variable name
-                if not display_name:
+                if not display_name or not display_name.strip():
                     display_name = varname
 
                 defined_characters[varname] = {}
@@ -131,7 +133,7 @@ init 10000 python:
             elif isinstance(node, renpy.ast.Translate):
                 # If you want to handle entire translated menus or other statements,
                 # you'd parse inside these blocks. For now, we rely on TranslateSay for lines,
-                # so there's nothing special to do here. 
+                # so there's nothing special to do here.
                 pass
 
         # Finally, generate a JSON report

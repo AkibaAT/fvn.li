@@ -36,6 +36,7 @@ return [
     'itch' => [
         'username' => env('ITCH_USERNAME'),
         'password' => env('ITCH_PASSWORD'),
+        'collection_id' => env('ITCH_COLLECTION_ID'),
     ],
 
 ];

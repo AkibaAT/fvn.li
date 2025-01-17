@@ -34,6 +34,7 @@ class Game extends Model
         'game_engine',
         'authors',
         'custom_tags',
+        'source_language_id',
     ];
 
     protected $casts = [
@@ -387,7 +388,7 @@ class Game extends Model
                 $this->gameVersions()->save($gameVersion);
 
                 // Process statistics if it's a Ren'Py game
-                if ($this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
+                if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
                     try {
                         $statsService = app(GameStatsService::class);
                         $stats = $statsService->getUploadStats($this->url, $uploadToProcess['filename'], $uploadToProcess['id']);
@@ -423,6 +424,23 @@ class Game extends Model
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    /**
+     * @throws DateMalformedStringException
+     * @throws GuzzleException
+     */
+    public function loadFullDetails(Client $client): void
+    {
+        try {
+            $this->refreshBaseInfo($client);
+            sleep(10);
+            $this->refreshVersion($client);
+            $this->error = null;
+        } catch (Exception $exception) {
+            $this->error = $exception->getMessage();
+            throw $exception;
         }
     }
 
