@@ -6,6 +6,7 @@ namespace App\Console;
 
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportRatings;
+use App\Console\Commands\ProcessFeed;
 use App\Console\Commands\RefreshGame;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -15,6 +16,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         GenerateSitemap::class,
         ImportRatings::class,
+        ProcessFeed::class,
         RefreshGame::class,
     ];
 
@@ -25,6 +27,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('sitemap:generate')->daily()->withoutOverlapping();
         $schedule->command('ratings:import')->everyFifteenMinutes()->withoutOverlapping();
+        $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
     }
 
     /**

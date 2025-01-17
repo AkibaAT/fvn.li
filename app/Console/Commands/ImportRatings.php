@@ -15,6 +15,7 @@ use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ImportRatings extends Command
@@ -136,6 +137,9 @@ class ImportRatings extends Command
         return $startEventId;
     }
 
+    /**
+     * @throws Exception
+     */
     private function processRating(
         int $eventId,
         int $userId,
@@ -148,49 +152,60 @@ class ImportRatings extends Command
         int $rating,
         string $reviewText
     ): void {
-        // Skip if we already have this event
-        if (Rating::where('event_id', $eventId)->exists()) {
-            return;
-        }
+        DB::beginTransaction();
 
-        // Get or create rater
-        $rater = Rater::firstOrNew(['user_id' => $userId]);
-        if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername) {
-            $rater->name = $userName;
-            $rater->username = $userUsername;
-            $rater->save();
-        }
+        try {
+            // Skip if we already have this event
+            if (Rating::where('event_id', $eventId)->exists()) {
+                DB::commit();
 
-        // Get or create game
-        $game = Game::firstOrNew(['game_id' => $gameId]);
-        if (! $game->exists) {
-            $game->fill([
-                'game_id' => $gameId,
-                'name' => $gameName,
-                'url' => $gameUrl,
+                return;
+            }
+
+            // Get or create rater
+            $rater = Rater::firstOrNew(['user_id' => $userId]);
+            if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername) {
+                $rater->name = $userName;
+                $rater->username = $userUsername;
+                $rater->save();
+            }
+
+            // Get or create game
+            $game = Game::firstOrNew(['game_id' => $gameId]);
+            if (! $game->exists) {
+                $game->fill([
+                    'game_id' => $gameId,
+                    'name' => $gameName,
+                    'url' => $gameUrl,
+                ]);
+                $game->save();
+            } elseif ($game->name !== $gameName || $game->url !== $gameUrl) {
+                $game->name = $gameName;
+                $game->url = $gameUrl;
+                $game->save();
+            }
+
+            // Mark previous ratings as not visible
+            Rating::where('game_id', $game->id)
+                ->where('rater_id', $rater->id)
+                ->update(['is_visible' => false]);
+
+            // Create new rating
+            Rating::create([
+                'event_id' => $eventId,
+                'published_at' => $updatedAt,
+                'game_id' => $game->id,
+                'rater_id' => $rater->id,
+                'rating' => $rating,
+                'review' => $reviewText,
+                'is_visible' => true,
+                'is_reviewed' => $reviewText !== '',
             ]);
-            $game->save();
-        } elseif ($game->name !== $gameName || $game->url !== $gameUrl) {
-            $game->name = $gameName;
-            $game->url = $gameUrl;
-            $game->save();
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
-
-        // Mark previous ratings as not visible
-        Rating::where('game_id', $game->id)
-            ->where('rater_id', $rater->id)
-            ->update(['is_visible' => false]);
-
-        // Create new rating
-        Rating::create([
-            'event_id' => $eventId,
-            'published_at' => $updatedAt,
-            'game_id' => $game->id,
-            'rater_id' => $rater->id,
-            'rating' => $rating,
-            'review' => $reviewText,
-            'is_visible' => true,
-            'is_reviewed' => $reviewText !== '',
-        ]);
     }
 }

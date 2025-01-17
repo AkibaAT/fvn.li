@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class Game extends Model
@@ -226,187 +227,202 @@ class Game extends Model
      * Refresh version information for the game
      *
      * @throws GuzzleException|DateMalformedStringException
+     * @throws Exception
      */
     public function refreshVersion(Client $client, bool $force = false): void
     {
-        $url = "https://api.itch.io/games/{$this->game_id}/uploads";
+        DB::beginTransaction();
 
-        $response = $client->get($url);
-        if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
-            $this->is_visible = false;
+        try {
+            $url = "https://api.itch.io/games/{$this->game_id}/uploads";
 
-            return;
-        }
+            $response = $client->get($url);
+            if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
+                $this->is_visible = false;
+                $this->save();
+                DB::commit();
 
-        $uploadsData = json_decode($response->getBody()->getContents(), true);
-        if (! isset($uploadsData['uploads'])) {
-            return;
-        }
-
-        $seenUploads = $this->uploads ?: [];
-        $hasChanges = false;
-        $candidateUploads = [];
-
-        // Platform flags for the latest version
-        $isWindows = false;
-        $isLinux = false;
-        $isMac = false;
-        $isAndroid = false;
-        $isWeb = false;
-
-        foreach ($uploadsData['uploads'] as $upload) {
-            $fileId = (string) $upload['id'];
-            $currentFilename = $upload['filename'];
-            $currentDisplayName = $upload['display_name'] ?? null;
-            $currentMd5 = $upload['md5_hash'] ?? null;
-            $currentUpdatedAt = $upload['updated_at'];
-            $currentBuildId = $upload['build_id'] ?? null;
-            $currentBuild = $upload['build'] ?? [];
-            $currentUserVersion = $currentBuild['user_version'] ?? null;
-            $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
-
-            // Update platform flags
-            if (isset($upload['traits'])) {
-                if (in_array('p_windows', $upload['traits'])) {
-                    $isWindows = true;
-                }
-                if (in_array('p_linux', $upload['traits'])) {
-                    $isLinux = true;
-                }
-                if (in_array('p_osx', $upload['traits'])) {
-                    $isMac = true;
-                }
-                if (in_array('p_android', $upload['traits'])) {
-                    $isAndroid = true;
-                }
-            }
-            if ($upload['type'] === 'html') {
-                $isWeb = true;
+                return;
             }
 
-            // Check if upload is new or changed
-            $isNewOrChanged = (
-                ! isset($seenUploads[$fileId]) ||
-                $seenUploads[$fileId]['md5_hash'] !== $currentMd5 ||
-                $seenUploads[$fileId]['updated_at'] !== $currentUpdatedAt ||
-                $seenUploads[$fileId]['build_id'] !== $currentBuildId ||
-                $seenUploads[$fileId]['build_updated_at'] !== $currentBuildUpdatedAt
-            );
+            $uploadsData = json_decode($response->getBody()->getContents(), true);
+            if (! isset($uploadsData['uploads'])) {
+                return;
+            }
 
-            if ($isNewOrChanged) {
-                $hasChanges = true;
-                $seenUploads[$fileId] = [
-                    'display_name' => $currentDisplayName,
-                    'md5_hash' => $currentMd5,
-                    'updated_at' => $currentUpdatedAt,
-                    'build_id' => $currentBuildId,
-                    'build_updated_at' => $currentBuildUpdatedAt,
-                    'user_version' => $currentUserVersion,
-                    'filename' => $currentFilename,
+            $seenUploads = $this->uploads ?: [];
+            $hasChanges = false;
+            $candidateUploads = [];
+
+            // Platform flags for the latest version
+            $isWindows = false;
+            $isLinux = false;
+            $isMac = false;
+            $isAndroid = false;
+            $isWeb = false;
+
+            foreach ($uploadsData['uploads'] as $upload) {
+                $fileId = (string) $upload['id'];
+                $currentFilename = $upload['filename'];
+                $currentDisplayName = $upload['display_name'] ?? null;
+                $currentMd5 = $upload['md5_hash'] ?? null;
+                $currentUpdatedAt = $upload['updated_at'];
+                $currentBuildId = $upload['build_id'] ?? null;
+                $currentBuild = $upload['build'] ?? [];
+                $currentUserVersion = $currentBuild['user_version'] ?? null;
+                $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
+
+                // Update platform flags
+                if (isset($upload['traits'])) {
+                    if (in_array('p_windows', $upload['traits'])) {
+                        $isWindows = true;
+                    }
+                    if (in_array('p_linux', $upload['traits'])) {
+                        $isLinux = true;
+                    }
+                    if (in_array('p_osx', $upload['traits'])) {
+                        $isMac = true;
+                    }
+                    if (in_array('p_android', $upload['traits'])) {
+                        $isAndroid = true;
+                    }
+                }
+                if ($upload['type'] === 'html') {
+                    $isWeb = true;
+                }
+
+                // Check if upload is new or changed
+                $isNewOrChanged = (
+                    ! isset($seenUploads[$fileId]) ||
+                    $seenUploads[$fileId]['md5_hash'] !== $currentMd5 ||
+                    $seenUploads[$fileId]['updated_at'] !== $currentUpdatedAt ||
+                    $seenUploads[$fileId]['build_id'] !== $currentBuildId ||
+                    $seenUploads[$fileId]['build_updated_at'] !== $currentBuildUpdatedAt
+                );
+
+                if ($isNewOrChanged) {
+                    $hasChanges = true;
+                    $seenUploads[$fileId] = [
+                        'display_name' => $currentDisplayName,
+                        'md5_hash' => $currentMd5,
+                        'updated_at' => $currentUpdatedAt,
+                        'build_id' => $currentBuildId,
+                        'build_updated_at' => $currentBuildUpdatedAt,
+                        'user_version' => $currentUserVersion,
+                        'filename' => $currentFilename,
+                    ];
+                    $candidateUploads[] = $upload;
+                }
+            }
+
+            $this->uploads = $seenUploads;
+
+            if (! $hasChanges && ! $force) {
+                DB::commit();
+
+                return;
+            }
+
+            // Sort uploads by priority
+            usort($candidateUploads, function ($a, $b) {
+                $criteria = [
+                    'linux' => in_array('p_linux', $a['traits'] ?? []) <=> in_array('p_linux', $b['traits'] ?? []),
+                    'windows' => in_array('p_windows', $a['traits'] ?? []) <=> in_array('p_windows', $b['traits'] ?? []),
+                    'zip' => (strtolower(pathinfo($a['filename'], PATHINFO_EXTENSION)) === 'zip') <=>
+                        (strtolower(pathinfo($b['filename'], PATHINFO_EXTENSION)) === 'zip'),
+                    'date' => strtotime($a['updated_at']) <=> strtotime($b['updated_at']),
+                    'build_date' => strtotime($a['build']['updated_at'] ?? '1970-01-01') <=>
+                        strtotime($b['build']['updated_at'] ?? '1970-01-01'),
                 ];
-                $candidateUploads[] = $upload;
-            }
-        }
 
-        $this->uploads = $seenUploads;
-
-        if (! $hasChanges && ! $force) {
-            return;
-        }
-
-        // Sort uploads by priority
-        usort($candidateUploads, function ($a, $b) {
-            $criteria = [
-                'linux' => in_array('p_linux', $a['traits'] ?? []) <=> in_array('p_linux', $b['traits'] ?? []),
-                'windows' => in_array('p_windows', $a['traits'] ?? []) <=> in_array('p_windows', $b['traits'] ?? []),
-                'zip' => (strtolower(pathinfo($a['filename'], PATHINFO_EXTENSION)) === 'zip') <=>
-                    (strtolower(pathinfo($b['filename'], PATHINFO_EXTENSION)) === 'zip'),
-                'date' => strtotime($a['updated_at']) <=> strtotime($b['updated_at']),
-                'build_date' => strtotime($a['build']['updated_at'] ?? '1970-01-01') <=>
-                    strtotime($b['build']['updated_at'] ?? '1970-01-01'),
-            ];
-
-            foreach ($criteria as $result) {
-                if ($result !== 0) {
-                    return -$result;
+                foreach ($criteria as $result) {
+                    if ($result !== 0) {
+                        return -$result;
+                    }
                 }
+
+                return 0;
+            });
+
+            if (empty($candidateUploads)) {
+                return;
             }
 
-            return 0;
-        });
+            $uploadToProcess = $candidateUploads[0];
+            $newVersion = $this->extractVersion($uploadToProcess);
+            $uploadTimestamp = new DateTime($uploadToProcess['updated_at']);
 
-        if (empty($candidateUploads)) {
-            return;
-        }
+            // Get existing version if any
+            $existingVersion = $this->gameVersions()
+                ->where('is_latest', true)
+                ->where('version', $newVersion)
+                ->first();
 
-        $uploadToProcess = $candidateUploads[0];
-        $newVersion = $this->extractVersion($uploadToProcess);
-        $uploadTimestamp = new DateTime($uploadToProcess['updated_at']);
+            if (! $existingVersion || $force) {
+                // Update the game's info & get rating info
+                sleep(10);
+                $devlogLink = null;
+                $versionRating = null;
+                $versionRatingCount = null;
 
-        // Get existing version if any
-        $existingVersion = $this->gameVersions()
-            ->where('is_latest', true)
-            ->where('version', $newVersion)
-            ->first();
+                // Get devlog link and ratings
+                $this->refreshTagsAndRating($client, $devlogLink, $versionRating, $versionRatingCount);
+                $this->save();
 
-        if (! $existingVersion || $force) {
-            // Update the game's info & get rating info
-            sleep(10);
-            $devlogLink = null;
-            $versionRating = null;
-            $versionRatingCount = null;
+                // Create new version
+                $gameVersion = new GameVersion([
+                    'version' => $newVersion,
+                    'devlog' => $devlogLink,
+                    'is_windows' => $isWindows,
+                    'is_linux' => $isLinux,
+                    'is_mac' => $isMac,
+                    'is_android' => $isAndroid,
+                    'is_web' => $isWeb,
+                    'published_at' => $uploadTimestamp,
+                    'rating' => $versionRating,
+                    'rating_count' => $versionRatingCount,
+                    'is_latest' => true,
+                ]);
 
-            // Get devlog link and ratings
-            $this->refreshTagsAndRating($client, $devlogLink, $versionRating, $versionRatingCount);
+                $this->gameVersions()->save($gameVersion);
 
-            // Create new version
-            $gameVersion = new GameVersion([
-                'version' => $newVersion,
-                'devlog' => $devlogLink,
-                'is_windows' => $isWindows,
-                'is_linux' => $isLinux,
-                'is_mac' => $isMac,
-                'is_android' => $isAndroid,
-                'is_web' => $isWeb,
-                'published_at' => $uploadTimestamp,
-                'rating' => $versionRating,
-                'rating_count' => $versionRatingCount,
-                'is_latest' => true,
-            ]);
+                // Process statistics if it's a Ren'Py game
+                if ($this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
+                    try {
+                        $statsService = app(GameStatsService::class);
+                        $stats = $statsService->getUploadStats($this->url, $uploadToProcess['filename'], $uploadToProcess['id']);
 
-            $this->gameVersions()->save($gameVersion);
+                        if ($stats) {
+                            $this->game_engine = "Ren'Py";
+                            $this->save();
+                            $statsService->saveVersionStats($gameVersion, $stats);
+                        } else {
+                            // If stats extraction failed, create empty English stats
+                            $versionStats = new VersionLanguageStats([
+                                'iso_code' => 'eng',
+                            ]);
+                            $gameVersion->languageStats()->save($versionStats);
+                        }
+                    } catch (Exception $e) {
+                        Log::error('Failed to extract game stats', [
+                            'game_id' => $this->id,
+                            'version' => $newVersion,
+                            'error' => $e->getMessage(),
+                        ]);
 
-            // Process statistics if it's a Ren'Py game
-            if ($this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
-                try {
-                    /** @var GameStatsService $statsService */
-                    $statsService = app(GameStatsService::class);
-
-                    $stats = $statsService->getUploadStats($this->url, $uploadToProcess['filename'], $uploadToProcess['id']);
-                    if ($stats) {
-                        $this->game_engine = "Ren'Py";
-                        $statsService->saveVersionStats($gameVersion, $stats);
-                    } else {
-                        // If stats extraction failed, create empty English stats
+                        // Create empty English stats on failure
                         $versionStats = new VersionLanguageStats([
                             'iso_code' => 'eng',
                         ]);
                         $gameVersion->languageStats()->save($versionStats);
                     }
-                } catch (Exception $e) {
-                    Log::error('Failed to extract game stats', [
-                        'game_id' => $this->id,
-                        'version' => $newVersion,
-                        'error' => $e->getMessage(),
-                    ]);
-
-                    // Create empty English stats on failure
-                    $versionStats = new VersionLanguageStats([
-                        'iso_code' => 'eng',
-                    ]);
-                    $gameVersion->languageStats()->save($versionStats);
                 }
             }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
     }
 

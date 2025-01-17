@@ -11,8 +11,11 @@ use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use Exception;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use ZipArchive;
@@ -105,8 +108,13 @@ readonly class GameStatsService
                 throw new RuntimeException('Could not find game launcher');
             }
 
-            // Make launcher executable
-            chmod($launcher, 0755);
+            // Make files executable
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($extractPath), RecursiveIteratorIterator::SELF_FIRST);
+            foreach ($iterator as $file) {
+                if (! is_executable($file->getPathname())) {
+                    chmod($file->getPathname(), 0755);
+                }
+            }
 
             // Execute the script analysis
             $process = new Process([$launcher, 'game', 'test'], $gameDir);
@@ -146,35 +154,46 @@ readonly class GameStatsService
 
     /**
      * Save language and character statistics for a game version
+     *
+     * @throws Exception
      */
     public function saveVersionStats(GameVersion $version, array $stats): void
     {
-        foreach ($stats['languages'] as $langKey => $langData) {
-            // Create language stats record
-            $versionStats = new VersionLanguageStats([
-                'game_version_id' => $version->id,
-                'iso_code' => $this->mapLanguageCode($langKey),
-                'blocks' => $langData['blocks'] ?? null,
-                'words' => $langData['words'] ?? null,
-                'menus' => $langData['menus'] ?? null,
-                'options' => $langData['options'] ?? null,
-            ]);
-            $versionStats->save();
+        DB::beginTransaction();
 
-            // Process character stats if available
-            if (isset($langData['characters'])) {
-                foreach ($langData['characters'] as $charId => $charData) {
-                    $charStats = new VersionCharacterStats([
-                        'game_version_id' => $version->id,
-                        'iso_code' => $versionStats->iso_code,
-                        'character_id' => $charId,
-                        'display_name' => $charData['display_name'] ?? $charId,
-                        'blocks' => $charData['blocks'] ?? 0,
-                        'words' => $charData['words'] ?? 0,
-                    ]);
-                    $charStats->save();
+        try {
+            foreach ($stats['languages'] as $langKey => $langData) {
+                // Create language stats record
+                $versionStats = new VersionLanguageStats([
+                    'game_version_id' => $version->id,
+                    'iso_code' => $this->mapLanguageCode($langKey),
+                    'blocks' => $langData['blocks'] ?? null,
+                    'words' => $langData['words'] ?? null,
+                    'menus' => $langData['menus'] ?? null,
+                    'options' => $langData['options'] ?? null,
+                ]);
+                $versionStats->save();
+
+                // Process character stats if available
+                if (isset($langData['characters'])) {
+                    foreach ($langData['characters'] as $charId => $charData) {
+                        $charStats = new VersionCharacterStats([
+                            'game_version_id' => $version->id,
+                            'iso_code' => $versionStats->iso_code,
+                            'character_id' => $charId,
+                            'display_name' => $charData['display_name'] ?? $charId,
+                            'blocks' => $charData['blocks'] ?? 0,
+                            'words' => $charData['words'] ?? 0,
+                        ]);
+                        $charStats->save();
+                    }
                 }
             }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
     }
 
