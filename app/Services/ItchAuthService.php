@@ -1,0 +1,178 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use DOMDocument;
+use DOMXPath;
+use Exception;
+use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Cookie\SetCookie;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
+
+class ItchAuthService
+{
+    private const string CACHE_KEY = 'itch_cookies';
+
+    private Client $client;
+    private CookieJar $cookieJar;
+
+    public function __construct()
+    {
+        $this->cookieJar = new CookieJar;
+        $this->client = new Client([
+            'cookies' => $this->cookieJar,
+            'timeout' => 30,
+            'connect_timeout' => 5,
+        ]);
+    }
+
+    /**
+     * Get an authenticated HTTP client for itch.io requests
+     *
+     * @throws RuntimeException If authentication fails
+     */
+    public function getClient(): Client
+    {
+        if (! $this->ensureAuthenticated()) {
+            throw new RuntimeException('Failed to authenticate with itch.io');
+        }
+
+        return $this->client;
+    }
+
+    /**
+     * Extract the itch.io game ID from a game page URL
+     *
+     * @throws RuntimeException|\GuzzleHttp\Exception\GuzzleException If the game ID cannot be found
+     */
+    public function getGameId(string $url): int
+    {
+        $response = $this->client->get($url);
+        $html = $response->getBody()->getContents();
+
+        $doc = new DOMDocument;
+        @$doc->loadHTML($html);
+
+        $metas = $doc->getElementsByTagName('meta');
+        foreach ($metas as $meta) {
+            if ($meta->getAttribute('name') === 'itch:path') {
+                return (int) basename($meta->getAttribute('content'));
+            }
+        }
+
+        throw new RuntimeException("Could not find game ID for URL: {$url}");
+    }
+
+    /**
+     * Ensure we have a valid authenticated session
+     */
+    private function ensureAuthenticated(): bool
+    {
+        try {
+            // Try to use cached session first
+            $cookies = Cache::get(self::CACHE_KEY);
+            if ($cookies) {
+                foreach ($cookies as $cookieData) {
+                    $cookie = new SetCookie($cookieData);
+                    $this->cookieJar->setCookie($cookie);
+                }
+
+                // Verify session is still valid
+                $response = $this->client->get('https://itch.io/dashboard', ['allow_redirects' => false]);
+                if ($response->getStatusCode() === 200) {
+                    return true;
+                }
+
+                // Clear invalid cached cookies
+                Cache::forget(self::CACHE_KEY);
+            }
+
+            // Get login page and extract form data
+            $response = $this->client->get('https://itch.io/login');
+            $html = $response->getBody()->getContents();
+            $formData = $this->getLoginFormData($html);
+
+            // Perform login
+            $response = $this->client->post('https://itch.io/login', [
+                'form_params' => $formData,
+                'headers' => [
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                    'Origin' => 'https://itch.io',
+                    'Referer' => 'https://itch.io/login',
+                ],
+                'allow_redirects' => false,
+            ]);
+
+            // Check for successful login
+            if ($response->getStatusCode() === 302) {
+                // Follow redirect to verify login
+                $redirectUrl = $response->getHeader('Location')[0];
+                $response = $this->client->get($redirectUrl);
+
+                if ($response->getStatusCode() === 200) {
+                    // Cache cookies for future use
+                    Cache::put(self::CACHE_KEY, $this->cookieJar->toArray(), now()->addWeek());
+
+                    return true;
+                }
+            }
+
+            Log::error('Itch.io login failed', [
+                'status_code' => $response->getStatusCode(),
+                'body' => $response->getBody()->getContents(),
+            ]);
+
+            return false;
+        } catch (Exception $e) {
+            Log::error('Itch.io authentication error', ['exception' => $e]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Extract and prepare login form data from the login page HTML
+     *
+     * @throws RuntimeException If the login form cannot be found or parsed
+     */
+    private function getLoginFormData(string $html): array
+    {
+        $doc = new DOMDocument;
+        @$doc->loadHTML($html, LIBXML_NOERROR);
+        $xpath = new DOMXPath($doc);
+
+        // Find the login form specifically
+        $loginForm = $xpath->query("//div[contains(@class, 'login_form_widget')]//form[@class='form']")[0];
+        if (! $loginForm) {
+            throw new RuntimeException('Could not find login form');
+        }
+
+        // Get all input fields from this specific form
+        $formData = [];
+        $inputs = $xpath->query('.//input', $loginForm);
+        foreach ($inputs as $input) {
+            $name = $input->getAttribute('name');
+            $value = $input->getAttribute('value');
+            if ($name) {
+                $formData[$name] = $value;
+            }
+        }
+
+        // Add credentials
+        $formData['username'] = config('services.itch.username');
+        $formData['password'] = config('services.itch.password');
+
+        // Ensure we have the timezone offset
+        if (! isset($formData['tz'])) {
+            $formData['tz'] = date('Z') / 60; // Convert seconds to minutes
+        }
+
+        return $formData;
+    }
+}

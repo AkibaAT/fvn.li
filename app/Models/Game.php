@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 class Game extends Model
 {
     protected $fillable = [
+        'game_id',
         'slug',
         'name',
         'status',
