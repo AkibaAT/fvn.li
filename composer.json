@@ -29,6 +29,8 @@
         "laravel/pint": "^1.19",
         "mockery/mockery": "*",
         "nunomaduro/collision": "*",
+        "pestphp/pest": "^3.7",
+        "pestphp/pest-plugin-laravel": "^3.0",
         "phpunit/phpunit": "*",
         "spatie/laravel-ignition": "*",
         "tightenco/duster": "*"
@@ -58,7 +60,8 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi"
-        ]
+        ],
+        "test": "./vendor/bin/pest"
     },
     "extra": {
         "laravel": {

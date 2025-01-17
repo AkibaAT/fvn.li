@@ -537,13 +537,13 @@ class Game extends Model
         // Check display_name (high priority)
         if (! empty($upload['display_name'])) {
             // Look for explicit version
-            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*[a-zA-Z]?)/', $upload['display_name'], $matches)) {
+            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*)(?:[a-zA-Z][a-z]*)?/', $upload['display_name'], $matches)) {
                 if ($this->isProbableVersion($matches[1])) {
                     $candidates[] = [$matches[1], 2];
                 }
             } else {
                 // Look for other version patterns
-                preg_match_all('/(?:[vV](?:ersion)?)?(\d+(?:\.\d+)*[a-zA-Z]?)(?=[-\s._)]|$)/',
+                preg_match_all('/(?:[vV](?:ersion)?)?(\d+(?:\.\d+)*)(?:[a-zA-Z][a-z]*)?(?=[-\s._)]|$)/',
                     $upload['display_name'], $matches);
                 foreach ($matches[1] as $version) {
                     if ($this->isProbableVersion($version)) {
@@ -564,7 +564,7 @@ class Game extends Model
             }
         } else {
             // Look for version patterns in filename
-            preg_match_all('/(?:[vV](?:ersion)?)?(\d+(?:\.\d+)*[a-zA-Z]?)(?=[-\s._)]|$)/',
+            preg_match_all('/(?:[vV](?:ersion)?)?(\d+(?:\.\d+)*)(?:[a-zA-Z][a-z]*)?(?=[-\s._)]|$)/',
                 $cleanedFilename, $matches);
             foreach ($matches[1] as $version) {
                 if ($this->isProbableVersion($version)) {
