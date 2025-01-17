@@ -84,11 +84,6 @@ class UpdateWatchlist extends Command
         foreach ($games as $collectionEntry) {
             $gameData = $collectionEntry['game'];
             $this->processCollectionGame($client, $gameData);
-
-            if (! empty($games[$this->processedGames + 1])) {
-                $this->info('Waiting 10 seconds between games...');
-                sleep(10);
-            }
         }
 
         return true;
