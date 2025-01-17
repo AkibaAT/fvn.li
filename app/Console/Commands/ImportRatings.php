@@ -94,7 +94,7 @@ class ImportRatings extends Command
             // Get user info
             $userLink = $review->querySelector('a.event_source_user');
             $userName = $userLink->textContent;
-            $userUsername = basename($userLink->getAttribute('href'), '.html');
+            $userUsername = basename(explode('.', $userLink->getAttribute('href'))[0]);
 
             // Get event timing
             $eventTime = $review->querySelector('a.event_time');

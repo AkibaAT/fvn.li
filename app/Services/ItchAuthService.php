@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use DOMDocument;
-use DOMXPath;
+use Dom\HTMLDocument;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
@@ -55,17 +54,14 @@ class ItchAuthService
         $response = $this->client->get($url);
         $html = $response->getBody()->getContents();
 
-        $doc = new DOMDocument;
-        @$doc->loadHTML($html);
+        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $meta = $doc->querySelector('meta[name="itch:path"]');
 
-        $metas = $doc->getElementsByTagName('meta');
-        foreach ($metas as $meta) {
-            if ($meta->getAttribute('name') === 'itch:path') {
-                return (int) basename($meta->getAttribute('content'));
-            }
+        if (! $meta) {
+            throw new RuntimeException("Could not find game ID for URL: {$url}");
         }
 
-        throw new RuntimeException("Could not find game ID for URL: {$url}");
+        return (int) basename($meta->getAttribute('content'));
     }
 
     /**
@@ -143,20 +139,17 @@ class ItchAuthService
      */
     private function getLoginFormData(string $html): array
     {
-        $doc = new DOMDocument;
-        @$doc->loadHTML($html, LIBXML_NOERROR);
-        $xpath = new DOMXPath($doc);
+        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
         // Find the login form specifically
-        $loginForm = $xpath->query("//div[contains(@class, 'login_form_widget')]//form[@class='form']")[0];
+        $loginForm = $doc->querySelector('div.login_form_widget form.form');
         if (! $loginForm) {
             throw new RuntimeException('Could not find login form');
         }
 
         // Get all input fields from this specific form
         $formData = [];
-        $inputs = $xpath->query('.//input', $loginForm);
-        foreach ($inputs as $input) {
+        foreach ($loginForm->querySelectorAll('input') as $input) {
             $name = $input->getAttribute('name');
             $value = $input->getAttribute('value');
             if ($name) {
@@ -167,11 +160,6 @@ class ItchAuthService
         // Add credentials
         $formData['username'] = config('services.itch.username');
         $formData['password'] = config('services.itch.password');
-
-        // Ensure we have the timezone offset
-        if (! isset($formData['tz'])) {
-            $formData['tz'] = date('Z') / 60; // Convert seconds to minutes
-        }
 
         return $formData;
     }
