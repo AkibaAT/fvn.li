@@ -10,6 +10,7 @@
     "require": {
         "php": "^8.4",
         "ext-dom": "*",
+        "ext-libxml": "*",
         "blade-ui-kit/blade-heroicons": "^2.5",
         "guzzlehttp/guzzle": "*",
         "itsgoingd/clockwork": "*",

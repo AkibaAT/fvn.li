@@ -10,8 +10,7 @@ use App\Models\Rating;
 use App\Services\ItchAuthService;
 use DateMalformedStringException;
 use DateTime;
-use DOMDocument;
-use DOMXPath;
+use Dom\HTMLDocument;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -83,45 +82,42 @@ class ImportRatings extends Command
             return null;
         }
 
-        $doc = new DOMDocument;
-        @$doc->loadHTML($events['content']);
+        $doc = HTMLDocument::createFromString($events['content'], LIBXML_NOERROR);
 
-        $xpath = new DOMXPath($doc);
-        $reviews = $xpath->query("//div[contains(@class, 'event_row')]");
+        // Process each review
+        foreach ($doc->querySelectorAll('div.event_row') as $review) {
+            // Extract user ID from script
+            $script = $review->querySelector('script[type="text/javascript"]');
+            preg_match('/user_id.*:(\d+)/', $script->textContent, $matches);
+            $userId = (int) $matches[1];
 
-        foreach ($reviews as $review) {
-            $userId = null;
-            $scripts = $xpath->query(".//script[@type='text/javascript']", $review);
-            foreach ($scripts as $script) {
-                if (preg_match('/user_id.*:(\d+)/', $script->textContent, $matches)) {
-                    $userId = (int) $matches[1];
-                    break;
-                }
-            }
+            // Get user info
+            $userLink = $review->querySelector('a.event_source_user');
+            $userName = $userLink->textContent;
+            $userUsername = basename($userLink->getAttribute('href'), '.html');
 
-            $userName = $xpath->query(".//a[@data-label='event_user' and @class='event_source_user']", $review)[0]->textContent;
-            $userUsername = basename(
-                explode(
-                    '.',
-                    $xpath->query(".//a[@data-label='event_user' and @class='event_source_user']", $review)[0]->getAttribute('href')
-                )[0]
-            );
-
-            $eventTime = $xpath->query(".//a[contains(@class, 'event_time')]", $review)[0];
+            // Get event timing
+            $eventTime = $review->querySelector('a.event_time');
             $eventId = (int) basename($eventTime->getAttribute('href'));
             $updatedAt = new DateTime($eventTime->getAttribute('title'));
 
-            $gameInfo = $xpath->query(".//a[contains(@class, 'object_title')]", $review)[0];
-            $gameName = $gameInfo->textContent;
-            $gameUrl = $gameInfo->getAttribute('href');
+            // Get game info
+            $gameLink = $review->querySelector('a.object_title');
+            $gameName = $gameLink->textContent;
+            $gameUrl = $gameLink->getAttribute('href');
 
-            $gameCell = $xpath->query(".//div[contains(@class, 'game_cell')]", $review)[0] ?? null;
-            $gameId = $gameCell ? (int) $gameCell->getAttribute('data-game_id') : $this->authService->getGameId($gameUrl);
+            // Get game ID (either from game cell or by fetching)
+            $gameCell = $review->querySelector('div.game_cell');
+            $gameId = $gameCell
+                ? (int) $gameCell->getAttribute('data-game_id')
+                : $this->authService->getGameId($gameUrl);
 
-            $rating = count($xpath->query(".//span[contains(@class, 'icon-star')]", $review));
+            // Count star rating (exact class match)
+            $rating = count($review->querySelectorAll('span.icon-star'));
 
-            $ratingBlurb = $xpath->query(".//div[contains(@class, 'rating_blurb')]", $review)[0] ?? null;
-            $reviewText = $ratingBlurb ? trim($ratingBlurb->textContent) : '';
+            // Get review text if present
+            $ratingBlurb = $review->querySelector('div.rating_blurb');
+            $reviewText = $ratingBlurb ? $ratingBlurb->ownerDocument->saveHTML($ratingBlurb) : '';
 
             $this->processRating(
                 $eventId,
