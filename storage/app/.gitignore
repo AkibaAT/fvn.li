@@ -1,3 +1,4 @@
 *
 !public/
+!temp/.gitkeep
 !.gitignore
