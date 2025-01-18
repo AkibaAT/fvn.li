@@ -42,7 +42,7 @@ class DiscordBotController extends Controller
             'games' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->version,
-                'published_at' => $game->published_at?->timestamp,
+                'published_at' => $game->published_at,
                 'url' => $game->url,
             ]),
         ]);
