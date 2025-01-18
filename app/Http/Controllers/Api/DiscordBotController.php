@@ -34,7 +34,7 @@ class DiscordBotController extends Controller
             'games' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
-                'published_at' => $game->latestVersion?->published_at ? strtotime($game->latestVersion->published_at) : null,
+                'published_at' => $game->latestVersion?->published_at ? $game->latestVersion->published_at->timestamp : null,
                 'url' => $game->url,
             ]),
         ]);
@@ -64,7 +64,7 @@ class DiscordBotController extends Controller
             'updates' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
-                'published_at' => $game->latestVersion?->published_at ? strtotime($game->latestVersion->published_at) : null,
+                'published_at' => $game->latestVersion?->published_at ? $game->latestVersion->published_at->timestamp : null,
                 'url' => $game->url,
                 'devlog' => $game->latestVersion?->devlog,
             ]),
