@@ -24,25 +24,17 @@ class DiscordBotController extends Controller
         }
 
         $games = Game::query()
-            ->select([
-                'games.*',
-                'game_versions.version',
-                'game_versions.published_at',
-            ])
-            ->join('game_versions', function ($join) {
-                $join->on('games.id', '=', 'game_versions.game_id')
-                    ->where('game_versions.is_latest', true);
-            })
-            ->where('games.is_visible', true)
-            ->where('games.name', 'ilike', "%{$request->input('name')}%")
+            ->with('latestVersion')
+            ->where('is_visible', true)
+            ->where('name', 'ilike', "%{$request->input('name')}%")
             ->get();
 
         return response()->json([
             'matches' => $games->count(),
             'games' => $games->map(fn ($game) => [
                 'name' => $game->name,
-                'version' => $game->version,
-                'published_at' => $game->published_at,
+                'version' => $game->latestVersion?->version,
+                'published_at' => $game->latestVersion?->published_at ? strtotime($game->latestVersion->published_at) : null,
                 'url' => $game->url,
             ]),
         ]);
@@ -60,29 +52,21 @@ class DiscordBotController extends Controller
         }
 
         $games = Game::query()
-            ->select([
-                'games.name',
-                'games.url',
-                'game_versions.version',
-                'game_versions.published_at',
-                'game_versions.devlog',
-            ])
-            ->join('game_versions', function ($join) {
-                $join->on('games.id', '=', 'game_versions.game_id')
-                    ->where('game_versions.is_latest', true);
+            ->with('latestVersion')
+            ->where('is_visible', true)
+            ->whereHas('latestVersion', function ($query) use ($request) {
+                $query->where('created_at', '>', $request->input('after'));
             })
-            ->where('games.is_visible', true)
-            ->where('game_versions.created_at', '>', $request->input('after'))
-            ->orderBy('games.name')
+            ->orderBy('name')
             ->get();
 
         return response()->json([
             'updates' => $games->map(fn ($game) => [
                 'name' => $game->name,
-                'version' => $game->version,
-                'published_at' => $game->published_at?->timestamp,
+                'version' => $game->latestVersion?->version,
+                'published_at' => $game->latestVersion?->published_at ? strtotime($game->latestVersion->published_at) : null,
                 'url' => $game->url,
-                'devlog' => $game->devlog,
+                'devlog' => $game->latestVersion?->devlog,
             ]),
         ]);
     }
