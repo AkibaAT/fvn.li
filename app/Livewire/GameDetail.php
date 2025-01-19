@@ -93,8 +93,17 @@ class GameDetail extends Component
 
         // Paginate game versions
         $versions = $this->game->gameVersions()
-            ->with(['languageStats.language'])
+            ->with(['languageStats' => function ($query) {
+                $query->whereHas('language')
+                    ->where('iso_code', 'not like', 'q%');
+            }, 'languageStats.language'])
             ->paginate($this->versionsPerPage, pageName: 'versionsPage');
+
+        $latestVersion = $this->game->latestVersion;
+        $languageStats = $latestVersion?->languageStats
+            ->whereNotNull('language')
+            ->where(fn ($stat) => ! str_starts_with($stat->iso_code, 'q'))
+            ?? collect();
 
         $metaTags = $this->getMetaTags();
         app('view')->share('metaTags', $metaTags);
@@ -118,7 +127,7 @@ class GameDetail extends Component
             'ratingCount' => $latestVersion?->rating_count,
             'devlog' => $latestVersion?->devlog,
             'englishStats' => $latestVersion?->getStatsForLanguage('eng'),
-            'languageStats' => $latestVersion?->languageStats ?? collect(),
+            'languageStats' => $languageStats,
             'metaTags' => $this->getMetaTags(),
             'availableRatings' => $availableRatings,
         ]);

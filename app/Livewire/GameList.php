@@ -368,6 +368,7 @@ class GameList extends Component
                         ->whereColumn('version_language_stats.iso_code', 'iso_639_3_languages.id')
                         ->limit(1);
                 })
+                ->where('id', 'not like', 'q%')  // Exclude placeholder codes
                 ->orderBy('ref_name')
                 ->get()
                 ->mapWithKeys(fn ($lang) => [$lang->id => ['ref_name' => $lang->ref_name, 'flag_code' => $lang->flag_code]])

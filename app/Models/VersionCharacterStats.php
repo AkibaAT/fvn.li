@@ -11,11 +11,15 @@ class VersionCharacterStats extends Model
 {
     protected $fillable = [
         'game_version_id',
-        'iso_code',
         'character_id',
-        'display_name',
+        'iso_code',
         'blocks',
         'words',
+    ];
+
+    protected $casts = [
+        'blocks' => 'integer',
+        'words' => 'integer',
     ];
 
     public function gameVersion(): BelongsTo
@@ -23,8 +27,8 @@ class VersionCharacterStats extends Model
         return $this->belongsTo(GameVersion::class);
     }
 
-    public function language(): BelongsTo
+    public function character(): BelongsTo
     {
-        return $this->belongsTo(Language::class, 'iso_code', 'id');
+        return $this->belongsTo(Character::class);
     }
 }

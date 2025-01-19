@@ -84,11 +84,16 @@ class Game extends Model
     {
         if ($this->relationLoaded('latestVersion') &&
             $this->latestVersion?->relationLoaded('languageStats')) {
-            return $this->latestVersion->languageStats->map(fn ($stat) => [
-                'iso_code' => $stat->iso_code,
-                'ref_name' => $stat->language->ref_name,
-                'flag_code' => $stat->language->flag_code,
-            ])->collect();
+            return $this->latestVersion->languageStats
+                ->whereNotNull('language')  // Exclude stats without valid language records
+                ->where(function ($stat) {
+                    return ! str_starts_with($stat->iso_code, 'q');  // Exclude placeholder codes
+                })
+                ->map(fn ($stat) => [
+                    'iso_code' => $stat->iso_code,
+                    'ref_name' => $stat->language->ref_name,
+                    'flag_code' => $stat->language->flag_code,
+                ])->collect();
         }
 
         return collect();
@@ -442,6 +447,30 @@ class Game extends Model
             $this->error = $exception->getMessage();
             throw $exception;
         }
+    }
+
+    /**
+     * Get all characters for this game.
+     */
+    public function characters(): HasMany
+    {
+        return $this->hasMany(Character::class)->orderBy('character_id');
+    }
+
+    /**
+     * Get main characters (excluding those with unspecified names).
+     */
+    public function mainCharacters(): HasMany
+    {
+        return $this->characters()->where('character_id', 'not like', '%q');
+    }
+
+    /**
+     * Get the character stats for the latest version in a specific language.
+     */
+    public function getLatestCharacterStats(string $isoCode): Collection
+    {
+        return $this->latestVersion?->getCharacterStatsForLanguage($isoCode) ?? collect();
     }
 
     protected function devlog(): Attribute

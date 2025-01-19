@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Character;
 use App\Models\GameVersion;
 use App\Models\Language;
 use App\Models\LanguageMapping;
@@ -104,7 +105,10 @@ readonly class GameStatsService
             }
 
             // Make files executable
-            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($extractPath), RecursiveIteratorIterator::SELF_FIRST);
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($extractPath),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
             foreach ($iterator as $file) {
                 if (! is_executable($file->getPathname())) {
                     chmod($file->getPathname(), 0755);
@@ -160,8 +164,14 @@ readonly class GameStatsService
             foreach ($stats['languages'] as $langKey => $langData) {
                 $isoCode = $langKey === 'default' ? $defaultLanguage : $this->mapLanguageCode($langKey);
 
+                if (! $isoCode) {
+                    Log::warning("Skipping language {$langKey} - could not determine ISO code");
+
+                    continue;
+                }
+
                 // Upsert language stats record
-                $versionStats = VersionLanguageStats::updateOrCreate(
+                VersionLanguageStats::updateOrCreate(
                     [
                         'game_version_id' => $version->id,
                         'iso_code' => $isoCode,
@@ -177,14 +187,38 @@ readonly class GameStatsService
                 // Process character stats if available
                 if (isset($langData['characters'])) {
                     foreach ($langData['characters'] as $charId => $charData) {
+                        // Get or create character record
+                        $character = Character::firstOrNew([
+                            'game_id' => $version->game_id,
+                            'character_id' => $charId,
+                        ]);
+
+                        // Update display names
+                        $displayNames = $character->exists ? $character->display_names : [];
+                        $displayNames[$isoCode] = $charData['display_name'] ?? $charId;
+                        $character->display_names = $displayNames;
+                        $character->save();
+
+                        // Update version tracking
+                        if (! $character->first_seen_in_version_id ||
+                            $version->published_at < $character->firstSeenVersion->published_at) {
+                            $character->first_seen_in_version_id = $version->id;
+                            $character->save();
+                        }
+                        if (! $character->last_seen_in_version_id ||
+                            $version->published_at > $character->lastSeenVersion->published_at) {
+                            $character->last_seen_in_version_id = $version->id;
+                            $character->save();
+                        }
+
+                        // Create character version stats
                         VersionCharacterStats::updateOrCreate(
                             [
                                 'game_version_id' => $version->id,
-                                'iso_code' => $versionStats->iso_code,
-                                'character_id' => $charId,
+                                'character_id' => $character->id,
+                                'iso_code' => $isoCode,
                             ],
                             [
-                                'display_name' => $charData['display_name'] ?? $charId,
                                 'blocks' => $charData['blocks'] ?? 0,
                                 'words' => $charData['words'] ?? 0,
                             ]

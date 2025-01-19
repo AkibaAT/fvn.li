@@ -44,7 +44,7 @@ class Language extends Model
         return strtolower(substr($this->id, 0, 2));
     }
 
-    public function games()
+    public function games(): HasMany
     {
         return $this->hasMany(Game::class, 'default_language_code', 'id');
     }

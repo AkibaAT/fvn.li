@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class GameVersion extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'published_at',
         'game_id',
@@ -23,12 +22,9 @@ class GameVersion extends Model
         'is_mac',
         'is_android',
         'is_web',
-        'stats_blocks',
-        'stats_menus',
-        'stats_options',
-        'stats_words',
         'rating',
         'rating_count',
+        'is_latest',
     ];
 
     protected $casts = [
@@ -40,6 +36,7 @@ class GameVersion extends Model
         'is_web' => 'boolean',
         'rating' => 'float',
         'rating_count' => 'integer',
+        'is_latest' => 'boolean',
     ];
 
     public function game(): BelongsTo
@@ -52,6 +49,12 @@ class GameVersion extends Model
         return $this->hasMany(VersionCharacterStats::class);
     }
 
+    public function characters(): BelongsToMany
+    {
+        return $this->belongsToMany(Character::class, 'version_character_stats')
+            ->withPivot(['iso_code', 'blocks', 'words']);
+    }
+
     public function getStatsForLanguage(string $isoCode)
     {
         return $this->languageStats()
@@ -62,5 +65,12 @@ class GameVersion extends Model
     public function languageStats(): HasMany
     {
         return $this->hasMany(VersionLanguageStats::class);
+    }
+
+    public function getCharacterStatsForLanguage(string $isoCode): Collection
+    {
+        return $this->characterStats()
+            ->where('iso_code', $isoCode)
+            ->get();
     }
 }

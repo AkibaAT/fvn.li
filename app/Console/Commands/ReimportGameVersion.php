@@ -18,7 +18,8 @@ class ReimportGameVersion extends Command
     protected $signature = 'game:reimport-version
         {game_id : Game ID in the database}
         {version : Version string to reimport}
-        {archive : Path to the game archive}';
+        {archive : Path to the game archive}
+        {--timestamp= : Timestamp for published_at (required for new versions, format: YYYY-MM-DD HH:mm:ss)}';
 
     protected $description = 'Reimport version statistics from a local game archive';
 
@@ -35,6 +36,7 @@ class ReimportGameVersion extends Command
         $gameId = $this->argument('game_id');
         $versionString = $this->argument('version');
         $archivePath = $this->argument('archive');
+        $timestamp = $this->option('timestamp');
 
         $this->info("Starting version reimport for Game #{$gameId}, Version: {$versionString}");
 
@@ -56,16 +58,39 @@ class ReimportGameVersion extends Command
                     'version' => $versionString,
                 ]);
 
+                // For new versions, timestamp is required
+                if (! $version->exists && ! $timestamp) {
+                    $this->error('Timestamp is required for new versions');
+
+                    return 1;
+                }
+
+                // Parse timestamp if provided
+                $publishedAt = null;
+                if ($timestamp) {
+                    try {
+                        $publishedAt = new DateTime($timestamp);
+                    } catch (Exception $e) {
+                        $this->error('Invalid timestamp format. Use YYYY-MM-DD HH:mm:ss');
+
+                        return 1;
+                    }
+                }
+
                 // If this is a new version, we need some basic metadata
                 if (! $version->exists) {
                     $this->info('Creating new version record');
                     $version->fill([
-                        'published_at' => new DateTime,
+                        'published_at' => $publishedAt,
                         'is_latest' => false, // Don't change latest version status
                     ]);
                     $version->save();
                 } else {
                     $this->info('Updating existing version record');
+                    if ($publishedAt) {
+                        $version->published_at = $publishedAt;
+                        $version->save();
+                    }
                 }
 
                 // Extract and process statistics
