@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Traits\HasSocialMetaTags;
 use Illuminate\View\View;
@@ -28,6 +29,10 @@ class GameDetail extends Component
     public string|int $versionsPerPage = 5;
 
     public string|int $reviewsPerPage = 5;
+
+    public ?array $characterStats = null;
+
+    public ?int $selectedVersionId = null;
 
     protected array $validPerPageValues = [5, 10, 25];
 
@@ -199,6 +204,29 @@ class GameDetail extends Component
             'description' => $description,
             'image' => $this->game->thumb_url ?: asset('favicon.ico'),
         ];
+    }
+
+    public function showCharacterStats(int $versionId): void
+    {
+        $this->selectedVersionId = $versionId;
+
+        // Load character stats only when requested
+        $stats = GameVersion::find($versionId)
+            ->characterStats()
+            ->where('iso_code', 'not like', 'q%')
+            ->with(['character', 'language'])
+            ->get()
+            ->sortBy('character_id');
+
+        $this->characterStats = $stats->map(fn ($stat) => [
+            'character_name' => $stat->character->getDisplayName($this->game->source_language_id) ?? $stat->character_id,
+            'language_name' => $stat->language->ref_name,
+            'language_flag' => $stat->language->flag_code,
+            'words' => $stat->words,
+            'blocks' => $stat->blocks,
+        ])->all();
+
+        $this->dispatch('open-dialog', dialogId: "character-stats-{$versionId}");
     }
 
     protected function normalizePerPage(string $property): void

@@ -99,6 +99,7 @@
                             'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
                             'Current Version' => $latestVersion?->version,
                             'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
+                            'Characters' => $game->characters()->count() ?: '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
                         ] as $label => $value)
@@ -226,7 +227,85 @@
                                     </div>
                                 </div>
                             </div>
+                            @if ($version->characterStatsWithoutPlaceholders()->distinct('character_id')->count() > 0)
+                                <button
+                                    wire:click="showCharacterStats({{ $version->id }})"
+                                    class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                >
+                                    View {{ $version->characterStatsWithoutPlaceholders()->distinct('character_id')->count() }} Characters
+                                </button>
+                            @endif
                         </div>
+
+                        <!-- Character Stats Dialog -->
+                        <!-- Character Stats Dialog -->
+                        <dialog
+                            wire:ignore.self
+                            id="character-stats-{{ $version->id }}"
+                            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-4xl dark:text-gray-100 backdrop:backdrop-blur-md"
+                        >
+                            <x-dialog-header title="Character Statistics"/>
+
+                            @if ($selectedVersionId === $version->id && $characterStats)
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                                            <th class="text-left py-2 px-3 font-medium">Character</th>
+                                            <th class="text-left py-2 px-3 font-medium">Language</th>
+                                            <th class="text-right py-2 px-3 font-medium">Words</th>
+                                            <th class="text-right py-2 px-3 font-medium">Blocks</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        @foreach ($characterStats as $stat)
+                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                                <td class="py-2 px-3">{{ $stat['character_name'] }}</td>
+                                                <td class="py-2 px-3">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="fi fi-{{ $stat['language_flag'] }} rounded-sm"></span>
+                                                        <span>{{ $stat['language_name'] }}</span>
+                                                    </div>
+                                                </td>
+                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($stat['words']) }}</td>
+                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($stat['blocks']) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        </tbody>
+                                        <tfoot class="border-t border-gray-200 dark:border-gray-700 font-medium">
+                                        @php
+                                            $languageTotals = collect($characterStats)
+                                                ->groupBy('language_name')
+                                                ->map(fn($stats) => [
+                                                    'flag' => $stats->first()['language_flag'],
+                                                    'words' => $stats->sum('words'),
+                                                    'blocks' => $stats->sum('blocks')
+                                                ]);
+                                        @endphp
+                                        @foreach ($languageTotals as $language => $totals)
+                                            <tr>
+                                                <td class="py-2 px-3">Total</td>
+                                                <td class="py-2 px-3">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="fi fi-{{ $totals['flag'] }} rounded-sm"></span>
+                                                        <span>{{ $language }}</span>
+                                                    </div>
+                                                </td>
+                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($totals['words']) }}</td>
+                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($totals['blocks']) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-center p-4">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+                                </div>
+                            @endif
+
+                            <x-dialog-footer/>
+                        </dialog>
                     @endforeach
                 </div>
 
@@ -323,3 +402,18 @@
 
     @include('components.meta-data-refresh')
 </div>
+
+<script>
+    document.addEventListener('open-dialog', (e) => {
+        document.getElementById(e.detail.dialogId).showModal();
+    });
+
+    // Close dialog when clicking outside
+    document.querySelectorAll('dialog').forEach(dialog => {
+        dialog.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.currentTarget.close();
+            }
+        });
+    });
+</script>

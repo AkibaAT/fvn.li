@@ -49,6 +49,14 @@ class GameVersion extends Model
         return $this->hasMany(VersionCharacterStats::class);
     }
 
+    public function characterStatsWithoutPlaceholders(): HasMany
+    {
+        return $this->hasMany(VersionCharacterStats::class, 'game_version_id', 'id')
+            ->where('iso_code', 'not like', 'q%')
+            ->orderBy('character_id')
+            ->orderBy('iso_code');
+    }
+
     public function characters(): BelongsToMany
     {
         return $this->belongsToMany(Character::class, 'version_character_stats')
@@ -71,6 +79,7 @@ class GameVersion extends Model
     {
         return $this->characterStats()
             ->where('iso_code', $isoCode)
+            ->orderBy('character_id')
             ->get();
     }
 }

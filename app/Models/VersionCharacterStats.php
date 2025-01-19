@@ -31,4 +31,9 @@ class VersionCharacterStats extends Model
     {
         return $this->belongsTo(Character::class);
     }
+
+    public function language(): BelongsTo
+    {
+        return $this->belongsTo(Language::class, 'iso_code', 'id');
+    }
 }

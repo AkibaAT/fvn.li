@@ -458,14 +458,6 @@ class Game extends Model
     }
 
     /**
-     * Get main characters (excluding those with unspecified names).
-     */
-    public function mainCharacters(): HasMany
-    {
-        return $this->characters()->where('character_id', 'not like', '%q');
-    }
-
-    /**
      * Get the character stats for the latest version in a specific language.
      */
     public function getLatestCharacterStats(string $isoCode): Collection
