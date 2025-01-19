@@ -40,27 +40,33 @@ class DiscordBotController extends Controller
         ]);
     }
 
-    public function getUpdates(Request $request): JsonResponse
+    public function getUpdates(): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'discord_id' => 'required|string',
-            'after' => 'required|date',
-        ]);
+        // Get all subscribed users that need updates
+        $users = DiscordUser::query()
+            ->where('processed_at', '<', now()->subMinutes(25)) // Give some buffer before 30min mark
+            ->get();
 
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 422);
+        if ($users->isEmpty()) {
+            return response()->json(['updates' => []]);
         }
 
+        // Get games updated since last processed timestamp
         $games = Game::query()
             ->with('latestVersion')
             ->where('is_visible', true)
-            ->whereHas('latestVersion', function ($query) use ($request) {
-                $query->where('created_at', '>', $request->input('after'));
+            ->whereHas('latestVersion', function ($query) use ($users) {
+                $query->where('created_at', '>', $users->min('processed_at'));
             })
             ->orderBy('name')
             ->get();
 
+        // Update processed_at timestamp for all fetched users
+        DiscordUser::whereIn('id', $users->pluck('id'))
+            ->update(['processed_at' => now()]);
+
         return response()->json([
+            'discord_users' => $users->pluck('discord_id'),
             'updates' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
