@@ -91,6 +91,8 @@ init 10000 python:
                 if not display_name or not display_name.strip():
                     display_name = varname
 
+                display_name = re.sub(r"{[^}]*}", "", display_name).strip()
+
                 defined_characters[varname] = {}
                 defined_characters[varname]["default"] = renpy.translate_string(display_name, None)
                 for lang in known_languages:
