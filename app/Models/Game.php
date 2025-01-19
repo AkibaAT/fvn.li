@@ -396,7 +396,7 @@ class Game extends Model
                         if ($stats) {
                             $this->game_engine = "Ren'Py";
                             $this->save();
-                            $statsService->saveVersionStats($gameVersion, $stats);
+                            $statsService->saveVersionStats($gameVersion, $stats, $this->source_language_id);
                         } else {
                             // If stats extraction failed, create empty English stats
                             $versionStats = new VersionLanguageStats([

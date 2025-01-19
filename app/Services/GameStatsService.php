@@ -30,11 +30,6 @@ readonly class GameStatsService
     ) {}
 
     /**
-     * Extract script statistics from a game archive
-     *
-     * @throws Exception If there's an error processing the game files
-     */
-    /**
      * Download and extract script statistics from a game upload
      *
      * @throws Exception|\GuzzleHttp\Exception\GuzzleException If there's an error downloading or processing the game files
@@ -153,39 +148,47 @@ readonly class GameStatsService
     }
 
     /**
-     * Save language and character statistics for a game version
+     * Save or update language and character statistics for a game version
      *
      * @throws Exception
      */
-    public function saveVersionStats(GameVersion $version, array $stats): void
+    public function saveVersionStats(GameVersion $version, array $stats, string $defaultLanguage = 'eng'): void
     {
         DB::beginTransaction();
 
         try {
             foreach ($stats['languages'] as $langKey => $langData) {
-                // Create language stats record
-                $versionStats = new VersionLanguageStats([
-                    'game_version_id' => $version->id,
-                    'iso_code' => $this->mapLanguageCode($langKey),
-                    'blocks' => $langData['blocks'] ?? null,
-                    'words' => $langData['words'] ?? null,
-                    'menus' => $langData['menus'] ?? null,
-                    'options' => $langData['options'] ?? null,
-                ]);
-                $versionStats->save();
+                $isoCode = $langKey === 'default' ? $defaultLanguage : $this->mapLanguageCode($langKey);
+
+                // Upsert language stats record
+                $versionStats = VersionLanguageStats::updateOrCreate(
+                    [
+                        'game_version_id' => $version->id,
+                        'iso_code' => $isoCode,
+                    ],
+                    [
+                        'blocks' => $langData['blocks'] ?? null,
+                        'words' => $langData['words'] ?? null,
+                        'menus' => $langData['menus'] ?? null,
+                        'options' => $langData['options'] ?? null,
+                    ]
+                );
 
                 // Process character stats if available
                 if (isset($langData['characters'])) {
                     foreach ($langData['characters'] as $charId => $charData) {
-                        $charStats = new VersionCharacterStats([
-                            'game_version_id' => $version->id,
-                            'iso_code' => $versionStats->iso_code,
-                            'character_id' => $charId,
-                            'display_name' => $charData['display_name'] ?? $charId,
-                            'blocks' => $charData['blocks'] ?? 0,
-                            'words' => $charData['words'] ?? 0,
-                        ]);
-                        $charStats->save();
+                        VersionCharacterStats::updateOrCreate(
+                            [
+                                'game_version_id' => $version->id,
+                                'iso_code' => $versionStats->iso_code,
+                                'character_id' => $charId,
+                            ],
+                            [
+                                'display_name' => $charData['display_name'] ?? $charId,
+                                'blocks' => $charData['blocks'] ?? 0,
+                                'words' => $charData['words'] ?? 0,
+                            ]
+                        );
                     }
                 }
             }
@@ -318,11 +321,11 @@ readonly class GameStatsService
     /**
      * Map a game language code to a standardized ISO code
      */
-    private function mapLanguageCode(string $gameLanguage): string
+    private function mapLanguageCode(string $gameLanguage): ?string
     {
         // If this is the default language, use the game's source language
         if ($gameLanguage === 'default') {
-            return config('app.default_language', 'eng');
+            return null;
         }
 
         // First try exact matches
