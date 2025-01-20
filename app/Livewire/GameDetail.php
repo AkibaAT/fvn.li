@@ -214,11 +214,14 @@ class GameDetail extends Component
         $stats = GameVersion::find($versionId)
             ->characterStats()
             ->where('iso_code', 'not like', 'q%')
-            ->with(['character', 'language'])
+            ->with(['character' => function($query) {
+                // Sort characters by their display name in the source language
+                $query->orderByRaw(sprintf("display_names->>'%s'", $this->game->source_language_id));
+            }, 'language'])
             ->get()
-            ->sortBy('character_id');
+            ->sortBy('character.character_id');
 
-        $this->characterStats = $stats->map(fn ($stat) => [
+        $this->characterStats = $stats->map(fn($stat) => [
             'character_name' => $stat->character->getDisplayName($this->game->source_language_id) ?? $stat->character_id,
             'language_name' => $stat->language->ref_name,
             'language_flag' => $stat->language->flag_code,
