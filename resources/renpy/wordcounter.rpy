@@ -14,6 +14,7 @@ define script_folder_path = ""
 init 10000 python:
 
     from renpy import store
+    import codecs
     import collections
     import io
     import json
@@ -83,7 +84,10 @@ init 10000 python:
                 display_name = None
 
                 # 1) First, look for something like Character(_("<Name>"), ...)
-                match = re.search(r"Character\s*\(\s*_\(\s*[\"']([^\"']+)[\"']", code_str)
+                match = re.search(
+                    r"Character\s*\(\s*_\(\s*[\"']((?:\\.|[^\"'])+)[\"']",
+                    code_str
+                )
                 if match:
                     display_name = match.group(1)
                     translated_display_name = translate_string(display_name, None)
@@ -91,7 +95,10 @@ init 10000 python:
                         display_name = translated_display_name
                 else:
                     # 2) Next, fall back to Character("Name", ...)
-                    match = re.search(r"Character\s*\(\s*[\"']([^\"']+)[\"']", code_str)
+                    match = re.search(
+                        r"Character\s*\(\s*[\"']((?:\\.|[^\"'])+)[\"']",
+                        code_str
+                    )
                     if match:
                         display_name = match.group(1)
 
@@ -100,6 +107,7 @@ init 10000 python:
                     display_name = varname
 
                 display_name = re.sub(r"{[^}]*}", "", display_name).strip()
+                display_name = codecs.decode(display_name, 'unicode_escape')
 
                 defined_characters[varname] = {}
                 defined_characters[varname]["default"] = translate_string(display_name, None)
