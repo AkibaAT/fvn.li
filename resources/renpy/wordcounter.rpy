@@ -19,6 +19,14 @@ init 10000 python:
     import json
     import re
 
+    def translate_string(text, language=None):
+        if renpy.version_tuple >= (8, 0, 0, 0):
+            # We are running Ren'Py 8 or later
+            return renpy.translate_string(text, language=language)
+        else:
+            # Fallback: Just return the original text
+            return text
+
     class Count(object):
         def __init__(self):
             self.blocks = 0      # Number of 'Say' statements
@@ -78,7 +86,7 @@ init 10000 python:
                 match = re.search(r"Character\s*\(\s*_\(\s*[\"']([^\"']+)[\"']", code_str)
                 if match:
                     display_name = match.group(1)
-                    translated_display_name = renpy.translate_string(display_name, None)
+                    translated_display_name = translate_string(display_name, None)
                     if translated_display_name:
                         display_name = translated_display_name
                 else:
@@ -94,9 +102,9 @@ init 10000 python:
                 display_name = re.sub(r"{[^}]*}", "", display_name).strip()
 
                 defined_characters[varname] = {}
-                defined_characters[varname]["default"] = renpy.translate_string(display_name, None)
+                defined_characters[varname]["default"] = translate_string(display_name, None)
                 for lang in known_languages:
-                    defined_characters[varname][lang] = renpy.translate_string(display_name, lang)
+                    defined_characters[varname][lang] = translate_string(display_name, lang)
 
 
         # Second pass: gather stats from each statement

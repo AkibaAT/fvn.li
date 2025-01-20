@@ -123,7 +123,7 @@ readonly class GameStatsService
             // Check for successful execution
             if (! $process->isSuccessful()) {
                 throw new RuntimeException(
-                    'Script analysis failed: ' . $process->getErrorOutput()
+                    'Script analysis failed: ' . $process->getOutput()
                 );
             }
 
