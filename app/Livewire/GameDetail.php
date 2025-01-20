@@ -213,13 +213,12 @@ class GameDetail extends Component
         // Load character stats only when requested
         $stats = GameVersion::find($versionId)
             ->characterStats()
+            ->select('version_character_stats.*')
             ->where('iso_code', 'not like', 'q%')
-            ->with(['character' => function($query) {
-                // Sort characters by their display name in the source language
-                $query->orderByRaw(sprintf("display_names->>'%s'", $this->game->source_language_id));
-            }, 'language'])
-            ->get()
-            ->sortBy('character.character_id');
+            ->join('characters', 'characters.id', '=', 'version_character_stats.character_id')
+            ->orderByRaw(sprintf("characters.display_names->>'%s'", $this->game->source_language_id))
+            ->with(['character', 'language'])
+            ->get();
 
         $this->characterStats = $stats->map(fn($stat) => [
             'character_name' => $stat->character->getDisplayName($this->game->source_language_id) ?? $stat->character_id,
