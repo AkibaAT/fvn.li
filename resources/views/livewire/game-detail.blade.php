@@ -241,12 +241,12 @@
                         <dialog
                             wire:ignore.self
                             id="character-stats-{{ $version->id }}"
-                            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl min-w-96 max-w-6xl dark:text-gray-100 backdrop:backdrop-blur-md"
+                            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl min-w-80 max-w-6xl dark:text-gray-100 backdrop:backdrop-blur-md"
                         >
                             <x-dialog-header title="Character Statistics"/>
 
                             @if ($selectedVersionId === $version->id && $characterStats)
-                                <div class="overflow-x-auto">
+                                <div class="overflow-x-auto max-w-[calc(100vw-3rem)] -mx-6 px-6">
                                     <table class="w-full text-sm">
                                         <thead>
                                         <tr class="border-b border-gray-200 dark:border-gray-700">
