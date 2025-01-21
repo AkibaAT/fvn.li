@@ -99,7 +99,7 @@
                             'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
                             'Current Version' => $latestVersion?->version,
                             'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
-                            'Characters' => \App\Models\Character::countUniqueCharactersInLanguage($game->id, $game->source_language_id) ?: '-',
+                            'Characters' => $versionCharacterCounts[$latestVersion?->id] ?: '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
                         ] as $label => $value)
@@ -227,25 +227,12 @@
                                     </div>
                                 </div>
                             </div>
-                            @php
-                                $versionCharacters = $version->characterStatsWithoutPlaceholders()
-                                    ->whereNotNull('version_character_stats.character_id')
-                                    ->join('characters', 'version_character_stats.character_id', '=', 'characters.id')
-                                    ->where('version_character_stats.iso_code', $game->source_language_id)
-                                    ->select(DB::raw("characters.display_names->>'" . $game->source_language_id . "' as display_name"))
-                                    ->orderBy('version_character_stats.character_id')
-                                    ->orderBy('version_character_stats.iso_code')
-                                    ->pluck('display_name')
-                                    ->filter()
-                                    ->unique()
-                                    ->count();
-                            @endphp
-                            @if ($versionCharacters > 0)
+                            @if ($versionCharacterCounts[$version->id] > 0)
                                 <button
                                     wire:click="showCharacterStats({{ $version->id }})"
                                     class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                                 >
-                                    View {{ $versionCharacters }} Characters
+                                    View {{ $versionCharacterCounts[$version->id] }} Characters
                                 </button>
                             @endif
                         </div>

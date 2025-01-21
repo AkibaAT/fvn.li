@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Rating;
@@ -110,6 +111,25 @@ class GameDetail extends Component
             ->where(fn ($stat) => ! str_starts_with($stat->iso_code, 'q'))
             ?? collect();
 
+        $versionCharacterCounts = [];
+        if ($latestVersion) {
+            $versionCharacterCounts[$latestVersion->id] = Character::countUniqueCharactersInLanguage(
+                $this->game->id,
+                $this->game->source_language_id,
+                $latestVersion->id
+            );
+        }
+        foreach ($versions as $version) {
+            if ($version->id === $latestVersion->id) {
+                continue;
+            }
+            $versionCharacterCounts[$version->id] = Character::countUniqueCharactersInLanguage(
+                $this->game->id,
+                $this->game->source_language_id,
+                $version->id
+            );
+        }
+
         $metaTags = $this->getMetaTags();
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
@@ -135,6 +155,7 @@ class GameDetail extends Component
             'languageStats' => $languageStats,
             'metaTags' => $this->getMetaTags(),
             'availableRatings' => $availableRatings,
+            'versionCharacterCounts' => $versionCharacterCounts,
         ]);
     }
 
@@ -225,16 +246,16 @@ class GameDetail extends Component
             ->map(fn ($stat) => [
                 'id' => $stat->language->id,
                 'name' => $stat->language->ref_name,
-                'flag' => $stat->language->flag_code
+                'flag' => $stat->language->flag_code,
             ]);
 
         // Create word count matrix (character x language)
         $characters = [];
         $wordCounts = [];
         foreach ($characterStats as $stat) {
-            $displayName = $this->cleanCharacterName($stat->character->getDisplayName($this->game->source_language_id));
+            $displayName = $stat->character->getDisplayName($this->game->source_language_id);
             $characters[$displayName] = $displayName;
-            if (!isset($wordCounts[$displayName][$stat->language->id])) {
+            if (! isset($wordCounts[$displayName][$stat->language->id])) {
                 $wordCounts[$displayName][$stat->language->id] = 0;
             }
             $wordCounts[$displayName][$stat->language->id] += $stat->words;
@@ -244,7 +265,7 @@ class GameDetail extends Component
         // Calculate totals per language
         $languageTotals = [];
         foreach ($characterStats as $stat) {
-            if (!isset($languageTotals[$stat->language->id])) {
+            if (! isset($languageTotals[$stat->language->id])) {
                 $languageTotals[$stat->language->id] = 0;
             }
             $languageTotals[$stat->language->id] += $stat->words;
@@ -288,25 +309,5 @@ class GameDetail extends Component
     protected function decodeFilterValue(string $value): string
     {
         return rawurldecode($value);
-    }
-
-    private function cleanCharacterName(?string $name): string
-    {
-        if ($name === null) {
-            return '';
-        }
-
-        // If it ends with ?, preserve it while trimming other symbols
-        $endsWithQuestion = str_ends_with($name, '?');
-
-        // Trim non-alphanumeric characters from both ends, except underscore
-        $cleaned = preg_replace('/^[^a-zA-Z0-9_]+|[^a-zA-Z0-9_]+$/u', '', $name);
-
-        // Add back the question mark if it was there
-        if ($endsWithQuestion) {
-            $cleaned .= '?';
-        }
-
-        return $cleaned;
     }
 }
