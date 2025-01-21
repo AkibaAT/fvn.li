@@ -99,7 +99,7 @@
                             'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
                             'Current Version' => $latestVersion?->version,
                             'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
-                            'Characters' => $game->characters()->count() ?: '-',
+                            'Characters' => \App\Models\Character::countUniqueCharactersInLanguage($game->id, $game->source_language_id) ?: '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
                         ] as $label => $value)
@@ -227,17 +227,29 @@
                                     </div>
                                 </div>
                             </div>
-                            @if ($version->characterStatsWithoutPlaceholders()->distinct('character_id')->count() > 0)
+                            @php
+                                $versionCharacters = $version->characterStatsWithoutPlaceholders()
+                                    ->whereNotNull('version_character_stats.character_id')
+                                    ->join('characters', 'version_character_stats.character_id', '=', 'characters.id')
+                                    ->where('version_character_stats.iso_code', $game->source_language_id)
+                                    ->select(DB::raw("characters.display_names->>'" . $game->source_language_id . "' as display_name"))
+                                    ->orderBy('version_character_stats.character_id')
+                                    ->orderBy('version_character_stats.iso_code')
+                                    ->pluck('display_name')
+                                    ->filter()
+                                    ->unique()
+                                    ->count();
+                            @endphp
+                            @if ($versionCharacters > 0)
                                 <button
                                     wire:click="showCharacterStats({{ $version->id }})"
                                     class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                                 >
-                                    View {{ $version->characterStatsWithoutPlaceholders()->distinct('character_id')->count() }} Characters
+                                    View {{ $versionCharacters }} Characters
                                 </button>
                             @endif
                         </div>
 
-                        <!-- Character Stats Dialog -->
                         <!-- Character Stats Dialog -->
                         <dialog
                             wire:ignore.self
@@ -252,49 +264,39 @@
                                         <thead>
                                         <tr class="border-b border-gray-200 dark:border-gray-700">
                                             <th class="text-left py-2 px-3 font-medium">Character</th>
-                                            <th class="text-left py-2 px-3 font-medium">Language</th>
-                                            <th class="text-right py-2 px-3 font-medium">Words</th>
-                                            <th class="text-right py-2 px-3 font-medium">Blocks</th>
+                                            @foreach ($characterStats['languages'] as $lang)
+                                                <th class="text-right py-2 px-3 font-medium">
+                                                    <div class="flex items-center justify-end gap-2">
+                                                        <span class="fi fi-{{ $lang['flag'] }} rounded-sm"></span>
+                                                        <span>{{ $lang['name'] }}</span>
+                                                    </div>
+                                                </th>
+                                            @endforeach
                                         </tr>
                                         </thead>
                                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                                        @foreach ($characterStats as $stat)
+                                        @foreach ($characterStats['characters'] as $character)
                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                                <td class="py-2 px-3">{{ $stat['character_name'] }}</td>
-                                                <td class="py-2 px-3">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="fi fi-{{ $stat['language_flag'] }} rounded-sm"></span>
-                                                        <span>{{ $stat['language_name'] }}</span>
-                                                    </div>
-                                                </td>
-                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($stat['words']) }}</td>
-                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($stat['blocks']) }}</td>
+                                                <td class="py-2 px-3">{{ $character }}</td>
+                                                @foreach ($characterStats['languages'] as $lang)
+                                                    <td class="py-2 px-3 text-right tabular-nums">
+                                                        {{ isset($characterStats['wordCounts'][$character][$lang['id']])
+                                                            ? number_format($characterStats['wordCounts'][$character][$lang['id']])
+                                                            : '-' }}
+                                                    </td>
+                                                @endforeach
                                             </tr>
                                         @endforeach
                                         </tbody>
                                         <tfoot class="border-t border-gray-200 dark:border-gray-700 font-medium">
-                                        @php
-                                            $languageTotals = collect($characterStats)
-                                                ->groupBy('language_name')
-                                                ->map(fn($stats) => [
-                                                    'flag' => $stats->first()['language_flag'],
-                                                    'words' => $stats->sum('words'),
-                                                    'blocks' => $stats->sum('blocks')
-                                                ]);
-                                        @endphp
-                                        @foreach ($languageTotals as $language => $totals)
-                                            <tr>
-                                                <td class="py-2 px-3">Total</td>
-                                                <td class="py-2 px-3">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="fi fi-{{ $totals['flag'] }} rounded-sm"></span>
-                                                        <span>{{ $language }}</span>
-                                                    </div>
+                                        <tr>
+                                            <td class="py-2 px-3">Total</td>
+                                            @foreach ($characterStats['languages'] as $lang)
+                                                <td class="py-2 px-3 text-right tabular-nums">
+                                                    {{ number_format($characterStats['languageTotals'][$lang['id']] ?? 0) }}
                                                 </td>
-                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($totals['words']) }}</td>
-                                                <td class="py-2 px-3 text-right tabular-nums">{{ number_format($totals['blocks']) }}</td>
-                                            </tr>
-                                        @endforeach
+                                            @endforeach
+                                        </tr>
                                         </tfoot>
                                     </table>
                                 </div>

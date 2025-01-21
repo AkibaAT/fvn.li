@@ -210,23 +210,52 @@ class GameDetail extends Component
     {
         $this->selectedVersionId = $versionId;
 
-        // Load character stats only when requested
-        $stats = GameVersion::find($versionId)
+        // Get all character stats with relationships
+        $characterStats = GameVersion::find($versionId)
             ->characterStats()
-            ->select('version_character_stats.*')
             ->where('iso_code', 'not like', 'q%')
-            ->join('characters', 'characters.id', '=', 'version_character_stats.character_id')
-            ->orderByRaw(sprintf("characters.display_names->>'%s'", $this->game->source_language_id))
             ->with(['character', 'language'])
             ->get();
 
-        $this->characterStats = $stats->map(fn($stat) => [
-            'character_name' => $stat->character->getDisplayName($this->game->source_language_id) ?? $stat->character_id,
-            'language_name' => $stat->language->ref_name,
-            'language_flag' => $stat->language->flag_code,
-            'words' => $stat->words,
-            'blocks' => $stat->blocks,
-        ])->all();
+        // Get unique languages
+        $languages = $characterStats
+            ->sortBy('language.ref_name')
+            ->unique('language.id')
+            ->values()
+            ->map(fn ($stat) => [
+                'id' => $stat->language->id,
+                'name' => $stat->language->ref_name,
+                'flag' => $stat->language->flag_code
+            ]);
+
+        // Create word count matrix (character x language)
+        $characters = [];
+        $wordCounts = [];
+        foreach ($characterStats as $stat) {
+            $displayName = $this->cleanCharacterName($stat->character->getDisplayName($this->game->source_language_id));
+            $characters[$displayName] = $displayName;
+            if (!isset($wordCounts[$displayName][$stat->language->id])) {
+                $wordCounts[$displayName][$stat->language->id] = 0;
+            }
+            $wordCounts[$displayName][$stat->language->id] += $stat->words;
+        }
+        sort($characters, SORT_NATURAL | SORT_FLAG_CASE);
+
+        // Calculate totals per language
+        $languageTotals = [];
+        foreach ($characterStats as $stat) {
+            if (!isset($languageTotals[$stat->language->id])) {
+                $languageTotals[$stat->language->id] = 0;
+            }
+            $languageTotals[$stat->language->id] += $stat->words;
+        }
+
+        $this->characterStats = [
+            'characters' => $characters,
+            'languages' => $languages,
+            'wordCounts' => $wordCounts,
+            'languageTotals' => $languageTotals,
+        ];
 
         $this->dispatch('open-dialog', dialogId: "character-stats-{$versionId}");
     }
@@ -259,5 +288,25 @@ class GameDetail extends Component
     protected function decodeFilterValue(string $value): string
     {
         return rawurldecode($value);
+    }
+
+    private function cleanCharacterName(?string $name): string
+    {
+        if ($name === null) {
+            return '';
+        }
+
+        // If it ends with ?, preserve it while trimming other symbols
+        $endsWithQuestion = str_ends_with($name, '?');
+
+        // Trim non-alphanumeric characters from both ends, except underscore
+        $cleaned = preg_replace('/^[^a-zA-Z0-9_]+|[^a-zA-Z0-9_]+$/u', '', $name);
+
+        // Add back the question mark if it was there
+        if ($endsWithQuestion) {
+            $cleaned .= '?';
+        }
+
+        return $cleaned;
     }
 }

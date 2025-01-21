@@ -46,4 +46,21 @@ class Character extends Model
     {
         return $this->display_names[$isoCode] ?? null;
     }
+
+    public static function countUniqueCharactersInLanguage(int $gameId, ?string $languageCode = null): int
+    {
+        $characters = self::where('game_id', $gameId)
+            ->get()
+            ->filter(function ($character) use ($languageCode) {
+                if (!$languageCode) return true;
+                return $character->getDisplayName($languageCode) !== null;
+            })
+            ->map(function ($character) use ($languageCode) {
+                return $languageCode ? $character->getDisplayName($languageCode) : $character->character_id;
+            })
+            ->unique()
+            ->values();
+
+        return $characters->count();
+    }
 }
