@@ -160,80 +160,82 @@
                     Version History
                 </h2>
 
-                @foreach ($versions as $version)
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <div
-                                class="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div class="w-full flex items-center">
-                                    <div
-                                        class="font-medium text-gray-900 dark:text-gray-100">{{ $version->published_at->format('M j, Y') }}</div>
-                                </div>
+                <div>
+                    @foreach ($versions as $version)
+                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-3">
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <div
+                                    class="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div class="w-full flex items-center">
+                                        <div
+                                            class="font-medium text-gray-900 dark:text-gray-100">{{ $version->published_at->format('M j, Y') }}</div>
+                                    </div>
 
-                                <div class="w-full flex items-center">
-                                    <div class="font-medium text-gray-900 dark:text-gray-100">
-                                        Version {{ $version->version }}</div>
-                                </div>
+                                    <div class="w-full flex items-center">
+                                        <div class="font-medium text-gray-900 dark:text-gray-100">
+                                            Version {{ $version->version }}</div>
+                                    </div>
 
-                                {{-- Languages --}}
-                                <div class="w-full flex items-center">
-                                    <x-language-flags
-                                        :languages="$version->languageStats->map(fn($stat) => [
-                                    'iso_code' => $stat->iso_code,
-                                    'ref_name' => $stat->language->ref_name,
-                                    'flag_code' => $stat->language->flag_code
-                                ])"
-                                        :selected-languages="[]"
-                                        :clickable="false"
-                                    />
-                                </div>
+                                    {{-- Languages --}}
+                                    <div class="w-full flex items-center">
+                                        <x-language-flags
+                                            :languages="$version->languageStats->map(fn($stat) => [
+                                        'iso_code' => $stat->iso_code,
+                                        'ref_name' => $stat->language->ref_name,
+                                        'flag_code' => $stat->language->flag_code
+                                    ])"
+                                            :selected-languages="[]"
+                                            :clickable="false"
+                                        />
+                                    </div>
 
-                                {{-- Platforms --}}
-                                <div class="w-full flex items-center">
-                                    <x-platform-icons
-                                        :platforms="[
-                                    'windows' => $version->is_windows,
-                                    'linux' => $version->is_linux,
-                                    'mac' => $version->is_mac,
-                                    'android' => $version->is_android,
-                                    'web' => $version->is_web,
-                                ]"
-                                        :selected-platforms="[]"
-                                        :clickable="false"
-                                    />
-                                </div>
+                                    {{-- Platforms --}}
+                                    <div class="w-full flex items-center">
+                                        <x-platform-icons
+                                            :platforms="[
+                                        'windows' => $version->is_windows,
+                                        'linux' => $version->is_linux,
+                                        'mac' => $version->is_mac,
+                                        'android' => $version->is_android,
+                                        'web' => $version->is_web,
+                                    ]"
+                                            :selected-platforms="[]"
+                                            :clickable="false"
+                                        />
+                                    </div>
 
-                                {{-- Word count --}}
-                                @php
-                                    $englishStats = $version->getStatsForLanguage('eng');
-                                @endphp
-                                <div class="w-full flex items-center whitespace-nowrap text-sm">
-                                    <span class="text-gray-500">Words:</span>
-                                    <span class="ml-1 text-gray-900 dark:text-gray-100">
-                                {{ $englishStats && $englishStats->words ? number_format($englishStats->words) : '-' }}
-                            </span>
-                                </div>
+                                    {{-- Word count --}}
+                                    @php
+                                        $englishStats = $version->getStatsForLanguage('eng');
+                                    @endphp
+                                    <div class="w-full flex items-center whitespace-nowrap text-sm">
+                                        <span class="text-gray-500">Words:</span>
+                                        <span class="ml-1 text-gray-900 dark:text-gray-100">
+                                    {{ $englishStats && $englishStats->words ? number_format($englishStats->words) : '-' }}
+                                </span>
+                                    </div>
 
-                                {{-- Rating --}}
-                                <div class="w-full flex items-center whitespace-nowrap text-sm">
-                                    <span class="text-gray-500">Rating:</span>
-                                    <span class="ml-1 text-gray-900 dark:text-gray-100">
-                                {{ $version->rating ? number_format($version->rating, 1) : '-' }}
-                            </span>
-                                    @if ($version->rating_count)
-                                        <span class="ml-1 text-gray-500">({{ $version->rating_count }})</span>
-                                    @endif
+                                    {{-- Rating --}}
+                                    <div class="w-full flex items-center whitespace-nowrap text-sm">
+                                        <span class="text-gray-500">Rating:</span>
+                                        <span class="ml-1 text-gray-900 dark:text-gray-100">
+                                    {{ $version->rating ? number_format($version->rating, 1) : '-' }}
+                                </span>
+                                        @if ($version->rating_count)
+                                            <span class="ml-1 text-gray-500">({{ $version->rating_count }})</span>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
+                            @if ($versionCharacterCounts[$version->id] > 0)
+                                <button
+                                    wire:click="showCharacterStats({{ $version->id }})"
+                                    class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                >
+                                    View {{ $versionCharacterCounts[$version->id] }} Characters
+                                </button>
+                            @endif
                         </div>
-                        @if ($versionCharacterCounts[$version->id] > 0)
-                            <button
-                                wire:click="showCharacterStats({{ $version->id }})"
-                                class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                            >
-                                View {{ $versionCharacterCounts[$version->id] }} Characters
-                            </button>
-                        @endif
 
                         <!-- Character Stats Dialog -->
                         <dialog
