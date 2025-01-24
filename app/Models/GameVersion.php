@@ -108,4 +108,40 @@ class GameVersion extends Model
             ->where('iso_code', $isoCode)
             ->delete();
     }
+
+    public function fileCategories(): HasMany
+    {
+        return $this->hasMany(VersionFileCategory::class);
+    }
+
+    public function saveFileStats(array $stats): void
+    {
+        foreach ($stats as $category => $categoryData) {
+            if ($category === 'summary') {
+                continue;
+            }
+
+            $summary = $stats['summary'];
+            $totalCount = $summary["total_{$category}"] ?? 0;
+
+            // Calculate total size for category
+            $totalSize = array_sum(array_column($categoryData, 'total_size'));
+
+            // Create category record
+            $categoryModel = $this->fileCategories()->create([
+                'category' => $category,
+                'total_count' => $totalCount,
+                'total_size' => $totalSize,
+            ]);
+
+            // Create file type records
+            foreach ($categoryData as $extension => $data) {
+                $categoryModel->fileTypes()->create([
+                    'extension' => $extension,
+                    'count' => $data['count'],
+                    'size' => $data['total_size'],
+                ]);
+            }
+        }
+    }
 }

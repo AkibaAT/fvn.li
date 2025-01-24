@@ -1,24 +1,11 @@
-###############################################################################################################
-### WORD COUNTER with Multi-Language & Character Tracking #####################################################
-###############################################################################################################
-
-## Preferences ################################################################################################
-
-# Name of the folder your script files are in, if any (for example: "script/")
-define script_folder_path = ""
-
-###############################################################################################################
-### The Code ##################################################################################################
-###############################################################################################################
-
 init 10000 python:
-
     from renpy import store
     import codecs
     import collections
     import io
     import json
     import re
+    import os
 
     def translate_string(text, language=None):
         if renpy.version_tuple >= (8, 0, 0, 0):
@@ -37,6 +24,15 @@ init 10000 python:
             self.blocks += 1
             self.words += len(text.split())
 
+    class FileStats(object):
+        def __init__(self):
+            self.total_size = 0  # Total size of files in bytes
+            self.count = 0       # Number of files
+
+        def add_file(self, size):
+            self.count += 1
+            self.total_size += size
+
     # Primary data structure: for each language, we collect:
     #   {
     #       "filestats": { filename: Count() },
@@ -54,6 +50,14 @@ init 10000 python:
             "characters": collections.defaultdict(Count)
         }
     )
+
+    # Separate data structure for file statistics
+    file_statistics = {
+        "images": collections.defaultdict(FileStats),  # Extension -> FileStats
+        "audio": collections.defaultdict(FileStats),
+        "video": collections.defaultdict(FileStats),
+        "other": collections.defaultdict(FileStats)
+    }
 
     # Keep a dictionary of defined characters: varname -> display name (optional)
     defined_characters = {}
@@ -114,7 +118,6 @@ init 10000 python:
                 for lang in known_languages:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
 
-
         # Second pass: gather stats from each statement
         for node in all_stmts:
             # 1) Dialogue lines ("Say" or "TranslateSay")
@@ -154,8 +157,75 @@ init 10000 python:
                 # so there's nothing special to do here.
                 pass
 
+        # Collect file statistics
+        collect_file_statistics()
+
         # Finally, generate a JSON report
         report_stats()
+
+    def read_rpa_archive(rpa_path):
+        """
+        Reads an RPA file and returns a list of tuples (filename, size).
+        Correctly handles hexadecimal offsets.
+        """
+        import zipfile
+
+        try:
+            with open(rpa_path, 'rb') as f:
+                # Read RPA header to find ZIP offset
+                header = f.read(8)
+                if not header.startswith(b'RPA-3.0 '):
+                    return []
+
+                # Read 8-byte hexadecimal offset (not 12-byte)
+                offset_hex = f.read(8).decode('ascii').strip()
+                offset = int(offset_hex, 16)  # Convert from HEXADECIMAL
+                f.seek(offset)
+
+                # Open the ZIP part
+                with zipfile.ZipFile(f) as z:
+                    return [(info.filename, info.file_size) for info in z.infolist()]
+        except:
+            return []
+
+    def collect_file_statistics():
+        # Common file extensions
+        image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.avif', '.svg'}
+        audio_extensions = {'.wav', '.mp2', '.mp3', '.ogg', '.opus', '.flac'}
+        video_extensions = {'.ogv', '.webm', '.mp4', '.mkv', '.avi'}
+
+        for root, dirs, files in os.walk(renpy.config.gamedir):
+            for file in files:
+                filepath = os.path.join(root, file)
+                ext = os.path.splitext(file)[1].lower()
+
+                # Check if file is an RPA archive
+                if ext == '.rpa':
+                    # Process RPA contents without extracting
+                    for (internal_file, size) in read_rpa_archive(filepath):
+                        internal_ext = os.path.splitext(internal_file)[1].lower()
+                        if internal_ext in image_extensions:
+                            file_statistics["images"][internal_ext].add_file(size)
+                        elif internal_ext in audio_extensions:
+                            file_statistics["audio"][internal_ext].add_file(size)
+                        elif internal_ext in video_extensions:
+                            file_statistics["video"][internal_ext].add_file(size)
+                        else:
+                            file_statistics["other"][internal_ext].add_file(size)
+                else:
+                    # Process regular files
+                    try:
+                        size = os.path.getsize(filepath)
+                        if ext in image_extensions:
+                            file_statistics["images"][ext].add_file(size)
+                        elif ext in audio_extensions:
+                            file_statistics["audio"][ext].add_file(size)
+                        elif ext in video_extensions:
+                            file_statistics["video"][ext].add_file(size)
+                        else:
+                            file_statistics["other"][ext].add_file(size)
+                    except:
+                        continue
 
     def report_stats():
         # We'll create a JSON structure of the form:
@@ -175,10 +245,20 @@ init 10000 python:
         #       },
         #       "french": { ... },
         #       "italian": { ... }
+        #   },
+        #   "file_statistics": {
+        #       "images": { ... },
+        #       "audio": { ... },
+        #       "video": { ... },
+        #       "other": { ... },
+        #       "summary": { ... }
         #   }
         # }
         #
-        result = {"languages": {}}
+        result = {
+            "languages": {},
+            "file_statistics": {}
+        }
 
         for lang, data in all_lang_stats.items():
             # Aggregate file-level counts
@@ -206,6 +286,31 @@ init 10000 python:
                 }
 
             result["languages"][lang] = lang_report
+
+        # Add file statistics
+        result["file_statistics"] = {
+            category: {
+                ext: {
+                    "count": stats.count,
+                    "total_size": stats.total_size  # Report size in bytes
+                }
+                for ext, stats in extensions.items()
+            }
+            for category, extensions in file_statistics.items()
+        }
+
+        # Add total counts
+        result["file_statistics"]["summary"] = {
+            "total_images": sum(stats.count for stats in file_statistics["images"].values()),
+            "total_audio": sum(stats.count for stats in file_statistics["audio"].values()),
+            "total_video": sum(stats.count for stats in file_statistics["video"].values()),
+            "total_other": sum(stats.count for stats in file_statistics["other"].values()),
+            "total_size": sum(
+                stats.total_size
+                for category in file_statistics.values()
+                for stats in category.values()
+            )  # Report total size in bytes
+        }
 
         # Write out to JSON
         with io.open("stats.json", "w", encoding="utf-8") as outfile:
