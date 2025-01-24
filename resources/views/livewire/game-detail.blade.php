@@ -225,9 +225,18 @@
                             @if ($versionCharacterCounts[$version->id] > 0)
                                 <button
                                     wire:click="showCharacterStats({{ $version->id }})"
-                                    class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                    class="text-blue-600 dark:text-blue-400 hover:underline text-sm mr-5"
                                 >
                                     View {{ $versionCharacterCounts[$version->id] }} Characters
+                                </button>
+                            @endif
+                            @if ($version->fileCategories->isNotEmpty())
+                                <button
+                                    wire:click="showFileStats({{ $version->id }})"
+                                    class="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                    title="View file statistics"
+                                >
+                                    View File Stats
                                 </button>
                             @endif
                         </div>
@@ -386,6 +395,8 @@
             </div>
         @endif
     </div>
+
+    @include('components.file-stats-dialog')
 
     @include('components.meta-data-refresh')
 </div>

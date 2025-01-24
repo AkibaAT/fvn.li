@@ -1,31 +1,17 @@
-###############################################################################################################
-### WORD COUNTER with Multi-Language & Character Tracking #####################################################
-###############################################################################################################
-
-## Preferences ################################################################################################
-
-# Name of the folder your script files are in, if any (for example: "script/")
-define script_folder_path = ""
-
-###############################################################################################################
-### The Code ##################################################################################################
-###############################################################################################################
-
 init 10000 python:
-
     from renpy import store
     import codecs
     import collections
     import io
     import json
     import re
+    import os
+    from renpy.loader import listdirfiles, archives
 
     def translate_string(text, language=None):
         if renpy.version_tuple >= (8, 0, 0, 0):
-            # We are running Ren'Py 8 or later
             return renpy.translate_string(text, language=language)
         else:
-            # Fallback: Just return the original text
             return text
 
     class Count(object):
@@ -37,15 +23,16 @@ init 10000 python:
             self.blocks += 1
             self.words += len(text.split())
 
-    # Primary data structure: for each language, we collect:
-    #   {
-    #       "filestats": { filename: Count() },
-    #       "menu_count": int,
-    #       "options_count": int,
-    #       "characters": { char_varname: Count() }
-    #   }
-    #
-    # We'll treat the default language as "default".
+    class FileStats(object):
+        def __init__(self):
+            self.total_size = 0  # Total size of files in bytes
+            self.count = 0       # Number of files
+
+        def add_file(self, size):
+            self.count += 1
+            self.total_size += size
+
+    # Primary data structure for language statistics
     all_lang_stats = collections.defaultdict(
         lambda: {
             "filestats": collections.defaultdict(Count),
@@ -55,35 +42,74 @@ init 10000 python:
         }
     )
 
-    # Keep a dictionary of defined characters: varname -> display name (optional)
+    # File statistics by type
+    file_statistics = {
+        "images": collections.defaultdict(FileStats),
+        "audio": collections.defaultdict(FileStats),
+        "video": collections.defaultdict(FileStats),
+        "other": collections.defaultdict(FileStats)
+    }
+
+    # Keep track of defined characters
     defined_characters = {}
 
+    def get_file_size(filename):
+        """Get the actual size of a file using Ren'Py's loader"""
+        try:
+            f = renpy.loader.load(filename)
+            f.seek(0, 2)  # Seek to end
+            size = f.tell()  # Get position (size)
+            f.close()
+            return size
+        except Exception:
+            return 0
+
+    def collect_file_statistics():
+        """Collect file statistics using listdirfiles() with accurate archive sizes"""
+        # Common file extensions
+        image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.avif', '.svg'}
+        audio_extensions = {'.wav', '.mp2', '.mp3', '.ogg', '.opus', '.flac'}
+        video_extensions = {'.ogv', '.webm', '.mp4', '.mkv', '.avi'}
+
+        # Get all files from both common and game directories
+        all_files = listdirfiles(common=False)
+
+        for directory, filename in all_files:
+            # Skip json_stats.*, *.rpa files
+            if filename.startswith('json_stats.') or filename.endswith('.rpa'):
+                continue
+
+            try:
+                ext = os.path.splitext(filename)[1].lower()
+                size = get_file_size(filename)
+
+                if ext in image_extensions:
+                    file_statistics["images"][ext].add_file(size)
+                elif ext in audio_extensions:
+                    file_statistics["audio"][ext].add_file(size)
+                elif ext in video_extensions:
+                    file_statistics["video"][ext].add_file(size)
+                else:
+                    file_statistics["other"][ext].add_file(size)
+            except Exception:
+                continue
+
     def wordcounter():
+        """Count words and analyze game script"""
         # Pull the entire AST
         all_stmts = list(renpy.game.script.all_stmts)
         all_stmts.sort(key=lambda n: n.filename or "")
 
         known_languages = renpy.known_languages()
 
-        # First pass: identify which variables are characters by searching Define statements
+        # First pass: identify characters
         for node in all_stmts:
             if isinstance(node, renpy.ast.Define):
-                # node.varname is the variable name being defined
-                # node.code is the string expression on the right side
-                # e.g. "Character('Eileen', ...)" or "Character(\"Eileen\")"
                 varname = node.varname
-                # Safely extract the source string from the PyCode object
-                code_str = getattr(node.code, "source", "")  # Fallback to "" if no source
-                code_str = code_str.strip()
-
-                # We want to handle both:
-                #   Character("Name", ...)
-                #   Character(_("Name"), ...)
-                # So we can try multiple regex patterns in sequence:
+                code_str = getattr(node.code, "source", "").strip()
 
                 display_name = None
-
-                # 1) First, look for something like Character(_("<Name>"), ...)
+                # Look for Character(_("<Name>"), ...)
                 match = re.search(
                     r"Character\s*\(\s*_\(\s*[\"']((?:\\.|[^\"'])+)[\"']",
                     code_str
@@ -94,7 +120,7 @@ init 10000 python:
                     if translated_display_name:
                         display_name = translated_display_name
                 else:
-                    # 2) Next, fall back to Character("Name", ...)
+                    # Fall back to Character("Name", ...)
                     match = re.search(
                         r"Character\s*\(\s*[\"']((?:\\.|[^\"'])+)[\"']",
                         code_str
@@ -102,7 +128,6 @@ init 10000 python:
                     if match:
                         display_name = match.group(1)
 
-                # If neither pattern matched, default to the variable name
                 if not display_name or not display_name.strip():
                     display_name = varname
 
@@ -114,81 +139,49 @@ init 10000 python:
                 for lang in known_languages:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
 
-
-        # Second pass: gather stats from each statement
+        # Second pass: gather dialogue and menu statistics
         for node in all_stmts:
-            # 1) Dialogue lines ("Say" or "TranslateSay")
             if isinstance(node, renpy.ast.Say):
-                # Check if it's a translated line
                 if hasattr(renpy.ast, "TranslateSay") and isinstance(node, renpy.ast.TranslateSay) and node.language:
                     lang = node.language
                 else:
                     lang = "default"
 
-                # Add to file stats
                 all_lang_stats[lang]["filestats"][node.filename].add(node.what)
 
-                # If there's a .who attached, try to see if it matches one of our known character varnames
-                # or is a direct string.  Depending on your project, node.who could be a Python expression
-                # or a string referring to the character object. We'll do a simple approach here:
                 who_var = getattr(node, "who", None)
                 if who_var:
-                    # If who_var is literally the same as a known define (like 'e'), track stats under that
                     if who_var in defined_characters:
                         all_lang_stats[lang]["characters"][who_var].add(node.what)
                 else:
                     all_lang_stats[lang]["characters"]["narrator"].add(node.what)
 
-            # 2) Menus
             elif isinstance(node, renpy.ast.Menu):
-                # Menus typically aren't stored under a specific language, unless they're inside a translate block.
-                # For simplicity, we’ll log these to default. You can customize if you want multi-language menus.
                 all_lang_stats["default"]["menu_count"] += 1
                 for l, c, b in node.items:
                     all_lang_stats["default"]["options_count"] += 1
 
-            # 3) Translate blocks
-            elif isinstance(node, renpy.ast.Translate):
-                # If you want to handle entire translated menus or other statements,
-                # you'd parse inside these blocks. For now, we rely on TranslateSay for lines,
-                # so there's nothing special to do here.
-                pass
+        # Collect file statistics
+        collect_file_statistics()
 
-        # Finally, generate a JSON report
+        # Generate JSON report
         report_stats()
 
     def report_stats():
-        # We'll create a JSON structure of the form:
-        #
-        # {
-        #   "languages": {
-        #       "default": {
-        #           "blocks": ...,
-        #           "words": ...,
-        #           "menus": ...,
-        #           "options": ...,
-        #           "characters": {
-        #               "e": { "blocks":..., "words":..., "characters":... },
-        #               "m": { ... },
-        #               ...
-        #           }
-        #       },
-        #       "french": { ... },
-        #       "italian": { ... }
-        #   }
-        # }
-        #
-        result = {"languages": {}}
+        """Generate JSON report of collected statistics"""
+        result = {
+            "languages": {},
+            "file_statistics": {}
+        }
 
+        # Process language statistics
         for lang, data in all_lang_stats.items():
-            # Aggregate file-level counts
             total_blocks = 0
             total_words = 0
             for file_count in data["filestats"].values():
                 total_blocks += file_count.blocks
                 total_words += file_count.words
 
-            # Put it all together
             lang_report = {
                 "blocks": total_blocks,
                 "words": total_words,
@@ -197,7 +190,6 @@ init 10000 python:
                 "characters": {}
             }
 
-            # Add character stats
             for char_var, char_count in data["characters"].items():
                 lang_report["characters"][char_var] = {
                     "display_name": defined_characters[char_var][lang] if char_var != "narrator" else "Narrator",
@@ -207,7 +199,32 @@ init 10000 python:
 
             result["languages"][lang] = lang_report
 
-        # Write out to JSON
+        # Process file statistics
+        result["file_statistics"] = {
+            category: {
+                ext: {
+                    "count": stats.count,
+                    "total_size": stats.total_size
+                }
+                for ext, stats in extensions.items()
+            }
+            for category, extensions in file_statistics.items()
+        }
+
+        # Add summary totals
+        result["file_statistics"]["summary"] = {
+            "total_images": sum(stats.count for stats in file_statistics["images"].values()),
+            "total_audio": sum(stats.count for stats in file_statistics["audio"].values()),
+            "total_video": sum(stats.count for stats in file_statistics["video"].values()),
+            "total_other": sum(stats.count for stats in file_statistics["other"].values()),
+            "total_size": sum(
+                stats.total_size
+                for category in file_statistics.values()
+                for stats in category.values()
+            )
+        }
+
+        # Write JSON report
         with io.open("stats.json", "w", encoding="utf-8") as outfile:
             outfile.write(
                 u"{}".format(json.dumps(result, indent=4, ensure_ascii=False))

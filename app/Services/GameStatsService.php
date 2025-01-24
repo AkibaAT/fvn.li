@@ -227,6 +227,11 @@ readonly class GameStatsService
                 }
             }
 
+            // Save file statistics
+            if (isset($stats['file_statistics'])) {
+                $version->saveFileStats($stats['file_statistics']);
+            }
+
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
@@ -306,10 +311,10 @@ readonly class GameStatsService
      */
     private function copyRenpyFiles(string $gameDir): void
     {
-        // Copy wordcounter script
+        // Copy json_stats script
         File::copy(
-            resource_path('renpy/wordcounter.rpy'),
-            $gameDir . '/game/wordcounter.rpy'
+            resource_path('renpy/json_stats.rpy'),
+            $gameDir . '/game/json_stats.rpy'
         );
 
         // Check if we need to copy Ren'Py runtime files

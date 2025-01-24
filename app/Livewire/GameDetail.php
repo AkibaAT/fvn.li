@@ -35,6 +35,8 @@ class GameDetail extends Component
 
     public ?int $selectedVersionId = null;
 
+    public ?GameVersion $selectedVersion = null;
+
     protected array $validPerPageValues = [5, 10, 25];
 
     protected $queryString = [
@@ -283,6 +285,19 @@ class GameDetail extends Component
         ];
 
         $this->dispatch('open-dialog', dialogId: "character-stats-{$versionId}");
+    }
+
+    public function showFileStats(int $versionId): void
+    {
+        $this->selectedVersionId = $versionId;
+
+        $this->selectedVersion = $this->game->gameVersions()
+            ->with(['fileCategories.fileTypes' => function ($query) {
+                $query->orderBy('extension');
+            }])
+            ->find($versionId);
+
+        $this->dispatch('open-dialog', dialogId: 'file-stats');
     }
 
     protected function normalizePerPage(string $property): void
