@@ -6,7 +6,6 @@ namespace App\Livewire;
 
 use App\Models\Game;
 use App\Models\Language;
-use App\Models\VersionLanguageStats;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
 use Illuminate\Database\Eloquent\Builder;
@@ -168,9 +167,9 @@ class GameList extends Component
                         \'ref_name\', l.ref_name,
                         \'flag_code\', l.flag_code
                     ) ORDER BY l.ref_name)
-                    FROM version_language_stats vls
-                    JOIN iso_639_3_languages l ON l.id = vls.iso_code
-                    WHERE vls.game_version_id = latest_versions.id
+                    FROM version_supported_languages vsl
+                    JOIN iso_639_3_languages l ON l.id = vsl.iso_code
+                    WHERE vsl.game_version_id = latest_versions.id
                 ) as supported_languages'),
             ])
             ->leftJoin('game_versions as latest_versions', function ($join) {
@@ -181,21 +180,6 @@ class GameList extends Component
                 $join->on('latest_versions.id', '=', 'english_stats.game_version_id')
                     ->where('english_stats.iso_code', '=', 'eng');
             });
-
-        // Add language stats subquery to get supported languages in one go
-        $query->addSelect([
-            'supported_languages' => VersionLanguageStats::query()
-                ->select(DB::raw('json_agg(json_build_object(
-                    \'iso_code\', version_language_stats.iso_code,
-                    \'ref_name\', iso_639_3_languages.ref_name,
-                    \'flag_code\', iso_639_3_languages.flag_code
-                ) ORDER BY iso_639_3_languages.ref_name)'))
-                ->join('game_versions', 'game_versions.id', '=', 'version_language_stats.game_version_id')
-                ->join('iso_639_3_languages', 'iso_639_3_languages.id', '=', 'version_language_stats.iso_code')
-                ->whereColumn('game_versions.game_id', 'games.id')
-                ->where('game_versions.is_latest', true)
-                ->groupBy('game_versions.game_id'),
-        ]);
 
         // Apply filters
         $query->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true))
@@ -225,13 +209,13 @@ class GameList extends Component
                 $decodedLanguages = array_map([$this, 'decodeFilterValue'], $this->selectedLanguages);
                 $q->whereExists(function ($query) use ($decodedLanguages) {
                     $query->select(DB::raw(1))
-                        ->from('version_language_stats')
+                        ->from('version_supported_languages')
                         ->join('game_versions', function ($join) {
-                            $join->on('game_versions.id', '=', 'version_language_stats.game_version_id')
+                            $join->on('game_versions.id', '=', 'version_supported_languages.game_version_id')
                                 ->where('game_versions.is_latest', true);
                         })
                         ->whereColumn('game_versions.game_id', 'games.id')
-                        ->whereIn('version_language_stats.iso_code', $decodedLanguages);
+                        ->whereIn('version_supported_languages.iso_code', $decodedLanguages);
                 });
             })
             ->when($this->nsfw || $this->sfw, function ($q) {
@@ -257,7 +241,7 @@ class GameList extends Component
 
         // Transform supported languages into collection
         foreach ($games as $game) {
-            $game->supported_languages = collect($game->supported_languages ?? '[]');
+            $game->supported_languages = collect($game->supported_languages);
         }
 
         $this->games = $games;
@@ -363,15 +347,19 @@ class GameList extends Component
         self::$filterOptions['languages'] = Cache::remember('game-languages', 86400, function () {
             return Language::query()
                 ->whereExists(function ($query) {
-                    $query->select('version_language_stats.id')
-                        ->from('version_language_stats')
-                        ->whereColumn('version_language_stats.iso_code', 'iso_639_3_languages.id')
+                    $query->select('version_supported_languages.id')
+                        ->from('version_supported_languages')
+                        ->whereColumn('version_supported_languages.iso_code', 'iso_639_3_languages.id')
                         ->limit(1);
                 })
-                ->where('id', 'not like', 'q%')  // Exclude placeholder codes
                 ->orderBy('ref_name')
                 ->get()
-                ->mapWithKeys(fn ($lang) => [$lang->id => ['ref_name' => $lang->ref_name, 'flag_code' => $lang->flag_code]])
+                ->mapWithKeys(fn ($lang) => [
+                    $lang->id => [
+                        'ref_name' => $lang->ref_name,
+                        'flag_code' => $lang->flag_code,
+                    ],
+                ])
                 ->all();
         });
 

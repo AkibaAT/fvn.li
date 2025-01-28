@@ -7,6 +7,7 @@
             18 => '18 per page',
             27 => '27 per page'
         ]"
+        placeholder=""
         class="w-full sm:w-auto"
     />
     {{ $games->links(data: ['scrollTo' => false]) }}

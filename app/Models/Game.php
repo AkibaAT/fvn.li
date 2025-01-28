@@ -402,12 +402,14 @@ class Game extends Model
                             $this->game_engine = "Ren'Py";
                             $this->save();
                             $statsService->saveVersionStats($gameVersion, $stats, $this->source_language_id);
+
+                            // Add language support entries for each language with stats
+                            foreach ($stats['languages'] as $isoCode => $langStats) {
+                                $gameVersion->addSupportedLanguage($isoCode);
+                            }
                         } else {
-                            // If stats extraction failed, create empty English stats
-                            $versionStats = new VersionLanguageStats([
-                                'iso_code' => 'eng',
-                            ]);
-                            $gameVersion->languageStats()->save($versionStats);
+                            // Copy language support from previous version if stats extraction fails
+                            $this->copyLanguageSupport($gameVersion);
                         }
                     } catch (Exception $e) {
                         Log::error('Failed to extract game stats', [
@@ -416,12 +418,12 @@ class Game extends Model
                             'error' => $e->getMessage(),
                         ]);
 
-                        // Create empty English stats on failure
-                        $versionStats = new VersionLanguageStats([
-                            'iso_code' => 'eng',
-                        ]);
-                        $gameVersion->languageStats()->save($versionStats);
+                        // Copy language support from previous version on error
+                        $this->copyLanguageSupport($gameVersion);
                     }
+                } else {
+                    // For non-Ren'Py games, copy language support from previous version
+                    $this->copyLanguageSupport($gameVersion);
                 }
             }
 
@@ -623,5 +625,30 @@ class Game extends Model
         $timestamp = new DateTime($upload['updated_at']);
 
         return $timestamp->format('Y.m.d');
+    }
+
+    private function copyLanguageSupport(GameVersion $newVersion): void
+    {
+        // Find the previous version with language support
+        $previousVersion = $this->gameVersions()
+            ->where('id', '!=', $newVersion->id)
+            ->whereHas('supportedLanguages')
+            ->latest('published_at')
+            ->first();
+
+        if ($previousVersion) {
+            // Copy all supported languages from previous version
+            foreach ($previousVersion->getSupportedLanguageCodes() as $isoCode) {
+                $newVersion->addSupportedLanguage($isoCode);
+            }
+        } else {
+            // If no previous version exists, add only source language
+            if ($this->source_language_id) {
+                $newVersion->addSupportedLanguage($this->source_language_id);
+            } else {
+                // Fallback to English only if no source language is defined
+                $newVersion->addSupportedLanguage('eng');
+            }
+        }
     }
 }

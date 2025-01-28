@@ -82,4 +82,30 @@ class GameVersion extends Model
             ->orderBy('character_id')
             ->get();
     }
+
+    public function supportedLanguages(): HasMany
+    {
+        return $this->hasMany(VersionSupportedLanguage::class);
+    }
+
+    public function getSupportedLanguageCodes(): array
+    {
+        return $this->supportedLanguages()
+            ->pluck('iso_code')
+            ->toArray();
+    }
+
+    public function addSupportedLanguage(string $isoCode): void
+    {
+        $this->supportedLanguages()->firstOrCreate([
+            'iso_code' => $isoCode,
+        ]);
+    }
+
+    public function removeSupportedLanguage(string $isoCode): void
+    {
+        $this->supportedLanguages()
+            ->where('iso_code', $isoCode)
+            ->delete();
+    }
 }

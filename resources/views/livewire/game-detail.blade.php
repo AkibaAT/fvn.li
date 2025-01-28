@@ -112,16 +112,11 @@
                         @endforeach
                     </dl>
 
-                    @if ($languageStats && $languageStats->isNotEmpty())
+                    @if ($supportedLanguages && $supportedLanguages->isNotEmpty())
                         <div class="mt-4">
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Supported
-                                Languages</h3>
+                            <h3 class="text-gray-500 dark:text-gray-400 text-sm mb-2">Supported Languages</h3>
                             <x-language-flags
-                                :languages="$languageStats->map(fn($stat) => [
-                                    'iso_code' => $stat->iso_code,
-                                    'ref_name' => $stat->language->ref_name,
-                                    'flag_code' => $stat->language->flag_code
-                                ])"
+                                :languages="$supportedLanguages"
                                 :selected-languages="[]"
                                 :show-labels="false"
                                 :clickable="false"
@@ -179,11 +174,11 @@
                                     {{-- Languages --}}
                                     <div class="w-full flex items-center">
                                         <x-language-flags
-                                            :languages="$version->languageStats->map(fn($stat) => [
-                                        'iso_code' => $stat->iso_code,
-                                        'ref_name' => $stat->language->ref_name,
-                                        'flag_code' => $stat->language->flag_code
-                                    ])"
+                                            :languages="$version->supportedLanguages->map(fn($sl) => [
+                                                'iso_code' => $sl->iso_code,
+                                                'ref_name' => $sl->language->ref_name,
+                                                'flag_code' => $sl->language->flag_code
+                                            ])"
                                             :selected-languages="[]"
                                             :clickable="false"
                                         />
@@ -307,6 +302,7 @@
                             10 => '10 per page',
                             25 => '25 per page'
                         ]"
+                        placeholder=""
                         class="w-full sm:w-auto"
                     />
                     {{ $versions->links(data: ['scrollTo' => '#versions']) }}
@@ -381,6 +377,7 @@
                             10 => '10 per page',
                             25 => '25 per page'
                         ]"
+                        placeholder=""
                         class="w-full sm:w-auto"
                     />
                     {{ $reviews->links(data: ['scrollTo' => '#reviews']) }}
