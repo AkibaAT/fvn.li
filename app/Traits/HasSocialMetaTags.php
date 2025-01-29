@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Traits;
 
+use App\Livewire\RaterDetail;
 use App\Models\Language;
 use Illuminate\Support\Str;
 
@@ -12,6 +13,42 @@ trait HasSocialMetaTags
     protected function getMetaTitle(): string
     {
         $title = '';
+
+        if ($this instanceof RaterDetail) {
+            $currentCount = $this->rater->ratings()
+                ->where('is_visible', true)
+                ->when($this->showOnlyVisibleGames, fn ($q) => $q->whereHas('game', fn ($q) => $q->where('is_visible', true)))
+                ->when($this->showOnlyReviews, fn ($q) => $q->where('is_reviewed', true))
+                ->count();
+
+            $title = "{$currentCount} of {$this->totalRatingsCount} Ratings";
+
+            if ($this->visibleGamesRatingsCount < $this->totalRatingsCount) {
+                $title .= " ({$this->visibleGamesRatingsCount} in listed games)";
+            }
+
+            $filters = [];
+            if ($this->showOnlyVisibleGames) {
+                $filters[] = 'listed games';
+            }
+            if ($this->showOnlyReviews) {
+                $filters[] = 'with reviews';
+            }
+
+            if (! empty($filters)) {
+                $title .= ' - ' . implode(', ', $filters);
+            }
+
+            $sortMap = [
+                'published_at' => 'date',
+                'rating' => 'rating',
+            ];
+
+            $title .= " - Sorted by {$sortMap[$this->sortField]} " .
+                ($this->sortDirection === 'asc' ? '↑' : '↓');
+
+            return $title . ' - ' . config('app.name');
+        }
 
         if (method_exists($this, 'getHeading')) {
             $totalRecords = $this->getAllTableRecordsCount();
@@ -67,6 +104,28 @@ trait HasSocialMetaTags
 
     protected function getMetaDescription(): string
     {
+        if ($this instanceof RaterDetail) {
+            $description = "Viewing {$this->rater->id}'s game ratings";
+
+            if ($this->showOnlyVisibleGames || $this->showOnlyReviews) {
+                $description .= ' (filtered to show ';
+                $filters = [];
+                if ($this->showOnlyVisibleGames) {
+                    $filters[] = 'listed games';
+                }
+                if ($this->showOnlyReviews) {
+                    $filters[] = 'reviews only';
+                }
+                $description .= implode(' and ', $filters) . ')';
+            }
+
+            $description .= ". Total ratings: {$this->totalRatingsCount}, ";
+            $description .= "Listed game ratings: {$this->visibleGamesRatingsCount}. ";
+            $description .= "Sorted by {$this->sortField} {$this->sortDirection}.";
+
+            return $description;
+        }
+
         // For game list
         if (property_exists($this, 'games')) {
             $description = 'Browse';
@@ -154,6 +213,6 @@ trait HasSocialMetaTags
             }
         }
 
-        return asset('favicon.ico');
+        return '';
     }
 }

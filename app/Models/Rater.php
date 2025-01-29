@@ -21,4 +21,11 @@ class Rater extends Model
     {
         return $this->hasMany(Rating::class);
     }
+
+    public function resolveRouteBinding($value, $field = null): Rater
+    {
+        $query = $this->where($field ?? 'id', $value);
+
+        return $query->firstOrFail();
+    }
 }

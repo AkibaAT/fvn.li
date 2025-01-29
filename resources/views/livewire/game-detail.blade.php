@@ -342,8 +342,9 @@
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium text-gray-900 dark:text-gray-100">
-                                        <a target="_blank"
-                                           href="https://itch.io/event/{{ $review->event_id }}">{{ $review->rater->id }}</a>
+                                        <a href="{{ route('raters.show', $review->rater) }}" class="hover:underline">
+                                            {{ $review->rater->id }}
+                                        </a>
                                     </span>
                                     <span class="text-sm text-gray-500 dark:text-gray-400">
                                         {{ $review->published_at->format('M j, Y') }}
