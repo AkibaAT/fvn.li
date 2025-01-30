@@ -16,6 +16,8 @@
 
         {{-- Dynamic ratings list --}}
         <livewire:ratings-list :rater-id="$rater->id" />
+
+        @include('components.bookmarklet')
     </div>
 
     {{-- Rating history dialog (moved outside the main content) --}}
