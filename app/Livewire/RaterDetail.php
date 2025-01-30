@@ -16,11 +16,6 @@ class RaterDetail extends Component
     public Rater $rater;
     public int $totalRatingsCount;
     public int $visibleGamesRatingsCount;
-    public bool $showOnlyReviews = true;
-    public bool $showOnlyVisibleGames = true;
-    public string $sortField = 'published_at';
-    public string $sortDirection = 'desc';
-
     protected $listeners = ['filtersUpdated' => 'handleFiltersUpdated'];
 
     public function mount(Rater $rater): void
@@ -30,14 +25,6 @@ class RaterDetail extends Component
         $this->visibleGamesRatingsCount = $rater->ratings()
             ->whereHas('game', fn ($q) => $q->where('is_visible', true))
             ->count();
-    }
-
-    public function handleFiltersUpdated(array $filters): void
-    {
-        $this->showOnlyReviews = $filters['showOnlyReviews'];
-        $this->showOnlyVisibleGames = $filters['showOnlyVisibleGames'];
-        $this->sortField = $filters['sortField'];
-        $this->sortDirection = $filters['sortDirection'];
     }
 
     public function render(): View
