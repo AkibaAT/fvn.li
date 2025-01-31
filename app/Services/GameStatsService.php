@@ -12,9 +12,11 @@ use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -31,11 +33,10 @@ readonly class GameStatsService
     ) {}
 
     /**
-     * Download and extract script statistics from a game upload
-     *
-     * @throws Exception|\GuzzleHttp\Exception\GuzzleException If there's an error downloading or processing the game files
+     * Download and process game upload
+     * @throws GuzzleException
      */
-    public function getUploadStats(string $gameUrl, string $filename, int $uploadId): ?array
+    public function downloadAndProcess(string $gameUrl, string $filename, int $uploadId): array
     {
         // Get the download URL and info
         $response = $this->client->post($gameUrl . '/file/' . $uploadId);
@@ -45,24 +46,16 @@ readonly class GameStatsService
             throw new RuntimeException('Could not get download URL or filename');
         }
 
-        // Get the file extension from the original filename
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
-
-        // For .tar.gz or .tar.bz2 files, we need to check the full filename
-        if ($extension === 'gz' || $extension === 'bz2') {
-            $basename = pathinfo($filename, PATHINFO_FILENAME);
-            if (str_ends_with($basename, '.tar')) {
-                $extension = "tar.{$extension}";
-            }
+        // Create a temporary file for download
+        $tempFile = tempnam(sys_get_temp_dir(), 'download_');
+        if ($tempFile === false) {
+            throw new RuntimeException('Could not create temporary file');
         }
-
-        // Create a temporary file with the correct extension
-        $archivePath = storage_path('app/temp/' . uniqid('download_', true) . '.' . $extension);
 
         try {
             // Stream the download directly to disk
             $this->client->get($downloadInfo['url'], [
-                'sink' => $archivePath,
+                'sink' => $tempFile,
                 'progress' => function ($downloadTotal, $downloadedBytes) {
                     if ($downloadTotal > 0) {
                         Log::debug('Download progress: ' . round(($downloadedBytes / $downloadTotal) * 100) . '%');
@@ -70,15 +63,45 @@ readonly class GameStatsService
                 },
             ]);
 
-            return $this->extractGameStats($archivePath);
-        } finally {
-            // Clean up the downloaded file
-            if (File::exists($archivePath)) {
-                File::delete($archivePath);
+            // Process the stats
+            $stats = $this->extractGameStats($tempFile);
+
+            return [
+                'tempFile' => $tempFile,
+                'stats' => $stats,
+            ];
+
+        } catch (Exception $e) {
+            // Clean up on error
+            if (File::exists($tempFile)) {
+                File::delete($tempFile);
             }
+            throw $e;
         }
     }
 
+    /**
+     * Store a processed game file permanently
+     */
+    public function storeProcessedFile(string $tempFile, string $filename, int $gameId, int $versionId): void
+    {
+        if (! File::exists($tempFile)) {
+            throw new RuntimeException('Temporary file no longer exists');
+        }
+
+        try {
+            $storagePath = "games/{$gameId}/{$versionId}";
+            Storage::makeDirectory($storagePath);
+            Storage::putFileAs($storagePath, $tempFile, $filename);
+        } finally {
+            // Clean up temp file
+            File::delete($tempFile);
+        }
+    }
+
+    /**
+     * Extract statistics from a game archive
+     */
     public function extractGameStats(string $archivePath): ?array
     {
         // Create temporary directory for extraction
@@ -145,16 +168,11 @@ readonly class GameStatsService
             if (File::exists($extractPath)) {
                 File::deleteDirectory($extractPath);
             }
-            if (File::exists($archivePath)) {
-                File::delete($archivePath);
-            }
         }
     }
 
     /**
      * Save or update language and character statistics for a game version
-     *
-     * @throws Exception
      */
     public function saveVersionStats(GameVersion $version, array $stats, string $defaultLanguage = 'eng'): void
     {
@@ -241,8 +259,6 @@ readonly class GameStatsService
 
     /**
      * Extract a game archive to the specified directory
-     *
-     * @throws Exception If extraction fails
      */
     private function extractArchive(string $archivePath, string $extractPath): void
     {

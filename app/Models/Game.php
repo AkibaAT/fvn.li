@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class Game extends Model
@@ -247,7 +248,6 @@ class Game extends Model
                 $this->is_visible = false;
                 $this->save();
                 DB::commit();
-
                 return;
             }
 
@@ -325,7 +325,6 @@ class Game extends Model
 
             if (! $hasChanges && ! $force) {
                 DB::commit();
-
                 return;
             }
 
@@ -360,7 +359,6 @@ class Game extends Model
 
             // Get existing version if any
             $existingVersion = $this->gameVersions()
-                ->where('is_latest', true)
                 ->where('version', $newVersion)
                 ->first();
 
@@ -375,7 +373,7 @@ class Game extends Model
                 $this->refreshTagsAndRating($client, $devlogLink, $versionRating, $versionRatingCount);
                 $this->save();
 
-                // Create new version
+                // Create new version with basic info first
                 $gameVersion = new GameVersion([
                     'version' => $newVersion,
                     'devlog' => $devlogLink,
@@ -387,7 +385,7 @@ class Game extends Model
                     'published_at' => $uploadTimestamp,
                     'rating' => $versionRating,
                     'rating_count' => $versionRatingCount,
-                    'is_latest' => true,
+                    'is_latest' => ! $existingVersion,
                 ]);
 
                 $this->gameVersions()->save($gameVersion);
@@ -396,19 +394,39 @@ class Game extends Model
                 if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
                     try {
                         $statsService = app(GameStatsService::class);
-                        $stats = $statsService->getUploadStats($this->url, $uploadToProcess['filename'], $uploadToProcess['id']);
 
-                        if ($stats) {
+                        // Download and process the file
+                        $result = $statsService->downloadAndProcess(
+                            $this->url,
+                            $uploadToProcess['filename'],
+                            $uploadToProcess['id']
+                        );
+
+                        if ($result['stats']) {
                             $this->game_engine = "Ren'Py";
                             $this->save();
-                            $statsService->saveVersionStats($gameVersion, $stats, $this->source_language_id);
+
+                            // Save the stats
+                            $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id);
 
                             // Add language support entries for each language with stats
-                            foreach ($stats['languages'] as $isoCode => $langStats) {
+                            foreach ($result['stats']['languages'] as $isoCode => $langStats) {
                                 $gameVersion->addSupportedLanguage($isoCode);
                             }
+
+                            // Store the file permanently
+                            $statsService->storeProcessedFile(
+                                $result['tempFile'],
+                                $uploadToProcess['filename'],
+                                $this->id,
+                                $gameVersion->id
+                            );
                         } else {
-                            // Copy language support from previous version if stats extraction fails
+                            // Clean up temp file if stats extraction failed
+                            if (isset($result['tempFile']) && File::exists($result['tempFile'])) {
+                                File::delete($result['tempFile']);
+                            }
+                            // Copy language support from previous version
                             $this->copyLanguageSupport($gameVersion);
                         }
                     } catch (Exception $e) {

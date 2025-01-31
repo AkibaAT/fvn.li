@@ -11,17 +11,19 @@ use DateTime;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ReimportGameVersion extends Command
 {
     protected $signature = 'game:reimport-version
         {game_id : Game ID in the database}
         {version : Version string to reimport}
-        {archive : Path to the game archive}
-        {--timestamp= : Timestamp for published_at (required for new versions, format: YYYY-MM-DD HH:mm:ss)}';
+        {--timestamp= : Timestamp for published_at (required for new versions, format: YYYY-MM-DD HH:mm:ss)}
+        {--archive= : Path to the game archive (if not using stored version)}';
 
-    protected $description = 'Reimport version statistics from a local game archive';
+    protected $description = 'Reimport version statistics from a stored or local game archive';
 
     private GameStatsService $statsService;
 
@@ -35,17 +37,12 @@ class ReimportGameVersion extends Command
     {
         $gameId = $this->argument('game_id');
         $versionString = $this->argument('version');
-        $archivePath = $this->argument('archive');
+        $archivePath = $this->option('archive');
         $timestamp = $this->option('timestamp');
 
         $this->info("Starting version reimport for Game #{$gameId}, Version: {$versionString}");
 
         try {
-            // Validate input
-            if (! file_exists($archivePath)) {
-                throw new Exception("Archive file not found: {$archivePath}");
-            }
-
             $game = Game::findOrFail($gameId);
 
             // Start transaction
@@ -61,7 +58,6 @@ class ReimportGameVersion extends Command
                 // For new versions, timestamp is required
                 if (! $version->exists && ! $timestamp) {
                     $this->error('Timestamp is required for new versions');
-
                     return 1;
                 }
 
@@ -72,7 +68,6 @@ class ReimportGameVersion extends Command
                         $publishedAt = new DateTime($timestamp);
                     } catch (Exception $e) {
                         $this->error('Invalid timestamp format. Use YYYY-MM-DD HH:mm:ss');
-
                         return 1;
                     }
                 }
@@ -93,13 +88,48 @@ class ReimportGameVersion extends Command
                     }
                 }
 
+                // Check for stored archive first
+                $storedArchivePath = null;
+                if (! $archivePath) {
+                    $storagePath = "games/{$game->id}/{$version->id}";
+                    $files = Storage::files($storagePath);
+                    if (! empty($files)) {
+                        $storedArchivePath = Storage::path($files[0]);
+                        $this->info("Using stored archive: " . basename($storedArchivePath));
+                    } else {
+                        $this->error("No stored archive found for this version");
+                        DB::rollBack();
+                        return 1;
+                    }
+                }
+
+                // Validate archive path
+                $finalArchivePath = $storedArchivePath ?? $archivePath;
+                if (! file_exists($finalArchivePath)) {
+                    $this->error("Archive file not found: {$finalArchivePath}");
+                    DB::rollBack();
+                    return 1;
+                }
+
                 // Extract and process statistics
                 $this->info('Processing game archive...');
-                $stats = $this->statsService->extractGameStats($archivePath);
+                $stats = $this->statsService->extractGameStats($finalArchivePath);
 
                 if ($stats) {
                     $this->info('Saving version statistics...');
                     $this->statsService->saveVersionStats($version, $stats, $game->source_language_id);
+
+                    // If using a local archive, store it permanently
+                    if ($archivePath && ! $storedArchivePath) {
+                        $this->info('Storing archive file...');
+                        $this->statsService->storeProcessedFile(
+                            $archivePath,
+                            basename($archivePath),
+                            $game->id,
+                            $version->id
+                        );
+                    }
+
                     $this->info('Statistics saved successfully');
                 } else {
                     $this->warn('No statistics could be extracted from the archive');
