@@ -5,7 +5,7 @@
 >
     <x-dialog-header title="File Statistics"/>
 
-    @if($selectedVersion && $selectedVersion->fileCategories->isNotEmpty())
+    @if ($selectedVersion && $selectedVersion->fileCategories->isNotEmpty())
         <div class="space-y-6">
             {{-- Summary --}}
             <div>

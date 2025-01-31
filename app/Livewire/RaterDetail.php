@@ -16,6 +16,7 @@ class RaterDetail extends Component
     public Rater $rater;
     public int $totalRatingsCount;
     public int $visibleGamesRatingsCount;
+
     protected $listeners = ['filtersUpdated' => 'handleFiltersUpdated'];
 
     public function mount(Rater $rater): void

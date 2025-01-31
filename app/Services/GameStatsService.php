@@ -34,6 +34,7 @@ readonly class GameStatsService
 
     /**
      * Download and process game upload
+     *
      * @throws GuzzleException
      */
     public function downloadAndProcess(string $gameUrl, string $filename, int $uploadId): array

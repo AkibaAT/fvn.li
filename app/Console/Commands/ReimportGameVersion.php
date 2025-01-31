@@ -11,7 +11,6 @@ use DateTime;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -58,6 +57,7 @@ class ReimportGameVersion extends Command
                 // For new versions, timestamp is required
                 if (! $version->exists && ! $timestamp) {
                     $this->error('Timestamp is required for new versions');
+
                     return 1;
                 }
 
@@ -68,6 +68,7 @@ class ReimportGameVersion extends Command
                         $publishedAt = new DateTime($timestamp);
                     } catch (Exception $e) {
                         $this->error('Invalid timestamp format. Use YYYY-MM-DD HH:mm:ss');
+
                         return 1;
                     }
                 }
@@ -95,10 +96,11 @@ class ReimportGameVersion extends Command
                     $files = Storage::files($storagePath);
                     if (! empty($files)) {
                         $storedArchivePath = Storage::path($files[0]);
-                        $this->info("Using stored archive: " . basename($storedArchivePath));
+                        $this->info('Using stored archive: ' . basename($storedArchivePath));
                     } else {
-                        $this->error("No stored archive found for this version");
+                        $this->error('No stored archive found for this version');
                         DB::rollBack();
+
                         return 1;
                     }
                 }
@@ -108,6 +110,7 @@ class ReimportGameVersion extends Command
                 if (! file_exists($finalArchivePath)) {
                     $this->error("Archive file not found: {$finalArchivePath}");
                     DB::rollBack();
+
                     return 1;
                 }
 

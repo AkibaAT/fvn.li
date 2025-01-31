@@ -248,6 +248,7 @@ class Game extends Model
                 $this->is_visible = false;
                 $this->save();
                 DB::commit();
+
                 return;
             }
 
@@ -325,6 +326,7 @@ class Game extends Model
 
             if (! $hasChanges && ! $force) {
                 DB::commit();
+
                 return;
             }
 

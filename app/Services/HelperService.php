@@ -6,7 +6,7 @@ namespace App\Services;
 
 class HelperService
 {
-    static function formatBytes(int $bytes, int $precision = 2): string
+    public static function formatBytes(int $bytes, int $precision = 2): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
 
