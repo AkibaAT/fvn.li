@@ -139,10 +139,12 @@ init 10000 python:
                 for lang in known_languages:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
 
+        hasTranslateSay = getattr(renpy.ast, "TranslateSay", None)
+
         # Second pass: gather dialogue and menu statistics
         for node in all_stmts:
             # Older versions of Ren'Py don't have a TranslateSay node
-            if isinstance(node, renpy.ast.Translate) and len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say):
+            if not hasTranslateSay and isinstance(node, renpy.ast.Translate) and len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say):
                 lang = node.language or "default"
                 say = node.block[0]
                 all_lang_stats[lang]["filestats"][say.filename].add(say.what)
@@ -150,7 +152,7 @@ init 10000 python:
                     all_lang_stats[lang]["characters"][say.who].add(say.what)
                 else:
                     all_lang_stats[lang]["characters"]["narrator"].add(say.what)
-            elif isinstance(node, renpy.ast.Say):
+            elif hasTranslateSay and isinstance(node, renpy.ast.Say):
                 if hasattr(renpy.ast, "TranslateSay") and isinstance(node, renpy.ast.TranslateSay) and node.language:
                     lang = node.language
                 else:
