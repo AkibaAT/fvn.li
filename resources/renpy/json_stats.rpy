@@ -44,7 +44,7 @@ init 10000 python:
 
     # File statistics by type
     file_statistics = {
-        "images": collections.defaultdict(FileStats),
+        "image": collections.defaultdict(FileStats),
         "audio": collections.defaultdict(FileStats),
         "video": collections.defaultdict(FileStats),
         "other": collections.defaultdict(FileStats)
@@ -84,7 +84,7 @@ init 10000 python:
                 size = get_file_size(filename)
 
                 if ext in image_extensions:
-                    file_statistics["images"][ext].add_file(size)
+                    file_statistics["image"][ext].add_file(size)
                 elif ext in audio_extensions:
                     file_statistics["audio"][ext].add_file(size)
                 elif ext in video_extensions:
@@ -221,7 +221,7 @@ init 10000 python:
 
         # Add summary totals
         result["file_statistics"]["summary"] = {
-            "total_images": sum(stats.count for stats in file_statistics["images"].values()),
+            "total_image": sum(stats.count for stats in file_statistics["image"].values()),
             "total_audio": sum(stats.count for stats in file_statistics["audio"].values()),
             "total_video": sum(stats.count for stats in file_statistics["video"].values()),
             "total_other": sum(stats.count for stats in file_statistics["other"].values()),
