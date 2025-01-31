@@ -31,7 +31,7 @@
         <button wire:click="toggleFilter('{{ $type }}', '{{ $item }}')"
                 class="inline-flex items-center px-3 py-1 rounded-full text-sm {{ $config['class'] }}">
             @if ($type === 'language' && isset($languages[$decodedItem]))
-                <span class="fi fi-{{ $languages[$decodedItem]['flag_code'] }} rounded-sm mr-2"></span>
+                <span class="fi fi-{{ $languages[$decodedItem]['flag_code'] }} rounded-xs mr-2"></span>
             @endif
             {{ $config['label']($item) }}
             <span class="ml-2">&times;</span>

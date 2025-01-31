@@ -14,7 +14,7 @@
                     wire:click="toggleFilter('platform', '{{ $platform }}')"
                     title="Filter by {{ ucfirst($platform) }}"
                     @class([
-                        'px-1 rounded',
+                        'px-1 rounded-sm',
                         'ring-2 ring-blue-500 dark:ring-blue-400' => in_array($platform, $selectedPlatforms ?? []),
                     ])>
                     <i class="{{ $config['icon'] }} {{ $config['color'] }} hover:opacity-50"></i>

@@ -6,16 +6,15 @@
         "build": "vite build"
     },
     "devDependencies": {
-        "autoprefixer": "^10.4.20",
+        "@tailwindcss/vite": "^4.0.1",
         "axios": "^1.7.9",
-        "laravel-vite-plugin": "^1.1.1",
-        "postcss": "^8.4.49",
-        "tailwindcss": "^3.4.17",
-        "typescript": "^5.7.2",
-        "vite": "^6.0.7"
+        "laravel-vite-plugin": "^1.2.0",
+        "tailwindcss": "^4.0.1",
+        "typescript": "^5.7.3",
+        "vite": "^6.0.11"
     },
     "dependencies": {
         "@fortawesome/fontawesome-free": "^6.7.2",
-        "flag-icons": "^7.2.3"
+        "flag-icons": "^7.3.2"
     }
 }

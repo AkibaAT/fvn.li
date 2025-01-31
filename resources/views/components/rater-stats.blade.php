@@ -1,4 +1,4 @@
-<div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
     @php
         $rater = App\Models\Rater::find($raterId);
     @endphp

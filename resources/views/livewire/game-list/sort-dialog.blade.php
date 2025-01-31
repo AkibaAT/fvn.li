@@ -2,7 +2,7 @@
 <dialog
     wire:ignore.self
     id="sort-modal"
-    class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-sm dark:text-gray-100 backdrop:backdrop-blur-md"
+    class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-sm dark:text-gray-100 backdrop:backdrop-blur-md"
 >
     <x-dialog-header title="Sort {{ $this instanceof GameVersionList ? 'Versions' : 'Games' }}"/>
 

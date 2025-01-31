@@ -33,10 +33,10 @@
         </div>
 
         {{-- Game Header --}}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6">
             <div class="flex flex-col sm:flex-row gap-6">
                 @if ($game->is_visible && $game->thumb_url)
-                    <div class="flex-shrink-0">
+                    <div class="shrink-0">
                         <img src="{{ $game->thumb_url }}"
                              alt="{{ $game->name }}"
                              class="object-cover rounded-lg max-w-64 max-h-52">
@@ -86,7 +86,7 @@
         @if ($game->is_visible)
             <div id="details" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 scroll-mt-14">
                 {{-- Left Column: Basic Info --}}
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6">
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         Game Details
                     </h2>
@@ -126,7 +126,7 @@
                 </div>
 
                 {{-- Right Column: Tags --}}
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6">
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         Tags
                     </h2>
@@ -150,7 +150,7 @@
 
         {{-- Game Versions --}}
         @if ($versions->isNotEmpty())
-            <div id="versions" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6 scroll-mt-14">
+            <div id="versions" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6 scroll-mt-14">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     Version History
                 </h2>
@@ -245,7 +245,7 @@
                         <dialog
                             wire:ignore.self
                             id="character-stats-{{ $version->id }}"
-                            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl min-w-80 max-w-6xl dark:text-gray-100 backdrop:backdrop-blur-md"
+                            class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl min-w-80 max-w-6xl dark:text-gray-100 backdrop:backdrop-blur-md"
                         >
                             <x-dialog-header title="Character Statistics"/>
 
@@ -258,7 +258,7 @@
                                             @foreach ($characterStats['languages'] as $lang)
                                                 <th class="text-right py-2 px-3 font-medium">
                                                     <div class="flex items-center justify-end gap-2">
-                                                        <span class="fi fi-{{ $lang['flag'] }} rounded-sm"></span>
+                                                        <span class="fi fi-{{ $lang['flag'] }} rounded-xs"></span>
                                                         <span>{{ $lang['name'] }}</span>
                                                     </div>
                                                 </th>
@@ -321,7 +321,7 @@
 
         {{-- Reviews Section --}}
         @if ($reviews->isNotEmpty())
-            <div id="reviews" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 scroll-mt-14">
+            <div id="reviews" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 scroll-mt-14">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-4">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">

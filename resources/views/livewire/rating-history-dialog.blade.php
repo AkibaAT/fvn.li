@@ -1,7 +1,7 @@
 <dialog
     wire:ignore.self
     id="rating-history"
-    class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
+    class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
 >
     <x-dialog-header title="Rating History"/>
 

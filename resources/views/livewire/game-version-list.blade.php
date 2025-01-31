@@ -6,7 +6,7 @@
                     wire:model.live="search"
                     type="search"
                     placeholder="Search games..."
-                    class="px-4 py-3 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm"
+                    class="px-4 py-3 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-xs"
                 >
             </div>
             <div class="flex gap-2">
@@ -24,7 +24,7 @@
                 ] as $type => $config)
                     <button
                         @click="document.getElementById('{{ $config['modal'] }}').showModal()"
-                        class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 shadow-sm"
+                        class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 shadow-xs"
                     >
                         <x-dynamic-component :component="$config['icon']" class="w-5 h-5"/>
                         {{ ucfirst($type) }}
@@ -78,7 +78,7 @@
             </div>
         @endif
 
-        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xs sm:rounded-lg">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -131,7 +131,7 @@
                                             <button
                                                 wire:click="toggleFilter('platform', '{{ $platform }}')"
                                                 @class([
-                                                    'p-1 rounded transition-colors',
+                                                    'p-1 rounded-sm transition-colors',
                                                     'bg-blue-100 dark:bg-blue-900' => in_array($platform, $selectedPlatforms),
                                                     'hover:bg-gray-100 dark:hover:bg-gray-700' => !in_array($platform, $selectedPlatforms),
                                                 ])
@@ -157,7 +157,7 @@
                                         <button
                                             wire:click="toggleFilter('language', '{{ $this->encodeFilterValue($stat->iso_code) }}')"
                                             @class([
-                                                'px-1.5 py-0.5 text-xs rounded',
+                                                'px-1.5 py-0.5 text-xs rounded-sm',
                                                 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' =>
                                                     in_array($this->encodeFilterValue($stat->iso_code), $selectedLanguages),
                                                 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600' =>
@@ -202,7 +202,7 @@
     <dialog
         wire:ignore.self
         id="sort-modal"
-        class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-sm dark:text-gray-100 backdrop:backdrop-blur-md"
+        class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-sm dark:text-gray-100 backdrop:backdrop-blur-md"
     >
         <x-dialog-header title="Sort Versions"/>
 
@@ -232,7 +232,7 @@
     <dialog
         wire:ignore.self
         id="filters-modal"
-        class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
+        class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
     >
         <x-dialog-header title="Filter Versions"/>
 

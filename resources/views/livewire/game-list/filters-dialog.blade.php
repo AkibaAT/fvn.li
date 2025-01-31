@@ -1,7 +1,7 @@
 <dialog
     wire:ignore.self
     id="filters-modal"
-    class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
+    class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
 >
     <x-dialog-header title="Filter Games"/>
 
@@ -68,7 +68,7 @@
                                     : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
                             @if ($section['type'] === 'language')
                                 <span
-                                    class="fi fi-{{ $label['flag_code'] }} rounded-sm mr-1"></span>{{ $label['ref_name'] }}
+                                    class="fi fi-{{ $label['flag_code'] }} rounded-xs mr-1"></span>{{ $label['ref_name'] }}
                             @else
                                 {{ $label }}
                             @endif

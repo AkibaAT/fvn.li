@@ -1,13 +1,13 @@
 @props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'selectedLanguages' => [], 'nsfw' => false, 'sfw' => false])
 
 <div
-    class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow p-4 flex flex-col backdrop-blur-sm border border-gray-200 dark:border-transparent transition-all duration-150">
+    class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         <a href="{{ route('games.show', $game) }}">
             <img
                 src="{{ $game->thumb_url }}"
                 alt="{{ $game->name }}"
-                class="h-24 w-32 object-cover rounded"
+                class="h-24 w-32 object-cover rounded-sm"
             >
         </a>
         <div class="flex flex-col min-w-0 flex-1">
@@ -34,7 +34,7 @@
                         <button
                             wire:click="$toggle('nsfw')"
                             @class([
-                                'shrink-0 text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors',
+                                'shrink-0 text-xs px-1.5 py-0.5 rounded-sm cursor-pointer transition-colors',
                                 'bg-red-200 text-red-800 dark:bg-red-800/50 dark:text-red-200/90 ring-2 ring-red-500 dark:ring-red-500' => $nsfw,
                                 'bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300 hover:bg-red-200 hover:text-red-800 dark:hover:bg-red-800/50 dark:hover:text-red-300' => !$nsfw,
                             ])>
@@ -44,7 +44,7 @@
                         <button
                             wire:click="$toggle('sfw')"
                             @class([
-                                'shrink-0 text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors',
+                                'shrink-0 text-xs px-1.5 py-0.5 rounded-sm cursor-pointer transition-colors',
                                 'bg-green-200 text-green-800 dark:bg-green-800/50 dark:text-green-200/90 ring-2 ring-green-500 dark:ring-green-500' => $sfw,
                                 'bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300 hover:bg-green-200 hover:text-green-800 dark:hover:bg-green-800/50 dark:hover:text-green-300' => !$sfw,
                             ])>
