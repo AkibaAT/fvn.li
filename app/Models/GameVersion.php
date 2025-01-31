@@ -116,6 +116,9 @@ class GameVersion extends Model
 
     public function saveFileStats(array $stats): void
     {
+        // First, delete any existing file stats for this version
+        $this->fileCategories()->delete();
+
         foreach ($stats as $category => $categoryData) {
             if ($category === 'summary') {
                 continue;
