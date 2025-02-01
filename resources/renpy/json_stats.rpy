@@ -8,7 +8,7 @@ init 10000 python:
     import re
     from contextlib import closing
     from renpy import store
-    from renpy.loader import listdirfiles  # Removed unused "archives"
+    from renpy.loader import listdirfiles
 
     def translate_string(text, language=None):
         if renpy.version_tuple >= (8, 0, 0, 0):
@@ -17,7 +17,6 @@ init 10000 python:
             return text
 
     class Count(object):
-        __slots__ = ("blocks", "words")
         def __init__(self):
             self.blocks = 0      # Number of 'Say' statements
             self.words = 0       # Total words
@@ -27,7 +26,6 @@ init 10000 python:
             self.words += len(text.split())
 
     class FileStats(object):
-        __slots__ = ("total_size", "count")
         def __init__(self):
             self.total_size = 0  # Total size of files in bytes
             self.count = 0       # Number of files
@@ -194,7 +192,7 @@ init 10000 python:
         result = {
             "languages": {},
             "file_statistics": {}
-        }
+
 
         # Process language statistics.
         for lang, data in all_lang_stats.items():
