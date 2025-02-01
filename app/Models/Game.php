@@ -569,6 +569,13 @@ class Game extends Model
             }
         }
 
+        if (! empty($upload['user_version'])) {
+            $version = $upload['user_version'];
+            if ($this->isProbableVersion($version)) {
+                $candidates[] = [$version, 3];
+            }
+        }
+
         // Check display_name (high priority)
         if (! empty($upload['display_name'])) {
             // Look for explicit version

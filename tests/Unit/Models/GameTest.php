@@ -11,13 +11,10 @@ beforeEach(function () {
     $reflection = new ReflectionClass($this->game);
 
     $this->parseSemanticVersion = $reflection->getMethod('parseSemanticVersion');
-    $this->parseSemanticVersion->setAccessible(true);
 
     $this->isProbableVersion = $reflection->getMethod('isProbableVersion');
-    $this->isProbableVersion->setAccessible(true);
 
     $this->extractVersion = $reflection->getMethod('extractVersion');
-    $this->extractVersion->setAccessible(true);
 });
 
 dataset('semantic versions', [
@@ -54,6 +51,26 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '1.2.3',
+    ],
+    'from user_version' => [
+        [
+            'build' => [],
+            'display_name' => 'Demo – Linux and Windows',
+            'filename' => 'alices-day-off-demo-linux-win.zip',
+            'updated_at' => '2018-03-01T11:28:24.000000000Z',
+            'user_version' => '0.3',
+        ],
+        '0.3',
+    ],
+    'prioritize user_version' => [
+        [
+            'build' => [],
+            'display_name' => 'Demo – Linux 3 and Windows',
+            'filename' => 'alices-2-day-off-demo-linux-win.zip',
+            'updated_at' => '2018-03-01T11:28:24.000000000Z',
+            'user_version' => '0.3',
+        ],
+        '0.3',
     ],
     'from display name explicit' => [
         [
