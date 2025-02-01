@@ -173,7 +173,37 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '2024.01.17',
-        null,
+        null,#
+    ],
+    'prefer version in brackets' => [
+        [
+            'build' => [],
+            'display_name' => 'Chapter 2 (2.2.3) for PC and Linux',
+            'filename' => 'ELoNR-2.2.3-pc.zip',
+            'updated_at' => '2024-01-17T00:00:00Z',
+        ],
+        '2.2.3',
+        '2.2.3',
+    ],
+    'prefer highest semantic version in display name' => [
+        [
+            'build' => [],
+            'display_name' => 'Chapter 2 for PC and Linux 2.2.4',
+            'filename' => 'ELoNR-2.2.3-pc.zip',
+            'updated_at' => '2024-01-17T00:00:00Z',
+        ],
+        '2.2.4',
+        '2.2.4',
+    ],
+    'prefer more specific semantic version number in display name' => [
+        [
+            'build' => [],
+            'display_name' => 'Chapter 26 2.2.4 for PC and Linux',
+            'filename' => 'ELoNR-pc.zip',
+            'updated_at' => '2024-01-17T00:00:00Z',
+        ],
+        '2.2.4',
+        '2.2.4',
     ],
 ]);
 

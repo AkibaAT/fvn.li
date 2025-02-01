@@ -492,19 +492,45 @@ class Game extends Model
 
         // Check display_name (high priority)
         if (! empty($upload['display_name'])) {
-            // Look for explicit version
-            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*[a-zA-Z]*)/i', $upload['display_name'], $matches)) {
+            // Look for version in parentheses first (highest priority for display name)
+            if (preg_match('/\(([0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)\)/', $upload['display_name'], $matches)) {
                 if ($this->isProbableVersion($matches[1])) {
-                    $candidates[] = [$matches[1], 2];
+                    $candidates[] = [$matches[1], 3];
                 }
+            }
+
+            // Look for explicit version
+            preg_match_all(
+                '/(?:[vV](?:ersion)?)?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)(?=[-_. ]|$)/i',
+                $upload['display_name'],
+                $matches
+            );
+
+            // Find the highest semantic version
+            $highestVersion = null;
+            foreach ($matches[1] as $version) {
+                if ($this->isProbableVersion($version)) {
+                    if (!$highestVersion || version_compare($version, $highestVersion) > 0) {
+                        $highestVersion = $version;
+                    }
+                }
+            }
+
+            if ($highestVersion) {
+                $candidates[] = [$highestVersion, 2];
             } else {
-                // Look for other version patterns
-                preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
-                    $upload['display_name'], $matches);
+                // Fallback: only look for single numbers if no semantic version found,
+                // but avoid matching numbers that are part of a dotted sequence.
+                preg_match_all('/(?<!\.)\b(\d+)\b/', $upload['display_name'], $matches);
                 foreach ($matches[1] as $version) {
                     if ($this->isProbableVersion($version)) {
-                        $candidates[] = [$version, 2];
+                        if (!$highestVersion || version_compare($version, $highestVersion) > 0) {
+                            $highestVersion = $version;
+                        }
                     }
+                }
+                if ($highestVersion) {
+                    $candidates[] = [$highestVersion, 1];  // Lower priority for single numbers
                 }
             }
         }
