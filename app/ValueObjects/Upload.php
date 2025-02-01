@@ -105,9 +105,17 @@ readonly class Upload
         return strtolower(pathinfo($this->filename, PATHINFO_EXTENSION)) === 'zip';
     }
 
-    public function hasDesktopFileName(): bool
+    public function hasLinuxFileName(): bool
     {
-        $patterns = ['/pc/i', '/linux/i'];
+        $patterns = ['/linux/i', '/.tar/i'];
+        $names = array_filter([$this->filename, $this->displayName]);
+
+        return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
+    }
+
+    public function hasPcFileName(): bool
+    {
+        $patterns = ['/pc/i'];
         $names = array_filter([$this->filename, $this->displayName]);
 
         return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
@@ -123,7 +131,8 @@ readonly class Upload
         $criteria = [
             fn ($a, $b) => $b->isLinux() <=> $a->isLinux(),
             fn ($a, $b) => $b->isWindows() <=> $a->isWindows(),
-            fn ($a, $b) => $b->hasDesktopFileName() <=> $a->hasDesktopFileName(),
+            fn ($a, $b) => $b->hasLinuxFileName() <=> $a->hasLinuxFileName(),
+            fn ($a, $b) => $b->hasPcFileName() <=> $a->hasPcFileName(),
             fn ($a, $b) => $b->isZip() <=> $a->isZip(),
             fn ($a, $b) => $b->updatedAt <=> $a->updatedAt,
             fn ($a, $b) => ($b->buildUpdatedAt ?? $b->updatedAt) <=> ($a->buildUpdatedAt ?? $a->updatedAt),
