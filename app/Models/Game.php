@@ -280,7 +280,7 @@ class Game extends Model
                 $currentUserVersion = $currentBuild['user_version'] ?? null;
                 $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
 
-                // Check if upload is new or changed
+                // Always store upload info regardless of processability
                 $isNewOrChanged = (
                     ! isset($seenUploads[$fileId]) ||
                     $seenUploads[$fileId]['md5_hash'] !== $currentMd5 ||
@@ -302,8 +302,12 @@ class Game extends Model
                         'traits' => $upload['traits'] ?? [],
                         'type' => $upload['type'] ?? '',
                     ];
+
+                    // Only add to candidate uploads if it's a processable file type
                     $candidateUpload = Upload::fromArray($seenUploads[$fileId], $fileId);
-                    $candidateUploads[] = $candidateUpload;
+                    if ($candidateUpload->isProcessable()) {
+                        $candidateUploads[] = $candidateUpload;
+                    }
                 }
 
                 // Update platform flags based on traits

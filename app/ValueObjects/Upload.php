@@ -11,6 +11,13 @@ use Illuminate\Support\Collection;
 
 class Upload
 {
+    private const array PROCESSABLE_EXTENSIONS = [
+        'zip',
+        'gz',
+        'bz2',
+        'tar',
+    ];
+
     public DateTimeInterface $updatedAt;
     public ?DateTimeInterface $buildUpdatedAt;
 
@@ -55,7 +62,9 @@ class Upload
 
     public static function sort(Collection $uploads): Collection
     {
-        return $uploads->sort(fn (self $a, self $b) => $a->compareTo($b));
+        // Filter out non-processable uploads first, then sort the remainder
+        return $uploads->filter(fn (self $upload) => $upload->isProcessable())
+            ->sort(fn (self $a, self $b) => $a->compareTo($b));
     }
 
     public static function getBest(Collection $uploads): ?self
@@ -126,11 +135,6 @@ class Upload
 
     public function compareTo(self $other): int
     {
-        // Never prefer web uploads
-        if ($this->isWeb() !== $other->isWeb()) {
-            return $other->isWeb() ? -1 : 1;
-        }
-
         $criteria = [
             // Compare versions first (higher version wins)
             fn ($a, $b) => $this->compareVersions(
@@ -155,6 +159,26 @@ class Upload
         }
 
         return 0;
+    }
+
+    public function isProcessable(): bool
+    {
+        // Web versions are never processable
+        if ($this->isWeb()) {
+            return false;
+        }
+
+        $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
+
+        // Special handling for tar.gz and tar.bz2
+        if ($ext === 'gz' || $ext === 'bz2') {
+            $basename = basename($this->filename, ".{$ext}");
+            if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
+                return true;
+            }
+        }
+
+        return in_array($ext, self::PROCESSABLE_EXTENSIONS);
     }
 
     private function getVersion(): ?string

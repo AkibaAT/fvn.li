@@ -210,8 +210,33 @@ readonly class GameStatsService
     {
         $ext = strtolower(pathinfo($archivePath, PATHINFO_EXTENSION));
 
+        // Handle tar.gz and tar.bz2 files
+        if ($ext === 'gz' || $ext === 'bz2') {
+            if (strtolower(pathinfo(basename($archivePath, ".{$ext}"), PATHINFO_EXTENSION)) !== 'tar') {
+                throw new RuntimeException("Unsupported archive format: {$ext} (not a tar archive)");
+            }
+
+            $process = new Process([
+                'tar',
+                '-x' . ($ext === 'gz' ? 'z' : 'j'), // Add z for gzip, j for bzip2
+                '-f',
+                $archivePath,
+                '-C',
+                $extractPath,
+            ]);
+
+            $process->setTimeout(300); // 5 minute timeout
+            $process->run();
+
+            if (! $process->isSuccessful()) {
+                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
+            }
+
+            return;
+        }
+
+        // Handle zip files
         if ($ext === 'zip') {
-            // Use native PHP zip extension with streaming
             $zip = new ZipArchive;
             $result = $zip->open($archivePath);
 
@@ -230,18 +255,17 @@ readonly class GameStatsService
             return;
         }
 
-        // Handle tar.gz and tar.bz2 files
-        if ($ext === 'gz' || $ext === 'bz2' || basename($archivePath, ".{$ext}") === 'tar') {
+        // Handle plain tar files
+        if ($ext === 'tar') {
             $process = new Process([
                 'tar',
-                '-x' . ($ext === 'gz' ? 'z' : ($ext === 'bz2' ? 'j' : '')), // Add z for gzip, j for bzip2
-                '-f',
+                '-xf',
                 $archivePath,
                 '-C',
                 $extractPath,
             ]);
 
-            $process->setTimeout(300); // 5 minute timeout
+            $process->setTimeout(300);
             $process->run();
 
             if (! $process->isSuccessful()) {
