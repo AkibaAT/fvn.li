@@ -507,8 +507,8 @@ class Game extends Model
         $version = preg_replace('/^[vV]ersion\s*/', '', $version);
         $version = preg_replace('/^[vV]\s*/', '', $version);
 
-        // Match version pattern
-        if (! preg_match('/^(\d+(?:\.\d+)*?)([a-zA-Z])?$/', $version, $matches)) {
+        // Match version pattern with optional letter suffix
+        if (! preg_match('/^(\d+(?:\.\d+)*?)([a-zA-Z]+)?$/', $version, $matches)) {
             return null;
         }
 
@@ -517,7 +517,7 @@ class Game extends Model
             $suffix = $matches[2] ?? '';
 
             return [$parts, $suffix];
-        } catch (Exception $e) {
+        } catch (Exception) {
             return null;
         }
     }
@@ -556,7 +556,7 @@ class Game extends Model
      *
      * @throws DateMalformedStringException
      */
-    private function extractVersion(array $upload): string
+    public function extractVersion(array $upload): string
     {
         // Collect version candidates with source and priority
         $candidates = [];
@@ -579,13 +579,13 @@ class Game extends Model
         // Check display_name (high priority)
         if (! empty($upload['display_name'])) {
             // Look for explicit version
-            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*)(?:[a-zA-Z][a-z]*)?/', $upload['display_name'], $matches)) {
+            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*[a-zA-Z]*)/i', $upload['display_name'], $matches)) {
                 if ($this->isProbableVersion($matches[1])) {
                     $candidates[] = [$matches[1], 2];
                 }
             } else {
                 // Look for other version patterns
-                preg_match_all('/(?:[vV](?:ersion)?)?(\d+(?:\.\d+)*)(?:[a-zA-Z][a-z]*)?(?=[-\s._)]|$)/',
+                preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
                     $upload['display_name'], $matches);
                 foreach ($matches[1] as $version) {
                     if ($this->isProbableVersion($version)) {
@@ -606,7 +606,7 @@ class Game extends Model
             }
         } else {
             // Look for version patterns in filename
-            preg_match_all('/(?:[vV](?:ersion)?)?(\d+(?:\.\d+)*)(?:[a-zA-Z][a-z]*)?(?=[-\s._)]|$)/',
+            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
                 $cleanedFilename, $matches);
             foreach ($matches[1] as $version) {
                 if ($this->isProbableVersion($version)) {
@@ -618,13 +618,11 @@ class Game extends Model
         if (! empty($candidates)) {
             // Sort by priority (desc) then version string
             usort($candidates, fn ($a, $b) => $b[1] <=> $a[1] ?: strcmp($a[0], $b[0]));
-
             return $candidates[0][0];
         }
 
         // Fallback to timestamp
         $timestamp = new DateTime($upload['updated_at']);
-
         return $timestamp->format('Y.m.d');
     }
 

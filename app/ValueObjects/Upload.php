@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\ValueObjects;
 
+use App\Models\Game;
 use DateTime;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
 
-readonly class Upload
+class Upload
 {
     public DateTimeInterface $updatedAt;
     public ?DateTimeInterface $buildUpdatedAt;
+    private ?string $extractedVersion = null;
 
     public function __construct(
         public int $id,
@@ -121,6 +123,53 @@ readonly class Upload
         return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
     }
 
+    private function getVersion(): string
+    {
+        if ($this->extractedVersion === null) {
+            // Create a temporary Game instance to use its version extraction logic
+            $game = new Game();
+            $this->extractedVersion = $game->extractVersion([
+                'filename' => $this->filename,
+                'display_name' => $this->displayName,
+                'build' => [
+                    'user_version' => $this->buildId ? $this->userVersion : null,
+                ],
+                'user_version' => $this->userVersion,
+                'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return $this->extractedVersion;
+    }
+
+    private function compareVersions(string $a, string $b): int
+    {
+        // Match version numbers and optional suffix
+        preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $a, $matchesA);
+        preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $b, $matchesB);
+
+        // Compare the numeric parts first
+        $verCompare = version_compare($matchesA[1], $matchesB[1]);
+        if ($verCompare !== 0) {
+            return $verCompare;
+        }
+
+        // If numeric parts are equal, compare the suffixes
+        $suffixA = $matchesA[2] ?? '';
+        $suffixB = $matchesB[2] ?? '';
+
+        // Having a suffix wins over no suffix (1.5c is newer than 1.5)
+        if ($suffixA === '' && $suffixB !== '') {
+            return -1;
+        }
+        if ($suffixB === '' && $suffixA !== '') {
+            return 1;
+        }
+
+        // If both have suffixes, compare them
+        return strcmp($suffixA, $suffixB);
+    }
+
     public function compareTo(self $other): int
     {
         // Never prefer web uploads
@@ -129,6 +178,12 @@ readonly class Upload
         }
 
         $criteria = [
+            // Compare versions first (higher version wins)
+            fn ($a, $b) => $this->compareVersions(
+                $b->getVersion(),
+                $a->getVersion()
+            ),
+            // Then fall back to other criteria
             fn ($a, $b) => $b->isLinux() <=> $a->isLinux(),
             fn ($a, $b) => $b->isWindows() <=> $a->isWindows(),
             fn ($a, $b) => $b->hasLinuxFileName() <=> $a->hasLinuxFileName(),

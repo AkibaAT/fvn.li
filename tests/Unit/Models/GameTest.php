@@ -115,7 +115,7 @@ dataset('version extractions', [
             'filename' => 'ExtracurricularActivities-1.183pub-pc.zip',
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
-        '1.183',
+        '1.183pub',
     ],
     'fallback to date' => [
         [
