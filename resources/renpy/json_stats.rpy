@@ -202,6 +202,27 @@ init 10000 python:
         collect_file_statistics()
         report_stats()
 
+    def ensure_unicode(s):
+        """Convert string to Unicode if it isn't already."""
+        if sys.version_info[0] >= 3:
+            return s
+        elif isinstance(s, str):
+            return s.decode('utf-8')
+        return s
+
+    def ensure_unicode_dict(d):
+        """Recursively convert all strings in a dict to Unicode."""
+        result = {}
+        for k, v in d.items():
+            if isinstance(k, str):
+                k = k.decode('utf-8')
+            if isinstance(v, dict):
+                v = ensure_unicode_dict(v)
+            elif isinstance(v, str):
+                v = v.decode('utf-8')
+            result[k] = v
+        return result
+
     def report_stats():
         """Generate a JSON report of the collected statistics."""
         result = {
@@ -228,13 +249,14 @@ init 10000 python:
             for char_var, char_count in data["characters"].items():
                 display_name = (defined_characters.get(char_var, {}).get(lang)
                                 if char_var != "narrator" else "Narrator")
-                lang_report["characters"][char_var] = {
-                    "display_name": display_name,
+                char_info = {
+                    "display_name": ensure_unicode(display_name) if display_name else None,
                     "blocks": char_count.blocks,
                     "words": char_count.words
                 }
+                lang_report["characters"][ensure_unicode(char_var)] = char_info
 
-            result["languages"][lang] = lang_report
+            result["languages"][ensure_unicode(lang)] = lang_report
 
         # Process file statistics
         result["file_statistics"] = {
@@ -261,7 +283,7 @@ init 10000 python:
         }
 
         with io.open("stats.json", "w", encoding="utf-8") as outfile:
-            json.dump(result, outfile, indent=4, ensure_ascii=False)
+            outfile.write(u"{}".format(json.dumps(result, indent=4, ensure_ascii=False)))
 
     # Run the wordcounter and then quit
     wordcounter()
