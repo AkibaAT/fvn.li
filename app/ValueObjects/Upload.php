@@ -41,6 +41,7 @@ class Upload
 
     public static function fromArray(array $data, int $id): self
     {
+        $data['build_id'] = $data['build_id'] ?? null;
         return new self(
             id: $id,
             filename: $data['filename'],
