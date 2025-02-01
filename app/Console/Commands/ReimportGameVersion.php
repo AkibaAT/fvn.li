@@ -6,13 +6,13 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
 use DateTime;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ReimportGameVersion extends Command
 {
@@ -24,12 +24,11 @@ class ReimportGameVersion extends Command
 
     protected $description = 'Reimport version statistics from a stored or local game archive';
 
-    private GameStatsService $statsService;
-
-    public function __construct(GameStatsService $statsService)
-    {
+    public function __construct(
+        private readonly GameStatsService $statsService,
+        private readonly GameArchiveService $archiveService
+    ) {
         parent::__construct();
-        $this->statsService = $statsService;
     }
 
     public function handle(): int
@@ -92,17 +91,14 @@ class ReimportGameVersion extends Command
                 // Check for stored archive first
                 $storedArchivePath = null;
                 if (! $archivePath) {
-                    $storagePath = "games/{$game->id}/{$version->id}";
-                    $files = Storage::files($storagePath);
-                    if (! empty($files)) {
-                        $storedArchivePath = Storage::path($files[0]);
-                        $this->info('Using stored archive: ' . basename($storedArchivePath));
-                    } else {
+                    $storedArchive = $this->archiveService->getStoredArchive($game->id, $version->id);
+                    if (! $storedArchive) {
                         $this->error('No stored archive found for this version');
                         DB::rollBack();
 
                         return 1;
                     }
+                    $archivePath = $storedArchive;
                 }
 
                 // Validate archive path
@@ -116,7 +112,14 @@ class ReimportGameVersion extends Command
 
                 // Extract and process statistics
                 $this->info('Processing game archive...');
-                $stats = $this->statsService->extractGameStats($finalArchivePath);
+                try {
+                    $stats = $this->archiveService->processArchive($archivePath);
+                } catch (Exception $e) {
+                    $this->error('Failed to process archive: ' . $e->getMessage());
+                    DB::rollBack();
+
+                    return 1;
+                }
 
                 if ($stats) {
                     $this->info('Saving version statistics...');

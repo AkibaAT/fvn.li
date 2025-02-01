@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\ValueObjects\Upload;
 use DateMalformedStringException;
 use DateTime;
 use Dom\HTMLDocument;
@@ -17,7 +19,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class Game extends Model
@@ -269,7 +270,7 @@ class Game extends Model
             $isWeb = false;
 
             foreach ($uploadsData['uploads'] as $upload) {
-                $fileId = (string) $upload['id'];
+                $fileId = (int) $upload['id'];
                 $currentFilename = $upload['filename'];
                 $currentDisplayName = $upload['display_name'] ?? null;
                 $currentMd5 = $upload['md5_hash'] ?? null;
@@ -278,25 +279,6 @@ class Game extends Model
                 $currentBuild = $upload['build'] ?? [];
                 $currentUserVersion = $currentBuild['user_version'] ?? null;
                 $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
-
-                // Update platform flags
-                if (isset($upload['traits'])) {
-                    if (in_array('p_windows', $upload['traits'])) {
-                        $isWindows = true;
-                    }
-                    if (in_array('p_linux', $upload['traits'])) {
-                        $isLinux = true;
-                    }
-                    if (in_array('p_osx', $upload['traits'])) {
-                        $isMac = true;
-                    }
-                    if (in_array('p_android', $upload['traits'])) {
-                        $isAndroid = true;
-                    }
-                }
-                if ($upload['type'] === 'html') {
-                    $isWeb = true;
-                }
 
                 // Check if upload is new or changed
                 $isNewOrChanged = (
@@ -317,8 +299,30 @@ class Game extends Model
                         'build_updated_at' => $currentBuildUpdatedAt,
                         'user_version' => $currentUserVersion,
                         'filename' => $currentFilename,
+                        'traits' => $upload['traits'] ?? [],
+                        'type' => $upload['type'] ?? '',
                     ];
-                    $candidateUploads[] = $upload;
+                    $candidateUpload = Upload::fromArray($seenUploads[$fileId], $fileId);
+                    $candidateUploads[] = $candidateUpload;
+                }
+
+                // Update platform flags based on traits
+                if (! empty($upload['traits'])) {
+                    if (in_array('p_windows', $upload['traits'])) {
+                        $isWindows = true;
+                    }
+                    if (in_array('p_linux', $upload['traits'])) {
+                        $isLinux = true;
+                    }
+                    if (in_array('p_osx', $upload['traits'])) {
+                        $isMac = true;
+                    }
+                    if (in_array('p_android', $upload['traits'])) {
+                        $isAndroid = true;
+                    }
+                }
+                if ($upload['type'] === 'html') {
+                    $isWeb = true;
                 }
             }
 
@@ -330,34 +334,13 @@ class Game extends Model
                 return;
             }
 
-            // Sort uploads by priority
-            usort($candidateUploads, function ($a, $b) {
-                $criteria = [
-                    'linux' => in_array('p_linux', $a['traits'] ?? []) <=> in_array('p_linux', $b['traits'] ?? []),
-                    'windows' => in_array('p_windows', $a['traits'] ?? []) <=> in_array('p_windows', $b['traits'] ?? []),
-                    'zip' => (strtolower(pathinfo($a['filename'], PATHINFO_EXTENSION)) === 'zip') <=>
-                        (strtolower(pathinfo($b['filename'], PATHINFO_EXTENSION)) === 'zip'),
-                    'date' => strtotime($a['updated_at']) <=> strtotime($b['updated_at']),
-                    'build_date' => strtotime($a['build']['updated_at'] ?? '1970-01-01') <=>
-                        strtotime($b['build']['updated_at'] ?? '1970-01-01'),
-                ];
-
-                foreach ($criteria as $result) {
-                    if ($result !== 0) {
-                        return -$result;
-                    }
-                }
-
-                return 0;
-            });
-
-            if (empty($candidateUploads)) {
+            $bestUpload = Upload::getBest(collect($candidateUploads));
+            if (! $bestUpload) {
                 return;
             }
 
-            $uploadToProcess = $candidateUploads[0];
-            $newVersion = $this->extractVersion($uploadToProcess);
-            $uploadTimestamp = new DateTime($uploadToProcess['updated_at']);
+            $newVersion = $this->extractVersion($seenUploads[$bestUpload->id]);
+            $uploadTimestamp = $bestUpload->updatedAt;
 
             // Get existing version if any
             $existingVersion = $this->gameVersions()
@@ -395,13 +378,16 @@ class Game extends Model
                 // Process statistics if it's a Ren'Py game
                 if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
                     try {
+                        $archiveService = app(GameArchiveService::class);
                         $statsService = app(GameStatsService::class);
 
-                        // Download and process the file
-                        $result = $statsService->downloadAndProcess(
+                        // Download and process
+                        $result = $archiveService->downloadAndProcess(
                             $this->url,
-                            $uploadToProcess['filename'],
-                            $uploadToProcess['id']
+                            $bestUpload->filename,
+                            $bestUpload->id,
+                            $this->id,
+                            $gameVersion->id
                         );
 
                         if ($result['stats']) {
@@ -411,23 +397,11 @@ class Game extends Model
                             // Save the stats
                             $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id);
 
-                            // Add language support entries for each language with stats
+                            // Add language support entries
                             foreach ($result['stats']['languages'] as $isoCode => $langStats) {
                                 $gameVersion->addSupportedLanguage($isoCode);
                             }
-
-                            // Store the file permanently
-                            $statsService->storeProcessedFile(
-                                $result['tempFile'],
-                                $uploadToProcess['filename'],
-                                $this->id,
-                                $gameVersion->id
-                            );
                         } else {
-                            // Clean up temp file if stats extraction failed
-                            if (isset($result['tempFile']) && File::exists($result['tempFile'])) {
-                                File::delete($result['tempFile']);
-                            }
                             // Copy language support from previous version
                             $this->copyLanguageSupport($gameVersion);
                         }
