@@ -105,11 +105,25 @@ readonly class Upload
         return strtolower(pathinfo($this->filename, PATHINFO_EXTENSION)) === 'zip';
     }
 
+    public function hasDesktopFileName(): bool
+    {
+        $patterns = ['/pc/i', '/linux/i'];
+        $names = array_filter([$this->filename, $this->displayName]);
+
+        return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
+    }
+
     public function compareTo(self $other): int
     {
+        // Never prefer web uploads
+        if ($this->isWeb() !== $other->isWeb()) {
+            return $other->isWeb() ? -1 : 1;
+        }
+
         $criteria = [
             fn ($a, $b) => $b->isLinux() <=> $a->isLinux(),
             fn ($a, $b) => $b->isWindows() <=> $a->isWindows(),
+            fn ($a, $b) => $b->hasDesktopFileName() <=> $a->hasDesktopFileName(),
             fn ($a, $b) => $b->isZip() <=> $a->isZip(),
             fn ($a, $b) => $b->updatedAt <=> $a->updatedAt,
             fn ($a, $b) => ($b->buildUpdatedAt ?? $b->updatedAt) <=> ($a->buildUpdatedAt ?? $a->updatedAt),

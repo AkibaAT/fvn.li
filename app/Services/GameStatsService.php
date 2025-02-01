@@ -11,8 +11,6 @@ use App\Models\LanguageMapping;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use Exception;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -28,59 +26,6 @@ use ZipArchive;
  */
 readonly class GameStatsService
 {
-    public function __construct(
-        private Client $client
-    ) {}
-
-    /**
-     * Download and process game upload
-     *
-     * @throws GuzzleException
-     */
-    public function downloadAndProcess(string $gameUrl, string $filename, int $uploadId): array
-    {
-        // Get the download URL and info
-        $response = $this->client->post($gameUrl . '/file/' . $uploadId);
-        $downloadInfo = json_decode($response->getBody()->getContents(), true);
-
-        if (! isset($downloadInfo['url'])) {
-            throw new RuntimeException('Could not get download URL or filename');
-        }
-
-        // Create a temporary file for download
-        $tempFile = tempnam(sys_get_temp_dir(), 'download_');
-        if ($tempFile === false) {
-            throw new RuntimeException('Could not create temporary file');
-        }
-
-        try {
-            // Stream the download directly to disk
-            $this->client->get($downloadInfo['url'], [
-                'sink' => $tempFile,
-                'progress' => function ($downloadTotal, $downloadedBytes) {
-                    if ($downloadTotal > 0) {
-                        Log::debug('Download progress: ' . round(($downloadedBytes / $downloadTotal) * 100) . '%');
-                    }
-                },
-            ]);
-
-            // Process the stats
-            $stats = $this->extractGameStats($tempFile);
-
-            return [
-                'tempFile' => $tempFile,
-                'stats' => $stats,
-            ];
-
-        } catch (Exception $e) {
-            // Clean up on error
-            if (File::exists($tempFile)) {
-                File::delete($tempFile);
-            }
-            throw $e;
-        }
-    }
-
     /**
      * Store a processed game file permanently
      */
