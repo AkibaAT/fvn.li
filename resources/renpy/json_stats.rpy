@@ -1,11 +1,12 @@
 init 10000 python:
-    from __future__ import unicode_literals  # Helps ensure string consistency in Py2.
+    from __future__ import unicode_literals  # Helps ensure string consistency in Py2
     import codecs
     import collections
     import io
     import json
     import os
     import re
+    import sys
     from contextlib import closing
     from renpy import store
     from renpy.loader import listdirfiles
@@ -42,10 +43,10 @@ init 10000 python:
             "characters": collections.defaultdict(Count)
         }
 
-    # Primary data structure for language statistics.
+    # Primary data structure for language statistics
     all_lang_stats = collections.defaultdict(make_lang_stats)
 
-    # File statistics by type.
+    # File statistics by type
     file_statistics = {
         "image": collections.defaultdict(FileStats),
         "audio": collections.defaultdict(FileStats),
@@ -53,15 +54,14 @@ init 10000 python:
         "other": collections.defaultdict(FileStats)
     }
 
-    # Keep track of defined characters.
+    # Keep track of defined characters
     defined_characters = {}
 
     def get_file_size(filename):
         """Get the actual size of a file using Ren'Py's loader."""
         try:
-            # Use a context manager to ensure the file is closed.
             with closing(renpy.loader.load(filename)) as f:
-                f.seek(0, 2)  # Seek to end.
+                f.seek(0, 2)  # Seek to end
                 return f.tell()
         except Exception:
             return 0
@@ -75,7 +75,7 @@ init 10000 python:
         all_files = listdirfiles(common=False)
 
         for directory, filename in all_files:
-            # Skip json_stats.* and .rpa files.
+            # Skip json_stats.* and .rpa files
             if filename.startswith('json_stats.') or filename.endswith('.rpa'):
                 continue
             try:
@@ -93,19 +93,30 @@ init 10000 python:
             except Exception:
                 continue
 
-    # Helper to decode escaped Unicode sequences in a way that works in both Python 2 and 3.
     def decode_unicode_escape(s):
-        import sys
-        if sys.version_info[0] < 3:
-            return codecs.decode(s, 'unicode_escape')
-        else:
-            try:
-                # Encoding with latin-1 ensures code points 0–255 pass through unchanged.
-                return s.encode('latin-1').decode('unicode_escape')
-            except Exception:
-                return s
+        """
+        Safely decode Unicode escape sequences, handling both Python 2 and 3.
+        Also handles cases where the input is already Unicode.
+        """
+        if not isinstance(s, str if sys.version_info[0] >= 3 else unicode):
+            s = str(s)
 
-    # Precompile regexes for character extraction.
+        try:
+            if sys.version_info[0] >= 3:
+                # For Python 3, encode as bytes first if needed
+                if isinstance(s, str):
+                    s = s.encode('utf-8')
+                return s.decode('unicode-escape').encode('latin-1').decode('utf-8')
+            else:
+                # For Python 2, handle both str and unicode inputs
+                if isinstance(s, str):
+                    return s.decode('string-escape').decode('utf-8')
+                return s.encode('utf-8').decode('string-escape').decode('utf-8')
+        except Exception as e:
+            # If decoding fails, return original string
+            return s
+
+    # Precompile regexes for character extraction
     CHARACTER_TRANSLATED_REGEX = re.compile(
         r"Character\s*\(\s*_\(\s*[\"']((?:\\.|[^\"'])+)[\"']"
     )
@@ -120,7 +131,7 @@ init 10000 python:
 
         known_languages = renpy.known_languages()
 
-        # First pass: identify characters.
+        # First pass: identify characters
         for node in all_stmts:
             if isinstance(node, renpy.ast.Define):
                 varname = node.varname
@@ -144,9 +155,13 @@ init 10000 python:
                 if not display_name or not display_name.strip():
                     display_name = varname
 
-                # Remove inline Ren'Py text tags and decode escaped characters.
+                # Remove inline Ren'Py text tags and decode escaped characters
                 display_name = re.sub(r"{[^}]*}", "", display_name).strip()
-                display_name = decode_unicode_escape(display_name)
+                try:
+                    display_name = decode_unicode_escape(display_name)
+                except Exception:
+                    # If decoding fails, use the original display name
+                    pass
 
                 defined_characters[varname] = {}
                 defined_characters[varname]["default"] = translate_string(display_name, None)
@@ -155,9 +170,9 @@ init 10000 python:
 
         has_translate_say = hasattr(renpy.ast, "TranslateSay")
 
-        # Second pass: gather dialogue and menu statistics.
+        # Second pass: gather dialogue and menu statistics
         for node in all_stmts:
-            # Older versions (without TranslateSay).
+            # Older versions (without TranslateSay)
             if (not has_translate_say and isinstance(node, renpy.ast.Translate) and
                     len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say)):
                 lang = node.language or "default"
@@ -194,7 +209,7 @@ init 10000 python:
             "file_statistics": {}
         }
 
-        # Process language statistics.
+        # Process language statistics
         for lang, data in all_lang_stats.items():
             total_blocks = 0
             total_words = 0
@@ -221,7 +236,7 @@ init 10000 python:
 
             result["languages"][lang] = lang_report
 
-        # Process file statistics.
+        # Process file statistics
         result["file_statistics"] = {
             category: {
                 ext: {
@@ -246,8 +261,8 @@ init 10000 python:
         }
 
         with io.open("stats.json", "w", encoding="utf-8") as outfile:
-            outfile.write(json.dumps(result, indent=4, ensure_ascii=False))
+            json.dump(result, outfile, indent=4, ensure_ascii=False)
 
-    # Run the wordcounter and then quit.
+    # Run the wordcounter and then quit
     wordcounter()
     renpy.quit()
