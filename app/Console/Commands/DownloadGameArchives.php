@@ -72,6 +72,7 @@ class DownloadGameArchives extends Command
                     $updatedUploads = [];
                     $uploadsChanged = false;
 
+                    // First, update traits and type information for all existing uploads
                     foreach ($storedUploads as $uploadId => $uploadInfo) {
                         if (isset($currentUploads[$uploadId])) {
                             $currentUpload = $currentUploads[$uploadId];
@@ -97,8 +98,16 @@ class DownloadGameArchives extends Command
                         $this->info('Updated upload traits information');
                     }
 
-                    // Convert stored uploads to Upload objects
-                    $uploads = Upload::fromCollection(collect($updatedUploads));
+                    // Convert stored uploads to Upload objects (only for uploads that still exist)
+                    $validUploads = array_intersect_key($updatedUploads, $currentUploads->toArray());
+
+                    if (empty($validUploads)) {
+                        $this->warn('No valid uploads found, skipping');
+
+                        continue;
+                    }
+
+                    $uploads = Upload::fromCollection(collect($validUploads));
 
                     // Get the best upload
                     $bestUpload = Upload::getBest($uploads);

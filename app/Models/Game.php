@@ -510,7 +510,7 @@ class Game extends Model
             $highestVersion = null;
             foreach ($matches[1] as $version) {
                 if ($this->isProbableVersion($version)) {
-                    if (!$highestVersion || version_compare($version, $highestVersion) > 0) {
+                    if (! $highestVersion || version_compare($version, $highestVersion) > 0) {
                         $highestVersion = $version;
                     }
                 }
@@ -524,7 +524,7 @@ class Game extends Model
                 preg_match_all('/(?<!\.)\b(\d+)\b/', $upload['display_name'], $matches);
                 foreach ($matches[1] as $version) {
                     if ($this->isProbableVersion($version)) {
-                        if (!$highestVersion || version_compare($version, $highestVersion) > 0) {
+                        if (! $highestVersion || version_compare($version, $highestVersion) > 0) {
                             $highestVersion = $version;
                         }
                     }

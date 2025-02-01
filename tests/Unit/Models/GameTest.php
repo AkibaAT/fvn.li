@@ -173,7 +173,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '2024.01.17',
-        null,#
+        null, //
     ],
     'prefer version in brackets' => [
         [
