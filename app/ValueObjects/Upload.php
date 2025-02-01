@@ -42,6 +42,7 @@ class Upload
     public static function fromArray(array $data, int $id): self
     {
         $data['build_id'] = $data['build_id'] ?? null;
+
         return new self(
             id: $id,
             filename: $data['filename'],
@@ -165,7 +166,7 @@ class Upload
     public function isProcessable(): bool
     {
         // Web versions are never processable
-        if ($this->isWeb()) {
+        if ($this->isWeb() || $this->type === 'book') {
             return false;
         }
 

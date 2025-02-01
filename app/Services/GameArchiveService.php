@@ -90,7 +90,7 @@ readonly class GameArchiveService
             // If force is true or the file exists but with a different name,
             // clear the directory first
             if ($force || ($this->archiveExists($gameId, $versionId) &&
-                    !$this->archiveExists($gameId, $versionId, $filename))) {
+                    ! $this->archiveExists($gameId, $versionId, $filename))) {
                 // Delete all files in the directory
                 foreach (Storage::files($storagePath) as $file) {
                     Storage::delete($file);
