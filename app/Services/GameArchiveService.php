@@ -81,12 +81,6 @@ readonly class GameArchiveService
             // Download the file
             $this->client->get($downloadInfo['url'], [
                 'sink' => $tempFile,
-                'progress' => function ($downloadTotal, $downloadedBytes) {
-                    if ($downloadTotal > 0) {
-                        $progress = round(($downloadedBytes / $downloadTotal) * 100);
-                        info("Download progress: {$progress}%");
-                    }
-                },
             ]);
 
             // Store the file

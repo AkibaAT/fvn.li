@@ -339,7 +339,7 @@ class Game extends Model
                 return;
             }
 
-            $newVersion = $this->extractVersion($seenUploads[$bestUpload->id]);
+            $newVersion = $this->extractVersion($seenUploads[$bestUpload->id], true);
             $uploadTimestamp = $bestUpload->updatedAt;
 
             // Get existing version if any
@@ -461,6 +461,87 @@ class Game extends Model
         return $this->latestVersion?->getCharacterStatsForLanguage($isoCode) ?? collect();
     }
 
+    /**
+     * Extract version information from upload metadata
+     *
+     * @throws DateMalformedStringException
+     */
+    public function extractVersion(array $upload, bool $allowDateFallback = false): ?string
+    {
+        // Collect version candidates with source and priority
+        $candidates = [];
+
+        // Check build.user_version first (highest priority)
+        if (! empty($upload['build']['user_version'])) {
+            $version = $upload['build']['user_version'];
+            if ($this->isProbableVersion($version)) {
+                $candidates[] = [$version, 3];
+            }
+        }
+
+        if (! empty($upload['user_version'])) {
+            $version = $upload['user_version'];
+            if ($this->isProbableVersion($version)) {
+                $candidates[] = [$version, 3];
+            }
+        }
+
+        // Check display_name (high priority)
+        if (! empty($upload['display_name'])) {
+            // Look for explicit version
+            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*[a-zA-Z]*)/i', $upload['display_name'], $matches)) {
+                if ($this->isProbableVersion($matches[1])) {
+                    $candidates[] = [$matches[1], 2];
+                }
+            } else {
+                // Look for other version patterns
+                preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
+                    $upload['display_name'], $matches);
+                foreach ($matches[1] as $version) {
+                    if ($this->isProbableVersion($version)) {
+                        $candidates[] = [$version, 2];
+                    }
+                }
+            }
+        }
+
+        // Check filename (lowest priority)
+        $filename = $upload['filename'] ?? '';
+        $cleanedFilename = preg_replace('/\.(zip|tar\.bz2|tar\.gz)$/', '', $filename);
+
+        // Look for build numbers
+        if (preg_match('/[bB]uild[_\s-]*(\d+)/', $cleanedFilename, $matches)) {
+            if ($this->isProbableVersion($matches[1])) {
+                $candidates[] = [$matches[1], 1];
+            }
+        } else {
+            // Look for version patterns in filename
+            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
+                $cleanedFilename, $matches);
+            foreach ($matches[1] as $version) {
+                if ($this->isProbableVersion($version)) {
+                    $candidates[] = [$version, 0];
+                }
+            }
+        }
+
+        if (! empty($candidates)) {
+            // Sort by priority (desc) then version string
+            usort($candidates, fn ($a, $b) => $b[1] <=> $a[1] ?: strcmp($a[0], $b[0]));
+
+            return $candidates[0][0];
+        }
+
+        // Only return date-based version if explicitly allowed
+        if ($allowDateFallback) {
+            $timestamp = new DateTime($upload['updated_at']);
+
+            return $timestamp->format('Y.m.d');
+        }
+
+        return null;
+    }
+
     protected function devlog(): Attribute
     {
         return Attribute::make(
@@ -549,81 +630,6 @@ class Game extends Model
         }
 
         return true;
-    }
-
-    /**
-     * Extract version information from upload metadata
-     *
-     * @throws DateMalformedStringException
-     */
-    public function extractVersion(array $upload): string
-    {
-        // Collect version candidates with source and priority
-        $candidates = [];
-
-        // Check build.user_version first (highest priority)
-        if (! empty($upload['build']['user_version'])) {
-            $version = $upload['build']['user_version'];
-            if ($this->isProbableVersion($version)) {
-                $candidates[] = [$version, 3];
-            }
-        }
-
-        if (! empty($upload['user_version'])) {
-            $version = $upload['user_version'];
-            if ($this->isProbableVersion($version)) {
-                $candidates[] = [$version, 3];
-            }
-        }
-
-        // Check display_name (high priority)
-        if (! empty($upload['display_name'])) {
-            // Look for explicit version
-            if (preg_match('/[vV]ersion\s*(\d+(?:\.\d+)*[a-zA-Z]*)/i', $upload['display_name'], $matches)) {
-                if ($this->isProbableVersion($matches[1])) {
-                    $candidates[] = [$matches[1], 2];
-                }
-            } else {
-                // Look for other version patterns
-                preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
-                    $upload['display_name'], $matches);
-                foreach ($matches[1] as $version) {
-                    if ($this->isProbableVersion($version)) {
-                        $candidates[] = [$version, 2];
-                    }
-                }
-            }
-        }
-
-        // Check filename (lowest priority)
-        $filename = $upload['filename'] ?? '';
-        $cleanedFilename = preg_replace('/\.(zip|tar\.bz2|tar\.gz)$/', '', $filename);
-
-        // Look for build numbers
-        if (preg_match('/[bB]uild[_\s-]*(\d+)/', $cleanedFilename, $matches)) {
-            if ($this->isProbableVersion($matches[1])) {
-                $candidates[] = [$matches[1], 1];
-            }
-        } else {
-            // Look for version patterns in filename
-            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
-                $cleanedFilename, $matches);
-            foreach ($matches[1] as $version) {
-                if ($this->isProbableVersion($version)) {
-                    $candidates[] = [$version, 0];
-                }
-            }
-        }
-
-        if (! empty($candidates)) {
-            // Sort by priority (desc) then version string
-            usort($candidates, fn ($a, $b) => $b[1] <=> $a[1] ?: strcmp($a[0], $b[0]));
-            return $candidates[0][0];
-        }
-
-        // Fallback to timestamp
-        $timestamp = new DateTime($upload['updated_at']);
-        return $timestamp->format('Y.m.d');
     }
 
     private function copyLanguageSupport(GameVersion $newVersion): void

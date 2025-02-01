@@ -51,6 +51,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '1.2.3',
+        '1.2.3',
     ],
     'from user_version' => [
         [
@@ -60,6 +61,7 @@ dataset('version extractions', [
             'updated_at' => '2018-03-01T11:28:24.000000000Z',
             'user_version' => '0.3',
         ],
+        '0.3',
         '0.3',
     ],
     'prioritize user_version' => [
@@ -71,6 +73,7 @@ dataset('version extractions', [
             'user_version' => '0.3',
         ],
         '0.3',
+        '0.3',
     ],
     'from display name explicit' => [
         [
@@ -79,6 +82,7 @@ dataset('version extractions', [
             'filename' => 'game.zip',
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
+        '2.0',
         '2.0',
     ],
     'from display name implicit' => [
@@ -89,6 +93,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '1.5',
+        '1.5',
     ],
     'from filename build number' => [
         [
@@ -97,6 +102,7 @@ dataset('version extractions', [
             'filename' => 'game-build23.zip',
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
+        '23',
         '23',
     ],
     'from filename version' => [
@@ -107,6 +113,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '1.0.4',
+        '1.0.4',
     ],
     'from filename version with suffix' => [
         [
@@ -115,6 +122,7 @@ dataset('version extractions', [
             'filename' => 'ExtracurricularActivities-1.183pub-pc.zip',
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
+        '1.183pub',
         '1.183pub',
     ],
     'fallback to date' => [
@@ -125,6 +133,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '2024.01.17',
+        null,
     ],
     'prioritize build version over display name' => [
         [
@@ -133,6 +142,7 @@ dataset('version extractions', [
             'filename' => 'game.zip',
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
+        '2.0.0',
         '2.0.0',
     ],
     'prioritize display name over filename' => [
@@ -143,6 +153,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '2.0',
+        '2.0',
     ],
     'reject suspicious version in build' => [
         [
@@ -151,6 +162,7 @@ dataset('version extractions', [
             'filename' => 'game.zip',
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
+        '1.0',
         '1.0',
     ],
     'reject year-like version' => [
@@ -161,6 +173,7 @@ dataset('version extractions', [
             'updated_at' => '2024-01-17T00:00:00Z',
         ],
         '2024.01.17',
+        null,
     ],
 ]);
 
@@ -174,7 +187,12 @@ test('is probable version', function (string $input, bool $expected) {
     expect($result)->toBe($expected);
 })->with('probable versions');
 
-test('extract version', function (array $upload, string $expected) {
-    $result = $this->extractVersion->invoke($this->game, $upload);
+test('extract version with date fallback', function (array $upload, string $expected) {
+    $result = $this->extractVersion->invoke($this->game, $upload, true);
     expect($result)->toBe($expected);
+})->with('version extractions');
+
+test('extract version without date fallback', function (array $upload, string $expected, ?string $expectedWithoutDate) {
+    $result = $this->extractVersion->invoke($this->game, $upload, false);
+    expect($result)->toBe($expectedWithoutDate);
 })->with('version extractions');
