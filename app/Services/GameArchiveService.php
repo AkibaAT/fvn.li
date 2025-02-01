@@ -61,7 +61,8 @@ readonly class GameArchiveService
         string $filename,
         int $uploadId,
         int $gameId,
-        int $versionId
+        int $versionId,
+        bool $force = false
     ): string {
         // Get the download URL
         $response = $this->client->post($gameUrl . '/file/' . $uploadId);
@@ -83,8 +84,20 @@ readonly class GameArchiveService
                 'sink' => $tempFile,
             ]);
 
-            // Store the file
+            // Get storage path and prepare directory
             $storagePath = $this->getStoragePath($gameId, $versionId);
+
+            // If force is true or the file exists but with a different name,
+            // clear the directory first
+            if ($force || ($this->archiveExists($gameId, $versionId) &&
+                    !$this->archiveExists($gameId, $versionId, $filename))) {
+                // Delete all files in the directory
+                foreach (Storage::files($storagePath) as $file) {
+                    Storage::delete($file);
+                }
+            }
+
+            // Ensure directory exists and store file
             Storage::makeDirectory($storagePath);
             Storage::putFileAs($storagePath, $tempFile, $filename);
 
@@ -126,19 +139,8 @@ readonly class GameArchiveService
         int $versionId,
         bool $force = false
     ): array {
-        // Check for existing archive unless forced
-        if (! $force) {
-            $existingArchive = $this->getStoredArchive($gameId, $versionId);
-            if ($existingArchive) {
-                return [
-                    'archive' => $existingArchive,
-                    'stats' => $this->processArchive($existingArchive),
-                ];
-            }
-        }
-
-        // Download and store the archive
-        $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId);
+        // Download and store the archive (force parameter is now passed through)
+        $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
 
         // Process the archive
         return [
