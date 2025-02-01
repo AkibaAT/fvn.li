@@ -192,7 +192,7 @@ init 10000 python:
         result = {
             "languages": {},
             "file_statistics": {}
-
+        }
 
         # Process language statistics.
         for lang, data in all_lang_stats.items():
