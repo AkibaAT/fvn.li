@@ -25,25 +25,18 @@ class Character extends Model
 
     public static function countUniqueCharactersInLanguage(int $gameId, ?string $languageCode = null, ?int $versionId = null): int
     {
-        $characters = self::where('game_id', $gameId)
+        // Get character stats for the specific version
+        return self::query()
+            ->join('version_character_stats', 'characters.id', '=', 'version_character_stats.character_id')
+            ->where('characters.game_id', $gameId)
             ->when($versionId, function ($query) use ($versionId) {
-                $query->where('last_seen_in_version_id', $versionId);
+                $query->where('version_character_stats.game_version_id', $versionId);
             })
-            ->get()
-            ->filter(function ($character) use ($languageCode) {
-                if (! $languageCode) {
-                    return true;
-                }
-
-                return $character->getDisplayName($languageCode) !== null;
+            ->when($languageCode, function ($query) use ($languageCode) {
+                $query->where('version_character_stats.iso_code', $languageCode);
             })
-            ->map(function ($character) use ($languageCode) {
-                return $languageCode ? $character->getDisplayName($languageCode) : $character->character_id;
-            })
-            ->unique()
-            ->values();
-
-        return $characters->count();
+            ->distinct('characters.character_id')
+            ->count('characters.character_id');
     }
 
     public function game(): BelongsTo
