@@ -17,7 +17,7 @@
         </div>
 
         {{-- Stats Overview --}}
-        <div class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             {{-- Game Stats --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
