@@ -21,6 +21,7 @@
         "laravel/tinker": "*",
         "livewire/livewire": "^3.5",
         "predis/predis": "*",
+        "spatie/laravel-schedule-monitor": "^3.9",
         "spatie/laravel-sitemap": "^7.3",
         "tpetry/laravel-postgresql-enhanced": "*"
     },

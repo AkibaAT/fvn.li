@@ -122,3 +122,4 @@ Route::get('by-url/{url}', function ($url) {
 })->where('url', '.*');
 Route::get('by-game-id/{game:game_id}', App\Livewire\GameDetail::class)->name('games.show.game-id');
 Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
+Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
