@@ -6,7 +6,8 @@ namespace App\Livewire;
 
 use App\Models\Game;
 use App\Models\Rating;
-use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Component;
 use Spatie\ScheduleMonitor\Models\MonitoredScheduledTask;
@@ -25,14 +26,68 @@ class SystemStatus extends Component
                 ->value('updated_at'),
         ];
 
-        // Get rating stats
-        $ratingStats = [
-            'visible' => Rating::where('is_visible', true)->count(),
-            'with_reviews' => Rating::where('is_visible', true)
+        $ratingStats = Cache::remember('system_status.rating_stats', now()->endOfDay(), function () {
+            // Get rating stats
+            $visibleRatingsCount = Rating::where('is_visible', true)->count();
+            $visibleReviewsCount = Rating::where('is_visible', true)
                 ->where('is_reviewed', true)
-                ->count(),
-            'latest' => Rating::orderByDesc('published_at')->first()?->published_at,
-        ];
+                ->count();
+
+            // Get ratings for visible games
+            $visibleGameRatingsCount = Rating::whereHas('game', function ($query) {
+                $query->where('is_visible', true);
+            })->count();
+
+            $visibleGameReviewsCount = Rating::whereHas('game', function ($query) {
+                $query->where('is_visible', true);
+            })->where('is_reviewed', true)->count();
+
+            // Get average ratings
+            $averageRating = Rating::where('is_visible', true)->avg('rating');
+            $visibleGamesAvgRating = Rating::whereHas('game', function ($query) {
+                $query->where('is_visible', true);
+            })->where('is_visible', true)->avg('rating');
+
+            $monthlyTrend = Cache::remember('system_status.monthly_trend', now()->addMinutes(5), function () {
+                return DB::table('ratings')
+                    ->select(DB::raw('DATE_TRUNC(\'month\', published_at) as month'), DB::raw('COUNT(*) as count'))
+                    ->where('is_visible', true)
+                    ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<', DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
+                    ->groupBy('month')
+                    ->orderBy('month')
+                    ->get();
+            });
+
+            $visibleGamesMonthlyTrend = Rating::query()
+                ->selectRaw('DATE_TRUNC(\'month\', published_at) as month')
+                ->selectRaw('COUNT(*) as count')
+                ->where('is_visible', true)
+                ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<', DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
+                ->whereHas('game', function ($query) {
+                    $query->where('is_visible', true);
+                })
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get();
+
+            return [
+                'total' => $visibleRatingsCount,
+                'reviews' => [
+                    'total' => $visibleReviewsCount,
+                    'review_rate' => $visibleRatingsCount > 0 ? ($visibleReviewsCount / $visibleRatingsCount * 100) : 0,
+                ],
+                'average_rating' => $averageRating,
+                'visible_games' => [
+                    'total' => $visibleGameReviewsCount,
+                    'reviews' => $visibleGameRatingsCount,
+                    'review_rate' => $visibleGameRatingsCount > 0 ? ($visibleGameReviewsCount / $visibleGameRatingsCount * 100) : 0,
+                    'average_rating' => $visibleGamesAvgRating,
+                ],
+                'latest' => Rating::orderByDesc('published_at')->first()?->published_at,
+                'monthly_trend' => $monthlyTrend,
+                'visible_games_monthly_trend' => $visibleGamesMonthlyTrend,
+            ];
+        });
 
         // Get scheduled tasks info
         $scheduledTasks = ScheduledTasks::createForSchedule();

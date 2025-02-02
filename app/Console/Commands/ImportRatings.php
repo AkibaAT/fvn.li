@@ -15,6 +15,7 @@ use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -51,6 +52,8 @@ class ImportRatings extends Command
                     sleep(30); // Rate limiting between pages
                 }
             } while ($startEventId !== null);
+
+            Cache::forget('system_status.rating_stats');
 
             return 0;
         } catch (Exception $e) {
