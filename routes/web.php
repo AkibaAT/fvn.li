@@ -16,12 +16,12 @@ use Illuminate\Http\Request;
 Route::get('ratings', function (Request $request) {
     $tableFilters = $request->query('tableFilters');
     $gameId = $tableFilters['game']['value'] ?? null;
-    if (!$gameId) {
+    if (! $gameId) {
         return redirect(status: 301)->route('games.index');
     }
 
     $game = Game::find($gameId);
-    if (!$game) {
+    if (! $game) {
         abort(404);
     }
 
@@ -35,12 +35,12 @@ Route::get('ratings', function (Request $request) {
 Route::get('game-versions', function (Request $request) {
     $tableFilters = $request->query('tableFilters');
     $gameId = $tableFilters['game']['value'] ?? null;
-    if (!$gameId) {
+    if (! $gameId) {
         return redirect(status: 301)->route('games.index');
     }
 
     $game = Game::find($gameId);
-    if (!$game) {
+    if (! $game) {
         abort(404);
     }
 
@@ -70,6 +70,7 @@ Route::get('api/reviews/{id}', function ($id) {
     if (! $game) {
         abort(404);
     }
+
     return redirect(status: 301)->to(
         $game->is_visible
             ? route('games.show', $game)
@@ -109,7 +110,7 @@ Route::get('/', GameList::class)->name('games.index');
 Route::get('{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
 Route::get('by-url/{url}', function ($url) {
     $game = Game::firstWhere('url', $url);
-    if (!$game) {
+    if (! $game) {
         abort(404);
     }
 

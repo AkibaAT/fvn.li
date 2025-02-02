@@ -61,8 +61,8 @@
                     @php
                         // Pre-decode the JSON if it's a string (from the aggregation)
                         $languages = is_string($game->supported_languages)
-                            ? json_decode($game->supported_languages, true)
-                            : $game->supported_languages->toArray();
+                            ? collect(json_decode($game->supported_languages, true))->sortBy('ref_name')->values()->all()
+                            : $game->supported_languages->sortBy('ref_name')->values()->toArray();
                     @endphp
                     <x-language-flags
                         :languages="$languages"

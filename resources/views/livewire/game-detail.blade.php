@@ -116,7 +116,7 @@
                         <div class="mt-4">
                             <h3 class="text-gray-500 dark:text-gray-400 text-sm mb-2">Supported Languages</h3>
                             <x-language-flags
-                                :languages="$supportedLanguages"
+                                :languages="$supportedLanguages->sortBy('ref_name')->values()"
                                 :selected-languages="[]"
                                 :show-labels="false"
                                 :clickable="false"
@@ -174,11 +174,14 @@
                                     {{-- Languages --}}
                                     <div class="w-full flex items-center">
                                         <x-language-flags
-                                            :languages="$version->supportedLanguages->map(fn($sl) => [
-                                                'iso_code' => $sl->iso_code,
-                                                'ref_name' => $sl->language->ref_name,
-                                                'flag_code' => $sl->language->flag_code
-                                            ])"
+                                            :languages="$version->supportedLanguages
+                                                ->map(fn($sl) => [
+                                                    'iso_code' => $sl->iso_code,
+                                                    'ref_name' => $sl->language->ref_name,
+                                                    'flag_code' => $sl->language->flag_code
+                                                ])
+                                                ->sortBy('ref_name')
+                                                ->values()"
                                             :selected-languages="[]"
                                             :clickable="false"
                                         />
