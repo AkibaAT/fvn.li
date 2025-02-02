@@ -49,8 +49,7 @@
                         <a href="https://itch.io/c/2399304/fvnli-watchlist"
                            class="text-blue-600 dark:text-blue-400 hover:underline"
                            target="_blank">
-                            itch.io collection
-                        </a>.
+                            itch.io collection</a>.
                     </p>
                     <p>
                         Updates and ratings are pulled from the itch.io feed every 15 minutes.
