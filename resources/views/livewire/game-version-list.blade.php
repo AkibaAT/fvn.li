@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gray-100 dark:bg-gray-900">
+<div class="bg-gray-100 dark:bg-gray-900">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="mb-6 flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
