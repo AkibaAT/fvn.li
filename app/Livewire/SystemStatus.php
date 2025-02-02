@@ -35,7 +35,6 @@ class SystemStatus extends Component
         ];
 
         // Get scheduled tasks info
-        $schedule = app(Schedule::class);
         $scheduledTasks = ScheduledTasks::createForSchedule();
 
         // Get the task instances to calculate next run dates
@@ -93,6 +92,18 @@ class SystemStatus extends Component
             'monitored_on_oh_dear' => $monitoredTasks->filter(fn ($task) => $task['registered_on_oh_dear'])->count(),
         ];
 
+        $metaTags = [
+            'title' => 'System Status' . ' - ' . config('app.name'),
+            'description' => 'System status information',
+            'image' => null,
+        ];
+
+        app('view')->share('metaTags', $metaTags);
+
+        if (method_exists($this, 'dispatch')) {
+            $this->dispatch('updateMetaTags', metaTags: $metaTags);
+        }
+
         return view('livewire.system-status', [
             'gameStats' => $gameStats,
             'ratingStats' => $ratingStats,
@@ -106,6 +117,7 @@ class SystemStatus extends Component
             ],
             'healthSummary' => $healthSummary,
             'dateFormat' => config('schedule-monitor.date_format'),
+            'metaTags' => $metaTags,
         ]);
     }
 }
