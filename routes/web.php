@@ -54,12 +54,10 @@ Route::get('game-versions', function (Request $request) {
 
 // Redirect old review URLs to game pages
 Route::get('reviews/{id}', function ($id) {
-    $rating = Rating::find($id);
-    if (! $rating) {
+    $game = Game::find($id);
+    if (! $game) {
         abort(404);
     }
-
-    $game = $rating->game;
 
     return redirect(status: 301)->to(
         $game->is_visible
@@ -69,13 +67,10 @@ Route::get('reviews/{id}', function ($id) {
 });
 
 Route::get('api/reviews/{id}', function ($id) {
-    $rating = Rating::find($id);
-    if (! $rating) {
+    $game = Game::find($id);
+    if (! $game) {
         abort(404);
     }
-
-    $game = $rating->game;
-
     return redirect(status: 301)->to(
         $game->is_visible
             ? route('games.show', $game)
