@@ -210,12 +210,8 @@ readonly class GameStatsService
     {
         $ext = strtolower(pathinfo($archivePath, PATHINFO_EXTENSION));
 
-        // Handle tar.gz and tar.bz2 files
+        // Handle tar.gz and tar.bz2 files (even if they're missing the tar part)
         if ($ext === 'gz' || $ext === 'bz2') {
-            if (strtolower(pathinfo(basename($archivePath, ".{$ext}"), PATHINFO_EXTENSION)) !== 'tar') {
-                throw new RuntimeException("Unsupported archive format: {$ext} (not a tar archive)");
-            }
-
             $process = new Process([
                 'tar',
                 '-x' . ($ext === 'gz' ? 'z' : 'j'), // Add z for gzip, j for bzip2
