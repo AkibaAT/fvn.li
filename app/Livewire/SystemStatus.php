@@ -78,8 +78,8 @@ class SystemStatus extends Component
                 ],
                 'average_rating' => $averageRating,
                 'visible_games' => [
-                    'total' => $visibleGameReviewsCount,
-                    'reviews' => $visibleGameRatingsCount,
+                    'total' => $visibleGameRatingsCount,
+                    'reviews' => $visibleGameReviewsCount,
                     'review_rate' => $visibleGameRatingsCount > 0 ? ($visibleGameReviewsCount / $visibleGameRatingsCount * 100) : 0,
                     'average_rating' => $visibleGamesAvgRating,
                 ],
