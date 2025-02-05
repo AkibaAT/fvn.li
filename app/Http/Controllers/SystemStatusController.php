@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Livewire;
+namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Rating;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
-use Livewire\Component;
+use Inertia\Inertia;
+use Inertia\Response;
 use Spatie\ScheduleMonitor\Models\MonitoredScheduledTask;
 use Spatie\ScheduleMonitor\Support\ScheduledTasks\ScheduledTasks;
 
-class SystemStatus extends Component
+class SystemStatusController extends Controller
 {
-    public function render(): View
+    public function __invoke(): Response
     {
         // Get game stats
         $gameStats = [
@@ -26,6 +26,7 @@ class SystemStatus extends Component
                 ->value('updated_at'),
         ];
 
+        // Get rating stats (cached until end of day)
         $ratingStats = Cache::remember('system_status.rating_stats', now()->endOfDay(), function () {
             // Get rating stats
             $visibleRatingsCount = Rating::where('is_visible', true)->count();
@@ -124,7 +125,8 @@ class SystemStatus extends Component
             })
             ->sortBy(function ($task) {
                 return $task['next_run'] ?? now()->addYear();
-            });
+            })
+            ->values();
 
         // Tasks health summary
         $healthSummary = [
@@ -147,32 +149,12 @@ class SystemStatus extends Component
             'monitored_on_oh_dear' => $monitoredTasks->filter(fn ($task) => $task['registered_on_oh_dear'])->count(),
         ];
 
-        $metaTags = [
-            'title' => 'System Status' . ' - ' . config('app.name'),
-            'description' => 'System status information',
-            'image' => null,
-        ];
-
-        app('view')->share('metaTags', $metaTags);
-
-        if (method_exists($this, 'dispatch')) {
-            $this->dispatch('updateMetaTags', metaTags: $metaTags);
-        }
-
-        return view('livewire.system-status', [
+        return Inertia::render('SystemStatus', [
             'gameStats' => $gameStats,
             'ratingStats' => $ratingStats,
             'monitoredTasks' => $monitoredTasks,
-            'tasks' => [
-                'monitored' => $scheduledTasks->monitoredTasks(),
-                'unmonitored' => $scheduledTasks->unmonitoredTasks(),
-                'unnamed' => $scheduledTasks->unnamedTasks(),
-                'ready' => $scheduledTasks->readyForMonitoringTasks(),
-                'duplicate' => $scheduledTasks->duplicateTasks(),
-            ],
             'healthSummary' => $healthSummary,
             'dateFormat' => config('schedule-monitor.date_format'),
-            'metaTags' => $metaTags,
         ]);
     }
 }

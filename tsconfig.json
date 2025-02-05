@@ -11,10 +11,21 @@
         "forceConsistentCasingInFileNames": true,
         "noEmit": true,
         "skipLibCheck": true,
+        "useDefineForClassFields": true,
+        "resolveJsonModule": true,
+        "types": ["vite/client", "node", "ziggy-js"],
+        "baseUrl": ".",
         "paths": {
             "@/*": ["./resources/js/*"],
             "ziggy-js": ["./vendor/tightenco/ziggy"]
-        }
+        },
+        "lib": ["ESNext", "DOM", "DOM.Iterable"]
     },
-    "include": ["resources/js/**/*.ts", "resources/js/**/*.d.ts", "resources/js/**/*.vue"]
+    "include": [
+        "resources/js/**/*.ts",
+        "resources/js/**/*.d.ts",
+        "resources/js/**/*.tsx",
+        "resources/js/**/*.vue"
+    ],
+    "exclude": ["node_modules", "public"]
 }

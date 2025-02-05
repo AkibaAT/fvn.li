@@ -1,4 +1,5 @@
 {
+    "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
@@ -14,6 +15,7 @@
         "ext-zip": "*",
         "blade-ui-kit/blade-heroicons": "^2.5",
         "guzzlehttp/guzzle": "*",
+        "inertiajs/inertia-laravel": "^2.0",
         "itsgoingd/clockwork": "*",
         "laravel/framework": "^11.16",
         "laravel/octane": "*",
@@ -23,10 +25,12 @@
         "predis/predis": "*",
         "spatie/laravel-schedule-monitor": "^3.9",
         "spatie/laravel-sitemap": "^7.3",
+        "tightenco/ziggy": "^2.5",
         "tpetry/laravel-postgresql-enhanced": "*"
     },
     "require-dev": {
         "fakerphp/faker": "*",
+        "laravel/pail": "^1.1",
         "laravel/pint": "^1.19",
         "mockery/mockery": "*",
         "nunomaduro/collision": "*",
