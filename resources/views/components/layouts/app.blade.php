@@ -105,7 +105,8 @@
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Quick Access</h3>
                 <div class="space-y-3 text-sm text-gray-500 dark:text-gray-400">
                     <p>
-                        Add the following link to your bookmarks to quickly access ratings from any itch.io project page, including those not listed on FVN.li:
+                        Add the following link to your bookmarks to quickly access ratings from any itch.io project
+                        page, including those not listed on FVN.li:
                     </p>
                     <a href="javascript:(function(){var%20e=window.location.hostname,t=window.location.pathname.split('/')[1];if(e.endsWith('.itch.io')%26%26e!=='itch.io'%26%26e!=='www.itch.io'%26%26t){window.open('https://fvn.li/by-url/'+window.location.origin+'/'+t,'_blank')}})();"
                        class="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 rounded text-sm font-medium transition-colors"

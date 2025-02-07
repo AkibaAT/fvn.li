@@ -12,14 +12,14 @@
         </div>
 
         {{-- Static header with stats --}}
-        <x-rater-stats :rater-id="$rater->id" />
+        <x-rater-stats :rater-id="$rater->id"/>
 
         {{-- Dynamic ratings list --}}
-        <livewire:ratings-list :rater-id="$rater->id" />
+        <livewire:ratings-list :rater-id="$rater->id"/>
     </div>
 
     {{-- Rating history dialog (moved outside the main content) --}}
-    <livewire:rating-history-dialog />
+    <livewire:rating-history-dialog/>
 
     <script>
         document.addEventListener('show-rating-history', event => {

@@ -1,3 +1,4 @@
+@php use App\Services\HelperService; @endphp
 <dialog
     wire:ignore.self
     id="file-stats"
@@ -22,7 +23,7 @@
                                 {{ number_format($category->total_count) }}
                             </div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">
-                                {{ \App\Services\HelperService::formatBytes($category->total_size) }}
+                                {{ HelperService::formatBytes($category->total_size) }}
                             </div>
                         </div>
                     @endforeach
@@ -62,7 +63,7 @@
                                                 {{ number_format($type->count) }}
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 text-right">
-                                                {{ \App\Services\HelperService::formatBytes($type->size) }}
+                                                {{ HelperService::formatBytes($type->size) }}
                                             </td>
                                         </tr>
                                     @endforeach
