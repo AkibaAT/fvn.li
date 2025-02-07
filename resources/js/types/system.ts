@@ -1,11 +1,10 @@
-// types/system.ts
 export interface GameStats {
     total: number;
     visible: number;
     latest_update: string;
 }
 
-export interface TrendDataPoint {
+export interface MonthlyTrendData {
     month: string;
     count: number;
 }
@@ -24,8 +23,8 @@ export interface RatingStats {
         average_rating: number;
     };
     latest: string;
-    monthly_trend: TrendDataPoint[];
-    visible_games_monthly_trend: TrendDataPoint[];
+    monthly_trend: MonthlyTrendData[];
+    visible_games_monthly_trend: MonthlyTrendData[];
 }
 
 export interface HealthSummary {

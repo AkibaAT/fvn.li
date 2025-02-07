@@ -1,7 +1,6 @@
-// Components/SystemStatus/RatingTrends.vue
 <script setup lang="ts">
+import TrendChart from '@/Components/SystemStatus/TrendChart.vue';
 import type { RatingStats } from '@/types/system';
-import TrendGraph from './TrendGraph.vue';
 
 defineProps<{
     ratingStats: RatingStats;
@@ -18,11 +17,10 @@ defineProps<{
                 >
                     All Ratings Trend
                 </h2>
-                <TrendGraph
+                <TrendChart
                     :data="ratingStats.monthly_trend"
                     line-color="#EAB308"
-                    text-color="#6B7280"
-                    grid-color="#E5E7EB"
+                    area-color="rgba(234, 179, 8, 0.1)"
                 />
             </div>
         </div>
@@ -37,11 +35,10 @@ defineProps<{
                 >
                     Listed Games Ratings Trend
                 </h2>
-                <TrendGraph
+                <TrendChart
                     :data="ratingStats.visible_games_monthly_trend"
                     line-color="#22C55E"
-                    text-color="#6B7280"
-                    grid-color="#E5E7EB"
+                    area-color="rgba(34, 197, 94, 0.1)"
                 />
             </div>
         </div>

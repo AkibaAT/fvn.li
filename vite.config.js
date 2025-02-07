@@ -3,7 +3,7 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => ({
     plugins: [
         tailwindcss(),
         laravel({
@@ -23,6 +23,25 @@ export default defineConfig({
             },
         }),
     ],
+    build: {
+        // Only apply manual chunks for client build, not SSR
+        rollupOptions: mode !== 'ssr' ? {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules/echarts')) {
+                        if (id.includes('/charts/') ||
+                            id.includes('/components/') ||
+                            id.includes('/features/') ||
+                            id.includes('/renderers/')) {
+                            return 'echarts-components';
+                        }
+                        return 'echarts';
+                    }
+                }
+            },
+        } : undefined,
+        chunkSizeWarningLimit: 1000,
+    },
     server: {
         // respond to all hosts
         host: '0.0.0.0',
@@ -37,4 +56,4 @@ export default defineConfig({
             host: `${process.env.DDEV_HOSTNAME}`
         }
     }
-});
+}));
