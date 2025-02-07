@@ -292,7 +292,8 @@
                                 </div>
                             @else
                                 <div class="flex items-center justify-center p-4">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+                                    <div
+                                        class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
                                 </div>
                             @endif
 

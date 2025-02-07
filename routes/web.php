@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Livewire\GameList;
+use App\Http\Controllers\GameListController;
+use App\Http\Controllers\SystemStatusController;
 use App\Models\Game;
 use App\Models\Rater;
 use Illuminate\Http\Request;
@@ -127,12 +128,12 @@ Route::get('by-url/{url}', function ($url) {
 
 // Shorter caching
 Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
-    Route::get('/', GameList::class)->name('games.index');
+    Route::get('/', GameListController::class)->name('games.index');
     Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
 });
 
 // Longer caching
 Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () {
     Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
-    Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
+    Route::get('system/status', SystemStatusController::class)->name('system.status');
 });
