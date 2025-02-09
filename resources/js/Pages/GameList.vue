@@ -18,6 +18,9 @@ interface Props {
     filterOptions: FilterOptions;
 }
 
+const gameFiltersDialog = ref<{ show: () => void } | null>(null);
+const sortDialog = ref<{ show: () => void } | null>(null);
+
 const props = defineProps<Props>();
 
 // Default values
@@ -184,13 +187,6 @@ const sortBy = (field: string) => {
     page.value = 1;  // reset to first page
 };
 
-const openDialog = (id: string) => {
-    const dialog = document.getElementById(id);
-    if (dialog instanceof HTMLDialogElement) {
-        dialog.showModal();
-    }
-};
-
 const resetSort = () => {
     sortField.value = 'latest_version_published_at';
     sortDirection.value = 'desc';
@@ -253,8 +249,8 @@ const emit = defineEmits<{
                     :has-filters="!!(selectedPlatforms.length || selectedStatuses.length || selectedEngines.length || nsfw)"
                     :sort-direction="sortDirection"
                     :sort-field="sortField"
-                    @open-sort="() => openDialog('sort-modal')"
-                    @open-filters="() => openDialog('filters-modal')"
+                    @open-sort="sortDialog?.show()"
+                    @open-filters="gameFiltersDialog?.show()"
                     @update:modelValue="search = $event; page = 1;"
                 />
 
@@ -280,10 +276,10 @@ const emit = defineEmits<{
                         >
                             Sorted by: {{
                                 sortField === 'latest_version_published_at' ? 'Latest Update' :
-                                    sortField === 'initially_published_at' ? 'Initial Release' :
-                                        sortField === 'english_word_count' ? 'Word Count' :
-                                            sortField === 'rating_count' ? 'Review Count' :
-                                                sortField === 'name' ? 'Name' : 'Unknown'
+                                sortField === 'initially_published_at' ? 'Initial Release' :
+                                sortField === 'english_word_count' ? 'Word Count' :
+                                sortField === 'rating_count' ? 'Review Count' :
+                                sortField === 'name' ? 'Name' : 'Unknown'
                             }} {{ sortDirection === 'asc' ? '↑' : '↓' }}
                             <span class="ml-2">×</span>
                         </button>
@@ -326,6 +322,7 @@ const emit = defineEmits<{
         </div>
 
         <GameFiltersDialog
+            ref="gameFiltersDialog"
             :filter-options="filterOptions"
             :nsfw="nsfw"
             :selected-engines="selectedEngines"
@@ -340,6 +337,7 @@ const emit = defineEmits<{
         />
 
         <SortDialog
+            ref="sortDialog"
             :sort-direction="sortDirection"
             :sort-field="sortField"
             @sort="sortBy"

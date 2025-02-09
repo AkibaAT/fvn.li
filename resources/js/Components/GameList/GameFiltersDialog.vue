@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted} from 'vue';
+import {computed, onMounted, onUnmounted, ref} from 'vue';
 import DialogHeader from '@/Components/DialogHeader.vue';
 import DialogFooter from '@/Components/DialogFooter.vue'; // Correct import
 import type {FilterOptions} from '@/types';
@@ -85,12 +85,24 @@ function handleResetFilters() {
     });
 }
 
+const dialogElement = ref<HTMLDialogElement | null>(null);
+
+const show = () => {
+    dialogElement.value?.showModal();
+};
+
+const close = () => {
+    dialogElement.value?.close();
+};
+
+defineExpose({ show, close });
 </script>
 
 <template>
     <dialog
-        id="filters-modal"
+        ref="dialogElement"
         class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-2xl dark:text-gray-100 backdrop:backdrop-blur-md"
+        @click.self="close"
     >
         <DialogHeader title="Filter Games"/>
 

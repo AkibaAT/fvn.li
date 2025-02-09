@@ -22,7 +22,7 @@ defineProps<{
                 />
                 <Link
                     v-else
-                    :class="{ 'bg-blue-500 text-white dark:text-gray-900': link.active }"
+                    :class="{ 'bg-blue-500 text-white dark:text-gray-600': link.active }"
                     :href="link.url"
                     class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded border-gray-200 hover:bg-blue-500 hover:text-white dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-blue-500 dark:text-gray-100"
                     v-html="link.label"
