@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\GameDetailController;
 use App\Http\Controllers\GameListController;
 use App\Http\Controllers\SystemStatusController;
 use App\Models\Game;
@@ -129,7 +130,7 @@ Route::get('by-url/{url}', function ($url) {
 // Shorter caching
 Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
     Route::get('/', GameListController::class)->name('games.index');
-    Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+    Route::get('games/{game:slug}', GameDetailController::class)->name('games.show');
 });
 
 // Longer caching

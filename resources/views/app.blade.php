@@ -8,6 +8,8 @@
         $metaTags = $metaTags ?? null;
     @endphp
 
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     {{-- Dynamic Meta Tags --}}
     <title inertia>{{ $metaTags['title'] ?? config('app.name') }}</title>
     <meta name="description" inertia content="{{ $metaTags['description'] ?? config('app.description', '') }}">
