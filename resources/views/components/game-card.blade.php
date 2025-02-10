@@ -20,7 +20,7 @@
                    target="_blank"
                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                    title="Open on itch.io">
-                    <i class="fas fa-external-link-alt"></i>
+                    <i class="icon-external-link"></i>
                 </a>
             </div>
 

@@ -1,5 +1,5 @@
+@import './icomoon.css';
 @import 'tailwindcss';
-@import './fontawesome.css' layer(base);
 @import 'flag-icons/css/flag-icons.min.css' layer(base);
 
 @source "../views";

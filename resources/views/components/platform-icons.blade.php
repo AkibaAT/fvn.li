@@ -2,11 +2,11 @@
 
 <div class="flex gap-2 text-lg">
     @foreach ([
-        'windows' => ['icon' => 'fa-brands fa-windows', 'color' => 'text-[#00A4EF]'],
-        'linux' => ['icon' => 'fa-brands fa-linux', 'color' => 'dark:text-[#F0B90B]'],
-        'mac' => ['icon' => 'fa-brands fa-apple', 'color' => 'text-[#555555] dark:text-gray-300'],
-        'android' => ['icon' => 'fa-brands fa-android', 'color' => 'text-[#3DDC84]'],
-        'web' => ['icon' => 'fa-solid fa-globe', 'color' => 'text-[#4285F4]']
+        'windows' => ['icon' => 'icon-windows', 'color' => 'text-[#00A4EF]'],
+        'linux'   => ['icon' => 'icon-linux', 'color' => 'dark:text-[#F0B90B]'],
+        'mac'     => ['icon' => 'icon-apple', 'color' => 'text-[#555555] dark:text-gray-300'],
+        'android' => ['icon' => 'icon-android', 'color' => 'text-[#3DDC84]'],
+        'web'     => ['icon' => 'icon-web', 'color' => 'text-[#4285F4]']
     ] as $platform => $config)
         @if ($platforms[$platform] ?? false)
             @if ($clickable)

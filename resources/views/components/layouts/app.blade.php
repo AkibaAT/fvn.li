@@ -59,7 +59,7 @@
                         <a href="https://github.com/AkibaAT/itch-web"
                            class="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center space-x-1"
                            target="_blank">
-                            <i class="fab fa-github"></i>
+                            <i class="icon-github"></i>
                             <span>GitHub</span>
                         </a>.
                     </p>
@@ -74,21 +74,21 @@
                            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center space-x-2"
                            target="_blank"
                            title="Contact on Bluesky">
-                            <i class="fab fa-bluesky w-5 text-center"></i>
+                            <i class="icon-bluesky w-5 text-center"></i>
                             <span>@akiba.games</span>
                         </a>
                         <a href="https://discord.com/users/akiba.games"
                            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center space-x-2"
                            target="_blank"
                            title="Contact on Discord">
-                            <i class="fab fa-discord w-5 text-center"></i>
+                            <i class="icon-discord w-5 text-center"></i>
                             <span>@akiba.games</span>
                         </a>
                         <a href="https://t.me/AkibaAT"
                            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center space-x-2"
                            target="_blank"
                            title="Contact on Telegram">
-                            <i class="fab fa-telegram w-5 text-center"></i>
+                            <i class="icon-telegram w-5 text-center"></i>
                             <span>@AkibaAT</span>
                         </a>
                     </div>

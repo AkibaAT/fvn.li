@@ -1,4 +1,3 @@
-import '@fortawesome/fontawesome-free/css/all.css';
 import 'flag-icons/css/flag-icons.css';
 import '../css/app.css';
 import './bootstrap';
