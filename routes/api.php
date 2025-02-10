@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\DiscordBotController;
+use App\Http\Controllers\Api\GameListController;
 use App\Http\Controllers\Api\GameReviewsController;
 use App\Http\Controllers\Api\GameVersionStatsController;
 use Illuminate\Http\Request;
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->prefix('discord')->group(function () {
 });
 
 Route::middleware(['web'])->group(function () {
+    Route::get('games', [GameListController::class, 'index'])
+        ->name('api.games.index');
+
     Route::get('games/{game:id}/reviews', [GameReviewsController::class, 'index'])
         ->name('api.games.reviews');
 

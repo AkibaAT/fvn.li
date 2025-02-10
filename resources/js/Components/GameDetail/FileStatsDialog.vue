@@ -1,7 +1,7 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import DialogHeader from '@/Components/DialogHeader.vue';
 import DialogFooter from '@/Components/DialogFooter.vue';
-import {computed, ref} from 'vue';
+import {ref} from 'vue';
 
 interface Props {
     stats: Array<{
@@ -29,7 +29,7 @@ const close = () => {
     dialogElement.value?.close();
 };
 
-defineExpose({ show, close });
+defineExpose({show, close});
 
 const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';

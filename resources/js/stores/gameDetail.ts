@@ -1,10 +1,5 @@
-import { ref } from 'vue';
-import type {
-    CharacterStats,
-    FileCategory,
-    VersionPagination,
-    GameDetailStore
-} from '@/types/version';
+import {ref} from 'vue';
+import type {CharacterStats, FileCategory, GameDetailStore, VersionPagination} from '@/types/version';
 import axios from "axios";
 
 export function useGameDetailStore(): GameDetailStore {
@@ -23,7 +18,7 @@ export function useGameDetailStore(): GameDetailStore {
         loadingVersions.value = true;
         try {
             const response = await axios.get<VersionPagination>(`/api/games/${gameId}/versions`, {
-                params: { perPage, page }
+                params: {perPage, page}
             });
 
             if (response.data) {
@@ -67,12 +62,12 @@ export function useGameDetailStore(): GameDetailStore {
     };
 
     return {
-        versions: { value: versions },
-        loadingVersions: { value: loadingVersions },
+        versions: {value: versions},
+        loadingVersions: {value: loadingVersions},
         loadVersions,
-        characterStats: { value: characterStats },
-        fileStats: { value: fileStats },
-        loadingStats: { value: loadingStats },
+        characterStats: {value: characterStats},
+        fileStats: {value: fileStats},
+        loadingStats: {value: loadingStats},
         loadCharacterStats,
         loadFileStats,
     };

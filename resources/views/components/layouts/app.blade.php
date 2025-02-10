@@ -24,7 +24,7 @@
     <meta property="og:title" content="{{ $metaTags['title'] ?? config('app.name') }}">
     <meta property="og:description" content="{{ $metaTags['description'] ?? config('app.description', '') }}">
     <meta property="og:image" content="{{ $metaTags['image'] ?? asset('favicon.ico') }}">
-wip
+    wip
     {{-- Twitter --}}
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="{{ url()->current() }}">
