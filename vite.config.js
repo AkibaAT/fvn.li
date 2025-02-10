@@ -2,6 +2,7 @@ import {defineConfig} from 'vite';
 import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ command, mode }) => ({
     plugins: [
@@ -22,26 +23,8 @@ export default defineConfig(({ command, mode }) => ({
                 },
             },
         }),
+        visualizer({ gzipSize: true, brotliSize: true })
     ],
-    build: {
-        // Only apply manual chunks for client build, not SSR
-        rollupOptions: mode !== 'ssr' ? {
-            output: {
-                manualChunks(id) {
-                    if (id.includes('node_modules/echarts')) {
-                        if (id.includes('/charts/') ||
-                            id.includes('/components/') ||
-                            id.includes('/features/') ||
-                            id.includes('/renderers/')) {
-                            return 'echarts-components';
-                        }
-                        return 'echarts';
-                    }
-                }
-            },
-        } : undefined,
-        chunkSizeWarningLimit: 1000,
-    },
     server: {
         // respond to all hosts
         host: '0.0.0.0',
