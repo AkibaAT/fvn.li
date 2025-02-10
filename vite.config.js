@@ -1,6 +1,7 @@
 import {defineConfig} from 'vite';
 import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
+import vue from '@vitejs/plugin-vue';
 import { visualizer } from 'rollup-plugin-visualizer';
 import path from "node:path";
 
@@ -11,9 +12,17 @@ export default defineConfig(({ command, mode }) => ({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.ts',
-                'resources/js/charts-entry.ts'
             ],
+            ssr: 'resources/js/ssr.ts',
             refresh: true,
+        }),
+        vue({
+            template: {
+                transformAssetUrls: {
+                    base: null,
+                    includeAbsolute: false,
+                },
+            },
         }),
         visualizer({ gzipSize: true, brotliSize: true })
     ],
@@ -26,17 +35,23 @@ export default defineConfig(({ command, mode }) => ({
         ]
     },
     build: {
-        rollupOptions: {
+        // Only apply manual chunks for client build, not SSR
+        rollupOptions: mode !== 'ssr' ? {
             output: {
-                manualChunks: (id) => {
-                    if (id.includes('node_modules')) {
-                        if (id.includes('echarts')) {
-                            return 'echarts';
+                manualChunks(id) {
+                    if (id.includes('node_modules/echarts')) {
+                        if (id.includes('/charts/') ||
+                            id.includes('/components/') ||
+                            id.includes('/features/') ||
+                            id.includes('/renderers/')) {
+                            return 'echarts-components';
                         }
+                        return 'echarts';
                     }
-                },
+                }
             },
-        },
+        } : undefined,
+        chunkSizeWarningLimit: 1000,
     },
     server: {
         // respond to all hosts
