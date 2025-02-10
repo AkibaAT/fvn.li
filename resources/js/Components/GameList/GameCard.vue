@@ -4,7 +4,6 @@ import {Link} from '@inertiajs/vue3';
 import PlatformIcons from './PlatformIcons.vue';
 import LanguageFlags from './LanguageFlags.vue';
 import type {FilterType, Game} from '@/types';
-import {formatNumber} from '@/utils/formatters';
 
 interface Props {
     game: Game;

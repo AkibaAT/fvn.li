@@ -1,15 +1,15 @@
-<script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { computed, ref, onMounted, watch } from 'vue';
+<script lang="ts" setup>
+import {Head, Link} from '@inertiajs/vue3';
+import {computed, onMounted, ref, watch} from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PlatformIcons from '@/Components/GameList/PlatformIcons.vue';
 import LanguageFlags from '@/Components/GameList/LanguageFlags.vue';
 import RatingStars from '@/Components/SystemStatus/RatingStars.vue';
 import CharacterStatsDialog from '@/Components/GameDetail/CharacterStatsDialog.vue';
 import FileStatsDialog from '@/Components/GameDetail/FileStatsDialog.vue';
-import { useGameDetailStore } from '@/stores/gameDetail';
-import { useReviewsStore } from '@/stores/gameReviews';
-import { formatNumber } from '@/utils/formatters';
+import {useGameDetailStore} from '@/stores/gameDetail';
+import {useReviewsStore} from '@/stores/gameReviews';
+import {formatNumber} from '@/utils/formatters';
 
 interface SupportedLanguage {
     iso_code: string;
@@ -230,7 +230,7 @@ watch(reviews, (newReviews) => {
 <template>
     <Head>
         <title>{{ getMetaTitle }}</title>
-        <meta :content="getMetaDescription" name="description" />
+        <meta :content="getMetaDescription" name="description"/>
     </Head>
 
     <AppLayout>
@@ -243,7 +243,7 @@ watch(reviews, (newReviews) => {
                         class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                     >
                         <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                            <path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
                         </svg>
                         Back to Game List
                     </Link>
@@ -251,22 +251,22 @@ watch(reviews, (newReviews) => {
                     <!-- Section Navigation -->
                     <nav v-if="game.is_visible" class="flex space-x-4">
                         <a
-                            href="#details"
                             class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                            href="#details"
                         >
                             Details
                         </a>
                         <a
                             v-if="versions?.data.length"
-                            href="#versions"
                             class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                            href="#versions"
                         >
                             Versions
                         </a>
                         <a
                             v-if="reviews?.data.length"
-                            href="#reviews"
                             class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                            href="#reviews"
                         >
                             {{ showAllRatings ? 'Ratings' : 'Reviews' }}
                         </a>
@@ -301,9 +301,9 @@ watch(reviews, (newReviews) => {
                             <div class="mt-4 sm:mt-2 flex flex-wrap items-center gap-4">
                                 <PlatformIcons
                                     v-if="latestVersion"
+                                    :clickable="false"
                                     :platforms="latestVersion.platforms"
                                     :selected-platforms="[]"
-                                    :clickable="false"
                                 />
 
                                 <span
@@ -350,12 +350,18 @@ watch(reviews, (newReviews) => {
 
                             <div v-if="game.initially_published_at">
                                 <dt class="text-sm text-gray-500 dark:text-gray-400">Initial Release</dt>
-                                <dd class="text-gray-900 dark:text-gray-100">{{ formatDate(game.initially_published_at) }}</dd>
+                                <dd class="text-gray-900 dark:text-gray-100">{{
+                                        formatDate(game.initially_published_at)
+                                    }}
+                                </dd>
                             </div>
 
                             <div v-if="latestVersion">
                                 <dt class="text-sm text-gray-500 dark:text-gray-400">Latest Update</dt>
-                                <dd class="text-gray-900 dark:text-gray-100">{{ formatDate(latestVersion.published_at) }}</dd>
+                                <dd class="text-gray-900 dark:text-gray-100">{{
+                                        formatDate(latestVersion.published_at)
+                                    }}
+                                </dd>
                             </div>
 
                             <div v-if="latestVersion">
@@ -382,17 +388,20 @@ watch(reviews, (newReviews) => {
 
                             <div v-if="latestVersion?.rating_count">
                                 <dt class="text-sm text-gray-500 dark:text-gray-400">Review Count</dt>
-                                <dd class="text-gray-900 dark:text-gray-100">{{ formatNumber(latestVersion.rating_count) }}</dd>
+                                <dd class="text-gray-900 dark:text-gray-100">{{
+                                        formatNumber(latestVersion.rating_count)
+                                    }}
+                                </dd>
                             </div>
                         </dl>
 
                         <div v-if="supportedLanguages.length" class="mt-4">
                             <h3 class="mb-2 text-sm text-gray-500 dark:text-gray-400">Supported Languages</h3>
                             <LanguageFlags
+                                :clickable="false"
                                 :languages="supportedLanguages"
                                 :selected-languages="[]"
                                 :show-labels="false"
-                                :clickable="false"
                             />
                         </div>
                     </div>
@@ -431,7 +440,8 @@ watch(reviews, (newReviews) => {
                             v-if="loadingVersions"
                             class="absolute inset-0 z-10 flex items-center justify-center bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
                         >
-                            <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900 dark:border-gray-100" />
+                            <div
+                                class="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900 dark:border-gray-100"/>
                         </div>
 
                         <!-- Content - no v-if here -->
@@ -442,7 +452,8 @@ watch(reviews, (newReviews) => {
                                 class="my-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700"
                             >
                                 <div class="flex flex-col gap-4 sm:flex-row">
-                                    <div class="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div
+                                        class="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                         <div class="w-full flex items-center">
                                             <div class="font-medium text-gray-900 dark:text-gray-100">
                                                 {{ formatDate(version.published_at) }}
@@ -458,15 +469,16 @@ watch(reviews, (newReviews) => {
                                         <!-- Languages -->
                                         <div class="w-full flex items-center">
                                             <LanguageFlags
+                                                :clickable="false"
                                                 :languages="version.supported_languages.sort((a: SupportedLanguage, b: SupportedLanguage) => a.ref_name.localeCompare(b.ref_name))"
                                                 :selected-languages="[]"
-                                                :clickable="false"
                                             />
                                         </div>
 
                                         <!-- Platforms -->
                                         <div class="w-full flex items-center">
                                             <PlatformIcons
+                                                :clickable="false"
                                                 :platforms="{
                                                     windows: version.is_windows,
                                                     linux: version.is_linux,
@@ -475,7 +487,6 @@ watch(reviews, (newReviews) => {
                                                     web: version.is_web,
                                                 }"
                                                 :selected-platforms="[]"
-                                                :clickable="false"
                                             />
                                         </div>
 
@@ -483,7 +494,9 @@ watch(reviews, (newReviews) => {
                                         <div class="w-full flex items-center whitespace-nowrap text-sm">
                                             <span class="text-gray-500">Words:</span>
                                             <span class="ml-1 text-gray-900 dark:text-gray-100">
-                                                {{ version.english_stats?.words ? formatNumber(version.english_stats.words) : '-' }}
+                                                {{
+                                                    version.english_stats?.words ? formatNumber(version.english_stats.words) : '-'
+                                                }}
                                             </span>
                                         </div>
 
@@ -528,11 +541,12 @@ watch(reviews, (newReviews) => {
                             </div>
 
                             <!-- Versions Pagination -->
-                            <div v-if="versions?.links" class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div v-if="versions?.links"
+                                 class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <select
                                     v-model="versionsPerPage"
-                                    class="px-4 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     :disabled="loadingVersions"
+                                    class="px-4 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                 >
                                     <option :value="5">5 per page</option>
                                     <option :value="10">10 per page</option>
@@ -577,8 +591,8 @@ watch(reviews, (newReviews) => {
                             <select
                                 v-if="availableRatings.length"
                                 v-model="selectedRating"
-                                class="w-40 rounded-lg border-gray-200 bg-white px-4 py-2 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 :disabled="loadingReviews"
+                                class="w-40 rounded-lg border-gray-200 bg-white px-4 py-2 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                             >
                                 <option :value="null">Any Stars</option>
                                 <option
@@ -591,8 +605,8 @@ watch(reviews, (newReviews) => {
                             </select>
                         </div>
                         <button
-                            class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                             :disabled="loadingReviews"
+                            class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                             @click="toggleRatingsView"
                         >
                             Show {{ showAllRatings ? 'reviews only' : 'all ratings' }}
@@ -605,7 +619,8 @@ watch(reviews, (newReviews) => {
                             v-if="loadingReviews"
                             class="absolute inset-0 z-10 flex items-center justify-center bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
                         >
-                            <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900 dark:border-gray-100"/>
+                            <div
+                                class="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900 dark:border-gray-100"/>
                         </div>
 
                         <!-- Content - no v-if here -->
@@ -616,35 +631,36 @@ watch(reviews, (newReviews) => {
                                     :key="review.id"
                                     class="border-b border-gray-200 pb-6 last:border-0 dark:border-gray-700"
                                 >
-                                <div class="mb-2 flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <Link
-                                            :href="route('raters.show', { rater: review.rater.id })"
-                                            class="font-medium text-gray-900 hover:underline dark:text-gray-100"
-                                        >
-                                            {{ review.rater.id }}
-                                        </Link>
-                                        <span class="text-sm text-gray-500 dark:text-gray-400">
+                                    <div class="mb-2 flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <Link
+                                                :href="route('raters.show', { rater: review.rater.id })"
+                                                class="font-medium text-gray-900 hover:underline dark:text-gray-100"
+                                            >
+                                                {{ review.rater.id }}
+                                            </Link>
+                                            <span class="text-sm text-gray-500 dark:text-gray-400">
                                 {{ formatDate(review.published_at) }}
                             </span>
+                                        </div>
+                                        <RatingStars :rating="review.rating"/>
                                     </div>
-                                    <RatingStars :rating="review.rating" />
-                                </div>
 
-                                <div
-                                    v-if="review.review && (!showAllRatings || review.is_reviewed)"
-                                    class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
-                                    v-html="review.review"
-                                />
+                                    <div
+                                        v-if="review.review && (!showAllRatings || review.is_reviewed)"
+                                        class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                                        v-html="review.review"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
                             <!-- Reviews Pagination -->
-                            <div v-if="reviews?.links" class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div v-if="reviews?.links"
+                                 class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <select
                                     v-model="reviewsPerPage"
-                                    class="px-4 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                     :disabled="loadingReviews"
+                                    class="px-4 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                                 >
                                     <option :value="5">5 per page</option>
                                     <option :value="10">10 per page</option>
@@ -680,14 +696,14 @@ watch(reviews, (newReviews) => {
         <!-- Dialogs -->
         <CharacterStatsDialog
             ref="characterStatsDialog"
-            :stats="characterStats"
             :loading="loadingStats"
+            :stats="characterStats"
         />
 
         <FileStatsDialog
             ref="fileStatsDialog"
-            :stats="fileStats"
             :loading="loadingStats"
+            :stats="fileStats"
         />
     </AppLayout>
 </template>

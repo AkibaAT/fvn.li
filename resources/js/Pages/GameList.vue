@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue';
-import {Head, router} from '@inertiajs/vue3';
+import {computed, onMounted, ref, watch} from 'vue';
+import {Head} from '@inertiajs/vue3';
 import GameCard from '@/Components/GameList/GameCard.vue';
 import FilterBadge from '@/Components/GameList/FilterBadge.vue';
 import SearchControls from '@/Components/GameList/SearchControls.vue';
@@ -8,20 +8,18 @@ import GameFiltersDialog from '@/Components/GameList/GameFiltersDialog.vue';
 import SortDialog from '@/Components/GameList/SortDialog.vue';
 import Pagination from '@/Components/GameList/Pagination.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import type {FilterOptions, Game} from '@/types';
+import {useGameListStore} from '@/stores/gameList';
+import type {FilterOptions} from '@/types';
 
 interface Props {
-    games: {
-        data: Game[];
-        links: any[]; //Links are *always* present, even in a non-paginated result
-    };
     filterOptions: FilterOptions;
 }
 
+const props = defineProps<Props>();
+const gameListStore = useGameListStore();
+
 const gameFiltersDialog = ref<{ show: () => void } | null>(null);
 const sortDialog = ref<{ show: () => void } | null>(null);
-
-const props = defineProps<Props>();
 
 // Default values
 const search = ref('');
@@ -79,7 +77,7 @@ function parseQueryParams() {
         selectedEngines: getArray('selectedEngines'),
         selectedPlatforms: getArray('selectedPlatforms'),
         sfw: params.get('sfw') === 'true',
-        nsfw: params.get('nsfw') === 'true', // If you have separate nsfw param
+        nsfw: params.get('nsfw') === 'true',
         sortDirection: params.get('sortDirection') || 'desc',
         sortField: params.get('sortField') || 'latest_version_published_at',
     };
@@ -94,7 +92,6 @@ const filterMap: Record<BaseFilterType, typeof selectedStatuses> = {
     language: selectedLanguages,
 };
 
-// Update parameter type to string and handle type checks
 const toggleFilter = (type: string, value?: string) => {
     if (type === 'nsfw') {
         nsfw.value = !nsfw.value;
@@ -115,13 +112,13 @@ const toggleFilter = (type: string, value?: string) => {
     } else {
         target.value.splice(index, 1);
     }
-    page.value = 1; // Reset to page 1 when filters change
+    page.value = 1;
 };
 
 const activeFilters = computed(() => {
     const filters: Array<{
         id: string;
-        type: BaseFilterType | 'nsfw' | 'sfw'; // Replace FilterType with BaseFilterType
+        type: BaseFilterType | 'nsfw' | 'sfw';
         label: string;
         value?: string;
     }> = [];
@@ -162,7 +159,6 @@ const activeFilters = computed(() => {
     return filters;
 });
 
-
 const clearFilters = () => {
     selectedStatuses.value = [];
     selectedEngines.value = [];
@@ -170,13 +166,12 @@ const clearFilters = () => {
     selectedLanguages.value = [];
     nsfw.value = false;
     sfw.value = false;
-    page.value = 1; // Reset to page 1 when filters change.
-    sortField.value = 'latest_version_published_at'; // Add this
-    sortDirection.value = 'desc';                  // Add this
+    page.value = 1;
+    sortField.value = 'latest_version_published_at';
+    sortDirection.value = 'desc';
     emit('reset-filters');
 };
 
-//Keep sortBy method
 const sortBy = (field: string) => {
     if (sortField.value === field) {
         sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
@@ -184,55 +179,73 @@ const sortBy = (field: string) => {
         sortField.value = field;
         sortDirection.value = 'asc';
     }
-    page.value = 1;  // reset to first page
+    page.value = 1;
 };
 
 const resetSort = () => {
     sortField.value = 'latest_version_published_at';
     sortDirection.value = 'desc';
-    page.value = 1; // Reset to page 1
-}
+    page.value = 1;
+};
 
-// Combined watcher for all filter and sort changes.  Crucially, *exclude* props.games
+// Watch for filter changes and update URL
 watch([search, selectedStatuses, selectedEngines, selectedPlatforms,
     selectedLanguages, nsfw, sfw, sortField, sortDirection, perPage, page
-], () => { //removed props.games
-    router.get(
-        route('games.index'),
-        {
-            search: search.value,
-            selectedStatuses: selectedStatuses.value,
-            selectedEngines: selectedEngines.value,
-            selectedPlatforms: selectedPlatforms.value,
-            selectedLanguages: selectedLanguages.value,
-            nsfw: nsfw.value ? 'true' : 'false',  //convert to string
-            sfw: sfw.value ? 'true' : 'false',
-            sortField: sortField.value,
-            sortDirection: sortDirection.value,
-            perPage: perPage.value,
-            page: page.value,
-        },
-        {
-            preserveState: true,
-            replace: true,
-            preserveScroll: true,
-        }
-    );
+], () => {
+    const params = new URLSearchParams();
+
+    if (search.value) params.set('search', search.value);
+    if (nsfw.value) params.set('nsfw', 'true');
+    if (sfw.value) params.set('sfw', 'true');
+    if (sortField.value !== 'latest_version_published_at') params.set('sortField', sortField.value);
+    if (sortDirection.value !== 'desc') params.set('sortDirection', sortDirection.value);
+    if (perPage.value !== 9) params.set('perPage', perPage.value.toString());
+    if (page.value !== 1) params.set('page', page.value.toString());
+
+    selectedStatuses.value.forEach(status => params.append('selectedStatuses[]', status));
+    selectedEngines.value.forEach(engine => params.append('selectedEngines[]', engine));
+    selectedPlatforms.value.forEach(platform => params.append('selectedPlatforms[]', platform));
+    selectedLanguages.value.forEach(language => params.append('selectedLanguages[]', language));
+
+    const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+    window.history.replaceState({}, '', newUrl);
+
+    // Fetch new data using store
+    gameListStore.fetchGames({
+        search: search.value,
+        selectedStatuses: selectedStatuses.value,
+        selectedEngines: selectedEngines.value,
+        selectedPlatforms: selectedPlatforms.value,
+        selectedLanguages: selectedLanguages.value,
+        nsfw: nsfw.value,
+        sfw: sfw.value,
+        sortField: sortField.value,
+        sortDirection: sortDirection.value,
+        perPage: perPage.value,
+        page: page.value,
+    });
 }, {deep: true});
 
-// Watch props.games to update the internal page value, BUT don't trigger router.get
-watch(() => props.games, (newGames) => {
-    if (newGames && newGames.data) {
-        // Find the active link, and get the label, safely.
-        const activeLink = newGames.links.find(link => link.active);
-        page.value = activeLink ? parseInt(activeLink.label) || 1 : 1; //Ensure page is a number
-    }
-}, {deep: true}); // Add deep: true to watch for changes WITHIN props.games
+// Initial data fetch
+onMounted(() => {
+    gameListStore.fetchGames({
+        search: search.value,
+        selectedStatuses: selectedStatuses.value,
+        selectedEngines: selectedEngines.value,
+        selectedPlatforms: selectedPlatforms.value,
+        selectedLanguages: selectedLanguages.value,
+        nsfw: nsfw.value,
+        sfw: sfw.value,
+        sortField: sortField.value,
+        sortDirection: sortDirection.value,
+        perPage: perPage.value,
+        page: page.value,
+    });
+});
 
 const emit = defineEmits<{
     (e: 'reset-filters'): void;
 }>();
-
 </script>
 
 <template>
@@ -254,70 +267,98 @@ const emit = defineEmits<{
                     @update:modelValue="search = $event; page = 1;"
                 />
 
-                <!-- Active Filters -->
-                <div
-                    v-if="selectedPlatforms.length || selectedStatuses.length || selectedEngines.length || selectedLanguages.length || nsfw || sfw || (sortField !== 'latest_version_published_at' || sortDirection !== 'desc')"
-                    class="mb-4">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm font-medium text-gray-900 dark:text-gray-300">
-                            Active Filters:
+                <!-- Loading State -->
+                <div v-if="gameListStore.loading.value"
+                     class="flex justify-center items-center py-12">
+                    <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900 dark:border-gray-100"/>
+                </div>
+
+                <!-- Error State -->
+                <div v-else-if="gameListStore.error.value"
+                     class="text-center py-12 text-red-600 dark:text-red-400">
+                    {{ gameListStore.error.value }}
+                </div>
+
+                <template v-else>
+                    <!-- Active Filters -->
+                    <div
+                        v-if="selectedPlatforms.length || selectedStatuses.length || selectedEngines.length || selectedLanguages.length || nsfw || sfw || (sortField !== 'latest_version_published_at' || sortDirection !== 'desc')"
+                        class="mb-4">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-300">
+                                Active Filters:
+                            </div>
+                            <button
+                                class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                                @click="clearFilters">
+                                Reset All
+                            </button>
                         </div>
-                        <button
-                            class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
-                            @click="clearFilters">
-                            Reset All
-                        </button>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <button v-if="sortField !== 'latest_version_published_at' || sortDirection !== 'desc'"
+                                    class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                                    @click="resetSort"
+                            >
+                                Sorted by: {{
+                                    sortField === 'latest_version_published_at' ? 'Latest Update' :
+                                        sortField === 'initially_published_at' ? 'Initial Release' :
+                                            sortField === 'english_word_count' ? 'Word Count' :
+                                                sortField === 'rating_count' ? 'Review Count' :
+                                                    sortField === 'name' ? 'Name' : 'Unknown'
+                                }} {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                                <span class="ml-2">×</span>
+                            </button>
+                            <FilterBadge v-for="filter in activeFilters"
+                                         :key="filter.id"
+                                         :label="filter.label"
+                                         :type="filter.type"
+                                         :value="filter.value"
+                                         @remove="toggleFilter(filter.type, filter.value)"/>
+                        </div>
                     </div>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <button
-                            v-if="sortField !== 'latest_version_published_at' || sortDirection !== 'desc'"
-                            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-                            @click="resetSort"
-                        >
-                            Sorted by: {{
-                                sortField === 'latest_version_published_at' ? 'Latest Update' :
-                                sortField === 'initially_published_at' ? 'Initial Release' :
-                                sortField === 'english_word_count' ? 'Word Count' :
-                                sortField === 'rating_count' ? 'Review Count' :
-                                sortField === 'name' ? 'Name' : 'Unknown'
-                            }} {{ sortDirection === 'asc' ? '↑' : '↓' }}
-                            <span class="ml-2">×</span>
-                        </button>
-                        <FilterBadge v-for="filter in activeFilters"
-                                     :key="filter.id"
-                                     :label="filter.label"
-                                     :type="filter.type"
-                                     :value="filter.value"
-                                     @remove="toggleFilter(filter.type, filter.value)"/>
+
+                    <!-- Games Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <GameCard v-for="game in gameListStore.games.value?.data || []"
+                                  :key="game.id"
+                                  :game="game"
+                                  :nsfw="nsfw"
+                                  :selected-engines="selectedEngines"
+                                  :selected-languages="selectedLanguages"
+                                  :selected-platforms="selectedPlatforms"
+                                  :selected-statuses="selectedStatuses"
+                                  :sfw="sfw"
+                                  @toggle-filter="toggleFilter"
+                        />
                     </div>
-                </div>
 
-                <!-- Games Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <GameCard v-for="game in games.data"
-                              :key="game.id"
-                              :game="game"
-                              :nsfw="nsfw"
-                              :selected-engines="selectedEngines"
-                              :selected-languages="selectedLanguages"
-                              :selected-platforms="selectedPlatforms"
-                              :selected-statuses="selectedStatuses"
-                              :sfw="sfw"
-                              @toggle-filter="toggleFilter"
-                    />
-                </div>
+                    <!-- No Results -->
+                    <div
+                        v-if="(!gameListStore.games.value?.data || gameListStore.games.value.data.length === 0) && !gameListStore.loading.value"
+                        class="text-center py-12 text-gray-500 dark:text-gray-400">
+                        No games found matching your criteria
+                    </div>
 
-                <!-- Pagination -->
-                <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <select v-model="perPage"
-                            class="px-4 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            @change="page=1">
-                        <option :value="9">9 per page</option>
-                        <option :value="18">18 per page</option>
-                        <option :value="27">27 per page</option>
-                    </select>
-                    <Pagination v-if="games.links.length > 3" :links="games.links"/>
-                </div>
+                    <!-- Pagination -->
+                    <div
+                        v-if="gameListStore.games.value && 'links' in gameListStore.games.value && gameListStore.games.value.links.length > 3"
+                        class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <select v-model="perPage"
+                                class="px-4 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                @change="page=1">
+                            <option :value="9">9 per page</option>
+                            <option :value="18">18 per page</option>
+                            <option :value="27">27 per page</option>
+                        </select>
+                        <Pagination
+                            :links="gameListStore.games.value.links"
+                            @page-click="url => {
+                                const match = url.match(/[?&]page=(\d+)/);
+                                page = match ? parseInt(match[1], 10) : 1;
+                            }"
+                        />
+                    </div>
+                </template>
             </div>
         </div>
 

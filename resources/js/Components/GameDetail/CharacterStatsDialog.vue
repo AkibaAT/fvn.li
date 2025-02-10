@@ -1,8 +1,8 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import DialogHeader from '@/Components/DialogHeader.vue';
 import DialogFooter from '@/Components/DialogFooter.vue';
 import {formatNumber} from '@/utils/formatters';
-import { ref, onMounted, onUnmounted } from 'vue';
+import {ref} from 'vue';
 
 interface Props {
     stats: {
@@ -30,7 +30,7 @@ const close = () => {
     dialogElement.value?.close();
 };
 
-defineExpose({ show, close });
+defineExpose({show, close});
 </script>
 
 <template>

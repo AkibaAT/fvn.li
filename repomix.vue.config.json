@@ -13,7 +13,8 @@
     },
     "include": [
         "app/Http/Controllers/**",
-        "**/*.vue"
+        "**/*.vue",
+        "**/*.ts"
     ],
     "ignore": {
         "useGitignore": true,

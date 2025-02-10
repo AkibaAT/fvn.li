@@ -31,7 +31,7 @@ const close = () => {
     dialogElement.value?.close();
 };
 
-defineExpose({ show, close });
+defineExpose({show, close});
 </script>
 
 <template>
