@@ -103,7 +103,7 @@ Route::get('users/{id}', function ($id) {
         abort(404);
     }
 
-    return redirect(status: 301)->route('raters.show', $id->id);
+    return redirect(status: 301)->route('raters.show', $rater->id);
 });
 
 Route::get('api/users/{id}', function ($id) {
@@ -115,7 +115,7 @@ Route::get('api/users/{id}', function ($id) {
         abort(404);
     }
 
-    return redirect(status: 301)->route('raters.show', $id);
+    return redirect(status: 301)->route('raters.show', $rater->id);
 });
 
 /*
