@@ -37,9 +37,7 @@
             <div class="flex flex-col sm:flex-row gap-6">
                 @if ($game->is_visible && $game->thumb_url)
                     <div class="shrink-0">
-                        <img src="{{ $game->thumb_url }}"
-                             alt="{{ $game->name }}"
-                             class="object-cover rounded-lg max-w-64 max-h-52">
+                        <x-game-thumbnail :game="$game" variant="default" class="object-cover rounded-lg max-w-64 max-h-52"/>
                     </div>
                 @endif
 

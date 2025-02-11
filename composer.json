@@ -16,6 +16,7 @@
         "blade-ui-kit/blade-heroicons": "^2.5",
         "guzzlehttp/guzzle": "*",
         "inertiajs/inertia-laravel": "^2.0",
+        "intervention/image": "^3.11",
         "itsgoingd/clockwork": "*",
         "laravel/framework": "^11.16",
         "laravel/octane": "*",

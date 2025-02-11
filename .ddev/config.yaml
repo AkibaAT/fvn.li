@@ -12,7 +12,7 @@ database:
 use_dns_when_possible: true
 composer_version: "2"
 web_environment: []
-webimage_extra_packages: [libgl1]
+webimage_extra_packages: [ffmpeg, libgl1]
 
 # Key features of DDEV's config.yaml:
 

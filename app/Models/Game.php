@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class Game extends Model
 {
@@ -51,6 +52,7 @@ class Game extends Model
         'is_web' => 'boolean',
         'is_nsfw' => 'boolean',
         'is_visible' => 'boolean',
+        'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
     ];
@@ -684,6 +686,36 @@ class Game extends Model
                 // Fallback to English only if no source language is defined
                 $newVersion->addSupportedLanguage('eng');
             }
+        }
+    }
+
+    /**
+     * Get the URL for a thumbnail variant
+     */
+    public function getThumbnailUrl(string $variant = 'default'): ?string
+    {
+        if (!isset($this->optimized_thumbnails[$variant], $this->optimized_thumbnails[$variant]['path'])) {
+            return $this->thumb_url;
+        }
+
+        return Storage::disk('public')->url($this->optimized_thumbnails[$variant]['path']);
+    }
+
+    /**
+     * Clear all optimized thumbnails
+     */
+    public function clearOptimizedThumbnails(): void
+    {
+        if ($this->optimized_thumbnails) {
+            foreach ($this->optimized_thumbnails as $variant) {
+                if (isset($variant['path'])) {
+                    Storage::disk('public')->delete($variant['path']);
+                }
+            }
+
+            // Clear the thumbnails data
+            $this->optimized_thumbnails = null;
+            $this->save();
         }
     }
 }

@@ -4,11 +4,7 @@
     class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         <a href="{{ route('games.show', $game) }}">
-            <img
-                src="{{ $game->thumb_url }}"
-                alt="{{ $game->name }}"
-                class="h-24 w-32 object-cover rounded-sm"
-            >
+            <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
         </a>
         <div class="flex flex-col min-w-0 flex-1">
             <div class="min-w-0 flex items-top gap-2">

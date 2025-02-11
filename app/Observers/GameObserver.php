@@ -6,42 +6,88 @@ namespace App\Observers;
 
 use App\Livewire\GameList;
 use App\Models\Game;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class GameObserver
 {
-    public function created(Game $game): void
+    /**
+     * Handle the Game "saving" event.
+     */
+    public function saving(Game $game): void
     {
-        GameList::clearFilterCache();
-
-        // Only generate slug for visible games
+        // Handle slug generation
         if ($game->is_visible) {
-            $this->generateSlug($game);
+            if (!$game->slug || $game->isDirty(['url', 'name'])) {
+                $this->generateSlug($game);
+            }
+        } elseif ($game->isDirty('is_visible')) {
+            $game->slug = null;
         }
     }
 
+    /**
+     * Handle the Game "created" event.
+     */
+    public function created(Game $game): void
+    {
+        GameList::clearFilterCache();
+    }
+
+    /**
+     * Handle the Game "updated" event.
+     */
     public function updated(Game $game): void
     {
+        // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
             GameList::clearFilterCache();
         }
 
-        // Generate or clear slug based on visibility
-        if ($game->isDirty('is_visible')) {
-            if ($game->is_visible) {
-                $this->generateSlug($game);
-            } else {
-                $game->slug = null;
-                $game->saveQuietly();
+        // Handle thumbnail updates
+        if ($game->wasChanged('thumb_url')) {
+            // Clear old thumbnails if they exist
+            if ($game->optimized_thumbnails) {
+                $game->clearOptimizedThumbnails();
+            }
+
+            // Only process new thumbnail if it exists
+            if ($game->thumb_url) {
+                // Process in background to avoid blocking the main operation
+                dispatch(function () use ($game) {
+                    try {
+                        Artisan::call('games:process-thumbnails', [
+                            '--game-id' => $game->id,
+                            '--force' => true
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to process game thumbnail after update', [
+                            'game_id' => $game->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                })->afterResponse();
             }
         }
     }
 
+    /**
+     * Handle the Game "deleted" event.
+     */
     public function deleted(Game $game): void
     {
         GameList::clearFilterCache();
+
+        // Clean up optimized thumbnails if they exist
+        if ($game->optimized_thumbnails) {
+            $game->clearOptimizedThumbnails();
+        }
     }
 
+    /**
+     * Generate a unique slug for the game.
+     */
     protected function generateSlug(Game $game): void
     {
         // Get base slug from game URL
@@ -61,6 +107,5 @@ class GameObserver
         }
 
         $game->slug = $slug;
-        $game->saveQuietly();
     }
 }
