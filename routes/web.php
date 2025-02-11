@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\SystemStatusController;
 use App\Livewire\GameList;
 use App\Models\Game;
+use App\Models\Rater;
 use Illuminate\Http\Request;
 
 /*
@@ -94,10 +95,26 @@ Route::get('versions/{id}', function ($id) {
 
 // Redirect old users URLs to raters
 Route::get('users/{id}', function ($id) {
-    return redirect(status: 301)->route('raters.show', $id);
+    $rater = Rater::find($id);
+    if (! $rater) {
+        $rater = Rater::firstWhere('user_id', $id);
+    }
+    if (! $rater) {
+        abort(404);
+    }
+
+    return redirect(status: 301)->route('raters.show', $id->id);
 });
 
 Route::get('api/users/{id}', function ($id) {
+    $rater = Rater::find($id);
+    if (! $rater) {
+        $rater = Rater::firstWhere('user_id', $id);
+    }
+    if (! $rater) {
+        abort(404);
+    }
+
     return redirect(status: 301)->route('raters.show', $id);
 });
 
