@@ -107,11 +107,9 @@ Route::get('api/users/{id}', function ($id) {
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', GameList::class)->name('games.index');
-Route::get('{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
 Route::get('by-url/{url}', function ($url) {
     $game = Game::firstWhere('url', $url);
-    if (! $game) {
+    if (!$game) {
         abort(404);
     }
 
@@ -121,6 +119,16 @@ Route::get('by-url/{url}', function ($url) {
             : route('games.show.game-id', $game->game_id)
     );
 })->where('url', '.*');
-Route::get('by-game-id/{game:game_id}', App\Livewire\GameDetail::class)->name('games.show.game-id');
-Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
-Route::get('system/status', SystemStatusController::class)->name('system.status');
+
+// Shorter caching
+Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
+    Route::get('/', GameList::class)->name('games.index');
+    Route::get('{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+});
+
+// Longer caching
+Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () {
+    Route::get('by-game-id/{game:game_id}', App\Livewire\GameDetail::class)->name('games.show.game-id');
+    Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
+    Route::get('system/status', SystemStatusController::class)->name('system.status');
+});
