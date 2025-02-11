@@ -41,13 +41,17 @@ class RaterDetail extends Component
         $this->updateMeta($metaTags);
 
         return view('livewire.rater-detail', ['metaTags' => $metaTags])
-            ->title($this->getMetaTitle());
+            ->title($this->getMetaTitle())
+            ->layout('components.layouts.app', [
+                'metaTags' => $metaTags,
+                'noindex' => true
+            ]);
     }
 
     protected function updateMeta(array $metaTags): void
     {
         if (method_exists($this, 'dispatch')) {
-            $this->dispatch('updateMetaTags', metaTags: $metaTags);
+            $this->dispatch('updateMetaTags', metaTags: $metaTags, noindex: true);
         }
     }
 }
