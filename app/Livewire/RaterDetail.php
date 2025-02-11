@@ -44,7 +44,7 @@ class RaterDetail extends Component
             ->title($this->getMetaTitle())
             ->layout('components.layouts.app', [
                 'metaTags' => $metaTags,
-                'noindex' => true
+                'noindex' => true,
             ]);
     }
 

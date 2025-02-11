@@ -126,7 +126,7 @@ Route::get('api/users/{id}', function ($id) {
 
 Route::get('by-url/{url}', function ($url) {
     $game = Game::firstWhere('url', $url);
-    if (!$game) {
+    if (! $game) {
         abort(404);
     }
 

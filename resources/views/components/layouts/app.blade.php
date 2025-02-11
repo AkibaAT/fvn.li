@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    @if(isset($noindex) && $noindex)
+    @if (isset($noindex) && $noindex)
         <meta name="robots" content="noindex">
     @endif
 

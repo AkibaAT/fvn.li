@@ -162,7 +162,11 @@ class GameDetail extends Component
             'metaTags' => $this->getMetaTags(),
             'availableRatings' => $availableRatings,
             'versionCharacterCounts' => $versionCharacterCounts,
-        ]);
+        ])
+            ->layout('components.layouts.app', [
+                'metaTags' => $metaTags,
+                'noindex' => ! $this->game->is_visible,
+            ]);
     }
 
     public function getMetaTags(): array
