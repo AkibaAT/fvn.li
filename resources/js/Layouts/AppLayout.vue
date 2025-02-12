@@ -73,7 +73,7 @@ defineProps<Props>();
                             </h3>
                             <div class="flex flex-col space-y-3">
                                 <a
-                                    href="https://bsky.app/profile/akiba.games"
+                                    href="https://bsky.app/profile/akiba.at"
                                     class="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                                     target="_blank"
                                     title="Contact on Bluesky"
@@ -81,10 +81,10 @@ defineProps<Props>();
                                     <i
                                         class="fab fa-bluesky w-5 text-center"
                                     ></i>
-                                    <span>@akiba.games</span>
+                                    <span>@akiba.at</span>
                                 </a>
                                 <a
-                                    href="https://discord.com/users/akiba.games"
+                                    href="https://discord.com/users/akiba.at"
                                     class="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                                     target="_blank"
                                     title="Contact on Discord"
@@ -92,7 +92,7 @@ defineProps<Props>();
                                     <i
                                         class="fab fa-discord w-5 text-center"
                                     ></i>
-                                    <span>@akiba.games</span>
+                                    <span>@akiba.at</span>
                                 </a>
                                 <a
                                     href="https://t.me/AkibaAT"

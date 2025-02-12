@@ -73,19 +73,19 @@
                 <div>
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Contact</h3>
                     <div class="flex flex-col space-y-3">
-                        <a href="https://bsky.app/profile/akiba.games"
+                        <a href="https://bsky.app/profile/akiba.at"
                            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center space-x-2"
                            target="_blank"
                            title="Contact on Bluesky">
                             <i class="icon-bluesky w-5 text-center"></i>
-                            <span>@akiba.games</span>
+                            <span>@akiba.at</span>
                         </a>
-                        <a href="https://discord.com/users/akiba.games"
+                        <a href="https://discord.com/users/akiba.at"
                            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center space-x-2"
                            target="_blank"
                            title="Contact on Discord">
                             <i class="icon-discord w-5 text-center"></i>
-                            <span>@akiba.games</span>
+                            <span>@akiba.at</span>
                         </a>
                         <a href="https://t.me/AkibaAT"
                            class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center space-x-2"
