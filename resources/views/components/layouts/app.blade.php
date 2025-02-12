@@ -31,7 +31,6 @@
     <meta name="twitter:image" content="{{ $metaTags['image'] ?? asset('favicon.ico') }}">
 
     @vite(['resources/css/app.css'])
-    @livewireStyles
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
 {{ $slot }}
@@ -118,7 +117,5 @@
         </div>
     </div>
 </footer>
-
-@livewireScripts
 </body>
 </html>
