@@ -6,6 +6,7 @@ namespace App\View\Components;
 
 use App\Models\Game;
 use Illuminate\View\Component;
+use Illuminate\View\View;
 
 class GameThumbnail extends Component
 {
@@ -13,11 +14,11 @@ class GameThumbnail extends Component
         public Game $game,
         public string $variant = 'medium',
         public ?string $class = null,
-        public bool $lazy = true,
+        public bool $lazy = false,
         public ?string $sizes = null
     ) {}
 
-    public function render()
+    public function render(): View
     {
         return view('components.game-thumbnail');
     }
