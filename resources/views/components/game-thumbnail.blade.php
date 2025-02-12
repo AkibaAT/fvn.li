@@ -6,5 +6,5 @@
     height="{{ $game->optimized_thumbnails[$variant]['height'] ?? '' }}"
     alt="{{ $game->name }}"
     class="{{ $class }}"
-    @if($lazy) loading="lazy" @endif
+    @if ($lazy) loading="lazy" @endif
 />

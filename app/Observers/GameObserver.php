@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Livewire\GameList;
 use App\Models\Game;
+use Exception;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -19,7 +20,7 @@ class GameObserver
     {
         // Handle slug generation
         if ($game->is_visible) {
-            if (!$game->slug || $game->isDirty(['url', 'name'])) {
+            if (! $game->slug || $game->isDirty(['url', 'name'])) {
                 $this->generateSlug($game);
             }
         } elseif ($game->isDirty('is_visible')) {
@@ -59,12 +60,12 @@ class GameObserver
                     try {
                         Artisan::call('games:process-thumbnails', [
                             '--game-id' => $game->id,
-                            '--force' => true
+                            '--force' => true,
                         ]);
-                    } catch (\Exception $e) {
+                    } catch (Exception $e) {
                         Log::error('Failed to process game thumbnail after update', [
                             'game_id' => $game->id,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                     }
                 })->afterResponse();

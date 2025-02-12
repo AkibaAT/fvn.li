@@ -574,6 +574,36 @@ class Game extends Model
         return null;
     }
 
+    /**
+     * Get the URL for a thumbnail variant
+     */
+    public function getThumbnailUrl(string $variant = 'default'): ?string
+    {
+        if (! isset($this->optimized_thumbnails[$variant], $this->optimized_thumbnails[$variant]['path'])) {
+            return $this->thumb_url;
+        }
+
+        return Storage::disk('public')->url($this->optimized_thumbnails[$variant]['path']);
+    }
+
+    /**
+     * Clear all optimized thumbnails
+     */
+    public function clearOptimizedThumbnails(): void
+    {
+        if ($this->optimized_thumbnails) {
+            foreach ($this->optimized_thumbnails as $variant) {
+                if (isset($variant['path'])) {
+                    Storage::disk('public')->delete($variant['path']);
+                }
+            }
+
+            // Clear the thumbnails data
+            $this->optimized_thumbnails = null;
+            $this->save();
+        }
+    }
+
     protected function devlog(): Attribute
     {
         return Attribute::make(
@@ -686,36 +716,6 @@ class Game extends Model
                 // Fallback to English only if no source language is defined
                 $newVersion->addSupportedLanguage('eng');
             }
-        }
-    }
-
-    /**
-     * Get the URL for a thumbnail variant
-     */
-    public function getThumbnailUrl(string $variant = 'default'): ?string
-    {
-        if (!isset($this->optimized_thumbnails[$variant], $this->optimized_thumbnails[$variant]['path'])) {
-            return $this->thumb_url;
-        }
-
-        return Storage::disk('public')->url($this->optimized_thumbnails[$variant]['path']);
-    }
-
-    /**
-     * Clear all optimized thumbnails
-     */
-    public function clearOptimizedThumbnails(): void
-    {
-        if ($this->optimized_thumbnails) {
-            foreach ($this->optimized_thumbnails as $variant) {
-                if (isset($variant['path'])) {
-                    Storage::disk('public')->delete($variant['path']);
-                }
-            }
-
-            // Clear the thumbnails data
-            $this->optimized_thumbnails = null;
-            $this->save();
         }
     }
 }

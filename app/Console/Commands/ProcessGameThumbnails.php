@@ -7,28 +7,21 @@ namespace App\Console\Commands;
 use App\Models\Game;
 use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
-use GuzzleHttp\Exception\GuzzleException;
+use Intervention\Image\ImageManager;
 
 class ProcessGameThumbnails extends Command
 {
-    protected $signature = 'games:process-thumbnails
-        {--force : Process thumbnails even if they already exist}
-        {--game-id= : Process specific game ID}
-        {--quality=80 : WebP quality (0-100)}';
-
-    protected $description = 'Process and optimize game thumbnails';
-
     private const THUMBNAIL_PATH = 'thumbnails';
     private const VALID_MIME_TYPES = [
         'image/jpeg',
         'image/png',
         'image/gif',
-        'image/webp'
+        'image/webp',
     ];
 
     /**
@@ -49,6 +42,12 @@ class ProcessGameThumbnails extends Command
      * Background color for padding (dark gray)
      */
     private const BACKGROUND_COLOR = '#1a1a1a';
+    protected $signature = 'games:process-thumbnails
+        {--force : Process thumbnails even if they already exist}
+        {--game-id= : Process specific game ID}
+        {--quality=80 : WebP quality (0-100)}';
+
+    protected $description = 'Process and optimize game thumbnails';
 
     private readonly ImageManager $imageManager;
 
@@ -56,7 +55,7 @@ class ProcessGameThumbnails extends Command
         private readonly Client $httpClient
     ) {
         parent::__construct();
-        $this->imageManager = new ImageManager(new Driver());
+        $this->imageManager = new ImageManager(new Driver);
     }
 
     public function handle(): int
@@ -120,8 +119,9 @@ class ProcessGameThumbnails extends Command
         $baseFilename = $this->generateThumbnailFilename($game);
 
         // Skip if files exist and not forcing
-        if (!$force && $game->optimized_thumbnails) {
+        if (! $force && $game->optimized_thumbnails) {
             $this->info('Thumbnails already exist, skipping (use --force to override)');
+
             return;
         }
 
@@ -148,7 +148,7 @@ class ProcessGameThumbnails extends Command
         file_put_contents($tempFile, $content);
 
         // Verify the downloaded file
-        if (!file_exists($tempFile) || filesize($tempFile) === 0) {
+        if (! file_exists($tempFile) || filesize($tempFile) === 0) {
             throw new Exception('Failed to save downloaded content');
         }
 
@@ -160,7 +160,7 @@ class ProcessGameThumbnails extends Command
             }
 
             $mimeType = $imageInfo['mime'];
-            if (!in_array($mimeType, self::VALID_MIME_TYPES)) {
+            if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
                 throw new Exception("Invalid image mime type: {$mimeType}");
             }
 
@@ -218,7 +218,7 @@ class ProcessGameThumbnails extends Command
                 }
 
                 // Verify the file was created
-                if (!Storage::disk('public')->exists($variantPath)) {
+                if (! Storage::disk('public')->exists($variantPath)) {
                     throw new Exception("Failed to create variant file: {$variantPath}");
                 }
 
@@ -335,7 +335,7 @@ class ProcessGameThumbnails extends Command
         int $quality
     ): void {
         // Ensure FFmpeg is available
-        if (!$this->isFFmpegAvailable()) {
+        if (! $this->isFFmpegAvailable()) {
             throw new Exception('FFmpeg is required for animated image processing');
         }
 
@@ -393,7 +393,7 @@ class ProcessGameThumbnails extends Command
 
         return [
             'width' => (int) $width,
-            'height' => (int) $height
+            'height' => (int) $height,
         ];
     }
 
@@ -415,12 +415,13 @@ class ProcessGameThumbnails extends Command
         $frames = 0;
         $handle = fopen($path, 'rb');
 
-        while (!feof($handle) && $frames < 2) {
+        while (! feof($handle) && $frames < 2) {
             $chunk = fread($handle, 1024 * 100); // Read 100KB at a time
             $frames += preg_match_all('#\x00\x21\xF9\x04.{4}\x00(\x2C|\x21)#s', $chunk);
         }
 
         fclose($handle);
+
         return $frames > 1;
     }
 
@@ -458,6 +459,7 @@ class ProcessGameThumbnails extends Command
     private function isFFmpegAvailable(): bool
     {
         exec('which ffmpeg 2>&1', $output, $returnCode);
+
         return $returnCode === 0;
     }
 }

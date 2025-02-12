@@ -28,7 +28,7 @@ class GameThumbnail extends Component
      */
     public function getDefaultSizes(): string
     {
-        return match($this->variant) {
+        return match ($this->variant) {
             'small' => '(max-width: 640px) 200px, 200px',
             'medium' => '(max-width: 768px) 200px, (max-width: 1024px) 400px, 400px',
             'large' => '(max-width: 768px) 400px, (max-width: 1280px) 600px, 800px',
