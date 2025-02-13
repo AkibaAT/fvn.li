@@ -1,6 +1,6 @@
 @import './icomoon.css';
+@import './flag-icons.css';
 @import 'tailwindcss';
-@import 'flag-icons/css/flag-icons.min.css' layer(base);
 
 @source "../views";
 

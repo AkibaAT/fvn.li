@@ -2,35 +2,25 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "lint": "eslint resources/js --ext .js,.ts,.vue --ignore-path .gitignore --fix",
+        "lint": "eslint resources/js --ext .js,.ts --ignore-path .gitignore --fix",
         "dev": "vite",
-        "build": "vue-tsc && vite build && vite build --ssr"
+        "build": "vite build"
     },
     "devDependencies": {
-        "@inertiajs/vue3": "^2.0.3",
-        "@rushstack/eslint-patch": "^1.10.5",
         "@tailwindcss/vite": "^4.0.6",
         "@types/node": "^22.13.1",
-        "@types/ziggy-js": "^1.3.3",
-        "@vitejs/plugin-vue": "^5.2.1",
-        "@vue/eslint-config-prettier": "^10.2.0",
-        "@vue/eslint-config-typescript": "^14.4.0",
-        "@vue/server-renderer": "^3.4.0",
-        "axios": "^1.7.9",
         "concurrently": "^9.1.2",
         "eslint": "^9.20.0",
-        "eslint-plugin-vue": "^9.32.0",
         "laravel-vite-plugin": "^1.2.0",
         "prettier": "^3.5.0",
         "prettier-plugin-organize-imports": "^4.1.0",
         "prettier-plugin-tailwindcss": "^0.6.11",
         "tailwindcss": "^4.0.1",
         "typescript": "^5.7.3",
-        "vite": "6.1.0",
-        "vue": "^3.5.13",
-        "vue-tsc": "^2.2.0"
+        "vite": "6.1.0"
     },
     "dependencies": {
+        "axios": "^1.7.9",
         "echarts": "^5.6.0",
         "flag-icons": "^7.3.2",
         "rollup-plugin-visualizer": "^5.14.0"

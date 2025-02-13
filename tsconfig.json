@@ -13,19 +13,17 @@
         "skipLibCheck": true,
         "useDefineForClassFields": true,
         "resolveJsonModule": true,
-        "types": ["vite/client", "node", "ziggy-js"],
+        "types": ["vite/client", "node"],
         "baseUrl": ".",
         "paths": {
-            "@/*": ["./resources/js/*"],
-            "ziggy-js": ["./vendor/tightenco/ziggy"]
+            "@/*": ["./resources/js/*"]
         },
         "lib": ["ESNext", "DOM", "DOM.Iterable"]
     },
     "include": [
         "resources/js/**/*.ts",
         "resources/js/**/*.d.ts",
-        "resources/js/**/*.tsx",
-        "resources/js/**/*.vue"
+        "resources/js/**/*.tsx"
     ],
     "exclude": ["node_modules", "public"]
 }

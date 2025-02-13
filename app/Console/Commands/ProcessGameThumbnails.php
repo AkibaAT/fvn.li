@@ -42,6 +42,7 @@ class ProcessGameThumbnails extends Command
      * Background color for padding (dark gray)
      */
     private const BACKGROUND_COLOR = '#1a1a1a';
+
     protected $signature = 'games:process-thumbnails
         {--force : Process thumbnails even if they already exist}
         {--game-id= : Process specific game ID}

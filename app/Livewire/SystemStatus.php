@@ -22,6 +22,11 @@ class SystemStatus extends Component
 
     public function mount()
     {
+        // All data fetching moved to render()
+    }
+
+    public function render()
+    {
         // Get game stats
         $this->gameStats = [
             'total' => Game::count(),
@@ -30,6 +35,9 @@ class SystemStatus extends Component
                 ->orderByDesc('updated_at')
                 ->value('updated_at'),
         ];
+        $this->gameStats['listing_rate'] = $this->gameStats['total'] > 0
+            ? ($this->gameStats['visible'] / $this->gameStats['total'] * 100)
+            : 0;
 
         // Get rating stats (cached until end of day)
         $this->ratingStats = Cache::remember('system_status.rating_stats', now()->endOfDay(), function () {
@@ -155,10 +163,20 @@ class SystemStatus extends Component
         ];
 
         $this->dateFormat = config('schedule-monitor.date_format');
+        $this->dispatchChartData();
+
+        return view('livewire.system-status', [
+            'gameStats' => $this->gameStats,
+            'ratingStats' => $this->ratingStats,
+            'monitoredTasks' => $this->monitoredTasks,
+            'healthSummary' => $this->healthSummary,
+            'dateFormat' => $this->dateFormat,
+        ]);
     }
 
-    public function render()
+    public function dispatchChartData(): void
     {
-        return view('livewire.system-status');
+        $this->dispatch('updateChartData', data: $this->ratingStats['monthly_trend']);
+        $this->dispatch('updateChartData', data: $this->ratingStats['visible_games_monthly_trend']);
     }
 }

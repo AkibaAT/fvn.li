@@ -1,8 +1,8 @@
 import {defineConfig} from 'vite';
 import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
-import vue from '@vitejs/plugin-vue';
 import { visualizer } from 'rollup-plugin-visualizer';
+import path from "node:path";
 
 export default defineConfig(({ command, mode }) => ({
     plugins: [
@@ -11,20 +11,33 @@ export default defineConfig(({ command, mode }) => ({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.ts',
+                'resources/js/charts-entry.ts'
             ],
-            ssr: 'resources/js/ssr.ts',
             refresh: true,
-        }),
-        vue({
-            template: {
-                transformAssetUrls: {
-                    base: null,
-                    includeAbsolute: false,
-                },
-            },
         }),
         visualizer({ gzipSize: true, brotliSize: true })
     ],
+    resolve: {
+        alias: [
+            {
+                find: /~(.+)/,
+                replacement: path.join(process.cwd(), 'node_modules/$1')
+            }
+        ]
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('echarts')) {
+                            return 'echarts';
+                        }
+                    }
+                },
+            },
+        },
+    },
     server: {
         // respond to all hosts
         host: '0.0.0.0',
