@@ -47,15 +47,5 @@
                 Maintenance OK
             </span>
         @endif
-        @if ($task['registered_on_oh_dear'])
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                Oh Dear
-            </span>
-        @endif
-        @if ($task['grace_time'])
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                Grace: {{ $task['grace_time'] }}m
-            </span>
-        @endif
     </div>
 </div>
