@@ -25,6 +25,11 @@ class RatingTrends extends Component
         $this->loadRatingStats();
     }
 
+    public function render(): View
+    {
+        return view('livewire.rating-trends');
+    }
+
     private function loadRatingStats(): void
     {
         // Cache for 5 minutes since this data is used in charts
@@ -56,10 +61,5 @@ class RatingTrends extends Component
                 'visible_games_monthly_trend' => $visibleGamesMonthlyTrend,
             ];
         });
-    }
-
-    public function render(): View
-    {
-        return view('livewire.rating-trends');
     }
 }

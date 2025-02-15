@@ -353,7 +353,7 @@
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium text-gray-900 dark:text-gray-100">
                                         <a href="{{ route('raters.show', $review->rater) }}" class="hover:underline">
-                                            {{ $review->rater->id }}
+                                            {{ $review->rater->alias }}
                                         </a>
                                     </span>
                                     <span class="text-sm text-gray-500 dark:text-gray-400">
