@@ -44,6 +44,8 @@ class GameList extends Component
 
     public bool $sfw = false;
 
+    public bool $showHidden = false;
+
     public string $sortField = 'latest_version_published_at';
 
     public string $sortDirection = 'desc';
@@ -66,6 +68,7 @@ class GameList extends Component
         'sortDirection' => ['except' => 'desc'],
         'perPage' => ['except' => 9],
         'page' => ['except' => 1],
+        'showHidden' => ['except' => false],
     ];
 
     private LengthAwarePaginator $games;
@@ -132,6 +135,7 @@ class GameList extends Component
         $this->sfw = false;
         $this->sortField = 'latest_version_published_at';
         $this->sortDirection = 'desc';
+        $this->showHidden = false;
         $this->resetPage();
     }
 
@@ -182,7 +186,7 @@ class GameList extends Component
             });
 
         // Apply filters
-        $query->when(! auth()->user()?->can('viewHidden', Game::class), fn ($q) => $q->where('is_visible', true))
+        $query->when(!$this->showHidden, fn ($q) => $q->where('is_visible', true))
             ->when($this->search, function ($q) {
                 $q->where(function (Builder $query) {
                     $query->where('games.name', 'ilike', "%{$this->search}%")
@@ -254,6 +258,7 @@ class GameList extends Component
             'games' => $games,
             'metaTags' => $metaTags,
             ...$this->getFilterOptions(),
+            'noindex' => $this->showHidden,
         ]);
     }
 
@@ -305,7 +310,7 @@ class GameList extends Component
         }
 
         $visibilityScope = function ($query) {
-            return ! auth()->user()?->can('viewHidden', Game::class)
+            return ! $this->showHidden
                 ? $query->where('is_visible', true)
                 : $query;
         };

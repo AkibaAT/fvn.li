@@ -23,12 +23,10 @@
                         Versions
                     </a>
                 @endif
-                @if ($reviews->isNotEmpty())
-                    <a href="#reviews"
-                       class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                        {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
-                    </a>
-                @endif
+                <a href="#reviews"
+                   class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                    {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
+                </a>
             </nav>
         </div>
 
@@ -321,80 +319,78 @@
         @endif
 
         {{-- Reviews Section --}}
-        @if ($reviews->isNotEmpty())
-            <div id="reviews" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 scroll-mt-14">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-4">
-                        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                            {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
-                        </h2>
-                        @if ($availableRatings->isNotEmpty())
-                            <x-filters.select
-                                wire:model.live="selectedRating"
-                                :value="$selectedRating"
-                                :options="$availableRatings->mapWithKeys(fn($rating) => [$rating => $rating.' Star' . ($rating !== 1 ? 's' : '')])->all()"
-                                placeholder="Any Stars"
-                                class="w-40"
-                            />
+        <div id="reviews" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 scroll-mt-14">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        {{ $showAllRatings ? 'Ratings' : 'Reviews' }}
+                    </h2>
+                    @if ($availableRatings->isNotEmpty())
+                        <x-filters.select
+                            wire:model.live="selectedRating"
+                            :value="$selectedRating"
+                            :options="$availableRatings->mapWithKeys(fn($rating) => [$rating => $rating.' Star' . ($rating !== 1 ? 's' : '')])->all()"
+                            placeholder="Any Stars"
+                            class="w-40"
+                        />
+                    @endif
+                </div>
+                <button
+                    wire:click="toggleRatingsView"
+                    class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                    Show {{ $showAllRatings ? 'reviews only' : 'all ratings' }}
+                </button>
+            </div>
+
+            <div class="space-y-6">
+                @foreach ($reviews as $review)
+                    <div class="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-900 dark:text-gray-100">
+                                    <a href="{{ route('raters.show', $review->rater) }}" class="hover:underline">
+                                        {{ $review->rater->alias }}
+                                    </a>
+                                </span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">
+                                    {{ $review->published_at->format('M j, Y') }}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-1 text-yellow-400">
+                                @for ($i = 0; $i < $review->rating; $i++)
+                                    <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                              d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                @endfor
+                            </div>
+                        </div>
+
+                        @if ($review->review && (!$showAllRatings || $review->is_reviewed))
+                            <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
+                                {!! $review->review !!}
+                            </div>
                         @endif
                     </div>
-                    <button
-                        wire:click="toggleRatingsView"
-                        class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                        Show {{ $showAllRatings ? 'reviews only' : 'all ratings' }}
-                    </button>
-                </div>
-
-                <div class="space-y-6">
-                    @foreach ($reviews as $review)
-                        <div class="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
-                            <div class="flex items-center justify-between mb-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-medium text-gray-900 dark:text-gray-100">
-                                        <a href="{{ route('raters.show', $review->rater) }}" class="hover:underline">
-                                            {{ $review->rater->alias }}
-                                        </a>
-                                    </span>
-                                    <span class="text-sm text-gray-500 dark:text-gray-400">
-                                        {{ $review->published_at->format('M j, Y') }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center gap-1 text-yellow-400">
-                                    @for ($i = 0; $i < $review->rating; $i++)
-                                        <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                  d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                                        </svg>
-                                    @endfor
-                                </div>
-                            </div>
-
-                            @if ($review->review && (!$showAllRatings || $review->is_reviewed))
-                                <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
-                                    {!! $review->review !!}
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <x-filters.select
-                        wire:model.live="reviewsPerPage"
-                        :value="$reviewsPerPage"
-                        :options="[
-                            5 => '5 per page',
-                            10 => '10 per page',
-                            25 => '25 per page'
-                        ]"
-                        placeholder=""
-                        class="w-full sm:w-auto"
-                    />
-                    {{ $reviews->links(data: ['scrollTo' => '#reviews']) }}
-                </div>
+                @endforeach
             </div>
-        @endif
+
+            <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <x-filters.select
+                    wire:model.live="reviewsPerPage"
+                    :value="$reviewsPerPage"
+                    :options="[
+                        5 => '5 per page',
+                        10 => '10 per page',
+                        25 => '25 per page'
+                    ]"
+                    placeholder=""
+                    class="w-full sm:w-auto"
+                />
+                {{ $reviews->links(data: ['scrollTo' => '#reviews']) }}
+            </div>
+        </div>
     </div>
 
     @include('components.file-stats-dialog')

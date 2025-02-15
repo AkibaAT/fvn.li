@@ -39,6 +39,14 @@
     @endforeach
 @endforeach
 
+@if ($showHidden)
+    <button wire:click="$toggle('showHidden')"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+        Including Unlisted Games
+        <span class="ml-2">&times;</span>
+    </button>
+@endif
+
 @if ($nsfw)
     <button wire:click="$toggle('nsfw')"
             class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">

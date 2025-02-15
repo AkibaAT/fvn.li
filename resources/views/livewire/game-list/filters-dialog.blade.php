@@ -77,6 +77,18 @@
                 </div>
             </div>
         @endforeach
+
+        <div>
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Visibility</div>
+            <div class="flex flex-wrap gap-2">
+                <button wire:click="$toggle('showHidden')"
+                        class="px-3 py-1 rounded-lg text-sm {{ $showHidden
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
+                    Show Unlisted Games
+                </button>
+            </div>
+        </div>
     </div>
 
     <x-dialog-footer/>
