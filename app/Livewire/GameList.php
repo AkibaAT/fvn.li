@@ -186,7 +186,7 @@ class GameList extends Component
             });
 
         // Apply filters
-        $query->when(!$this->showHidden, fn ($q) => $q->where('is_visible', true))
+        $query->when(! $this->showHidden, fn ($q) => $q->where('is_visible', true))
             ->when($this->search, function ($q) {
                 $q->where(function (Builder $query) {
                     $query->where('games.name', 'ilike', "%{$this->search}%")
