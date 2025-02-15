@@ -39,9 +39,7 @@
             <div class="p-6">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-4">
-                        <a href="{{ $rating->game->is_visible
-                                ? route('games.show', ['game' => $rating->game->slug])
-                                : route('games.show.game-id', [$rating->game->game_id]) }}"
+                        <a href="{{ route('games.show', ['game' => $rating->game->slug]) }}"
                            class="text-lg font-medium text-blue-600 dark:text-blue-400 hover:underline">
                             {{ $rating->game->name }}
                         </a>

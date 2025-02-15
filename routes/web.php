@@ -26,11 +26,7 @@ Route::get('ratings', function (Request $request) {
         abort(404);
     }
 
-    return redirect(status: 301)->to(
-        $game->is_visible
-            ? route('games.show', $game)
-            : route('games.show.game-id', $game->game_id)
-    );
+    return redirect(status: 301)->route('games.show', $game);
 });
 
 Route::get('game-versions', function (Request $request) {
@@ -45,11 +41,7 @@ Route::get('game-versions', function (Request $request) {
         abort(404);
     }
 
-    return redirect(status: 301)->to(
-        $game->is_visible
-            ? route('games.show', $game)
-            : route('games.show.game-id', $game->game_id)
-    );
+    return redirect(status: 301)->route('games.show', $game);
 });
 
 // Redirect old review URLs to game pages
@@ -59,11 +51,7 @@ Route::get('reviews/{id}', function ($id) {
         abort(404);
     }
 
-    return redirect(status: 301)->to(
-        $game->is_visible
-            ? route('games.show', $game)
-            : route('games.show.game-id', $game->game_id)
-    );
+    return redirect(status: 301)->route('games.show', $game);
 });
 
 Route::get('api/reviews/{id}', function ($id) {
@@ -72,11 +60,7 @@ Route::get('api/reviews/{id}', function ($id) {
         abort(404);
     }
 
-    return redirect(status: 301)->to(
-        $game->is_visible
-            ? route('games.show', $game)
-            : route('games.show.game-id', $game->game_id)
-    );
+    return redirect(status: 301)->route('games.show', $game);
 });
 
 Route::get('versions/{id}', function ($id) {
@@ -85,11 +69,7 @@ Route::get('versions/{id}', function ($id) {
         abort(404);
     }
 
-    return redirect(status: 301)->to(
-        $game->is_visible
-            ? route('games.show', $game)
-            : route('games.show.game-id', $game->game_id)
-    );
+    return redirect(status: 301)->route('games.show', $game);
 });
 
 // Redirect old users URLs to raters
@@ -142,11 +122,7 @@ Route::get('by-url/{url}', function ($url) {
         abort(404);
     }
 
-    return redirect()->to(
-        $game->is_visible
-            ? route('games.show', $game)
-            : route('games.show.game-id', $game->game_id)
-    );
+    return redirect(status: 301)->route('games.show', $game);
 })->where('url', '.*');
 
 // Shorter caching
