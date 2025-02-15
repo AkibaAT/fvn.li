@@ -18,13 +18,9 @@ class GameObserver
      */
     public function saving(Game $game): void
     {
-        // Handle slug generation
-        if ($game->is_visible) {
-            if (! $game->slug || $game->isDirty(['url', 'name'])) {
-                $this->generateSlug($game);
-            }
-        } elseif ($game->isDirty('is_visible')) {
-            $game->slug = null;
+        // Generate slug if it doesn't exist or if relevant fields changed
+        if (! $game->slug || $game->isDirty(['url', 'name'])) {
+            $this->generateSlug($game);
         }
     }
 

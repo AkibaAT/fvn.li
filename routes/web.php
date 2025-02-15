@@ -117,6 +117,19 @@ Route::get('api/users/{id}', function ($id) {
     return redirect(status: 301)->route('raters.show', $rater->id);
 });
 
+Route::get('{game:slug}', function ($slug) {
+    return redirect(status: 301)->route('games.show', $slug);
+});
+
+Route::get('by-game-id/{game:game_id}', function ($gameId) {
+    $slug = Game::where('game_id', $gameId)->first()?->slug;
+    if (! $slug) {
+        abort(404);
+    }
+
+    return redirect(status: 301)->route('games.show', $slug);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Current Routes
@@ -139,12 +152,11 @@ Route::get('by-url/{url}', function ($url) {
 // Shorter caching
 Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
     Route::get('/', GameList::class)->name('games.index');
-    Route::get('{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+    Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
 });
 
 // Longer caching
 Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () {
-    Route::get('by-game-id/{game:game_id}', App\Livewire\GameDetail::class)->name('games.show.game-id');
     Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
     Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
 });
