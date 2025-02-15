@@ -62,7 +62,7 @@
                     </p>
                     <p>
                         All source code for this page can be found on
-                        <a href="https://github.com/AkibaAT/itch-web"
+                        <a href="https://github.com/AkibaAT/fvn.li"
                            class="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center space-x-1"
                            target="_blank">
                             <i class="icon-github"></i>
