@@ -8,6 +8,8 @@
         <meta name="robots" content="noindex">
     @endif
 
+    <link rel="canonical" href="{{ canonical() }}"/>
+
     @php
         $metaTags = $metaTags ?? null;
     @endphp
