@@ -1,11 +1,11 @@
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
     <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Common Phrases in Reviews</h2>
 
-    @if(empty($phrases))
+    @if (empty($phrases))
         <p class="text-gray-500 dark:text-gray-400">No recurring phrases found in reviews.</p>
     @else
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            @foreach($phrases as $phrase => $data)
+            @foreach ($phrases as $phrase => $data)
                 @php
                     if ($data['avg_rating'] >= 4) {
                         $colorClasses = 'bg-green-50 dark:bg-green-900 text-green-900 dark:text-green-100';
@@ -55,7 +55,7 @@
                     </div>
 
                     <div class="overflow-y-auto space-y-4">
-                        @foreach($data['contexts'] as $gameName => $gameData)
+                        @foreach ($data['contexts'] as $gameName => $gameData)
                             <div>
                                 <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">
                                     {{ $gameName }}
@@ -64,7 +64,7 @@
                                     </span>
                                 </h4>
                                 <div class="space-y-2">
-                                    @foreach($gameData['sentences'] as $context)
+                                    @foreach ($gameData['sentences'] as $context)
                                         <div class="text-sm text-gray-600 dark:text-gray-400 p-2 rounded bg-gray-50 dark:bg-gray-700">
                                             {!! preg_replace('/(' . preg_quote($phrase, '/') . ')/i', '<span class="font-medium text-blue-600 dark:text-blue-400">$1</span>', htmlspecialchars($context)) !!}
                                         </div>

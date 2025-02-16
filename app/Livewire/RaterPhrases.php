@@ -97,7 +97,7 @@ class RaterPhrases extends Component
                 'ratings.review',
                 'ratings.rating',
                 'games.name as game_name',
-                'ratings.rating as game_rating'
+                'ratings.rating as game_rating',
             ])
             ->join('games', 'games.id', '=', 'ratings.game_id')
             ->get();
@@ -131,7 +131,7 @@ class RaterPhrases extends Component
                 }
                 for ($i = 0; $i <= $wordsCount - $length; $i++) {
                     $phrase = implode(' ', array_slice($words, $i, $length));
-                    if (strlen($phrase) < 5 || !$this->isPhraseMeaningful($phrase)) {
+                    if (strlen($phrase) < 5 || ! $this->isPhraseMeaningful($phrase)) {
                         continue;
                     }
 
@@ -140,9 +140,9 @@ class RaterPhrases extends Component
                     }
                     $seenPhrases[$phrase] = true;
 
-                    $pattern = '/\b'.implode('[-\s]+', array_map(function ($word) {
-                            return preg_quote($word, '/');
-                        }, explode(' ', $phrase))).'\b/';
+                    $pattern = '/\b' . implode('[-\s]+', array_map(function ($word) {
+                        return preg_quote($word, '/');
+                    }, explode(' ', $phrase))) . '\b/';
 
                     $matchingSentences = [];
                     foreach ($lowerSentences as $index => $lowerSentence) {
@@ -152,7 +152,7 @@ class RaterPhrases extends Component
                         }
                     }
 
-                    if (!isset($allPhrases[$phrase])) {
+                    if (! isset($allPhrases[$phrase])) {
                         $allPhrases[$phrase] = [
                             'count' => 1,
                             'length' => $length,
@@ -167,7 +167,7 @@ class RaterPhrases extends Component
                     } else {
                         $allPhrases[$phrase]['count']++;
                         $allPhrases[$phrase]['total_rating'] += $review->rating;
-                        if (!isset($allPhrases[$phrase]['contexts'][$review->game_name])) {
+                        if (! isset($allPhrases[$phrase]['contexts'][$review->game_name])) {
                             $allPhrases[$phrase]['contexts'][$review->game_name] = [
                                 'rating' => $review->game_rating,
                                 'sentences' => [],
@@ -183,7 +183,7 @@ class RaterPhrases extends Component
         }
 
         // Remove phrases that appear only once.
-        $allPhrases = array_filter($allPhrases, fn($data) => $data['count'] > 1);
+        $allPhrases = array_filter($allPhrases, fn ($data) => $data['count'] > 1);
 
         foreach ($allPhrases as &$data) {
             $data['avg_rating'] = $data['total_rating'] / $data['count'];
@@ -199,6 +199,7 @@ class RaterPhrases extends Component
             if ($a['count'] !== $b['count']) {
                 return $b['count'] <=> $a['count'];
             }
+
             return $b['length'] <=> $a['length'];
         });
 
@@ -234,7 +235,7 @@ class RaterPhrases extends Component
                 }
             }
 
-            if (!$isSubphrase) {
+            if (! $isSubphrase) {
                 $filteredPhrases[$phrase] = $data;
                 $filteredPhrases[$phrase]['related'] = $relations;
             }
