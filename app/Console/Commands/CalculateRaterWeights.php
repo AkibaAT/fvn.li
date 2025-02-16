@@ -32,12 +32,12 @@ class CalculateRaterWeights extends Command
             FROM rater_counts
         ');
 
-        // Calculate minimum rating threshold using both mean and median
+        // Calculate the minimum rating threshold using both mean and median
         $meanBasedThreshold = ceil($globalStats->mean_ratings_per_rater * 0.25);
         $medianBasedThreshold = ceil($globalStats->median_ratings_per_rater * 0.5);
         $minRatingThreshold = max(5, min($meanBasedThreshold, $medianBasedThreshold));
 
-        // Get raters that need processing
+        // Build the query to get raters that need processing
         $query = DB::table('raters')
             ->when(! $this->option('force'), function ($query) {
                 $query->where(function ($q) {
@@ -58,23 +58,44 @@ class CalculateRaterWeights extends Command
         $processedCount = 0;
         $errorCount = 0;
 
+        // Process raters in chunks
         $query->orderBy('id')->chunk(100, function ($raters) use ($minRatingThreshold, $bar, &$processedCount, &$errorCount) {
+            // Get an array of rater IDs for the current chunk
+            $raterIds = $raters->pluck('id')->all();
+
+            // Fetch aggregated rating statistics for all raters in the chunk in one query
+            $ratingStats = DB::table('ratings')
+                ->select('rater_id',
+                    DB::raw('COUNT(*) as total_ratings'),
+                    DB::raw('SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as rating_1'),
+                    DB::raw('SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as rating_2'),
+                    DB::raw('SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as rating_3'),
+                    DB::raw('SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as rating_4'),
+                    DB::raw('SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as rating_5')
+                )
+                ->whereIn('rater_id', $raterIds)
+                ->where('is_visible', true)
+                ->groupBy('rater_id')
+                ->get()
+                ->keyBy('rater_id');
+
+            // Process each rater in the chunk
             foreach ($raters as $rater) {
                 try {
-                    // Get rating distribution
-                    $stats = DB::selectOne('
-                        SELECT
-                            COUNT(*) as total_ratings,
-                            COUNT(CASE WHEN rating = 1 THEN 1 END) as rating_1,
-                            COUNT(CASE WHEN rating = 2 THEN 1 END) as rating_2,
-                            COUNT(CASE WHEN rating = 3 THEN 1 END) as rating_3,
-                            COUNT(CASE WHEN rating = 4 THEN 1 END) as rating_4,
-                            COUNT(CASE WHEN rating = 5 THEN 1 END) as rating_5
-                        FROM ratings
-                        WHERE rater_id = ? AND is_visible = true
-                    ', [$rater->id]);
+                    // Retrieve the aggregated statistics or use default zeros if none found
+                    $stats = $ratingStats->get($rater->id);
+                    if (! $stats) {
+                        $stats = (object) [
+                            'total_ratings' => 0,
+                            'rating_1' => 0,
+                            'rating_2' => 0,
+                            'rating_3' => 0,
+                            'rating_4' => 0,
+                            'rating_5' => 0,
+                        ];
+                    }
 
-                    // Calculate entropy-based weight
+                    // Calculate the entropy-based weight
                     $alpha = 1; // Laplace smoothing factor
                     $counts = [
                         $stats->rating_1 + $alpha,
@@ -86,12 +107,10 @@ class CalculateRaterWeights extends Command
 
                     $total = array_sum($counts);
                     $entropy = 0;
-
                     foreach ($counts as $count) {
                         $p = $count / $total;
                         $entropy += $p * log($p);
                     }
-
                     $entropy = -$entropy;
                     $maxEntropy = log(5);
                     $entropyWeight = $entropy / $maxEntropy;
@@ -99,21 +118,21 @@ class CalculateRaterWeights extends Command
                     // Calculate rating count weight using a sigmoid function
                     $ratingCountWeight = 1 / (1 + exp(-0.1 * ($stats->total_ratings - $minRatingThreshold)));
 
-                    // Combine weights
+                    // Combine the weights
                     $weight = $entropyWeight * $ratingCountWeight;
 
-                    // Additional penalty for very low rating counts
+                    // Apply an additional penalty for low rating counts
                     if ($stats->total_ratings < $minRatingThreshold) {
                         $weight *= ($stats->total_ratings / $minRatingThreshold);
                     }
 
-                    // Apply suspicious penalty if needed
+                    // Apply a suspicious penalty if necessary
                     if ($rater->is_suspicious) {
                         $weight *= 0.1;
                     }
 
+                    // Update the rater record and mark ratings as processed within a transaction
                     DB::transaction(function () use ($rater, $weight, $entropyWeight, $ratingCountWeight) {
-                        // Update rater weight
                         DB::table('raters')
                             ->where('id', $rater->id)
                             ->update([
@@ -123,7 +142,6 @@ class CalculateRaterWeights extends Command
                                 'weight_calculated_at' => now(),
                             ]);
 
-                        // Mark all ratings as processed
                         DB::table('ratings')
                             ->where('rater_id', $rater->id)
                             ->update(['processed_at' => now()]);
@@ -131,7 +149,6 @@ class CalculateRaterWeights extends Command
 
                     $processedCount++;
                     $bar->advance();
-
                 } catch (Throwable $e) {
                     $errorCount++;
                     Log::error("Error calculating weight for rater {$rater->id}: " . $e->getMessage());
