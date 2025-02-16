@@ -92,7 +92,7 @@ class RaterStats extends Component
                 'review_percentage' => $allGamesStats->total_ratings > 0
                     ? ($allGamesStats->reviewed_count / $allGamesStats->total_ratings * 100)
                     : 0,
-                'average_rating' => $allGamesStats->average_rating,
+                'average_rating' => $allGamesStats->average_rating ?? 0,
                 'unique_games' => $allGamesStats->unique_games,
                 'rating_distribution' => $allDistribution,
             ],
@@ -102,7 +102,7 @@ class RaterStats extends Component
                 'review_percentage' => $visibleGamesStats->total_ratings > 0
                     ? ($visibleGamesStats->reviewed_count / $visibleGamesStats->total_ratings * 100)
                     : 0,
-                'average_rating' => $visibleGamesStats->average_rating,
+                'average_rating' => $visibleGamesStats->average_rating ?? 0,
                 'unique_games' => $visibleGamesStats->unique_games,
                 'rating_distribution' => $visibleDistribution,
             ],
