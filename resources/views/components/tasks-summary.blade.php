@@ -7,10 +7,12 @@
         </h2>
         <div class="flex items-center gap-2">
             <span class="text-sm text-gray-500 dark:text-gray-400">Task Status:</span>
-            <span class="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800 dark:bg-green-900 dark:text-green-200">Active</span>
+            <span
+                class="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800 dark:bg-green-900 dark:text-green-200">Active</span>
             <span class="rounded-full bg-red-100 px-2 py-1 text-xs text-red-800 dark:bg-red-900 dark:text-red-200">Failed</span>
             <span class="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200">Single Server</span>
-            <span class="rounded-full bg-purple-100 px-2 py-1 text-xs text-purple-800 dark:bg-purple-900 dark:text-purple-200">Maintenance OK</span>
+            <span
+                class="rounded-full bg-purple-100 px-2 py-1 text-xs text-purple-800 dark:bg-purple-900 dark:text-purple-200">Maintenance OK</span>
         </div>
     </div>
 

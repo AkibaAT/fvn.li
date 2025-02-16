@@ -1,7 +1,7 @@
 @props(['title'])
 
-<div class="flex justify-between items-center mb-4">
-    <h3 class="text-lg font-medium">{{ $title }}</h3>
+<div class="flex justify-between items-baseline mb-4">
+    <h1 class="text-2xl font-bold mb-2">{{ $title }}</h1>
     <button
         @click="$el.closest('dialog').close()"
         class="text-gray-400 hover:text-gray-500"

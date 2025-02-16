@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Game;
+use App\Models\Rating;
 use App\Observers\GameObserver;
+use App\Observers\RatingObserver;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Game::observe(GameObserver::class);
+        Rating::observe(RatingObserver::class);
         Livewire::listen('mount', function ($component) {
             $component->enableBackButtonCache();
         });

@@ -35,7 +35,8 @@
             <div class="flex flex-col sm:flex-row gap-6">
                 @if ($game->is_visible && $game->thumb_url)
                     <div class="shrink-0">
-                        <x-game-thumbnail :game="$game" variant="default" class="object-cover rounded-lg max-w-64 max-h-52"/>
+                        <x-game-thumbnail :game="$game" variant="default"
+                                          class="object-cover rounded-lg max-w-64 max-h-52"/>
                     </div>
                 @endif
 
@@ -292,7 +293,8 @@
                                 </div>
                             @else
                                 <div class="flex items-center justify-center p-4">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+                                    <div
+                                        class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
                                 </div>
                             @endif
 

@@ -35,8 +35,10 @@
                         class="h-full w-full"
                     >
                         <template x-if="isLoading">
-                            <div class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
-                                <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+                            <div
+                                class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
+                                <div
+                                    class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
                             </div>
                         </template>
                     </div>
@@ -77,8 +79,10 @@
                         class="h-full w-full"
                     >
                         <template x-if="isLoading">
-                            <div class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
-                                <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+                            <div
+                                class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
+                                <div
+                                    class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
                             </div>
                         </template>
                     </div>

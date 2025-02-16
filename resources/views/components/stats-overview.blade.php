@@ -1,3 +1,4 @@
+@php use Carbon\Carbon; @endphp
 @props(['gameStats', 'ratingStats'])
 <div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
     <!-- Game Stats -->
@@ -30,9 +31,9 @@
             <div class="mt-4 text-sm">
                 <span class="text-gray-500 dark:text-gray-400">Latest Update:</span>
                 <span class="ml-1 text-gray-900 dark:text-gray-100">
-                    {{ \Carbon\Carbon::parse($gameStats['latest_update'])->diffForHumans() }}
+                    {{ Carbon::parse($gameStats['latest_update'])->diffForHumans() }}
                     <span class="text-xs text-gray-500 dark:text-gray-400">
-                        ({{ \Carbon\Carbon::parse($gameStats['latest_update'])->format('Y-m-d H:i:s') }})
+                        ({{ Carbon::parse($gameStats['latest_update'])->format('Y-m-d H:i:s') }})
                     </span>
                 </span>
             </div>
@@ -98,7 +99,8 @@
                             {{ number_format($ratingStats['visible_games']['total']) }}
                         </dd>
                         <dd class="text-sm text-gray-500 dark:text-gray-400">
-                            ({{ number_format(($ratingStats['visible_games']['total'] / max($ratingStats['total'], 1)) * 100, 1) }}% of all)
+                            ({{ number_format(($ratingStats['visible_games']['total'] / max($ratingStats['total'], 1)) * 100, 1) }}
+                            % of all)
                         </dd>
                     </div>
                     <div>
@@ -120,7 +122,8 @@
                                 <span class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                                     {{ number_format($ratingStats['visible_games']['average_rating'], 2) }}
                                 </span>
-                            <x-rating-stars :rating="number_format($ratingStats['visible_games']['average_rating'], 2)" />
+                            <x-rating-stars
+                                :rating="number_format($ratingStats['visible_games']['average_rating'], 2)"/>
                         </dd>
                     </div>
                 </dl>
@@ -130,9 +133,9 @@
             <div class="mt-4 text-sm">
                 <span class="text-gray-500 dark:text-gray-400">Latest Rating:</span>
                 <span class="ml-1 text-gray-900 dark:text-gray-100">
-                    {{ \Carbon\Carbon::parse($ratingStats['latest'])->diffForHumans() }}
+                    {{ Carbon::parse($ratingStats['latest'])->diffForHumans() }}
                     <span class="text-xs text-gray-500 dark:text-gray-400">
-                        ({{ \Carbon\Carbon::parse($ratingStats['latest'])->format('Y-m-d H:i:s') }})
+                        ({{ Carbon::parse($ratingStats['latest'])->format('Y-m-d H:i:s') }})
                     </span>
                 </span>
             </div>

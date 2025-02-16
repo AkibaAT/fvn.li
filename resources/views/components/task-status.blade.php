@@ -1,11 +1,12 @@
+@php use Carbon\Carbon; @endphp
 <div>
 
 </div>
 @props(['task'])
 
 @php
-    $hasFailedRecently = $task['last_failed'] && (!$task['last_finished'] || \Carbon\Carbon::parse($task['last_failed'])->gt(\Carbon\Carbon::parse($task['last_finished'])));
-    $hasRunRecently = $task['last_finished'] && \Carbon\Carbon::parse($task['last_finished'])->gt(now()->subDay());
+    $hasFailedRecently = $task['last_failed'] && (!$task['last_finished'] || Carbon::parse($task['last_failed'])->gt(Carbon::parse($task['last_finished'])));
+    $hasRunRecently = $task['last_finished'] && Carbon::parse($task['last_finished'])->gt(now()->subDay());
 
     $statusColor = $hasFailedRecently ? 'red' : ($hasRunRecently ? 'green' : ($task['last_started'] ? 'yellow' : 'gray'));
     $statusText = $hasFailedRecently ? 'Failed' : ($hasRunRecently ? 'Active' : ($task['last_started'] ? 'Inactive' : 'Never Run'));
@@ -24,7 +25,7 @@
         </span>
         @if ($task['last_failed'] && $hasFailedRecently)
             <span class="text-xs text-gray-400 dark:text-gray-500">
-                {{ \Carbon\Carbon::parse($task['last_failed'])->diffForHumans() }}
+                {{ Carbon::parse($task['last_failed'])->diffForHumans() }}
             </span>
         @endif
     </div>
@@ -38,12 +39,14 @@
     {{-- Flags --}}
     <div class="flex flex-wrap gap-1">
         @if ($task['runs_on_one_server'])
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+            <span
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                 Single Server
             </span>
         @endif
         @if ($task['runs_in_maintenance'])
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+            <span
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                 Maintenance OK
             </span>
         @endif

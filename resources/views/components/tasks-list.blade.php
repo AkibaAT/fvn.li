@@ -1,3 +1,4 @@
+@php use Carbon\Carbon; @endphp
 @props(['monitoredTasks', 'dateFormat'])
 
 <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
@@ -70,17 +71,18 @@
                     <td class="px-6 py-4 text-sm">
                         <div class="text-gray-500 dark:text-gray-400">
                             @if ($task['last_started'])
-                                <div>{{ \Carbon\Carbon::parse($task['last_started'])->diffForHumans() }}</div>
+                                <div>{{ Carbon::parse($task['last_started'])->diffForHumans() }}</div>
                                 <div
                                     class="text-xs text-gray-400 dark:text-gray-500"
                                 >
-                                    {{ \Carbon\Carbon::parse($task['last_started'])->format($dateFormat) }}
+                                    {{ Carbon::parse($task['last_started'])->format($dateFormat) }}
                                 </div>
                                 @if ($task['last_finished'])
                                     <div
                                         class="text-xs text-gray-400 dark:text-gray-500"
                                     >
-                                        Duration: {{ \Carbon\Carbon::parse($task['last_started'])->diffInSeconds(\Carbon\Carbon::parse($task['last_finished'])) }}s
+                                        Duration: {{ Carbon::parse($task['last_started'])->diffInSeconds(Carbon::parse($task['last_finished'])) }}
+                                        s
                                     </div>
                                 @endif
                             @else
@@ -91,11 +93,11 @@
                     <td class="px-6 py-4 text-sm">
                         <div class="text-gray-500 dark:text-gray-400">
                             @if ($task['next_run'])
-                                <div>{{ \Carbon\Carbon::parse($task['next_run'])->diffForHumans() }}</div>
+                                <div>{{ Carbon::parse($task['next_run'])->diffForHumans() }}</div>
                                 <div
                                     class="text-xs text-gray-400 dark:text-gray-500"
                                 >
-                                    {{ \Carbon\Carbon::parse($task['next_run'])->format($dateFormat) }}
+                                    {{ Carbon::parse($task['next_run'])->format($dateFormat) }}
                                 </div>
                             @else
                                 Unknown
@@ -103,7 +105,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-sm">
-                        <x-task-status :task="$task" />
+                        <x-task-status :task="$task"/>
                     </td>
                 </tr>
             @endforeach

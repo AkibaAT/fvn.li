@@ -16,9 +16,9 @@
             </h1>
         </div>
 
-        <x-stats-overview :game-stats="$gameStats" :rating-stats="$ratingStats" />
-        <livewire:rating-trends />
-        <x-tasks-summary :health-summary="$healthSummary" />
-        <x-tasks-list :monitored-tasks="$monitoredTasks" :date-format="$dateFormat" />
+        <x-stats-overview :game-stats="$gameStats" :rating-stats="$ratingStats"/>
+        <livewire:rating-trends/>
+        <x-tasks-summary :health-summary="$healthSummary"/>
+        <x-tasks-list :monitored-tasks="$monitoredTasks" :date-format="$dateFormat"/>
     </div>
 </div>

@@ -27,6 +27,7 @@ class GameList extends Component
         'initially_published_at' => 'Initial Release',
         'english_word_count' => 'Word Count',
         'rating_count' => 'Review Count',
+        'weighted_score' => 'Weighted Score',
         'name' => 'Name',
     ];
 
@@ -157,7 +158,6 @@ class GameList extends Component
                 'latest_versions.published_at as latest_version_published_at',
                 'latest_versions.id as latest_version_id',
                 'latest_versions.rating as rating',
-                'latest_versions.rating_count as rating_count',
                 'latest_versions.devlog as devlog',
                 'latest_versions.is_windows as is_windows',
                 'latest_versions.is_linux as is_linux',
@@ -165,16 +165,6 @@ class GameList extends Component
                 'latest_versions.is_android as is_android',
                 'latest_versions.is_web as is_web',
                 'english_stats.words as english_word_count',
-                DB::raw('(
-                    SELECT json_agg(json_build_object(
-                        \'iso_code\', l.id,
-                        \'ref_name\', l.ref_name,
-                        \'flag_code\', l.flag_code
-                    ) ORDER BY l.ref_name)
-                    FROM version_supported_languages vsl
-                    JOIN iso_639_3_languages l ON l.id = vsl.iso_code
-                    WHERE vsl.game_version_id = latest_versions.id
-                ) as supported_languages'),
             ])
             ->leftJoin('game_versions as latest_versions', function ($join) {
                 $join->on('games.id', '=', 'latest_versions.game_id')
@@ -234,7 +224,6 @@ class GameList extends Component
         $column = match ($this->sortField) {
             'latest_version_published_at' => 'latest_versions.published_at',
             'english_word_count' => 'english_stats.words',
-            'rating_count' => 'latest_versions.rating_count',
             default => "games.{$this->sortField}"
         };
 

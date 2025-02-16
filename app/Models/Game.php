@@ -55,6 +55,10 @@ class Game extends Model
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
+        'average_score' => 'float',
+        'ratings_count' => 'integer',
+        'weighted_score' => 'float',
+        'score_calculated_at' => 'datetime',
     ];
 
     /**
@@ -586,6 +590,39 @@ class Game extends Model
         return Storage::disk('public')->url($this->optimized_thumbnails[$variant]['path']);
     }
 
+    public function getWeightedScore(): ?float
+    {
+        if (! $this->rating || ! $this->rating_count) {
+            return null;
+        }
+
+        // Get the weighted average rating for this game
+        $gameScore = DB::table('ratings')
+            ->join('raters', 'raters.id', '=', 'ratings.rater_id')
+            ->where('ratings.game_id', $this->id)
+            ->where('ratings.is_visible', true)
+            ->whereNotNull('raters.weight')
+            ->selectRaw('COALESCE(SUM(ratings.rating * raters.weight) / NULLIF(SUM(raters.weight), 0), 0) as weighted_rating')
+            ->selectRaw('COUNT(*) as vote_count')
+            ->first();
+
+        // Get global means and minimums (could be cached)
+        $globals = DB::table('games')
+            ->selectRaw('
+                AVG(rating) as mean_rating,
+                AVG(rating_count) as mean_votes
+            ')
+            ->where('rating_count', '>', 0)
+            ->first();
+
+        // Minimum votes required for full weighting (you can adjust this)
+        $minVotes = $globals->mean_votes * 0.5;  // 50% of mean vote count
+
+        // Calculate IMDB-style weighted rating
+        return ($gameScore->vote_count / ($gameScore->vote_count + $minVotes)) * $gameScore->weighted_rating
+            + ($minVotes / ($gameScore->vote_count + $minVotes)) * $globals->mean_rating;
+    }
+
     /**
      * Clear all optimized thumbnails
      */
@@ -615,13 +652,6 @@ class Game extends Model
     {
         return Attribute::make(
             get: fn () => $this->latestVersion?->rating
-        );
-    }
-
-    protected function ratingCount(): Attribute
-    {
-        return Attribute::make(
-            get: fn () => $this->latestVersion?->rating_count
         );
     }
 
