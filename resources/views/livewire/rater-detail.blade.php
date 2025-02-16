@@ -14,6 +14,8 @@
         {{-- Static header with stats --}}
         <x-rater-stats :rater-id="$rater->id"/>
 
+        <livewire:rater-phrases :rater-id="$rater->id" />
+
         {{-- Dynamic ratings list --}}
         <livewire:ratings-list :rater-id="$rater->id"/>
     </div>
