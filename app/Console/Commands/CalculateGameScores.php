@@ -31,12 +31,18 @@ class CalculateGameScores extends Command
                 FROM ratings
                 WHERE is_visible = true
                 GROUP BY game_id
+            ),
+            total_weight AS (
+                SELECT SUM(rater_weight) as total
+                FROM weighted_stats
             )
             SELECT
-                AVG(CASE WHEN rater_weight > 0
-                    THEN rating * rater_weight / NULLIF(SUM(rater_weight) OVER (), 0)
-                    ELSE rating END
-                ) as global_weighted_mean,
+                (SELECT
+                    AVG(CASE
+                        WHEN ws.rater_weight > 0 THEN ws.rating * ws.rater_weight / NULLIF(tw.total, 0)
+                        ELSE ws.rating
+                    END)
+                FROM weighted_stats ws, total_weight tw) as global_weighted_mean,
                 (SELECT AVG(rating_count) FROM game_counts) as mean_votes_per_game,
                 (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY rating_count) FROM game_counts) as median_votes_per_game,
                 (SELECT COUNT(*) FROM game_counts) as total_rated_games
