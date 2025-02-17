@@ -48,13 +48,15 @@ class CalculateGameScores extends Command
         $minVotes = max(5, min($meanBasedMinVotes, $medianBasedMinVotes));
         $globalMean = $globals->global_weighted_mean;
 
-        $query = DB::table('games')
-            ->when(! $this->option('force'), function ($query) {
-                $query->whereNull('score_calculated_at')
-                    ->orWhereRaw('score_calculated_at < (SELECT MAX(processed_at) FROM ratings)');
-            });
+        // Freeze the list of game IDs to process
+        $gameQuery = DB::table('games');
+        if (! $this->option('force')) {
+            $gameQuery->whereNull('score_calculated_at')
+                ->orWhereRaw('score_calculated_at < (SELECT MAX(processed_at) FROM ratings)');
+        }
+        $gameIds = $gameQuery->orderBy('id')->pluck('id');
+        $totalGames = $gameIds->count();
 
-        $totalGames = $query->count();
         $this->info("Calculating scores for {$totalGames} games...");
         $bar = $this->output->createProgressBar($totalGames);
         $bar->start();
@@ -62,7 +64,13 @@ class CalculateGameScores extends Command
         $processedCount = 0;
         $errorCount = 0;
 
-        $query->orderBy('id')->chunk(50, function ($games) use ($minVotes, $globalMean, $bar, &$processedCount, &$errorCount) {
+        // Process the game IDs in chunks to avoid issues with updating records
+        $gameIds->chunk(50)->each(function ($chunk) use ($minVotes, $globalMean, $bar, &$processedCount, &$errorCount) {
+            // Retrieve game records for the current chunk
+            $games = DB::table('games')
+                ->whereIn('id', $chunk->all())
+                ->get();
+
             foreach ($games as $game) {
                 DB::beginTransaction();
 
@@ -95,7 +103,7 @@ class CalculateGameScores extends Command
                             ($stats->rating_count / ($stats->rating_count + $minVotes)) * $stats->weighted_rating +
                             ($minVotes / ($stats->rating_count + $minVotes)) * $globalMean;
 
-                        // Calculate confidence score based on rating count
+                        // Apply a confidence modifier based on rating count
                         $confidenceModifier = 1 - exp(-0.1 * $stats->rating_count);
                         $weightedScore *= $confidenceModifier;
                     } else {
@@ -104,7 +112,7 @@ class CalculateGameScores extends Command
                         $stats->rating_count = 0;
                     }
 
-                    // Update the game
+                    // Update the game record
                     DB::table('games')
                         ->where('id', $game->id)
                         ->update([
@@ -117,13 +125,12 @@ class CalculateGameScores extends Command
 
                     DB::commit();
                     $processedCount++;
-                    $bar->advance();
-
                 } catch (Throwable $e) {
                     DB::rollBack();
                     $errorCount++;
                     Log::error("Error calculating score for game {$game->id}: " . $e->getMessage());
                 }
+                $bar->advance();
             }
         });
 

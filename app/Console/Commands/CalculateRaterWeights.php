@@ -37,20 +37,20 @@ class CalculateRaterWeights extends Command
         $medianBasedThreshold = ceil($globalStats->median_ratings_per_rater * 0.5);
         $minRatingThreshold = max(5, min($meanBasedThreshold, $medianBasedThreshold));
 
-        // Build the query to get raters that need processing
-        $query = DB::table('raters')
-            ->when(! $this->option('force'), function ($query) {
-                $query->where(function ($q) {
-                    $q->whereNull('weight_calculated_at')
-                        ->orWhereExists(function ($sq) {
-                            $sq->from('ratings')
-                                ->whereColumn('ratings.rater_id', 'raters.id')
-                                ->whereNull('ratings.processed_at');
-                        });
-                });
+        // First, decouple selection from processing by retrieving a list of IDs that need processing.
+        $raterIdsQuery = DB::table('raters');
+        if (! $this->option('force')) {
+            $raterIdsQuery->where(function ($q) {
+                $q->whereNull('weight_calculated_at')
+                    ->orWhereExists(function ($sq) {
+                        $sq->from('ratings')
+                            ->whereColumn('ratings.rater_id', 'raters.id')
+                            ->whereNull('ratings.processed_at');
+                    });
             });
-
-        $totalRaters = $query->count();
+        }
+        $raterIds = $raterIdsQuery->orderBy('id')->pluck('id');
+        $totalRaters = $raterIds->count();
         $this->info("Processing weights for {$totalRaters} raters...");
         $bar = $this->output->createProgressBar($totalRaters);
         $bar->start();
@@ -58,12 +58,15 @@ class CalculateRaterWeights extends Command
         $processedCount = 0;
         $errorCount = 0;
 
-        // Process raters in chunks
-        $query->orderBy('id')->chunk(100, function ($raters) use ($minRatingThreshold, $bar, &$processedCount, &$errorCount) {
-            // Get an array of rater IDs for the current chunk
-            $raterIds = $raters->pluck('id')->all();
+        // Process the raters in chunks by their IDs
+        $raterIds->chunk(100)->each(function ($chunk) use ($minRatingThreshold, $bar, &$processedCount, &$errorCount) {
+            // Fetch the rater records for this chunk
+            $raters = DB::table('raters')->whereIn('id', $chunk->all())->get();
 
-            // Fetch aggregated rating statistics for all raters in the chunk in one query
+            // Get an array of rater IDs for this chunk
+            $chunkIds = $raters->pluck('id')->all();
+
+            // Fetch aggregated rating statistics for all raters in the chunk
             $ratingStats = DB::table('ratings')
                 ->select('rater_id',
                     DB::raw('COUNT(*) as total_ratings'),
@@ -73,7 +76,7 @@ class CalculateRaterWeights extends Command
                     DB::raw('SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as rating_4'),
                     DB::raw('SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as rating_5')
                 )
-                ->whereIn('rater_id', $raterIds)
+                ->whereIn('rater_id', $chunkIds)
                 ->where('is_visible', true)
                 ->groupBy('rater_id')
                 ->get()
@@ -148,11 +151,11 @@ class CalculateRaterWeights extends Command
                     });
 
                     $processedCount++;
-                    $bar->advance();
                 } catch (Throwable $e) {
                     $errorCount++;
                     Log::error("Error calculating weight for rater {$rater->id}: " . $e->getMessage());
                 }
+                $bar->advance();
             }
         });
 
