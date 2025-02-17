@@ -11,7 +11,7 @@ class RatingObserver
 {
     public function created(Rating $rating): void
     {
-        DB::table('users')
+        DB::table('raters')
             ->where('id', $rating->rater_id)
             ->update(['weight_calculated_at' => null]);
     }
@@ -19,7 +19,7 @@ class RatingObserver
     public function updated(Rating $rating): void
     {
         if ($rating->isDirty('rating')) {
-            DB::table('users')
+            DB::table('raters')
                 ->where('id', $rating->rater_id)
                 ->update(['weight_calculated_at' => null]);
         }
