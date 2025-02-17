@@ -21,13 +21,13 @@ class RaterAliasService
         // Use a combination of Faker methods to create varied aliases
         $formats = [
             // Format 1: Adjective + Noun + Number
-            fn () => $this->faker->word . $this->faker->word . rand(100, 9999),
+            fn () => $this->faker->word() . $this->faker->word() . rand(100, 9999),
             // Format 2: FirstName + City + Number
-            fn () => $this->faker->firstName . $this->faker->city . rand(100, 9999),
+            fn () => $this->faker->firstName() . $this->faker->city() . rand(100, 9999),
             // Format 3: Color + LastName + Number
-            fn () => $this->faker->safeColorName . $this->faker->lastName . rand(100, 9999),
+            fn () => $this->faker->safeColorName() . $this->faker->lastName() . rand(100, 9999),
             // Format 4: Company + Word + Number
-            fn () => $this->faker->company . $this->faker->word . rand(100, 9999),
+            fn () => $this->faker->company() . $this->faker->word() . rand(100, 9999),
         ];
 
         $format = $formats[array_rand($formats)];
@@ -49,7 +49,7 @@ class RaterAliasService
     private function generateFallbackAlias(): string
     {
         // Generate a completely unique identifier that's still somewhat readable
-        $prefix = $this->faker->randomLetter . $this->faker->randomLetter;
+        $prefix = $this->faker->randomLetter() . $this->faker->randomLetter();
         $timestamp = now()->format('ymdHis');
         $random = rand(1000, 9999);
 
