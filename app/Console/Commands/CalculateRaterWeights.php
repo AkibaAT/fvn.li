@@ -37,36 +37,53 @@ class CalculateRaterWeights extends Command
         $medianBasedThreshold = ceil($globalStats->median_ratings_per_rater * 0.5);
         $minRatingThreshold = max(5, min($meanBasedThreshold, $medianBasedThreshold));
 
-        // First, decouple selection from processing by retrieving a list of IDs that need processing.
-        $raterIdsQuery = DB::table('raters');
-        if (! $this->option('force')) {
-            $raterIdsQuery->where(function ($q) {
-                $q->whereNull('weight_calculated_at')
-                    ->orWhereExists(function ($sq) {
-                        $sq->from('ratings')
-                            ->whereColumn('ratings.rater_id', 'raters.id')
-                            ->whereNull('ratings.processed_at');
-                    });
-            });
-        }
-        $raterIds = $raterIdsQuery->orderBy('id')->pluck('id');
-        $totalRaters = $raterIds->count();
-        $this->info("Processing weights for {$totalRaters} raters...");
+        // Get total count for progress bar
+        $totalRaters = DB::table('raters')->count();
+        $this->info("Processing weights for approximately {$totalRaters} raters...");
         $bar = $this->output->createProgressBar($totalRaters);
         $bar->start();
 
         $processedCount = 0;
         $errorCount = 0;
+        $batchSize = 500; // Smaller batch size to reduce memory usage
+        $lastId = 0;
 
-        // Process the raters in chunks by their IDs
-        $raterIds->chunk(100)->each(function ($chunk) use ($minRatingThreshold, $bar, &$processedCount, &$errorCount) {
-            // Fetch the rater records for this chunk
-            $raters = DB::table('raters')->whereIn('id', $chunk->all())->get();
+        while (true) {
+            // Get a batch of rater IDs using a cursor approach
+            $raterBatch = DB::table('raters')
+                ->select('id')
+                ->where('id', '>', $lastId)
+                ->when(! $this->option('force'), function ($query) {
+                    return $query->where(function ($q) {
+                        $q->whereNull('weight_calculated_at')
+                            ->orWhereExists(function ($sq) {
+                                $sq->from('ratings')
+                                    ->whereColumn('ratings.rater_id', 'raters.id')
+                                    ->whereNull('ratings.processed_at');
+                            });
+                    });
+                })
+                ->orderBy('id')
+                ->limit($batchSize)
+                ->get();
 
-            // Get an array of rater IDs for this chunk
-            $chunkIds = $raters->pluck('id')->all();
+            if ($raterBatch->isEmpty()) {
+                break; // No more raters to process
+            }
 
-            // Fetch aggregated rating statistics for all raters in the chunk
+            // Update the last ID for the next batch
+            $lastId = $raterBatch->last()->id;
+
+            // Extract IDs from the batch
+            $raterIds = $raterBatch->pluck('id')->all();
+
+            // Free memory
+            unset($raterBatch);
+
+            // Fetch the rater records for this batch
+            $raters = DB::table('raters')->whereIn('id', $raterIds)->get();
+
+            // Fetch aggregated rating statistics for all raters in the batch
             $ratingStats = DB::table('ratings')
                 ->select('rater_id',
                     DB::raw('COUNT(*) as total_ratings'),
@@ -76,13 +93,13 @@ class CalculateRaterWeights extends Command
                     DB::raw('SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as rating_4'),
                     DB::raw('SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as rating_5')
                 )
-                ->whereIn('rater_id', $chunkIds)
+                ->whereIn('rater_id', $raterIds)
                 ->where('is_visible', true)
                 ->groupBy('rater_id')
                 ->get()
                 ->keyBy('rater_id');
 
-            // Process each rater in the chunk
+            // Process each rater in the batch
             foreach ($raters as $rater) {
                 try {
                     // Retrieve the aggregated statistics or use default zeros if none found
@@ -118,13 +135,11 @@ class CalculateRaterWeights extends Command
                     $maxEntropy = log(5);
                     $entropyWeight = $entropy / $maxEntropy;
 
-                    // Calculate rating count weight using a sigmoid function
                     $ratingCountWeight = 0.5 + (0.5 * (1 - exp(-1.0 * $stats->total_ratings)));
 
                     // Combine the weights
                     $weight = $entropyWeight * $ratingCountWeight;
 
-                    // Apply an additional penalty for low rating counts
                     if ($stats->total_ratings < $minRatingThreshold) {
                         $weight *= 0.8 + (0.2 * $stats->total_ratings / $minRatingThreshold);
                     }
@@ -147,6 +162,7 @@ class CalculateRaterWeights extends Command
 
                         DB::table('ratings')
                             ->where('rater_id', $rater->id)
+                            ->whereNull('processed_at')
                             ->update(['processed_at' => now()]);
                     });
 
@@ -157,7 +173,17 @@ class CalculateRaterWeights extends Command
                 }
                 $bar->advance();
             }
-        });
+
+            // Explicitly free memory after processing each batch
+            unset($raters);
+            unset($ratingStats);
+            unset($raterIds);
+
+            // Force garbage collection
+            if (function_exists('gc_collect_cycles')) {
+                gc_collect_cycles();
+            }
+        }
 
         $bar->finish();
         $this->newLine();
