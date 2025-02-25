@@ -119,14 +119,14 @@ class CalculateRaterWeights extends Command
                     $entropyWeight = $entropy / $maxEntropy;
 
                     // Calculate rating count weight using a sigmoid function
-                    $ratingCountWeight = 1 / (1 + exp(-0.1 * ($stats->total_ratings - $minRatingThreshold)));
+                    $ratingCountWeight = 0.5 + (0.5 * (1 - exp(-1.0 * $stats->total_ratings)));
 
                     // Combine the weights
                     $weight = $entropyWeight * $ratingCountWeight;
 
                     // Apply an additional penalty for low rating counts
                     if ($stats->total_ratings < $minRatingThreshold) {
-                        $weight *= ($stats->total_ratings / $minRatingThreshold);
+                        $weight *= 0.8 + (0.2 * $stats->total_ratings / $minRatingThreshold);
                     }
 
                     // Apply a suspicious penalty if necessary
