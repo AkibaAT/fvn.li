@@ -43,12 +43,12 @@ return [
     */
 
     'editor' => env('IGNITION_EDITOR', 'phpstorm-remote'),
-    /*'editor_options' => [
+    'editor_options' => [
         'phpstorm-remote' => [
             'label' => 'PHPStorm Remote',
-            'url' => 'javascript:r = new XMLHttpRequest;r.open("get", "http://localhost:55824/api/file/%path:%line");r.send()',
+            'url' => 'javascript:r = new XMLHttpRequest;r.open("get", "http://localhost:63342/api/file%path:%line");r.send()',
         ],
-    ],*/
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -187,7 +187,7 @@ return [
     */
 
     'remote_sites_path' => env('IGNITION_REMOTE_SITES_PATH', base_path()),
-    'local_sites_path' => env('IGNITION_LOCAL_SITES_PATH', ''),
+    'local_sites_path' => env('IGNITION_LOCAL_SITES_PATH', '/'),
 
     /*
     |--------------------------------------------------------------------------
