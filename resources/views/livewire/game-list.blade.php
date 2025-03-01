@@ -20,10 +20,9 @@
 
     @include('livewire.game-list.filters-dialog')
     @include('livewire.game-list.sort-dialog')
-    @include('components.dialogs.score-calculation')
 
     <script>
-        ['sort-modal', 'filters-modal', 'score-calculation-modal'].forEach(id => {
+        ['sort-modal', 'filters-modal'].forEach(id => {
             document.getElementById(id).addEventListener('click', (e) => {
                 if (e.target === e.currentTarget) {
                     e.currentTarget.close();

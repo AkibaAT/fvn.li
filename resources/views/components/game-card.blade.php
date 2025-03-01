@@ -107,23 +107,6 @@
                 ({{ number_format($game->rating_count) }} ratings)
             </span>
         </div>
-        @if ($game->weighted_score)
-            <div class="flex items-center gap-1">
-                <span class="text-gray-500 dark:text-gray-400">Weighted:</span>
-                <span class="ml-1 text-gray-700 dark:text-gray-200">{{ number_format($game->weighted_score, 2) }}</span>
-                <button
-                    onclick="document.getElementById('score-calculation-modal').showModal()"
-                    class="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 cursor-help"
-                    title="Click for an explanation on how scores are calculated"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                        <path fill-rule="evenodd"
-                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
-                              clip-rule="evenodd"/>
-                    </svg>
-                </button>
-            </div>
-        @endif
     </div>
 
     @if ($game->tags)

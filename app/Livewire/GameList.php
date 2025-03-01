@@ -27,7 +27,6 @@ class GameList extends Component
         'initially_published_at' => 'Initial Release',
         'english_word_count' => 'Word Count',
         'rating_count' => 'Review Count',
-        'weighted_score' => 'Weighted Score',
         'name' => 'Name',
     ];
 
