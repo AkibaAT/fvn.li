@@ -164,6 +164,16 @@ class GameList extends Component
                 'latest_versions.is_android as is_android',
                 'latest_versions.is_web as is_web',
                 'english_stats.words as english_word_count',
+                DB::raw('(
+                    SELECT json_agg(json_build_object(
+                        \'iso_code\', l.id,
+                        \'ref_name\', l.ref_name,
+                        \'flag_code\', l.flag_code
+                    ) ORDER BY l.ref_name)
+                    FROM version_supported_languages vsl
+                    JOIN iso_639_3_languages l ON l.id = vsl.iso_code
+                    WHERE vsl.game_version_id = latest_versions.id
+                ) as supported_languages'),
             ])
             ->leftJoin('game_versions as latest_versions', function ($join) {
                 $join->on('games.id', '=', 'latest_versions.game_id')
