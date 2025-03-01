@@ -101,7 +101,7 @@
 
     <div class="flex flex-col text-sm gap-1 mt-2">
         <div class="flex items-center gap-1">
-            <span class="text-gray-600 dark:text-gray-400">Average:</span>
+            <span class="text-gray-600 dark:text-gray-400">Rating:</span>
             <span class="ml-1 text-gray-700 dark:text-gray-200">{{ number_format($game->average_score ?? 0, 2) }}</span>
             <span class="text-gray-500 dark:text-gray-500 text-xs">
                 ({{ number_format($game->rating_count) }} ratings)
