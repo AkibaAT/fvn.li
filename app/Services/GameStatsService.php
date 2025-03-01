@@ -125,14 +125,19 @@ readonly class GameStatsService
         DB::beginTransaction();
 
         try {
+            // Track all languages found in the stats to update supported languages
+            $foundLanguages = [];
+
             foreach ($stats['languages'] as $langKey => $langData) {
                 $isoCode = $langKey === 'default' ? $defaultLanguage : $this->mapLanguageCode($langKey);
 
                 if (! $isoCode) {
                     Log::warning("Skipping language {$langKey} - could not determine ISO code");
-
                     continue;
                 }
+
+                // Add to the list of found languages
+                $foundLanguages[] = $isoCode;
 
                 // Upsert language stats record
                 VersionLanguageStats::updateOrCreate(
@@ -189,6 +194,12 @@ readonly class GameStatsService
                         );
                     }
                 }
+            }
+
+            // Update supported languages for this version
+            // First, add all languages found in the stats
+            foreach ($foundLanguages as $isoCode) {
+                $version->addSupportedLanguage($isoCode);
             }
 
             // Save file statistics

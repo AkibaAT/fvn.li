@@ -111,6 +111,8 @@ class ReimportGameVersion extends Command
                             continue;
                         }
 
+                        $version->supportedLanguages()->delete();
+
                         // Process archive and extract statistics
                         $this->info('Processing game archive...');
                         try {
