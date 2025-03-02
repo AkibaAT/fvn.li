@@ -43,6 +43,22 @@ init 10000 python:
             "characters": collections.defaultdict(Count)
         }
 
+    def clean_text(text):
+        """Remove inline Ren'Py text tags, double quotes, and decode escaped characters."""
+        if not text:
+            return text
+        # Remove Ren'Py text tags like {color=#FA8072}[MCC]{/color}
+        text = re.sub(r"{[^}]*}", "", text)
+        # Trim whitespace
+        text = text.strip()
+        # Trim double quotes from beginning and end if they match
+        if text.startswith('"') and text.endswith('"') and len(text) >= 2:
+            text = text[1:-1]
+        # Also check for single quotes, just to be thorough
+        elif text.startswith("'") and text.endswith("'") and len(text) >= 2:
+            text = text[1:-1]
+        return text
+
     # Primary data structure for language statistics
     all_lang_stats = collections.defaultdict(make_lang_stats)
 
@@ -158,8 +174,8 @@ init 10000 python:
                 if not display_name or not display_name.strip():
                     display_name = varname
 
-                # Remove inline Ren'Py text tags and decode escaped characters
-                display_name = re.sub(r"{[^}]*}", "", display_name).strip()
+                # Apply the cleaning function
+                display_name = clean_text(display_name)
                 try:
                     display_name = decode_unicode_escape(display_name)
                 except Exception:
@@ -191,10 +207,15 @@ init 10000 python:
                 say = node.block[0]
                 all_lang_stats[lang]["filestats"][say.filename].add(say.what)
 
+                # Clean the text before adding to dialogue lines
+                cleaned_text = clean_text(say.what)
+                # Clean the character id if it exists
+                character_id = clean_text(say.who) if say.who else "narrator"
+
                 # Add to dialogue lines
                 dialogue_lines[lang].append({
-                    "character": say.who or "narrator",
-                    "text": say.what,
+                    "character": character_id,
+                    "text": cleaned_text,
                     "file": say.filename,
                     "line": getattr(say, "linenumber", 0),
                     "context": current_context.get(lang, "")
@@ -213,16 +234,21 @@ init 10000 python:
 
                 all_lang_stats[lang]["filestats"][node.filename].add(node.what)
 
+                # Clean the text before adding to dialogue lines
+                cleaned_text = clean_text(node.what)
+                # Clean the character id if it exists
+                who_var = getattr(node, "who", None)
+                character_id = clean_text(who_var) if who_var else "narrator"
+
                 # Add to dialogue lines with character, text, file, and line number
                 dialogue_lines[lang].append({
-                    "character": getattr(node, "who", None) or "narrator",
-                    "text": node.what,
+                    "character": character_id,
+                    "text": cleaned_text,
                     "file": node.filename,
                     "line": getattr(node, "linenumber", 0),
                     "context": current_context.get(lang, "")
                 })
 
-                who_var = getattr(node, "who", None)
                 if who_var and who_var in defined_characters:
                     all_lang_stats[lang]["characters"][who_var].add(node.what)
                 else:
@@ -233,9 +259,11 @@ init 10000 python:
                     all_lang_stats["default"]["options_count"] += 1
                     # Also track menu choices as dialogue
                     if l:  # Only add non-empty choices
+                        # Clean the text before adding
+                        cleaned_text = clean_text(l)
                         dialogue_lines["default"].append({
                             "character": "menu_choice",
-                            "text": l,
+                            "text": cleaned_text,
                             "file": node.filename,
                             "line": getattr(node, "linenumber", 0),
                             "context": current_context.get("default", "")
