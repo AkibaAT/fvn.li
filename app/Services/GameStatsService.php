@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Character;
+use App\Models\DialogueLine;
 use App\Models\GameVersion;
 use App\Models\Language;
 use App\Models\LanguageMapping;
@@ -133,6 +134,7 @@ readonly class GameStatsService
 
                 if (! $isoCode) {
                     Log::warning("Skipping language {$langKey} - could not determine ISO code");
+
                     continue;
                 }
 
@@ -207,11 +209,177 @@ readonly class GameStatsService
                 $version->saveFileStats($stats['file_statistics']);
             }
 
+            // Process dialogue lines
+            if (isset($stats['dialogue_lines'])) {
+                $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage);
+            }
+
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Save dialogue lines for a game version with text de-duplication
+     * Updated to handle character display_names properly and ensure menu_choice character exists
+     */
+    protected function saveDialogueLines(GameVersion $version, array $dialogueLines, string $defaultLanguage = 'eng'): void
+    {
+        // First, delete any existing dialogue lines for this version
+        DialogueLine::where('game_version_id', $version->id)->delete();
+
+        // Ensure the special menu_choice character exists for this game
+        $menuChoiceCharacter = Character::firstOrCreate(
+            [
+                'game_id' => $version->game_id,
+                'character_id' => 'menu_choice',
+            ],
+            [
+                'display_names' => ['eng' => 'Menu Choice', $defaultLanguage => 'Menu Choice'],
+            ]
+        );
+
+        // Process each language
+        foreach ($dialogueLines as $langKey => $lines) {
+            $isoCode = $langKey === 'default' ? $defaultLanguage : $this->mapLanguageCode($langKey);
+
+            if (! $isoCode) {
+                Log::warning("Skipping dialogue lines for language {$langKey} - could not determine ISO code");
+
+                continue;
+            }
+
+            // Process unique texts in smaller batches
+            $now = now();
+            $batchSize = 1000; // Reduced batch size to stay well under PostgreSQL's parameter limit
+            $processedLines = 0;
+            $totalLines = count($lines);
+
+            // Process in chunks to avoid hitting PostgreSQL's parameter limit
+            foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
+                // First, collect unique texts for this chunk
+                $uniqueTexts = [];
+
+                foreach ($chunk as $line) {
+                    $text = $line['text'] ?? '';
+                    if (empty($text)) {
+                        continue;
+                    }
+
+                    $textHash = md5($text);
+                    $uniqueTexts[$textHash] = [
+                        'text_hash' => $textHash,
+                        'text_content' => $text,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                // Bulk insert unique texts for this chunk (ignoring duplicates)
+                if (! empty($uniqueTexts)) {
+                    DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
+                }
+
+                // Create a mapping of text hashes to IDs for this chunk
+                $textHashes = array_keys($uniqueTexts);
+                $textIdMapping = DB::table('unique_dialogue_texts')
+                    ->whereIn('text_hash', $textHashes)
+                    ->pluck('id', 'text_hash')
+                    ->toArray();
+
+                // Now process dialogue lines for this chunk
+                $dialogueBatch = [];
+
+                foreach ($chunk as $line) {
+                    // Skip empty text
+                    $text = $line['text'] ?? '';
+                    if (empty($text)) {
+                        continue;
+                    }
+
+                    // Find character ID
+                    $characterId = null;
+
+                    // Special handling for menu_choice
+                    if (! empty($line['character']) && $line['character'] === 'menu_choice') {
+                        $characterId = $menuChoiceCharacter->id;
+                    }
+                    // Normal character handling
+                    elseif (! empty($line['character']) && $line['character'] !== 'narrator') {
+                        // Fixed: Provide default values for character creation to avoid NOT NULL violation
+                        $character = Character::firstOrCreate(
+                            [
+                                'game_id' => $version->game_id,
+                                'character_id' => $line['character'],
+                            ],
+                            [
+                                // Set a default display_names value to satisfy NOT NULL constraint
+                                'display_names' => [$isoCode => $line['character']],
+                            ]
+                        );
+
+                        // Ensure display_names has the current language if it's a new key
+                        if (! isset($character->display_names[$isoCode])) {
+                            $displayNames = $character->display_names;
+                            $displayNames[$isoCode] = $line['character'];
+                            $character->display_names = $displayNames;
+                            $character->save();
+                        }
+
+                        $characterId = $character->id;
+                    }
+
+                    // Get the text ID from our mapping
+                    $textHash = md5($text);
+                    $textId = $textIdMapping[$textHash] ?? null;
+
+                    if (! $textId) {
+                        // If not found in our chunk, try to find it directly
+                        $textId = DB::table('unique_dialogue_texts')
+                            ->where('text_hash', $textHash)
+                            ->value('id');
+
+                        if (! $textId) {
+                            Log::warning("Could not find text ID for hash {$textHash}");
+
+                            continue;
+                        }
+                    }
+
+                    // Add to batch
+                    $dialogueBatch[] = [
+                        'game_version_id' => $version->id,
+                        'character_id' => $characterId,
+                        'iso_code' => $isoCode,
+                        'file_path' => $line['file'] ?? '',
+                        'line_number' => $line['line'] ?? 0,
+                        'text_id' => $textId,
+                        'context' => $line['context'] ?? null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+
+                    $processedLines++;
+                }
+
+                // Insert dialogue lines for this chunk
+                if (! empty($dialogueBatch)) {
+                    // Process in smaller sub-batches to avoid parameter limits
+                    foreach (array_chunk($dialogueBatch, 1000) as $subBatchIndex => $subBatch) {
+                        DialogueLine::insert($subBatch);
+                    }
+                }
+
+                // Log progress for large datasets
+                Log::info("Processed {$processedLines}/{$totalLines} dialogue lines for language {$isoCode} ({$chunkIndex} of " .
+                    ceil($totalLines / $batchSize) . ' chunks)');
+            }
+        }
+
+        // Log completion
+        Log::info("Finished saving dialogue lines for game version {$version->id}");
     }
 
     /**

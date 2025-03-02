@@ -46,6 +46,9 @@ init 10000 python:
     # Primary data structure for language statistics
     all_lang_stats = collections.defaultdict(make_lang_stats)
 
+    # Store dialogue lines by language
+    dialogue_lines = collections.defaultdict(list)
+
     # File statistics by type
     file_statistics = {
         "image": collections.defaultdict(FileStats),
@@ -170,18 +173,38 @@ init 10000 python:
 
         has_translate_say = hasattr(renpy.ast, "TranslateSay")
 
+        # Find context (current label or scene)
+        current_context = {}
+
         # Second pass: gather dialogue and menu statistics
         for node in all_stmts:
+            # Track context (labels)
+            if isinstance(node, renpy.ast.Label):
+                # Update context
+                for lang in ['default'] + list(known_languages):
+                    current_context[lang] = node.name
+
             # Older versions (without TranslateSay)
             if (not has_translate_say and isinstance(node, renpy.ast.Translate) and
                     len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say)):
                 lang = node.language or "default"
                 say = node.block[0]
                 all_lang_stats[lang]["filestats"][say.filename].add(say.what)
+
+                # Add to dialogue lines
+                dialogue_lines[lang].append({
+                    "character": say.who or "narrator",
+                    "text": say.what,
+                    "file": say.filename,
+                    "line": getattr(say, "linenumber", 0),
+                    "context": current_context.get(lang, "")
+                })
+
                 if say.who and say.who in defined_characters:
                     all_lang_stats[lang]["characters"][say.who].add(say.what)
                 else:
                     all_lang_stats[lang]["characters"]["narrator"].add(say.what)
+
             elif has_translate_say and isinstance(node, renpy.ast.Say):
                 if isinstance(node, renpy.ast.TranslateSay) and node.language:
                     lang = node.language
@@ -189,6 +212,16 @@ init 10000 python:
                     lang = "default"
 
                 all_lang_stats[lang]["filestats"][node.filename].add(node.what)
+
+                # Add to dialogue lines with character, text, file, and line number
+                dialogue_lines[lang].append({
+                    "character": getattr(node, "who", None) or "narrator",
+                    "text": node.what,
+                    "file": node.filename,
+                    "line": getattr(node, "linenumber", 0),
+                    "context": current_context.get(lang, "")
+                })
+
                 who_var = getattr(node, "who", None)
                 if who_var and who_var in defined_characters:
                     all_lang_stats[lang]["characters"][who_var].add(node.what)
@@ -198,6 +231,15 @@ init 10000 python:
                 all_lang_stats["default"]["menu_count"] += 1
                 for l, c, b in node.items:
                     all_lang_stats["default"]["options_count"] += 1
+                    # Also track menu choices as dialogue
+                    if l:  # Only add non-empty choices
+                        dialogue_lines["default"].append({
+                            "character": "menu_choice",
+                            "text": l,
+                            "file": node.filename,
+                            "line": getattr(node, "linenumber", 0),
+                            "context": current_context.get("default", "")
+                        })
 
         collect_file_statistics()
         report_stats()
@@ -227,7 +269,8 @@ init 10000 python:
         """Generate a JSON report of the collected statistics."""
         result = {
             "languages": {},
-            "file_statistics": {}
+            "file_statistics": {},
+            "dialogue_lines": {}  # New section for dialogue lines
         }
 
         # Process language statistics
@@ -281,6 +324,19 @@ init 10000 python:
                 for stats in category.values()
             )
         }
+
+        # Add dialogue lines to the output
+        for lang, lines in dialogue_lines.items():
+            processed_lines = []
+            for line in lines:
+                processed_lines.append({
+                    "character": ensure_unicode(line["character"]),
+                    "text": ensure_unicode(line["text"]),
+                    "file": ensure_unicode(line["file"]),
+                    "line": line["line"],
+                    "context": ensure_unicode(line["context"]) if line["context"] else None
+                })
+            result["dialogue_lines"][ensure_unicode(lang)] = processed_lines
 
         with io.open("stats.json", "w", encoding="utf-8") as outfile:
             outfile.write(u"{}".format(json.dumps(result, indent=4, ensure_ascii=False)))

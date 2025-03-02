@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\DialogueBrowser;
 use App\Livewire\GameList;
 use App\Models\Game;
 use App\Models\Rater;
@@ -129,6 +130,7 @@ Route::get('by-url/{url}', function ($url) {
 Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
     Route::get('/', GameList::class)->name('games.index');
     Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+    Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser');
 });
 
 // Longer caching

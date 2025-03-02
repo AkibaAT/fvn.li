@@ -75,6 +75,49 @@ class GameVersion extends Model
         return $this->hasMany(VersionLanguageStats::class);
     }
 
+    /**
+     * Get all dialogue lines for this version.
+     */
+    public function dialogueLines(): HasMany
+    {
+        return $this->hasMany(DialogueLine::class);
+    }
+
+    /**
+     * Get dialogue lines for a specific language.
+     */
+    public function getDialogueLinesForLanguage(string $isoCode, ?string $character = null, int $limit = 100, int $offset = 0): Collection
+    {
+        $query = $this->dialogueLines()
+            ->where('iso_code', $isoCode)
+            ->when($character, function ($q) use ($character) {
+                return $q->whereHas('character', function ($sq) use ($character) {
+                    $sq->where('character_id', $character);
+                });
+            })
+            ->orderBy('file_path')
+            ->orderBy('line_number')
+            ->skip($offset)
+            ->take($limit);
+
+        return $query->get();
+    }
+
+    /**
+     * Count dialogue lines for a specific language.
+     */
+    public function countDialogueLinesForLanguage(string $isoCode, ?string $character = null): int
+    {
+        return $this->dialogueLines()
+            ->where('iso_code', $isoCode)
+            ->when($character, function ($q) use ($character) {
+                return $q->whereHas('character', function ($sq) use ($character) {
+                    $sq->where('character_id', $character);
+                });
+            })
+            ->count();
+    }
+
     public function getCharacterStatsForLanguage(string $isoCode): Collection
     {
         return $this->characterStats()

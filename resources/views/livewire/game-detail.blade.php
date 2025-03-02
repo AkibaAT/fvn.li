@@ -152,6 +152,25 @@
                     Version History
                 </h2>
 
+                @if ($latestVersion && $latestVersion->dialogueLines()->count() > 0)
+                    <div class="mt-4 flex gap-4">
+                        <a href="{{ route('dialogue.browser', ['gameId' => $game->id, 'versionId' => $latestVersion->id]) }}"
+                           class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-300 disabled:opacity-25 transition">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                            </svg>
+                            Browse Dialogue
+                        </a>
+                        <a href="{{ route('dialogue.browser', ['gameId' => $game->id, 'versionId' => $latestVersion->id, 'showDuplicates' => true]) }}"
+                           class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-500 active:bg-indigo-700 focus:outline-none focus:border-indigo-700 focus:ring focus:ring-indigo-300 disabled:opacity-25 transition">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            View Duplicate Lines
+                        </a>
+                    </div>
+                @endif
+
                 <div>
                     @foreach ($versions as $version)
                         <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-3">
