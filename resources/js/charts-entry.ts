@@ -1,5 +1,5 @@
-import { TrendChart } from './charts/trend-chart';
-import type { MonthlyTrendData } from './types/system';
+import {TrendChart} from './charts/trend-chart';
+import type {MonthlyTrendData} from './types/system';
 
 // Create a promise that resolves when initialization is complete
 const initPromise = new Promise<void>((resolve) => {

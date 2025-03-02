@@ -296,9 +296,11 @@ class GameDetail extends Component
         $this->selectedVersionId = $versionId;
 
         $this->selectedVersion = $this->game->gameVersions()
-            ->with(['fileCategories.fileTypes' => function ($query) {
-                $query->orderBy('extension');
-            }])
+            ->with([
+                'fileCategories.fileTypes' => function ($query) {
+                    $query->orderBy('extension');
+                },
+            ])
             ->find($versionId);
 
         $this->dispatch('open-dialog', dialogId: 'file-stats');

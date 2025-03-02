@@ -66,7 +66,8 @@ class SystemStatus extends Component
                 return DB::table('ratings')
                     ->select(DB::raw('DATE_TRUNC(\'month\', published_at) as month'), DB::raw('COUNT(*) as count'))
                     ->where('is_visible', true)
-                    ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<', DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
+                    ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<',
+                        DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
                     ->groupBy('month')
                     ->orderBy('month')
                     ->get();
@@ -76,7 +77,8 @@ class SystemStatus extends Component
                 ->selectRaw('DATE_TRUNC(\'month\', published_at) as month')
                 ->selectRaw('COUNT(*) as count')
                 ->where('is_visible', true)
-                ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<', DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
+                ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<',
+                    DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
                 ->whereHas('game', function ($query) {
                     $query->where('is_visible', true);
                 })
@@ -159,7 +161,8 @@ class SystemStatus extends Component
                 return $task['last_failed']->isAfter($task['last_finished'] ?? now());
             })->count(),
             'never_run' => $this->monitoredTasks->filter(fn ($task) => ! $task['last_started'])->count(),
-            'monitored_on_oh_dear' => $this->monitoredTasks->filter(fn ($task) => $task['registered_on_oh_dear'])->count(),
+            'monitored_on_oh_dear' => $this->monitoredTasks->filter(fn ($task
+            ) => $task['registered_on_oh_dear'])->count(),
         ];
 
         $this->dateFormat = config('schedule-monitor.date_format');

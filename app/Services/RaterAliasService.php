@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Faker\Factory;
+use Faker\Generator;
 use Illuminate\Support\Str;
 
 class RaterAliasService
 {
-    private \Faker\Generator $faker;
+    private Generator $faker;
 
     public function __construct()
     {

@@ -225,8 +225,11 @@ readonly class GameStatsService
      * Save dialogue lines for a game version with text de-duplication
      * Updated to handle character display_names properly and ensure menu_choice character exists
      */
-    protected function saveDialogueLines(GameVersion $version, array $dialogueLines, string $defaultLanguage = 'eng'): void
-    {
+    protected function saveDialogueLines(
+        GameVersion $version,
+        array $dialogueLines,
+        string $defaultLanguage = 'eng'
+    ): void {
         // First, delete any existing dialogue lines for this version
         DialogueLine::where('game_version_id', $version->id)->delete();
 
@@ -305,8 +308,7 @@ readonly class GameStatsService
                     // Special handling for menu_choice
                     if (! empty($line['character']) && $line['character'] === 'menu_choice') {
                         $characterId = $menuChoiceCharacter->id;
-                    }
-                    // Normal character handling
+                    } // Normal character handling
                     elseif (! empty($line['character']) && $line['character'] !== 'narrator') {
                         // Fixed: Provide default values for character creation to avoid NOT NULL violation
                         $character = Character::firstOrCreate(

@@ -9,6 +9,7 @@ use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -47,7 +48,7 @@ class ItchAuthService
     /**
      * Extract the itch.io game ID from a game page URL
      *
-     * @throws RuntimeException|\GuzzleHttp\Exception\GuzzleException If the game ID cannot be found
+     * @throws RuntimeException|GuzzleException If the game ID cannot be found
      */
     public function getGameId(string $url): int
     {

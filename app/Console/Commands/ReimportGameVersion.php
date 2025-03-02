@@ -54,13 +54,15 @@ class ReimportGameVersion extends Command
             }
 
             // Get games to process
-            $games = $query->with(['gameVersions' => function ($query) use ($versionString) {
-                if ($versionString) {
-                    $query->where('version', $versionString);
-                } else {
-                    $query->where('is_latest', true);
-                }
-            }])->get();
+            $games = $query->with([
+                'gameVersions' => function ($query) use ($versionString) {
+                    if ($versionString) {
+                        $query->where('version', $versionString);
+                    } else {
+                        $query->where('is_latest', true);
+                    }
+                },
+            ])->get();
 
             if ($games->isEmpty()) {
                 $this->error('No matching games found');

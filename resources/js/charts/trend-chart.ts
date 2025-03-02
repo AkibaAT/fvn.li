@@ -1,6 +1,6 @@
-import { echarts, baseComponents, getBaseChartOptions, type ChartOptions } from './base';
-import { LineChart } from 'echarts/charts';
-import type { MonthlyTrendData } from '@/types/system';
+import {baseComponents, type ChartOptions, echarts, getBaseChartOptions} from './base';
+import {LineChart} from 'echarts/charts';
+import type {MonthlyTrendData} from '@/types/system';
 
 echarts.use([
     ...baseComponents,
@@ -15,13 +15,19 @@ export class TrendChart {
         private element: HTMLElement,
         private data: MonthlyTrendData[],
         private options: ChartOptions = {}
-    ) {}
+    ) {
+    }
 
     init() {
         this.chart = echarts.init(this.element);
         this.chart.setOption(getBaseChartOptions(this.data, this.options));
         this.setupDarkMode();
         this.setupResizeHandler();
+    }
+
+    dispose() {
+        this.observer?.disconnect();
+        this.chart?.dispose();
     }
 
     private setupDarkMode() {
@@ -61,10 +67,5 @@ export class TrendChart {
     private setupResizeHandler() {
         const handleResize = () => this.chart?.resize();
         window.addEventListener('resize', handleResize);
-    }
-
-    dispose() {
-        this.observer?.disconnect();
-        this.chart?.dispose();
     }
 }

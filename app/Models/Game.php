@@ -62,14 +62,6 @@ class Game extends Model
     ];
 
     /**
-     * Get all game versions for this game.
-     */
-    public function gameVersions(): HasMany
-    {
-        return $this->hasMany(GameVersion::class)->orderByDesc('published_at');
-    }
-
-    /**
      * Get the latest version of the game.
      */
     public function latestVersion(): HasOne
@@ -140,6 +132,23 @@ class Game extends Model
     }
 
     /**
+     * @throws DateMalformedStringException
+     * @throws GuzzleException
+     */
+    public function loadFullDetails(Client $client): void
+    {
+        try {
+            $this->refreshBaseInfo($client);
+            sleep(10);
+            $this->refreshVersion($client);
+            $this->error = null;
+        } catch (Exception $exception) {
+            $this->error = $exception->getMessage();
+            throw $exception;
+        }
+    }
+
+    /**
      * Refresh the base game information from itch.io
      *
      * @throws DateMalformedStringException
@@ -155,85 +164,6 @@ class Game extends Model
         if (isset($game['game'])) {
             $this->initially_published_at = new DateTime($game['game']['published_at']);
             $this->thumb_url = $game['game']['cover_url'];
-        }
-    }
-
-    /**
-     * Refresh the game's tags and rating information
-     *
-     * @throws GuzzleException
-     */
-    public function refreshTagsAndRating(Client $client, ?string &$devlogLink = null, ?float &$rating = null, ?int &$ratingCount = null): void
-    {
-        $response = $client->get($this->url, ['cookies' => false]);
-        $html = $response->getBody()->getContents();
-        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-
-        // Update status if not abandoned/canceled
-        if (! in_array($this->status, ['Abandoned', 'Canceled'])) {
-            $gameInfo = $doc->querySelector('div.game_info_panel_widget');
-            if ($gameInfo) {
-                $statusLinks = $gameInfo->querySelectorAll('a');
-                if (count($statusLinks) > 0) {
-                    $this->status = $statusLinks[0]->textContent;
-                }
-            }
-        }
-
-        // Get rating information
-        $ratingElement = $doc->querySelector('div[itemprop=ratingValue]');
-        $ratingCountElement = $doc->querySelector('span[itemprop=ratingCount]');
-
-        if ($ratingElement && $ratingCountElement) {
-            $rating = (float) $ratingElement->getAttribute('content');
-            $ratingCount = (int) $ratingCountElement->getAttribute('content');
-        }
-
-        // Get game info table data
-        $infoTable = $doc->querySelector('div.game_info_panel_widget table');
-        if ($infoTable) {
-            foreach ($infoTable->querySelectorAll('tr') as $row) {
-                $cells = $row->querySelectorAll('td');
-                if (count($cells) < 2) {
-                    continue;
-                }
-
-                $label = trim($cells[0]->textContent);
-                $value = trim($cells[1]->textContent);
-
-                switch ($label) {
-                    case 'Tags':
-                        $this->tags = $value;
-                        break;
-                    case 'Author':
-                    case 'Authors':
-                        $this->authors = '';
-                        foreach ($cells[1]->querySelectorAll('a') as $author) {
-                            if ($this->authors !== '') {
-                                $this->authors .= ',<br>';
-                            }
-                            $this->authors .= sprintf(
-                                '<a href="%s" target="_blank">%s</a>',
-                                $author->getAttribute('href'),
-                                $author->textContent
-                            );
-                        }
-                        break;
-                }
-            }
-        }
-
-        // Check NSFW status
-        $nsfw = $doc->querySelector('div.content_warning_inner');
-        $this->is_nsfw = $nsfw !== null;
-
-        // Get devlog link if present
-        $devlog = $doc->querySelector('section#devlog');
-        if ($devlog) {
-            $devlogLinks = $devlog->querySelectorAll('a');
-            if (count($devlogLinks) > 0) {
-                $devlogLink = $devlogLinks[0]->getAttribute('href');
-            }
         }
     }
 
@@ -439,39 +369,6 @@ class Game extends Model
     }
 
     /**
-     * @throws DateMalformedStringException
-     * @throws GuzzleException
-     */
-    public function loadFullDetails(Client $client): void
-    {
-        try {
-            $this->refreshBaseInfo($client);
-            sleep(10);
-            $this->refreshVersion($client);
-            $this->error = null;
-        } catch (Exception $exception) {
-            $this->error = $exception->getMessage();
-            throw $exception;
-        }
-    }
-
-    /**
-     * Get all characters for this game.
-     */
-    public function characters(): HasMany
-    {
-        return $this->hasMany(Character::class)->orderBy('character_id');
-    }
-
-    /**
-     * Get the character stats for the latest version in a specific language.
-     */
-    public function getLatestCharacterStats(string $isoCode): Collection
-    {
-        return $this->latestVersion?->getCharacterStatsForLanguage($isoCode) ?? collect();
-    }
-
-    /**
      * Extract version information from upload metadata
      *
      * @throws DateMalformedStringException
@@ -579,6 +476,113 @@ class Game extends Model
     }
 
     /**
+     * Get all game versions for this game.
+     */
+    public function gameVersions(): HasMany
+    {
+        return $this->hasMany(GameVersion::class)->orderByDesc('published_at');
+    }
+
+    /**
+     * Refresh the game's tags and rating information
+     *
+     * @throws GuzzleException
+     */
+    public function refreshTagsAndRating(
+        Client $client,
+        ?string &$devlogLink = null,
+        ?float &$rating = null,
+        ?int &$ratingCount = null
+    ): void {
+        $response = $client->get($this->url, ['cookies' => false]);
+        $html = $response->getBody()->getContents();
+        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+        // Update status if not abandoned/canceled
+        if (! in_array($this->status, ['Abandoned', 'Canceled'])) {
+            $gameInfo = $doc->querySelector('div.game_info_panel_widget');
+            if ($gameInfo) {
+                $statusLinks = $gameInfo->querySelectorAll('a');
+                if (count($statusLinks) > 0) {
+                    $this->status = $statusLinks[0]->textContent;
+                }
+            }
+        }
+
+        // Get rating information
+        $ratingElement = $doc->querySelector('div[itemprop=ratingValue]');
+        $ratingCountElement = $doc->querySelector('span[itemprop=ratingCount]');
+
+        if ($ratingElement && $ratingCountElement) {
+            $rating = (float) $ratingElement->getAttribute('content');
+            $ratingCount = (int) $ratingCountElement->getAttribute('content');
+        }
+
+        // Get game info table data
+        $infoTable = $doc->querySelector('div.game_info_panel_widget table');
+        if ($infoTable) {
+            foreach ($infoTable->querySelectorAll('tr') as $row) {
+                $cells = $row->querySelectorAll('td');
+                if (count($cells) < 2) {
+                    continue;
+                }
+
+                $label = trim($cells[0]->textContent);
+                $value = trim($cells[1]->textContent);
+
+                switch ($label) {
+                    case 'Tags':
+                        $this->tags = $value;
+                        break;
+                    case 'Author':
+                    case 'Authors':
+                        $this->authors = '';
+                        foreach ($cells[1]->querySelectorAll('a') as $author) {
+                            if ($this->authors !== '') {
+                                $this->authors .= ',<br>';
+                            }
+                            $this->authors .= sprintf(
+                                '<a href="%s" target="_blank">%s</a>',
+                                $author->getAttribute('href'),
+                                $author->textContent
+                            );
+                        }
+                        break;
+                }
+            }
+        }
+
+        // Check NSFW status
+        $nsfw = $doc->querySelector('div.content_warning_inner');
+        $this->is_nsfw = $nsfw !== null;
+
+        // Get devlog link if present
+        $devlog = $doc->querySelector('section#devlog');
+        if ($devlog) {
+            $devlogLinks = $devlog->querySelectorAll('a');
+            if (count($devlogLinks) > 0) {
+                $devlogLink = $devlogLinks[0]->getAttribute('href');
+            }
+        }
+    }
+
+    /**
+     * Get all characters for this game.
+     */
+    public function characters(): HasMany
+    {
+        return $this->hasMany(Character::class)->orderBy('character_id');
+    }
+
+    /**
+     * Get the character stats for the latest version in a specific language.
+     */
+    public function getLatestCharacterStats(string $isoCode): Collection
+    {
+        return $this->latestVersion?->getCharacterStatsForLanguage($isoCode) ?? collect();
+    }
+
+    /**
      * Get the URL for a thumbnail variant
      */
     public function getThumbnailUrl(string $variant = 'default'): ?string
@@ -672,30 +676,6 @@ class Game extends Model
     }
 
     /**
-     * Parse a version string into a normalized format
-     */
-    private function parseSemanticVersion(string $version): ?array
-    {
-        // Remove leading 'v' or 'version'
-        $version = preg_replace('/^[vV]ersion\s*/', '', $version);
-        $version = preg_replace('/^[vV]\s*/', '', $version);
-
-        // Match version pattern with optional letter suffix
-        if (! preg_match('/^(\d+(?:\.\d+)*?)([a-zA-Z]+)?$/', $version, $matches)) {
-            return null;
-        }
-
-        try {
-            $parts = array_map('intval', explode('.', $matches[1]));
-            $suffix = $matches[2] ?? '';
-
-            return [$parts, $suffix];
-        } catch (Exception) {
-            return null;
-        }
-    }
-
-    /**
      * Check if a string looks like a probable version number
      */
     private function isProbableVersion(string $version): bool
@@ -722,6 +702,30 @@ class Game extends Model
         }
 
         return true;
+    }
+
+    /**
+     * Parse a version string into a normalized format
+     */
+    private function parseSemanticVersion(string $version): ?array
+    {
+        // Remove leading 'v' or 'version'
+        $version = preg_replace('/^[vV]ersion\s*/', '', $version);
+        $version = preg_replace('/^[vV]\s*/', '', $version);
+
+        // Match version pattern with optional letter suffix
+        if (! preg_match('/^(\d+(?:\.\d+)*?)([a-zA-Z]+)?$/', $version, $matches)) {
+            return null;
+        }
+
+        try {
+            $parts = array_map('intval', explode('.', $matches[1]));
+            $suffix = $matches[2] ?? '';
+
+            return [$parts, $suffix];
+        } catch (Exception) {
+            return null;
+        }
     }
 
     private function copyLanguageSupport(GameVersion $newVersion): void

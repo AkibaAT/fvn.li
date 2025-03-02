@@ -89,7 +89,7 @@ class DialogueBrowser extends Component
     public function updated($name, $value): void
     {
         // Handle specific property updates
-        match($name) {
+        match ($name) {
             'maxDuplicates' => $this->handleMaxDuplicatesUpdate($value),
             'minLineLength' => $this->handleMinLineLengthUpdate($value),
             'minDuplicateCount' => $this->handleMinDuplicateCountUpdate($value),
@@ -192,7 +192,8 @@ class DialogueBrowser extends Component
 
             if ($this->versionId) {
                 // Get character and context options for the selected version
-                $characters = Character::join('version_dialogue_lines', 'characters.id', '=', 'version_dialogue_lines.character_id')
+                $characters = Character::join('version_dialogue_lines', 'characters.id', '=',
+                    'version_dialogue_lines.character_id')
                     ->where('version_dialogue_lines.game_version_id', $this->versionId)
                     ->where('version_dialogue_lines.iso_code', $this->selectedLanguage)
                     ->distinct('characters.character_id')
@@ -312,7 +313,8 @@ class DialogueBrowser extends Component
             ->layout('components.layouts.app', [
                 'metaTags' => [
                     'title' => $this->gameId
-                        ? 'Dialogue Browser for ' . Game::where('id', $this->gameId)->first('name')->name . ' - ' . config('app.name')
+                        ? 'Dialogue Browser for ' . Game::where('id',
+                            $this->gameId)->first('name')->name . ' - ' . config('app.name')
                         : 'Dialogue Browser - ' . config('app.name'),
                 ],
                 'noindex' => true,

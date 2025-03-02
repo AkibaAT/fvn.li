@@ -249,6 +249,18 @@ class ProcessGameThumbnails extends Command
     }
 
     /**
+     * Generate a unique filename for a game's thumbnail
+     */
+    private function generateThumbnailFilename(Game $game): string
+    {
+        return sprintf(
+            '%d_%s',
+            $game->id,
+            substr(md5($game->thumb_url), 0, 8)
+        );
+    }
+
+    /**
      * Clean up any existing thumbnail files for a game
      */
     private function cleanupExistingThumbnails(int $gameId): void
@@ -268,6 +280,108 @@ class ProcessGameThumbnails extends Command
                 Storage::disk('public')->delete($file);
             }
         }
+    }
+
+    /**
+     * Check if an image is an animated GIF
+     */
+    private function isAnimatedGif(string $path): bool
+    {
+        // First check if it's a GIF
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $path);
+        finfo_close($finfo);
+
+        if ($mimeType !== 'image/gif') {
+            return false;
+        }
+
+        // Check for animation frames
+        $frames = 0;
+        $handle = fopen($path, 'rb');
+
+        while (! feof($handle) && $frames < 2) {
+            $chunk = fread($handle, 1024 * 100); // Read 100KB at a time
+            $frames += preg_match_all('#\x00\x21\xF9\x04.{4}\x00(\x2C|\x21)#s', $chunk);
+        }
+
+        fclose($handle);
+
+        return $frames > 1;
+    }
+
+    /**
+     * Get the storage path (relative to disk root)
+     */
+    private function getStoragePath(string $filename): string
+    {
+        return self::THUMBNAIL_PATH . '/' . $filename;
+    }
+
+    /**
+     * Process an animated image variant
+     */
+    private function processAnimatedVariant(
+        string $sourcePath,
+        string $destPath,
+        array $config,
+        int $quality
+    ): void {
+        // Ensure FFmpeg is available
+        if (! $this->isFFmpegAvailable()) {
+            throw new Exception('FFmpeg is required for animated image processing');
+        }
+
+        // Create output directory if needed
+        Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
+
+        // Extract background color components for FFmpeg
+        $bgColor = substr(self::BACKGROUND_COLOR, 1); // Remove #
+
+        // Build the complex filter for maintaining aspect ratio with padding
+        $filterComplex = sprintf(
+            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s',
+            $config['width'],
+            $config['height'],
+            $config['width'],
+            $config['height'],
+            $bgColor
+        );
+
+        // Build FFmpeg command - importantly including -ignore_loop 0 to preserve GIF looping
+        $command = sprintf(
+            'ffmpeg -i %s -vf "%s" -c:v libwebp -quality %d ' .
+            '-lossless 0 -compression_level 6 -preset picture ' .
+            '-loop 0 -threads 4 -an -vsync 0 %s 2>&1',
+            escapeshellarg($sourcePath),
+            $filterComplex,
+            $quality,
+            escapeshellarg($this->getRealPath($destPath))
+        );
+
+        exec($command, $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            throw new Exception('Failed to convert animated image: ' . implode("\n", $output));
+        }
+    }
+
+    /**
+     * Check if FFmpeg is available
+     */
+    private function isFFmpegAvailable(): bool
+    {
+        exec('which ffmpeg 2>&1', $output, $returnCode);
+
+        return $returnCode === 0;
+    }
+
+    /**
+     * Get the absolute path for the given storage path
+     */
+    private function getRealPath(string $path): string
+    {
+        return Storage::disk('public')->path($path);
     }
 
     /**
@@ -327,54 +441,6 @@ class ProcessGameThumbnails extends Command
     }
 
     /**
-     * Process an animated image variant
-     */
-    private function processAnimatedVariant(
-        string $sourcePath,
-        string $destPath,
-        array $config,
-        int $quality
-    ): void {
-        // Ensure FFmpeg is available
-        if (! $this->isFFmpegAvailable()) {
-            throw new Exception('FFmpeg is required for animated image processing');
-        }
-
-        // Create output directory if needed
-        Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
-
-        // Extract background color components for FFmpeg
-        $bgColor = substr(self::BACKGROUND_COLOR, 1); // Remove #
-
-        // Build the complex filter for maintaining aspect ratio with padding
-        $filterComplex = sprintf(
-            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s',
-            $config['width'],
-            $config['height'],
-            $config['width'],
-            $config['height'],
-            $bgColor
-        );
-
-        // Build FFmpeg command - importantly including -ignore_loop 0 to preserve GIF looping
-        $command = sprintf(
-            'ffmpeg -i %s -vf "%s" -c:v libwebp -quality %d ' .
-            '-lossless 0 -compression_level 6 -preset picture ' .
-            '-loop 0 -threads 4 -an -vsync 0 %s 2>&1',
-            escapeshellarg($sourcePath),
-            $filterComplex,
-            $quality,
-            escapeshellarg($this->getRealPath($destPath))
-        );
-
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            throw new Exception('Failed to convert animated image: ' . implode("\n", $output));
-        }
-    }
-
-    /**
      * Get image dimensions using ImageMagick's identify command
      */
     private function getImageDimensions(string $path): array
@@ -396,71 +462,5 @@ class ProcessGameThumbnails extends Command
             'width' => (int) $width,
             'height' => (int) $height,
         ];
-    }
-
-    /**
-     * Check if an image is an animated GIF
-     */
-    private function isAnimatedGif(string $path): bool
-    {
-        // First check if it's a GIF
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $path);
-        finfo_close($finfo);
-
-        if ($mimeType !== 'image/gif') {
-            return false;
-        }
-
-        // Check for animation frames
-        $frames = 0;
-        $handle = fopen($path, 'rb');
-
-        while (! feof($handle) && $frames < 2) {
-            $chunk = fread($handle, 1024 * 100); // Read 100KB at a time
-            $frames += preg_match_all('#\x00\x21\xF9\x04.{4}\x00(\x2C|\x21)#s', $chunk);
-        }
-
-        fclose($handle);
-
-        return $frames > 1;
-    }
-
-    /**
-     * Generate a unique filename for a game's thumbnail
-     */
-    private function generateThumbnailFilename(Game $game): string
-    {
-        return sprintf(
-            '%d_%s',
-            $game->id,
-            substr(md5($game->thumb_url), 0, 8)
-        );
-    }
-
-    /**
-     * Get the storage path (relative to disk root)
-     */
-    private function getStoragePath(string $filename): string
-    {
-        return self::THUMBNAIL_PATH . '/' . $filename;
-    }
-
-    /**
-     * Get the absolute path for the given storage path
-     */
-    private function getRealPath(string $path): string
-    {
-        return Storage::disk('public')->path($path);
-    }
-
-    /**
-     * Check if FFmpeg is available
-     */
-    private function isFFmpegAvailable(): bool
-    {
-        exec('which ffmpeg 2>&1', $output, $returnCode);
-
-        return $returnCode === 0;
     }
 }

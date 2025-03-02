@@ -21,21 +21,6 @@ readonly class GameArchiveService
     ) {}
 
     /**
-     * Check if an archive exists for the specified game version
-     */
-    public function archiveExists(int $gameId, int $versionId, ?string $filename = null): bool
-    {
-        $storagePath = $this->getStoragePath($gameId, $versionId);
-
-        if ($filename) {
-            return Storage::exists("{$storagePath}/{$filename}");
-        }
-
-        // If no specific filename, check if directory has any files
-        return ! empty(Storage::files($storagePath));
-    }
-
-    /**
      * Get the stored archive path for a game version
      */
     public function getStoredArchive(int $gameId, int $versionId): ?string
@@ -48,6 +33,30 @@ readonly class GameArchiveService
         }
 
         return Storage::path($files[0]);
+    }
+
+    /**
+     * Download, store, and process a game archive
+     *
+     * @throws GuzzleException
+     * @throws RuntimeException
+     */
+    public function downloadAndProcess(
+        string $gameUrl,
+        string $filename,
+        int $uploadId,
+        int $gameId,
+        int $versionId,
+        bool $force = false
+    ): array {
+        // Download and store the archive (force parameter is now passed through)
+        $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
+
+        // Process the archive
+        return [
+            'archive' => $archivePath,
+            'stats' => $this->processArchive($archivePath),
+        ];
     }
 
     /**
@@ -112,6 +121,21 @@ readonly class GameArchiveService
     }
 
     /**
+     * Check if an archive exists for the specified game version
+     */
+    public function archiveExists(int $gameId, int $versionId, ?string $filename = null): bool
+    {
+        $storagePath = $this->getStoragePath($gameId, $versionId);
+
+        if ($filename) {
+            return Storage::exists("{$storagePath}/{$filename}");
+        }
+
+        // If no specific filename, check if directory has any files
+        return ! empty(Storage::files($storagePath));
+    }
+
+    /**
      * Process statistics from an existing archive
      *
      * @throws RuntimeException
@@ -123,30 +147,6 @@ readonly class GameArchiveService
         }
 
         return $this->statsService->extractGameStats($archivePath);
-    }
-
-    /**
-     * Download, store, and process a game archive
-     *
-     * @throws GuzzleException
-     * @throws RuntimeException
-     */
-    public function downloadAndProcess(
-        string $gameUrl,
-        string $filename,
-        int $uploadId,
-        int $gameId,
-        int $versionId,
-        bool $force = false
-    ): array {
-        // Download and store the archive (force parameter is now passed through)
-        $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
-
-        // Process the archive
-        return [
-            'archive' => $archivePath,
-            'stats' => $this->processArchive($archivePath),
-        ];
     }
 
     private function getStoragePath(int $gameId, int $versionId): string

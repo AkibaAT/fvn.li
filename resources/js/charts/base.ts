@@ -1,12 +1,7 @@
 import * as echarts from 'echarts/core';
-import {
-    TitleComponent,
-    TooltipComponent,
-    GridComponent,
-    DataZoomComponent
-} from 'echarts/components';
-import { UniversalTransition } from 'echarts/features';
-import { CanvasRenderer } from 'echarts/renderers';
+import {DataZoomComponent, GridComponent, TitleComponent, TooltipComponent} from 'echarts/components';
+import {UniversalTransition} from 'echarts/features';
+import {CanvasRenderer} from 'echarts/renderers';
 import {MonthlyTrendData} from "@/types/system";
 
 export const baseComponents = [
@@ -18,7 +13,7 @@ export const baseComponents = [
     CanvasRenderer
 ];
 
-export { echarts };
+export {echarts};
 
 export interface ChartOptions {
     lineColor?: string;
@@ -39,7 +34,7 @@ export function getBaseChartOptions(data: MonthlyTrendData[], options: ChartOpti
 
     const dates = data.map(item => {
         const date = new Date(item.month);
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return date.toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
     });
     const values = data.map(item => item.count);
 

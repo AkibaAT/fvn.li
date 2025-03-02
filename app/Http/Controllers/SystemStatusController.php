@@ -53,7 +53,8 @@ class SystemStatusController extends Controller
                 return DB::table('ratings')
                     ->select(DB::raw('DATE_TRUNC(\'month\', published_at) as month'), DB::raw('COUNT(*) as count'))
                     ->where('is_visible', true)
-                    ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<', DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
+                    ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<',
+                        DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
                     ->groupBy('month')
                     ->orderBy('month')
                     ->get();
@@ -63,7 +64,8 @@ class SystemStatusController extends Controller
                 ->selectRaw('DATE_TRUNC(\'month\', published_at) as month')
                 ->selectRaw('COUNT(*) as count')
                 ->where('is_visible', true)
-                ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<', DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
+                ->where(DB::raw('DATE_TRUNC(\'month\', published_at)'), '<',
+                    DB::raw('DATE_TRUNC(\'month\', CURRENT_DATE)'))
                 ->whereHas('game', function ($query) {
                     $query->where('is_visible', true);
                 })

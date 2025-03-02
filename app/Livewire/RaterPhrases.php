@@ -65,28 +65,6 @@ class RaterPhrases extends Component
         return view('livewire.rater-phrases');
     }
 
-    private function isPhraseMeaningful(string $phrase): bool
-    {
-        $words = explode(' ', $phrase);
-        $totalWords = count($words);
-        if ($totalWords === 0) {
-            return false;
-        }
-
-        $fillerCount = 0;
-        foreach ($words as $word) {
-            if (isset(self::FILLER_WORDS[$word])) {
-                $fillerCount++;
-            }
-        }
-
-        if (($fillerCount / $totalWords) >= 0.5) {
-            return false;
-        }
-
-        return true;
-    }
-
     private function loadCommonPhrases(): void
     {
         $reviews = DB::table('ratings')
@@ -242,5 +220,27 @@ class RaterPhrases extends Component
         }
 
         $this->phrases = array_slice($filteredPhrases, 0, 30, true);
+    }
+
+    private function isPhraseMeaningful(string $phrase): bool
+    {
+        $words = explode(' ', $phrase);
+        $totalWords = count($words);
+        if ($totalWords === 0) {
+            return false;
+        }
+
+        $fillerCount = 0;
+        foreach ($words as $word) {
+            if (isset(self::FILLER_WORDS[$word])) {
+                $fillerCount++;
+            }
+        }
+
+        if (($fillerCount / $totalWords) >= 0.5) {
+            return false;
+        }
+
+        return true;
     }
 }

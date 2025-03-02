@@ -104,6 +104,20 @@ class DialogueLine extends Model
     }
 
     /**
+     * Get the PostgreSQL language configuration name.
+     */
+    protected function getLanguageConfig(?string $language = null): string
+    {
+        return match ($language) {
+            'jpn' => 'japanese',
+            'spa' => 'spanish',
+            'fra' => 'french',
+            'deu' => 'german',
+            default => 'english'
+        };
+    }
+
+    /**
      * Get the tsvector column name for the given language.
      */
     protected function getTsvectorColumnForLanguage(?string $language = null): string
@@ -135,19 +149,5 @@ class DialogueLine extends Model
 
         // Default to English
         return 'search_vector';
-    }
-
-    /**
-     * Get the PostgreSQL language configuration name.
-     */
-    protected function getLanguageConfig(?string $language = null): string
-    {
-        return match ($language) {
-            'jpn' => 'japanese',
-            'spa' => 'spanish',
-            'fra' => 'french',
-            'deu' => 'german',
-            default => 'english'
-        };
     }
 }

@@ -39,6 +39,11 @@ class Upload
         $this->buildUpdatedAt = $buildUpdatedAt ? new DateTime($buildUpdatedAt) : null;
     }
 
+    public static function fromCollection(Collection $uploads): Collection
+    {
+        return $uploads->map(fn ($data, $id) => self::fromArray($data, $id));
+    }
+
     public static function fromArray(array $data, int $id): self
     {
         $data['build_id'] = $data['build_id'] ?? null;
@@ -57,9 +62,9 @@ class Upload
         );
     }
 
-    public static function fromCollection(Collection $uploads): Collection
+    public static function getBest(Collection $uploads): ?self
     {
-        return $uploads->map(fn ($data, $id) => self::fromArray($data, $id));
+        return self::sort($uploads)->first();
     }
 
     public static function sort(Collection $uploads): Collection
@@ -69,70 +74,29 @@ class Upload
             ->sort(fn (self $a, self $b) => $a->compareTo($b));
     }
 
-    public static function getBest(Collection $uploads): ?self
+    public function isProcessable(): bool
     {
-        return self::sort($uploads)->first();
-    }
+        // Web versions are never processable
+        if ($this->isWeb() || $this->type === 'book') {
+            return false;
+        }
 
-    public function toArray(): array
-    {
-        return [
-            'filename' => $this->filename,
-            'display_name' => $this->displayName,
-            'md5_hash' => $this->md5Hash,
-            'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
-            'build_id' => $this->buildId,
-            'build_updated_at' => $this->buildUpdatedAt?->format('Y-m-d H:i:s'),
-            'user_version' => $this->userVersion,
-            'traits' => $this->traits,
-            'type' => $this->type,
-        ];
-    }
+        $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
 
-    public function isWindows(): bool
-    {
-        return in_array('p_windows', $this->traits);
-    }
+        // Special handling for tar.gz and tar.bz2
+        if ($ext === 'gz' || $ext === 'bz2') {
+            $basename = basename($this->filename, ".{$ext}");
+            if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
+                return true;
+            }
+        }
 
-    public function isLinux(): bool
-    {
-        return in_array('p_linux', $this->traits);
-    }
-
-    public function isMac(): bool
-    {
-        return in_array('p_osx', $this->traits);
-    }
-
-    public function isAndroid(): bool
-    {
-        return in_array('p_android', $this->traits);
+        return in_array($ext, self::PROCESSABLE_EXTENSIONS);
     }
 
     public function isWeb(): bool
     {
         return $this->type === 'html';
-    }
-
-    public function isZip(): bool
-    {
-        return strtolower(pathinfo($this->filename, PATHINFO_EXTENSION)) === 'zip';
-    }
-
-    public function hasLinuxFileName(): bool
-    {
-        $patterns = ['/linux/i', '/.tar/i'];
-        $names = array_filter([$this->filename, $this->displayName]);
-
-        return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
-    }
-
-    public function hasPcFileName(): bool
-    {
-        $patterns = ['/pc/i'];
-        $names = array_filter([$this->filename, $this->displayName]);
-
-        return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
     }
 
     public function compareTo(self $other): int
@@ -163,43 +127,60 @@ class Upload
         return 0;
     }
 
-    public function isProcessable(): bool
+    public function isLinux(): bool
     {
-        // Web versions are never processable
-        if ($this->isWeb() || $this->type === 'book') {
-            return false;
-        }
-
-        $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
-
-        // Special handling for tar.gz and tar.bz2
-        if ($ext === 'gz' || $ext === 'bz2') {
-            $basename = basename($this->filename, ".{$ext}");
-            if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
-                return true;
-            }
-        }
-
-        return in_array($ext, self::PROCESSABLE_EXTENSIONS);
+        return in_array('p_linux', $this->traits);
     }
 
-    private function getVersion(): ?string
+    public function isWindows(): bool
     {
-        if ($this->extractedVersion === null) {
-            // Create a temporary Game instance to use its version extraction logic
-            $game = new Game;
-            $this->extractedVersion = $game->extractVersion([
-                'filename' => $this->filename,
-                'display_name' => $this->displayName,
-                'build' => [
-                    'user_version' => $this->buildId ? $this->userVersion : null,
-                ],
-                'user_version' => $this->userVersion,
-                'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
-            ]);
-        }
+        return in_array('p_windows', $this->traits);
+    }
 
-        return $this->extractedVersion;
+    public function hasLinuxFileName(): bool
+    {
+        $patterns = ['/linux/i', '/.tar/i'];
+        $names = array_filter([$this->filename, $this->displayName]);
+
+        return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
+    }
+
+    public function hasPcFileName(): bool
+    {
+        $patterns = ['/pc/i'];
+        $names = array_filter([$this->filename, $this->displayName]);
+
+        return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
+    }
+
+    public function isZip(): bool
+    {
+        return strtolower(pathinfo($this->filename, PATHINFO_EXTENSION)) === 'zip';
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'filename' => $this->filename,
+            'display_name' => $this->displayName,
+            'md5_hash' => $this->md5Hash,
+            'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
+            'build_id' => $this->buildId,
+            'build_updated_at' => $this->buildUpdatedAt?->format('Y-m-d H:i:s'),
+            'user_version' => $this->userVersion,
+            'traits' => $this->traits,
+            'type' => $this->type,
+        ];
+    }
+
+    public function isMac(): bool
+    {
+        return in_array('p_osx', $this->traits);
+    }
+
+    public function isAndroid(): bool
+    {
+        return in_array('p_android', $this->traits);
     }
 
     private function compareVersions(?string $a, ?string $b): int
@@ -239,5 +220,24 @@ class Upload
 
         // If both have suffixes, compare them
         return strcmp($suffixA, $suffixB);
+    }
+
+    private function getVersion(): ?string
+    {
+        if ($this->extractedVersion === null) {
+            // Create a temporary Game instance to use its version extraction logic
+            $game = new Game;
+            $this->extractedVersion = $game->extractVersion([
+                'filename' => $this->filename,
+                'display_name' => $this->displayName,
+                'build' => [
+                    'user_version' => $this->buildId ? $this->userVersion : null,
+                ],
+                'user_version' => $this->userVersion,
+                'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return $this->extractedVersion;
     }
 }

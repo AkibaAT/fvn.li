@@ -44,11 +44,6 @@ class GameVersion extends Model
         return $this->belongsTo(Game::class);
     }
 
-    public function characterStats(): HasMany
-    {
-        return $this->hasMany(VersionCharacterStats::class);
-    }
-
     public function characterStatsWithoutPlaceholders(): HasMany
     {
         return $this->hasMany(VersionCharacterStats::class, 'game_version_id', 'id')
@@ -76,18 +71,14 @@ class GameVersion extends Model
     }
 
     /**
-     * Get all dialogue lines for this version.
-     */
-    public function dialogueLines(): HasMany
-    {
-        return $this->hasMany(DialogueLine::class);
-    }
-
-    /**
      * Get dialogue lines for a specific language.
      */
-    public function getDialogueLinesForLanguage(string $isoCode, ?string $character = null, int $limit = 100, int $offset = 0): Collection
-    {
+    public function getDialogueLinesForLanguage(
+        string $isoCode,
+        ?string $character = null,
+        int $limit = 100,
+        int $offset = 0
+    ): Collection {
         $query = $this->dialogueLines()
             ->where('iso_code', $isoCode)
             ->when($character, function ($q) use ($character) {
@@ -101,6 +92,14 @@ class GameVersion extends Model
             ->take($limit);
 
         return $query->get();
+    }
+
+    /**
+     * Get all dialogue lines for this version.
+     */
+    public function dialogueLines(): HasMany
+    {
+        return $this->hasMany(DialogueLine::class);
     }
 
     /**
@@ -126,9 +125,9 @@ class GameVersion extends Model
             ->get();
     }
 
-    public function supportedLanguages(): HasMany
+    public function characterStats(): HasMany
     {
-        return $this->hasMany(VersionSupportedLanguage::class);
+        return $this->hasMany(VersionCharacterStats::class);
     }
 
     public function getSupportedLanguageCodes(): array
@@ -136,6 +135,11 @@ class GameVersion extends Model
         return $this->supportedLanguages()
             ->pluck('iso_code')
             ->toArray();
+    }
+
+    public function supportedLanguages(): HasMany
+    {
+        return $this->hasMany(VersionSupportedLanguage::class);
     }
 
     public function addSupportedLanguage(string $isoCode): void
@@ -150,11 +154,6 @@ class GameVersion extends Model
         $this->supportedLanguages()
             ->where('iso_code', $isoCode)
             ->delete();
-    }
-
-    public function fileCategories(): HasMany
-    {
-        return $this->hasMany(VersionFileCategory::class);
     }
 
     public function saveFileStats(array $stats): void
@@ -189,5 +188,10 @@ class GameVersion extends Model
                 ]);
             }
         }
+    }
+
+    public function fileCategories(): HasMany
+    {
+        return $this->hasMany(VersionFileCategory::class);
     }
 }

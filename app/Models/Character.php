@@ -23,8 +23,11 @@ class Character extends Model
         'display_name_corrections' => 'array',
     ];
 
-    public static function countUniqueCharactersInLanguage(int $gameId, ?string $languageCode = null, ?int $versionId = null): int
-    {
+    public static function countUniqueCharactersInLanguage(
+        int $gameId,
+        ?string $languageCode = null,
+        ?int $versionId = null
+    ): int {
         // Get character stats for the specific version
         return self::query()
             ->join('version_character_stats', 'characters.id', '=', 'version_character_stats.character_id')

@@ -48,7 +48,8 @@ trait HasSocialMetaTags
             }
 
             if (! empty($this->selectedPlatforms)) {
-                $platforms = array_map(fn ($p) => 'for ' . ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
+                $platforms = array_map(fn ($p) => 'for ' . ucfirst($this->decodeFilterValue($p)),
+                    $this->selectedPlatforms);
                 $filters[] = implode(' and ', $platforms);
             }
 

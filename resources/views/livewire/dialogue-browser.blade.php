@@ -1,8 +1,9 @@
+@php use App\Models\Game; @endphp
 <div class="bg-gray-100 dark:bg-gray-900">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="mb-4 flex items-center justify-between sticky top-0 z-10 bg-gray-100 dark:bg-gray-900 py-4">
             @if ($gameId)
-                <a href="{{ route('games.show', \App\Models\Game::find($gameId)) }}"
+                <a href="{{ route('games.show', Game::find($gameId)) }}"
                    class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                     <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -45,7 +46,9 @@
                             @if (!$gameId) disabled @endif>
                         <option value="">All Versions</option>
                         @foreach ($versions as $version)
-                            <option value="{{ $version->id }}">{{ $version->version }} ({{ $version->published_at?->format('Y-m-d') }})</option>
+                            <option value="{{ $version->id }}">{{ $version->version }}
+                                ({{ $version->published_at?->format('Y-m-d') }})
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -118,8 +121,10 @@
                             ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                             : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                             stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                         </svg>
                         {{ $showDuplicates ? 'Hide Duplicates' : 'Show Duplicates' }}
                     </button>
@@ -132,7 +137,8 @@
                     <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Duplicate Line Settings</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Minimum Line Length</label>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Minimum Line
+                                Length</label>
                             <input
                                 wire:model.live.debounce.500ms="minLineLength"
                                 type="number"
@@ -141,7 +147,8 @@
                                 class="px-3 py-1.5 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-xs">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Minimum Duplicates</label>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Minimum
+                                Duplicates</label>
                             <input
                                 wire:model.live.debounce.500ms="minDuplicateCount"
                                 type="number"
@@ -171,23 +178,34 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                         <div class="text-sm text-gray-500 dark:text-gray-400">Total Lines</div>
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['total_lines']) }}</div>
+                        <div
+                            class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['total_lines']) }}</div>
                     </div>
 
                     <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                         <div class="text-sm text-gray-500 dark:text-gray-400">Unique Texts</div>
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['unique_texts']) }}</div>
+                        <div
+                            class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['unique_texts']) }}</div>
                     </div>
 
                     <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                         <div class="text-sm text-gray-500 dark:text-gray-400">Duplication Ratio</div>
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['duplication_ratio'], 2) }}x</div>
+                        <div
+                            class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['duplication_ratio'], 2) }}
+                            x
+                        </div>
                     </div>
 
                     <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
                         <div class="text-sm text-gray-500 dark:text-gray-400">Space Saved</div>
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['space_efficiency'], 1) }}%</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($statistics['estimated_saved_kb']) }} KB</div>
+                        <div
+                            class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($statistics['space_efficiency'], 1) }}
+                            %
+                        </div>
+                        <div
+                            class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($statistics['estimated_saved_kb']) }}
+                            KB
+                        </div>
                     </div>
                 </div>
             </div>
@@ -202,14 +220,17 @@
                         Top Duplicated Lines {{ $gameId ? 'in Selected Game' : 'Across All Games' }}
                     </h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Showing lines that appear at least {{ $minDuplicateCount }} times, with a minimum length of {{ $minLineLength }} characters.
+                        Showing lines that appear at least {{ $minDuplicateCount }} times, with a minimum length
+                        of {{ $minLineLength }} characters.
                     </p>
                 </div>
 
                 @if ($topDuplicates->isEmpty())
-                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                    <div
+                        class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                         <p class="text-yellow-700 dark:text-yellow-500">
-                            No duplicate lines found matching your criteria. Try adjusting the minimum line length or duplicate count.
+                            No duplicate lines found matching your criteria. Try adjusting the minimum line length or
+                            duplicate count.
                         </p>
                     </div>
                 @else
@@ -220,20 +241,24 @@
                                     <div class="font-medium text-gray-900 dark:text-gray-100">
                                         Appears {{ $duplicate->usage_count }} times
                                     </div>
-                                    <div class="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 text-xs rounded-full">
+                                    <div
+                                        class="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 text-xs rounded-full">
                                         {{ strlen($duplicate->text_content) }} characters
                                     </div>
                                 </div>
 
-                                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-gray-900 dark:text-gray-100 mb-3 border border-gray-200 dark:border-gray-700">
+                                <div
+                                    class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-gray-900 dark:text-gray-100 mb-3 border border-gray-200 dark:border-gray-700">
                                     {{ $duplicate->text_content }}
                                 </div>
 
                                 <div class="mt-3">
-                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Examples:</div>
+                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Examples:
+                                    </div>
                                     <div class="space-y-2">
                                         @foreach ($duplicate->examples as $example)
-                                            <div class="text-xs p-2 bg-white dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                                            <div
+                                                class="text-xs p-2 bg-white dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
                                                 <div class="flex justify-between">
                                                     <span class="font-medium">{{ $example->game_name }} ({{ $example->version }})</span>
                                                     <span>{{
@@ -279,11 +304,13 @@
 
                             <div class="space-y-3">
                                 @foreach ($lines as $line)
-                                    <div class="bg-white dark:bg-gray-800 shadow-xs rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                    <div
+                                        class="bg-white dark:bg-gray-800 shadow-xs rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                         <div class="flex items-start">
                                             @if ($line->character && $line->character->character_id != 'narrator' && $line->character->character_id != 'menu_choice')
                                                 <div class="flex-shrink-0 mr-3">
-                                                    <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                                                    <div
+                                                        class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
                                                         <span class="text-blue-800 dark:text-blue-200 font-medium">
                                                             {{ substr($line->character->character_id, 0, 1) }}
                                                         </span>
@@ -311,7 +338,8 @@
                                                 </div>
 
                                                 <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                    <span class="font-medium">{{ $line->gameVersion->game->name }}</span>
+                                                    <span
+                                                        class="font-medium">{{ $line->gameVersion->game->name }}</span>
                                                     ({{ $line->gameVersion->version }}) -
                                                     {{ $line->file_path }}:{{ $line->line_number }}
                                                 </div>
@@ -326,11 +354,13 @@
                     <!-- Flat view -->
                     <div class="space-y-3">
                         @foreach ($searchResults as $line)
-                            <div class="bg-white dark:bg-gray-800 shadow-xs rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                            <div
+                                class="bg-white dark:bg-gray-800 shadow-xs rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                                 <div class="flex items-start">
                                     @if ($line->character && $line->character->character_id != 'narrator' && $line->character->character_id != 'menu_choice')
                                         <div class="flex-shrink-0 mr-3">
-                                            <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                                            <div
+                                                class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
                                                 <span class="text-blue-800 dark:text-blue-200 font-medium">
                                                     {{ substr($line->character->character_id, 0, 1) }}
                                                 </span>
@@ -351,7 +381,8 @@
                                             </p>
 
                                             @if ($line->context)
-                                                <span class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                                <span
+                                                    class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                                                     {{ $line->context }}
                                                 </span>
                                             @endif
@@ -382,11 +413,13 @@
                     {{ $searchResults->links(data: ['scrollTo' => false]) }}
                 </div>
             @elseif ($searchQuery)
-                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div
+                    class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                     <p class="text-yellow-700 dark:text-yellow-500">No results found for "{{ $searchQuery }}"</p>
                 </div>
             @else
-                <div class="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
+                <div
+                    class="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
                     <p class="text-gray-500 dark:text-gray-400">
                         {{ $showDuplicates
                             ? 'Adjust the settings above to find duplicated dialogue lines'

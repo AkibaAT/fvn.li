@@ -1,12 +1,11 @@
-import { AxiosInstance } from 'axios';
+import {AxiosInstance} from 'axios';
+import type {MonthlyTrendData} from './system';
 
 declare global {
     interface Window {
         axios: AxiosInstance;
     }
 }
-
-import type { MonthlyTrendData } from './system';
 
 declare global {
     interface Window {
