@@ -65,19 +65,12 @@ class AddGamesToCollection extends Command
 
             // Get an authenticated client
             $client = $this->authService->getClient();
+            $csrfToken = $this->authService->getCsrfToken();
 
-            // Get CSRF token
-            $this->info('Fetching CSRF token...');
-            $response = $client->get('https://itch.io');
-            $html = $response->getBody()->getContents();
-
-            // Extract CSRF token from meta tag
-            preg_match('/<meta name="csrf_token" content="([^"]+)"/', $html, $matches);
-            if (empty($matches[1])) {
+            if (!$csrfToken) {
                 throw new Exception('Could not extract CSRF token');
             }
 
-            $csrfToken = $matches[1];
             $this->info('CSRF token obtained');
 
             // Process each game

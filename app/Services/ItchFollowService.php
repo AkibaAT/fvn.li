@@ -73,7 +73,7 @@ class ItchFollowService
             $client = $this->getClient();
 
             // Get CSRF token
-            $csrfToken = $this->getCsrfToken($client);
+            $csrfToken = $this->authService->getCsrfToken();
             if (! $csrfToken) {
                 return false;
             }
@@ -99,33 +99,6 @@ class ItchFollowService
             ]);
 
             return false;
-        }
-    }
-
-    /**
-     * Get CSRF token from itch.io
-     */
-    private function getCsrfToken(Client $client): ?string
-    {
-        try {
-            // Visit main page to get token
-            $response = $client->get('https://itch.io/');
-            $html = $response->getBody()->getContents();
-
-            // Extract token from meta tag
-            if (preg_match('/<meta name="csrf_token" content="([^"]+)"/', $html, $matches)) {
-                return $matches[1];
-            }
-
-            Log::error('Could not find CSRF token in page');
-
-            return null;
-        } catch (Exception $e) {
-            Log::error('Error getting CSRF token', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return null;
         }
     }
 

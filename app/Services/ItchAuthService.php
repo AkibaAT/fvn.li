@@ -164,4 +164,19 @@ class ItchAuthService
 
         return $formData;
     }
+
+    public function getCsrfToken(): ?string
+    {
+        $response = $this->client->get('https://itch.io/');
+        $html = $response->getBody()->getContents();
+
+        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $csrfToken = $doc->querySelector('meta[name="csrf_token"]');
+
+        if (! $csrfToken) {
+            return null;
+        }
+
+        return $csrfToken->getAttribute('value');
+    }
 }
