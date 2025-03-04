@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use App\Services\ItchAuthService;
+use App\Services\ItchFollowService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
@@ -15,15 +16,18 @@ use Illuminate\Support\Facades\Log;
 class UpdateWatchlist extends Command
 {
     protected $signature = 'games:update-watchlist';
-    protected $description = 'Update games from itch.io collection';
+    protected $description = 'Update games from itch.io collection and follow creators';
 
     private ItchAuthService $authService;
+    private ItchFollowService $followService;
     private int $processedGames = 0;
+    private int $followedCreators = 0;
 
-    public function __construct(ItchAuthService $authService)
+    public function __construct(ItchAuthService $authService, ItchFollowService $followService)
     {
         parent::__construct();
         $this->authService = $authService;
+        $this->followService = $followService;
     }
 
     public function handle(): int
@@ -51,7 +55,7 @@ class UpdateWatchlist extends Command
                 $page++;
             } while ($hasMore);
 
-            $this->info("Watchlist update completed. Processed {$this->processedGames} games.");
+            $this->info("Watchlist update completed. Processed {$this->processedGames} games, followed {$this->followedCreators} creators.");
 
             return 0;
 
@@ -104,6 +108,8 @@ class UpdateWatchlist extends Command
         try {
             $game = Game::firstOrNew(['game_id' => $gameId]);
             $shouldRefreshVersion = false;
+            $isNew = ! $game->exists;
+            $wasInvisible = $game->exists && ! $game->is_visible;
 
             // Update if game exists but isn't visible
             if ($game->exists) {
@@ -152,8 +158,20 @@ class UpdateWatchlist extends Command
             }
 
             $game->save();
-
             DB::commit();
+
+            // Follow creator if the game is new or was previously invisible
+            if ($isNew || $wasInvisible) {
+                if ($this->followCreator($game->url)) {
+                    $this->followedCreators++;
+                    $this->info("Successfully followed creator for {$game->name}");
+                } else {
+                    $this->warn("Failed to follow creator for {$game->name}");
+                }
+                // Add small delay between follow requests
+                sleep(3);
+            }
+
         } catch (Exception $e) {
             DB::rollBack();
             $this->error("Failed to process game {$gameId}: " . $e->getMessage());
@@ -162,6 +180,24 @@ class UpdateWatchlist extends Command
                 'error' => $e->getMessage(),
                 'exception' => $e,
             ]);
+        }
+    }
+
+    /**
+     * Follow the creator of a game
+     */
+    private function followCreator(string $gameUrl): bool
+    {
+        try {
+            return $this->followService->followCreatorFromGameUrl($gameUrl);
+        } catch (Exception $e) {
+            $this->error('Error following creator: ' . $e->getMessage());
+            Log::error('Error following creator', [
+                'game_url' => $gameUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
         }
     }
 }
