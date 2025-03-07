@@ -201,7 +201,9 @@ readonly class GameStatsService
             // Update supported languages for this version
             // First, add all languages found in the stats
             foreach ($foundLanguages as $isoCode) {
-                $version->addSupportedLanguage($isoCode);
+                if (!str_starts_with($isoCode, 'q')) {
+                    $version->addSupportedLanguage($isoCode);
+                }
             }
 
             // Save file statistics
