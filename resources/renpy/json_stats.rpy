@@ -212,6 +212,11 @@ init 10000 python:
                 # Clean the character id if it exists
                 character_id = clean_text(say.who) if say.who else "narrator"
 
+                # Try to rescue broken game lines
+                if len(character_id) > 50:
+                    cleaned_text = character_id + " " + cleaned_text
+                    character_id = "narrator"
+
                 # Add to dialogue lines
                 dialogue_lines[lang].append({
                     "character": character_id,
@@ -239,6 +244,11 @@ init 10000 python:
                 # Clean the character id if it exists
                 who_var = getattr(node, "who", None)
                 character_id = clean_text(who_var) if who_var else "narrator"
+
+                # Try to rescue broken game lines
+                if len(character_id) > 50:
+                    cleaned_text = character_id + " " + cleaned_text
+                    character_id = "narrator"
 
                 # Add to dialogue lines with character, text, file, and line number
                 dialogue_lines[lang].append({
