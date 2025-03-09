@@ -1,66 +1,123 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# FVN.li - Visual Novel Analytics and Tracking
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+FVN.li is a web application that tracks, analyzes, and provides insights into games published on itch.io. It collects data about games, their versions, ratings, and dialogue content, making it easier for users to discover and evaluate games on the platform. The project is deployed and accessible at [FVN.li](https://fvn.li).
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Game Tracking**: Monitor games published on itch.io, including metadata, versions, and ratings
+- **Dialogue Browser**: Explore game dialogue content across different versions and languages
+- **Rating System**: View and analyze game ratings from the community
+- **Language Support**: Track supported languages for games and analyze translation coverage
+- **Character Statistics**: View character statistics and dialogue distribution
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Tech Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Backend**: Laravel 12 with PHP 8.4
+- **Frontend**: Livewire, TypeScript, Tailwind CSS
+- **Database**: PostgreSQL 17
+- **Caching**: Redis
+- **Development**: DDEV for local development environment
+- **Visualization**: ECharts for data visualization
 
-## Learning Laravel
+## Getting Started
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Prerequisites
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+- [Docker](https://www.docker.com/get-started)
+- [DDEV](https://ddev.readthedocs.io/en/stable/)
+- [Composer](https://getcomposer.org/)
+- [Node.js](https://nodejs.org/) (v18+)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Local Development Setup
 
-## Laravel Sponsors
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/AkibaAT/fvn.li.git
+   cd fvn-li
+   ```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+2. Start the DDEV environment:
+   ```bash
+   ddev start
+   ```
 
-### Premium Partners
+3. Install PHP dependencies:
+   ```bash
+   ddev composer install
+   ```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+4. Install JavaScript dependencies:
+   ```bash
+   ddev npm install
+   # or
+   ddev yarn
+   ```
+
+5. Copy the environment file and generate an application key:
+   ```bash
+   cp .env.example .env
+   ddev artisan key:generate
+   ```
+
+6. Run database migrations:
+   ```bash
+   ddev artisan migrate
+   ```
+
+7. Start the development server:
+   ```bash
+   ddev artisan serve
+   # In another terminal
+   ddev npm run dev
+   ```
+
+8. Access the application at [https://fvn-li.ddev.site](https://fvn-li.ddev.site)
+
+## Database Structure
+
+The application uses several key models:
+- **Game**: Core game information from itch.io
+- **GameVersion**: Tracks different versions of games
+- **Rater**: Users who rate games
+- **Rating**: Individual ratings for games
+- **DialogueLine**: Game dialogue content
+- **Character**: Characters in games
+- **Language**: Supported languages for games
 
 ## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Code of Conduct
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Testing
 
-## Security Vulnerabilities
+Run the test suite with:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+ddev artisan test
+# or
+ddev composer test
+```
+
+## Deployment
+
+The application is deployed at [FVN.li](https://fvn.li). It can be deployed using Docker in production environments. Configuration for production deployment is available in the `.ddev` directory.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgements
+
+- [Laravel](https://laravel.com) - The web framework used
+- [itch.io](https://itch.io) - The game distribution platform this project tracks
+- [DDEV](https://ddev.com) - Local development environment
+- [Livewire](https://livewire.laravel.com) - Full-stack framework for Laravel
+- [Tailwind CSS](https://tailwindcss.com) - CSS framework
+- [ECharts](https://echarts.apache.org) - Charting library
