@@ -24,8 +24,19 @@ class GameVersion extends Model
         'is_web',
         'rating',
         'rating_count',
-        'is_latest',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (GameVersion $version) {
+            // When setting a version as latest, ensure no other versions are marked as latest
+            if ($version->is_latest) {
+                $version->game->gameVersions()
+                    ->where('id', '!=', $version->id)
+                    ->update(['is_latest' => false]);
+            }
+        });
+    }
 
     protected $casts = [
         'published_at' => 'datetime',

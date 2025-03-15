@@ -111,8 +111,23 @@ class RefreshGame extends Command
                 // Refresh version if requested
                 if ($this->option('update-version')) {
                     $this->info('→ Refreshing version information...');
-                    $game->refreshVersion($client, $force);
-                    $game->save();
+                    DB::transaction(function() use ($game, $client, $force) {
+                        $game->refreshVersion($client, $force);
+                        $game->save();
+
+                        // Ensure only one latest version
+                        $latestVersion = $game->gameVersions()
+                            ->orderByDesc('published_at')
+                            ->first();
+
+                        if ($latestVersion) {
+                            $game->gameVersions()
+                                ->where('id', '!=', $latestVersion->id)
+                                ->update(['is_latest' => false]);
+                            $latestVersion->is_latest = true;
+                            $latestVersion->save();
+                        }
+                    });
                     $this->info('  Version information updated successfully');
                     $this->info('  Waiting 10 seconds for rate limiting...');
                     sleep(10);
