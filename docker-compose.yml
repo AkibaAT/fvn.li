@@ -1,0 +1,82 @@
+x-fvnli: &fvnli
+  image: ghcr.io/akibaat/fvn.li:development
+x-db: &db
+  image: postgres:17.4
+x-pgbouncer: &pgbouncer
+  image: edoburu/pgbouncer
+x-redis: &redis
+  image: redis:7
+
+services:
+  app:
+    <<: *fvnli
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    networks:
+      - fvnli
+      - web
+    volumes:
+      - ./.env:/app/.env
+      - ./storage/app:/app/storage/app
+      - ./storage/logs:/app/storage/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${APP_DOMAIN}`) || Host(`www.${APP_DOMAIN}`)"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=https"
+  postgres:
+    <<: *db
+    restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=all"
+      - "-c"
+      - "shared_buffers=6GB"
+    networks:
+      - fvnli
+    environment:
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - db:/var/lib/postgresql/data
+  db:
+    <<: *pgbouncer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    networks:
+      - fvnli
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - AUTH_TYPE=scram-sha-256
+      - DB_HOST=postgres
+      - DB_NAME=${DB_DATABASE}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+  redis:
+    <<: *redis
+    restart: unless-stopped
+    networks:
+      - fvnli
+    volumes:
+      - redis:/data
+
+volumes:
+  redis:
+  db:
+
+networks:
+  fvnli:
+    name: ${COMPOSE_PROJECT_NAME}
+  web:
+    name: web
+    external: true
