@@ -52,7 +52,7 @@
                 <div class="space-y-3 text-sm text-gray-500 dark:text-gray-400">
                     <p>
                         The visibility of entries on this list is being controlled by the
-                        <a href="https://itch.io/c/2399304/fvnli-watchlist"
+                        <a href="https://itch.io/c/5469099/fvnli-watchlist"
                            class="text-blue-600 dark:text-blue-400 hover:underline"
                            target="_blank">
                             itch.io collection</a>.
