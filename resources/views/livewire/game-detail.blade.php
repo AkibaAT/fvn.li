@@ -163,7 +163,7 @@
                             Browse Dialogue
                         </a>
                         <a href="{{ route('dialogue.browser', ['gameId' => $game->id, 'versionId' => $latestVersion->id, 'showDuplicates' => true]) }}"
-                           class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-500 active:bg-indigo-700 focus:outline-none focus:border-indigo-700 focus:ring focus:ring-indigo-300 disabled:opacity-25 transition">
+                            class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-500 active:bg-indigo-700 focus:outline-none focus:border-indigo-700 focus:ring focus:ring-indigo-300 disabled:opacity-25 transition">
                             <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
@@ -172,6 +172,53 @@
                         </a>
                     </div>
                 @endif
+
+                <div class="mt-6 mb-4">
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-3">
+                        <h3 class="text-base font-medium text-gray-100 mb-3">Compare Versions</h3>
+                        <form wire:submit.prevent="compareVersions" class="flex flex-col gap-4 sm:flex-row items-end">
+                            <div>
+                                <label for="compareFromVersionId" class="block text-sm font-medium text-gray-400 mb-1">From Version</label>
+                                <select
+                                    id="compareFromVersionId"
+                                    wire:model.live="compareFromVersionId"
+                                    class="border px-4 py-2 rounded-lg border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full sm:w-auto"
+                                >
+                                    <option value="">Select version...</option>
+                                    @foreach ($versions as $version)
+                                        @if ($versionCharacterCounts[$version->id] > 0)
+                                            <option value="{{ $version->id }}">{{ $version->version }} ({{ $version->published_at->format('M j, Y') }})</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="compareToVersionId" class="block text-sm font-medium text-gray-400 mb-1">To Version</label>
+                                <select
+                                    id="compareToVersionId"
+                                    wire:model.live="compareToVersionId"
+                                    class="border px-4 py-2 rounded-lg border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full sm:w-auto"
+                                >
+                                    <option value="">Select version...</option>
+                                    @foreach ($versions as $version)
+                                        @if ($versionCharacterCounts[$version->id] > 0)
+                                            <option value="{{ $version->id }}">{{ $version->version }} ({{ $version->published_at->format('M j, Y') }})</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <button
+                                    type="submit"
+                                    class="inline-flex items-center px-4 py-3 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-300 disabled:opacity-25 transition"
+                                    @if(!$compareFromVersionId || !$compareToVersionId) disabled @endif
+                                >
+                                    COMPARE
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
 
                 <div>
                     @foreach ($versions as $version)
@@ -417,6 +464,7 @@
     </div>
 
     @include('components.file-stats-dialog')
+    @include('components.version-comparison-dialog')
 
     @include('components.meta-data-refresh')
 </div>
