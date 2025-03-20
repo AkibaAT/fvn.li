@@ -9,15 +9,18 @@ FVN.li is a web application that tracks, analyzes, and provides insights into ga
 - **Rating System**: View and analyze game ratings from the community
 - **Language Support**: Track supported languages for games and analyze translation coverage
 - **Character Statistics**: View character statistics and dialogue distribution
+- **Discord Bot Integration**: Get notified about game updates via Discord
 
 ## Tech Stack
 
 - **Backend**: Laravel 12 with PHP 8.4
 - **Frontend**: Livewire, TypeScript, Tailwind CSS
-- **Database**: PostgreSQL 17
+- **Database**: PostgreSQL 17 with PgBouncer
 - **Caching**: Redis
 - **Development**: DDEV for local development environment
 - **Visualization**: ECharts for data visualization
+- **Deployment**: Docker for containerized deployment
+- **API**: RESTful API endpoints for Discord bot integration
 
 ## Getting Started
 
@@ -84,6 +87,36 @@ The application uses several key models:
 - **DialogueLine**: Game dialogue content
 - **Character**: Characters in games
 - **Language**: Supported languages for games
+- **DiscordUser**: Discord users subscribed to game updates
+
+## Docker Deployment
+
+The application can be deployed using Docker in production environments:
+
+1. Configure environment variables in `.env`
+2. Use the provided `docker-compose.yml` to start the application:
+   ```bash
+   docker compose up -d
+   ```
+
+This will start the following containers:
+- Web application (Laravel)
+- PostgreSQL database with PgBouncer
+- Redis for caching
+
+## Discord Bot Integration
+
+The application includes a Discord bot integration that provides:
+
+- Game update notifications for subscribers
+- Game search functionality
+- User subscription management
+
+Bot API endpoints are available at:
+- `/api/search` - Search for games
+- `/api/updates` - Get recent game updates
+- `/api/subscribe` - Subscribe to update notifications
+- `/api/unsubscribe` - Unsubscribe from notifications
 
 ## Contributing
 
@@ -107,7 +140,7 @@ ddev composer test
 
 ## Deployment
 
-The application is deployed at [FVN.li](https://fvn.li). It can be deployed using Docker in production environments. Configuration for production deployment is available in the `.ddev` directory.
+The application is deployed at [FVN.li](https://fvn.li). Deployment is handled through GitHub Actions which builds and publishes Docker images to GitHub Container Registry.
 
 ## License
 
@@ -121,3 +154,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Livewire](https://livewire.laravel.com) - Full-stack framework for Laravel
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
 - [ECharts](https://echarts.apache.org) - Charting library
+- [Discord](https://discord.com) - Platform for bot integration
