@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Services\ItchAuthService;
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RefreshGame extends Command

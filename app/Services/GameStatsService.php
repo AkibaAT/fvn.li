@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Normalizer;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -266,6 +267,16 @@ readonly class GameStatsService
             foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
                 // First, collect unique texts for this chunk
                 $uniqueTexts = [];
+
+                // Normalize text to remove diacritical marks
+                foreach ($chunk as $id => $line) {
+                    $text = $line['text'] ?? '';
+                    if (empty($text)) {
+                        continue;
+                    }
+
+                    $chunk[$id]['text'] = $this->processText($text);
+                }
 
                 foreach ($chunk as $line) {
                     $text = $line['text'] ?? '';
@@ -591,5 +602,56 @@ readonly class GameStatsService
         }
 
         return substr($current, 0, -1) . chr(ord($lastChar) + 1);
+    }
+
+    /**
+     * Strip all diacritical marks from text.
+     *
+     * @param string $text The input text.
+     * @return string The text with diacritical marks removed.
+     */
+    protected function stripDiacritics(string $text): string {
+        // Normalize to decomposed form (so diacritics are separate)
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+        // Remove all combining diacritical marks
+        return preg_replace('/\p{Mn}/u', '', $decomposed);
+    }
+
+    /**
+     * Process the text:
+     * - If it's Zalgo text (excessive diacritics), strip diacritical marks.
+     * - Otherwise, normalize to NFC to preserve diacritical marks.
+     *
+     * @param string $text The input text.
+     * @return string The processed text.
+     */
+    protected function processText(string $text): string {
+        if ($this->isZalgo($text)) {
+            // Zalgo text: remove all diacritical marks.
+            return $this->stripDiacritics($text);
+        } else {
+            // Normal text: normalize to NFC to ensure canonical form (preserving diacritics).
+            return Normalizer::normalize($text, Normalizer::FORM_C);
+        }
+    }
+
+    /**
+     * Check if the given text is likely Zalgo text.
+     *
+     * @param string $text The input text.
+     * @param float $threshold The ratio of diacritics to total characters to trigger stripping.
+     * @return bool Returns true if the text is considered Zalgo.
+     */
+    protected function isZalgo(string $text, float $threshold = 0.9): bool {
+        // Normalize to decomposed form so that diacritical marks are separate characters
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+        // Total number of characters in decomposed string
+        $totalLength = mb_strlen($decomposed, 'UTF-8');
+        // Count all combining diacritical marks (Unicode category Mn)
+        preg_match_all('/\p{Mn}/u', $decomposed, $matches);
+        $diacriticCount = count($matches[0]);
+
+        // Avoid division by zero, and check if ratio exceeds threshold
+        return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
     }
 }
