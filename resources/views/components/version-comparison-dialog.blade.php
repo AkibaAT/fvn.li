@@ -27,7 +27,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="mb-8" x-data="{ activeTab: 'character' }">
             <ul class="flex border-b border-gray-700 text-sm" role="tablist">
                 <li class="mr-1">
@@ -57,16 +57,21 @@
                     </button>
                 </li>
             </ul>
-            
+
             <!-- Character Stats Tab -->
             <div class="pt-4" x-show="activeTab === 'character'" role="tabpanel" id="character-panel" aria-labelledby="character-tab">
                 <div class="overflow-x-auto max-w-[calc(100vw-3rem)] -mx-6 px-6">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-gray-700">
-                                <th class="text-left py-2 px-3 font-medium">Character</th>
-                                @foreach ($versionComparisonStats['languages'] as $lang)
-                                    <th class="text-right py-2 px-3 font-medium" colspan="3">
+                                <th class="text-left py-2 px-2 font-medium">Character</th>
+                                @foreach ($versionComparisonStats['languages'] as $index => $lang)
+                                    @if ($index > 0)
+                                    <th class="w-px p-0 m-0 bg-gray-600">
+                                        <div class="h-full w-px">&nbsp;</div>
+                                    </th>
+                                    @endif
+                                    <th class="text-right py-2 px-2 font-medium" colspan="3">
                                         <div class="flex items-center justify-end gap-2">
                                             <span class="fi fi-{{ $lang['flag'] }} rounded-xs"></span>
                                             <span>{{ $lang['name'] }}</span>
@@ -75,32 +80,42 @@
                                 @endforeach
                             </tr>
                             <tr class="border-b border-gray-700 text-xs text-gray-400">
-                                <th class="text-left py-2 px-3"></th>
-                                @foreach ($versionComparisonStats['languages'] as $lang)
-                                    <th class="text-right py-2 px-1">Old</th>
-                                    <th class="text-right py-2 px-1">New</th>
-                                    <th class="text-right py-2 px-1">Diff</th>
+                                <th class="text-left py-2 px-2"></th>
+                                @foreach ($versionComparisonStats['languages'] as $index => $lang)
+                                    @if ($index > 0)
+                                    <th class="w-px p-0 m-0 bg-gray-600">
+                                        <div class="h-full w-px">&nbsp;</div>
+                                    </th>
+                                    @endif
+                                    <th class="text-right py-2 px-2">Old</th>
+                                    <th class="text-right py-2 px-2">New</th>
+                                    <th class="text-right py-2 px-2">Diff</th>
                                 @endforeach
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-700">
                             @foreach ($versionComparisonStats['characters'] as $character)
                                 <tr class="hover:bg-gray-700/50">
-                                    <td class="py-2 px-3">{{ $character }}</td>
-                                    @foreach ($versionComparisonStats['languages'] as $lang)
+                                    <td class="py-2 px-2">{{ $character }}</td>
+                                    @foreach ($versionComparisonStats['languages'] as $index => $lang)
+                                        @if ($index > 0)
+                                        <td class="w-px p-0 m-0 bg-gray-600">
+                                            <div class="h-full w-px">&nbsp;</div>
+                                        </td>
+                                        @endif
                                         @php
                                             $stats = $versionComparisonStats['characterDiffs'][$character][$lang['id']] ?? null;
                                             $fromCount = $stats ? $stats['from'] : 0;
                                             $toCount = $stats ? $stats['to'] : 0;
                                             $diff = $stats ? $stats['diff'] : 0;
                                         @endphp
-                                        <td class="py-2 px-1 text-right tabular-nums text-gray-400">
+                                        <td class="py-2 px-2 text-right tabular-nums text-gray-400">
                                             {{ $fromCount ? number_format($fromCount) : '-' }}
                                         </td>
-                                        <td class="py-2 px-1 text-right tabular-nums">
+                                        <td class="py-2 px-2 text-right tabular-nums">
                                             {{ $toCount ? number_format($toCount) : '-' }}
                                         </td>
-                                        <td class="py-2 px-1 text-right tabular-nums {{ $diff > 0 ? 'text-green-400' : ($diff < 0 ? 'text-red-400' : 'text-gray-400') }}">
+                                        <td class="py-2 px-2 text-right tabular-nums {{ $diff > 0 ? 'text-green-400' : ($diff < 0 ? 'text-red-400' : 'text-gray-400') }}">
                                             @if ($diff != 0)
                                                 {{ $diff > 0 ? '+' : '' }}{{ number_format($diff) }}
                                             @else
@@ -113,20 +128,25 @@
                         </tbody>
                         <tfoot class="border-t border-gray-700 font-medium">
                             <tr>
-                                <td class="py-2 px-3">Total</td>
-                                @foreach ($versionComparisonStats['languages'] as $lang)
+                                <td class="py-2 px-2">Total</td>
+                                @foreach ($versionComparisonStats['languages'] as $index => $lang)
+                                    @if ($index > 0)
+                                    <td class="w-px p-0 m-0 bg-gray-600">
+                                        <div class="h-full w-px">&nbsp;</div>
+                                    </td>
+                                    @endif
                                     @php
                                         $fromTotal = $versionComparisonStats['languageTotals']['from'][$lang['id']] ?? 0;
                                         $toTotal = $versionComparisonStats['languageTotals']['to'][$lang['id']] ?? 0;
                                         $diffTotal = $versionComparisonStats['languageTotals']['diff'][$lang['id']] ?? 0;
                                     @endphp
-                                    <td class="py-2 px-1 text-right tabular-nums text-gray-400">
+                                    <td class="py-2 px-2 text-right tabular-nums text-gray-400">
                                         {{ $fromTotal ? number_format($fromTotal) : '-' }}
                                     </td>
-                                    <td class="py-2 px-1 text-right tabular-nums">
+                                    <td class="py-2 px-2 text-right tabular-nums">
                                         {{ $toTotal ? number_format($toTotal) : '-' }}
                                     </td>
-                                    <td class="py-2 px-1 text-right tabular-nums {{ $diffTotal > 0 ? 'text-green-400' : ($diffTotal < 0 ? 'text-red-400' : 'text-gray-400') }}">
+                                    <td class="py-2 px-2 text-right tabular-nums {{ $diffTotal > 0 ? 'text-green-400' : ($diffTotal < 0 ? 'text-red-400' : 'text-gray-400') }}">
                                         @if ($diffTotal != 0)
                                             {{ $diffTotal > 0 ? '+' : '' }}{{ number_format($diffTotal) }}
                                         @else
@@ -139,7 +159,7 @@
                     </table>
                 </div>
             </div>
-            
+
             <!-- File Stats Tab -->
             <div class="pt-4" x-show="activeTab === 'file'" role="tabpanel" id="file-panel" aria-labelledby="file-tab">
                 <div class="space-y-6">
@@ -184,7 +204,7 @@
                             @endforeach
                         </div>
                     </div>
-                    
+
                     <!-- Detailed Breakdown -->
                     <div class="space-y-6">
                         @foreach ($versionComparisonStats['fileCategories'] as $category)
@@ -270,4 +290,4 @@
     @endif
 
     <x-dialog-footer/>
-</dialog> 
+</dialog>
