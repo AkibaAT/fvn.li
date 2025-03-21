@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Game;
-use App\Models\Rating;
 use App\Observers\GameObserver;
 use App\Observers\RatingObserver;
 use App\Services\LanguageMappingService;
