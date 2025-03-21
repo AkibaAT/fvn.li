@@ -10,6 +10,34 @@ use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
+| Current Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::get('by-url/{url}', function ($url) {
+    $game = Game::firstWhere('url', $url);
+    if (! $game) {
+        abort(404);
+    }
+
+    return redirect(status: 301)->route('games.show', $game);
+})->where('url', '.*');
+
+// Shorter caching
+Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
+    Route::get('/', GameList::class)->name('games.index');
+    Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+    Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser');
+});
+
+// Longer caching
+Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () {
+    Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
+    Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Permanent Redirects for old URLs
 |--------------------------------------------------------------------------
 */
@@ -109,32 +137,4 @@ Route::get('by-game-id/{game:game_id}', function ($gameId) {
     }
 
     return redirect(status: 301)->route('games.show', $slug);
-});
-
-/*
-|--------------------------------------------------------------------------
-| Current Routes
-|--------------------------------------------------------------------------
-*/
-
-Route::get('by-url/{url}', function ($url) {
-    $game = Game::firstWhere('url', $url);
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-})->where('url', '.*');
-
-// Shorter caching
-Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
-    Route::get('/', GameList::class)->name('games.index');
-    Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
-    Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser');
-});
-
-// Longer caching
-Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () {
-    Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
-    Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
 });
