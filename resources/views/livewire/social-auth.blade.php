@@ -6,9 +6,13 @@
     >
         @auth
             <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
-                    {{ substr(auth()->user()->name, 0, 1) }}
-                </div>
+                @if(auth()->user()->avatar)
+                    <img src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" class="w-6 h-6 rounded-full">
+                @else
+                    <div class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                        {{ substr(auth()->user()->name, 0, 1) }}
+                    </div>
+                @endif
                 <span class="hidden sm:inline">{{ auth()->user()->name }}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -33,7 +37,7 @@
                 @auth
                     Account
                 @else
-                    Sign in
+                    Sign in with
                 @endauth
             </h2>
             <button
@@ -50,9 +54,13 @@
         @auth
             <div class="py-4 space-y-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center text-lg font-bold">
-                        {{ substr(auth()->user()->name, 0, 1) }}
-                    </div>
+                    @if(auth()->user()->avatar)
+                        <img src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" class="w-10 h-10 rounded-full">
+                    @else
+                        <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center text-lg font-bold">
+                            {{ substr(auth()->user()->name, 0, 1) }}
+                        </div>
+                    @endif
                     <div>
                         <div class="font-medium text-gray-900 dark:text-gray-100">{{ auth()->user()->name }}</div>
                         @if(auth()->user()->email)
@@ -76,16 +84,6 @@
         @else
             <div class="py-4 space-y-3">
                 <a
-                    href="{{ route('auth.redirect', ['provider' => 'google']) }}"
-                    class="w-full flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                    <svg class="h-5 w-5 mr-3" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.5c-.33 3.8-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z" />
-                    </svg>
-                    <span>Google</span>
-                </a>
-
-                <a
                     href="{{ route('auth.redirect', ['provider' => 'discord']) }}"
                     class="w-full flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
@@ -94,11 +92,13 @@
                 </a>
 
                 <a
-                    href="{{ route('auth.redirect', ['provider' => 'telegram']) }}"
+                    href="{{ route('auth.redirect', ['provider' => 'google']) }}"
                     class="w-full flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                    <i class="icon-telegram h-5 w-5 mr-3 text-blue-500"></i>
-                    <span>Telegram</span>
+                    <svg class="h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.5c-.33 3.8-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z" />
+                    </svg>
+                    <span>Google</span>
                 </a>
 
                 <a
@@ -110,6 +110,14 @@
                         <path d="M30.31 23.985l.003.158-7.83 11.375c-1.268-.058-2.54.165-3.748.662a8.14 8.14 0 0 0-1.498.8L.042 29.893s-.398 6.546 1.26 11.424l12.156 5.016c.6 2.728 2.48 5.12 5.242 6.27a8.88 8.88 0 0 0 11.603-4.782 8.89 8.89 0 0 0 .684-3.656L42.18 36.16l.275.005c6.705 0 12.155-5.466 12.155-12.18s-5.44-12.16-12.155-12.174c-6.702 0-12.155 5.46-12.155 12.174zm-1.88 23.05c-1.454 3.5-5.466 5.147-8.953 3.694a6.84 6.84 0 0 1-3.524-3.362l3.957 1.64a5.04 5.04 0 0 0 6.591-2.719 5.05 5.05 0 0 0-2.715-6.601l-4.1-1.695c1.578-.6 3.372-.62 5.05.077 1.7.703 3 2.027 3.696 3.72s.692 3.56-.01 5.246M42.466 32.1a8.12 8.12 0 0 1-8.098-8.113a8.12 8.12 0 0 1 8.098-8.111a8.12 8.12 0 0 1 8.1 8.111a8.12 8.12 0 0 1-8.1 8.113m-6.068-8.126a6.09 6.09 0 0 1 6.08-6.095c3.355 0 6.084 2.73 6.084 6.095a6.09 6.09 0 0 1-6.084 6.093a6.09 6.09 0 0 1-6.081-6.093z" fill="#fff"/>
                     </svg>
                     <span>Steam</span>
+                </a>
+
+                <a
+                    href="{{ route('auth.telegram') }}"
+                    class="w-full flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                    <i class="icon-telegram h-5 w-5 mr-3 text-blue-500"></i>
+                    <span>Telegram</span>
                 </a>
             </div>
         @endauth

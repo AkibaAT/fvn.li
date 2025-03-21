@@ -24,20 +24,17 @@ Route::get('by-url/{url}', function ($url) {
     return redirect(status: 301)->route('games.show', $game);
 })->where('url', '.*');
 
-// Shorter caching
-Route::middleware('cache.headers:public;max_age=3600;etag')->group(function () {
-    Route::get('/', GameList::class)->name('games.index');
-    Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
-    Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser');
-});
+Route::get('/', GameList::class)->name('games.index');
+Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser');
 
-// Longer caching
-Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () {
-    Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
-    Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
-});
+Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
+Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
 
 // Social Authentication Routes
+Route::get('/auth/telegram', function() {
+    return view('auth.telegram-login');
+})->name('auth.telegram');
 Route::get('/auth/{provider}/redirect', [App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])
     ->name('auth.redirect');
 Route::get('/auth/{provider}/callback', [App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])

@@ -1,6 +1,6 @@
 @php use App\Models\Game; @endphp
 <div class="bg-gray-100 dark:bg-gray-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-4 flex items-center justify-between sticky top-0 z-10 bg-gray-100 dark:bg-gray-900 py-4">
             @if ($gameId)
                 <a href="{{ route('games.show', Game::find($gameId)) }}"
@@ -19,14 +19,15 @@
                     Back to Game List
                 </a>
             @endif
-
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Dialogue Browser
-            </h1>
         </div>
 
         <!-- Filters section -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    Dialogue Browser
+                </h1>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Game</label>

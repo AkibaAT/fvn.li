@@ -28,8 +28,7 @@ class SocialAuthController extends Controller
 
             case 'google':
                 return Socialite::driver($provider)
-                    ->setScopes(['openid'])
-                    ->stateless()
+                    ->setScopes(['openid', 'email', 'profile'])
                     ->redirect();
 
             default:
@@ -43,7 +42,26 @@ class SocialAuthController extends Controller
     public function handleProviderCallback(string $provider)
     {
         try {
-            $socialiteUser = Socialite::driver($provider)->user();
+            // Special handling for Telegram widget data
+            if ($provider === 'telegram') {
+                $data = request()->all();
+                if (empty($data)) {
+                    throw new \Exception('No data received from Telegram');
+                }
+
+                // Create a SocialiteUser instance from the Telegram data
+                $socialiteUser = new \Laravel\Socialite\Two\User();
+                $socialiteUser->id = $data['id'];
+                $socialiteUser->name = $data['first_name'] . (isset($data['last_name']) ? ' ' . $data['last_name'] : '');
+                $socialiteUser->nickname = $data['username'] ?? null;
+                $socialiteUser->avatar = $data['photo_url'] ?? null;
+                
+                // Store the raw data for provider_data
+                $socialiteUser->user = $data;
+            } else {
+                $socialiteUser = Socialite::driver($provider)->user();
+            }
+
             $user = Auth::user() ?? $this->findOrCreateUser($socialiteUser, $provider);
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
             Auth::login($user);
@@ -83,8 +101,8 @@ class SocialAuthController extends Controller
             ?? $socialiteUser->getNickname()
             ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
 
-        $email = $socialiteUser->getEmail(); // May be null
-        $avatar = $socialiteUser->getAvatar(); // May be null
+        $email = $socialiteUser->getEmail();
+        $avatar = $socialiteUser->getAvatar();
 
         // If user has email and we need to link with existing account
         $user = null;
@@ -103,6 +121,33 @@ class SocialAuthController extends Controller
         }
 
         return $user;
+    }
+
+    /**
+     * Get the appropriate name from the socialite user based on provider.
+     */
+    private function getProviderSpecificName($socialiteUser, string $provider): string
+    {
+        $userData = $socialiteUser->user ?? [];
+        
+        switch ($provider) {
+            case 'google':
+                return $userData['given_name'] 
+                    ?? $socialiteUser->getName()
+                    ?? $socialiteUser->getNickname()
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                
+            case 'discord':
+                return $userData['global_name'] 
+                    ?? $socialiteUser->getName()
+                    ?? $socialiteUser->getNickname()
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                
+            default:
+                return $socialiteUser->getName()
+                    ?? $socialiteUser->getNickname()
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+        }
     }
 
     /**
@@ -134,6 +179,12 @@ class SocialAuthController extends Controller
                 'avatar' => $socialiteUser->getAvatar()
             ];
         }
+
+        // Update the user's information
+        $user->update([
+            'name' => $this->getProviderSpecificName($socialiteUser, $provider),
+            'avatar' => $socialiteUser->getAvatar() ?? $user->avatar,
+        ]);
 
         $user->socialAccounts()->updateOrCreate(
             [

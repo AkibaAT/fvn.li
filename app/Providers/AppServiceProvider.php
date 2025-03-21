@@ -32,9 +32,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Game::observe(GameObserver::class);
         Rating::observe(RatingObserver::class);
-        Livewire::listen('mount', function ($component) {
-            $component->enableBackButtonCache();
-        });
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('discord', \SocialiteProviders\Discord\Provider::class);
             $event->extendSocialite('google', \SocialiteProviders\Google\Provider::class);
