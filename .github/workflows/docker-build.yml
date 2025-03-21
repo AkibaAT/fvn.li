@@ -51,8 +51,12 @@ jobs:
           platforms: linux/${{ matrix.platform }}
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}:${{ github.ref_name }}-${{ matrix.platform }}
-          cache-from: type=gha,scope=${{ github.ref_name }}-${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ github.ref_name }}-${{ matrix.platform }}
+          cache-from: |
+            type=gha,scope=docker-cache-${{ matrix.platform }}
+            type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-${{ matrix.platform }}
+          cache-to: |
+            type=gha,mode=max,scope=docker-cache-${{ matrix.platform }}
+            type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-${{ matrix.platform }},mode=max
           outputs: type=image,name=ghcr.io/${{ env.REPO_LOWER }}:${{ github.ref_name }}-${{ matrix.platform }},push-by-digest=false,push=true,name-canonical=false
 
   merge-manifests:
@@ -142,5 +146,5 @@ jobs:
             docker compose down
             docker compose up -d
             docker compose exec app php artisan config:clear
-            docker compose exec app php artisan migrate
+            docker compose exec app php artisan migrate --force
             docker compose ps

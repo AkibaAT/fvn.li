@@ -1,36 +1,13 @@
-# Stage 1: Composer dependencies
-FROM composer:2 AS composer-builder
-WORKDIR /app
-COPY . ./
-RUN apk add --virtual build-dependencies --no-cache \
-        autoconf \
-        gcc \
-        g++ \
-        make \
-        freetype-dev \
-        zlib-dev \
-        libpng-dev \
-        libjpeg-turbo-dev \
-        libmcrypt-dev \
-        openssl \
-        ca-certificates \
-        libxml2-dev \
-        oniguruma-dev \
-    && docker-php-ext-configure gd --enable-gd --with-freetype=/usr/include/freetype2/ --with-jpeg=/usr/include/ \
-    && docker-php-ext-install gd \
-    && docker-php-ext-enable gd \
-    && composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
-
-# Stage 2: Node.js dependencies and frontend build
-FROM node:22 AS frontend-builder
-WORKDIR /app
-COPY --from=composer-builder /app /app
-RUN npm ci \
-    && npm run build
-
-# Stage 3: Final image
 FROM dunglas/frankenphp:php8.4
-# Install PHP extensions and dependencies
+
+# Set working directory
+WORKDIR /app
+
+# Update Node.js to version 22 (LTS)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs
+
+# Install system dependencies
 RUN apt-get update \
     && apt-get upgrade -yqq \
     && apt-get install -yqq --no-install-recommends --show-progress \
@@ -46,6 +23,7 @@ RUN apt-get update \
         supervisor \
         unzip \
         wget \
+        git \
     # Install PHP extensions
     && install-php-extensions \
         bcmath \
@@ -65,17 +43,25 @@ RUN apt-get update \
         redis \
         sockets \
         zip \
-    && cp ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini \
-    && apt-get -y autoremove \
-    && apt-get clean \
-    && docker-php-source delete \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-    && rm -f /var/log/lastlog /var/log/faillog
+    && cp ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini
 
-WORKDIR /app
+# Verify Node.js version
+RUN node --version && npm --version
 
-# Copy built assets from frontend-builder
-COPY --from=frontend-builder /app /app
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Copy application
+COPY . .
+
+# Install dependencies with cache mount
+RUN --mount=type=cache,target=/root/.composer/cache,sharing=locked \
+    composer install --no-dev --optimize-autoloader --no-interaction
+
+# Install Node.js dependencies and build assets with cache mount
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci \
+    && npm run build
 
 # Directory setup and config
 RUN mkdir -p storage/framework/cache/data \
@@ -90,6 +76,11 @@ RUN mkdir -p storage/framework/cache/data \
     && php artisan livewire:publish --assets \
     && mv docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini \
     && rm -rf docker \
+    && apt-get -y autoremove \
+    && apt-get clean \
+    && docker-php-source delete \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+    && rm -f /var/log/lastlog /var/log/faillog \
     && chown -R www-data:www-data /app
 
 ENTRYPOINT ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]
