@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\SocialAccount;
 use App\Models\User;
+use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -46,16 +49,16 @@ class SocialAuthController extends Controller
             if ($provider === 'telegram') {
                 $data = request()->all();
                 if (empty($data)) {
-                    throw new \Exception('No data received from Telegram');
+                    throw new Exception('No data received from Telegram');
                 }
 
                 // Create a SocialiteUser instance from the Telegram data
-                $socialiteUser = new \Laravel\Socialite\Two\User();
+                $socialiteUser = new \Laravel\Socialite\Two\User;
                 $socialiteUser->id = $data['id'];
                 $socialiteUser->name = $data['first_name'] . (isset($data['last_name']) ? ' ' . $data['last_name'] : '');
                 $socialiteUser->nickname = $data['username'] ?? null;
                 $socialiteUser->avatar = $data['photo_url'] ?? null;
-                
+
                 // Store the raw data for provider_data
                 $socialiteUser->user = $data;
             } else {
@@ -68,9 +71,10 @@ class SocialAuthController extends Controller
 
             // Get the intended URL or fall back to games.index
             $redirectTo = session()->pull('url.intended', route('games.index'));
+
             return redirect($redirectTo);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log the error for debugging
             logger()->error("Social auth error with {$provider}: " . $e->getMessage());
 
@@ -111,7 +115,7 @@ class SocialAuthController extends Controller
         }
 
         // If user doesn't exist, create a new one with minimal info
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
                 'name' => $name,
                 'email' => $email, // This can be null with our updated schema
@@ -129,20 +133,20 @@ class SocialAuthController extends Controller
     private function getProviderSpecificName($socialiteUser, string $provider): string
     {
         $userData = $socialiteUser->user ?? [];
-        
+
         switch ($provider) {
             case 'google':
-                return $userData['given_name'] 
+                return $userData['given_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
                     ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
-                
+
             case 'discord':
-                return $userData['global_name'] 
+                return $userData['global_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
                     ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
-                
+
             default:
                 return $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
@@ -159,7 +163,7 @@ class SocialAuthController extends Controller
         $tokenData = [
             'token' => $socialiteUser->token ?? null,
             'refresh_token' => $socialiteUser->refreshToken ?? null,
-            'token_expires_at' => null
+            'token_expires_at' => null,
         ];
 
         // Only calculate expiry if we have both a token and an expiry time
@@ -176,7 +180,7 @@ class SocialAuthController extends Controller
                 'id' => $socialiteUser->getId(),
                 'name' => $socialiteUser->getName(),
                 'nickname' => $socialiteUser->getNickname(),
-                'avatar' => $socialiteUser->getAvatar()
+                'avatar' => $socialiteUser->getAvatar(),
             ];
         }
 
@@ -192,7 +196,7 @@ class SocialAuthController extends Controller
                 'provider_id' => $socialiteUser->getId(),
             ],
             array_merge($tokenData, [
-                'provider_data' => $providerData
+                'provider_data' => $providerData,
             ])
         );
     }

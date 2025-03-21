@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use Illuminate\Support\Facades\Auth;
-use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 class SocialAuth extends Component
 {
@@ -14,7 +14,7 @@ class SocialAuth extends Component
 
     public function toggleLoginDialog(): void
     {
-        $this->showLoginDialog = !$this->showLoginDialog;
+        $this->showLoginDialog = ! $this->showLoginDialog;
     }
 
     public function logout(): void

@@ -6,7 +6,7 @@
     >
         @auth
             <div class="flex items-center gap-2">
-                @if(auth()->user()->avatar)
+                @if (auth()->user()->avatar)
                     <img src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" class="w-6 h-6 rounded-full">
                 @else
                     <div class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
@@ -54,7 +54,7 @@
         @auth
             <div class="py-4 space-y-4">
                 <div class="flex items-center gap-3">
-                    @if(auth()->user()->avatar)
+                    @if (auth()->user()->avatar)
                         <img src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" class="w-10 h-10 rounded-full">
                     @else
                         <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center text-lg font-bold">
@@ -63,7 +63,7 @@
                     @endif
                     <div>
                         <div class="font-medium text-gray-900 dark:text-gray-100">{{ auth()->user()->name }}</div>
-                        @if(auth()->user()->email)
+                        @if (auth()->user()->email)
                             <div class="text-sm text-gray-500 dark:text-gray-400">{{ auth()->user()->email }}</div>
                         @endif
                     </div>

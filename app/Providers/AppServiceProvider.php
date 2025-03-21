@@ -10,7 +10,6 @@ use App\Observers\RatingObserver;
 use App\Services\LanguageMappingService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
-use Livewire\Livewire;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider

@@ -33,7 +33,7 @@
     <meta name="twitter:image" content="{{ $metaTags['image'] ?? asset('favicon.ico') }}">
 
     @vite(['resources/css/app.css'])
-    
+
     {{-- Telegram Login Widget --}}
     <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 </head>
