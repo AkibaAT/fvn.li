@@ -1,6 +1,6 @@
 @php use App\Models\Game; @endphp
 <div class="bg-gray-100 dark:bg-gray-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
         <div class="mb-4 flex items-center justify-between sticky top-0 z-10 bg-gray-100 dark:bg-gray-900 py-4">
             @if ($gameId)
                 <a href="{{ route('games.show', Game::find($gameId)) }}"

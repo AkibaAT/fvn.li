@@ -76,6 +76,14 @@ class Game extends Model
     }
 
     /**
+     * Get all user progress records for this game.
+     */
+    public function userProgress(): HasMany
+    {
+        return $this->hasMany(UserGameProgress::class);
+    }
+
+    /**
      * Get the supported languages collection for the latest version.
      * Only includes languages that are marked as available.
      */

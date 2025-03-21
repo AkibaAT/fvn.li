@@ -40,16 +40,16 @@
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
     <x-header />
 
-    <main class="flex-grow py-3">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <main class="py-3">
+        <div class="max-w-7xl mx-auto">
             {{ $slot }}
         </div>
     </main>
 
     @stack('scripts')
     <!-- Footer -->
-    <footer class="mt-auto py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <footer class="py-8">
+        <div class="max-w-7xl mx-auto">
             <!-- Horizontal Line -->
             <div class="border-t border-gray-200 dark:border-gray-700"></div>
 
@@ -130,5 +130,6 @@
             </div>
         </div>
     </footer>
+    @stack('before-body-end')
 </body>
 </html>

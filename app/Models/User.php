@@ -51,4 +51,38 @@ class User extends Authenticatable
     {
         return $this->hasMany(SocialAccount::class);
     }
+
+    /**
+     * Get the user's VN lists.
+     */
+    public function vnLists(): HasMany
+    {
+        return $this->hasMany(VnList::class)->latest();
+    }
+
+    /**
+     * Get the user's game progress records.
+     */
+    public function gameProgress(): HasMany
+    {
+        return $this->hasMany(UserGameProgress::class);
+    }
+
+    /**
+     * Initialize default VN lists for a new user.
+     */
+    public function initializeDefaultLists(): void
+    {
+        $defaultLists = [
+            ['name' => 'Currently Reading', 'type' => 'reading', 'is_default' => true],
+            ['name' => 'Completed', 'type' => 'completed', 'is_default' => true],
+            ['name' => 'Plan to Read', 'type' => 'plan_to_read', 'is_default' => true],
+            ['name' => 'On Hold', 'type' => 'on_hold', 'is_default' => true],
+            ['name' => 'Dropped', 'type' => 'dropped', 'is_default' => true],
+        ];
+
+        foreach ($defaultLists as $list) {
+            $this->vnLists()->create($list);
+        }
+    }
 }

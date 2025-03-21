@@ -8,14 +8,17 @@ use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Rating;
+use App\Models\VnList;
 use App\Traits\HasSocialMetaTags;
+use App\Traits\SortsVnLists;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class GameDetail extends Component
 {
-    use HasSocialMetaTags, WithPagination;
+    use HasSocialMetaTags, SortsVnLists, WithPagination;
 
     public Game $game;
 
@@ -143,6 +146,45 @@ class GameDetail extends Component
             );
         }
 
+        // Get user lists containing this game
+        $userLists = null;
+        if (Auth::check()) {
+            $userLists = VnList::with(['entries' => function ($query) {
+                $query->where('game_id', $this->game->id);
+            }])
+                ->where('user_id', Auth::id())
+                ->whereHas('entries', function ($query) {
+                    $query->where('game_id', $this->game->id);
+                })
+                ->get();
+
+            // Apply the custom list ordering
+            if ($userLists->isNotEmpty()) {
+                $userLists = $this->sortListsByType($userLists);
+            }
+        }
+
+        // Get public lists containing this game (excluding user's own lists)
+        $publicLists = null;
+        $publicLists = VnList::with(['entries' => function ($query) {
+            $query->where('game_id', $this->game->id);
+        }, 'user'])
+            ->where('is_public', true)
+            ->whereHas('entries', function ($query) {
+                $query->where('game_id', $this->game->id);
+            })
+            ->when(Auth::check(), function ($query) {
+                $query->where('user_id', '!=', Auth::id());
+            })
+            ->limit(5)
+            ->latest()
+            ->get();
+
+        // Apply the custom list ordering
+        if ($publicLists->isNotEmpty()) {
+            $publicLists = $this->sortListsByType($publicLists);
+        }
+
         $metaTags = $this->getMetaTags();
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
@@ -169,6 +211,8 @@ class GameDetail extends Component
             'metaTags' => $this->getMetaTags(),
             'availableRatings' => $availableRatings,
             'versionCharacterCounts' => $versionCharacterCounts,
+            'userLists' => $userLists,
+            'publicLists' => $publicLists,
         ])
             ->layout('components.layouts.app', [
                 'metaTags' => $metaTags,

@@ -1,4 +1,8 @@
-@props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'selectedLanguages' => [], 'nsfw' => false, 'sfw' => false])
+@props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'selectedLanguages' => [], 'nsfw' => false, 'sfw' => false, 'userLists' => null, 'publicLists' => null])
+
+@php
+    use Illuminate\Support\Facades\Auth;
+@endphp
 
 <div
     class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
@@ -27,7 +31,7 @@
             @endif
 
             <div class="flex flex-col gap-2 mt-2">
-                <div class="min-w-0">
+                <div class="min-w-0 flex flex-wrap items-center gap-2">
                     @if ($game->is_nsfw)
                         <button
                             wire:click="$toggle('nsfw')"
@@ -49,6 +53,43 @@
                             SFW
                         </button>
                     @endif
+
+                    @auth
+                        @php
+                            $defaultList = Auth::user()->vnLists()
+                                ->where('is_default', true)
+                                ->whereHas('entries', function($query) use ($game) {
+                                    $query->where('game_id', $game->id);
+                                })
+                                ->first();
+                        @endphp
+                        <div data-list-tags="{{ $game->id }}" class="flex gap-2">
+                            @if ($defaultList)
+                                <span
+                                    data-list-type="{{ $defaultList->type }}"
+                                    class="px-2 py-1 text-xs font-semibold rounded-full
+                                        @if ($defaultList->type === 'reading')
+                                            bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                        @elseif ($defaultList->type === 'completed')
+                                            bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                        @elseif ($defaultList->type === 'plan_to_read')
+                                            bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                        @elseif ($defaultList->type === 'on_hold')
+                                            bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                        @elseif ($defaultList->type === 'dropped')
+                                            bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                        @endif"
+                                >
+                                    {{ ucwords(str_replace('_', ' ', $defaultList->type)) }}
+                                </span>
+                                @if ($defaultList->is_public)
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                        Public
+                                    </span>
+                                @endif
+                            @endif
+                        </div>
+                    @endauth
                 </div>
 
                 <div class="flex items-center gap-2">

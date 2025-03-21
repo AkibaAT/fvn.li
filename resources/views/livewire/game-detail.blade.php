@@ -1,5 +1,5 @@
 <div class="bg-gray-100 dark:bg-gray-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
         <div class="mb-4 flex items-center justify-between sticky top-0 z-10 bg-gray-100 dark:bg-gray-900 py-4">
             <a href="{{ route('games.index') }}"
                class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
@@ -32,50 +32,89 @@
 
         {{-- Game Header --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6">
-            <div class="flex flex-col sm:flex-row gap-6">
+            <div class="flex flex-col md:flex-row gap-6">
                 @if ($game->is_visible && $game->thumb_url)
                     <div class="shrink-0">
-                        <x-game-thumbnail :game="$game" variant="default"
-                                          class="object-cover rounded-lg max-w-64 max-h-52"/>
+                        <x-game-thumbnail :game="$game" variant="default" class="object-cover rounded-lg max-w-64 max-h-52"/>
                     </div>
                 @endif
 
                 <div class="flex-1">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                             {{ $game->name }}
                         </h1>
-                        <a href="{{ $game->url }}"
-                           target="_blank"
-                           class="text-blue-600 dark:text-blue-400 hover:underline">
+                        <a href="{{ $game->url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
                             Visit Game Page
                         </a>
                     </div>
 
-                    <div class="mt-4 sm:mt-2 flex flex-wrap items-center gap-4">
+                    <div class="flex flex-wrap items-center gap-4 mb-3">
                         <x-platform-icons
                             :platforms="$platforms"
                             :selected-platforms="[]"
                             :clickable="false"/>
 
                         @if ($game->is_nsfw)
-                            <span
-                                class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full">
-                        NSFW
-                    </span>
+                            <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full">
+                                NSFW
+                            </span>
                         @endif
+
+                        {{-- List Tags --}}
+                        @auth
+                            @php
+                                $defaultList = Auth::user()->vnLists()
+                                    ->where('is_default', true)
+                                    ->whereHas('entries', function($query) use ($game) {
+                                        $query->where('game_id', $game->id);
+                                    })
+                                    ->first();
+                            @endphp
+                            <div data-list-tags="{{ $game->id }}" class="flex gap-2">
+                                @if ($defaultList)
+                                    <span
+                                        data-list-type="{{ $defaultList->type }}"
+                                        class="px-2 py-1 text-xs font-semibold rounded-full
+                                            @if ($defaultList->type === 'reading')
+                                                bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                            @elseif ($defaultList->type === 'completed')
+                                                bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                            @elseif ($defaultList->type === 'plan_to_read')
+                                                bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                            @elseif ($defaultList->type === 'on_hold')
+                                                bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                            @elseif ($defaultList->type === 'dropped')
+                                                bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                            @endif"
+                                    >
+                                        {{ ucwords(str_replace('_', ' ', $defaultList->type)) }}
+                                    </span>
+                                    @if ($defaultList->is_public)
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                            Public
+                                        </span>
+                                    @endif
+                                @endif
+                            </div>
+                        @endauth
                     </div>
 
                     @if ($game->authors)
-                        <div class="mt-4 sm:mt-2 text-gray-600 dark:text-gray-300">
+                        <div class="mb-3 text-gray-600 dark:text-gray-300">
                             {!! $game->authors !!}
                         </div>
                     @endif
 
-                    <div class="mt-4 prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
+                    <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
                         {!! $game->description !!}
                     </div>
                 </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <!-- VN List Buttons - Compact Version -->
+                <x-vn-list-buttons :game="$game" :userLists="$userLists ?? null" :publicLists="$publicLists ?? null" />
             </div>
         </div>
 

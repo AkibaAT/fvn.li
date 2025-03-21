@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Livewire\Auth\SocialLoginButtons;
 use App\Models\Game;
 use App\Observers\GameObserver;
 use App\Services\LanguageMappingService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
@@ -35,5 +37,8 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('telegram', \SocialiteProviders\Telegram\Provider::class);
             $event->extendSocialite('steam', \SocialiteProviders\Steam\Provider::class);
         });
+
+        // Register Livewire components
+        Livewire::component('auth.social-login-buttons', SocialLoginButtons::class);
     }
 }
