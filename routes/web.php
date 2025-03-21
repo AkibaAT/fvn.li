@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Livewire\DialogueBrowser;
 use App\Livewire\GameList;
+use App\Livewire\SocialAuth;
 use App\Models\Game;
 use App\Models\Rater;
 use Illuminate\Http\Request;
@@ -35,6 +36,12 @@ Route::middleware('cache.headers:public;max_age=86400;etag')->group(function () 
     Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
     Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
 });
+
+// Social Authentication Routes
+Route::get('/auth/{provider}/redirect', [App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])
+    ->name('auth.redirect');
+Route::get('/auth/{provider}/callback', [App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])
+    ->name('auth.callback');
 
 /*
 |--------------------------------------------------------------------------
