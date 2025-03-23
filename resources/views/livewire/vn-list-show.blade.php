@@ -120,11 +120,26 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                                         @php
-                                            $userProgress = $entry->game->userProgress()
-                                                ->where('user_id', auth()->id())
-                                                ->with('gameVersion')
-                                                ->first();
-                                            $currentVersion = $userProgress?->gameVersion;
+                                            $userProgress = null;
+                                            $currentVersion = null;
+                                            $ownerProgress = null;
+
+                                            if ($isOwner || auth()->check()) {
+                                                // Get the viewing user's progress (for logged-in users viewing lists)
+                                                $userProgress = $entry->game->userProgress()
+                                                    ->where('user_id', auth()->id())
+                                                    ->with('gameVersion')
+                                                    ->first();
+                                                $currentVersion = $userProgress?->gameVersion;
+                                            }
+
+                                            // For public lists, we also need the list owner's progress
+                                            if (!$isOwner && !$userProgress) {
+                                                $ownerProgress = $entry->game->userProgress()
+                                                    ->where('user_id', $vnList->user_id)
+                                                    ->with('gameVersion')
+                                                    ->first();
+                                            }
                                         @endphp
 
                                         @if ($currentVersion)
@@ -184,16 +199,103 @@
                                                     @endif
                                                 @endif
                                             </div>
+                                        @elseif ($ownerProgress && $ownerProgress->gameVersion)
+                                            {{-- Show the list owner's version when viewing a public list --}}
+                                            <div @class([
+                                                'border-l-4 pl-3',
+                                                'border-yellow-500' => $entry->game->latestVersion && $ownerProgress->gameVersion->id !== $entry->game->latestVersion->id,
+                                                'border-transparent' => !$entry->game->latestVersion || $ownerProgress->gameVersion->id === $entry->game->latestVersion->id,
+                                            ])>
+                                                {{ $ownerProgress->gameVersion->version }}
+                                                <span class="text-gray-400">({{ $ownerProgress->gameVersion->published_at->format('Y-m-d') }})</span>
+
+                                                @if ($entry->game->latestVersion && $ownerProgress->gameVersion->id !== $entry->game->latestVersion->id)
+                                                    <div class="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
+                                                        Latest: {{ $entry->game->latestVersion->version }}
+                                                        ({{ $entry->game->latestVersion->published_at->format('Y-m-d') }})
+                                                    </div>
+                                                @endif
+
+                                                @php
+                                                    $ownerVersionStats = $ownerProgress->gameVersion->getStatsForLanguage('eng');
+                                                    $latestVersionStats = $entry->game->latestVersion?->getStatsForLanguage('eng');
+                                                    $wordDiff = null;
+                                                    if ($ownerVersionStats && $latestVersionStats && $ownerVersionStats->words !== $latestVersionStats->words) {
+                                                        $wordDiff = $latestVersionStats->words - $ownerVersionStats->words;
+                                                    }
+                                                @endphp
+
+                                                @if ($wordDiff !== null)
+                                                    <div class="text-xs mt-1">
+                                                        <span class="text-gray-500">Words:</span>
+                                                        {{ number_format($ownerVersionStats->words) }}
+                                                        <span @class([
+                                                            'ml-1',
+                                                            'text-green-600 dark:text-green-400' => $wordDiff > 0,
+                                                            'text-red-600 dark:text-red-400' => $wordDiff < 0,
+                                                        ])>
+                                                            ({{ $wordDiff > 0 ? '+' : '' }}{{ number_format($wordDiff) }})
+                                                        </span>
+                                                    </div>
+                                                @endif
+
+                                                @if ($ownerProgress->gameVersion->id !== $entry->game->latestVersion->id)
+                                                    @php
+                                                        $hasOwnerStats = $ownerProgress->gameVersion->characterStats()->exists();
+                                                        $hasLatestStats = $entry->game->latestVersion->characterStats()->exists();
+                                                    @endphp
+
+                                                    @if ($hasOwnerStats && $hasLatestStats)
+                                                    <button type="button"
+                                                            class="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-flex items-center"
+                                                            onclick="compareGameVersions('{{ $ownerProgress->gameVersion->id }}', '{{ $entry->game->latestVersion->id }}', '{{ $entry->game->id }}')">
+                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                        </svg>
+                                                        Compare changes
+                                                    </button>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        @elseif ($entry->game->latestVersion)
+                                            {{-- Show latest version for public lists when no user progress is available --}}
+                                            <div class="pl-3">
+                                                {{ $entry->game->latestVersion->version }}
+                                                <span class="text-gray-400">({{ $entry->game->latestVersion->published_at->format('Y-m-d') }})</span>
+
+                                                @php
+                                                    $latestVersionStats = $entry->game->latestVersion->getStatsForLanguage('eng');
+                                                @endphp
+
+                                                @if ($latestVersionStats)
+                                                    <div class="text-xs mt-1">
+                                                        <span class="text-gray-500">Words:</span>
+                                                        {{ number_format($latestVersionStats->words) }}
+                                                    </div>
+                                                @endif
+                                            </div>
                                         @else
-                                            Not started
+                                            Not available
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $userProgress?->started_at ? $userProgress->started_at->format('M d, Y') : '-' }}
+                                        @if ($isOwner || (auth()->check() && $userProgress))
+                                            {{ $userProgress?->started_at ? $userProgress->started_at->format('M d, Y') : '-' }}
+                                        @elseif ($ownerProgress)
+                                            {{ $ownerProgress->started_at ? $ownerProgress->started_at->format('M d, Y') : '-' }}
+                                        @else
+                                            -
+                                        @endif
                                     </td>
                                     @if ($vnList->type === 'custom' || $vnList->type === 'completed')
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                                            {{ $userProgress?->completed_at ? $userProgress->completed_at->format('M d, Y') : '-' }}
+                                            @if ($isOwner || (auth()->check() && $userProgress))
+                                                {{ $userProgress?->completed_at ? $userProgress->completed_at->format('M d, Y') : '-' }}
+                                            @elseif ($ownerProgress)
+                                                {{ $ownerProgress->completed_at ? $ownerProgress->completed_at->format('M d, Y') : '-' }}
+                                            @else
+                                                -
+                                            @endif
                                         </td>
                                     @endif
                                     @if ($isOwner)
@@ -309,22 +411,53 @@
                                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <label for="target_list_id-{{ $entry->id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Target List</label>
-                                                        <select id="target_list_id-{{ $entry->id }}" name="target_list_id" class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md py-2 px-3">
-                                                            @php
-                                                                $listsWithThisGame = auth()->user()->vnLists()
-                                                                    ->whereHas('entries', function($query) use ($entry) {
-                                                                        $query->where('game_id', $entry->game_id);
-                                                                    })
-                                                                    ->pluck('id')
-                                                                    ->toArray();
-                                                            @endphp
+                                                        @php
+                                                            $listsWithThisGame = auth()->user()->vnLists()
+                                                                ->whereHas('entries', function($query) use ($entry) {
+                                                                    $query->where('game_id', $entry->game_id);
+                                                                })
+                                                                ->pluck('id')
+                                                                ->toArray();
 
-                                                            @foreach (auth()->user()->vnLists as $targetList)
-                                                                @if ($targetList->id !== $vnList->id && !in_array($targetList->id, $listsWithThisGame))
-                                                                    <option value="{{ $targetList->id }}">
-                                                                        {{ $targetList->name }} ({{ ucfirst(str_replace('_', ' ', $targetList->type)) }})
-                                                                    </option>
-                                                                @endif
+                                                            // Get available lists for this user
+                                                            $availableLists = auth()->user()->vnLists
+                                                                ->filter(function($targetList) use ($vnList, $listsWithThisGame) {
+                                                                    return $targetList->id !== $vnList->id && !in_array($targetList->id, $listsWithThisGame);
+                                                                });
+
+                                                            // Sort lists using the same logic as in SortsVnLists trait
+                                                            $typeOrder = [
+                                                                'plan_to_read' => 1,
+                                                                'reading' => 2,
+                                                                'completed' => 3,
+                                                                'on_hold' => 4,
+                                                                'dropped' => 5,
+                                                            ];
+
+                                                            $availableLists = $availableLists->sort(function ($a, $b) use ($typeOrder) {
+                                                                // If both are standard types, use the predefined order
+                                                                if (isset($typeOrder[$a->type]) && isset($typeOrder[$b->type])) {
+                                                                    return $typeOrder[$a->type] <=> $typeOrder[$b->type];
+                                                                }
+
+                                                                // If only one is a standard type, it comes first
+                                                                if (isset($typeOrder[$a->type])) {
+                                                                    return -1;
+                                                                }
+                                                                if (isset($typeOrder[$b->type])) {
+                                                                    return 1;
+                                                                }
+
+                                                                // Both are custom lists, sort alphabetically by name
+                                                                return $a->name <=> $b->name;
+                                                            });
+                                                        @endphp
+
+                                                        <select id="target_list_id-{{ $entry->id }}" name="target_list_id" class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md py-2 px-3">
+                                                            @foreach ($availableLists as $targetList)
+                                                                <option value="{{ $targetList->id }}">
+                                                                    {{ $targetList->name }} ({{ ucfirst(str_replace('_', ' ', $targetList->type)) }})
+                                                                </option>
                                                             @endforeach
                                                         </select>
                                                         @if (count(auth()->user()->vnLists) - 1 === count($listsWithThisGame))

@@ -520,6 +520,7 @@ class VnListController extends Controller
         $lists = VnList::with(['user', 'entries' => function ($query) {
             $query->with(['game' => function ($q) {
                 $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug');
+                $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
         }])
@@ -559,6 +560,7 @@ class VnListController extends Controller
         $lists = VnList::with(['user', 'entries' => function ($query) {
             $query->with(['game' => function ($q) {
                 $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug');
+                $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
         }])

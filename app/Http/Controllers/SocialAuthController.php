@@ -9,6 +9,7 @@ use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -19,8 +20,23 @@ class SocialAuthController extends Controller
      */
     public function redirectToProvider(string $provider)
     {
-        // Store the current URL as the intended URL
-        session()->put('url.intended', url()->previous());
+        // Only store the URL if it hasn't been set already by the auth middleware
+        if (! session()->has('url.intended')) {
+            $previousUrl = url()->previous();
+            // Don't store the login page as the intended URL
+            if (strpos($previousUrl, route('login')) === false) {
+                session()->put('url.intended', $previousUrl);
+                Log::info('Storing intended URL in redirectToProvider', ['url' => $previousUrl]);
+            } else {
+                // If coming from login page, try to redirect to lists
+                session()->put('url.intended', route('vn-lists.index'));
+            }
+        }
+
+        Log::info('Current session intended URL before OAuth redirect', [
+            'has_intended' => session()->has('url.intended'),
+            'url' => session('url.intended'),
+        ]);
 
         // Provider-specific scope configuration
         switch ($provider) {
@@ -69,8 +85,20 @@ class SocialAuthController extends Controller
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
             Auth::login($user);
 
+            // Log the session for debugging
+            Log::info('Session data:', [
+                'has_intended' => session()->has('url.intended'),
+                'intended_url' => session('url.intended'),
+                'previous_url' => url()->previous(),
+            ]);
+
             // Get the intended URL or fall back to games.index
             $redirectTo = session()->pull('url.intended', route('games.index'));
+
+            // If the redirectTo is the login page, redirect to lists instead
+            if (strpos($redirectTo, route('login')) !== false) {
+                $redirectTo = route('vn-lists.index');
+            }
 
             return redirect($redirectTo);
 

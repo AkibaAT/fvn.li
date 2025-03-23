@@ -7,6 +7,7 @@ use App\Livewire\GameList;
 use App\Models\Game;
 use App\Models\Rater;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +33,18 @@ Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.stat
 
 // Login route
 Route::get('login', function () {
+    // If user is already authenticated, redirect to home page
+    if (Auth::check()) {
+        return redirect()->route('games.index');
+    }
+
+    // Store the previous URL as the intended destination after login
+    // Only if not already set by the middleware and the previous URL is not the login page itself
+    $previousUrl = url()->previous();
+    if (! session()->has('url.intended') && ! str_contains($previousUrl, route('login'))) {
+        session()->put('url.intended', $previousUrl);
+    }
+
     return view('auth.login');
 })->name('login');
 
@@ -46,6 +59,7 @@ Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthControlle
 
 // Authenticated VN List Routes
 Route::middleware(['auth'])->group(function () {
+    Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
     Route::get('lists/create', [App\Http\Controllers\VnListController::class, 'create'])->name('vn-lists.create');
     Route::post('lists', [App\Http\Controllers\VnListController::class, 'store'])->name('vn-lists.store');
     Route::get('lists/{vnList}/edit', [App\Http\Controllers\VnListController::class, 'edit'])->name('vn-lists.edit');
@@ -71,7 +85,6 @@ Route::middleware(['auth'])->group(function () {
 
 // Public VN List Routes (no auth required)
 Route::get('lists/public', [App\Http\Controllers\VnListController::class, 'publicLists'])->name('vn-lists.public');
-Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
 Route::get('users/{user}/lists', [App\Http\Controllers\VnListController::class, 'userPublicLists'])->name('vn-lists.user-public');
 Route::get('lists/{vnList}', [App\Http\Controllers\VnListController::class, 'show'])->name('vn-lists.show');
 
