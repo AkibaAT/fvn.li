@@ -334,8 +334,9 @@ class Game extends Model
                             $this->game_engine = "Ren'Py";
                             $this->save();
 
-                            // Save the stats
-                            $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id);
+                            // Save the stats - pass $this as the game object for game-specific language mappings
+                            $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id,
+                                $this);
 
                             // Add language support entries
                             foreach ($result['stats']['languages'] as $isoCode => $langStats) {
@@ -643,6 +644,14 @@ class Game extends Model
             $this->optimized_thumbnails = null;
             $this->save();
         }
+    }
+
+    /**
+     * Get the language mappings specific to this game.
+     */
+    public function languageMappings(): HasMany
+    {
+        return $this->hasMany(LanguageMapping::class);
     }
 
     protected function devlog(): Attribute

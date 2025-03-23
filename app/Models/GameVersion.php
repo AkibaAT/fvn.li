@@ -26,18 +26,6 @@ class GameVersion extends Model
         'rating_count',
     ];
 
-    protected static function booted(): void
-    {
-        static::saving(function (GameVersion $version) {
-            // When setting a version as latest, ensure no other versions are marked as latest
-            if ($version->is_latest) {
-                $version->game->gameVersions()
-                    ->where('id', '!=', $version->id)
-                    ->update(['is_latest' => false]);
-            }
-        });
-    }
-
     protected $casts = [
         'published_at' => 'datetime',
         'is_windows' => 'boolean',
@@ -49,6 +37,18 @@ class GameVersion extends Model
         'rating_count' => 'integer',
         'is_latest' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (GameVersion $version) {
+            // When setting a version as latest, ensure no other versions are marked as latest
+            if ($version->is_latest) {
+                $version->game->gameVersions()
+                    ->where('id', '!=', $version->id)
+                    ->update(['is_latest' => false]);
+            }
+        });
+    }
 
     public function game(): BelongsTo
     {

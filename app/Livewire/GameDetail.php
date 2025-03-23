@@ -314,55 +314,55 @@ class GameDetail extends Component
 
     public function compareVersions(): void
     {
-        if (!$this->compareFromVersionId || !$this->compareToVersionId) {
+        if (! $this->compareFromVersionId || ! $this->compareToVersionId) {
             return;
         }
-        
+
         $fromVersion = GameVersion::find($this->compareFromVersionId);
         $toVersion = GameVersion::find($this->compareToVersionId);
-        
-        if (!$fromVersion || !$toVersion) {
+
+        if (! $fromVersion || ! $toVersion) {
             return;
         }
-        
+
         // Ensure fromVersion is the older one
         if ($fromVersion->published_at > $toVersion->published_at) {
             // Swap them
             $temp = $fromVersion;
             $fromVersion = $toVersion;
             $toVersion = $temp;
-            
+
             $this->compareFromVersionId = $fromVersion->id;
             $this->compareToVersionId = $toVersion->id;
         }
-        
+
         // Compare character stats
         $fromCharacterStats = $fromVersion->characterStats()
             ->where('iso_code', 'not like', 'q%')
             ->with(['character', 'language'])
             ->get();
-            
+
         $toCharacterStats = $toVersion->characterStats()
             ->where('iso_code', 'not like', 'q%')
             ->with(['character', 'language'])
             ->get();
-            
+
         // Get unique languages
         $fromLanguages = $fromCharacterStats->pluck('language.id')->unique();
         $toLanguages = $toCharacterStats->pluck('language.id')->unique();
         $allLanguages = $fromLanguages->merge($toLanguages)->unique();
-        
+
         $languages = [];
         foreach ($allLanguages as $langId) {
             $lang = null;
-            
+
             // Find language details from either collection
             if ($fromCharacterStats->where('language.id', $langId)->first()) {
                 $lang = $fromCharacterStats->where('language.id', $langId)->first()->language;
             } elseif ($toCharacterStats->where('language.id', $langId)->first()) {
                 $lang = $toCharacterStats->where('language.id', $langId)->first()->language;
             }
-            
+
             if ($lang) {
                 $languages[] = [
                     'id' => $lang->id,
@@ -371,36 +371,36 @@ class GameDetail extends Component
                 ];
             }
         }
-        
+
         // Create word count matrices (character x language)
         $fromWordCounts = [];
         $toWordCounts = [];
         $allCharacters = [];
-        
+
         // Process from version
         foreach ($fromCharacterStats as $stat) {
             $displayName = $stat->character->getDisplayName($this->game->source_language_id);
             $allCharacters[$displayName] = true;
-            
-            if (!isset($fromWordCounts[$displayName][$stat->language->id])) {
+
+            if (! isset($fromWordCounts[$displayName][$stat->language->id])) {
                 $fromWordCounts[$displayName][$stat->language->id] = 0;
             }
-            
+
             $fromWordCounts[$displayName][$stat->language->id] += $stat->words;
         }
-        
+
         // Process to version
         foreach ($toCharacterStats as $stat) {
             $displayName = $stat->character->getDisplayName($this->game->source_language_id);
             $allCharacters[$displayName] = true;
-            
-            if (!isset($toWordCounts[$displayName][$stat->language->id])) {
+
+            if (! isset($toWordCounts[$displayName][$stat->language->id])) {
                 $toWordCounts[$displayName][$stat->language->id] = 0;
             }
-            
+
             $toWordCounts[$displayName][$stat->language->id] += $stat->words;
         }
-        
+
         // Calculate differences
         $characterDiffs = [];
         $languageTotals = [
@@ -408,57 +408,57 @@ class GameDetail extends Component
             'to' => [],
             'diff' => [],
         ];
-        
+
         foreach (array_keys($allCharacters) as $character) {
             $characterDiffs[$character] = [];
-            
+
             foreach ($languages as $lang) {
                 $fromCount = $fromWordCounts[$character][$lang['id']] ?? 0;
                 $toCount = $toWordCounts[$character][$lang['id']] ?? 0;
                 $diff = $toCount - $fromCount;
-                
+
                 $characterDiffs[$character][$lang['id']] = [
                     'from' => $fromCount,
                     'to' => $toCount,
                     'diff' => $diff,
                 ];
-                
+
                 // Update language totals
-                if (!isset($languageTotals['from'][$lang['id']])) {
+                if (! isset($languageTotals['from'][$lang['id']])) {
                     $languageTotals['from'][$lang['id']] = 0;
                 }
-                if (!isset($languageTotals['to'][$lang['id']])) {
+                if (! isset($languageTotals['to'][$lang['id']])) {
                     $languageTotals['to'][$lang['id']] = 0;
                 }
-                if (!isset($languageTotals['diff'][$lang['id']])) {
+                if (! isset($languageTotals['diff'][$lang['id']])) {
                     $languageTotals['diff'][$lang['id']] = 0;
                 }
-                
+
                 $languageTotals['from'][$lang['id']] += $fromCount;
                 $languageTotals['to'][$lang['id']] += $toCount;
                 $languageTotals['diff'][$lang['id']] += $diff;
             }
         }
-        
+
         // Sort characters
         $sortedCharacters = array_keys($allCharacters);
         sort($sortedCharacters, SORT_NATURAL | SORT_FLAG_CASE);
-        
+
         // Compare file stats
         $fromFileCategories = $fromVersion->fileCategories()->with('fileTypes')->get();
         $toFileCategories = $toVersion->fileCategories()->with('fileTypes')->get();
-        
+
         $fileCategoryComparisons = [];
-        
+
         // Get unique categories
         $allCategories = $fromFileCategories->pluck('category')
             ->merge($toFileCategories->pluck('category'))
             ->unique();
-            
+
         foreach ($allCategories as $category) {
             $fromCategory = $fromFileCategories->firstWhere('category', $category);
             $toCategory = $toFileCategories->firstWhere('category', $category);
-            
+
             $categoryComparison = [
                 'category' => $category,
                 'from' => [
@@ -475,16 +475,16 @@ class GameDetail extends Component
                 ],
                 'fileTypes' => [],
             ];
-            
+
             // Get all unique file types within this category
             $fromFileTypes = $fromCategory ? $fromCategory->fileTypes->pluck('extension') : collect();
             $toFileTypes = $toCategory ? $toCategory->fileTypes->pluck('extension') : collect();
             $allFileTypes = $fromFileTypes->merge($toFileTypes)->unique();
-            
+
             foreach ($allFileTypes as $extension) {
                 $fromFileType = $fromCategory ? $fromCategory->fileTypes->firstWhere('extension', $extension) : null;
                 $toFileType = $toCategory ? $toCategory->fileTypes->firstWhere('extension', $extension) : null;
-                
+
                 $categoryComparison['fileTypes'][$extension] = [
                     'from' => [
                         'count' => $fromFileType ? $fromFileType->count : 0,
@@ -500,10 +500,10 @@ class GameDetail extends Component
                     ],
                 ];
             }
-            
+
             $fileCategoryComparisons[] = $categoryComparison;
         }
-        
+
         $this->versionComparisonStats = [
             'fromVersion' => $fromVersion,
             'toVersion' => $toVersion,
@@ -513,7 +513,7 @@ class GameDetail extends Component
             'languageTotals' => $languageTotals,
             'fileCategories' => $fileCategoryComparisons,
         ];
-        
+
         $this->dispatch('open-dialog', dialogId: 'version-comparison');
     }
 

@@ -65,6 +65,21 @@ class ItchAuthService
         return (int) basename($meta->getAttribute('content'));
     }
 
+    public function getCsrfToken(): ?string
+    {
+        $response = $this->client->get('https://itch.io/');
+        $html = $response->getBody()->getContents();
+
+        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $csrfToken = $doc->querySelector('meta[name="csrf_token"]');
+
+        if (! $csrfToken) {
+            return null;
+        }
+
+        return $csrfToken->getAttribute('value');
+    }
+
     /**
      * Ensure we have a valid authenticated session
      */
@@ -163,20 +178,5 @@ class ItchAuthService
         $formData['password'] = config('services.itch.password');
 
         return $formData;
-    }
-
-    public function getCsrfToken(): ?string
-    {
-        $response = $this->client->get('https://itch.io/');
-        $html = $response->getBody()->getContents();
-
-        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $csrfToken = $doc->querySelector('meta[name="csrf_token"]');
-
-        if (! $csrfToken) {
-            return null;
-        }
-
-        return $csrfToken->getAttribute('value');
     }
 }

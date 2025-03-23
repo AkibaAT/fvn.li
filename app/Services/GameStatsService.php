@@ -6,9 +6,8 @@ namespace App\Services;
 
 use App\Models\Character;
 use App\Models\DialogueLine;
+use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\Language;
-use App\Models\LanguageMapping;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use Exception;
@@ -21,6 +20,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use Throwable;
 use ZipArchive;
 
 /**
@@ -28,6 +28,14 @@ use ZipArchive;
  */
 readonly class GameStatsService
 {
+    private LanguageMappingService $languageMappingService;
+
+    public function __construct(
+        ?LanguageMappingService $languageMappingService = null
+    ) {
+        $this->languageMappingService = $languageMappingService ?? app(LanguageMappingService::class);
+    }
+
     /**
      * Store a processed game file permanently
      */
@@ -121,9 +129,23 @@ readonly class GameStatsService
 
     /**
      * Save or update language and character statistics for a game version
+     *
+     * @param  GameVersion  $version  The game version to save stats for
+     * @param  array  $stats  The extracted stats data
+     * @param  string  $defaultLanguage  The default language code (usually source language)
+     * @param  Game|null  $game  The game object for game-specific language mappings
+     *
+     * @throws Throwable
      */
-    public function saveVersionStats(GameVersion $version, array $stats, string $defaultLanguage = 'eng'): void
-    {
+    public function saveVersionStats(
+        GameVersion $version,
+        array $stats,
+        string $defaultLanguage = 'eng',
+        ?Game $game = null
+    ): void {
+        // If game is not explicitly provided, get it from the version
+        $game = $game ?? $version->game;
+
         DB::beginTransaction();
 
         try {
@@ -131,7 +153,9 @@ readonly class GameStatsService
             $foundLanguages = [];
 
             foreach ($stats['languages'] as $langKey => $langData) {
-                $isoCode = $langKey === 'default' ? $defaultLanguage : $this->mapLanguageCode($langKey);
+                $isoCode = $langKey === 'default'
+                    ? $defaultLanguage
+                    : $this->languageMappingService->resolveLanguageCode($langKey, $game);
 
                 if (! $isoCode) {
                     Log::warning("Skipping language {$langKey} - could not determine ISO code");
@@ -202,7 +226,7 @@ readonly class GameStatsService
             // Update supported languages for this version
             // First, add all languages found in the stats
             foreach ($foundLanguages as $isoCode) {
-                if (!str_starts_with($isoCode, 'q')) {
+                if (! str_starts_with($isoCode, 'q')) {
                     $version->addSupportedLanguage($isoCode);
                 }
             }
@@ -214,7 +238,7 @@ readonly class GameStatsService
 
             // Process dialogue lines
             if (isset($stats['dialogue_lines'])) {
-                $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage);
+                $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game);
             }
 
             DB::commit();
@@ -231,7 +255,8 @@ readonly class GameStatsService
     protected function saveDialogueLines(
         GameVersion $version,
         array $dialogueLines,
-        string $defaultLanguage = 'eng'
+        string $defaultLanguage = 'eng',
+        ?Game $game = null
     ): void {
         // First, delete any existing dialogue lines for this version
         DialogueLine::where('game_version_id', $version->id)->delete();
@@ -249,7 +274,9 @@ readonly class GameStatsService
 
         // Process each language
         foreach ($dialogueLines as $langKey => $lines) {
-            $isoCode = $langKey === 'default' ? $defaultLanguage : $this->mapLanguageCode($langKey);
+            $isoCode = $langKey === 'default'
+                ? $defaultLanguage
+                : $this->languageMappingService->resolveLanguageCode($langKey, $game);
 
             if (! $isoCode) {
                 Log::warning("Skipping dialogue lines for language {$langKey} - could not determine ISO code");
@@ -398,6 +425,61 @@ readonly class GameStatsService
     }
 
     /**
+     * Strip all diacritical marks from text.
+     *
+     * @param  string  $text  The input text.
+     * @return string The text with diacritical marks removed.
+     */
+    protected function stripDiacritics(string $text): string
+    {
+        // Normalize to decomposed form (so diacritics are separate)
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+
+        // Remove all combining diacritical marks
+        return preg_replace('/\p{Mn}/u', '', $decomposed);
+    }
+
+    /**
+     * Process the text:
+     * - If it's Zalgo text (excessive diacritics), strip diacritical marks.
+     * - Otherwise, normalize to NFC to preserve diacritical marks.
+     *
+     * @param  string  $text  The input text.
+     * @return string The processed text.
+     */
+    protected function processText(string $text): string
+    {
+        if ($this->isZalgo($text)) {
+            // Zalgo text: remove all diacritical marks.
+            return $this->stripDiacritics($text);
+        } else {
+            // Normal text: normalize to NFC to ensure canonical form (preserving diacritics).
+            return Normalizer::normalize($text, Normalizer::FORM_C);
+        }
+    }
+
+    /**
+     * Check if the given text is likely Zalgo text.
+     *
+     * @param  string  $text  The input text.
+     * @param  float  $threshold  The ratio of diacritics to total characters to trigger stripping.
+     * @return bool Returns true if the text is considered Zalgo.
+     */
+    protected function isZalgo(string $text, float $threshold = 0.9): bool
+    {
+        // Normalize to decomposed form so that diacritical marks are separate characters
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+        // Total number of characters in decomposed string
+        $totalLength = mb_strlen($decomposed, 'UTF-8');
+        // Count all combining diacritical marks (Unicode category Mn)
+        preg_match_all('/\p{Mn}/u', $decomposed, $matches);
+        $diacriticCount = count($matches[0]);
+
+        // Avoid division by zero, and check if ratio exceeds threshold
+        return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
+    }
+
+    /**
      * Extract a game archive to the specified directory
      */
     private function extractArchive(string $archivePath, string $extractPath): void
@@ -531,127 +613,5 @@ readonly class GameStatsService
         }
 
         return null;
-    }
-
-    /**
-     * Map a game language code to a standardized ISO code
-     */
-    private function mapLanguageCode(string $gameLanguage): ?string
-    {
-        // If this is the default language, use the game's source language
-        if ($gameLanguage === 'default') {
-            return null;
-        }
-
-        // First try exact matches
-        $mapping = LanguageMapping::where('game_language_key', 'ilike', $gameLanguage)->first();
-        if ($mapping) {
-            return $mapping->iso_code;
-        }
-
-        // Try to find a matching language
-        $language = Language::where('id', 'ilike', $gameLanguage)
-            ->orWhere('part1', 'ilike', $gameLanguage)
-            ->orWhere('part2b', 'ilike', $gameLanguage)
-            ->orWhere('part2t', 'ilike', $gameLanguage)
-            ->first();
-
-        if ($language) {
-            // Create mapping for future use
-            LanguageMapping::create([
-                'game_language_key' => $gameLanguage,
-                'iso_code' => $language->id,
-            ]);
-
-            return $language->id;
-        }
-
-        // Generate a new placeholder code in the qaa-qtz range
-        $highestPlaceholder = LanguageMapping::where('iso_code', 'like', 'q%')
-            ->orderByDesc('iso_code')
-            ->value('iso_code');
-
-        $newCode = $highestPlaceholder
-            ? $this->generateNextPlaceholderCode($highestPlaceholder)
-            : 'qaa';
-
-        // Create mapping with placeholder code
-        LanguageMapping::create([
-            'game_language_key' => $gameLanguage,
-            'iso_code' => $newCode,
-        ]);
-
-        Log::info("Created placeholder mapping for {$gameLanguage}: {$newCode}");
-
-        return $newCode;
-    }
-
-    /**
-     * Generate the next placeholder language code
-     */
-    private function generateNextPlaceholderCode(string $current): string
-    {
-        $lastChar = substr($current, -1);
-        if ($lastChar === 'z') {
-            $middleChar = substr($current, -2, 1);
-            if ($middleChar === 'z') {
-                throw new RuntimeException('No more placeholder codes available');
-            }
-
-            return 'q' . chr(ord($middleChar) + 1) . 'a';
-        }
-
-        return substr($current, 0, -1) . chr(ord($lastChar) + 1);
-    }
-
-    /**
-     * Strip all diacritical marks from text.
-     *
-     * @param string $text The input text.
-     * @return string The text with diacritical marks removed.
-     */
-    protected function stripDiacritics(string $text): string {
-        // Normalize to decomposed form (so diacritics are separate)
-        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-        // Remove all combining diacritical marks
-        return preg_replace('/\p{Mn}/u', '', $decomposed);
-    }
-
-    /**
-     * Process the text:
-     * - If it's Zalgo text (excessive diacritics), strip diacritical marks.
-     * - Otherwise, normalize to NFC to preserve diacritical marks.
-     *
-     * @param string $text The input text.
-     * @return string The processed text.
-     */
-    protected function processText(string $text): string {
-        if ($this->isZalgo($text)) {
-            // Zalgo text: remove all diacritical marks.
-            return $this->stripDiacritics($text);
-        } else {
-            // Normal text: normalize to NFC to ensure canonical form (preserving diacritics).
-            return Normalizer::normalize($text, Normalizer::FORM_C);
-        }
-    }
-
-    /**
-     * Check if the given text is likely Zalgo text.
-     *
-     * @param string $text The input text.
-     * @param float $threshold The ratio of diacritics to total characters to trigger stripping.
-     * @return bool Returns true if the text is considered Zalgo.
-     */
-    protected function isZalgo(string $text, float $threshold = 0.9): bool {
-        // Normalize to decomposed form so that diacritical marks are separate characters
-        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-        // Total number of characters in decomposed string
-        $totalLength = mb_strlen($decomposed, 'UTF-8');
-        // Count all combining diacritical marks (Unicode category Mn)
-        preg_match_all('/\p{Mn}/u', $decomposed, $matches);
-        $diacriticCount = count($matches[0]);
-
-        // Avoid division by zero, and check if ratio exceeds threshold
-        return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\Rating;
 use App\Observers\GameObserver;
 use App\Observers\RatingObserver;
+use App\Services\LanguageMappingService;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -18,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LanguageMappingService::class, function () {
+            return new LanguageMappingService;
+        });
     }
 
     /**

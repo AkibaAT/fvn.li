@@ -112,7 +112,7 @@ class RefreshGame extends Command
                 // Refresh version if requested
                 if ($this->option('update-version')) {
                     $this->info('→ Refreshing version information...');
-                    DB::transaction(function() use ($game, $client, $force) {
+                    DB::transaction(function () use ($game, $client, $force) {
                         $game->refreshVersion($client, $force);
                         $game->save();
 
