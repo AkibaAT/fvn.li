@@ -20,11 +20,6 @@ class SystemStatus extends Component
     public $healthSummary;
     public $dateFormat;
 
-    public function mount()
-    {
-        // All data fetching moved to render()
-    }
-
     public function render()
     {
         // Get game stats

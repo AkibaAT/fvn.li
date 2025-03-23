@@ -34,11 +34,6 @@ class MarkSuspiciousRater extends Command
                 'marked_suspicious_at' => $unmark ? null : now(),
             ]);
 
-        // Reset their processed ratings to trigger weight recalculation
-        DB::table('ratings')
-            ->where('rater_id', $raterId)
-            ->update(['processed_at' => null]);
-
         $this->info("Rater {$raterId} " . ($unmark ? 'unmarked' : 'marked') . ' as suspicious');
     }
 }

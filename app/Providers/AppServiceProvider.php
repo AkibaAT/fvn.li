@@ -6,7 +6,6 @@ namespace App\Providers;
 
 use App\Models\Game;
 use App\Observers\GameObserver;
-use App\Observers\RatingObserver;
 use App\Services\LanguageMappingService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -30,7 +29,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Game::observe(GameObserver::class);
-        Rating::observe(RatingObserver::class);
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('discord', \SocialiteProviders\Discord\Provider::class);
             $event->extendSocialite('google', \SocialiteProviders\Google\Provider::class);
