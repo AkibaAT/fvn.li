@@ -240,6 +240,7 @@
                                     <div class="w-full flex items-center">
                                         <x-language-flags
                                             :languages="$version->supportedLanguages
+                                                ->where('is_available', true)
                                                 ->map(fn($sl) => [
                                                     'iso_code' => $sl->iso_code,
                                                     'ref_name' => $sl->language->ref_name,

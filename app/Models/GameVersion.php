@@ -153,11 +153,16 @@ class GameVersion extends Model
         return $this->hasMany(VersionSupportedLanguage::class);
     }
 
-    public function addSupportedLanguage(string $isoCode): void
+    /**
+     * Add a supported language to this version
+     * Updated to include is_available parameter
+     */
+    public function addSupportedLanguage(string $isoCode, bool $isAvailable = true): void
     {
-        $this->supportedLanguages()->firstOrCreate([
-            'iso_code' => $isoCode,
-        ]);
+        $this->supportedLanguages()->updateOrCreate(
+            ['iso_code' => $isoCode],
+            ['is_available' => $isAvailable]
+        );
     }
 
     public function removeSupportedLanguage(string $isoCode): void
@@ -204,5 +209,74 @@ class GameVersion extends Model
     public function fileCategories(): HasMany
     {
         return $this->hasMany(VersionFileCategory::class);
+    }
+
+    /**
+     * Check if a language is available for this version
+     */
+    public function isLanguageAvailable(string $isoCode): bool
+    {
+        $support = $this->supportedLanguages()
+            ->where('iso_code', $isoCode)
+            ->first();
+
+        return $support && $support->is_available;
+    }
+
+    /**
+     * Set the availability of a language for this version
+     */
+    public function setLanguageAvailability(string $isoCode, bool $isAvailable): bool
+    {
+        $support = $this->supportedLanguages()
+            ->where('iso_code', $isoCode)
+            ->first();
+
+        if (! $support) {
+            return false;
+        }
+
+        $support->is_available = $isAvailable;
+
+        return $support->save();
+    }
+
+    /**
+     * Get all available languages
+     */
+    public function getAvailableLanguages(): Collection
+    {
+        return $this->supportedLanguages()
+            ->where('is_available', true)
+            ->with('language')
+            ->get()
+            ->map(fn ($sl) => [
+                'iso_code' => $sl->iso_code,
+                'ref_name' => $sl->language->ref_name,
+                'flag_code' => $sl->language->flag_code,
+            ]);
+    }
+
+    /**
+     * Copy language availability settings from a previous version
+     */
+    public function copyLanguageAvailabilityFrom(GameVersion $sourceVersion): void
+    {
+        // Get all language availability settings from source version
+        $sourceSettings = $sourceVersion->supportedLanguages()
+            ->select(['iso_code', 'is_available'])
+            ->get();
+
+        // Apply to current version where the language exists
+        foreach ($sourceSettings as $sourceSetting) {
+            $targetLanguage = $this->supportedLanguages()
+                ->where('iso_code', $sourceSetting->iso_code)
+                ->first();
+
+            if ($targetLanguage) {
+                $targetLanguage->is_available = $sourceSetting->is_available;
+                $targetLanguage->save();
+            }
+        }
     }
 }

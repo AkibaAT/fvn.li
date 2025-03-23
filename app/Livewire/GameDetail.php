@@ -116,6 +116,7 @@ class GameDetail extends Component
 
         $latestVersion = $this->game->latestVersion;
         $supportedLanguages = $latestVersion?->supportedLanguages
+            ->where('is_available', true)
             ->map(fn ($sl) => [
                 'iso_code' => $sl->iso_code,
                 'ref_name' => $sl->language->ref_name,
@@ -251,6 +252,13 @@ class GameDetail extends Component
         $characterStats = GameVersion::find($versionId)
             ->characterStats()
             ->where('iso_code', 'not like', 'q%')
+            ->whereExists(function ($query) use ($versionId) {
+                $query->selectRaw(1)
+                    ->from('version_supported_languages')
+                    ->where('game_version_id', $versionId)
+                    ->whereColumn('version_supported_languages.iso_code', 'version_character_stats.iso_code')
+                    ->where('is_available', true);
+            })
             ->with(['character', 'language'])
             ->get();
 
@@ -339,15 +347,29 @@ class GameDetail extends Component
         // Compare character stats
         $fromCharacterStats = $fromVersion->characterStats()
             ->where('iso_code', 'not like', 'q%')
+            ->whereExists(function ($query) use ($fromVersion) {
+                $query->selectRaw(1)
+                    ->from('version_supported_languages')
+                    ->where('game_version_id', $fromVersion->id)
+                    ->whereColumn('version_supported_languages.iso_code', 'version_character_stats.iso_code')
+                    ->where('is_available', true);
+            })
             ->with(['character', 'language'])
             ->get();
 
         $toCharacterStats = $toVersion->characterStats()
             ->where('iso_code', 'not like', 'q%')
+            ->whereExists(function ($query) use ($toVersion) {
+                $query->selectRaw(1)
+                    ->from('version_supported_languages')
+                    ->where('game_version_id', $toVersion->id)
+                    ->whereColumn('version_supported_languages.iso_code', 'version_character_stats.iso_code')
+                    ->where('is_available', true); // Only include available languages
+            })
             ->with(['character', 'language'])
             ->get();
 
-        // Get unique languages
+        // Get unique languages that are available in either version
         $fromLanguages = $fromCharacterStats->pluck('language.id')->unique();
         $toLanguages = $toCharacterStats->pluck('language.id')->unique();
         $allLanguages = $fromLanguages->merge($toLanguages)->unique();

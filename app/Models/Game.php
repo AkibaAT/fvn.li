@@ -79,12 +79,14 @@ class Game extends Model
 
     /**
      * Get the supported languages collection for the latest version.
+     * Only includes languages that are marked as available.
      */
     public function getSupportedLanguages(): Collection
     {
         if ($this->relationLoaded('latestVersion') &&
-            $this->latestVersion?->relationLoaded('languageStats')) {
-            return $this->latestVersion->languageStats
+            $this->latestVersion?->relationLoaded('supportedLanguages')) {
+            return $this->latestVersion->supportedLanguages
+                ->where('is_available', true)  // Only include available languages
                 ->whereNotNull('language')  // Exclude stats without valid language records
                 ->where(function ($stat) {
                     return ! str_starts_with($stat->iso_code, 'q');  // Exclude placeholder codes
@@ -97,6 +99,66 @@ class Game extends Model
         }
 
         return collect();
+    }
+
+    /**
+     * Get all supported languages, including those not available to users.
+     * This is used for administrative purposes.
+     */
+    public function getAllSupportedLanguages(): Collection
+    {
+        if ($this->relationLoaded('latestVersion') &&
+            $this->latestVersion?->relationLoaded('supportedLanguages')) {
+            return $this->latestVersion->supportedLanguages
+                ->whereNotNull('language')  // Exclude stats without valid language records
+                ->where(function ($stat) {
+                    return ! str_starts_with($stat->iso_code, 'q');  // Exclude placeholder codes
+                })
+                ->map(fn ($stat) => [
+                    'iso_code' => $stat->iso_code,
+                    'ref_name' => $stat->language->ref_name,
+                    'flag_code' => $stat->language->flag_code,
+                    'is_available' => $stat->is_available,
+                ])->collect();
+        }
+
+        return collect();
+    }
+
+    /**
+     * Get all available languages from the latest version.
+     */
+    public function getAvailableLanguages(): Collection
+    {
+        if (! $this->latestVersion) {
+            return collect();
+        }
+
+        return $this->latestVersion->supportedLanguages()
+            ->where('is_available', true)
+            ->with('language')
+            ->get()
+            ->map(fn ($sl) => [
+                'iso_code' => $sl->iso_code,
+                'ref_name' => $sl->language->ref_name,
+                'flag_code' => $sl->language->flag_code,
+            ]);
+    }
+
+    /**
+     * Check if a specific language is available in the latest version.
+     */
+    public function isLanguageAvailable(string $isoCode): bool
+    {
+        if (! $this->latestVersion) {
+            return false;
+        }
+
+        $support = $this->latestVersion->supportedLanguages()
+            ->where('iso_code', $isoCode)
+            ->first();
+
+        return $support && $support->is_available;
     }
 
     /**
@@ -315,6 +377,23 @@ class Game extends Model
 
                 $this->gameVersions()->save($gameVersion);
 
+                // If creating a new version (not just refreshing an existing one)
+                if (! $existingVersion) {
+                    // Find previous version that has any unavailable languages
+                    $previousVersion = $this->gameVersions()
+                        ->where('id', '!=', $gameVersion->id)
+                        ->whereHas('supportedLanguages', function ($query) {
+                            $query->where('is_available', false);
+                        })
+                        ->latest('published_at')
+                        ->first();
+
+                    // Copy language availability settings from previous version
+                    if ($previousVersion) {
+                        VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
+                    }
+                }
+
                 // Process statistics if it's a Ren'Py game
                 if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
                     try {
@@ -335,13 +414,7 @@ class Game extends Model
                             $this->save();
 
                             // Save the stats - pass $this as the game object for game-specific language mappings
-                            $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id,
-                                $this);
-
-                            // Add language support entries
-                            foreach ($result['stats']['languages'] as $isoCode => $langStats) {
-                                $gameVersion->addSupportedLanguage($isoCode);
-                            }
+                            $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id, $this);
                         } else {
                             // Copy language support from previous version
                             $this->copyLanguageSupport($gameVersion);
@@ -737,27 +810,30 @@ class Game extends Model
         }
     }
 
-    private function copyLanguageSupport(GameVersion $newVersion): void
+    /**
+     * Copy language support from previous version
+     */
+    private function copyLanguageSupport(GameVersion $gameVersion): void
     {
         // Find the previous version with language support
         $previousVersion = $this->gameVersions()
-            ->where('id', '!=', $newVersion->id)
+            ->where('id', '!=', $gameVersion->id)
             ->whereHas('supportedLanguages')
             ->latest('published_at')
             ->first();
 
         if ($previousVersion) {
             // Copy all supported languages from previous version
-            foreach ($previousVersion->getSupportedLanguageCodes() as $isoCode) {
-                $newVersion->addSupportedLanguage($isoCode);
+            foreach ($previousVersion->supportedLanguages as $supported) {
+                $gameVersion->addSupportedLanguage($supported->iso_code, $supported->is_available);
             }
         } else {
             // If no previous version exists, add only source language
             if ($this->source_language_id) {
-                $newVersion->addSupportedLanguage($this->source_language_id);
+                $gameVersion->addSupportedLanguage($this->source_language_id);
             } else {
                 // Fallback to English only if no source language is defined
-                $newVersion->addSupportedLanguage('eng');
+                $gameVersion->addSupportedLanguage('eng');
             }
         }
     }

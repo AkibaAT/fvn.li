@@ -67,9 +67,9 @@
                                 <th class="text-left py-2 px-2 font-medium">Character</th>
                                 @foreach ($versionComparisonStats['languages'] as $index => $lang)
                                     @if ($index > 0)
-                                    <th class="w-px p-0 m-0 bg-gray-600">
-                                        <div class="h-full w-px">&nbsp;</div>
-                                    </th>
+                                        <th class="w-px p-0 m-0 bg-gray-600">
+                                            <div class="h-full w-px">&nbsp;</div>
+                                        </th>
                                     @endif
                                     <th class="text-right py-2 px-2 font-medium" colspan="3">
                                         <div class="flex items-center justify-end gap-2">

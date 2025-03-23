@@ -10,6 +10,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
+use App\Models\VersionSupportedLanguage;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -229,6 +230,20 @@ readonly class GameStatsService
                 if (! str_starts_with($isoCode, 'q')) {
                     $version->addSupportedLanguage($isoCode);
                 }
+            }
+
+            // Find the previous version to copy language availability settings from
+            $previousVersion = GameVersion::where('game_id', $version->game_id)
+                ->where('id', '!=', $version->id)
+                ->whereHas('supportedLanguages', function ($query) {
+                    $query->where('is_available', false);
+                })
+                ->latest('published_at')
+                ->first();
+
+            // Copy language availability settings from previous version if it exists
+            if ($previousVersion) {
+                VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $version->id);
             }
 
             // Save file statistics

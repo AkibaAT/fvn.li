@@ -173,6 +173,7 @@ class GameList extends Component
                     FROM version_supported_languages vsl
                     JOIN iso_639_3_languages l ON l.id = vsl.iso_code
                     WHERE vsl.game_version_id = latest_versions.id
+                    AND vsl.is_available = true
                 ) as supported_languages'),
             ])
             ->leftJoin('game_versions as latest_versions', function ($join) {
@@ -218,7 +219,8 @@ class GameList extends Component
                                 ->where('game_versions.is_latest', true);
                         })
                         ->whereColumn('game_versions.game_id', 'games.id')
-                        ->whereIn('version_supported_languages.iso_code', $decodedLanguages);
+                        ->whereIn('version_supported_languages.iso_code', $decodedLanguages)
+                        ->where('version_supported_languages.is_available', true);
                 });
             })
             ->when($this->nsfw || $this->sfw, function ($q) {
