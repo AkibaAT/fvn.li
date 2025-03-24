@@ -1,0 +1,215 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Game;
+use App\Models\NotificationHistory;
+use App\Models\NotificationQueue;
+use App\Models\User;
+use App\Models\VnListEntry;
+use Carbon\Carbon;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+
+class DiscordNotificationsController extends Controller
+{
+    /**
+     * Get pending Discord notifications.
+     * This endpoint is used by the Discord bot to fetch notifications that need to be sent.
+     */
+    public function getPendingNotifications(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'integer|min:1|max:100',
+            'batch_key' => 'string|nullable',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        $limit = $request->input('limit', 50);
+        $batchKey = $request->input('batch_key', Carbon::now()->format('YmdHis'));
+
+        try {
+            // Start a transaction to ensure we don't have race conditions
+            DB::beginTransaction();
+
+            // Get pending notifications and mark them as processing
+            $notifications = NotificationQueue::query()
+                ->where('channel', 'discord')
+                ->where('status', 'pending')
+                ->where('scheduled_at', '<=', now())
+                ->limit($limit)
+                ->lockForUpdate()
+                ->get();
+
+            if ($notifications->isEmpty()) {
+                DB::commit();
+
+                return response()->json(['notifications' => [], 'batch_key' => $batchKey]);
+            }
+
+            // Mark notifications as processing
+            NotificationQueue::whereIn('id', $notifications->pluck('id'))
+                ->update([
+                    'status' => 'processing',
+                    'meta_data' => DB::raw("jsonb_set(COALESCE(meta_data::jsonb, '{}'::jsonb), '{batch_key}', '\"" . $batchKey . "\"')"),
+                ]);
+
+            DB::commit();
+
+            // Format notifications for the Discord bot
+            $formattedNotifications = $notifications->map(function ($notification) {
+                $game = Game::with(['latestVersion', 'versions' => function ($query) {
+                    $query->orderBy('created_at', 'desc')->limit(2);
+                }])->find($notification->game_id);
+
+                $user = User::with(['socialAccounts' => function ($query) {
+                    $query->where('provider_name', 'discord');
+                }])->find($notification->user_id);
+
+                // Skip if user or game not found
+                if (! $user || ! $game || ! $user->socialAccounts->first()) {
+                    return null;
+                }
+
+                // Get user's last read version or previous version for word count diff
+                $lastReadVersion = null;
+                $wordCountDiff = 0;
+                $compareToVersion = null;
+
+                // Try to get user's last read version from their list entry
+                $listEntry = VnListEntry::where('user_id', $user->id)
+                    ->where('game_id', $game->id)
+                    ->first();
+
+                if ($listEntry && $listEntry->last_read_version_id) {
+                    $lastReadVersion = $game->versions()
+                        ->where('id', $listEntry->last_read_version_id)
+                        ->first();
+                    if ($lastReadVersion) {
+                        $compareToVersion = $lastReadVersion;
+                    }
+                }
+
+                // If no last read version, use the previous version
+                if (! $compareToVersion && $game->versions->count() > 1) {
+                    $compareToVersion = $game->versions[1]; // Second most recent version
+                }
+
+                // Calculate word count diff if we have a version to compare against
+                if ($compareToVersion) {
+                    $wordCountDiff = $game->latestVersion->word_count - $compareToVersion->word_count;
+                }
+
+                return [
+                    'notification_id' => $notification->id,
+                    'discord_user_id' => $user->socialAccounts->first()->provider_id,
+                    'game' => [
+                        'id' => $game->id,
+                        'name' => $game->name,
+                        'version' => $game->latestVersion->version,
+                        'url' => route('games.show', $game->slug),
+                        'thumbnail_url' => $game->getThumbnailUrl('small'),
+                        'devlog_url' => $game->latestVersion->devlog,
+                        'published_at' => $game->latestVersion->published_at?->timestamp ?? $game->latestVersion->created_at->timestamp,
+                        'word_count_diff' => $wordCountDiff,
+                        'compared_to_version' => $compareToVersion ? [
+                            'version' => $compareToVersion->version,
+                            'is_last_read' => $compareToVersion->id === $lastReadVersion?->id,
+                        ] : null,
+                    ],
+                    'is_digest' => $notification->meta_data['digest'] ?? false,
+                    'digest_type' => $notification->meta_data['digest_type'] ?? null,
+                ];
+            })->filter()->values();
+
+            return response()->json([
+                'notifications' => $formattedNotifications,
+                'batch_key' => $batchKey,
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Error fetching Discord notifications', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * Record the delivery status of Discord notifications.
+     */
+    public function recordDeliveryStatus(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'notifications' => 'required|array',
+            'notifications.*.notification_id' => 'required|exists:notification_queue,id',
+            'notifications.*.success' => 'required|boolean',
+            'notifications.*.error' => 'string|nullable',
+            'batch_key' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($request->input('notifications') as $result) {
+                $notification = NotificationQueue::find($result['notification_id']);
+
+                // Skip if notification not found or doesn't match batch key
+                if (! $notification ||
+                    ($notification->meta_data['batch_key'] ?? null) !== $request->input('batch_key')) {
+                    continue;
+                }
+
+                // Update notification status
+                $notification->status = $result['success'] ? 'sent' : 'failed';
+                $notification->processed_at = now();
+                $notification->error = $result['success'] ? null : $result['error'];
+                $notification->save();
+
+                // Record in notification history
+                NotificationHistory::create([
+                    'user_id' => $notification->user_id,
+                    'game_id' => $notification->game_id,
+                    'game_version_id' => $notification->game_version_id,
+                    'type' => 'discord',
+                    'success' => $result['success'],
+                    'meta_data' => [
+                        'error' => $result['error'] ?? null,
+                        'digest' => $notification->meta_data['digest'] ?? false,
+                        'digest_type' => $notification->meta_data['digest_type'] ?? null,
+                    ],
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json(['message' => 'Delivery status recorded successfully']);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Error recording Discord notification delivery status', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+}

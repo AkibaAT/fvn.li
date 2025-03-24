@@ -28,6 +28,7 @@
         "laravel/tinker": "*",
         "livewire/livewire": "^3.5",
         "meilisearch/meilisearch-php": "^1.13",
+        "minishlink/web-push": "^9.0",
         "predis/predis": "*",
         "socialiteproviders/discord": "^4.2",
         "socialiteproviders/google": "^4.1",

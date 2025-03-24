@@ -18,7 +18,7 @@ class VnListEntry extends Model
         'vn_list_id',
         'game_id',
         'sort_order',
-        'receive_updates',
+        'notes',
     ];
 
     /**
@@ -28,7 +28,6 @@ class VnListEntry extends Model
      */
     protected $casts = [
         'sort_order' => 'integer',
-        'receive_updates' => 'boolean',
     ];
 
     /**

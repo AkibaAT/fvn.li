@@ -9,7 +9,6 @@ use App\Models\GameVersion;
 use App\Models\UserGameProgress;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -17,161 +16,141 @@ use Illuminate\Support\Facades\Log;
 class UserGameProgressController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Update the user's game progress.
      */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the user's progress for a game.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  Game  $game  The game to update progress for
-     */
-    public function update(Request $request, Game $game): RedirectResponse|JsonResponse
+    public function update(Request $request, Game $game): JsonResponse
     {
         try {
-            // Log the incoming request data for debugging
-            Log::debug('UserGameProgress update request', [
-                'request' => $request->all(),
+            // Log all request data for debugging
+            Log::info('UserGameProgressController update request', [
+                'request_data' => $request->all(),
                 'game_id' => $game->id,
-                'route' => $request->route()->uri,
-                'parameters' => $request->route()->parameters(),
+                'user_id' => Auth::id(),
             ]);
 
-            // Ensure we have a valid game instance
-            $gameId = $game->id;
+            // Find existing progress record or create a new one
+            $progress = UserGameProgress::firstOrCreate(
+                [
+                    'user_id' => Auth::id(),
+                    'game_id' => $game->id,
+                ]
+            );
 
-            // Double check: if we have a game_id parameter and our model binding failed,
-            // attempt to load the game directly
-            if (empty($gameId) && $request->has('game_id')) {
-                $game = Game::find($request->input('game_id'));
-                if (! $game) {
-                    throw new Exception('Game not found with ID: ' . $request->input('game_id'));
-                }
-                $gameId = $game->id;
-            }
+            // Authorize against the progress policy
+            $this->authorize('update', $progress);
 
-            $validated = $request->validate([
-                'started_at' => 'nullable|date',
-                'completed_at' => 'nullable|date',
-                'personal_notes' => 'nullable|string',
+            $validatedData = $request->validate([
                 'game_version_id' => [
                     'nullable',
+                    'exists:game_versions,id',
                     function ($attribute, $value, $fail) use ($game) {
-                        // Skip validation if the value is empty or null
-                        if (empty($value)) {
-                            return;
-                        }
-
-                        // Check if the version belongs to this game
-                        $exists = GameVersion::where('id', $value)
-                            ->where('game_id', $game->id)
-                            ->exists();
-
-                        if (! $exists) {
-                            $fail('The selected version is invalid.');
+                        if (! empty($value)) {
+                            $exists = GameVersion::where('id', $value)
+                                ->where('game_id', $game->id)
+                                ->exists();
+                            if (! $exists) {
+                                $fail('The selected version does not belong to this game.');
+                            }
                         }
                     },
                 ],
+                'started_at' => 'nullable|date',
+                'completed_at' => 'nullable|date',
+                'personal_notes' => 'nullable|string',
+                'status' => 'nullable|string',
+                'receive_updates' => 'nullable|boolean',
             ]);
 
-            // Handle empty string for game_version_id
-            if (isset($validated['game_version_id']) && ($validated['game_version_id'] === '')) {
-                $validated['game_version_id'] = null;
-            }
+            // Log validated data
+            Log::info('UserGameProgressController validated data', [
+                'validated_data' => $validatedData,
+                'progress_before' => $progress->toArray(),
+            ]);
 
-            // Get the current status from the user's default lists
-            $status = 'plan_to_read'; // Default status
-            $userId = Auth::id();
-
-            if ($game->userProgress()->where('user_id', $userId)->exists()) {
-                // Update existing record
-                $progress = $game->userProgress()->where('user_id', $userId)->first();
-                $progress->update($validated);
-            } else {
-                // Create new record
-                $progress = new UserGameProgress($validated);
-                $progress->user_id = $userId;
-                $progress->game_id = $game->id;
-                $progress->status = $status;
-                $progress->save();
-            }
-
-            // Update status based on dates
-            if ($progress->completed_at) {
-                $progress->status = 'completed';
-            } elseif ($progress->started_at) {
-                $progress->status = 'reading';
-            }
+            // Update the progress record with the validated data
+            $progress->fill(
+                array_filter($validatedData, function ($value) {
+                    return $value !== null;
+                })
+            );
             $progress->save();
 
-            if ($request->wantsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Game progress updated successfully',
-                ]);
-            }
+            // Log the result after saving
+            Log::info('UserGameProgressController after save', [
+                'progress_after' => $progress->fresh()->toArray(),
+            ]);
 
-            return back()->with('success', 'Game progress updated successfully');
+            return response()->json([
+                'success' => true,
+                'message' => 'Progress updated successfully',
+            ]);
         } catch (Exception $e) {
             Log::error('Error updating user game progress', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'request' => $request->all(),
                 'game_id' => $game->id ?? null,
+                'user_id' => Auth::id(),
             ]);
 
-            if ($request->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error updating game progress: ' . $e->getMessage(),
-                ]);
-            }
-
-            return back()->with('error', 'Error updating game progress: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating game progress: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Toggle update notifications for a game.
      */
-    public function destroy(string $id)
+    public function toggleUpdates(Request $request, Game $game): JsonResponse
     {
-        //
+        try {
+            // Find or create progress record for this game
+            $progress = UserGameProgress::firstOrCreate(
+                [
+                    'user_id' => Auth::id(),
+                    'game_id' => $game->id,
+                ],
+                [
+                    'status' => 'custom',
+                ]
+            );
+
+            // Authorize against the progress record
+            $this->authorize('update', $progress);
+
+            // Determine if updates should be received based on the checkbox state
+            $receiveUpdates = false;
+
+            // Check if the checkbox is checked (value is '1' or true)
+            if ($request->input('receive_updates') == '1' || $request->input('receive_updates') === true) {
+                $receiveUpdates = true;
+            }
+
+            $progress->receive_updates = $receiveUpdates;
+            $progress->save();
+
+            $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for ' . $game->name;
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'receive_updates' => $receiveUpdates,
+            ]);
+        } catch (Exception $e) {
+            Log::error('Error toggling game update notifications', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+                'game_id' => $game->id ?? null,
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error toggling update notifications: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

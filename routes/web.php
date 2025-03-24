@@ -70,41 +70,68 @@ Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthControlle
 
 // Authenticated VN List Routes
 Route::middleware(['auth'])->group(function () {
-    Route::get('user/dashboard', [App\Http\Controllers\UserDashboardController::class, 'show'])->name('user.dashboard.show');
-    Route::delete('user/account', [App\Http\Controllers\UserDashboardController::class, 'deleteAccount'])->name('user.delete');
-    Route::post('user/merge/{provider}', [App\Http\Controllers\UserDashboardController::class, 'mergeSocialAccounts'])->name('user.merge');
-    Route::delete('user/disconnect/{provider}', [App\Http\Controllers\UserDashboardController::class, 'disconnectSocialAccount'])->name('user.disconnect');
+    Route::get('user/dashboard',
+        [App\Http\Controllers\UserDashboardController::class, 'show'])->name('user.dashboard.show');
+    Route::get('user/notifications/digest/{date}', [
+        App\Http\Controllers\UserDashboardController::class, 'showDigestNotifications',
+    ])->name('user.notifications.digest');
+    Route::delete('user/account',
+        [App\Http\Controllers\UserDashboardController::class, 'deleteAccount'])->name('user.delete');
+    Route::post('user/merge/{provider}',
+        [App\Http\Controllers\UserDashboardController::class, 'mergeSocialAccounts'])->name('user.merge');
+    Route::delete('user/disconnect/{provider}',
+        [App\Http\Controllers\UserDashboardController::class, 'disconnectSocialAccount'])->name('user.disconnect');
     Route::get('user/export', [App\Http\Controllers\UserDashboardController::class, 'exportData'])->name('user.export');
-    Route::put('user/notifications', [App\Http\Controllers\UserDashboardController::class, 'updateNotificationPreferences'])->name('user.dashboard.notifications.update');
+    Route::put('user/notifications', [
+        App\Http\Controllers\UserDashboardController::class, 'updateNotificationPreferences',
+    ])->name('user.dashboard.notifications.update');
+    Route::post('users/dashboard/version-comparison', [
+        App\Http\Controllers\UserDashboardController::class, 'getVersionComparison',
+    ])->name('users.dashboard.version-comparison');
 
     Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
     Route::get('lists/create', [App\Http\Controllers\VnListController::class, 'create'])->name('vn-lists.create');
     Route::post('lists', [App\Http\Controllers\VnListController::class, 'store'])->name('vn-lists.store');
     Route::get('lists/{vnList}/edit', [App\Http\Controllers\VnListController::class, 'edit'])->name('vn-lists.edit');
     Route::put('lists/{vnList}', [App\Http\Controllers\VnListController::class, 'update'])->name('vn-lists.update');
-    Route::delete('lists/{vnList}', [App\Http\Controllers\VnListController::class, 'destroy'])->name('vn-lists.destroy');
-    Route::post('lists/{vnList}/toggle-visibility', [App\Http\Controllers\VnListController::class, 'toggleVisibility'])->name('vn-lists.toggle-visibility');
+    Route::delete('lists/{vnList}',
+        [App\Http\Controllers\VnListController::class, 'destroy'])->name('vn-lists.destroy');
+    Route::post('lists/{vnList}/toggle-visibility',
+        [App\Http\Controllers\VnListController::class, 'toggleVisibility'])->name('vn-lists.toggle-visibility');
 
     // Game operations
-    Route::post('games/{game:id}/add-to-list', [App\Http\Controllers\VnListController::class, 'addGame'])->name('games.add-to-list');
-    Route::post('lists/{vnList}/add-game', [App\Http\Controllers\VnListController::class, 'addToCustomList'])->name('list-entries.add-to-custom');
+    Route::post('games/{game:id}/add-to-list',
+        [App\Http\Controllers\VnListController::class, 'addGame'])->name('games.add-to-list');
+    Route::post('lists/{vnList}/add-game',
+        [App\Http\Controllers\VnListController::class, 'addToCustomList'])->name('list-entries.add-to-custom');
 
     // List entries
-    Route::put('list-entries/{entry}', [App\Http\Controllers\VnListController::class, 'updateEntry'])->name('list-entries.update');
-    Route::post('list-entries/{entry}/move', [App\Http\Controllers\VnListController::class, 'moveGame'])->name('list-entries.move');
-    Route::delete('list-entries/{entry}', [App\Http\Controllers\VnListController::class, 'removeGame'])->name('list-entries.destroy');
-    Route::patch('list-entries/{entry}/toggle-updates', [App\Http\Controllers\VnListController::class, 'toggleUpdates'])->name('list-entries.toggle-updates');
+    Route::put('list-entries/{entry}',
+        [App\Http\Controllers\VnListController::class, 'updateEntry'])->name('list-entries.update');
+    Route::post('list-entries/{entry}/move',
+        [App\Http\Controllers\VnListController::class, 'moveGame'])->name('list-entries.move');
+    Route::delete('list-entries/{entry}',
+        [App\Http\Controllers\VnListController::class, 'removeGame'])->name('list-entries.destroy');
+    Route::patch('lists/{vnList}/toggle-all-updates', function (Request $request, \App\Models\VnList $vnList) {
+        return app()->make(App\Http\Controllers\VnListController::class)->toggleAllUpdates($request, $vnList);
+    })->name('vn-lists.toggle-all-updates');
 
     // User Game Progress
-    Route::put('user-progress/{game:id}', [App\Http\Controllers\UserGameProgressController::class, 'update'])->name('user-progress.update');
+    Route::put('user-progress/{game:id}',
+        [App\Http\Controllers\UserGameProgressController::class, 'update'])->name('user-progress.update');
+    Route::patch('user-progress/{game:id}/toggle-updates', function (Request $request, Game $game) {
+        return app()->make(App\Http\Controllers\UserGameProgressController::class)->toggleUpdates($request, $game);
+    })->name('user-progress.toggle-updates');
 
     // VN Lists ordering
-    Route::post('vn-lists/{vnList}/update-order', [App\Http\Controllers\VnListController::class, 'updateOrder'])->name('vn-lists.update-order');
+    Route::post('vn-lists/{vnList}/update-order',
+        [App\Http\Controllers\VnListController::class, 'updateOrder'])->name('vn-lists.update-order');
 });
 
 // Public VN List Routes (no auth required)
 Route::get('lists/public', [App\Http\Controllers\VnListController::class, 'publicLists'])->name('vn-lists.public');
-Route::get('users/{user}/lists', [App\Http\Controllers\VnListController::class, 'userPublicLists'])->name('vn-lists.user-public');
+Route::get('users/{user}/lists',
+    [App\Http\Controllers\VnListController::class, 'userPublicLists'])->name('vn-lists.user-public');
 Route::get('lists/{vnList}', [App\Http\Controllers\VnListController::class, 'show'])->name('vn-lists.show');
 
 /*

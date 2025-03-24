@@ -1,58 +1,162 @@
 @props(['game', 'userLists' => null, 'publicLists' => null])
 
 @auth
-    <div class="flex items-center justify-between">
-        <!-- Compact Button to Open Dialog -->
-        <button
-            type="button"
-            id="open-list-dialog-{{ $game->id }}"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
-            onclick="document.getElementById('list-dialog-{{ $game->id }}').showModal()"
-        >
-            @if ($userLists && $userLists->isNotEmpty())
-                <span>Manage in Lists</span>
-            @else
-                <span>Add to My Lists</span>
-            @endif
-        </button>
-
-        <!-- Public Lists Summary -->
-        @if ($publicLists && $publicLists->isNotEmpty())
+    <div class="space-y-4">
+        <!-- Fixed Top Controls Row -->
+        <div class="flex flex-wrap gap-2">
+            <!-- Manage Lists Button -->
             <button
                 type="button"
-                class="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center"
-                onclick="document.getElementById('public-lists-{{ $game->id }}').classList.toggle('hidden')"
+                id="open-list-dialog-{{ $game->id }}"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                onclick="document.getElementById('list-dialog-{{ $game->id }}').showModal()"
             >
-                <span>{{ $publicLists->count() }} public {{ Str::plural('list', $publicLists->count()) }}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
+                @if ($userLists && $userLists->isNotEmpty())
+                    <span>Manage in Lists</span>
+                @else
+                    <span>Add to My Lists</span>
+                @endif
             </button>
-        @endif
-    </div>
 
-    <!-- Public Lists Collapsible Section -->
-    @if ($publicLists && $publicLists->isNotEmpty())
-        <div id="public-lists-{{ $game->id }}" class="mt-3 space-y-2 hidden">
-            @foreach ($publicLists as $list)
-                <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <a href="{{ route('vn-lists.show', $list) }}" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                                {{ $list->name }}
-                            </a>
-                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                By <a href="{{ route('vn-lists.user-public', $list->user) }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ $list->user->name }}</a>
-                            </div>
+            <!-- User Lists Toggle Button -->
+            @if ($userLists && $userLists->isNotEmpty())
+                @php
+                    // Determine the primary list type for color coding
+                    $primaryListType = null;
+                    $listTypeCounts = [];
+
+                    foreach ($userLists as $list) {
+                        if (!isset($listTypeCounts[$list->type])) {
+                            $listTypeCounts[$list->type] = 0;
+                        }
+                        $listTypeCounts[$list->type]++;
+                    }
+
+                    // Priority order for list types
+                    $priorityOrder = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
+
+                    // Find the highest priority list type that exists
+                    foreach ($priorityOrder as $type) {
+                        if (isset($listTypeCounts[$type]) && $listTypeCounts[$type] > 0) {
+                            $primaryListType = $type;
+                            break;
+                        }
+                    }
+
+                    // Set color based on primary list type
+                    $badgeColor = 'blue';
+                    if ($primaryListType === 'reading') {
+                        $badgeColor = 'blue';
+                    } elseif ($primaryListType === 'completed') {
+                        $badgeColor = 'green';
+                    } elseif ($primaryListType === 'plan_to_read') {
+                        $badgeColor = 'yellow';
+                    } elseif ($primaryListType === 'on_hold') {
+                        $badgeColor = 'orange';
+                    } elseif ($primaryListType === 'dropped') {
+                        $badgeColor = 'red';
+                    }
+                @endphp
+                <button
+                    type="button"
+                    class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
+                    onclick="toggleUserLists('{{ $game->id }}')"
+                >
+                    <span>My Lists</span>
+                    <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-{{ $badgeColor }}-100 text-{{ $badgeColor }}-800 dark:bg-{{ $badgeColor }}-900 dark:text-{{ $badgeColor }}-200">
+                        {{ $userLists->count() }}
+                    </span>
+                    <svg id="user-lists-chevron-{{ $game->id }}" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            @endif
+
+            <!-- Public Lists Toggle Button -->
+            @if ($publicLists && $publicLists->isNotEmpty())
+                <button
+                    type="button"
+                    class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
+                    onclick="togglePublicLists('{{ $game->id }}')"
+                >
+                    <span>Public Lists</span>
+                    <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        {{ $publicLists->count() }}
+                    </span>
+                    <svg id="public-lists-chevron-{{ $game->id }}" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            @endif
+        </div>
+
+        <!-- User Lists Section -->
+        @if ($userLists && $userLists->isNotEmpty())
+            <div>
+                <!-- Expandable Content -->
+                <div id="user-lists-{{ $game->id }}" class="hidden mt-2">
+                    <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700/50">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">My Lists</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            @foreach ($userLists as $list)
+                                <div class="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <a href="{{ route('vn-lists.show', $list) }}" class="block font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 truncate">
+                                                {{ $list->name }}
+                                            </a>
+                                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                {{ ucfirst(str_replace('_', ' ', $list->type)) }}
+                                                @if ($list->is_public)
+                                                    <span class="ml-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                        Public
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
+                                            {{ ucfirst(str_replace('_', ' ', $list->type)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
-                            {{ ucfirst(str_replace('_', ' ', $list->type)) }}
-                        </span>
                     </div>
                 </div>
-            @endforeach
-        </div>
-    @endif
+            </div>
+        @endif
+
+        <!-- Public Lists Section -->
+        @if ($publicLists && $publicLists->isNotEmpty())
+            <div>
+                <!-- Expandable Content -->
+                <div id="public-lists-{{ $game->id }}" class="hidden mt-2">
+                    <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700/50">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Public Lists</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            @foreach ($publicLists as $list)
+                                <div class="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <a href="{{ route('vn-lists.show', $list) }}" class="block font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 truncate">
+                                                {{ $list->name }}
+                                            </a>
+                                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                By <a href="{{ route('vn-lists.user-public', $list->user) }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ $list->user->name }}</a>
+                                            </div>
+                                        </div>
+                                        <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
+                                            {{ ucfirst(str_replace('_', ' ', $list->type)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+    </div>
 
     <!-- Dialog for List Management -->
     <dialog
@@ -309,7 +413,6 @@
                     }, 3000);
                 })
                 .catch(error => {
-                    console.error('Error:', error);
                     messageContainer.textContent = 'An error occurred. Please try again.';
                     messageContainer.classList.remove('hidden', 'text-green-500');
                     messageContainer.classList.add('text-red-500');
@@ -476,6 +579,12 @@
                             }
                         }
 
+                        // Update the My Lists badge color based on the new list type
+                        updateMyListsBadgeColor(form.dataset.gameId, formData.get('list_type'));
+
+                        // Update the user lists toggle content
+                        updateUserListsContent(form.dataset.gameId, formData.get('list_type'), data.message.includes('removed'), data.is_public);
+
                         showMessage(document.getElementById(`ajax-message-${form.dataset.gameId}`), data.message, true);
                     } else {
                         throw new Error(data.message || 'Failed to update list');
@@ -487,6 +596,103 @@
                 }
             });
         });
+
+        // Function to update the My Lists badge color
+        function updateMyListsBadgeColor(gameId, listType) {
+            const myListsButton = document.querySelector(`button[onclick="toggleUserLists('${gameId}')"]`);
+            if (!myListsButton) return;
+
+            const badge = myListsButton.querySelector('span:nth-child(2)');
+            if (!badge) return;
+
+            // Determine the color based on the list type
+            let badgeColor = 'blue';
+            if (listType === 'reading') {
+                badgeColor = 'blue';
+            } else if (listType === 'completed') {
+                badgeColor = 'green';
+            } else if (listType === 'plan_to_read') {
+                badgeColor = 'yellow';
+            } else if (listType === 'on_hold') {
+                badgeColor = 'orange';
+            } else if (listType === 'dropped') {
+                badgeColor = 'red';
+            }
+
+            // Update the badge classes
+            badge.className = `px-1.5 py-0.5 text-xs font-medium rounded-full bg-${badgeColor}-100 text-${badgeColor}-800 dark:bg-${badgeColor}-900 dark:text-${badgeColor}-200`;
+        }
+
+        // Function to update the user lists toggle content
+        function updateUserListsContent(gameId, listType, isRemoved, isPublic = false) {
+            const userListsContainer = document.getElementById(`user-lists-${gameId}`);
+            if (!userListsContainer) return;
+
+            // If the game was removed from all lists, hide the toggle button
+            if (isRemoved) {
+                const myListsButton = document.querySelector(`button[onclick="toggleUserLists('${gameId}')"]`);
+                if (myListsButton) {
+                    myListsButton.style.display = 'none';
+                }
+                return;
+            }
+
+            // Show the toggle button if it was hidden
+            const myListsButton = document.querySelector(`button[onclick="toggleUserLists('${gameId}')"]`);
+            if (myListsButton) {
+                myListsButton.style.display = 'flex';
+            }
+
+            // Update the list items in the toggle content
+            const listItems = userListsContainer.querySelectorAll('.flex.flex-col');
+            listItems.forEach(item => {
+                const listTypeSpan = item.querySelector('.text-xs.text-gray-500');
+                if (listTypeSpan) {
+                    // Update the list type text
+                    const listTypeText = listType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    listTypeSpan.textContent = listTypeText;
+
+                    // Update the list type badge color - using a more reliable selector
+                    const listTypeBadges = item.querySelectorAll('span');
+                    listTypeBadges.forEach(badge => {
+                        if (badge.classList.contains('rounded-full') && badge.classList.contains('text-xs')) {
+                            let badgeColor = 'blue';
+                            if (listType === 'reading') {
+                                badgeColor = 'blue';
+                            } else if (listType === 'completed') {
+                                badgeColor = 'green';
+                            } else if (listType === 'plan_to_read') {
+                                badgeColor = 'yellow';
+                            } else if (listType === 'on_hold') {
+                                badgeColor = 'orange';
+                            } else if (listType === 'dropped') {
+                                badgeColor = 'red';
+                            }
+
+                            badge.className = `px-2 py-0.5 text-xs font-medium rounded-full bg-${badgeColor}-100 text-${badgeColor}-800 dark:bg-${badgeColor}-900 dark:text-${badgeColor}-200`;
+                            badge.textContent = listTypeText;
+                        }
+                    });
+
+                    // Handle the public tag
+                    let publicTag = item.querySelector('.bg-purple-100');
+                    if (isPublic) {
+                        // If public tag doesn't exist, create it
+                        if (!publicTag) {
+                            publicTag = document.createElement('span');
+                            publicTag.className = 'ml-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+                            publicTag.textContent = 'Public';
+                            listTypeSpan.appendChild(publicTag);
+                        }
+                    } else {
+                        // If public tag exists but should be removed
+                        if (publicTag) {
+                            publicTag.remove();
+                        }
+                    }
+                }
+            });
+        }
 
         // Handle quick list creation
         document.querySelectorAll('.quick-list-form').forEach(form => {
@@ -672,4 +878,30 @@
             });
         });
     });
+
+    function togglePublicLists(gameId) {
+        const container = document.getElementById(`public-lists-${gameId}`);
+        const chevron = document.getElementById(`public-lists-chevron-${gameId}`);
+
+        if (container.classList.contains('hidden')) {
+            container.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            container.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function toggleUserLists(gameId) {
+        const container = document.getElementById(`user-lists-${gameId}`);
+        const chevron = document.getElementById(`user-lists-chevron-${gameId}`);
+
+        if (container.classList.contains('hidden')) {
+            container.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            container.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
 </script>

@@ -49,53 +49,75 @@
                         </a>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-4 mb-3">
-                        <x-games::platform-icons
-                            :platforms="$platforms"
-                            :selected-platforms="[]"
-                            :clickable="false"/>
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
+                        <div class="flex items-center gap-4">
+                            <x-games::platform-icons
+                                :platforms="$platforms"
+                                :selected-platforms="[]"
+                                :clickable="false"/>
 
-                        @if ($game->is_nsfw)
-                            <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full">
-                                NSFW
-                            </span>
-                        @endif
+                            @if ($game->is_nsfw)
+                                <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full">
+                                    NSFW
+                                </span>
+                            @endif
+                        </div>
 
-                        {{-- List Tags --}}
+                        {{-- List Tags and Notifications --}}
                         @auth
-                            @php
-                                $defaultList = Auth::user()->vnLists()
-                                    ->where('is_default', true)
-                                    ->whereHas('entries', function($query) use ($game) {
-                                        $query->where('game_id', $game->id);
-                                    })
-                                    ->first();
-                            @endphp
-                            <div data-list-tags="{{ $game->id }}" class="flex gap-2">
-                                @if ($defaultList)
-                                    <span
-                                        data-list-type="{{ $defaultList->type }}"
-                                        class="px-2 py-1 text-xs font-semibold rounded-full
-                                            @if ($defaultList->type === 'reading')
-                                                bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
-                                            @elseif ($defaultList->type === 'completed')
-                                                bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
-                                            @elseif ($defaultList->type === 'plan_to_read')
-                                                bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
-                                            @elseif ($defaultList->type === 'on_hold')
-                                                bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
-                                            @elseif ($defaultList->type === 'dropped')
-                                                bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
-                                            @endif"
-                                    >
-                                        {{ ucwords(str_replace('_', ' ', $defaultList->type)) }}
-                                    </span>
-                                    @if ($defaultList->is_public)
-                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                            Public
+                            <div class="flex items-center gap-4">
+                                @php
+                                    $defaultList = Auth::user()->vnLists()
+                                        ->where('is_default', true)
+                                        ->whereHas('entries', function($query) use ($game) {
+                                            $query->where('game_id', $game->id);
+                                        })
+                                        ->first();
+                                @endphp
+                                <div data-list-tags="{{ $game->id }}" class="flex gap-2">
+                                    @if ($defaultList)
+                                        <span
+                                            data-list-type="{{ $defaultList->type }}"
+                                            class="px-2 py-1 text-xs font-semibold rounded-full
+                                                @if ($defaultList->type === 'reading')
+                                                    bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                                @elseif ($defaultList->type === 'completed')
+                                                    bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                                @elseif ($defaultList->type === 'plan_to_read')
+                                                    bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                                @elseif ($defaultList->type === 'on_hold')
+                                                    bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                                @elseif ($defaultList->type === 'dropped')
+                                                    bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                                @endif"
+                                        >
+                                            {{ ucwords(str_replace('_', ' ', $defaultList->type)) }}
                                         </span>
+                                        @if ($defaultList->is_public)
+                                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                Public
+                                            </span>
+                                        @endif
                                     @endif
-                                @endif
+                                </div>
+
+                                {{-- Notification Toggle --}}
+                                @php
+                                    $userProgress = App\Models\UserGameProgress::where('user_id', auth()->id())
+                                        ->where('game_id', $game->id)
+                                        ->first();
+                                    $receiveNotifications = $userProgress ? $userProgress->receive_updates : false;
+                                @endphp
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receive notifications</span>
+                                    @include('lists.partials.toggle-switch', [
+                                        'action' => route('user-progress.toggle-updates', ['game' => $game->id]),
+                                        'name' => 'receive_updates',
+                                        'value' => '1',
+                                        'checked' => $receiveNotifications,
+                                        'srText' => $receiveNotifications ? 'Turn off notifications' : 'Turn on notifications',
+                                    ])
+                                </div>
                             </div>
                         @endauth
                     </div>
@@ -113,8 +135,10 @@
             </div>
 
             <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <!-- VN List Buttons - Compact Version -->
-                <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :publicLists="$publicLists ?? null" />
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <!-- VN List Buttons - Compact Version -->
+                    <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :publicLists="$publicLists ?? null" />
+                </div>
             </div>
         </div>
 
@@ -215,7 +239,7 @@
                 <div class="mt-6 mb-4">
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-3">
                         <h3 class="text-base font-medium text-gray-100 mb-3">Compare Versions</h3>
-                        <form wire:submit.prevent="compareVersions" class="flex flex-col gap-4 sm:flex-row items-end">
+                        <form class="flex flex-col gap-4 sm:flex-row items-end">
                             <div>
                                 <label for="compareFromVersionId" class="block text-sm font-medium text-gray-400 mb-1">From Version</label>
                                 <select
@@ -248,7 +272,8 @@
                             </div>
                             <div>
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onclick="compareGameVersions('{{ $compareFromVersionId }}', '{{ $compareToVersionId }}', '{{ $game->id }}')"
                                     class="inline-flex items-center px-4 py-3 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-300 disabled:opacity-25 transition"
                                     @if (!$compareFromVersionId || !$compareToVersionId) disabled @endif
                                 >
@@ -512,7 +537,7 @@
     </div>
 
     @include('games.components.file-stats-dialog')
-    @include('games.components.version-comparison-dialog')
+    <livewire:components.version-comparison />
 
     @include('components.ui.meta-data-refresh')
 </div>
@@ -529,5 +554,120 @@
                 e.currentTarget.close();
             }
         });
+    });
+
+    // Version comparison functionality
+    function compareGameVersions(fromVersionId, toVersionId, gameId) {
+        Livewire.dispatch('compare-game-versions', {
+            params: {
+                fromVersionId: fromVersionId,
+                toVersionId: toVersionId,
+                gameId: gameId
+            }
+        });
+    }
+
+    // Helper function to show success messages
+    function showSuccessMessage(message) {
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-lg z-50';
+        successMessage.innerHTML = `<p>${message}</p>`;
+        document.body.appendChild(successMessage);
+
+        // Remove the message after 3 seconds
+        setTimeout(() => {
+            successMessage.remove();
+        }, 3000);
+    }
+
+    // Helper function to show error messages
+    function showErrorMessage(message) {
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'fixed bottom-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50';
+        errorMessage.innerHTML = `<p>${message}</p>`;
+        document.body.appendChild(errorMessage);
+
+        // Remove the message after 5 seconds
+        setTimeout(() => {
+            errorMessage.remove();
+        }, 5000);
+    }
+
+    // Helper function to handle toggle forms
+    function setupToggleForm(form) {
+        const checkbox = form.querySelector('input[type="checkbox"]');
+        const toggleLabel = form.querySelector('label');
+
+        if (!checkbox || !toggleLabel) return;
+
+        toggleLabel.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent default label behavior
+
+            // Toggle the checkbox state
+            checkbox.checked = !checkbox.checked;
+
+            // Submit the form
+            form.dispatchEvent(new Event('submit'));
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            try {
+                // Create URLSearchParams instead of FormData
+                const params = new URLSearchParams();
+
+                // Add the CSRF token
+                params.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+
+                // Add PATCH method
+                params.append('_method', 'PATCH');
+
+                // Set receive_updates if checked
+                if (checkbox.checked) {
+                    params.append('receive_updates', '1');
+                } else {
+                    params.append('receive_updates', '0');
+                }
+
+                const response = await fetch(this.action, {
+                    method: 'PATCH',
+                    body: params,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+
+                const data = await response.json();
+
+                // Update UI based on response
+                if (data.success) {
+                    // Update the checkbox visual state
+                    checkbox.checked = data.receive_updates;
+
+                    // Update the screen reader text
+                    const toggleDiv = checkbox.nextElementSibling;
+                    const srOnlySpan = toggleDiv.querySelector('.sr-only');
+                    if (srOnlySpan) {
+                        srOnlySpan.textContent = data.receive_updates ? 'Turn off notifications' : 'Turn on notifications';
+                    }
+
+                    // Show success message
+                    showSuccessMessage(data.message);
+                }
+            } catch (error) {
+                showErrorMessage('An error occurred. Please try again.');
+
+                // Revert the checkbox state
+                checkbox.checked = !checkbox.checked;
+            }
+        });
+    }
+
+    // Set up event handlers for toggle updates forms
+    document.querySelectorAll('.toggle-updates-form').forEach(form => {
+        setupToggleForm(form);
     });
 </script>

@@ -32,6 +32,7 @@ class UserGameProgress extends Model
         'completed_at',
         'personal_notes',
         'status',
+        'receive_updates',
     ];
 
     /**
@@ -42,6 +43,7 @@ class UserGameProgress extends Model
     protected $casts = [
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'receive_updates' => 'boolean',
     ];
 
     /**

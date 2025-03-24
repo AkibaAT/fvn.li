@@ -1,0 +1,236 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Console\Commands;
+
+use App\Models\Game;
+use App\Models\NotificationQueue;
+use App\Services\NotificationService;
+use Carbon\Carbon;
+use Exception;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class QueueGameUpdateNotifications extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'notifications:queue-game-updates
+                            {--days=1 : Check for games updated in the last N days}
+                            {--limit=100 : Maximum number of games to process per run}';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Finds recently updated games and queues notifications for users who follow them';
+
+    /**
+     * The notification service instance.
+     */
+    protected NotificationService $notificationService;
+
+    /**
+     * Create a new command instance.
+     */
+    public function __construct(NotificationService $notificationService)
+    {
+        parent::__construct();
+        $this->notificationService = $notificationService;
+    }
+
+    /**
+     * Execute the console command.
+     */
+    public function handle(): int
+    {
+        $days = (int) $this->option('days');
+        $limit = (int) $this->option('limit');
+
+        $this->info("Checking for games updated in the last {$days} days...");
+
+        try {
+            // Find games that have been updated in the specified period
+            $latestDate = Carbon::now()->subDays($days);
+
+            $recentlyUpdatedGames = Game::whereHas('gameVersions', function ($query) use ($latestDate) {
+                $query->where('published_at', '>=', $latestDate)
+                    ->where('is_latest', true);
+            })
+                ->with(['latestVersion'])
+                ->limit($limit)
+                ->get();
+
+            $this->info('Found ' . count($recentlyUpdatedGames) . ' recently updated games');
+
+            $notificationCount = 0;
+
+            foreach ($recentlyUpdatedGames as $game) {
+                $this->info("Processing notifications for game: {$game->name}");
+
+                // Skip if no latest version
+                if (! $game->latestVersion) {
+                    $this->warn("No latest version found for game {$game->name}, skipping...");
+
+                    continue;
+                }
+
+                // Find users who follow this game and should receive updates
+                $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
+
+                $this->info('Found ' . count($usersToNotify) . " users to notify for {$game->name}");
+
+                // Queue notifications for these users
+                foreach ($usersToNotify as $user) {
+                    // For each notification channel they have enabled
+                    $channelsToNotify = [];
+
+                    if ((bool) $user->browser_notifications_enabled) {
+                        $channelsToNotify[] = 'browser';
+                    }
+
+                    if ((bool) $user->discord_notifications_enabled) {
+                        $channelsToNotify[] = 'discord';
+                    }
+
+                    // Add more channels here as needed
+
+                    foreach ($channelsToNotify as $channel) {
+                        $this->queueNotification(
+                            $user->user_id,
+                            $game->id,
+                            $game->latestVersion->id,
+                            $channel,
+                            $user->notification_digest,
+                            $game
+                        );
+                        $notificationCount++;
+                    }
+                }
+            }
+
+            $this->info("Successfully queued {$notificationCount} notifications");
+
+            return 0;
+        } catch (Exception $e) {
+            $this->error('Error queueing game update notifications: ' . $e->getMessage());
+            Log::error('Error in QueueGameUpdateNotifications command', [
+                'exception' => $e,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return 1;
+        }
+    }
+
+    /**
+     * Get users who should be notified about a game update.
+     */
+    protected function getUsersToNotify(int $gameId, int $gameVersionId): array
+    {
+        // Get all users who have the game in their list and have receive_updates=true in user_game_progress
+        return DB::table('vn_list_entries')
+            ->select([
+                'users.id as user_id',
+                'user_notification_preferences.browser_notifications_enabled',
+                'user_notification_preferences.discord_notifications_enabled',
+                'user_notification_preferences.notification_digest',
+            ])
+            ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
+            ->join('users', 'vn_lists.user_id', '=', 'users.id')
+            ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
+            ->join('user_game_progress', function ($join) use ($gameId) {
+                $join->on('user_game_progress.user_id', '=', 'users.id')
+                    ->where('user_game_progress.game_id', '=', $gameId)
+                    ->where('user_game_progress.receive_updates', '=', true);
+            })
+            ->leftJoin('notification_history', function ($join) use ($gameId, $gameVersionId) {
+                $join->on('notification_history.user_id', '=', 'users.id')
+                    ->where('notification_history.game_id', '=', $gameId)
+                    ->where('notification_history.game_version_id', '=', $gameVersionId);
+            })
+            ->where('vn_list_entries.game_id', $gameId)
+            ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
+            ->groupBy('users.id', 'user_notification_preferences.browser_notifications_enabled',
+                'user_notification_preferences.discord_notifications_enabled', 'user_notification_preferences.notification_digest')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * Queue a notification for a user.
+     */
+    protected function queueNotification(
+        int $userId,
+        int $gameId,
+        int $gameVersionId,
+        string $channel,
+        string $digestType,
+        Game $game
+    ): void {
+        // Calculate when this notification should be sent based on digest setting
+        $scheduledAt = $this->calculateScheduledTime($digestType);
+
+        // Prepare notification payload
+        $payload = [
+            'title' => $game->name . ' - New Update Available',
+            'body' => 'Version ' . $game->latestVersion->version . ' is now available.',
+            'data' => [
+                'url' => route('games.show', $game->slug),
+                'game_id' => $game->id,
+                'game_version_id' => $game->latestVersion->id,
+                'version' => $game->latestVersion->version,
+            ],
+            'icon' => $game->getThumbnailUrl('small'),
+        ];
+
+        // Queue the notification
+        NotificationQueue::create([
+            'user_id' => $userId,
+            'game_id' => $gameId,
+            'game_version_id' => $gameVersionId,
+            'channel' => $channel,
+            'status' => 'pending',
+            'scheduled_at' => $scheduledAt,
+            'payload' => $payload,
+        ]);
+    }
+
+    /**
+     * Calculate when the notification should be scheduled based on digest type.
+     */
+    protected function calculateScheduledTime(string $digestType): Carbon
+    {
+        $now = Carbon::now();
+
+        switch ($digestType) {
+            case 'asap':
+                // Send immediately
+                return $now;
+
+            case 'daily':
+                // Send at 9 AM the next day
+                return $now->copy()->addDay()->setHour(9)->setMinute(0)->setSecond(0);
+
+            case 'weekly':
+                // Send at 9 AM on Sunday
+                $daysUntilSunday = 7 - $now->dayOfWeek;
+                if ($daysUntilSunday === 0) {
+                    $daysUntilSunday = 7; // If today is Sunday, schedule for next Sunday
+                }
+
+                return $now->copy()->addDays($daysUntilSunday)->setHour(9)->setMinute(0)->setSecond(0);
+
+            default:
+                // Default to immediate
+                return $now;
+        }
+    }
+}

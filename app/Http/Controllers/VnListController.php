@@ -155,7 +155,7 @@ class VnListController extends Controller
         // Eager load all the relationships we need
         $vnList->load(['entries' => function ($query) {
             $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug');
+                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails');
                 $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
@@ -177,7 +177,7 @@ class VnListController extends Controller
                 $vnList->entries->first()->game->thumb_url : '',
         ];
 
-        return view('lists.show', [
+        return view('lists.user.show', [
             'vnList' => $vnList,
             'isOwner' => $isOwner,
             'metaTags' => $metaTags,
@@ -524,7 +524,7 @@ class VnListController extends Controller
         // Eager load all the relationships we need
         $lists = VnList::with(['user', 'entries' => function ($query) {
             $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug');
+                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails');
                 $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
@@ -564,7 +564,7 @@ class VnListController extends Controller
     {
         $lists = VnList::with(['user', 'entries' => function ($query) {
             $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug');
+                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails');
                 $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
@@ -735,13 +735,77 @@ class VnListController extends Controller
     {
         $this->authorize('update', $entry->list);
 
-        $receiveUpdates = $request->has('receive_updates');
+        // Determine if updates should be received based on the checkbox state
+        $receiveUpdates = false;
 
-        $entry->update([
-            'receive_updates' => $receiveUpdates,
-        ]);
+        // Check if the checkbox is checked (value is '1' or true)
+        if ($request->input('receive_updates') == '1' || $request->input('receive_updates') === true) {
+            $receiveUpdates = true;
+        }
+
+        // Find or create progress record for this game
+        $progress = UserGameProgress::firstOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'game_id' => $entry->game_id,
+            ],
+            [
+                'status' => 'custom',
+            ]
+        );
+
+        $progress->receive_updates = $receiveUpdates;
+        $progress->save();
 
         $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for ' . $entry->game->name;
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'receive_updates' => $receiveUpdates,
+            ]);
+        }
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Toggle update notifications for all entries in a list.
+     *
+     * @param  Request  $request  The incoming request
+     * @param  VnList  $vnList  The list whose entries to update
+     */
+    public function toggleAllUpdates(Request $request, VnList $vnList): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $vnList);
+
+        // Determine if updates should be received based on the checkbox state
+        $receiveUpdates = false;
+
+        // Check if the checkbox is checked (value is '1' or true)
+        if ($request->input('receive_updates') == '1' || $request->input('receive_updates') === true) {
+            $receiveUpdates = true;
+        }
+
+        // Get all game IDs from this list
+        $gameIds = $vnList->entries()->pluck('game_id')->toArray();
+
+        // For each game, update or create the user progress record
+        foreach ($gameIds as $gameId) {
+            UserGameProgress::updateOrCreate(
+                [
+                    'user_id' => Auth::id(),
+                    'game_id' => $gameId,
+                ],
+                [
+                    'receive_updates' => $receiveUpdates,
+                ]
+            );
+        }
+
+        $entriesCount = count($gameIds);
+        $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for all ' . $entriesCount . ' entries in this list';
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([

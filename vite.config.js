@@ -11,7 +11,8 @@ export default defineConfig(({ command, mode }) => ({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.ts',
-                'resources/js/charts-entry.ts'
+                'resources/js/charts-entry.ts',
+                'resources/js/push-notifications.js'
             ],
             refresh: true,
         }),

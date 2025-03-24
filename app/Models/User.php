@@ -86,6 +86,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's push subscriptions.
+     */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
+    /**
      * Initialize default VN lists for a new user.
      */
     public function initializeDefaultLists(): void

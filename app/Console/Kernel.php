@@ -7,6 +7,8 @@ namespace App\Console;
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportRatings;
 use App\Console\Commands\ProcessFeed;
+use App\Console\Commands\ProcessPushNotifications;
+use App\Console\Commands\QueueGameUpdateNotifications;
 use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGame;
 use App\Console\Commands\UpdateWatchlist;
@@ -23,6 +25,8 @@ class Kernel extends ConsoleKernel
         RefreshFeedlessGames::class,
         RefreshGame::class,
         UpdateWatchlist::class,
+        QueueGameUpdateNotifications::class,
+        ProcessPushNotifications::class,
     ];
 
     /**
@@ -36,6 +40,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('games:refresh-feedless')->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
+
+        // Notification commands
+        $schedule->command('notifications:queue-game-updates')->everyMinute()->withoutOverlapping();
+        $schedule->command('notifications:process-push')->everyFiveMinutes()->withoutOverlapping();
     }
 
     /**
