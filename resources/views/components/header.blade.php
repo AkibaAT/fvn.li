@@ -1,5 +1,5 @@
 <header class="bg-white dark:bg-gray-800 shadow">
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">
         <div class="flex justify-between h-16">
             <div class="flex">
                 <div class="flex-shrink-0 flex items-center">

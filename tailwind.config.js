@@ -50,7 +50,19 @@ export default {
         'dark:text-gray-200',
     ],
     theme: {
-        extend: {},
+        extend: {
+            screens: {
+                'xs': '480px',
+            },
+        },
+        container: {
+            center: true,
+            padding: {
+                DEFAULT: '1rem',
+                sm: '2rem',
+                xs: '0.5rem',
+            },
+        },
     },
     plugins: [],
 }

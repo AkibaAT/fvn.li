@@ -40,8 +40,8 @@
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
     <x-header />
 
-    <main class="py-3">
-        <div class="max-w-7xl mx-auto">
+    <main class="py-3 mt-3">
+        <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">
             {{ $slot }}
         </div>
     </main>
@@ -49,7 +49,7 @@
     @stack('scripts')
     <!-- Footer -->
     <footer class="py-8">
-        <div class="max-w-7xl mx-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">
             <!-- Horizontal Line -->
             <div class="border-t border-gray-200 dark:border-gray-700"></div>
 
@@ -81,7 +81,7 @@
                     </div>
                 </div>
                 <!-- Contact Section -->
-                <div class="flex justify-center">
+                <div class="md:flex md:justify-center">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Contact</h3>
                         <div class="flex flex-col space-y-3">

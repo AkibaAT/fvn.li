@@ -1,5 +1,5 @@
 <div class="bg-gray-100 dark:bg-gray-900">
-    <div class="max-w-7xl mx-auto py-3">
+    <div class="max-w-7xl mx-auto">
         @include('livewire.game-list.search-controls')
         @include('livewire.game-list.active-filters')
 

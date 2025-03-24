@@ -1,5 +1,5 @@
 <x-layouts.app :metaTags="$metaTags">
-    <div class="flex justify-between items-center mt-3 mb-6">
+    <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Your Visual Novel Lists</h1>
         <div class="flex space-x-2">
             <a href="{{ route('vn-lists.public') }}" class="inline-flex items-center px-4 py-2 bg-purple-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-400 active:bg-purple-600 focus:outline-none focus:border-purple-600 focus:ring focus:ring-purple-200 transition">

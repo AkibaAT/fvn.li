@@ -13,7 +13,7 @@
 <div>
     @if ($paginator->hasPages())
         <nav role="navigation" aria-label="Pagination Navigation" class="flex items-center justify-between">
-            <div class="flex justify-between flex-1 sm:hidden">
+            <div class="flex justify-between flex-1 lg:hidden">
                 <span>
                     @if ($paginator->onFirstPage())
                         <span
@@ -47,7 +47,7 @@
                 </span>
             </div>
 
-            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div class="hidden lg:flex-1 lg:flex lg:items-center lg:justify-between">
                 <div class="px-2">
                     <p class="text-sm text-gray-700 leading-5 dark:text-gray-400">
                         <span>{!! __('Showing') !!}</span>
