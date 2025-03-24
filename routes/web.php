@@ -75,6 +75,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('list-entries/{entry}', [App\Http\Controllers\VnListController::class, 'updateEntry'])->name('list-entries.update');
     Route::post('list-entries/{entry}/move', [App\Http\Controllers\VnListController::class, 'moveGame'])->name('list-entries.move');
     Route::delete('list-entries/{entry}', [App\Http\Controllers\VnListController::class, 'removeGame'])->name('list-entries.destroy');
+    Route::patch('list-entries/{entry}/toggle-updates', [App\Http\Controllers\VnListController::class, 'toggleUpdates'])->name('list-entries.toggle-updates');
 
     // User Game Progress
     Route::put('user-progress/{game:id}', [App\Http\Controllers\UserGameProgressController::class, 'update'])->name('user-progress.update');

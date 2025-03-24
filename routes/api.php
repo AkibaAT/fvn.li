@@ -27,3 +27,9 @@ Route::middleware('auth:sanctum')->prefix('discord')->group(function () {
     Route::post('subscribe', [DiscordBotController::class, 'subscribe']);
     Route::post('unsubscribe', [DiscordBotController::class, 'unsubscribe']);
 });
+
+// User notification routes
+Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
+    Route::post('subscribers', [App\Http\Controllers\Api\UserNotificationsController::class, 'getGameSubscribers']);
+    Route::post('record', [App\Http\Controllers\Api\UserNotificationsController::class, 'recordNotification']);
+});

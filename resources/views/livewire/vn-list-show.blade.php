@@ -90,6 +90,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Completed</th>
                                 @endif
                                 @if ($isOwner)
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Update Notifications</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                 @endif
                             </tr>
@@ -297,6 +298,20 @@
                                         </td>
                                     @endif
                                     @if ($isOwner)
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                                            <form action="{{ route('list-entries.toggle-updates', $entry) }}" method="POST" class="inline toggle-updates-form">
+                                                @csrf
+                                                @method('PATCH')
+                                                <div class="flex items-center">
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" name="receive_updates" value="1" class="sr-only peer" {{ $entry->receive_updates ? 'checked' : '' }}>
+                                                        <div class="w-14 h-7 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 after:shadow-md after:z-10 after:flex after:justify-center after:items-center after:text-gray-400 peer-checked:after:text-blue-600 after:content-['☐'] peer-checked:after:content-['✓']">
+                                                            <span class="sr-only">{{ $entry->receive_updates ? 'Turn off notifications' : 'Turn on notifications' }}</span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </form>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                             <button type="button"
                                                     class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
@@ -571,17 +586,47 @@
 
                             const data = await response.json();
 
-                            if (!data.success) {
+                            if (data.success) {
+                                showSuccessMessage(data.message);
+                            } else {
                                 console.error('Failed to update order:', data.message);
+                                showErrorMessage('Failed to update order: ' + data.message);
                             }
                         } catch (error) {
                             console.error('Error updating order:', error);
+                            showErrorMessage('Error updating order. Please try again.');
                         }
                     }
                 });
             }
 
-            // Set up event handlers for forms
+            // Helper function to show success messages
+            function showSuccessMessage(message) {
+                const successMessage = document.createElement('div');
+                successMessage.className = 'fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-lg z-50';
+                successMessage.innerHTML = `<p>${message}</p>`;
+                document.body.appendChild(successMessage);
+
+                // Remove the message after 3 seconds
+                setTimeout(() => {
+                    successMessage.remove();
+                }, 3000);
+            }
+
+            // Helper function to show error messages
+            function showErrorMessage(message) {
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'fixed bottom-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50';
+                errorMessage.innerHTML = `<p>${message}</p>`;
+                document.body.appendChild(errorMessage);
+
+                // Remove the message after 5 seconds
+                setTimeout(() => {
+                    errorMessage.remove();
+                }, 5000);
+            }
+
+            // Set up event handlers for entry edit forms
             document.querySelectorAll('.entry-edit-form').forEach(form => {
                 form.addEventListener('submit', async function(e) {
                     e.preventDefault();
@@ -607,18 +652,64 @@
                         const data = await response.json();
 
                         if (data.success) {
-                            window.location.reload();
+                            // Find the entry ID from the form's ID
+                            const entryId = this.closest('tr').id.replace('edit-form-', '');
+
+                            // Hide the edit form
+                            toggleEditForm(entryId);
+
+                            // Show success message
+                            showSuccessMessage(data.message);
+
+                            // Update UI elements based on the form data
+                            updateEntryUI(entryId, formData);
                         } else {
                             console.error('Error updating entry:', data.message);
-                            alert('Failed to update entry: ' + data.message);
+                            showErrorMessage('Failed to update entry: ' + data.message);
                         }
                     } catch (error) {
                         console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
+                        showErrorMessage('An error occurred. Please try again.');
                     }
                 });
             });
 
+            // Function to update UI elements after form submission
+            function updateEntryUI(entryId, formData) {
+                // Find the entry row
+                const entryRow = document.querySelector(`tr[data-id="${entryId}"]`);
+                if (!entryRow) return;
+
+                // Get form values
+                const versionId = formData.get('game_version_id');
+                const startedAt = formData.get('started_at');
+                const completedAt = formData.get('completed_at');
+
+                // Update started date cell
+                const startedCell = entryRow.querySelector('td:nth-child(3)');
+                if (startedCell && startedAt) {
+                    const date = new Date(startedAt);
+                    const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    startedCell.textContent = formattedDate;
+                } else if (startedCell) {
+                    startedCell.textContent = '-';
+                }
+
+                // Update completed date cell if it exists
+                const completedCell = entryRow.querySelector('td:nth-child(4)');
+                if (completedCell && completedAt) {
+                    const date = new Date(completedAt);
+                    const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    completedCell.textContent = formattedDate;
+                } else if (completedCell) {
+                    completedCell.textContent = '-';
+                }
+
+                // Note: Updating the version cell would require additional data from the server
+                // This would be better handled by a full refresh or a more complex response
+            }
+
+            // Set up event handlers for move forms
             document.querySelectorAll('.move-entry-form').forEach(form => {
                 form.addEventListener('submit', async function(e) {
                     e.preventDefault();
@@ -637,18 +728,36 @@
                         const data = await response.json();
 
                         if (data.success) {
-                            window.location.reload();
+                            // Hide the move form first
+                            const entryId = this.closest('tr').id.replace('move-form-', '');
+                            toggleMoveForm(entryId);
+
+                            // Remove the entry row and its associated forms
+                            const entryRow = document.querySelector(`tr[data-id="${entryId}"]`);
+                            const editFormRow = document.getElementById(`edit-form-${entryId}`);
+                            const moveFormRow = document.getElementById(`move-form-${entryId}`);
+
+                            if (entryRow) entryRow.remove();
+                            if (editFormRow) editFormRow.remove();
+                            if (moveFormRow) moveFormRow.remove();
+
+                            // Update the entry count in the heading
+                            updateEntryCount(-1);
+
+                            // Show success message
+                            showSuccessMessage(data.message);
                         } else {
                             console.error('Error moving entry:', data.message);
-                            alert('Failed to move entry: ' + data.message);
+                            showErrorMessage('Failed to move entry: ' + data.message);
                         }
                     } catch (error) {
                         console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
+                        showErrorMessage('An error occurred. Please try again.');
                     }
                 });
             });
 
+            // Set up event handlers for remove forms
             document.querySelectorAll('.remove-entry-form').forEach(form => {
                 form.addEventListener('submit', async function(e) {
                     e.preventDefault();
@@ -671,18 +780,39 @@
                         const data = await response.json();
 
                         if (data.success) {
-                            window.location.reload();
+                            // Find the entry row and associated form rows
+                            const entryRow = this.closest('tr');
+                            const entryId = entryRow.dataset.id;
+                            const editFormRow = document.getElementById(`edit-form-${entryId}`);
+                            const moveFormRow = document.getElementById(`move-form-${entryId}`);
+
+                            // Remove the rows from the DOM
+                            if (entryRow) entryRow.remove();
+                            if (editFormRow) editFormRow.remove();
+                            if (moveFormRow) moveFormRow.remove();
+
+                            // Update the entry count in the heading
+                            updateEntryCount(-1);
+
+                            // Show success message
+                            showSuccessMessage(data.message);
+
+                            // If no entries left, show the empty state
+                            if (document.querySelectorAll('#entries-list > tr').length === 0) {
+                                showEmptyState();
+                            }
                         } else {
                             console.error('Error removing entry:', data.message);
-                            alert('Failed to remove entry: ' + data.message);
+                            showErrorMessage('Failed to remove entry: ' + data.message);
                         }
                     } catch (error) {
                         console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
+                        showErrorMessage('An error occurred. Please try again.');
                     }
                 });
             });
 
+            // Set up event handlers for toggle visibility form
             document.querySelectorAll('.toggle-visibility-form').forEach(form => {
                 form.addEventListener('submit', async function(e) {
                     e.preventDefault();
@@ -701,17 +831,143 @@
                         const data = await response.json();
 
                         if (data.success) {
-                            window.location.reload();
+                            // Update the button text
+                            const button = this.querySelector('button');
+                            if (button) {
+                                button.textContent = button.textContent === 'Make Private' ? 'Make Public' : 'Make Private';
+
+                                // Update button classes
+                                button.classList.toggle('bg-purple-500');
+                                button.classList.toggle('bg-gray-500');
+                                button.classList.toggle('hover:bg-purple-400');
+                                button.classList.toggle('hover:bg-gray-400');
+                                button.classList.toggle('active:bg-purple-600');
+                                button.classList.toggle('active:bg-gray-600');
+                                button.classList.toggle('focus:border-purple-600');
+                                button.classList.toggle('focus:border-gray-600');
+                                button.classList.toggle('focus:ring-purple-200');
+                                button.classList.toggle('focus:ring-gray-200');
+                            }
+
+                            // Toggle the public badge
+                            const header = document.querySelector('.flex.justify-between.items-center.mb-6');
+                            if (header) {
+                                const publicBadge = header.querySelector('.bg-purple-100');
+                                if (publicBadge) {
+                                    // If badge exists, remove it
+                                    publicBadge.remove();
+                                } else {
+                                    // If badge doesn't exist, add it
+                                    const badge = document.createElement('span');
+                                    badge.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+                                    badge.textContent = 'Public';
+
+                                    // Insert the badge in the right container
+                                    const badgeContainer = header.querySelector('.flex.items-center.space-x-2');
+                                    if (badgeContainer) {
+                                        const firstButton = badgeContainer.querySelector('a, form');
+                                        badgeContainer.insertBefore(badge, firstButton);
+                                    }
+                                }
+                            }
+
+                            // Show success message
+                            showSuccessMessage(data.message);
                         } else {
                             console.error('Error toggling visibility:', data.message);
-                            alert('Failed to toggle visibility: ' + data.message);
+                            showErrorMessage('Failed to toggle visibility: ' + data.message);
                         }
                     } catch (error) {
                         console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
+                        showErrorMessage('An error occurred. Please try again.');
                     }
                 });
             });
+
+            // Set up event handlers for toggle updates forms
+            document.querySelectorAll('.toggle-updates-form').forEach(form => {
+                const checkbox = form.querySelector('input[type="checkbox"]');
+                const toggleLabel = form.querySelector('label');
+
+                toggleLabel.addEventListener('click', function(e) {
+                    e.preventDefault(); // Prevent default label behavior
+
+                    // Toggle the checkbox state
+                    checkbox.checked = !checkbox.checked;
+
+                    // Submit the form
+                    form.dispatchEvent(new Event('submit'));
+                });
+
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    try {
+                        const formData = new FormData(this);
+
+                        // Only include the receive_updates field if checked
+                        if (!checkbox.checked) {
+                            formData.delete('receive_updates');
+                        }
+
+                        const response = await fetch(this.action, {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+
+                        const data = await response.json();
+
+                        // Update the screen reader text based on the response
+                        const toggleDiv = checkbox.nextElementSibling;
+                        const srOnlySpan = toggleDiv.querySelector('.sr-only');
+
+                        if (srOnlySpan) {
+                            srOnlySpan.textContent = data.receive_updates ? 'Turn off notifications' : 'Turn on notifications';
+                        }
+
+                        if (data.success) {
+                            // Show success message
+                            showSuccessMessage(data.message);
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showErrorMessage('An error occurred. Please try again.');
+
+                        // Revert the checkbox state
+                        checkbox.checked = !checkbox.checked;
+                    }
+                });
+            });
+
+            // Function to update entry count in heading
+            function updateEntryCount(change) {
+                const heading = document.querySelector('h2.text-lg.font-semibold');
+                if (heading) {
+                    const match = heading.textContent.match(/\((\d+)\)/);
+                    if (match) {
+                        const currentCount = parseInt(match[1]);
+                        const newCount = Math.max(0, currentCount + change);
+                        heading.textContent = heading.textContent.replace(/\((\d+)\)/, `(${newCount})`);
+                    }
+                }
+            }
+
+            // Function to show empty state when all entries are removed
+            function showEmptyState() {
+                const tableContainer = document.querySelector('.overflow-x-auto');
+                if (tableContainer) {
+                    tableContainer.innerHTML = `
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                            <p class="text-gray-500 dark:text-gray-400">No visual novels in this list yet.</p>
+                            <p class="text-gray-500 dark:text-gray-400 mt-2">Browse games and add them to your list!</p>
+                        </div>
+                    `;
+                }
+            }
         });
     </script>
     @endif

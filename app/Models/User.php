@@ -69,6 +69,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's notification history.
+     */
+    public function notificationHistory(): HasMany
+    {
+        return $this->hasMany(NotificationHistory::class);
+    }
+
+    /**
      * Initialize default VN lists for a new user.
      */
     public function initializeDefaultLists(): void
