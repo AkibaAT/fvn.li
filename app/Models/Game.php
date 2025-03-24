@@ -259,6 +259,8 @@ class Game extends Model
 
             $uploadsData = json_decode($response->getBody()->getContents(), true);
             if (! isset($uploadsData['uploads'])) {
+                DB::rollBack();
+
                 return;
             }
 
@@ -334,110 +336,145 @@ class Game extends Model
                 }
             }
 
+            if (! $hasChanges && ! $force) {
+                DB::rollBack();
+
+                return;
+            }
+
             $this->uploads = $seenUploads;
 
-            if (! $hasChanges && ! $force) {
-                DB::commit();
-
-                return;
-            }
-
             $bestUpload = Upload::getBest(collect($candidateUploads));
-            if (! $bestUpload) {
-                return;
-            }
+            if ($bestUpload) {
+                $newVersion = $this->extractVersion($seenUploads[$bestUpload->id], true);
+                $uploadTimestamp = $bestUpload->updatedAt;
 
-            $newVersion = $this->extractVersion($seenUploads[$bestUpload->id], true);
-            $uploadTimestamp = $bestUpload->updatedAt;
+                // Get existing version if any
+                $existingVersion = $this->gameVersions()
+                    ->where('version', $newVersion)
+                    ->first();
 
-            // Get existing version if any
-            $existingVersion = $this->gameVersions()
-                ->where('version', $newVersion)
-                ->first();
+                if (! $existingVersion || $force) {
+                    // Update the game's info & get rating info
+                    sleep(10);
+                    $devlogLink = null;
+                    $versionRating = null;
+                    $versionRatingCount = null;
 
-            if (! $existingVersion || $force) {
-                // Update the game's info & get rating info
-                sleep(10);
-                $devlogLink = null;
-                $versionRating = null;
-                $versionRatingCount = null;
+                    // Get devlog link and ratings
+                    $this->refreshTagsAndRating($client, $devlogLink, $versionRating, $versionRatingCount);
+                    $this->save();
 
-                // Get devlog link and ratings
-                $this->refreshTagsAndRating($client, $devlogLink, $versionRating, $versionRatingCount);
-                $this->save();
+                    // Create new version with basic info first
+                    $gameVersion = new GameVersion([
+                        'version' => $newVersion,
+                        'devlog' => $devlogLink,
+                        'is_windows' => $isWindows,
+                        'is_linux' => $isLinux,
+                        'is_mac' => $isMac,
+                        'is_android' => $isAndroid,
+                        'is_web' => $isWeb,
+                        'published_at' => $uploadTimestamp,
+                        'rating' => $versionRating,
+                        'rating_count' => $versionRatingCount,
+                        'is_latest' => ! $existingVersion,
+                    ]);
 
-                // Create new version with basic info first
-                $gameVersion = new GameVersion([
-                    'version' => $newVersion,
-                    'devlog' => $devlogLink,
-                    'is_windows' => $isWindows,
-                    'is_linux' => $isLinux,
-                    'is_mac' => $isMac,
-                    'is_android' => $isAndroid,
-                    'is_web' => $isWeb,
-                    'published_at' => $uploadTimestamp,
-                    'rating' => $versionRating,
-                    'rating_count' => $versionRatingCount,
-                    'is_latest' => ! $existingVersion,
-                ]);
+                    $this->gameVersions()->save($gameVersion);
 
-                $this->gameVersions()->save($gameVersion);
+                    // If creating a new version (not just refreshing an existing one)
+                    if (! $existingVersion) {
+                        // Find previous version that has any unavailable languages
+                        $previousVersion = $this->gameVersions()
+                            ->where('id', '!=', $gameVersion->id)
+                            ->whereHas('supportedLanguages', function ($query) {
+                                $query->where('is_available', false);
+                            })
+                            ->latest('published_at')
+                            ->first();
 
-                // If creating a new version (not just refreshing an existing one)
-                if (! $existingVersion) {
-                    // Find previous version that has any unavailable languages
-                    $previousVersion = $this->gameVersions()
-                        ->where('id', '!=', $gameVersion->id)
-                        ->whereHas('supportedLanguages', function ($query) {
-                            $query->where('is_available', false);
-                        })
-                        ->latest('published_at')
-                        ->first();
-
-                    // Copy language availability settings from previous version
-                    if ($previousVersion) {
-                        VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
+                        // Copy language availability settings from previous version
+                        if ($previousVersion) {
+                            VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
+                        }
                     }
-                }
 
-                // Process statistics if it's a Ren'Py game
-                if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
-                    try {
-                        $archiveService = app(GameArchiveService::class);
-                        $statsService = app(GameStatsService::class);
+                    // Process statistics if it's a Ren'Py game
+                    if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
+                        try {
+                            $archiveService = app(GameArchiveService::class);
+                            $statsService = app(GameStatsService::class);
 
-                        // Download and process
-                        $result = $archiveService->downloadAndProcess(
-                            $this->url,
-                            $bestUpload->filename,
-                            $bestUpload->id,
-                            $this->id,
-                            $gameVersion->id
-                        );
+                            // Download and process
+                            $result = $archiveService->downloadAndProcess(
+                                $this->url,
+                                $bestUpload->filename,
+                                $bestUpload->id,
+                                $this->id,
+                                $gameVersion->id
+                            );
 
-                        if ($result['stats']) {
-                            $this->game_engine = "Ren'Py";
-                            $this->save();
+                            if ($result['stats']) {
+                                $this->game_engine = "Ren'Py";
+                                $this->save();
 
-                            // Save the stats - pass $this as the game object for game-specific language mappings
-                            $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id, $this);
-                        } else {
-                            // Copy language support from previous version
+                                // Save the stats - pass $this as the game object for game-specific language mappings
+                                $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id, $this);
+                            } else {
+                                // Copy language support from previous version
+                                $this->copyLanguageSupport($gameVersion);
+                            }
+                        } catch (Exception $e) {
+                            Log::error('Failed to extract game stats', [
+                                'game_id' => $this->id,
+                                'version' => $newVersion,
+                                'error' => $e->getMessage(),
+                            ]);
+
+                            // Copy language support from previous version on error
                             $this->copyLanguageSupport($gameVersion);
                         }
-                    } catch (Exception $e) {
-                        Log::error('Failed to extract game stats', [
-                            'game_id' => $this->id,
-                            'version' => $newVersion,
-                            'error' => $e->getMessage(),
-                        ]);
-
-                        // Copy language support from previous version on error
+                    } else {
+                        // For non-Ren'Py games, copy language support from previous version
                         $this->copyLanguageSupport($gameVersion);
                     }
-                } else {
-                    // For non-Ren'Py games, copy language support from previous version
-                    $this->copyLanguageSupport($gameVersion);
+                }
+            } else {
+                // If we're not creating a new version or doing a forced update,
+                // update platform flags of the latest version if they've changed
+                $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
+                if ($latestVersion) {
+                    $platformsChanged = false;
+
+                    if ($latestVersion->is_windows !== $isWindows) {
+                        $latestVersion->is_windows = $isWindows;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_linux !== $isLinux) {
+                        $latestVersion->is_linux = $isLinux;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_mac !== $isMac) {
+                        $latestVersion->is_mac = $isMac;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_android !== $isAndroid) {
+                        $latestVersion->is_android = $isAndroid;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_web !== $isWeb) {
+                        $latestVersion->is_web = $isWeb;
+                        $platformsChanged = true;
+                    }
+
+                    // Save the changes if any platform flags were updated
+                    if ($platformsChanged) {
+                        $latestVersion->save();
+                    }
                 }
             }
 
