@@ -213,11 +213,16 @@ class VnListController extends Controller
         $this->authorize('update', $vnList);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', 'in:custom,reading,completed,plan_to_read,on_hold,dropped'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('vn_lists')->where(function ($query) use ($vnList) {
+                return $query->where('user_id', auth()->id())
+                    ->where('id', '!=', $vnList->id);
+            })],
             'description' => ['nullable', 'string'],
             'is_public' => ['sometimes', 'boolean'],
         ]);
+
+        // Always preserve the original type of the list
+        $validated['type'] = $vnList->type;
 
         $validated['is_public'] = $request->has('is_public');
 

@@ -60,7 +60,7 @@
         class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-md dark:text-gray-100 backdrop:backdrop-blur-md"
     >
         <div>
-            <x-dialog-header title="Manage Lists for {{ $game->name }}"/>
+            <x-dialog-header title="Manage Lists for {!! $game->name !!}"/>
 
             {{-- Fixed height message area --}}
             <div id="ajax-message-{{ $game->id }}" class="h-6 text-sm text-center" aria-live="polite"></div>

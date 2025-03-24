@@ -31,18 +31,16 @@
                         Back to Lists
                     </a>
 
-                    <form action="{{ route('vn-lists.toggle-visibility', $vnList) }}" method="POST" class="inline toggle-visibility-form">
+                    <form action="{{ route('vn-lists.toggle-visibility', $vnList) }}" method="POST" class="inline-flex toggle-visibility-form">
                         @csrf
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-{{ $vnList->is_public ? 'purple' : 'gray' }}-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-{{ $vnList->is_public ? 'purple' : 'gray' }}-400 active:bg-{{ $vnList->is_public ? 'purple' : 'gray' }}-600 focus:outline-none focus:border-{{ $vnList->is_public ? 'purple' : 'gray' }}-600 focus:ring focus:ring-{{ $vnList->is_public ? 'purple' : 'gray' }}-200 transition">
                             {{ $vnList->is_public ? 'Make Private' : 'Make Public' }}
                         </button>
                     </form>
 
-                    @unless ($vnList->is_default)
-                        <a href="{{ route('vn-lists.edit', $vnList) }}" class="inline-flex items-center px-4 py-2 bg-yellow-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-yellow-400 active:bg-yellow-600 focus:outline-none focus:border-yellow-600 focus:ring focus:ring-yellow-200 transition">
-                            Edit List
-                        </a>
-                    @endunless
+                    <a href="{{ route('vn-lists.edit', $vnList) }}" class="inline-flex items-center px-4 py-2 bg-yellow-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-yellow-400 active:bg-yellow-600 focus:outline-none focus:border-yellow-600 focus:ring focus:ring-yellow-200 transition">
+                        Edit List
+                    </a>
                 @else
                     <a href="{{ route('vn-lists.public') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 border border-transparent rounded-md font-semibold text-xs text-gray-800 dark:text-white uppercase tracking-widest hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 focus:ring focus:ring-gray-200 dark:focus:ring-gray-700 transition">
                         Back to Public Lists
@@ -66,7 +64,7 @@
         @if ($vnList->description)
             <div class="mb-6">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Description</h2>
-                <p class="text-gray-600 dark:text-gray-300">{{ $vnList->description }}</p>
+                <p class="text-gray-600 dark:text-gray-300">{!! nl2br(e($vnList->description)) !!}</p>
             </div>
         @endif
 

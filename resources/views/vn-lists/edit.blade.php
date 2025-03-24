@@ -10,7 +10,8 @@
 
             <div class="mb-4">
                 <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">List Name</label>
-                <input type="text" name="name" id="name" value="{{ old('name', $vnList->name) }}" required class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md py-2 px-3">
+                <input type="text" name="name" id="name" value="{{ old('name', $vnList->name) }}" required
+                    class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md py-2 px-3">
                 @error('name')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror
@@ -24,20 +25,7 @@
                 @enderror
             </div>
 
-            <div class="mb-6">
-                <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">List Type</label>
-                <select name="type" id="type" required class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:text-white">
-                    <option value="custom" {{ old('type', $vnList->type) == 'custom' ? 'selected' : '' }}>Custom</option>
-                    <option value="reading" {{ old('type', $vnList->type) == 'reading' ? 'selected' : '' }}>Reading</option>
-                    <option value="completed" {{ old('type', $vnList->type) == 'completed' ? 'selected' : '' }}>Completed</option>
-                    <option value="plan_to_read" {{ old('type', $vnList->type) == 'plan_to_read' ? 'selected' : '' }}>Plan to Read</option>
-                    <option value="on_hold" {{ old('type', $vnList->type) == 'on_hold' ? 'selected' : '' }}>On Hold</option>
-                    <option value="dropped" {{ old('type', $vnList->type) == 'dropped' ? 'selected' : '' }}>Dropped</option>
-                </select>
-                @error('type')
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                @enderror
-            </div>
+            <input type="hidden" name="type" value="{{ $vnList->type }}">
 
             <div class="mb-6">
                 <div class="flex items-center">

@@ -31,6 +31,7 @@ class VnListPolicy
      */
     public function update(User $user, VnList $vnList): bool
     {
+        // Allow updating default lists as long as the user owns them
         return $user->id === $vnList->user_id;
     }
 
