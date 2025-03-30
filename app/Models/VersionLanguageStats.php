@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Casts\LanguageCodeCast;
 
 class VersionLanguageStats extends Model
 {
@@ -16,6 +17,14 @@ class VersionLanguageStats extends Model
         'words',
         'menus',
         'options',
+    ];
+
+    protected $casts = [
+        'blocks' => 'integer',
+        'words' => 'integer',
+        'menus' => 'integer',
+        'options' => 'integer',
+        'iso_code' => LanguageCodeCast::class,
     ];
 
     public function gameVersion(): BelongsTo

@@ -1,0 +1,193 @@
+# .cursorrules - Rules to guide DDD refactoring in Laravel
+
+# NOTE: These rules assume a structure like: app/<BoundedContext>/<Layer>/...
+#       (e.g., app/GameCatalog/Domain/, app/GameCatalog/Application/, app/GameCatalog/Infrastructure/)
+#       Adjust globs if your chosen structure differs.
+
+rules:
+  # --- Layering & Dependency Rules ---
+
+  - id: domain-no-framework-facades
+    message: "Domain Layer Violation: Avoid using Illuminate Facades (except maybe Log, Event) directly in the Domain layer. Inject dependencies or use interfaces."
+    severity: error
+    language: php
+    glob: app/*/Domain/**/*.php
+    pattern: Illuminate\Support\Facades\(?!Log|Event|Cache|App|Config)[A-Z][a-zA-Z]+
+    constraints:
+      - kind: use_statement
+        # Allows Log, Event, Cache, App, Config - adjust if needed
+        pattern: Illuminate\\Support\\Facades\\(?!Log|Event|Cache|App|Config)[A-Z][a-zA-Z]+
+
+  - id: domain-no-framework-concrete
+    message: "Domain Layer Violation: Avoid using concrete Illuminate classes like Request, Eloquent Models/Builders, DB directly. Depend on interfaces or primitives/VOs."
+    severity: error
+    language: php
+    glob: app/*/Domain/**/*.php
+    pattern: Illuminate\(Http\Request|Database\(Eloquent|Query\)|Support\Facades\DB)
+    constraints:
+      - kind: use_statement
+        pattern: Illuminate\\(Http\\Request|Database\\(Eloquent|Query\\)|Support\\Facades\\DB)
+
+  - id: domain-no-app-layer-concrete
+    message: "Domain Layer Violation: Domain layer should not depend on specific Application, Infrastructure (except Repository Interfaces), or UI layer classes (Controllers, Livewire, Commands)."
+    severity: error
+    language: php
+    glob: app/*/Domain/**/*.php
+    pattern: App\(Http|Console|Livewire|Infrastructure\(Persistence|Services\)|Application) # Allow Domain Repositories
+    constraints:
+      - kind: use_statement
+        # Regex to match App\Http, App\Console, App\Livewire, App\Infrastructure\Persistence, App\Infrastructure\Services, App\Application
+        # Excludes App\<Context>\Domain\Repositories
+        pattern: App\\(?!.*\\Domain\\Repositories)[^D]*(Http|Console|Livewire|Infrastructure\\(Persistence|Services\\)|Application)
+
+  - id: application-no-eloquent-db
+    message: "Application Layer Violation: Application Services should primarily use Repository interfaces for persistence, not direct Eloquent Models/Builders or DB Facade."
+    severity: warning # Warning because sometimes simple queries might be ok, but generally discourage
+    language: php
+    glob: app/*/Application/**/*.php
+    pattern: '(Model::|Builder::|DB::)' # Basic check for static calls
+    constraints:
+      - kind: use_statement
+        pattern: Illuminate\\(Database\\(Eloquent|Query\\)|Support\\Facades\\DB)
+
+  - id: application-no-infrastructure-implementation
+    message: "Application Layer Violation: Depend on Domain Repository interfaces, not Infrastructure implementations (e.g., EloquentUserRepository)."
+    severity: error
+    language: php
+    glob: app/*/Application/**/*.php
+    constraints:
+      - kind: use_statement
+        pattern: App\\.*\\Infrastructure\\Persistence\\.*Repository # Matches Eloquent Repo implementations
+
+  - id: application-no-request-object
+    message: "Application Layer Violation: Use DTOs/Commands for input, do not inject or use the Illuminate\\Http\\Request object directly in Application Services."
+    severity: error
+    language: php
+    glob: app/*/Application/**/*.php
+    constraints:
+      - kind: parameter # Check constructor/method parameters
+        pattern: Illuminate\\Http\\Request
+      - kind: use_statement
+        pattern: Illuminate\\Http\\Request
+
+  - id: infrastructure-repo-implements-interface
+    message: "Infrastructure Layer Suggestion: Repository implementations (in Infrastructure/Persistence) should implement a corresponding Domain Repository interface."
+    severity: warning # Hard to enforce strictly without knowing interface names
+    language: php
+    glob: app/*/Infrastructure/Persistence/*Repository.php
+    constraints:
+      - kind: class_definition
+        pattern: class .*Repository # Basic check, might need refinement
+        # Ideally, check if `implements Domain\...Repository` exists, but constraints are limited.
+
+  # --- Controller / Command / Livewire Rules ---
+
+  - id: thin-controller-methods
+    message: "Controller methods should be thin. Consider moving logic to Application Services/Use Cases. Method length exceeds limit."
+    severity: warning
+    language: php
+    glob: app/Http/Controllers/**/*.php
+    constraints:
+      - kind: method_definition
+        # Adjust line count as needed for your team's standard
+        minLineCount: 50 # Flag methods longer than 50 lines
+
+  - id: thin-command-handle
+    message: "Command 'handle' methods should be thin. Consider moving logic to Application Services/Use Cases. Method length exceeds limit."
+    severity: warning
+    language: php
+    glob: app/Console/Commands/**/*.php
+    constraints:
+      - kind: method_definition
+        name: handle
+        # Adjust line count
+        minLineCount: 70 # Allow slightly more for CLI I/O
+
+  - id: thin-livewire-methods
+    message: "Livewire methods should primarily handle UI state and delegate logic. Consider moving business logic to Application Services or queries to Query Services. Method length exceeds limit."
+    severity: warning
+    language: php
+    glob: app/Livewire/**/*.php
+    constraints:
+      - kind: method_definition
+        # Exclude render, mount maybe? Needs careful thought.
+        # name: '^(?!render|mount).*' # Example regex to exclude render/mount
+        minLineCount: 60
+
+  - id: controller-no-db-eloquent
+    message: "Controller/Command/Livewire Violation: Avoid direct DB or Eloquent calls. Use Application Services for writes and Repositories/Query Services for reads."
+    severity: warning # Warning, as simple reads might sometimes be acceptable initially
+    language: php
+    glob:
+      - app/Http/Controllers/**/*.php
+      - app/Console/Commands/**/*.php
+      - app/Livewire/**/*.php
+    pattern: '(Model::|Builder::|DB::)' # Basic check for static calls
+    constraints:
+      - kind: use_statement
+        pattern: Illuminate\\(Database\\(Eloquent|Query\\)|Support\\Facades\\DB)
+
+  # --- Domain Object Rules ---
+
+  - id: vo-immutable
+    message: "Value Object Suggestion: Consider making Value Objects immutable using 'readonly' properties (PHP 8.1+) or private properties with getters."
+    severity: info
+    language: php
+    glob: app/*/Domain/ValueObjects/**/*.php
+    constraints:
+      # This is hard to enforce perfectly, acts as a reminder.
+      - kind: property_definition
+        pattern: 'public (?!readonly)' # Flag public non-readonly properties
+
+  - id: vo-equals-method
+    message: "Value Object Suggestion: Value Objects should typically have an 'equals()' method for comparison."
+    severity: info
+    language: php
+    glob: app/*/Domain/ValueObjects/**/*.php
+    constraints:
+      - kind: class_definition
+        # Check if the class does NOT contain 'function equals('
+        unless:
+          contains: 'function equals\('
+
+  - id: entity-no-public-setters
+    message: "Entity Suggestion: Avoid public setters on Entities. Prefer methods with domain-specific names that enforce invariants (e.g., changeName(), publish())."
+    severity: info # Suggestion, not a hard error
+    language: php
+    glob: app/*/Domain/Entities/**/*.php
+    constraints:
+      - kind: method_definition
+        pattern: 'public function set[A-Z]' # Matches public setXyz methods
+
+  # --- DTO Rules ---
+
+  - id: dto-no-behavior
+    message: "DTO Suggestion: DTOs should primarily hold data and have minimal behavior (like simple factory methods or type casting)."
+    severity: info
+    language: php
+    glob: app/*/Application/DTOs/**/*.php
+    constraints:
+      - kind: method_definition
+        # Allow constructors and maybe simple static creators
+        pattern: 'public function (?!__construct|create|from)[A-Z]'
+        minLineCount: 10 # Flag methods that aren't trivial getters/setters/constructors
+
+  # --- Naming Conventions (Example) ---
+
+  # - id: repository-interface-naming
+  #   message: "Naming Convention: Repository interfaces should end with 'Repository'."
+  #   severity: info
+  #   language: php
+  #   glob: app/*/Domain/Repositories/*.php
+  #   constraints:
+  #     - kind: interface_definition
+  #       name: '!endsWith("Repository")' # Check if interface name *doesn't* end with Repository
+
+  # - id: application-service-naming
+  #   message: "Naming Convention: Application Services / Use Case Handlers should indicate their purpose (e.g., 'Handler', 'Service', 'UseCase')."
+  #   severity: info
+  #   language: php
+  #   glob: app/*/Application/UseCases/*.php # Adjust glob if needed
+  #   constraints:
+  #     - kind: class_definition
+  #       name: '!matches("(Handler|Service|UseCase)$")' # Example check

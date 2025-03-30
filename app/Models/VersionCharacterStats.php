@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Casts\LanguageCodeCast;
 
 class VersionCharacterStats extends Model
 {
@@ -20,6 +21,7 @@ class VersionCharacterStats extends Model
     protected $casts = [
         'blocks' => 'integer',
         'words' => 'integer',
+        'iso_code' => LanguageCodeCast::class,
     ];
 
     public function gameVersion(): BelongsTo
@@ -34,6 +36,15 @@ class VersionCharacterStats extends Model
 
     public function language(): BelongsTo
     {
-        return $this->belongsTo(Language::class, 'iso_code', 'id');
+        return $this->belongsTo(Language::class, 'iso_code', 'id')
+            ->withoutGlobalScopes(); // Ensure we bypass any global scopes that might interfere
+    }
+
+    /**
+     * Get the raw iso_code value (before casting)
+     */
+    public function getRawIsoCodeAttribute(): string
+    {
+        return $this->attributes['iso_code'];
     }
 }

@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use App\Casts\LanguageCodeCast;
+use App\Domain\SharedKernel\ValueObjects\LanguageCode;
+use App\Casts\RatingScoreCast;
 
 class GameVersion extends Model
 {
@@ -33,7 +36,7 @@ class GameVersion extends Model
         'is_mac' => 'boolean',
         'is_android' => 'boolean',
         'is_web' => 'boolean',
-        'rating' => 'float',
+        'rating' => RatingScoreCast::class,
         'rating_count' => 'integer',
         'is_latest' => 'boolean',
     ];
@@ -71,8 +74,9 @@ class GameVersion extends Model
 
     public function getStatsForLanguage(string $isoCode)
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         return $this->languageStats()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->first();
     }
 
@@ -90,8 +94,9 @@ class GameVersion extends Model
         int $limit = 100,
         int $offset = 0
     ): Collection {
+        $languageCode = LanguageCode::fromString($isoCode);
         $query = $this->dialogueLines()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->when($character, function ($q) use ($character) {
                 return $q->whereHas('character', function ($sq) use ($character) {
                     $sq->where('character_id', $character);
@@ -118,8 +123,9 @@ class GameVersion extends Model
      */
     public function countDialogueLinesForLanguage(string $isoCode, ?string $character = null): int
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         return $this->dialogueLines()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->when($character, function ($q) use ($character) {
                 return $q->whereHas('character', function ($sq) use ($character) {
                     $sq->where('character_id', $character);
@@ -130,8 +136,9 @@ class GameVersion extends Model
 
     public function getCharacterStatsForLanguage(string $isoCode): Collection
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         return $this->characterStats()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->orderBy('character_id')
             ->get();
     }
@@ -159,16 +166,18 @@ class GameVersion extends Model
      */
     public function addSupportedLanguage(string $isoCode, bool $isAvailable = true): void
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         $this->supportedLanguages()->updateOrCreate(
-            ['iso_code' => $isoCode],
+            ['iso_code' => $languageCode->getValue()],
             ['is_available' => $isAvailable]
         );
     }
 
     public function removeSupportedLanguage(string $isoCode): void
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         $this->supportedLanguages()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->delete();
     }
 
@@ -216,8 +225,9 @@ class GameVersion extends Model
      */
     public function isLanguageAvailable(string $isoCode): bool
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         $support = $this->supportedLanguages()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->first();
 
         return $support && $support->is_available;
@@ -228,8 +238,9 @@ class GameVersion extends Model
      */
     public function setLanguageAvailability(string $isoCode, bool $isAvailable): bool
     {
+        $languageCode = LanguageCode::fromString($isoCode);
         $support = $this->supportedLanguages()
-            ->where('iso_code', $isoCode)
+            ->where('iso_code', $languageCode->getValue())
             ->first();
 
         if (! $support) {

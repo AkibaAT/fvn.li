@@ -136,7 +136,7 @@
                             'Current Version' => $latestVersion?->version,
                             'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
                             'Characters' => $versionCharacterCounts[$latestVersion?->id] ?: '-',
-                            'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
+                            'Rating' => $game->rating ? number_format($game->rating->getValue(), 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
                         ] as $label => $value)
                             @if ($value)
@@ -321,9 +321,9 @@
                                     {{-- Rating --}}
                                     <div class="w-full flex items-center whitespace-nowrap text-sm">
                                         <span class="text-gray-500">Rating:</span>
-                                        <span class="ml-1 text-gray-900 dark:text-gray-100">
-                                    {{ $version->rating ? number_format($version->rating, 1) : '-' }}
-                                </span>
+                                        <span class="font-medium">
+                                            {{ $version->rating ? number_format($version->rating->getValue(), 1) : '-' }}
+                                        </span>
                                         @if ($version->rating_count)
                                             <span class="ml-1 text-gray-500">({{ $version->rating_count }})</span>
                                         @endif
@@ -439,7 +439,7 @@
                         <x-filters.select
                             wire:model.live="selectedRating"
                             :value="$selectedRating"
-                            :options="$availableRatings->mapWithKeys(fn($rating) => [$rating => $rating.' Star' . ($rating !== 1 ? 's' : '')])->all()"
+                            :options="$availableRatings->mapWithKeys(fn($rating) => [$rating->getValue() => $rating->getValue().' Star' . ($rating->getValue() !== 1 ? 's' : '')])->all()"
                             placeholder="Any Stars"
                             class="w-40"
                         />
@@ -468,7 +468,7 @@
                                 </span>
                             </div>
                             <div class="flex items-center gap-1 text-yellow-400">
-                                @for ($i = 0; $i < $review->rating; $i++)
+                                @for ($i = 0; $i < $review->rating->getValue(); $i++)
                                     <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd"
                                               d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>

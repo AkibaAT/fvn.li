@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Casts\LanguageCodeCast;
 
 class VersionSupportedLanguage extends Model
 {
@@ -17,6 +18,7 @@ class VersionSupportedLanguage extends Model
 
     protected $casts = [
         'is_available' => 'boolean',
+        'iso_code' => LanguageCodeCast::class,
     ];
 
     /**
@@ -32,7 +34,7 @@ class VersionSupportedLanguage extends Model
         // Update target version languages where they exist
         foreach ($sourceLanguages as $sourceLanguage) {
             $targetLanguage = self::where('game_version_id', $targetVersionId)
-                ->where('iso_code', $sourceLanguage->iso_code)
+                ->where('iso_code', $sourceLanguage->iso_code->getValue())
                 ->first();
 
             if ($targetLanguage) {

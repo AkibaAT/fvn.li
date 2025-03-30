@@ -6,12 +6,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Casts\LanguageCodeCast;
 
 class Language extends Model
 {
     public $incrementing = false;
 
     protected $table = 'iso_639_3_languages';
+
+    protected $casts = [
+        'id' => LanguageCodeCast::class,
+    ];
 
     protected $primaryKey = 'id';
 

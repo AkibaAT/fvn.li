@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Casts\EmailAddressCast; // Added import
 
 class User extends Authenticatable
 {
@@ -43,6 +44,7 @@ class User extends Authenticatable
      * @var array<string, string>
      */
     protected $casts = [
+        'email' => EmailAddressCast::class, // Use the custom cast
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];

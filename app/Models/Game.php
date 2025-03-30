@@ -21,6 +21,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Casts\RatingScoreCast;
 
 class Game extends Model
 {
@@ -43,7 +44,7 @@ class Game extends Model
     protected $casts = [
         'initially_published_at' => 'datetime',
         'latest_version_published_at' => 'datetime',
-        'rating' => 'float',
+        'rating' => RatingScoreCast::class,
         'rating_count' => 'integer',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
@@ -95,10 +96,10 @@ class Game extends Model
                 ->where('is_available', true)  // Only include available languages
                 ->whereNotNull('language')  // Exclude stats without valid language records
                 ->where(function ($stat) {
-                    return ! str_starts_with($stat->iso_code, 'q');  // Exclude placeholder codes
+                    return ! str_starts_with($stat->iso_code->getValue(), 'q');  // Exclude placeholder codes
                 })
                 ->map(fn ($stat) => [
-                    'iso_code' => $stat->iso_code,
+                    'iso_code' => $stat->iso_code->getValue(),
                     'ref_name' => $stat->language->ref_name,
                     'flag_code' => $stat->language->flag_code,
                 ])->collect();
@@ -118,10 +119,10 @@ class Game extends Model
             return $this->latestVersion->supportedLanguages
                 ->whereNotNull('language')  // Exclude stats without valid language records
                 ->where(function ($stat) {
-                    return ! str_starts_with($stat->iso_code, 'q');  // Exclude placeholder codes
+                    return ! str_starts_with($stat->iso_code->getValue(), 'q');  // Exclude placeholder codes
                 })
                 ->map(fn ($stat) => [
-                    'iso_code' => $stat->iso_code,
+                    'iso_code' => $stat->iso_code->getValue(),
                     'ref_name' => $stat->language->ref_name,
                     'flag_code' => $stat->language->flag_code,
                     'is_available' => $stat->is_available,
@@ -145,7 +146,7 @@ class Game extends Model
             ->with('language')
             ->get()
             ->map(fn ($sl) => [
-                'iso_code' => $sl->iso_code,
+                'iso_code' => $sl->iso_code->getValue(),
                 'ref_name' => $sl->language->ref_name,
                 'flag_code' => $sl->language->flag_code,
             ]);

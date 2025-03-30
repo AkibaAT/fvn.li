@@ -312,7 +312,7 @@ class GameDetail extends Component
             ->unique('language.id')
             ->values()
             ->map(fn ($stat) => [
-                'id' => $stat->language->id,
+                'id' => $stat->raw_iso_code,
                 'name' => $stat->language->ref_name,
                 'flag' => $stat->language->flag_code,
             ]);
@@ -323,20 +323,20 @@ class GameDetail extends Component
         foreach ($characterStats as $stat) {
             $displayName = $stat->character->getDisplayName($this->game->source_language_id);
             $characters[$displayName] = $displayName;
-            if (! isset($wordCounts[$displayName][$stat->language->id])) {
-                $wordCounts[$displayName][$stat->language->id] = 0;
+            if (! isset($wordCounts[$displayName][$stat->raw_iso_code])) {
+                $wordCounts[$displayName][$stat->raw_iso_code] = 0;
             }
-            $wordCounts[$displayName][$stat->language->id] += $stat->words;
+            $wordCounts[$displayName][$stat->raw_iso_code] += $stat->words;
         }
         sort($characters, SORT_NATURAL | SORT_FLAG_CASE);
 
         // Calculate totals per language
         $languageTotals = [];
         foreach ($characterStats as $stat) {
-            if (! isset($languageTotals[$stat->language->id])) {
-                $languageTotals[$stat->language->id] = 0;
+            if (! isset($languageTotals[$stat->raw_iso_code])) {
+                $languageTotals[$stat->raw_iso_code] = 0;
             }
-            $languageTotals[$stat->language->id] += $stat->words;
+            $languageTotals[$stat->raw_iso_code] += $stat->words;
         }
 
         $this->characterStats = [
@@ -414,24 +414,24 @@ class GameDetail extends Component
             ->get();
 
         // Get unique languages that are available in either version
-        $fromLanguages = $fromCharacterStats->pluck('language.id')->unique();
-        $toLanguages = $toCharacterStats->pluck('language.id')->unique();
+        $fromLanguages = $fromCharacterStats->pluck('raw_iso_code')->unique();
+        $toLanguages = $toCharacterStats->pluck('raw_iso_code')->unique();
         $allLanguages = $fromLanguages->merge($toLanguages)->unique();
 
         $languages = [];
-        foreach ($allLanguages as $langId) {
+        foreach ($allLanguages as $isoCode) {
             $lang = null;
 
             // Find language details from either collection
-            if ($fromCharacterStats->where('language.id', $langId)->first()) {
-                $lang = $fromCharacterStats->where('language.id', $langId)->first()->language;
-            } elseif ($toCharacterStats->where('language.id', $langId)->first()) {
-                $lang = $toCharacterStats->where('language.id', $langId)->first()->language;
+            if ($fromCharacterStats->where('raw_iso_code', $isoCode)->first()) {
+                $lang = $fromCharacterStats->where('raw_iso_code', $isoCode)->first()->language;
+            } elseif ($toCharacterStats->where('raw_iso_code', $isoCode)->first()) {
+                $lang = $toCharacterStats->where('raw_iso_code', $isoCode)->first()->language;
             }
 
             if ($lang) {
                 $languages[] = [
-                    'id' => $lang->id,
+                    'id' => $isoCode,
                     'name' => $lang->ref_name,
                     'flag' => $lang->flag_code,
                 ];
@@ -448,11 +448,11 @@ class GameDetail extends Component
             $displayName = $stat->character->getDisplayName($this->game->source_language_id);
             $allCharacters[$displayName] = true;
 
-            if (! isset($fromWordCounts[$displayName][$stat->language->id])) {
-                $fromWordCounts[$displayName][$stat->language->id] = 0;
+            if (! isset($fromWordCounts[$displayName][$stat->raw_iso_code])) {
+                $fromWordCounts[$displayName][$stat->raw_iso_code] = 0;
             }
 
-            $fromWordCounts[$displayName][$stat->language->id] += $stat->words;
+            $fromWordCounts[$displayName][$stat->raw_iso_code] += $stat->words;
         }
 
         // Process to version
@@ -460,11 +460,11 @@ class GameDetail extends Component
             $displayName = $stat->character->getDisplayName($this->game->source_language_id);
             $allCharacters[$displayName] = true;
 
-            if (! isset($toWordCounts[$displayName][$stat->language->id])) {
-                $toWordCounts[$displayName][$stat->language->id] = 0;
+            if (! isset($toWordCounts[$displayName][$stat->raw_iso_code])) {
+                $toWordCounts[$displayName][$stat->raw_iso_code] = 0;
             }
 
-            $toWordCounts[$displayName][$stat->language->id] += $stat->words;
+            $toWordCounts[$displayName][$stat->raw_iso_code] += $stat->words;
         }
 
         // Calculate differences

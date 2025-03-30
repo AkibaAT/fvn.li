@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Casts\LanguageCodeCast;
 
 class LanguageMapping extends Model
 {
@@ -13,6 +14,10 @@ class LanguageMapping extends Model
         'game_id',
         'game_language_key',
         'iso_code',
+    ];
+
+    protected $casts = [
+        'iso_code' => LanguageCodeCast::class,
     ];
 
     /**
@@ -30,7 +35,7 @@ class LanguageMapping extends Model
                 ->first();
 
             if ($mapping) {
-                return $mapping->iso_code;
+                return $mapping->iso_code->getValue();
             }
         }
 
@@ -39,7 +44,7 @@ class LanguageMapping extends Model
             ->whereNull('game_id')
             ->first();
 
-        return $mapping?->iso_code;
+        return $mapping?->iso_code?->getValue();
     }
 
     public function language(): BelongsTo

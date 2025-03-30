@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use App\Casts\LanguageCodeCast;
 
 class DialogueLine extends Model
 {
@@ -16,11 +17,16 @@ class DialogueLine extends Model
     protected $fillable = [
         'game_version_id',
         'character_id',
+        'text_id',
         'iso_code',
         'file_path',
         'line_number',
-        'text_id',
         'context',
+    ];
+
+    protected $casts = [
+        'line_number' => 'integer',
+        'iso_code' => LanguageCodeCast::class,
     ];
 
     public function gameVersion(): BelongsTo

@@ -166,7 +166,7 @@ class GameList extends Component
                 'english_stats.words as english_word_count',
                 DB::raw('(
                     SELECT json_agg(json_build_object(
-                        \'iso_code\', l.id,
+                        \'iso_code\', l.id::text,
                         \'ref_name\', l.ref_name,
                         \'flag_code\', l.flag_code
                     ) ORDER BY l.ref_name)
@@ -360,7 +360,7 @@ class GameList extends Component
                 ->orderBy('ref_name')
                 ->get()
                 ->mapWithKeys(fn ($lang) => [
-                    $lang->id => [
+                    $lang->id->getValue() => [
                         'ref_name' => $lang->ref_name,
                         'flag_code' => $lang->flag_code,
                     ],
