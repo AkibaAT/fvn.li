@@ -30,6 +30,6 @@ class RatingHistoryDialog extends Component
 
     public function render(): View
     {
-        return view('livewire.rating-history-dialog');
+        return view('ratings.history.dialog');
     }
 }

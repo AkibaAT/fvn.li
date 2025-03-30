@@ -31,6 +31,6 @@ class SocialAuth extends Component
     #[Layout('components.layouts.app')]
     public function render()
     {
-        return view('livewire.social-auth');
+        return view('users.components.auth-widget');
     }
 }

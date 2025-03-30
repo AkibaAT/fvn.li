@@ -254,7 +254,7 @@ class GameList extends Component
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
 
-        return view('livewire.game-list', [
+        return view('games.list.index', [
             'games' => $games,
             'metaTags' => $metaTags,
             ...$this->getFilterOptions(),

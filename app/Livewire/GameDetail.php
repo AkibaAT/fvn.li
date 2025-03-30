@@ -192,7 +192,7 @@ class GameDetail extends Component
         // Pass the latestVersion data explicitly to make it clear we're using version data
         $latestVersion = $this->game->latestVersion;
 
-        return view('livewire.game-detail', [
+        return view('games.detail.show', [
             'reviews' => $reviews,
             'versions' => $versions,
             'latestVersion' => $latestVersion,

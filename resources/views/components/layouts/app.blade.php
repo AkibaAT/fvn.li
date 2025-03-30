@@ -38,7 +38,7 @@
     <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
-    <x-header />
+    <x-layouts.header />
 
     <main class="py-3 mt-3">
         <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">

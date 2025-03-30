@@ -20,7 +20,7 @@ class GameThumbnail extends Component
 
     public function render(): View
     {
-        return view('components.game-thumbnail');
+        return view('games.components.thumbnail');
     }
 
     /**

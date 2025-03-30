@@ -40,7 +40,7 @@ class RaterDetail extends Component
 
         $this->updateMeta($metaTags);
 
-        return view('livewire.rater-detail', ['metaTags' => $metaTags])
+        return view('ratings.raters.show', ['metaTags' => $metaTags])
             ->title($this->getMetaTitle())
             ->layout('components.layouts.app', [
                 'metaTags' => $metaTags,

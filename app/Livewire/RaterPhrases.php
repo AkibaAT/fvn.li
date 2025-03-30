@@ -62,7 +62,7 @@ class RaterPhrases extends Component
 
     public function render(): View
     {
-        return view('livewire.rater-phrases');
+        return view('ratings.raters.phrases');
     }
 
     private function loadCommonPhrases(): void
