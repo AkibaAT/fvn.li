@@ -183,8 +183,6 @@ class ProcessGameThumbnails extends Command
         }
 
         try {
-            // Check if image is animated GIF
-            $isAnimated = $this->isAnimatedGif($tempFile);
             $thumbnails = [];
 
             // Ensure the thumbnail directory exists
@@ -199,24 +197,15 @@ class ProcessGameThumbnails extends Command
             foreach (self::VARIANTS as $variant => $config) {
                 $this->info("Processing {$variant} variant...");
 
-                $variantFilename = $baseFilename . "_{$variant}" . ($isAnimated ? '.animated.webp' : '.webp');
+                $variantFilename = $baseFilename . "_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename);
 
-                if ($isAnimated) {
-                    $this->processAnimatedVariant(
-                        $tempFile,
-                        $variantPath,
-                        $config,
-                        $quality
-                    );
-                } else {
-                    $this->processStaticVariant(
-                        $tempFile,
-                        $variantPath,
-                        $config,
-                        $quality
-                    );
-                }
+                $this->processStaticVariant(
+                    $tempFile,
+                    $variantPath,
+                    $config,
+                    $quality
+                );
 
                 // Verify the file was created
                 if (! Storage::disk('public')->exists($variantPath)) {
@@ -232,7 +221,7 @@ class ProcessGameThumbnails extends Command
                     'width' => $dimensions['width'],
                     'height' => $dimensions['height'],
                     'mime_type' => 'image/webp',
-                    'animated' => $isAnimated,
+                    'animated' => false,
                 ];
             }
 
@@ -283,97 +272,11 @@ class ProcessGameThumbnails extends Command
     }
 
     /**
-     * Check if an image is an animated GIF
-     */
-    private function isAnimatedGif(string $path): bool
-    {
-        // First check if it's a GIF
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $path);
-        finfo_close($finfo);
-
-        if ($mimeType !== 'image/gif') {
-            return false;
-        }
-
-        // Check for animation frames
-        $frames = 0;
-        $handle = fopen($path, 'rb');
-
-        while (! feof($handle) && $frames < 2) {
-            $chunk = fread($handle, 1024 * 100); // Read 100KB at a time
-            $frames += preg_match_all('#\x00\x21\xF9\x04.{4}\x00(\x2C|\x21)#s', $chunk);
-        }
-
-        fclose($handle);
-
-        return $frames > 1;
-    }
-
-    /**
      * Get the storage path (relative to disk root)
      */
     private function getStoragePath(string $filename): string
     {
         return self::THUMBNAIL_PATH . '/' . $filename;
-    }
-
-    /**
-     * Process an animated image variant
-     */
-    private function processAnimatedVariant(
-        string $sourcePath,
-        string $destPath,
-        array $config,
-        int $quality
-    ): void {
-        // Ensure FFmpeg is available
-        if (! $this->isFFmpegAvailable()) {
-            throw new Exception('FFmpeg is required for animated image processing');
-        }
-
-        // Create output directory if needed
-        Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
-
-        // Extract background color components for FFmpeg
-        $bgColor = substr(self::BACKGROUND_COLOR, 1); // Remove #
-
-        // Build the complex filter for maintaining aspect ratio with padding
-        $filterComplex = sprintf(
-            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s',
-            $config['width'],
-            $config['height'],
-            $config['width'],
-            $config['height'],
-            $bgColor
-        );
-
-        // Build FFmpeg command - importantly including -ignore_loop 0 to preserve GIF looping
-        $command = sprintf(
-            'ffmpeg -i %s -vf "%s" -c:v libwebp -quality %d ' .
-            '-lossless 0 -compression_level 6 -preset picture ' .
-            '-loop 0 -threads 4 -an -vsync 0 %s 2>&1',
-            escapeshellarg($sourcePath),
-            $filterComplex,
-            $quality,
-            escapeshellarg($this->getRealPath($destPath))
-        );
-
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            throw new Exception('Failed to convert animated image: ' . implode("\n", $output));
-        }
-    }
-
-    /**
-     * Check if FFmpeg is available
-     */
-    private function isFFmpegAvailable(): bool
-    {
-        exec('which ffmpeg 2>&1', $output, $returnCode);
-
-        return $returnCode === 0;
     }
 
     /**
