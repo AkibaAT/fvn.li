@@ -71,8 +71,6 @@ RUN mkdir -p storage/framework/cache/data \
         bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache \
     && php artisan storage:link \
-    && php artisan config:cache \
-    && php artisan config:clear \
     && php artisan route:cache \
     && php artisan view:cache \
     && php artisan optimize \
