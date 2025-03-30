@@ -70,9 +70,12 @@ RUN mkdir -p storage/framework/cache/data \
         storage/framework/testing \
         bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache \
-    && php artisan optimize \
     && php artisan storage:link \
+    && php artisan config:cache \
     && php artisan config:clear \
+    && php artisan route:cache \
+    && php artisan view:cache \
+    && php artisan optimize \
     && php artisan livewire:publish --assets \
     && mv docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini \
     && rm -rf docker \

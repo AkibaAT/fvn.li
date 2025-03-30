@@ -145,6 +145,5 @@ jobs:
             docker compose pull
             docker compose down
             docker compose up -d
-            docker compose exec app php artisan config:clear
             docker compose exec app php artisan migrate --force
             docker compose ps
