@@ -297,47 +297,76 @@ class ProcessGameThumbnails extends Command
         int $quality
     ): void {
         try {
-            // Create canvas with desired dimensions and background color
-            $canvas = $this->imageManager->create($config['width'], $config['height'])
-                ->fill(self::BACKGROUND_COLOR);
-
-            // Load and process source image
-            $image = $this->imageManager->read($sourcePath);
-
-            // Verify we got a valid image
-            if ($image->width() === 0 || $image->height() === 0) {
-                throw new Exception('Invalid image dimensions');
+            // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
+            $imageInfo = getimagesize($sourcePath);
+            $mimeType = $imageInfo['mime'];
+            
+            if ($mimeType === 'image/gif') {
+                $tempJpg = tempnam(sys_get_temp_dir(), 'thumb_frame_');
+                // Extract first frame and convert to JPG
+                $command = sprintf(
+                    'convert %s[0] -background white -flatten %s',
+                    escapeshellarg($sourcePath),
+                    escapeshellarg($tempJpg)
+                );
+                exec($command, $output, $returnCode);
+                
+                if ($returnCode !== 0) {
+                    throw new Exception('Failed to extract first frame from GIF');
+                }
+                
+                // Use the extracted frame as source
+                $sourcePath = $tempJpg;
             }
 
-            $this->info("Processing image: {$image->width()}x{$image->height()} pixels");
+            try {
+                // Create canvas with desired dimensions and background color
+                $canvas = $this->imageManager->create($config['width'], $config['height'])
+                    ->fill(self::BACKGROUND_COLOR);
 
-            // Calculate dimensions to maintain aspect ratio
-            $sourceAspect = $image->width() / $image->height();
-            $targetAspect = $config['width'] / $config['height'];
+                // Load and process source image
+                $image = $this->imageManager->read($sourcePath);
 
-            if ($sourceAspect > $targetAspect) {
-                // Image is wider than target - scale to match height
-                $newHeight = $config['height'];
-                $newWidth = intval($newHeight * $sourceAspect);
-                $image = $image->scale(height: $newHeight);
-            } else {
-                // Image is taller than target - scale to match width
-                $newWidth = $config['width'];
-                $newHeight = intval($newWidth / $sourceAspect);
-                $image = $image->scale(width: $newWidth);
+                // Verify we got a valid image
+                if ($image->width() === 0 || $image->height() === 0) {
+                    throw new Exception('Invalid image dimensions');
+                }
+
+                $this->info("Processing image: {$image->width()}x{$image->height()} pixels");
+
+                // Calculate dimensions to maintain aspect ratio
+                $sourceAspect = $image->width() / $image->height();
+                $targetAspect = $config['width'] / $config['height'];
+
+                if ($sourceAspect > $targetAspect) {
+                    // Image is wider than target - scale to match height
+                    $newHeight = $config['height'];
+                    $newWidth = intval($newHeight * $sourceAspect);
+                    $image = $image->scale(height: $newHeight);
+                } else {
+                    // Image is taller than target - scale to match width
+                    $newWidth = $config['width'];
+                    $newHeight = intval($newWidth / $sourceAspect);
+                    $image = $image->scale(width: $newWidth);
+                }
+
+                // Calculate position to center the image
+                $x = intval(($config['width'] - $image->width()) / 2);
+                $y = intval(($config['height'] - $image->height()) / 2);
+
+                // Place resized image onto canvas
+                $canvas->place($image, 'center', $x, $y);
+
+                // Encode and save
+                Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
+                $encoded = $canvas->toWebp($quality);
+                Storage::disk('public')->put($destPath, $encoded->toString());
+            } finally {
+                // Clean up temporary frame file if it exists
+                if (isset($tempJpg) && file_exists($tempJpg)) {
+                    unlink($tempJpg);
+                }
             }
-
-            // Calculate position to center the image
-            $x = intval(($config['width'] - $image->width()) / 2);
-            $y = intval(($config['height'] - $image->height()) / 2);
-
-            // Place resized image onto canvas
-            $canvas->place($image, 'center', $x, $y);
-
-            // Encode and save
-            Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
-            $encoded = $canvas->toWebp($quality);
-            Storage::disk('public')->put($destPath, $encoded->toString());
         } catch (Exception $e) {
             throw new Exception("Failed to process static image: {$e->getMessage()}");
         }
