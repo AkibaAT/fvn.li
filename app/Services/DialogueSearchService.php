@@ -319,9 +319,7 @@ class DialogueSearchService
      */
     protected function getLanguageConfig(?string $language = null): string
     {
-        return match ($language) {
-            default => 'english'
-        };
+        return 'english';
     }
 
     /**

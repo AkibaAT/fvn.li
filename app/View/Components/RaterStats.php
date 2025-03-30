@@ -19,7 +19,7 @@ class RaterStats extends Component
 
     public function render(): View
     {
-        return view('components.rater-stats');
+        return view('ratings.components.rater-stats');
     }
 
     protected function getRatingStats(): array

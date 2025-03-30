@@ -299,7 +299,7 @@ class DialogueBrowser extends Component
             $groupedResults = $searchResults->groupBy('context');
         }
 
-        return view('livewire.dialogue-browser', [
+        return view('dialogue.browser.index', [
             'games' => $games,
             'versions' => $versions,
             'characters' => $characters,

@@ -45,12 +45,12 @@ Route::get('login', function () {
         session()->put('url.intended', $previousUrl);
     }
 
-    return view('auth.login');
+    return view('users.auth.login');
 })->name('login');
 
 // Social Authentication Routes
 Route::get('auth/telegram', function () {
-    return view('auth.telegram-login');
+    return view('users.auth.telegram-login');
 })->name('auth.telegram');
 Route::get('auth/{provider}/redirect', [App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])
     ->name('auth.redirect');

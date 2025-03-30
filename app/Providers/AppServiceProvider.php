@@ -40,5 +40,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Register Livewire components
         Livewire::component('auth.social-login-buttons', SocialLoginButtons::class);
+
+        // Register new top level views
+        $this->loadViewsFrom(resource_path('views/games'), 'games');
+        $this->loadViewsFrom(resource_path('views/lists'), 'lists');
+        $this->loadViewsFrom(resource_path('views/ratings'), 'ratings');
+        $this->loadViewsFrom(resource_path('views/users'), 'users');
+        $this->loadViewsFrom(resource_path('views/admin'), 'admin');
+        $this->loadViewsFrom(resource_path('views/dialogue'), 'dialogue');
     }
 }

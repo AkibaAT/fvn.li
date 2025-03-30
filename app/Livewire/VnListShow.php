@@ -28,7 +28,7 @@ class VnListShow extends Component
 
     public function render(): View
     {
-        return view('livewire.vn-list-show');
+        return view('lists.partials.show-content');
     }
 
     public function compareGameVersions($params): void

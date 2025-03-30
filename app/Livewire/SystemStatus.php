@@ -163,7 +163,7 @@ class SystemStatus extends Component
         $this->dateFormat = config('schedule-monitor.date_format');
         $this->dispatchChartData();
 
-        return view('livewire.system-status', [
+        return view('admin.dashboard.system-status', [
             'gameStats' => $this->gameStats,
             'ratingStats' => $this->ratingStats,
             'monitoredTasks' => $this->monitoredTasks,

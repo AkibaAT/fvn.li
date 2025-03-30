@@ -97,7 +97,7 @@ class RatingsList extends Component
             ->orderBy($this->sortField, $this->sortDirection)
             ->paginate(10);
 
-        return view('livewire.ratings-list', [
+        return view('ratings.raters.ratings-list', [
             'ratings' => $ratings,
             'previousRatingCounts' => $this->getPreviousRatingCounts(),
         ]);

@@ -10,6 +10,6 @@ class SocialLoginButtons extends Component
 {
     public function render()
     {
-        return view('livewire.auth.social-login-buttons');
+        return view('users.components.social-login-buttons');
     }
 }

@@ -65,7 +65,7 @@ class VnListController extends Controller
                 $lists->first()->entries->first()->game->thumb_url : '',
         ];
 
-        return view('vn-lists.index', ['lists' => $lists, 'metaTags' => $metaTags]);
+        return view('lists.user.index', ['lists' => $lists, 'metaTags' => $metaTags]);
     }
 
     /**
@@ -79,7 +79,7 @@ class VnListController extends Controller
             'noindex' => true, // We don't want search engines to index the create form
         ];
 
-        return view('vn-lists.create', ['metaTags' => $metaTags]);
+        return view('lists.user.create', ['metaTags' => $metaTags]);
     }
 
     /**
@@ -177,7 +177,7 @@ class VnListController extends Controller
                 $vnList->entries->first()->game->thumb_url : '',
         ];
 
-        return view('vn-lists.show', [
+        return view('lists.show', [
             'vnList' => $vnList,
             'isOwner' => $isOwner,
             'metaTags' => $metaTags,
@@ -199,7 +199,7 @@ class VnListController extends Controller
             'noindex' => true, // We don't want search engines to index the edit form
         ];
 
-        return view('vn-lists.edit', ['vnList' => $vnList, 'metaTags' => $metaTags]);
+        return view('lists.user.edit', ['vnList' => $vnList, 'metaTags' => $metaTags]);
     }
 
     /**
@@ -548,7 +548,7 @@ class VnListController extends Controller
                 $lists->first()->entries->first()->game->thumb_url : '',
         ];
 
-        return view('vn-lists.public', [
+        return view('lists.public.index', [
             'lists' => $lists,
             'metaTags' => $metaTags,
         ]);
@@ -589,7 +589,7 @@ class VnListController extends Controller
                 $lists->first()->entries->first()->game->thumb_url : '',
         ];
 
-        return view('vn-lists.user-public', [
+        return view('lists.public.user', [
             'lists' => $lists,
             'user' => $user,
             'metaTags' => $metaTags,

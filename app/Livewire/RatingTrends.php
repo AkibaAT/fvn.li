@@ -27,7 +27,7 @@ class RatingTrends extends Component
 
     public function render(): View
     {
-        return view('livewire.rating-trends');
+        return view('ratings.trends.chart');
     }
 
     private function loadRatingStats(): void
