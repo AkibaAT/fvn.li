@@ -74,6 +74,7 @@ RUN mkdir -p storage/framework/cache/data \
     && php artisan route:cache \
     && php artisan view:cache \
     && php artisan optimize \
+    && php artisan config:clear \
     && php artisan livewire:publish --assets \
     && mv docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini \
     && rm -rf docker \
