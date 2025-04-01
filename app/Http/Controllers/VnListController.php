@@ -724,4 +724,33 @@ class VnListController extends Controller
             'message' => 'Order updated successfully.',
         ]);
     }
+
+    /**
+     * Toggle update notifications for a list entry.
+     *
+     * @param  Request  $request  The incoming request
+     * @param  VnListEntry  $entry  The entry to update
+     */
+    public function toggleUpdates(Request $request, VnListEntry $entry): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $entry->list);
+
+        $receiveUpdates = $request->has('receive_updates');
+
+        $entry->update([
+            'receive_updates' => $receiveUpdates,
+        ]);
+
+        $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for ' . $entry->game->name;
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'receive_updates' => $receiveUpdates,
+            ]);
+        }
+
+        return back()->with('success', $message);
+    }
 }

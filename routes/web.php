@@ -59,6 +59,13 @@ Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthControlle
 
 // Authenticated VN List Routes
 Route::middleware(['auth'])->group(function () {
+    Route::get('user/dashboard', [App\Http\Controllers\UserDashboardController::class, 'show'])->name('user.dashboard.show');
+    Route::delete('user/account', [App\Http\Controllers\UserDashboardController::class, 'deleteAccount'])->name('user.delete');
+    Route::post('user/merge/{provider}', [App\Http\Controllers\UserDashboardController::class, 'mergeSocialAccounts'])->name('user.merge');
+    Route::delete('user/disconnect/{provider}', [App\Http\Controllers\UserDashboardController::class, 'disconnectSocialAccount'])->name('user.disconnect');
+    Route::get('user/export', [App\Http\Controllers\UserDashboardController::class, 'exportData'])->name('user.export');
+    Route::put('user/notifications', [App\Http\Controllers\UserDashboardController::class, 'updateNotificationPreferences'])->name('user.dashboard.notifications.update');
+
     Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
     Route::get('lists/create', [App\Http\Controllers\VnListController::class, 'create'])->name('vn-lists.create');
     Route::post('lists', [App\Http\Controllers\VnListController::class, 'store'])->name('vn-lists.store');
@@ -75,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('list-entries/{entry}', [App\Http\Controllers\VnListController::class, 'updateEntry'])->name('list-entries.update');
     Route::post('list-entries/{entry}/move', [App\Http\Controllers\VnListController::class, 'moveGame'])->name('list-entries.move');
     Route::delete('list-entries/{entry}', [App\Http\Controllers\VnListController::class, 'removeGame'])->name('list-entries.destroy');
+    Route::patch('list-entries/{entry}/toggle-updates', [App\Http\Controllers\VnListController::class, 'toggleUpdates'])->name('list-entries.toggle-updates');
 
     // User Game Progress
     Route::put('user-progress/{game:id}', [App\Http\Controllers\UserGameProgressController::class, 'update'])->name('user-progress.update');

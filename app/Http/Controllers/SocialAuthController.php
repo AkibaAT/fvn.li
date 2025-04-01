@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Facades\DB;
 
 class SocialAuthController extends Controller
 {
@@ -81,6 +82,89 @@ class SocialAuthController extends Controller
                 $socialiteUser = Socialite::driver($provider)->user();
             }
 
+            // Check if we're in the process of merging accounts
+            if (session()->has('merging_user_id')) {
+                $mergingUserId = session()->pull('merging_user_id');
+                $mergingUser = User::findOrFail($mergingUserId);
+
+                // Check if the social account exists
+                $existingSocialAccount = SocialAccount::where('provider_name', $provider)
+                    ->where('provider_id', $socialiteUser->getId())
+                    ->first();
+
+                if ($existingSocialAccount) {
+                    // If the account exists and belongs to another user, merge the accounts
+                    if ($existingSocialAccount->user_id !== $mergingUser->id) {
+                        $otherUser = $existingSocialAccount->user;
+
+                        // Start transaction for merging
+                        DB::transaction(function () use ($mergingUser, $otherUser) {
+                            // Merge system lists (keeping entries unique and ensuring VNs are only on one system list)
+                            foreach ($otherUser->vnLists as $list) {
+                                if ($list->is_system_list) {
+                                    // Find corresponding system list of merging user
+                                    $mergingUserList = $mergingUser->vnLists()
+                                        ->where('is_system_list', true)
+                                        ->where('name', $list->name)
+                                        ->first();
+
+                                    if ($mergingUserList) {
+                                        // Move entries that don't exist in the merging user's list
+                                        foreach ($list->entries as $entry) {
+                                            // Check if the game exists in any of the merging user's system lists
+                                            $existsInOtherSystemList = $mergingUser->vnLists()
+                                                ->where('is_system_list', true)
+                                                ->where('id', '!=', $mergingUserList->id)
+                                                ->whereHas('entries', function ($query) use ($entry) {
+                                                    $query->where('game_id', $entry->game_id);
+                                                })
+                                                ->exists();
+
+                                            // Only move if the game doesn't exist in any system list
+                                            if (!$existsInOtherSystemList &&
+                                                !$mergingUserList->entries()
+                                                    ->where('game_id', $entry->game_id)
+                                                    ->exists()) {
+                                                $entry->vn_list_id = $mergingUserList->id;
+                                                $entry->save();
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // For custom lists, just change the user_id
+                                    $list->user_id = $mergingUser->id;
+                                    $list->save();
+                                }
+                            }
+
+                            // Move social accounts to merging user
+                            $otherUser->socialAccounts()->update(['user_id' => $mergingUser->id]);
+
+                            // Move game progress
+                            $otherUser->gameProgress()->update(['user_id' => $mergingUser->id]);
+
+                            // Move notification history
+                            $otherUser->notificationHistory()->update(['user_id' => $mergingUser->id]);
+
+                            // Delete the other user
+                            $otherUser->delete();
+                        });
+
+                        return redirect()->route('user.dashboard.show')
+                            ->with('success', 'Accounts successfully merged!');
+                    }
+
+                    return redirect()->route('user.dashboard.show')
+                        ->with('error', 'This social account is already linked to your account.');
+                }
+
+                // If the social account doesn't exist, create it for the merging user
+                $this->updateOrCreateSocialAccount($mergingUser, $socialiteUser, $provider);
+
+                return redirect()->route('user.dashboard.show')
+                    ->with('success', 'Social account successfully linked!');
+            }
+
             $user = Auth::user() ?? $this->findOrCreateUser($socialiteUser, $provider);
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
             Auth::login($user);
@@ -101,7 +185,6 @@ class SocialAuthController extends Controller
             }
 
             return redirect($redirectTo);
-
         } catch (Exception $e) {
             // Log the error for debugging
             logger()->error("Social auth error with {$provider}: " . $e->getMessage());
