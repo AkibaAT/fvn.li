@@ -531,7 +531,7 @@ class VnListController extends Controller
         }])
             ->where('is_public', true)
             ->latest()
-            ->paginate(10);
+            ->paginate(9);
 
         $lists = $this->sortListsByType($lists);
 
@@ -572,7 +572,7 @@ class VnListController extends Controller
             ->where('user_id', $user->id)
             ->where('is_public', true)
             ->latest()
-            ->paginate(10);
+            ->paginate(9);
 
         $lists = $this->sortListsByType($lists);
 
