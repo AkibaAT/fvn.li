@@ -222,6 +222,10 @@ class UserDashboardController extends Controller
         session(['merging_user_id' => $user->id]);
 
         // Redirect to the provider's OAuth page
+        if ($provider === 'telegram') {
+            return redirect()->route('auth.telegram');
+        }
+
         return redirect()->route('auth.redirect', ['provider' => $provider]);
     }
 
