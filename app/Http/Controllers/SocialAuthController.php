@@ -8,11 +8,11 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Facades\DB;
 
 class SocialAuthController extends Controller
 {
@@ -51,6 +51,12 @@ class SocialAuthController extends Controller
                     ->setScopes(['openid', 'email', 'profile'])
                     ->redirect();
 
+            case 'itchio':
+                // For itch.io, we need to handle the implicit flow
+                return Socialite::driver($provider)
+                    ->setScopes(['profile:me'])
+                    ->redirect();
+
             default:
                 return Socialite::driver($provider)->redirect();
         }
@@ -79,7 +85,39 @@ class SocialAuthController extends Controller
                 // Store the raw data for provider_data
                 $socialiteUser->user = $data;
             } else {
-                $socialiteUser = Socialite::driver($provider)->user();
+                // For itch.io, we need to handle the implicit flow response
+                if ($provider === 'itchio') {
+                    // Get the hash fragment from the URL
+                    $hash = request('hash');
+                    if (! $hash) {
+                        throw new Exception('No hash fragment received from itch.io');
+                    }
+
+                    // Parse the hash fragment
+                    parse_str($hash, $hashParams);
+                    $accessToken = $hashParams['access_token'] ?? null;
+
+                    if (! $accessToken) {
+                        throw new Exception('No access token found in hash fragment');
+                    }
+
+                    Log::info('Received itch.io access token', ['token' => substr($accessToken, 0, 10) . '...']);
+
+                    // Create a SocialiteUser instance with the access token
+                    $socialiteUser = Socialite::driver($provider)->userFromToken($accessToken);
+
+                    // Log the user data we received
+                    Log::info('Received itch.io user data', [
+                        'id' => $socialiteUser->getId(),
+                        'name' => $socialiteUser->getName(),
+                        'nickname' => $socialiteUser->getNickname(),
+                        'email' => $socialiteUser->getEmail(),
+                        'avatar' => $socialiteUser->getAvatar(),
+                        'raw' => $socialiteUser->user,
+                    ]);
+                } else {
+                    $socialiteUser = Socialite::driver($provider)->user();
+                }
             }
 
             // Check if we're in the process of merging accounts
@@ -121,8 +159,8 @@ class SocialAuthController extends Controller
                                                 ->exists();
 
                                             // Only move if the game doesn't exist in any system list
-                                            if (!$existsInOtherSystemList &&
-                                                !$mergingUserList->entries()
+                                            if (! $existsInOtherSystemList &&
+                                                ! $mergingUserList->entries()
                                                     ->where('game_id', $entry->game_id)
                                                     ->exists()) {
                                                 $entry->vn_list_id = $mergingUserList->id;
@@ -166,6 +204,14 @@ class SocialAuthController extends Controller
             }
 
             $user = Auth::user() ?? $this->findOrCreateUser($socialiteUser, $provider);
+
+            // Log the user creation/finding process
+            Log::info('User lookup/creation result', [
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
+
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
             Auth::login($user);
 
@@ -187,7 +233,10 @@ class SocialAuthController extends Controller
             return redirect($redirectTo);
         } catch (Exception $e) {
             // Log the error for debugging
-            logger()->error("Social auth error with {$provider}: " . $e->getMessage());
+            Log::error("Social auth error with {$provider}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request_data' => request()->all(),
+            ]);
 
             // Flash error message to session
             session()->flash('error', 'Failed to authenticate with ' . $provider);
@@ -207,6 +256,12 @@ class SocialAuthController extends Controller
             ->first();
 
         if ($socialAccount) {
+            Log::info('Found existing social account', [
+                'provider' => $provider,
+                'provider_id' => $socialiteUser->getId(),
+                'user_id' => $socialAccount->user_id,
+            ]);
+
             return $socialAccount->user;
         }
 
@@ -219,20 +274,33 @@ class SocialAuthController extends Controller
         $email = $socialiteUser->getEmail();
         $avatar = $socialiteUser->getAvatar();
 
+        Log::info('Creating/looking up user with data', [
+            'provider' => $provider,
+            'provider_id' => $socialiteUser->getId(),
+            'name' => $name,
+            'email' => $email,
+            'has_avatar' => ! empty($avatar),
+        ]);
+
         // If user has email and we need to link with existing account
         $user = null;
         if ($email) {
             $user = User::where('email', $email)->first();
+            if ($user) {
+                Log::info('Found existing user by email', ['user_id' => $user->id]);
+            }
         }
 
         // If user doesn't exist, create a new one with minimal info
         if (! $user) {
+            Log::info('Creating new user');
             $user = User::create([
                 'name' => $name,
                 'email' => $email, // This can be null with our updated schema
                 'password' => Hash::make(Str::random(24)),
                 'avatar' => $avatar,
             ]);
+            Log::info('Created new user', ['user_id' => $user->id]);
         }
 
         return $user;

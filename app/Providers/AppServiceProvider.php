@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('google', \SocialiteProviders\Google\Provider::class);
             $event->extendSocialite('telegram', \SocialiteProviders\Telegram\Provider::class);
             $event->extendSocialite('steam', \SocialiteProviders\Steam\Provider::class);
+            $event->extendSocialite('itchio', \App\Services\ItchIoProvider::class);
         });
 
         // Register Livewire components

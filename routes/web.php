@@ -52,8 +52,19 @@ Route::get('login', function () {
 Route::get('auth/telegram', function () {
     return view('users.auth.telegram-login');
 })->name('auth.telegram');
+
 Route::get('auth/{provider}/redirect', [App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])
     ->name('auth.redirect');
+
+// Special routes for itch.io
+Route::get('auth/itchio/callback', function () {
+    return view('users.auth.itchio-callback');
+})->name('auth.itchio.callback');
+
+Route::get('auth/itchio/process', function () {
+    return app()->make(\App\Http\Controllers\SocialAuthController::class)->handleProviderCallback('itchio');
+})->name('auth.itchio.process');
+
 Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])
     ->name('auth.callback');
 

@@ -1,3 +1,5 @@
+@props(['centered' => false])
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -40,11 +42,19 @@
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col">
     <x-layouts.header />
 
-    <main class="py-3 mt-3">
-        <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">
-            {{ $slot }}
+    @if ($centered)
+        <div class="flex-grow flex items-center justify-center">
+            <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">
+                {{ $slot }}
+            </div>
         </div>
-    </main>
+    @else
+        <main class="py-3 mt-3">
+            <div class="max-w-7xl mx-auto px-4 sm:px-8 xs:px-2">
+                {{ $slot }}
+            </div>
+        </main>
+    @endif
 
     @stack('scripts')
     <!-- Footer -->

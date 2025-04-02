@@ -18,6 +18,14 @@
     </a>
 
     <a
+        href="{{ route('auth.redirect', ['provider' => 'itchio']) }}"
+        class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+    >
+        <x-ui.icons.itchio class="h-5 w-5 mr-3" />
+        <span>Continue with itch.io</span>
+    </a>
+
+    <a
         href="{{ route('auth.redirect', ['provider' => 'steam']) }}"
         class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
     >
@@ -32,7 +40,7 @@
         href="{{ route('auth.telegram') }}"
         class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
     >
-        <i class="icon-telegram h-5 w-5 mr-3 text-blue-500"></i>
+        <i class="icon-telegram h-5 w-5 mr-2 text-blue-500"></i>
         <span>Continue with Telegram</span>
     </a>
-</div> 
+</div>

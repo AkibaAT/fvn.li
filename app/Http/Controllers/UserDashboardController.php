@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\VnList;
-use App\Models\SocialAccount;
+use App\Models\UserNotificationPreferences;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Models\UserNotificationPreferences;
 
 class UserDashboardController extends Controller
 {
@@ -46,16 +46,24 @@ class UserDashboardController extends Controller
                             (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
                         $avatar = $account->provider_data['photo_url'] ?? null;
                         break;
+                    case 'itchio':
+                        $displayName = $account->provider_data['username'] ?? null;
+                        $avatar = $account->provider_data['cover_url'] ?? null;
+                        break;
                 }
             }
 
             return [$account->provider_name => [
                 'display_name' => $displayName,
-                'avatar' => $avatar
+                'avatar' => $avatar,
             ]];
         })->toArray();
 
-        return view('users.dashboard.show', compact('user', 'connectedProviders', 'socialAccounts'));
+        return view('users.dashboard.show', [
+            'user' => $user,
+            'connectedProviders' => $connectedProviders,
+            'socialAccounts' => $socialAccounts,
+        ]);
     }
 
     /**
@@ -72,7 +80,7 @@ class UserDashboardController extends Controller
             'gameProgress.game',
             'gameProgress.gameVersion',
             'notificationHistory.game',
-            'notificationHistory.gameVersion'
+            'notificationHistory.gameVersion',
         ]);
 
         $exportData = [
@@ -257,21 +265,21 @@ class UserDashboardController extends Controller
     public function updateNotificationPreferences(Request $request)
     {
         $user = Auth::user();
-        \Log::info('Updating notification preferences', [
+        Log::info('Updating notification preferences', [
             'user_id' => $user->id,
             'request_data' => $request->all(),
             'has_discord' => $request->has('discord_notifications_enabled'),
             'has_browser' => $request->has('browser_notifications_enabled'),
             'discord_value' => $request->input('discord_notifications_enabled'),
             'browser_value' => $request->input('browser_notifications_enabled'),
-            'digest_value' => $request->input('notification_digest')
+            'digest_value' => $request->input('notification_digest'),
         ]);
 
         try {
             // Convert checkbox values to boolean before validation
             $request->merge([
                 'discord_notifications_enabled' => $request->has('discord_notifications_enabled'),
-                'browser_notifications_enabled' => $request->has('browser_notifications_enabled')
+                'browser_notifications_enabled' => $request->has('browser_notifications_enabled'),
             ]);
 
             $validated = $request->validate([
@@ -280,7 +288,7 @@ class UserDashboardController extends Controller
                 'notification_digest' => 'required|in:asap,daily,weekly',
             ]);
 
-            \Log::info('Validated data', ['validated' => $validated]);
+            Log::info('Validated data', ['validated' => $validated]);
 
             // Use a transaction to ensure data consistency
             DB::beginTransaction();
@@ -291,29 +299,31 @@ class UserDashboardController extends Controller
                     $validated
                 );
 
-                \Log::info('Updated preferences', ['preferences' => $preferences->toArray()]);
+                Log::info('Updated preferences', ['preferences' => $preferences->toArray()]);
 
                 // Verify the data was saved
                 $savedPreferences = UserNotificationPreferences::where('user_id', $user->id)->first();
-                \Log::info('Verified saved preferences', ['saved_preferences' => $savedPreferences ? $savedPreferences->toArray() : null]);
+                Log::info('Verified saved preferences', ['saved_preferences' => $savedPreferences ? $savedPreferences->toArray() : null]);
 
                 DB::commit();
+
                 return response()->json(['success' => true]);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-        } catch (\Exception $e) {
-            \Log::error('Error updating notification preferences', [
+        } catch (Exception $e) {
+            Log::error('Error updating notification preferences', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
             ]);
+
             return response()->json([
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
             ], 500);
         }
     }

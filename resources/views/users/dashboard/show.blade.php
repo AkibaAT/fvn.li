@@ -51,7 +51,7 @@
             </div>
 
             <!-- Notification Settings Section -->
-            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg lg:mt-9">
                 <div class="p-6">
                     <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Notification Settings</h2>
                     <form action="{{ route('user.dashboard.notifications.update') }}" method="POST" id="notification-preferences-form">
@@ -152,32 +152,41 @@
                                     'icon' => '<svg class="h-6 w-6" viewBox="0 0 24 24"><path fill="lightgray" d="M21.35 11.1h-9.17v2.73h6.5c-.33 3.8-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z" /></svg>',
                                     'name' => 'Google'
                                 ],
+                                'itchio' => [
+                                    'component' => 'components.ui.icons.itchio',
+                                    'icon' => '',
+                                    'name' => 'itch.io'
+                                ],
                                 'steam' => [
                                     'icon' => '<svg class="h-6 w-6" viewBox="0 0 65 65"><path d="M31.959 64c17.673 0 32-14.327 32-32s-14.327-32-32-32C15.001 0 1.124 13.193.028 29.874c2.074 3.477 2.879 5.628 1.275 11.328C5.259 54.386 17.488 64 31.959 64z" fill="#144b7e"/><path d="M30.31 23.985l.003.158-7.83 11.375c-1.268-.058-2.54.165-3.748.662a8.14 8.14 0 0 0-1.498.8L.042 29.893s-.398 6.546 1.26 11.424l12.156 5.016c.6 2.728 2.48 5.12 5.242 6.27a8.88 8.88 0 0 0 11.603-4.782 8.89 8.89 0 0 0 .684-3.656L42.18 36.16l.275.005c6.705 0 12.155-5.466 12.155-12.18s-5.44-12.16-12.155-12.174c-6.702 0-12.155 5.46-12.155 12.174zm-1.88 23.05c-1.454 3.5-5.466 5.147-8.953 3.694a6.84 6.84 0 0 1-3.524-3.362l3.957 1.64a5.04 5.04 0 0 0 6.591-2.719 5.05 5.05 0 0 0-2.715-6.601l-4.1-1.695c1.578-.6 3.372-.62 5.05.077 1.7.703 3 2.027 3.696 3.72s.692 3.56-.01 5.246M42.466 32.1a8.12 8.12 0 0 1-8.098-8.113a8.12 8.12 0 0 1 8.098-8.111a8.12 8.12 0 0 1 8.1 8.111a8.12 8.12 0 0 1-8.1 8.113m-6.068-8.126a6.09 6.09 0 0 1 6.08-6.095c3.355 0 6.084 2.73 6.084 6.095a6.09 6.09 0 0 1-6.084 6.093a6.09 6.09 0 0 1-6.081-6.093z" fill="#fff"/></svg>',
                                     'name' => 'Steam'
                                 ],
                                 'telegram' => [
-                                    'icon' => '<i class="icon-telegram h-6 w-6 text-blue-500 text-2xl"></i>',
+                                    'icon' => '<i class="icon-telegram h-6 w-6 text-blue-500 text-xl"></i>',
                                     'name' => 'Telegram'
                                 ]
                             ];
                         @endphp
 
-                        @foreach($providers as $provider => $config)
+                        @foreach ($providers as $provider => $config)
                             <div class="p-4 border dark:border-gray-700 rounded-lg">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-3">
-                                        {!! $config['icon'] !!}
+                                        @if (isset($config['component']))
+                                            @include($config['component'], ['class' => 'h-6 w-6'])
+                                        @else
+                                            {!! $config['icon'] !!}
+                                        @endif
                                         <span class="text-gray-900 dark:text-white">{{ $config['name'] }}</span>
                                     </div>
                                     @if (in_array($provider, $connectedProviders))
                                         <div class="flex items-center gap-2">
-                                            @if(isset($socialAccounts[$provider]))
+                                            @if (isset($socialAccounts[$provider]))
                                                 <div class="flex items-center gap-2">
-                                                    @if($socialAccounts[$provider]['avatar'])
+                                                    @if ($socialAccounts[$provider]['avatar'])
                                                         <img src="{{ $socialAccounts[$provider]['avatar'] }}" alt="{{ $config['name'] }} avatar" class="w-6 h-6 rounded-full">
                                                     @endif
-                                                    @if($socialAccounts[$provider]['display_name'])
+                                                    @if ($socialAccounts[$provider]['display_name'])
                                                         <span class="text-gray-600 dark:text-gray-400">{{ $socialAccounts[$provider]['display_name'] }}</span>
                                                     @endif
                                                 </div>
@@ -207,7 +216,7 @@
             </div>
 
             <!-- Danger Zone -->
-            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg lg:mt-9">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
                 <div class="p-6">
                     <h2 class="text-lg font-semibold mb-4 text-red-600 dark:text-red-500">Danger Zone</h2>
                     <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">

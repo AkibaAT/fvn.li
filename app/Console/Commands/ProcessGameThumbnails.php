@@ -300,7 +300,7 @@ class ProcessGameThumbnails extends Command
             // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
             $imageInfo = getimagesize($sourcePath);
             $mimeType = $imageInfo['mime'];
-            
+
             if ($mimeType === 'image/gif') {
                 $tempJpg = tempnam(sys_get_temp_dir(), 'thumb_frame_');
                 // Extract first frame and convert to JPG
@@ -310,11 +310,11 @@ class ProcessGameThumbnails extends Command
                     escapeshellarg($tempJpg)
                 );
                 exec($command, $output, $returnCode);
-                
+
                 if ($returnCode !== 0) {
                     throw new Exception('Failed to extract first frame from GIF');
                 }
-                
+
                 // Use the extracted frame as source
                 $sourcePath = $tempJpg;
             }
