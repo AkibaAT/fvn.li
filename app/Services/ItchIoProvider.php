@@ -66,7 +66,7 @@ class ItchIoProvider extends AbstractProvider
         return (new User)->setRaw($user)->map([
             'id' => $user['id'],
             'nickname' => $user['username'],
-            'name' => $user['username'], // itch.io doesn't have a separate display name
+            'name' => $user['display_name'] ?? $user['username'],
             'email' => null, // itch.io doesn't provide email in the API
             'avatar' => $user['cover_url'] ?? null,
         ]);

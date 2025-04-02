@@ -47,7 +47,7 @@ class UserDashboardController extends Controller
                         $avatar = $account->provider_data['photo_url'] ?? null;
                         break;
                     case 'itchio':
-                        $displayName = $account->provider_data['username'] ?? null;
+                        $displayName = $account->provider_data['display_name'] ?? null;
                         $avatar = $account->provider_data['cover_url'] ?? null;
                         break;
                 }
