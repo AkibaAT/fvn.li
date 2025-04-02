@@ -69,6 +69,12 @@
                         <span class="text-sm text-gray-500 dark:text-gray-400">
                             {{ $rating->published_at->format('M j, Y') }}
                         </span>
+                        <a href="https://itch.io/event/{{ $rating->event_id }}"
+                           target="_blank"
+                           class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                           title="View on itch.io">
+                            <i class="icon-external-link"></i>
+                        </a>
                     </div>
                 </div>
 
