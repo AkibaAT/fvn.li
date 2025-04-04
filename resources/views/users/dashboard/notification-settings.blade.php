@@ -143,6 +143,17 @@
 
             init() {
                 this.checkPermissionStatus();
+                // Initialize the toggle state based on both permission and stored preference
+                if (Notification.permission === 'granted') {
+                    this.browserNotificationsEnabled = this.$wire.browserNotificationsEnabled;
+                } else {
+                    this.browserNotificationsEnabled = false;
+                    if (this.$wire.browserNotificationsEnabled) {
+                        // If preference was enabled but permission is not granted, update the server
+                        this.$wire.set('browserNotificationsEnabled', false);
+                        this.$wire.updateNotificationPreferences();
+                    }
+                }
             },
 
             checkPermissionStatus() {
@@ -150,6 +161,8 @@
                     this.buttonText = 'Not Supported';
                     this.buttonDisabled = true;
                     this.buttonClass = 'bg-gray-600 cursor-not-allowed';
+                    this.permissionGranted = false;
+                    this.browserNotificationsEnabled = false;
                     return;
                 }
 
@@ -160,10 +173,20 @@
                     this.buttonText = 'Permission Granted';
                     this.buttonDisabled = true;
                     this.buttonClass = 'bg-green-600 hover:bg-green-700 cursor-not-allowed';
+                    // Don't override browserNotificationsEnabled here as it's set in init()
                 } else if (permission === 'denied') {
+                    this.permissionGranted = false;
                     this.buttonText = 'Permission Blocked';
                     this.buttonDisabled = true;
                     this.buttonClass = 'bg-red-600 hover:bg-red-700 cursor-not-allowed';
+                    this.browserNotificationsEnabled = false;
+                } else {
+                    // permission === 'default' (not yet requested)
+                    this.permissionGranted = false;
+                    this.buttonText = 'Request Permission';
+                    this.buttonDisabled = false;
+                    this.buttonClass = 'bg-indigo-600 hover:bg-indigo-700';
+                    this.browserNotificationsEnabled = false;
                 }
             },
 
@@ -179,11 +202,17 @@
 
                         // Load and initialize push notifications
                         try {
+                            // Import the module
                             const module = await import('{{ Vite::asset("resources/js/push-notifications.js") }}');
                             const pushNotifications = module.default;
 
+                            // Ensure the module is initialized and available globally
+                            if (!window.pushNotifications) {
+                                window.pushNotifications = pushNotifications;
+                            }
+
                             // First register the service worker
-                            const registration = await pushNotifications.registerServiceWorker();
+                            const registration = await window.pushNotifications.registerServiceWorker();
                             if (!registration) {
                                 throw new Error('Failed to register service worker');
                             }
@@ -192,11 +221,11 @@
                             await new Promise(resolve => setTimeout(resolve, 1000));
 
                             // Check if we already have a subscription
-                            let subscription = await pushNotifications.getSubscription();
+                            let subscription = await window.pushNotifications.getSubscription();
 
                             // If no subscription exists, create a new one
                             if (!subscription) {
-                                subscription = await pushNotifications.subscribe(this.vapidKey);
+                                subscription = await window.pushNotifications.subscribe(this.vapidKey);
                             }
 
                             // Enable the checkbox if subscription is successful
