@@ -71,6 +71,10 @@ class UserDashboardController extends Controller
             'user' => $user,
             'connectedProviders' => $connectedProviders,
             'socialAccounts' => $socialAccounts,
+            'noindex' => true,
+            'metaTags' => [
+                'title' => 'User Dashboard',
+            ],
         ]);
     }
 
@@ -377,6 +381,10 @@ class UserDashboardController extends Controller
             'date' => $date,
             'userGameProgress' => $userGameProgress,
             'versionComparisonStats' => $versionComparisonStats,
+            'metaTags' => [
+                'noindex' => true,
+                'title' => 'Digest Notifications',
+            ],
         ]);
     }
 

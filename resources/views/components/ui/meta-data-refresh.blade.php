@@ -2,7 +2,7 @@
 <script>
     $wire.on('updateMetaTags', (event) => {
         // Update title
-        document.title = event.metaTags.title;
+        document.title = event.metaTags.title + ' - {{ config('app.name') }}';
 
         // Update meta description
         const descriptionTag = document.querySelector('meta[name="description"]');

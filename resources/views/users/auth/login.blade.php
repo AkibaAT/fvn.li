@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts.app :metaTags="$metaTags">
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
             {{ __('Log in') }}
@@ -21,4 +21,4 @@
             </div>
         </div>
     </div>
-</x-layouts.app> 
+</x-layouts.app>

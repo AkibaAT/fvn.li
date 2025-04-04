@@ -21,7 +21,7 @@ trait HasSocialMetaTags
                 $title .= " ({$this->visibleGamesRatingsCount} in listed games)";
             }
 
-            return $title . ' - ' . config('app.name');
+            return $title;
         }
 
         if (method_exists($this, 'getHeading')) {
@@ -74,7 +74,7 @@ trait HasSocialMetaTags
             }
         }
 
-        return $title . ' - ' . config('app.name');
+        return $title;
     }
 
     protected function getMetaDescription(): string

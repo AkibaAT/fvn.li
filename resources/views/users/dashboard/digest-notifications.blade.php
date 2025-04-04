@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts.app :metaTags="$metaTags">
     <div class="container mx-auto">
         {{-- Header Card --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6 border-l-4 border-blue-500 mb-6">

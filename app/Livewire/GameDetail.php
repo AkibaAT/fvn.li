@@ -366,7 +366,7 @@ class GameDetail extends Component
         $description = substr($description, 0, 160);
 
         return [
-            'title' => $this->game->name . ' - ' . config('app.name'),
+            'title' => $this->game->name,
             'description' => $description,
             'image' => $this->game->thumb_url ?: asset('favicon.ico'),
         ];

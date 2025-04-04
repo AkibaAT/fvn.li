@@ -53,7 +53,7 @@ class VnListController extends Controller
         // Generate metadata for the user's lists page
         $visibility = $request->visibility ?? 'all';
         $metaTags = [
-            'title' => 'Your Visual Novel Lists - ' . config('app.name'),
+            'title' => 'Your Visual Novel Lists',
             'description' => 'Manage your ' . ($visibility === 'all' ? '' : $visibility . ' ') .
                 'visual novel lists. ' .
                 "Currently managing {$lists->count()} lists" .
@@ -74,7 +74,7 @@ class VnListController extends Controller
     public function create(): View
     {
         $metaTags = [
-            'title' => 'Create New Visual Novel List - ' . config('app.name'),
+            'title' => 'Create New Visual Novel List',
             'description' => 'Create a new visual novel list to organize and share your favorite visual novels.',
             'noindex' => true, // We don't want search engines to index the create form
         ];
@@ -166,7 +166,7 @@ class VnListController extends Controller
         // Generate metadata for the list
         $listType = str_replace('_', ' ', $vnList->type);
         $metaTags = [
-            'title' => $vnList->name . ($isOwner ? '' : " by {$vnList->user->name}") . ' - ' . config('app.name'),
+            'title' => $vnList->name . ($isOwner ? '' : " by {$vnList->user->name}"),
             'description' => ($isOwner ? 'Your' : "{$vnList->user->name}'s") . ' ' . $listType . ' list' .
                 ($vnList->description ? ": {$vnList->description}" : '') .
                 ". Contains {$vnList->entries->count()} visual novels" .
@@ -194,7 +194,7 @@ class VnListController extends Controller
         $this->authorize('update', $vnList);
 
         $metaTags = [
-            'title' => 'Edit ' . $vnList->name . ' - ' . config('app.name'),
+            'title' => 'Edit ' . $vnList->name,
             'description' => 'Edit your ' . str_replace('_', ' ', $vnList->type) . ' list "' . $vnList->name . '".',
             'noindex' => true, // We don't want search engines to index the edit form
         ];
@@ -537,7 +537,7 @@ class VnListController extends Controller
 
         // Generate metadata for public lists page
         $metaTags = [
-            'title' => 'Public Visual Novel Lists - ' . config('app.name'),
+            'title' => 'Public Visual Novel Lists',
             'description' => 'Browse public visual novel lists shared by the community. ' .
                 "Currently featuring {$lists->total()} public lists" .
                 ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
@@ -578,7 +578,7 @@ class VnListController extends Controller
 
         // Generate metadata for user's public lists page
         $metaTags = [
-            'title' => "{$user->name}'s Visual Novel Lists - " . config('app.name'),
+            'title' => "{$user->name}'s Visual Novel Lists",
             'description' => "Browse {$user->name}'s public visual novel lists. " .
                 "Currently featuring {$lists->total()} public lists" .
                 ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {

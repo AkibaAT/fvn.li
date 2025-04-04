@@ -314,8 +314,8 @@ class DialogueBrowser extends Component
                 'metaTags' => [
                     'title' => $this->gameId
                         ? 'Dialogue Browser for ' . Game::where('id',
-                            $this->gameId)->first('name')->name . ' - ' . config('app.name')
-                        : 'Dialogue Browser - ' . config('app.name'),
+                            $this->gameId)->first('name')->name
+                        : 'Dialogue Browser',
                 ],
                 'noindex' => true,
             ]);
