@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console;
 
+use App\Console\Commands\BackfillRatings;
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportRatings;
 use App\Console\Commands\ProcessFeed;
@@ -27,6 +28,7 @@ class Kernel extends ConsoleKernel
         UpdateWatchlist::class,
         QueueGameUpdateNotifications::class,
         ProcessPushNotifications::class,
+        BackfillRatings::class,
     ];
 
     /**

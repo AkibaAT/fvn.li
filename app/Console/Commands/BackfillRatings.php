@@ -20,12 +20,12 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ImportRatings extends Command
+class BackfillRatings extends Command
 {
-    private const IMPORT_STATE_TYPE = 'ratings';
+    private const string IMPORT_STATE_TYPE = 'ratings_backfill';
 
-    protected $signature = 'ratings:import';
-    protected $description = 'Import latest ratings from itch.io';
+    protected $signature = 'ratings:backfill {--batch-size=1000}';
+    protected $description = 'Backfill missing ratings by scanning all events';
 
     private Client $client;
     private ItchAuthService $authService;
@@ -52,6 +52,8 @@ class ImportRatings extends Command
             $errorCount = 0;
             $newRatingsCount = 0;
             $newRatingsInBatch = 0;
+            $batchSize = (int) $this->option('batch-size');
+            $batchProcessed = 0;
 
             do {
                 try {
@@ -60,11 +62,18 @@ class ImportRatings extends Command
 
                     if ($startEventId) {
                         $successCount++;
+                        $batchProcessed++;
+
+                        if ($batchProcessed >= $batchSize) {
+                            $this->info("Batch limit of {$batchSize} pages reached. Run the command again to continue.");
+                            break;
+                        }
+
                         sleep(30); // Rate limiting between pages
                     }
                 } catch (Exception $e) {
                     $errorCount++;
-                    Log::error('Error processing ratings page', [
+                    Log::error('Error processing ratings page during backfill', [
                         'exception' => $e,
                         'start_event_id' => $startEventId,
                     ]);
@@ -79,13 +88,25 @@ class ImportRatings extends Command
                 }
             } while ($startEventId !== null);
 
-            $this->info("Successfully processed {$successCount} pages with {$newRatingsCount} new ratings and {$errorCount} errors");
+            $this->info('Backfill completed:');
+            $this->info("- Processed {$successCount} pages");
+            $this->info("- Found {$newRatingsCount} new ratings");
+            $this->info("- Encountered {$errorCount} errors");
+
+            if ($batchProcessed >= $batchSize) {
+                $this->info('- Stopped due to batch size limit. Run again to continue.');
+            }
+
             Cache::forget('system_status.rating_stats');
+
+            if ($newRatingsCount > 0 || $successCount > 0) {
+                $this->line(''); // Add a newline after the progress indicators
+            }
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Error importing ratings: ' . $e->getMessage());
-            Log::error('Ratings import failed: ' . $e->getMessage(), ['exception' => $e]);
+            $this->error('Error backfilling ratings: ' . $e->getMessage());
+            Log::error('Ratings backfill failed: ' . $e->getMessage(), ['exception' => $e]);
 
             return 1;
         }
@@ -119,6 +140,23 @@ class ImportRatings extends Command
         // Process each review
         foreach ($doc->querySelectorAll('div.event_row') as $review) {
             try {
+                // Extract event ID first so we can update the import state
+                $eventTime = $review->querySelector('a.event_time');
+                $eventId = (int) basename($eventTime->getAttribute('href'));
+
+                // Update the last processed ID for every event we process
+                ImportState::updateOrCreate(
+                    ['type' => self::IMPORT_STATE_TYPE],
+                    ['last_processed_id' => $eventId]
+                );
+
+                // Skip if we already have this event, but continue processing
+                if (Rating::where('event_id', $eventId)->exists()) {
+                    $this->output->write('.');
+
+                    continue;
+                }
+
                 DB::beginTransaction();
 
                 // Extract user ID from script
@@ -131,20 +169,7 @@ class ImportRatings extends Command
                 $userName = $userLink->textContent;
                 $userUsername = basename(explode('.', $userLink->getAttribute('href'))[0]);
 
-                // Get event timing
-                $eventTime = $review->querySelector('a.event_time');
-                $eventId = (int) basename($eventTime->getAttribute('href'));
                 $updatedAt = new DateTime($eventTime->getAttribute('title'));
-
-                // If we find an existing rating, clear the import state and stop processing
-                if (Rating::where('event_id', $eventId)->exists()) {
-                    DB::commit();
-                    $this->output->write('.');
-                    ImportState::where('type', self::IMPORT_STATE_TYPE)->delete();
-                    $this->info("\nFound existing rating at event {$eventId}, clearing import state");
-
-                    return null;
-                }
 
                 // Get game info
                 $gameLink = $review->querySelector('a.object_title');
@@ -177,23 +202,21 @@ class ImportRatings extends Command
                     $reviewText
                 );
 
-                // Update the last processed ID after each successful rating
-                ImportState::updateOrCreate(
-                    ['type' => self::IMPORT_STATE_TYPE],
-                    ['last_processed_id' => $eventId]
-                );
-
                 $newRatingsCount++;
                 $this->output->write('+');
                 DB::commit();
             } catch (Exception $e) {
-                DB::rollBack();
-                Log::error('Error processing individual rating', [
-                    'exception' => $e,
-                    'event_id' => $eventId ?? null,
-                    'user_id' => $userId ?? null,
-                    'game_id' => $gameId ?? null,
-                ]);
+                if (isset($eventId)) {
+                    Log::error('Error processing individual rating during backfill', [
+                        'exception' => $e,
+                        'event_id' => $eventId,
+                        'user_id' => $userId ?? null,
+                        'game_id' => $gameId ?? null,
+                    ]);
+                }
+                if (DB::transactionLevel() > 0) {
+                    DB::rollBack();
+                }
 
                 // Continue processing other ratings
                 continue;
