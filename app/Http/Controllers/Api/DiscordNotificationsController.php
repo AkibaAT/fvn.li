@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Game;
 use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
 use App\Models\User;
-use App\Models\VnListEntry;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -68,46 +66,40 @@ class DiscordNotificationsController extends Controller
 
             // Format notifications for the Discord bot
             $formattedNotifications = $notifications->map(function ($notification) {
-                $game = Game::with(['latestVersion', 'versions' => function ($query) {
-                    $query->orderBy('created_at', 'desc')->limit(2);
-                }])->find($notification->game_id);
+                $game = $notification->game;
+                $user = $notification->user;
 
-                $user = User::with(['socialAccounts' => function ($query) {
-                    $query->where('provider_name', 'discord');
-                }])->find($notification->user_id);
-
-                // Skip if user or game not found
-                if (! $user || ! $game || ! $user->socialAccounts->first()) {
+                if (! $game || ! $user || ! $game->latestVersion) {
                     return null;
                 }
 
-                // Get user's last read version or previous version for word count diff
-                $lastReadVersion = null;
-                $wordCountDiff = 0;
-                $compareToVersion = null;
-
-                // Try to get user's last read version from their list entry
-                $listEntry = VnListEntry::where('user_id', $user->id)
-                    ->where('game_id', $game->id)
-                    ->first();
-
-                if ($listEntry && $listEntry->last_read_version_id) {
-                    $lastReadVersion = $game->versions()
-                        ->where('id', $listEntry->last_read_version_id)
-                        ->first();
-                    if ($lastReadVersion) {
-                        $compareToVersion = $lastReadVersion;
-                    }
+                // Get the user's social account
+                $socialAccount = $user->socialAccounts->first();
+                if (! $socialAccount) {
+                    return null;
                 }
 
-                // If no last read version, use the previous version
-                if (! $compareToVersion && $game->versions->count() > 1) {
-                    $compareToVersion = $game->versions[1]; // Second most recent version
+                // Get the user's last read version
+                $lastReadVersion = $game->userProgress()
+                    ->where('user_id', $user->id)
+                    ->orderByDesc('game_version_id')
+                    ->first()?->gameVersion;
+
+                // Get version to compare against (previous version or last read version)
+                $compareToVersion = $lastReadVersion;
+                if (! $compareToVersion && $game->gameVersions->count() > 1) {
+                    $compareToVersion = $game->gameVersions[1]; // Second most recent version
                 }
 
-                // Calculate word count diff if we have a version to compare against
+                // Calculate word count difference if we have a version to compare against
+                $wordCountDiff = null;
                 if ($compareToVersion) {
-                    $wordCountDiff = $game->latestVersion->word_count - $compareToVersion->word_count;
+                    $latestStats = $game->latestVersion->getStatsForLanguage('eng');
+                    $compareStats = $compareToVersion->getStatsForLanguage('eng');
+
+                    if ($latestStats && $compareStats) {
+                        $wordCountDiff = $latestStats->words - $compareStats->words;
+                    }
                 }
 
                 return [
