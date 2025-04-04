@@ -21,12 +21,14 @@ class NotificationQueue extends Model
         'processed_at',
         'payload',
         'error',
+        'meta_data',
     ];
 
     protected $casts = [
         'scheduled_at' => 'datetime',
         'processed_at' => 'datetime',
         'payload' => 'array',
+        'meta_data' => 'array',
     ];
 
     /**
