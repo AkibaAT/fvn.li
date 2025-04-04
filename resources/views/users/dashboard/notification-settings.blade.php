@@ -1,3 +1,5 @@
+@vite(['resources/js/push-notifications.js'])
+
 <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
     <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Notification Settings</h2>
 
@@ -178,8 +180,10 @@
 
                         // Load and initialize push notifications
                         try {
-                            const module = await import('{{ Vite::asset("resources/js/push-notifications.js") }}');
-                            const pushNotifications = module.default;
+                            const pushNotifications = window.pushNotifications;
+                            if (!pushNotifications) {
+                                throw new Error('Push notifications module not loaded');
+                            }
 
                             // First register the service worker
                             const registration = await pushNotifications.registerServiceWorker();

@@ -234,4 +234,5 @@ class PushNotifications {
 
 // Export as a singleton instance
 const pushNotifications = new PushNotifications();
+window.pushNotifications = pushNotifications;
 export default pushNotifications;
