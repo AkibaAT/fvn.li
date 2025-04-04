@@ -156,7 +156,6 @@ class QueueGameUpdateNotifications extends Command
                     ->where('notification_history.game_id', '=', $gameId)
                     ->where('notification_history.game_version_id', '=', $gameVersionId);
             })
-            ->where('vn_list_entries.game_id', $gameId)
             ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
             ->groupBy('users.id', 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled', 'user_notification_preferences.notification_digest')
