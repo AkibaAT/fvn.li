@@ -114,13 +114,15 @@ class GameDetail extends Component
         $this->normalizePerPage('reviewsPerPage');
 
         if (Auth::check()) {
-            $this->userLists = Auth::user()->vnLists;
-            $this->userListsWithGame = $this->userLists->filter(function ($list) {
-                return $list->entries()->where('game_id', $this->game->id)->exists();
-            });
-            $this->userListsWithoutGame = $this->userLists->filter(function ($list) {
-                return ! $list->entries()->where('game_id', $this->game->id)->exists();
-            });
+            // Get only lists that contain this game
+            $this->userLists = VnList::with(['entries' => function ($query) {
+                $query->where('game_id', $this->game->id);
+            }])
+                ->where('user_id', Auth::id())
+                ->whereHas('entries', function ($query) {
+                    $query->where('game_id', $this->game->id);
+                })
+                ->get();
 
             // Get the current list entry if it exists
             $this->currentListEntry = VnListEntry::whereIn('vn_list_id', $this->userLists->pluck('id'))
