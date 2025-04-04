@@ -159,7 +159,7 @@
                             'Latest Update' => $latestVersion?->published_at?->format('M j, Y'),
                             'Current Version' => $latestVersion?->version,
                             'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
-                            'Characters' => $versionCharacterCounts[$latestVersion?->id] ?: '-',
+                            'Characters' => $versionCharacterCounts[$latestVersion?->id] ?? '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
                         ] as $label => $value)
