@@ -6,6 +6,7 @@ namespace App\Livewire;
 
 use App\Models\UserNotificationPreferences;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class NotificationSettings extends Component
@@ -55,18 +56,22 @@ class NotificationSettings extends Component
             return;
         }
 
-        $preferences = $user->notificationPreferences;
+        Log::info('Updating notification preferences from Livewire', [
+            'user_id' => $user->id,
+            'browser_notifications' => $this->browserNotificationsEnabled,
+            'discord_notifications' => $this->discordNotificationsEnabled,
+            'notification_digest' => $this->notificationDigest,
+        ]);
 
-        if (! $preferences) {
-            // Create preferences if they don't exist
-            $preferences = new UserNotificationPreferences;
-            $preferences->user_id = $user->id;
-        }
-
-        $preferences->browser_notifications_enabled = $this->browserNotificationsEnabled;
-        $preferences->discord_notifications_enabled = $this->discordNotificationsEnabled;
-        $preferences->notification_digest = $this->notificationDigest;
-        $preferences->save();
+        // Create or update preferences
+        $user->notificationPreferences()->updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'browser_notifications_enabled' => $this->browserNotificationsEnabled,
+                'discord_notifications_enabled' => $this->discordNotificationsEnabled,
+                'notification_digest' => $this->notificationDigest,
+            ]
+        );
 
         $this->dispatch('notify', [
             'type' => 'success',

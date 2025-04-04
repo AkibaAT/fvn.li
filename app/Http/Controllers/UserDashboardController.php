@@ -277,65 +277,69 @@ class UserDashboardController extends Controller
     public function updateNotificationPreferences(Request $request)
     {
         $user = Auth::user();
-        Log::info('Updating notification preferences', [
-            'user_id' => $user->id,
-            'request_data' => $request->all(),
-            'has_discord' => $request->has('discord_notifications_enabled'),
-            'has_browser' => $request->has('browser_notifications_enabled'),
-            'discord_value' => $request->input('discord_notifications_enabled'),
-            'browser_value' => $request->input('browser_notifications_enabled'),
-            'digest_value' => $request->input('notification_digest'),
-        ]);
 
         try {
-            // Convert checkbox values to boolean before validation
-            $request->merge([
-                'discord_notifications_enabled' => $request->has('discord_notifications_enabled'),
-                'browser_notifications_enabled' => $request->has('browser_notifications_enabled'),
+            // Always make sure to properly extract boolean values from checkboxes
+            $discordNotificationsEnabled = $request->has('discord_notifications_enabled') &&
+                filter_var($request->input('discord_notifications_enabled'), FILTER_VALIDATE_BOOLEAN);
+
+            $browserNotificationsEnabled = $request->has('browser_notifications_enabled') &&
+                filter_var($request->input('browser_notifications_enabled'), FILTER_VALIDATE_BOOLEAN);
+
+            $notificationDigest = $request->input('notification_digest');
+
+            Log::info('Notification preferences data', [
+                'user_id' => $user->id,
+                'raw_data' => $request->all(),
+                'discord' => $discordNotificationsEnabled,
+                'browser' => $browserNotificationsEnabled,
+                'digest' => $notificationDigest,
             ]);
 
-            $validated = $request->validate([
+            // Validate inputs
+            $validator = Validator::make([
+                'discord_notifications_enabled' => $discordNotificationsEnabled,
+                'browser_notifications_enabled' => $browserNotificationsEnabled,
+                'notification_digest' => $notificationDigest,
+            ], [
                 'discord_notifications_enabled' => 'boolean',
                 'browser_notifications_enabled' => 'boolean',
                 'notification_digest' => 'required|in:asap,daily,weekly',
             ]);
 
-            Log::info('Validated data', ['validated' => $validated]);
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
 
             // Use a transaction to ensure data consistency
             DB::beginTransaction();
-            try {
-                // Update or create preferences
-                $preferences = $user->notificationPreferences()->updateOrCreate(
-                    ['user_id' => $user->id],
-                    $validated
-                );
 
-                Log::info('Updated preferences', ['preferences' => $preferences->toArray()]);
+            // Update or create preferences
+            $preferences = UserNotificationPreferences::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'discord_notifications_enabled' => $discordNotificationsEnabled,
+                    'browser_notifications_enabled' => $browserNotificationsEnabled,
+                    'notification_digest' => $notificationDigest,
+                ]
+            );
 
-                // Verify the data was saved
-                $savedPreferences = UserNotificationPreferences::where('user_id', $user->id)->first();
-                Log::info('Verified saved preferences', ['saved_preferences' => $savedPreferences ? $savedPreferences->toArray() : null]);
+            DB::commit();
 
-                DB::commit();
-
-                return response()->json(['success' => true]);
-            } catch (Exception $e) {
-                DB::rollBack();
-                throw $e;
-            }
+            return response()->json(['success' => true]);
         } catch (Exception $e) {
+            DB::rollBack();
             Log::error('Error updating notification preferences', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
             ]);
 
             return response()->json([
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'success' => false,
+                'error' => 'An error occurred while updating notification preferences',
             ], 500);
         }
     }

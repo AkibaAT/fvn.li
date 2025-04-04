@@ -1,5 +1,3 @@
-@vite(['resources/js/push-notifications.js'])
-
 <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
     <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Notification Settings</h2>
 
@@ -37,7 +35,8 @@
                     <input
                         type="checkbox"
                         id="browserNotifications"
-                        wire:model="browserNotificationsEnabled"
+                        wire:model.live="browserNotificationsEnabled"
+                        wire:change="updateNotificationPreferences"
                         class="sr-only peer"
                         x-bind:disabled="!permissionGranted"
                         x-bind:checked="browserNotificationsEnabled"
@@ -137,7 +136,7 @@
         Alpine.data('browserNotifications', (vapidKey) => ({
             vapidKey,
             permissionGranted: false,
-            browserNotificationsEnabled: @entangle('browserNotificationsEnabled'),
+            browserNotificationsEnabled: @entangle('browserNotificationsEnabled').defer,
             buttonText: 'Request Permission',
             buttonDisabled: false,
             buttonClass: 'bg-indigo-600 hover:bg-indigo-700',
@@ -180,10 +179,8 @@
 
                         // Load and initialize push notifications
                         try {
-                            const pushNotifications = window.pushNotifications;
-                            if (!pushNotifications) {
-                                throw new Error('Push notifications module not loaded');
-                            }
+                            const module = await import('{{ Vite::asset("resources/js/push-notifications.js") }}');
+                            const pushNotifications = module.default;
 
                             // First register the service worker
                             const registration = await pushNotifications.registerServiceWorker();
@@ -205,7 +202,8 @@
                             // Enable the checkbox if subscription is successful
                             if (subscription) {
                                 this.browserNotificationsEnabled = true;
-                                @this.updateNotificationPreferences();
+                                this.$wire.set('browserNotificationsEnabled', true);
+                                this.$wire.updateNotificationPreferences();
                             } else {
                                 throw new Error('Failed to create push subscription');
                             }
@@ -216,14 +214,16 @@
                             this.buttonClass = 'bg-red-600 text-white text-sm font-medium rounded-md';
                             this.permissionGranted = false;
                             this.browserNotificationsEnabled = false;
-                            @this.updateNotificationPreferences();
+                            this.$wire.set('browserNotificationsEnabled', false);
+                            this.$wire.updateNotificationPreferences();
                         }
                     } else {
                         this.buttonText = 'Permission Blocked';
                         this.buttonDisabled = true;
                         this.buttonClass = 'bg-red-600 hover:bg-red-700 cursor-not-allowed';
                         this.browserNotificationsEnabled = false;
-                        @this.updateNotificationPreferences();
+                        this.$wire.set('browserNotificationsEnabled', false);
+                        this.$wire.updateNotificationPreferences();
                     }
                 } catch (error) {
                     console.error('Error requesting notification permission:', error);
@@ -240,7 +240,8 @@
                 } else if (!event.target.checked) {
                     // If toggling off, update the server state
                     this.browserNotificationsEnabled = false;
-                    @this.updateNotificationPreferences();
+                    this.$wire.set('browserNotificationsEnabled', false);
+                    this.$wire.updateNotificationPreferences();
                 }
             }
         }));
