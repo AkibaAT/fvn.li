@@ -6,10 +6,14 @@ namespace App\Livewire;
 
 use App\Models\Game;
 use App\Models\Language;
+use App\Models\VnList;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
+use App\Traits\SortsVnLists;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -18,7 +22,7 @@ use Livewire\WithPagination;
 
 class GameList extends Component
 {
-    use HasSocialMetaTags, HasSortableColumns, WithPagination;
+    use HasSocialMetaTags, HasSortableColumns, SortsVnLists, WithPagination;
 
     private static array $filterOptions = [];
 
@@ -254,9 +258,26 @@ class GameList extends Component
         app('view')->share('metaTags', $metaTags);
         $this->updateMeta($metaTags);
 
+        // Get user lists for authenticated users
+        $userLists = null;
+        if (Auth::check()) {
+            // Get all user lists
+            $userLists = VnList::where('user_id', Auth::id())
+                ->with(['entries' => function ($query) use ($games) {
+                    $query->whereIn('game_id', $games->pluck('id'));
+                }])
+                ->get();
+
+            // Apply the custom list ordering
+            if ($userLists->isNotEmpty()) {
+                $userLists = $this->sortListsByType($userLists);
+            }
+        }
+
         return view('games.list.index', [
             'games' => $games,
             'metaTags' => $metaTags,
+            'userLists' => $userLists,
             ...$this->getFilterOptions(),
             'noindex' => $this->showHidden,
         ]);

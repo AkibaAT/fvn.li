@@ -11,7 +11,8 @@
                              :selected-platforms="$selectedPlatforms"
                              :selected-languages="$selectedLanguages"
                              :nsfw="$nsfw"
-                             :sfw="$sfw"/>
+                             :sfw="$sfw"
+                             :user-lists="$userLists ?? null"/>
             @endforeach
         </div>
 
@@ -33,3 +34,7 @@
 
     @include('components.ui.meta-data-refresh')
 </div>
+
+@push('scripts')
+    @vite('resources/js/list-buttons.ts')
+@endpush

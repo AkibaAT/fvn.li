@@ -1,4 +1,4 @@
-@props(['game', 'userLists' => null, 'publicLists' => null])
+@props(['game', 'userLists' => null, 'publicLists' => null, 'compact' => false])
 
 @auth
     <div class="space-y-4">
@@ -8,154 +8,158 @@
             <button
                 type="button"
                 id="open-list-dialog-{{ $game->id }}"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                class="{{ $compact ? 'px-2 py-1 text-xs' : 'px-4 py-2 text-sm' }} bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors {{ $attributes->get('class') }}"
                 onclick="document.getElementById('list-dialog-{{ $game->id }}').showModal()"
             >
                 @if ($userLists && $userLists->isNotEmpty())
                     <span>Manage in Lists</span>
                 @else
-                    <span>Add to My Lists</span>
+                    <span>Add to {{ $compact ? '' : 'My ' }}Lists</span>
                 @endif
             </button>
 
-            <!-- User Lists Toggle Button -->
-            @if ($userLists && $userLists->isNotEmpty())
-                @php
-                    // Determine the primary list type for color coding
-                    $primaryListType = null;
-                    $listTypeCounts = [];
+            @unless ($compact)
+                <!-- User Lists Toggle Button -->
+                @if ($userLists && $userLists->isNotEmpty())
+                    @php
+                        // Determine the primary list type for color coding
+                        $primaryListType = null;
+                        $listTypeCounts = [];
 
-                    foreach ($userLists as $list) {
-                        if (!isset($listTypeCounts[$list->type])) {
-                            $listTypeCounts[$list->type] = 0;
+                        foreach ($userLists as $list) {
+                            if (!isset($listTypeCounts[$list->type])) {
+                                $listTypeCounts[$list->type] = 0;
+                            }
+                            $listTypeCounts[$list->type]++;
                         }
-                        $listTypeCounts[$list->type]++;
-                    }
 
-                    // Priority order for list types
-                    $priorityOrder = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
+                        // Priority order for list types
+                        $priorityOrder = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
 
-                    // Find the highest priority list type that exists
-                    foreach ($priorityOrder as $type) {
-                        if (isset($listTypeCounts[$type]) && $listTypeCounts[$type] > 0) {
-                            $primaryListType = $type;
-                            break;
+                        // Find the highest priority list type that exists
+                        foreach ($priorityOrder as $type) {
+                            if (isset($listTypeCounts[$type]) && $listTypeCounts[$type] > 0) {
+                                $primaryListType = $type;
+                                break;
+                            }
                         }
-                    }
 
-                    // Set color based on primary list type
-                    $badgeColor = 'blue';
-                    if ($primaryListType === 'reading') {
+                        // Set color based on primary list type
                         $badgeColor = 'blue';
-                    } elseif ($primaryListType === 'completed') {
-                        $badgeColor = 'green';
-                    } elseif ($primaryListType === 'plan_to_read') {
-                        $badgeColor = 'yellow';
-                    } elseif ($primaryListType === 'on_hold') {
-                        $badgeColor = 'orange';
-                    } elseif ($primaryListType === 'dropped') {
-                        $badgeColor = 'red';
-                    }
-                @endphp
-                <button
-                    type="button"
-                    class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
-                    onclick="toggleUserLists('{{ $game->id }}')"
-                >
-                    <span>My Lists</span>
-                    <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-{{ $badgeColor }}-100 text-{{ $badgeColor }}-800 dark:bg-{{ $badgeColor }}-900 dark:text-{{ $badgeColor }}-200">
-                        {{ $userLists->count() }}
-                    </span>
-                    <svg id="user-lists-chevron-{{ $game->id }}" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-            @endif
+                        if ($primaryListType === 'reading') {
+                            $badgeColor = 'blue';
+                        } elseif ($primaryListType === 'completed') {
+                            $badgeColor = 'green';
+                        } elseif ($primaryListType === 'plan_to_read') {
+                            $badgeColor = 'yellow';
+                        } elseif ($primaryListType === 'on_hold') {
+                            $badgeColor = 'orange';
+                        } elseif ($primaryListType === 'dropped') {
+                            $badgeColor = 'red';
+                        }
+                    @endphp
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
+                        onclick="toggleUserLists('{{ $game->id }}')"
+                    >
+                        <span>My Lists</span>
+                        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-{{ $badgeColor }}-100 text-{{ $badgeColor }}-800 dark:bg-{{ $badgeColor }}-900 dark:text-{{ $badgeColor }}-200">
+                            {{ $userLists->count() }}
+                        </span>
+                        <svg id="user-lists-chevron-{{ $game->id }}" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                @endif
 
-            <!-- Public Lists Toggle Button -->
-            @if ($publicLists && $publicLists->isNotEmpty())
-                <button
-                    type="button"
-                    class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
-                    onclick="togglePublicLists('{{ $game->id }}')"
-                >
-                    <span>Public Lists</span>
-                    <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                        {{ $publicLists->count() }}
-                    </span>
-                    <svg id="public-lists-chevron-{{ $game->id }}" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-            @endif
+                <!-- Public Lists Toggle Button -->
+                @if ($publicLists && $publicLists->isNotEmpty())
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
+                        onclick="togglePublicLists('{{ $game->id }}')"
+                    >
+                        <span>Public Lists</span>
+                        <span class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                            {{ $publicLists->count() }}
+                        </span>
+                        <svg id="public-lists-chevron-{{ $game->id }}" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                @endif
+            @endunless
         </div>
 
-        <!-- User Lists Section -->
-        @if ($userLists && $userLists->isNotEmpty())
-            <div>
-                <!-- Expandable Content -->
-                <div id="user-lists-{{ $game->id }}" class="hidden mt-2">
-                    <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700/50">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">My Lists</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            @foreach ($userLists as $list)
-                                <div class="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                                    <div class="flex items-start justify-between gap-4">
-                                        <div class="flex-1 min-w-0">
-                                            <a href="{{ route('vn-lists.show', $list) }}" class="block font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 truncate">
-                                                {{ $list->name }}
-                                            </a>
-                                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        @unless ($compact)
+            <!-- User Lists Section -->
+            @if ($userLists && $userLists->isNotEmpty())
+                <div>
+                    <!-- Expandable Content -->
+                    <div id="user-lists-{{ $game->id }}" class="hidden mt-2">
+                        <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700/50">
+                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">My Lists</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                @foreach ($userLists as $list)
+                                    <div class="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                                        <div class="flex items-start justify-between gap-4">
+                                            <div class="flex-1 min-w-0">
+                                                <a href="{{ route('vn-lists.show', $list) }}" class="block font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 truncate">
+                                                    {{ $list->name }}
+                                                </a>
+                                                <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                    {{ ucfirst(str_replace('_', ' ', $list->type)) }}
+                                                    @if ($list->is_public)
+                                                        <span class="ml-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                            Public
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
                                                 {{ ucfirst(str_replace('_', ' ', $list->type)) }}
-                                                @if ($list->is_public)
-                                                    <span class="ml-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                                        Public
-                                                    </span>
-                                                @endif
-                                            </div>
+                                            </span>
                                         </div>
-                                        <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
-                                            {{ ucfirst(str_replace('_', ' ', $list->type)) }}
-                                        </span>
                                     </div>
-                                </div>
-                            @endforeach
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        @endif
+            @endif
 
-        <!-- Public Lists Section -->
-        @if ($publicLists && $publicLists->isNotEmpty())
-            <div>
-                <!-- Expandable Content -->
-                <div id="public-lists-{{ $game->id }}" class="hidden mt-2">
-                    <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700/50">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Public Lists</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            @foreach ($publicLists as $list)
-                                <div class="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                                    <div class="flex items-start justify-between gap-4">
-                                        <div class="flex-1 min-w-0">
-                                            <a href="{{ route('vn-lists.show', $list) }}" class="block font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 truncate">
-                                                {{ $list->name }}
-                                            </a>
-                                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                By <a href="{{ route('vn-lists.user-public', $list->user) }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ $list->user->name }}</a>
+            <!-- Public Lists Section -->
+            @if ($publicLists && $publicLists->isNotEmpty())
+                <div>
+                    <!-- Expandable Content -->
+                    <div id="public-lists-{{ $game->id }}" class="hidden mt-2">
+                        <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700/50">
+                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Public Lists</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                @foreach ($publicLists as $list)
+                                    <div class="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                                        <div class="flex items-start justify-between gap-4">
+                                            <div class="flex-1 min-w-0">
+                                                <a href="{{ route('vn-lists.show', $list) }}" class="block font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 truncate">
+                                                    {{ $list->name }}
+                                                </a>
+                                                <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                    By <a href="{{ route('vn-lists.user-public', $list->user) }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ $list->user->name }}</a>
+                                                </div>
                                             </div>
+                                            <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
+                                                {{ ucfirst(str_replace('_', ' ', $list->type)) }}
+                                            </span>
                                         </div>
-                                        <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-100 text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-800 dark:bg-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-900 dark:text-{{ $list->type === 'reading' ? 'blue' : ($list->type === 'completed' ? 'green' : ($list->type === 'plan_to_read' ? 'yellow' : ($list->type === 'on_hold' ? 'orange' : ($list->type === 'dropped' ? 'red' : 'gray')))) }}-200">
-                                            {{ ucfirst(str_replace('_', ' ', $list->type)) }}
-                                        </span>
                                     </div>
-                                </div>
-                            @endforeach
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        @endif
+            @endif
+        @endunless
     </div>
 
     <!-- Dialog for List Management -->
@@ -291,617 +295,3 @@
         <a href="{{ route('login') }}" class="text-blue-600 dark:text-blue-400 hover:underline">Log in</a> to track your reading progress
     </div>
 @endauth
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Handling click events outside dialog
-        document.querySelectorAll('[id^="list-dialog-"]').forEach(dialog => {
-            dialog.addEventListener('click', function(e) {
-                const dialogDimensions = dialog.getBoundingClientRect();
-                if (
-                    e.clientX < dialogDimensions.left ||
-                    e.clientX > dialogDimensions.right ||
-                    e.clientY < dialogDimensions.top ||
-                    e.clientY > dialogDimensions.bottom
-                ) {
-                    dialog.close();
-                }
-            });
-
-            // Prevent propagation for clicks inside the dialog content
-            dialog.querySelector('div').addEventListener('click', function(e) {
-                e.stopPropagation();
-            });
-        });
-
-        // AJAX form handling for default lists
-        document.querySelectorAll('.list-form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                const form = e.target;
-                const gameId = {{ $game->id ?? 'null' }};
-                const listType = form.dataset.listType;
-                const color = form.dataset.color;
-                const label = form.dataset.label;
-                const isInList = form.dataset.isInList === 'true';
-                const submitButton = form.querySelector('button[type="submit"]');
-                const messageContainer = document.getElementById(`ajax-message-${gameId}`);
-
-                // Update UI to loading state
-                submitButton.disabled = true;
-                submitButton.classList.add('opacity-75');
-
-                const formData = new FormData(form);
-
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Show message
-                    messageContainer.textContent = data.message;
-                    messageContainer.classList.remove('hidden', 'text-red-500', 'text-green-500');
-                    messageContainer.classList.add(data.success ? 'text-green-500' : 'text-red-500');
-
-                    // Toggle form state
-                    const newIsInList = !isInList;
-                    form.dataset.isInList = newIsInList ? 'true' : 'false';
-
-                    // Update button appearance
-                    submitButton.className = `w-full flex items-center justify-between px-3 py-2 bg-${color}-${newIsInList ? '500' : '100'} text-${newIsInList ? 'white' : (color+'-800')} hover:bg-${color}-${newIsInList ? '600' : '200'} dark:bg-${color}-${newIsInList ? '700' : '900'} dark:text-${newIsInList ? 'white' : (color+'-200')} dark:hover:bg-${color}-${newIsInList ? '600' : '800'} rounded-md transition-colors`;
-
-                    // Update button text
-                    submitButton.innerHTML = `
-                        <span>${label}</span>
-                        <span class="text-sm font-medium">${newIsInList ? 'Remove' : 'Add'}</span>
-                    `;
-
-                    // Update form action and method
-                    if (newIsInList) {
-                        // Get the entry ID from the response
-                        const newEntryId = data.entryId;
-                        form.dataset.entryId = newEntryId;
-                        form.action = `/list-entries/${newEntryId}`;
-
-                        // Add method override for DELETE
-                        let methodInput = form.querySelector('input[name="_method"]');
-                        if (!methodInput) {
-                            methodInput = document.createElement('input');
-                            methodInput.type = 'hidden';
-                            methodInput.name = '_method';
-                            form.appendChild(methodInput);
-                        }
-                        methodInput.value = 'DELETE';
-
-                        // Remove list_type input if it exists
-                        const listTypeInput = form.querySelector('input[name="list_type"]');
-                        if (listTypeInput) {
-                            form.removeChild(listTypeInput);
-                        }
-                    } else {
-                        form.action = `/games/${gameId}/add-to-list`;
-
-                        // Remove method override if it exists
-                        const methodInput = form.querySelector('input[name="_method"]');
-                        if (methodInput) {
-                            form.removeChild(methodInput);
-                        }
-
-                        // Add list_type input if it doesn't exist
-                        let listTypeInput = form.querySelector('input[name="list_type"]');
-                        if (!listTypeInput) {
-                            listTypeInput = document.createElement('input');
-                            listTypeInput.type = 'hidden';
-                            listTypeInput.name = 'list_type';
-                            listTypeInput.value = listType;
-                            form.appendChild(listTypeInput);
-                        }
-                    }
-
-                    // Re-enable button
-                    submitButton.disabled = false;
-                    submitButton.classList.remove('opacity-75');
-
-                    // Remove message after a delay
-                    setTimeout(() => {
-                        messageContainer.classList.add('hidden');
-                    }, 3000);
-                })
-                .catch(error => {
-                    messageContainer.textContent = 'An error occurred. Please try again.';
-                    messageContainer.classList.remove('hidden', 'text-green-500');
-                    messageContainer.classList.add('text-red-500');
-
-                    // Re-enable button
-                    submitButton.disabled = false;
-                    submitButton.classList.remove('opacity-75');
-                });
-            });
-        });
-
-        // AJAX form handling for custom lists
-        document.querySelectorAll('form[data-custom-list-form]').forEach(form => {
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const submitButton = form.querySelector('button[type="submit"]');
-                submitButton.disabled = true;
-
-                try {
-                    const formData = new FormData(form);
-                    const response = await fetch(form.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        },
-                        body: formData
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        // Toggle only this button's state
-                        if (submitButton.classList.contains('bg-blue-600')) {
-                            submitButton.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                            submitButton.classList.add('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                            // Remove the "Remove" text
-                            const removeSpan = submitButton.querySelector('.text-sm.font-medium');
-                            if (removeSpan) {
-                                removeSpan.remove();
-                            }
-                        } else {
-                            submitButton.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                            submitButton.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                            // Add the "Remove" text if it doesn't exist
-                            if (!submitButton.querySelector('.text-sm.font-medium')) {
-                                const removeSpan = document.createElement('span');
-                                removeSpan.className = 'text-sm font-medium';
-                                removeSpan.textContent = 'Remove';
-                                submitButton.appendChild(removeSpan);
-                            }
-                        }
-
-                        showMessage(document.getElementById(`ajax-message-${form.dataset.gameId}`), data.message, true);
-                    } else {
-                        throw new Error(data.message || 'Failed to update list');
-                    }
-                } catch (error) {
-                    showMessage(document.getElementById(`ajax-message-${form.dataset.gameId}`), error.message, false);
-                } finally {
-                    submitButton.disabled = false;
-                }
-            });
-        });
-
-        // Function to update message
-        let messageTimeouts = {};
-        function showMessage(messageDiv, text, isSuccess) {
-            // Clear any existing timeout for this message div
-            if (messageTimeouts[messageDiv.id]) {
-                clearTimeout(messageTimeouts[messageDiv.id]);
-            }
-
-            messageDiv.textContent = text;
-            messageDiv.className = `h-6 text-sm text-center ${isSuccess ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`;
-
-            // Set new timeout and store its ID
-            messageTimeouts[messageDiv.id] = setTimeout(() => {
-                messageDiv.textContent = '';
-                messageDiv.className = 'h-6 text-sm text-center';
-                delete messageTimeouts[messageDiv.id];
-            }, 5000);
-        }
-
-        // Handle default list forms (reading, completed, etc.)
-        document.querySelectorAll('form[data-default-list-form]').forEach(form => {
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const submitButton = form.querySelector('button[type="submit"]');
-                const removeSpan = submitButton.querySelector('.text-sm.font-medium');
-                submitButton.disabled = true;
-
-                try {
-                    const formData = new FormData(form);
-                    const response = await fetch(form.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        },
-                        body: formData
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        if (data.message.includes('removed')) {
-                            // If the game was removed, update this button to inactive state
-                            submitButton.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                            submitButton.classList.add('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                            // Remove the "Remove" text
-                            if (removeSpan) {
-                                removeSpan.remove();
-                            }
-                        } else {
-                            // If the game was added or moved, first update all default list buttons to inactive state
-                            document.querySelectorAll(`[data-default-list][data-game-id="${form.dataset.gameId}"]`).forEach(btn => {
-                                btn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                                btn.classList.add('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                                // Remove any "Remove" text
-                                const btnRemoveSpan = btn.querySelector('.text-sm.font-medium');
-                                if (btnRemoveSpan) {
-                                    btnRemoveSpan.remove();
-                                }
-                            });
-
-                            // Then update this button to active state
-                            submitButton.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                            submitButton.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                            // Add the "Remove" text
-                            if (!removeSpan) {
-                                submitButton.insertAdjacentHTML('beforeend', '<span class="text-sm font-medium">Remove</span>');
-                            }
-                        }
-
-                        // Update the list tags on the game detail page
-                        const listTagsContainer = document.querySelector(`[data-list-tags="${form.dataset.gameId}"]`);
-                        if (listTagsContainer) {
-                            const listType = formData.get('list_type');
-                            const bgColor = listType === 'reading' ? 'blue' : (listType === 'completed' ? 'green' : (listType === 'plan_to_read' ? 'yellow' : (listType === 'on_hold' ? 'orange' : (listType === 'dropped' ? 'red' : 'gray'))));
-                            const listTypeFormatted = listType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-
-                            if (data.message.includes('removed')) {
-                                // Remove all tags (both list type and public)
-                                listTagsContainer.innerHTML = '';
-                            } else {
-                                // Remove any existing tags first
-                                listTagsContainer.innerHTML = '';
-
-                                // Add the new list type tag
-                                const tag = document.createElement('span');
-                                tag.setAttribute('data-list-type', listType);
-                                tag.className = `px-2 py-1 text-xs font-semibold rounded-full bg-${bgColor}-100 text-${bgColor}-800 dark:bg-${bgColor}-900 dark:text-${bgColor}-200`;
-                                tag.textContent = listTypeFormatted;
-                                listTagsContainer.appendChild(tag);
-
-                                // Add public tag if the list is public
-                                if (data.is_public) {
-                                    const publicTag = document.createElement('span');
-                                    publicTag.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-                                    publicTag.textContent = 'Public';
-                                    listTagsContainer.appendChild(publicTag);
-                                }
-                            }
-                        }
-
-                        // Update the My Lists badge color based on the new list type
-                        updateMyListsBadgeColor(form.dataset.gameId, formData.get('list_type'));
-
-                        // Update the user lists toggle content
-                        updateUserListsContent(form.dataset.gameId, formData.get('list_type'), data.message.includes('removed'), data.is_public);
-
-                        showMessage(document.getElementById(`ajax-message-${form.dataset.gameId}`), data.message, true);
-                    } else {
-                        throw new Error(data.message || 'Failed to update list');
-                    }
-                } catch (error) {
-                    showMessage(document.getElementById(`ajax-message-${form.dataset.gameId}`), error.message, false);
-                } finally {
-                    submitButton.disabled = false;
-                }
-            });
-        });
-
-        // Function to update the My Lists badge color
-        function updateMyListsBadgeColor(gameId, listType) {
-            const myListsButton = document.querySelector(`button[onclick="toggleUserLists('${gameId}')"]`);
-            if (!myListsButton) return;
-
-            const badge = myListsButton.querySelector('span:nth-child(2)');
-            if (!badge) return;
-
-            // Determine the color based on the list type
-            let badgeColor = 'blue';
-            if (listType === 'reading') {
-                badgeColor = 'blue';
-            } else if (listType === 'completed') {
-                badgeColor = 'green';
-            } else if (listType === 'plan_to_read') {
-                badgeColor = 'yellow';
-            } else if (listType === 'on_hold') {
-                badgeColor = 'orange';
-            } else if (listType === 'dropped') {
-                badgeColor = 'red';
-            }
-
-            // Update the badge classes
-            badge.className = `px-1.5 py-0.5 text-xs font-medium rounded-full bg-${badgeColor}-100 text-${badgeColor}-800 dark:bg-${badgeColor}-900 dark:text-${badgeColor}-200`;
-        }
-
-        // Function to update the user lists toggle content
-        function updateUserListsContent(gameId, listType, isRemoved, isPublic = false) {
-            const userListsContainer = document.getElementById(`user-lists-${gameId}`);
-            if (!userListsContainer) return;
-
-            // If the game was removed from all lists, hide the toggle button
-            if (isRemoved) {
-                const myListsButton = document.querySelector(`button[onclick="toggleUserLists('${gameId}')"]`);
-                if (myListsButton) {
-                    myListsButton.style.display = 'none';
-                }
-                return;
-            }
-
-            // Show the toggle button if it was hidden
-            const myListsButton = document.querySelector(`button[onclick="toggleUserLists('${gameId}')"]`);
-            if (myListsButton) {
-                myListsButton.style.display = 'flex';
-            }
-
-            // Update the list items in the toggle content
-            const listItems = userListsContainer.querySelectorAll('.flex.flex-col');
-            listItems.forEach(item => {
-                const listTypeSpan = item.querySelector('.text-xs.text-gray-500');
-                if (listTypeSpan) {
-                    // Update the list type text
-                    const listTypeText = listType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                    listTypeSpan.textContent = listTypeText;
-
-                    // Update the list type badge color - using a more reliable selector
-                    const listTypeBadges = item.querySelectorAll('span');
-                    listTypeBadges.forEach(badge => {
-                        if (badge.classList.contains('rounded-full') && badge.classList.contains('text-xs')) {
-                            let badgeColor = 'blue';
-                            if (listType === 'reading') {
-                                badgeColor = 'blue';
-                            } else if (listType === 'completed') {
-                                badgeColor = 'green';
-                            } else if (listType === 'plan_to_read') {
-                                badgeColor = 'yellow';
-                            } else if (listType === 'on_hold') {
-                                badgeColor = 'orange';
-                            } else if (listType === 'dropped') {
-                                badgeColor = 'red';
-                            }
-
-                            badge.className = `px-2 py-0.5 text-xs font-medium rounded-full bg-${badgeColor}-100 text-${badgeColor}-800 dark:bg-${badgeColor}-900 dark:text-${badgeColor}-200`;
-                            badge.textContent = listTypeText;
-                        }
-                    });
-
-                    // Handle the public tag
-                    let publicTag = item.querySelector('.bg-purple-100');
-                    if (isPublic) {
-                        // If public tag doesn't exist, create it
-                        if (!publicTag) {
-                            publicTag = document.createElement('span');
-                            publicTag.className = 'ml-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-                            publicTag.textContent = 'Public';
-                            listTypeSpan.appendChild(publicTag);
-                        }
-                    } else {
-                        // If public tag exists but should be removed
-                        if (publicTag) {
-                            publicTag.remove();
-                        }
-                    }
-                }
-            });
-        }
-
-        // Handle quick list creation
-        document.querySelectorAll('.quick-list-form').forEach(form => {
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const submitButton = form.querySelector('button[type="submit"]');
-                const originalText = submitButton.textContent;
-                submitButton.textContent = 'Creating...';
-                submitButton.disabled = true;
-
-                try {
-                    const formData = new FormData(form);
-                    const response = await fetch(form.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        },
-                        body: formData
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        // Clear the form
-                        form.querySelector('input[name="name"]').value = '';
-
-                        // Add the new list to the custom lists section
-                        const customListsContainer = document.getElementById(`custom-lists-${formData.get('game_id')}`);
-                        if (customListsContainer) {
-                            const newListForm = document.createElement('form');
-                            newListForm.action = `/list-entries/add-to-custom/${data.list.id}`;
-                            newListForm.method = 'POST';
-                            newListForm.setAttribute('data-custom-list-form', '');
-                            newListForm.setAttribute('data-game-id', formData.get('game_id'));
-
-                            // Add CSRF token - get it from the original form
-                            const csrfToken = form.querySelector('input[name="_token"]').value;
-                            const csrfInput = document.createElement('input');
-                            csrfInput.type = 'hidden';
-                            csrfInput.name = '_token';
-                            csrfInput.value = csrfToken;
-                            newListForm.appendChild(csrfInput);
-
-                            // Add game_id input
-                            const gameIdInput = document.createElement('input');
-                            gameIdInput.type = 'hidden';
-                            gameIdInput.name = 'game_id';
-                            gameIdInput.value = formData.get('game_id');
-                            newListForm.appendChild(gameIdInput);
-
-                            // Add the button - start in active state since we're adding to it
-                            const button = document.createElement('button');
-                            button.type = 'submit';
-                            button.setAttribute('data-game-id', formData.get('game_id'));
-                            button.className = 'w-full text-left px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-between';
-                            const buttonText = document.createElement('span');
-                            buttonText.textContent = data.list.name;
-                            button.appendChild(buttonText);
-                            const removeText = document.createElement('span');
-                            removeText.className = 'text-sm font-medium';
-                            removeText.textContent = 'Remove';
-                            button.appendChild(removeText);
-                            newListForm.appendChild(button);
-
-                            // Add the form to the container
-                            customListsContainer.appendChild(newListForm);
-
-                            // Add event listener to the new form
-                            newListForm.addEventListener('submit', async function(e) {
-                                e.preventDefault();
-                                const submitButton = newListForm.querySelector('button[type="submit"]');
-                                const originalText = submitButton.textContent;
-                                submitButton.textContent = 'Moving...';
-                                submitButton.disabled = true;
-
-                                try {
-                                    const formData = new FormData(newListForm);
-                                    const response = await fetch(newListForm.action, {
-                                        method: 'POST',
-                                        headers: {
-                                            'X-Requested-With': 'XMLHttpRequest',
-                                            'Accept': 'application/json'
-                                        },
-                                        body: formData
-                                    });
-
-                                    const data = await response.json();
-
-                                    if (response.ok) {
-                                        // Toggle only this button's state
-                                        if (submitButton.classList.contains('bg-blue-600')) {
-                                            submitButton.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                                            submitButton.classList.add('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                                        } else {
-                                            submitButton.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                                            submitButton.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                                        }
-
-                                        showMessage(document.getElementById(`ajax-message-${newListForm.dataset.gameId}`), data.message, true);
-                                    } else {
-                                        throw new Error(data.message || 'Failed to update list');
-                                    }
-                                } catch (error) {
-                                    showMessage(document.getElementById(`ajax-message-${newListForm.dataset.gameId}`), error.message, false);
-                                } finally {
-                                    submitButton.textContent = originalText;
-                                    submitButton.disabled = false;
-                                }
-                            });
-                        }
-
-                        showMessage(document.getElementById(`ajax-message-${form.querySelector('input[name="game_id"]').value}`), data.message, true);
-                    } else {
-                        throw new Error(data.message || 'Failed to create list');
-                    }
-                } catch (error) {
-                    showMessage(document.getElementById(`ajax-message-${form.querySelector('input[name="game_id"]').value}`), error.message, false);
-                } finally {
-                    submitButton.textContent = originalText;
-                    submitButton.disabled = false;
-                }
-            });
-        });
-
-        document.querySelectorAll('form[data-list-form]').forEach(form => {
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const submitButton = form.querySelector('button[type="submit"]');
-                const originalText = submitButton.textContent;
-                submitButton.textContent = 'Moving...';
-                submitButton.disabled = true;
-
-                try {
-                    const response = await fetch(form.action, {
-                        method: form.method,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(Object.fromEntries(new FormData(form)))
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        // Update all list buttons to show inactive state
-                        document.querySelectorAll(`[data-game-id="${form.dataset.gameId}"]`).forEach(btn => {
-                            btn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                            btn.classList.add('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                        });
-
-                        // Update clicked button to show active state
-                        const listButton = form.closest('[data-game-id]');
-                        if (listButton) {
-                            listButton.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'hover:bg-gray-200', 'dark:hover:bg-gray-600');
-                            listButton.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
-                        }
-
-                        // Show success message
-                        const messageDiv = document.getElementById(`ajax-message-${form.dataset.gameId}`);
-                        messageDiv.textContent = data.message;
-                        messageDiv.className = 'mt-4 text-sm text-green-600 dark:text-green-400';
-                        messageDiv.classList.remove('hidden');
-
-                        // Hide message after 3 seconds
-                        setTimeout(() => {
-                            messageDiv.classList.add('hidden');
-                        }, 3000);
-                    } else {
-                        throw new Error(data.message || 'Failed to update list');
-                    }
-                } catch (error) {
-                    const messageDiv = document.getElementById(`ajax-message-${form.dataset.gameId}`);
-                    messageDiv.textContent = error.message;
-                    messageDiv.className = 'mt-4 text-sm text-red-600 dark:text-red-400';
-                    messageDiv.classList.remove('hidden');
-                } finally {
-                    submitButton.textContent = originalText;
-                    submitButton.disabled = false;
-                }
-            });
-        });
-    });
-
-    function togglePublicLists(gameId) {
-        const container = document.getElementById(`public-lists-${gameId}`);
-        const chevron = document.getElementById(`public-lists-chevron-${gameId}`);
-
-        if (container.classList.contains('hidden')) {
-            container.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            container.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-
-    function toggleUserLists(gameId) {
-        const container = document.getElementById(`user-lists-${gameId}`);
-        const chevron = document.getElementById(`user-lists-chevron-${gameId}`);
-
-        if (container.classList.contains('hidden')) {
-            container.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            container.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-</script>

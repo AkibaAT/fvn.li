@@ -8,9 +8,16 @@
     class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         @if ($game->is_visible)
-            <a href="{{ route('games.show', $game) }}">
-                <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
-            </a>
+            <div class="flex flex-col justify-between h-full">
+                <a href="{{ route('games.show', $game) }}">
+                    <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
+                </a>
+                @auth
+                    <div class="w-32">
+                        <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :compact="true" class="w-full" />
+                    </div>
+                @endauth
+            </div>
         @endif
         <div class="flex flex-col min-w-0 flex-1">
             <div class="min-w-0 flex items-top gap-2">
@@ -147,10 +154,6 @@
         </div>
     </div>
 
-    <div class="flex flex-col text-sm gap-1 mt-2">
-
-    </div>
-
     @if ($game->tags)
         <div class="mt-4 flex flex-wrap gap-1.5">
             @foreach (explode(',', $game->tags) as $tag)
@@ -162,3 +165,5 @@
         </div>
     @endif
 </div>
+
+

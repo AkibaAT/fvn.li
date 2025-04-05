@@ -145,5 +145,7 @@
         </div>
     </footer>
     @stack('before-body-end')
+    @vite(['resources/js/app.ts'])
+    @stack('scripts')
 </body>
 </html>

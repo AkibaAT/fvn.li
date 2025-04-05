@@ -540,6 +540,10 @@
     <livewire:components.version-comparison />
 
     @include('components.ui.meta-data-refresh')
+
+    @push('scripts')
+        @vite('resources/js/list-buttons.ts')
+    @endpush
 </div>
 
 <script>

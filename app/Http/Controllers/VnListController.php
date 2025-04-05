@@ -288,27 +288,35 @@ class VnListController extends Controller
             }
         }
 
-        // Check if the game is already in any of the user's lists
-        $existingEntryInOtherList = VnListEntry::whereHas('list', function ($query) {
-            $query->where('user_id', Auth::id());
+        // First, check if the game is already in the target list
+        $existingEntryInTargetList = VnListEntry::where('vn_list_id', $list->id)
+            ->where('game_id', $game->id)
+            ->first();
+
+        if ($existingEntryInTargetList) {
+            // If it's already in the target list, remove it
+            $existingEntryInTargetList->delete();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Game removed from your ' . strtolower(str_replace('_', ' ', $list->type)) . ' list.',
+                ]);
+            }
+
+            return back()->with('success', 'Game removed from your ' . strtolower(str_replace('_', ' ', $list->type)) . ' list.');
+        }
+
+        // Check if the game is already in any of the user's other lists
+        $existingEntryInOtherList = VnListEntry::whereHas('list', function ($query) use ($list) {
+            $query->where('user_id', Auth::id())
+                ->where('id', '!=', $list->id);
         })
             ->where('game_id', $game->id)
             ->first();
 
-        // If the game is already in a list, remove it from that list first
+        // If the game is already in another list, remove it from that list first
         if ($existingEntryInOtherList) {
-            // If it's already in the target list, just return
-            if ($existingEntryInOtherList->vn_list_id === $list->id) {
-                if ($request->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Game is already in this list.',
-                    ]);
-                }
-
-                return back()->with('info', 'Game is already in this list.');
-            }
-
             $existingEntryInOtherList->delete();
         }
 
