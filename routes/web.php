@@ -45,7 +45,7 @@ Route::get('login', function () {
         session()->put('url.intended', $previousUrl);
     }
 
-    return view('users.auth.login');
+    return view('users.auth.login', ['metaTags' => ['title' => 'Log in'], 'noindex' => true]);
 })->name('login');
 
 // Social Authentication Routes

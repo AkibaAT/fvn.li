@@ -437,7 +437,7 @@ class GameDetail extends Component
 
     public function showFileStats(int $versionId): void
     {
-        $this->selectedVersion = $this->game->versions()
+        $this->selectedVersion = $this->game->gameVersions()
             ->with([
                 'fileCategories' => function ($query) {
                     $query->with('fileTypes');
