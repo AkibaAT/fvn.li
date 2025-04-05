@@ -277,20 +277,7 @@
                                 </form>
                             </div>
                             <div class="w-30 pr-1">
-                                @php
-                                    $userProgress = App\Models\UserGameProgress::where('user_id', auth()->id())
-                                        ->where('game_id', $entry->game_id)
-                                        ->first();
-                                    $receiveUpdates = $userProgress ? $userProgress->receive_updates : false;
-                                @endphp
-                                @include('lists.partials.toggle-switch', [
-                                    'action' => route('user-progress.toggle-updates', $entry->game_id),
-                                    'name' => 'receive_updates',
-                                    'value' => '1',
-                                    'checked' => $receiveUpdates,
-                                    'srText' => $receiveUpdates ? 'Turn off notifications' : 'Turn on notifications',
-                                    'justify' => 'justify-end'
-                                ])
+                                <x-games::notification-toggle :game="$entry->game" />
                             </div>
                         @endif
                     </div>
@@ -424,21 +411,7 @@
                                         <div class="h-px bg-gray-200 dark:bg-gray-700"></div>
 
                                         {{-- Notification Toggle --}}
-                                        @php
-                                            $userProgress = App\Models\UserGameProgress::where('user_id', auth()->id())
-                                                ->where('game_id', $entry->game_id)
-                                                ->first();
-                                            $receiveUpdates = $userProgress ? $userProgress->receive_updates : false;
-                                        @endphp
-                                        @include('lists.partials.toggle-switch', [
-                                            'action' => route('user-progress.toggle-updates', $entry->game_id),
-                                            'name' => 'receive_updates',
-                                            'value' => '1',
-                                            'checked' => $receiveUpdates,
-                                            'srText' => $receiveUpdates ? 'Turn off notifications' : 'Turn on notifications',
-                                            'justify' => 'justify-start',
-                                            'label' => 'Notifications'
-                                        ])
+                                        <x-games::notification-toggle :game="$entry->game" :justify="'justify-start'" :label="'Notifications'" />
                                     </div>
                                 @endif
                             </div>
@@ -956,183 +929,9 @@
                     });
                 });
 
-                // Helper function to handle toggle forms
-                function setupToggleForm(form) {
-                    const checkbox = form.querySelector('input[type="checkbox"]');
-                    const toggleLabel = form.querySelector('label');
 
-                    if (!checkbox || !toggleLabel) return;
 
-                    toggleLabel.addEventListener('click', function (e) {
-                        e.preventDefault(); // Prevent default label behavior
 
-                        // Toggle the checkbox state
-                        checkbox.checked = !checkbox.checked;
-
-                        // Submit the form
-                        form.dispatchEvent(new Event('submit'));
-                    });
-
-                    // Don't double-bind if this is the toggle-all-updates form
-                    // which has its own special handler
-                    if (form.classList.contains('toggle-all-updates-form')) {
-                        return;
-                    }
-
-                    form.addEventListener('submit', async function (e) {
-                        e.preventDefault();
-
-                        try {
-                            // Create URLSearchParams instead of FormData
-                            const params = new URLSearchParams();
-
-                            // Add the CSRF token
-                            params.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-
-                            // Add PATCH method
-                            params.append('_method', 'PATCH');
-
-                            // Set receive_updates if checked
-                            if (checkbox.checked) {
-                                params.append('receive_updates', '1');
-                            } else {
-                                params.append('receive_updates', '0');
-                            }
-
-                            const response = await fetchWithCsrf(this.action, {
-                                method: 'PATCH',
-                                body: params,
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Content-Type': 'application/x-www-form-urlencoded'
-                                }
-                            });
-
-                            const data = await response.json();
-
-                            // Update UI based on response
-                            if (data.success) {
-                                // Update the checkbox visual state
-                                checkbox.checked = data.receive_updates;
-
-                                // Update the screen reader text
-                                const toggleDiv = checkbox.nextElementSibling;
-                                const srOnlySpan = toggleDiv.querySelector('.sr-only');
-                                if (srOnlySpan) {
-                                    srOnlySpan.textContent = data.receive_updates ? 'Turn off notifications' : 'Turn on notifications';
-                                }
-
-                                // Update all individual toggle switches
-                                document.querySelectorAll('.toggle-updates-form').forEach(form => {
-                                    const individualCheckbox = form.querySelector('input[type="checkbox"]');
-                                    const individualToggleDiv = individualCheckbox.nextElementSibling;
-                                    const individualSrOnlySpan = individualToggleDiv.querySelector('.sr-only');
-
-                                    // Update checkbox state
-                                    individualCheckbox.checked = data.receive_updates;
-
-                                    // Update screen reader text
-                                    if (individualSrOnlySpan) {
-                                        individualSrOnlySpan.textContent = data.receive_updates ? 'Turn off notifications' : 'Turn on notifications';
-                                    }
-                                });
-
-                                showSuccessMessage(data.message);
-                            }
-                        } catch (error) {
-                            showErrorMessage('An error occurred. Please try again.');
-
-                            // Revert the checkbox state
-                            checkbox.checked = !checkbox.checked;
-                        }
-                    });
-                }
-
-                // Set up event handlers for toggle updates forms
-                document.querySelectorAll('.toggle-updates-form').forEach(form => {
-                    setupToggleForm(form);
-                });
-
-                // Set up event handler for toggle all updates form
-                const toggleAllForm = document.querySelector('.toggle-all-updates-form');
-                if (toggleAllForm) {
-                    setupToggleForm(toggleAllForm);
-
-                    // Toggle all updates should update UserGameProgress records
-                    // instead of VnListEntry records
-                    toggleAllForm.addEventListener('submit', async function (e) {
-                        e.preventDefault();
-
-                        const checkbox = this.querySelector('input[type="checkbox"]');
-                        const checked = checkbox.checked;
-
-                        try {
-                            // Create URLSearchParams instead of FormData
-                            const params = new URLSearchParams();
-
-                            // Add the CSRF token
-                            params.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-
-                            // Add PATCH method
-                            params.append('_method', 'PATCH');
-
-                            // Set receive_updates if checked
-                            if (checked) {
-                                params.append('receive_updates', '1');
-                            } else {
-                                params.append('receive_updates', '0');
-                            }
-
-                            const response = await fetchWithCsrf(this.action, {
-                                method: 'PATCH',
-                                body: params,
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Content-Type': 'application/x-www-form-urlencoded'
-                                }
-                            });
-
-                            const data = await response.json();
-
-                            if (data.success) {
-                                // Update the checkbox and UI
-                                checkbox.checked = data.receive_updates;
-
-                                // Update the screen reader text
-                                const toggleDiv = checkbox.nextElementSibling;
-                                const srOnlySpan = toggleDiv.querySelector('.sr-only');
-                                if (srOnlySpan) {
-                                    srOnlySpan.textContent = data.receive_updates ? 'Turn off notifications for all entries' : 'Turn on notifications for all entries';
-                                }
-
-                                // Update all individual toggle switches
-                                document.querySelectorAll('.toggle-updates-form').forEach(form => {
-                                    const individualCheckbox = form.querySelector('input[type="checkbox"]');
-                                    const individualToggleDiv = individualCheckbox.nextElementSibling;
-                                    const individualSrOnlySpan = individualToggleDiv.querySelector('.sr-only');
-
-                                    // Update checkbox state
-                                    individualCheckbox.checked = data.receive_updates;
-
-                                    // Update screen reader text
-                                    if (individualSrOnlySpan) {
-                                        individualSrOnlySpan.textContent = data.receive_updates ? 'Turn off notifications' : 'Turn on notifications';
-                                    }
-                                });
-
-                                showSuccessMessage(data.message);
-                            }
-                        } catch (error) {
-                            console.error('Error:', error);
-                            showErrorMessage('An error occurred while updating notification settings.');
-
-                            // Revert the checkbox state
-                            checkbox.checked = !checkbox.checked;
-                        }
-                    });
-                }
             });
         </script>
     @endif

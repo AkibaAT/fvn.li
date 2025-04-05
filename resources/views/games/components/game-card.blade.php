@@ -8,15 +8,10 @@
     class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         @if ($game->is_visible)
-            <div class="flex flex-col justify-between h-full">
+            <div class="flex flex-col h-full">
                 <a href="{{ route('games.show', $game) }}">
                     <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
                 </a>
-                @auth
-                    <div class="w-32">
-                        <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :compact="true" class="w-full" />
-                    </div>
-                @endauth
             </div>
         @endif
         <div class="flex flex-col min-w-0 flex-1">
@@ -164,6 +159,16 @@
             @endforeach
         </div>
     @endif
+
+    @auth
+        <div class="mt-4"> </div>
+        <div class="mt-auto flex items-center justify-between gap-4 border-t border-gray-100 dark:border-gray-700/50 pt-3">
+            <div class="flex-1">
+                <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :compact="true" class="w-full" />
+            </div>
+            <x-games::notification-toggle :game="$game" label="Receive notifications" justify="justify-start" />
+        </div>
+    @endauth
 </div>
 
 

@@ -13,7 +13,8 @@ export default defineConfig(({ command, mode }) => ({
                 'resources/js/app.ts',
                 'resources/js/charts-entry.ts',
                 'resources/js/push-notifications.js',
-                'resources/js/list-buttons.ts'
+                'resources/js/list-buttons.ts',
+                'resources/js/toggle-notifications.ts'
             ],
             refresh: true,
         }),

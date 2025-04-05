@@ -102,22 +102,7 @@
                                 </div>
 
                                 {{-- Notification Toggle --}}
-                                @php
-                                    $userProgress = App\Models\UserGameProgress::where('user_id', auth()->id())
-                                        ->where('game_id', $game->id)
-                                        ->first();
-                                    $receiveNotifications = $userProgress ? $userProgress->receive_updates : false;
-                                @endphp
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receive notifications</span>
-                                    @include('lists.partials.toggle-switch', [
-                                        'action' => route('user-progress.toggle-updates', ['game' => $game->id]),
-                                        'name' => 'receive_updates',
-                                        'value' => '1',
-                                        'checked' => $receiveNotifications,
-                                        'srText' => $receiveNotifications ? 'Turn off notifications' : 'Turn on notifications',
-                                    ])
-                                </div>
+                                <x-games::notification-toggle :game="$game" />
                             </div>
                         @endauth
                     </div>
@@ -543,6 +528,7 @@
 
     @push('scripts')
         @vite('resources/js/list-buttons.ts')
+        @vite('resources/js/toggle-notifications.ts')
     @endpush
 </div>
 
@@ -597,81 +583,5 @@
         }, 5000);
     }
 
-    // Helper function to handle toggle forms
-    function setupToggleForm(form) {
-        const checkbox = form.querySelector('input[type="checkbox"]');
-        const toggleLabel = form.querySelector('label');
 
-        if (!checkbox || !toggleLabel) return;
-
-        toggleLabel.addEventListener('click', function(e) {
-            e.preventDefault(); // Prevent default label behavior
-
-            // Toggle the checkbox state
-            checkbox.checked = !checkbox.checked;
-
-            // Submit the form
-            form.dispatchEvent(new Event('submit'));
-        });
-
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            try {
-                // Create URLSearchParams instead of FormData
-                const params = new URLSearchParams();
-
-                // Add the CSRF token
-                params.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-
-                // Add PATCH method
-                params.append('_method', 'PATCH');
-
-                // Set receive_updates if checked
-                if (checkbox.checked) {
-                    params.append('receive_updates', '1');
-                } else {
-                    params.append('receive_updates', '0');
-                }
-
-                const response = await fetch(this.action, {
-                    method: 'PATCH',
-                    body: params,
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    }
-                });
-
-                const data = await response.json();
-
-                // Update UI based on response
-                if (data.success) {
-                    // Update the checkbox visual state
-                    checkbox.checked = data.receive_updates;
-
-                    // Update the screen reader text
-                    const toggleDiv = checkbox.nextElementSibling;
-                    const srOnlySpan = toggleDiv.querySelector('.sr-only');
-                    if (srOnlySpan) {
-                        srOnlySpan.textContent = data.receive_updates ? 'Turn off notifications' : 'Turn on notifications';
-                    }
-
-                    // Show success message
-                    showSuccessMessage(data.message);
-                }
-            } catch (error) {
-                showErrorMessage('An error occurred. Please try again.');
-
-                // Revert the checkbox state
-                checkbox.checked = !checkbox.checked;
-            }
-        });
-    }
-
-    // Set up event handlers for toggle updates forms
-    document.querySelectorAll('.toggle-updates-form').forEach(form => {
-        setupToggleForm(form);
-    });
 </script>

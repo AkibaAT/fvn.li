@@ -37,4 +37,5 @@
 
 @push('scripts')
     @vite('resources/js/list-buttons.ts')
+    @vite('resources/js/toggle-notifications.ts')
 @endpush
