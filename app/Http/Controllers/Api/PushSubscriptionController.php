@@ -58,13 +58,17 @@ class PushSubscriptionController extends Controller
         }
 
         // Create new subscription if none exists
-        $subscription = PushSubscription::create([
-            'user_id' => $user->id,
-            'endpoint' => $request->input('subscription.endpoint'),
-            'p256dh' => $request->input('subscription.keys.p256dh'),
-            'auth' => $request->input('subscription.keys.auth'),
-            'subscription_data' => json_encode($request->input('subscription')),
-        ]);
+        $subscription = PushSubscription::updateOrCreate(
+            [
+                'endpoint' => $request->input('subscription.endpoint'),
+            ],
+            [
+                'user_id' => $user->id,
+                'p256dh' => $request->input('subscription.keys.p256dh'),
+                'auth' => $request->input('subscription.keys.auth'),
+                'subscription_data' => json_encode($request->input('subscription')),
+            ]
+        );
 
         return response()->json([
             'message' => 'Push subscription saved successfully',
