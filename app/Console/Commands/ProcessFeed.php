@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Models\ImportState;
 use App\Models\ProcessedEvent;
 use App\Services\ItchAuthService;
 use Dom\HTMLDocument;
@@ -16,10 +17,14 @@ use Illuminate\Support\Facades\Log;
 
 class ProcessFeed extends Command
 {
+    private const string IMPORT_STATE_TYPE = 'feed';
+
     protected $signature = 'feed:process';
     protected $description = 'Process the itch.io feed for game updates';
 
     private ItchAuthService $authService;
+    private int $processedCount = 0;
+    private int $skippedCount = 0;
 
     public function __construct(ItchAuthService $authService)
     {
@@ -33,18 +38,29 @@ class ProcessFeed extends Command
     public function handle(): int
     {
         $this->info('Starting feed processing');
+        $this->info('+ = processed event, . = skipped event');
+
+        // Reset counters
+        $this->processedCount = 0;
+        $this->skippedCount = 0;
 
         try {
             // Get authenticated client
             $client = $this->authService->getClient();
 
-            // Get highest event ID we've processed
+            // Get the import state if it exists
+            $importState = ImportState::firstWhere('type', self::IMPORT_STATE_TYPE);
+            $currentPage = $importState?->last_processed_id;
+
+            if ($currentPage) {
+                $this->info("Resuming from previous import state at event {$currentPage}");
+            }
+
+            // Get highest event ID we've processed (for final check)
             $lastProcessed = ProcessedEvent::query()
                 ->orderByDesc('event_id')
                 ->first();
-
             $lastEventId = $lastProcessed?->event_id;
-            $currentPage = null;
 
             while (true) {
                 $this->info('Processing page ' . ($currentPage ? "from event {$currentPage}" : '(initial)'));
@@ -52,18 +68,32 @@ class ProcessFeed extends Command
                 $nextPage = $this->processFeedPage($client, $currentPage);
 
                 if (! $nextPage) {
-                    $this->info('No more pages to process');
+                    $this->info("\nNo more pages to process");
+                    // Clear import state when we reach the end
+                    ImportState::where('type', self::IMPORT_STATE_TYPE)->delete();
                     break;
                 }
 
                 if ($lastEventId && $nextPage <= $lastEventId) {
-                    $this->info("Reached already processed event {$lastEventId}");
+                    $this->info("\nReached already processed event {$lastEventId}");
+                    // Clear import state when we reach already processed events
+                    ImportState::where('type', self::IMPORT_STATE_TYPE)->delete();
                     break;
                 }
 
                 $currentPage = $nextPage;
+
+                // Update import state after each page
+                ImportState::updateOrCreate(
+                    ['type' => self::IMPORT_STATE_TYPE],
+                    ['last_processed_id' => $currentPage]
+                );
+
+                $this->info("\nWaiting 30 seconds before next page...");
                 sleep(30); // Rate limiting between pages
             }
+
+            $this->info("\nFeed processing completed. Processed {$this->processedCount} events, skipped {$this->skippedCount} events.");
 
             return 0;
         } catch (Exception $e) {
@@ -81,6 +111,7 @@ class ProcessFeed extends Command
      */
     private function processFeedPage($client, ?int $fromEvent = null): ?int
     {
+        // No need for global variables, using class properties
         $url = 'https://itch.io/my-feed?filter=posts&format=json';
         if ($fromEvent) {
             $url .= "&from_event={$fromEvent}";
@@ -110,10 +141,21 @@ class ProcessFeed extends Command
 
             $eventId = (int) basename(dirname($likeBtn->getAttribute('data-like_url')));
 
-            // Skip if already processed
+            // If we find an already processed event, clear the import state and stop processing
             if (ProcessedEvent::where('event_id', $eventId)->exists()) {
-                continue;
+                $this->output->write('.');
+                $this->skippedCount++;
+                $this->info("\nFound already processed event {$eventId}, clearing import state");
+                ImportState::where('type', self::IMPORT_STATE_TYPE)->delete();
+
+                return null;
             }
+
+            // Update the import state for each event we process
+            ImportState::updateOrCreate(
+                ['type' => self::IMPORT_STATE_TYPE],
+                ['last_processed_id' => $eventId]
+            );
 
             // Extract game information
             $gameId = null;
@@ -151,6 +193,9 @@ class ProcessFeed extends Command
 
             // Skip if we couldn't get essential game info
             if (! $gameId || ! $gameUrl) {
+                $this->output->write('.');
+                $this->skippedCount++;
+
                 continue;
             }
 
@@ -166,10 +211,15 @@ class ProcessFeed extends Command
             }
 
             if (! $gameTitle) {
+                $this->output->write('.');
+                $this->skippedCount++;
+
                 continue;
             }
 
             // Process game update
+            $this->output->write('+');
+            $this->processedCount++;
             $this->processGameUpdate($client, $eventId, $gameId);
         }
 
@@ -190,6 +240,8 @@ class ProcessFeed extends Command
             // Skip if game isn't visible
             if (! $game->exists || ! $game->is_visible) {
                 DB::commit();
+                $this->output->write('.');
+                $this->skippedCount++;
 
                 return;
             }
