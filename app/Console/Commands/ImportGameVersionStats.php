@@ -6,10 +6,9 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Services\GameStatsService;
+use App\Services\GameVersionStatsImportService;
 use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
@@ -23,7 +22,7 @@ class ImportGameVersionStats extends Command
     protected $description = 'Import stats JSON for a given game version';
 
     public function __construct(
-        private readonly GameStatsService $statsService
+        private readonly GameVersionStatsImportService $importService
     ) {
         parent::__construct();
     }
@@ -82,38 +81,15 @@ class ImportGameVersionStats extends Command
 
             $this->info("Processing stats for game: {$game->name}, version: {$version->version}");
 
-            // Read and parse the stats file
-            $statsContent = File::get($statsFile);
-            $stats = json_decode($statsContent, true);
-
-            if (! $stats || ! isset($stats['languages'])) {
-                $this->error('Invalid stats file format. The file must contain a "languages" section.');
-
-                return 1;
-            }
-
-            DB::beginTransaction();
-
             try {
-                // Clear existing stats for this version
-                $this->info('Clearing existing stats...');
-                $version->supportedLanguages()->delete();
+                // Import the stats using the service
+                $this->info('Importing stats...');
+                $this->importService->importFromLocalFile($statsFile, $version);
 
-                // Save the stats
-                $this->info('Importing new stats...');
-                $this->statsService->saveVersionStats(
-                    $version,
-                    $stats,
-                    $game->source_language_id ?? 'eng',
-                    $game
-                );
-
-                DB::commit();
                 $this->info('✓ Stats imported successfully');
 
                 return 0;
             } catch (Exception $e) {
-                DB::rollBack();
                 throw $e;
             }
         } catch (Exception $e) {

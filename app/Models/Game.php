@@ -59,6 +59,12 @@ class Game extends Model
         'ratings_count' => 'integer',
     ];
 
+    // Ensure custom_tags is never null
+    public function setCustomTagsAttribute($value)
+    {
+        $this->attributes['custom_tags'] = $value ?? '';
+    }
+
     /**
      * Get the latest version of the game.
      */
