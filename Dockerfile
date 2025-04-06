@@ -43,6 +43,7 @@ RUN apt-get update \
         zip \
     && cp ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini
 
+# Copy storage directory
 COPY storage /app/storage
 
 # Copy configuration files

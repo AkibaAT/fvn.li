@@ -17,7 +17,7 @@ if [ -n "${DOCKER_IMAGE:-}" ]; then
 
   # Update .env file with the new Docker image
   if grep -q "^DOCKER_IMAGE=" .env; then
-    sed -i "s|^DOCKER_IMAGE=.*|DOCKER_IMAGE=${DOCKER_IMAGE}|g" .env
+    sudo sed -i "s|^DOCKER_IMAGE=.*|DOCKER_IMAGE=${DOCKER_IMAGE}|g" .env
   else
     echo "DOCKER_IMAGE=${DOCKER_IMAGE}" >> .env
   fi

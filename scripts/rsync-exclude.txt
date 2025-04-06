@@ -38,8 +38,8 @@
 
 # Environment files
 /.env
-/.env.*
-/!.env.deploy
+/.env.example
+!/.env.deploy
 
 # Docker-related files
 /docker-compose.override.yml
