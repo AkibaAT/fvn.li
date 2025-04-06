@@ -1,5 +1,5 @@
 x-fvnli: &fvnli
-  image: ghcr.io/akibaat/fvn.li:development
+  image: ${DOCKER_IMAGE}
 x-db: &db
   image: postgres:17.4
 x-pgbouncer: &pgbouncer
@@ -18,9 +18,10 @@ services:
       - fvnli
       - web
     volumes:
-      - ./.env:/app/.env
-      - ./storage/app:/app/storage/app
-      - ./storage/logs:/app/storage/logs
+      - app_storage:/app/storage
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./:/app/
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -55,7 +56,7 @@ services:
     networks:
       - fvnli
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
     environment:
       - AUTH_TYPE=scram-sha-256
       - DB_HOST=postgres
@@ -75,8 +76,16 @@ services:
       - redis:/data
 
 volumes:
-  redis:
+  app_storage:
+    name: ${COMPOSE_PROJECT_NAME}_app_storage
+  caddy_data:
+    name: ${COMPOSE_PROJECT_NAME}_caddy_data
+  caddy_config:
+    name: ${COMPOSE_PROJECT_NAME}_caddy_config
   db:
+    name: ${COMPOSE_PROJECT_NAME}_db
+  redis:
+    name: ${COMPOSE_PROJECT_NAME}_redis
 
 networks:
   fvnli:

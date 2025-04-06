@@ -1,0 +1,139 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - development
+      - production
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Needed to check for file changes
+
+      - name: Set deployment variables
+        id: vars
+        run: |
+          echo "REPO_LOWER=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          REF_NAME="${{ github.ref_name }}"
+          echo "REF_NAME=$REF_NAME" >> $GITHUB_ENV
+
+          if [[ "$REF_NAME" == "production" ]]; then
+            echo "DEPLOY_PATH=${{ secrets.PROD_DEPLOY_PATH }}" >> $GITHUB_ENV
+          elif [[ "$REF_NAME" == "development" ]]; then
+            echo "DEPLOY_PATH=${{ secrets.DEV_DEPLOY_PATH }}" >> $GITHUB_ENV
+          else
+            echo "No deployment configured for branch $REF_NAME"
+            exit 0
+          fi
+
+          # Check if Dockerfile or related files have changed
+          DOCKERFILE_CHANGED=false
+          git diff --name-only HEAD^ HEAD | grep -q -E '^(Dockerfile|docker/|docker-compose\.yml)$' && DOCKERFILE_CHANGED=true
+          echo "dockerfile_changed=$DOCKERFILE_CHANGED" >> $GITHUB_OUTPUT
+
+      # Build and push Docker image if Dockerfile or related files changed
+      - name: Set up Docker Buildx
+        if: steps.vars.outputs.dockerfile_changed == 'true'
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:latest
+
+      - name: Log in to GitHub Container Registry
+        if: steps.vars.outputs.dockerfile_changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push Docker image
+        if: steps.vars.outputs.dockerfile_changed == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          provenance: false
+          platforms: linux/amd64
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}:${{ env.REF_NAME }}
+          cache-from: |
+            type=gha,scope=docker-cache-amd64
+            type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-amd64
+          cache-to: |
+            type=gha,mode=max,scope=docker-cache-amd64
+            type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-amd64,mode=max
+          outputs: type=image,name=ghcr.io/${{ env.REPO_LOWER }}:${{ env.REF_NAME }},push-by-digest=false,push=true,name-canonical=false
+
+      # Always run these steps for code deployment
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, bcmath, pdo_mysql, pdo_pgsql, exif, pcntl, gd, intl, zip
+          coverage: none
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Create or update .env file with deployment configuration
+        run: ./scripts/create-env-deploy.sh "${{ env.REPO_LOWER }}" "${{ env.REF_NAME }}" "${{ steps.vars.outputs.dockerfile_changed }}"
+
+
+
+      - name: Deploy to server using rsync
+        uses: burnett01/rsync-deployments@7.0.2
+        with:
+          switches: -avz --delete --dirs  --exclude-from=scripts/rsync-exclude.txt --rsync-path="sudo rsync" --chown=www-data:www-data
+          path: ./
+          remote_path: ${{ env.DEPLOY_PATH }}
+          remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_user: ${{ secrets.DEPLOY_USER }}
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Execute deployment script
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ env.DEPLOY_PATH }}
+            ./scripts/deploy.sh

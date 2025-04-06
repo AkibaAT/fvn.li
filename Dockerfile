@@ -3,10 +3,6 @@ FROM dunglas/frankenphp:php8.4
 # Set working directory
 WORKDIR /app
 
-# Update Node.js to version 22 (LTS)
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs
-
 # Install system dependencies
 RUN apt-get update \
     && apt-get upgrade -yqq \
@@ -20,6 +16,8 @@ RUN apt-get update \
         libsodium-dev \
         nano \
         ncdu \
+        postgresql-client \
+        redis-tools \
         supervisor \
         unzip \
         wget \
@@ -45,44 +43,17 @@ RUN apt-get update \
         zip \
     && cp ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini
 
-# Verify Node.js version
-RUN node --version && npm --version
+COPY storage /app/storage
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Copy configuration files
+COPY docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
 
-# Copy application
-COPY . .
-
-# Install dependencies with cache mount
-RUN --mount=type=cache,target=/root/.composer/cache,sharing=locked \
-    composer install --no-dev --optimize-autoloader --no-interaction
-
-# Install Node.js dependencies and build assets with cache mount
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    npm ci \
-    && npm run build
-
-# Directory setup and config
-RUN mkdir -p storage/framework/cache/data \
-        storage/framework/sessions \
-        storage/framework/views \
-        storage/framework/testing \
-        bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache \
-    && php artisan storage:link \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan optimize \
-    && php artisan config:clear \
-    && php artisan livewire:publish --assets \
-    && mv docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini \
-    && rm -rf docker \
-    && apt-get -y autoremove \
+# Set permissions and clean up
+RUN apt-get -y autoremove \
     && apt-get clean \
     && docker-php-source delete \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && rm -f /var/log/lastlog /var/log/faillog \
     && chown -R www-data:www-data /app
 
-ENTRYPOINT ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]
+CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]

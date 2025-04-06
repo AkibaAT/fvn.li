@@ -1,0 +1,45 @@
+# Directories to ignore
+/.cursor
+/.ddev
+/.git
+/.github
+/.idea
+/.vscode
+/docker
+/node_modules
+/public/storage
+/storage
+/tests
+
+# Files to ignore
+/*.md
+/.augmentignore
+/.dockerignore
+/.editorconfig
+/.eslintrc.cjs
+/.gitattributes
+/.gitignore
+/.php-cs-fixer.dist.php
+/.phpcs.xml.dist
+/.phpunit.result.cache
+/.prettierrc
+/Dockerfile
+/package-lock.json
+/package.json
+/phpunit.xml
+/public/frankenphp-worker.php
+/public/sitemap.xml
+/robots.txt
+/scripts/create-env-deploy.sh
+/scripts/rsync-exclude.txt
+/stats.html
+/tailwind.config.js
+/vite.config.js
+
+# Environment files
+/.env
+/.env.*
+/!.env.deploy
+
+# Docker-related files
+/docker-compose.override.yml
