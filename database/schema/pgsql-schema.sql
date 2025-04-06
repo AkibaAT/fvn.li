@@ -154,6 +154,90 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: version_character_stats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_character_stats (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    game_version_id bigint NOT NULL,
+    character_id bigint NOT NULL,
+    iso_code character varying(10) NOT NULL,
+    blocks integer DEFAULT 0 NOT NULL,
+    words integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: character_version_stats_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.character_version_stats_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: character_version_stats_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.character_version_stats_id_seq OWNED BY public.version_character_stats.id;
+
+
+--
+-- Name: characters; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.characters (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    game_id bigint NOT NULL,
+    character_id character varying(50) NOT NULL,
+    display_names jsonb NOT NULL,
+    first_seen_in_version_id bigint,
+    last_seen_in_version_id bigint,
+    display_name_corrections jsonb
+);
+
+
+--
+-- Name: characters_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.characters_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: characters_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.characters_id_seq OWNED BY public.characters.id;
+
+
+--
+-- Name: discord_users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.discord_users (
+    id bigint NOT NULL,
+    discord_id character varying(100),
+    processed_at timestamp without time zone,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
 -- Name: failed_jobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -252,9 +336,12 @@ CREATE TABLE public.games (
     authors public.citext,
     custom_tags public.citext DEFAULT ''::public.citext NOT NULL,
     uploads jsonb DEFAULT '{}'::jsonb,
-    slug public.citext,
     is_feedless boolean DEFAULT false NOT NULL,
-    source_language_id character varying(3)
+    slug public.citext,
+    source_language_id character varying(3),
+    optimized_thumbnails jsonb,
+    average_score numeric(8,4),
+    rating_count integer DEFAULT 0 NOT NULL
 );
 
 
@@ -275,6 +362,38 @@ CREATE SEQUENCE public.games_id_seq
 --
 
 ALTER SEQUENCE public.games_id_seq OWNED BY public.games.id;
+
+
+--
+-- Name: import_states; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.import_states (
+    id bigint NOT NULL,
+    type character varying(255) NOT NULL,
+    last_processed_id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: import_states_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.import_states_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: import_states_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.import_states_id_seq OWNED BY public.import_states.id;
 
 
 --
@@ -305,7 +424,8 @@ CREATE TABLE public.language_mappings (
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     game_language_key character varying(50) NOT NULL,
-    iso_code character varying(3) NOT NULL
+    iso_code character varying(3) NOT NULL,
+    game_id bigint
 );
 
 
@@ -357,6 +477,159 @@ CREATE SEQUENCE public.migrations_id_seq
 --
 
 ALTER SEQUENCE public.migrations_id_seq OWNED BY public.migrations.id;
+
+
+--
+-- Name: monitored_scheduled_task_log_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitored_scheduled_task_log_items (
+    id bigint NOT NULL,
+    monitored_scheduled_task_id bigint NOT NULL,
+    type character varying(255) NOT NULL,
+    meta json,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: monitored_scheduled_task_log_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitored_scheduled_task_log_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitored_scheduled_task_log_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitored_scheduled_task_log_items_id_seq OWNED BY public.monitored_scheduled_task_log_items.id;
+
+
+--
+-- Name: monitored_scheduled_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitored_scheduled_tasks (
+    id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    type character varying(255),
+    cron_expression character varying(255) NOT NULL,
+    timezone character varying(255),
+    ping_url character varying(255),
+    last_started_at timestamp(0) without time zone,
+    last_finished_at timestamp(0) without time zone,
+    last_failed_at timestamp(0) without time zone,
+    last_skipped_at timestamp(0) without time zone,
+    registered_on_oh_dear_at timestamp(0) without time zone,
+    last_pinged_at timestamp(0) without time zone,
+    grace_time_in_minutes integer NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: monitored_scheduled_tasks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitored_scheduled_tasks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitored_scheduled_tasks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitored_scheduled_tasks_id_seq OWNED BY public.monitored_scheduled_tasks.id;
+
+
+--
+-- Name: notification_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_history (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    game_id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    type character varying(255) NOT NULL,
+    success boolean DEFAULT true NOT NULL,
+    meta_data text,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    CONSTRAINT notification_history_type_check CHECK (((type)::text = ANY (ARRAY[('discord'::character varying)::text, ('telegram'::character varying)::text, ('email'::character varying)::text, ('browser'::character varying)::text])))
+);
+
+
+--
+-- Name: notification_history_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.notification_history_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: notification_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.notification_history_id_seq OWNED BY public.notification_history.id;
+
+
+--
+-- Name: notification_queue; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notification_queue (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    game_id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    channel character varying(255) NOT NULL,
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    scheduled_at timestamp(0) without time zone,
+    processed_at timestamp(0) without time zone,
+    payload json,
+    error text,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    meta_data jsonb,
+    CONSTRAINT notification_queue_channel_check CHECK (((channel)::text = ANY (ARRAY[('browser'::character varying)::text, ('discord'::character varying)::text, ('email'::character varying)::text])))
+);
+
+
+--
+-- Name: notification_queue_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.notification_queue_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: notification_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.notification_queue_id_seq OWNED BY public.notification_queue.id;
 
 
 --
@@ -412,12 +685,11 @@ ALTER SEQUENCE public.personal_access_tokens_id_seq OWNED BY public.personal_acc
 --
 
 CREATE TABLE public.processed_events (
-    id bigint NOT NULL,
+    id integer NOT NULL,
+    event_id integer NOT NULL,
+    game_id integer NOT NULL,
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone,
-    event_id bigint NOT NULL,
-    game_id bigint NOT NULL,
-    processed_at timestamp(0) without time zone NOT NULL
+    updated_at timestamp(0) without time zone
 );
 
 
@@ -426,6 +698,7 @@ CREATE TABLE public.processed_events (
 --
 
 CREATE SEQUENCE public.processed_events_id_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -441,6 +714,41 @@ ALTER SEQUENCE public.processed_events_id_seq OWNED BY public.processed_events.i
 
 
 --
+-- Name: push_subscriptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.push_subscriptions (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    endpoint character varying(500) NOT NULL,
+    p256dh character varying(255) NOT NULL,
+    auth character varying(255) NOT NULL,
+    subscription_data json,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: push_subscriptions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.push_subscriptions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: push_subscriptions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.push_subscriptions_id_seq OWNED BY public.push_subscriptions.id;
+
+
+--
 -- Name: raters; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -450,7 +758,11 @@ CREATE TABLE public.raters (
     updated_at timestamp(0) without time zone,
     user_id integer NOT NULL,
     name public.citext NOT NULL,
-    username public.citext
+    username public.citext,
+    alias character varying(255),
+    is_suspicious boolean DEFAULT false NOT NULL,
+    suspicion_reason character varying(255),
+    marked_suspicious_at timestamp(0) without time zone
 );
 
 
@@ -512,18 +824,170 @@ ALTER SEQUENCE public.ratings_id_seq OWNED BY public.ratings.id;
 
 
 --
+-- Name: social_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.social_accounts (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    provider_name character varying(255) NOT NULL,
+    provider_id character varying(255) NOT NULL,
+    token character varying(255),
+    refresh_token character varying(255),
+    token_expires_at timestamp(0) without time zone,
+    provider_data json,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: social_accounts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.social_accounts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: social_accounts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.social_accounts_id_seq OWNED BY public.social_accounts.id;
+
+
+--
+-- Name: unique_dialogue_texts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.unique_dialogue_texts (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    text_hash character varying(32) NOT NULL,
+    text_content text NOT NULL,
+    search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english'::regconfig, text_content)) STORED NOT NULL
+);
+
+
+--
+-- Name: COLUMN unique_dialogue_texts.text_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.unique_dialogue_texts.text_hash IS 'MD5 hash of the text for quick lookups';
+
+
+--
+-- Name: unique_dialogue_texts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.unique_dialogue_texts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: unique_dialogue_texts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.unique_dialogue_texts_id_seq OWNED BY public.unique_dialogue_texts.id;
+
+
+--
+-- Name: user_game_progress; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_game_progress (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    game_id bigint NOT NULL,
+    game_version_id bigint,
+    started_at timestamp(0) without time zone,
+    completed_at timestamp(0) without time zone,
+    personal_notes text,
+    status character varying(255) DEFAULT 'reading'::character varying NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    receive_updates boolean DEFAULT false NOT NULL,
+    CONSTRAINT user_game_progress_status_check CHECK (((status)::text = ANY (ARRAY[('reading'::character varying)::text, ('completed'::character varying)::text, ('plan_to_read'::character varying)::text, ('on_hold'::character varying)::text, ('dropped'::character varying)::text, ('custom'::character varying)::text])))
+);
+
+
+--
+-- Name: user_game_progress_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.user_game_progress_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: user_game_progress_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.user_game_progress_id_seq OWNED BY public.user_game_progress.id;
+
+
+--
+-- Name: user_notification_preferences; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_notification_preferences (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    discord_notifications_enabled boolean DEFAULT false NOT NULL,
+    browser_notifications_enabled boolean DEFAULT false NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    notification_digest character varying(255) DEFAULT 'asap'::character varying NOT NULL,
+    CONSTRAINT user_notification_preferences_notification_digest_check CHECK (((notification_digest)::text = ANY (ARRAY[('asap'::character varying)::text, ('daily'::character varying)::text, ('weekly'::character varying)::text])))
+);
+
+
+--
+-- Name: user_notification_preferences_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.user_notification_preferences_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: user_notification_preferences_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.user_notification_preferences_id_seq OWNED BY public.user_notification_preferences.id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
     id bigint NOT NULL,
     name character varying(255) NOT NULL,
-    email public.citext NOT NULL,
+    email character varying(255),
     email_verified_at timestamp(0) without time zone,
     password character varying(255) NOT NULL,
     remember_token character varying(100),
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    avatar character(255)
 );
 
 
@@ -547,27 +1011,28 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
--- Name: version_character_stats; Type: TABLE; Schema: public; Owner: -
+-- Name: version_dialogue_lines; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.version_character_stats (
+CREATE TABLE public.version_dialogue_lines (
     id bigint NOT NULL,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     game_version_id bigint NOT NULL,
+    character_id bigint,
     iso_code character varying(10) NOT NULL,
-    character_id character varying(50) NOT NULL,
-    display_name character varying(100) NOT NULL,
-    blocks integer DEFAULT 0 NOT NULL,
-    words integer DEFAULT 0 NOT NULL
+    file_path character varying(255) NOT NULL,
+    line_number integer NOT NULL,
+    text_id bigint,
+    context character varying(255)
 );
 
 
 --
--- Name: version_character_stats_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: version_dialogue_lines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.version_character_stats_id_seq
+CREATE SEQUENCE public.version_dialogue_lines_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -576,10 +1041,78 @@ CREATE SEQUENCE public.version_character_stats_id_seq
 
 
 --
--- Name: version_character_stats_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: version_dialogue_lines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.version_character_stats_id_seq OWNED BY public.version_character_stats.id;
+ALTER SEQUENCE public.version_dialogue_lines_id_seq OWNED BY public.version_dialogue_lines.id;
+
+
+--
+-- Name: version_file_categories; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_file_categories (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    game_version_id bigint NOT NULL,
+    category character varying(20) NOT NULL,
+    total_count integer NOT NULL,
+    total_size bigint NOT NULL
+);
+
+
+--
+-- Name: version_file_categories_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_file_categories_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_file_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_file_categories_id_seq OWNED BY public.version_file_categories.id;
+
+
+--
+-- Name: version_file_types; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_file_types (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    version_file_category_id bigint NOT NULL,
+    extension character varying(100) NOT NULL,
+    count integer NOT NULL,
+    size bigint NOT NULL
+);
+
+
+--
+-- Name: version_file_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_file_types_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_file_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_file_types_id_seq OWNED BY public.version_file_types.id;
 
 
 --
@@ -593,7 +1126,7 @@ CREATE TABLE public.version_language_stats (
     game_version_id bigint NOT NULL,
     iso_code character varying(10) NOT NULL,
     blocks integer,
-    words integer,
+    words integer NOT NULL,
     menus integer,
     options integer
 );
@@ -619,6 +1152,115 @@ ALTER SEQUENCE public.version_language_stats_id_seq OWNED BY public.version_lang
 
 
 --
+-- Name: version_supported_languages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_supported_languages (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    game_version_id bigint NOT NULL,
+    iso_code character varying(3) NOT NULL,
+    is_available boolean DEFAULT true NOT NULL
+);
+
+
+--
+-- Name: version_supported_languages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_supported_languages_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_supported_languages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_supported_languages_id_seq OWNED BY public.version_supported_languages.id;
+
+
+--
+-- Name: vn_list_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vn_list_entries (
+    id bigint NOT NULL,
+    vn_list_id bigint NOT NULL,
+    game_id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    sort_order integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: vn_list_entries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.vn_list_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: vn_list_entries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.vn_list_entries_id_seq OWNED BY public.vn_list_entries.id;
+
+
+--
+-- Name: vn_lists; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vn_lists (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    is_default boolean DEFAULT false NOT NULL,
+    is_public boolean DEFAULT false NOT NULL,
+    type character varying(255) NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: vn_lists_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.vn_lists_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: vn_lists_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.vn_lists_id_seq OWNED BY public.vn_lists.id;
+
+
+--
+-- Name: characters id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.characters ALTER COLUMN id SET DEFAULT nextval('public.characters_id_seq'::regclass);
+
+
+--
 -- Name: failed_jobs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -640,6 +1282,13 @@ ALTER TABLE ONLY public.games ALTER COLUMN id SET DEFAULT nextval('public.games_
 
 
 --
+-- Name: import_states id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_states ALTER COLUMN id SET DEFAULT nextval('public.import_states_id_seq'::regclass);
+
+
+--
 -- Name: language_mappings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -651,6 +1300,34 @@ ALTER TABLE ONLY public.language_mappings ALTER COLUMN id SET DEFAULT nextval('p
 --
 
 ALTER TABLE ONLY public.migrations ALTER COLUMN id SET DEFAULT nextval('public.migrations_id_seq'::regclass);
+
+
+--
+-- Name: monitored_scheduled_task_log_items id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitored_scheduled_task_log_items ALTER COLUMN id SET DEFAULT nextval('public.monitored_scheduled_task_log_items_id_seq'::regclass);
+
+
+--
+-- Name: monitored_scheduled_tasks id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitored_scheduled_tasks ALTER COLUMN id SET DEFAULT nextval('public.monitored_scheduled_tasks_id_seq'::regclass);
+
+
+--
+-- Name: notification_history id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history ALTER COLUMN id SET DEFAULT nextval('public.notification_history_id_seq'::regclass);
+
+
+--
+-- Name: notification_queue id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_queue ALTER COLUMN id SET DEFAULT nextval('public.notification_queue_id_seq'::regclass);
 
 
 --
@@ -668,6 +1345,13 @@ ALTER TABLE ONLY public.processed_events ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: push_subscriptions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_subscriptions ALTER COLUMN id SET DEFAULT nextval('public.push_subscriptions_id_seq'::regclass);
+
+
+--
 -- Name: raters id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -682,6 +1366,34 @@ ALTER TABLE ONLY public.ratings ALTER COLUMN id SET DEFAULT nextval('public.rati
 
 
 --
+-- Name: social_accounts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_accounts ALTER COLUMN id SET DEFAULT nextval('public.social_accounts_id_seq'::regclass);
+
+
+--
+-- Name: unique_dialogue_texts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.unique_dialogue_texts ALTER COLUMN id SET DEFAULT nextval('public.unique_dialogue_texts_id_seq'::regclass);
+
+
+--
+-- Name: user_game_progress id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_game_progress ALTER COLUMN id SET DEFAULT nextval('public.user_game_progress_id_seq'::regclass);
+
+
+--
+-- Name: user_notification_preferences id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notification_preferences ALTER COLUMN id SET DEFAULT nextval('public.user_notification_preferences_id_seq'::regclass);
+
+
+--
 -- Name: users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -692,7 +1404,28 @@ ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_
 -- Name: version_character_stats id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.version_character_stats ALTER COLUMN id SET DEFAULT nextval('public.version_character_stats_id_seq'::regclass);
+ALTER TABLE ONLY public.version_character_stats ALTER COLUMN id SET DEFAULT nextval('public.character_version_stats_id_seq'::regclass);
+
+
+--
+-- Name: version_dialogue_lines id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_dialogue_lines ALTER COLUMN id SET DEFAULT nextval('public.version_dialogue_lines_id_seq'::regclass);
+
+
+--
+-- Name: version_file_categories id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_categories ALTER COLUMN id SET DEFAULT nextval('public.version_file_categories_id_seq'::regclass);
+
+
+--
+-- Name: version_file_types id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_types ALTER COLUMN id SET DEFAULT nextval('public.version_file_types_id_seq'::regclass);
 
 
 --
@@ -700,6 +1433,67 @@ ALTER TABLE ONLY public.version_character_stats ALTER COLUMN id SET DEFAULT next
 --
 
 ALTER TABLE ONLY public.version_language_stats ALTER COLUMN id SET DEFAULT nextval('public.version_language_stats_id_seq'::regclass);
+
+
+--
+-- Name: version_supported_languages id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_supported_languages ALTER COLUMN id SET DEFAULT nextval('public.version_supported_languages_id_seq'::regclass);
+
+
+--
+-- Name: vn_list_entries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_list_entries ALTER COLUMN id SET DEFAULT nextval('public.vn_list_entries_id_seq'::regclass);
+
+
+--
+-- Name: vn_lists id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_lists ALTER COLUMN id SET DEFAULT nextval('public.vn_lists_id_seq'::regclass);
+
+
+--
+-- Name: version_character_stats character_version_stats_game_version_id_character_id_iso_code_u; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_character_stats
+    ADD CONSTRAINT character_version_stats_game_version_id_character_id_iso_code_u UNIQUE (game_version_id, character_id, iso_code);
+
+
+--
+-- Name: version_character_stats character_version_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_character_stats
+    ADD CONSTRAINT character_version_stats_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: characters characters_game_id_character_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.characters
+    ADD CONSTRAINT characters_game_id_character_id_unique UNIQUE (game_id, character_id);
+
+
+--
+-- Name: characters characters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.characters
+    ADD CONSTRAINT characters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: discord_users discord_users_pk; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_users
+    ADD CONSTRAINT discord_users_pk PRIMARY KEY (id);
 
 
 --
@@ -751,11 +1545,35 @@ ALTER TABLE ONLY public.games
 
 
 --
+-- Name: import_states import_states_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_states
+    ADD CONSTRAINT import_states_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: import_states import_states_type_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_states
+    ADD CONSTRAINT import_states_type_unique UNIQUE (type);
+
+
+--
 -- Name: iso_639_3_languages iso_639_3_languages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.iso_639_3_languages
     ADD CONSTRAINT iso_639_3_languages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: language_mappings language_mappings_game_id_key_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.language_mappings
+    ADD CONSTRAINT language_mappings_game_id_key_unique UNIQUE (game_id, game_language_key);
 
 
 --
@@ -783,6 +1601,38 @@ ALTER TABLE ONLY public.migrations
 
 
 --
+-- Name: monitored_scheduled_task_log_items monitored_scheduled_task_log_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitored_scheduled_task_log_items
+    ADD CONSTRAINT monitored_scheduled_task_log_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitored_scheduled_tasks monitored_scheduled_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitored_scheduled_tasks
+    ADD CONSTRAINT monitored_scheduled_tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification_history notification_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT notification_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification_queue notification_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_queue
+    ADD CONSTRAINT notification_queue_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: password_reset_tokens password_reset_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -807,19 +1657,35 @@ ALTER TABLE ONLY public.personal_access_tokens
 
 
 --
--- Name: processed_events processed_events_event_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.processed_events
-    ADD CONSTRAINT processed_events_event_id_unique UNIQUE (event_id);
-
-
---
 -- Name: processed_events processed_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.processed_events
     ADD CONSTRAINT processed_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: push_subscriptions push_subscriptions_endpoint_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_subscriptions
+    ADD CONSTRAINT push_subscriptions_endpoint_unique UNIQUE (endpoint);
+
+
+--
+-- Name: push_subscriptions push_subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_subscriptions
+    ADD CONSTRAINT push_subscriptions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: raters raters_alias_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.raters
+    ADD CONSTRAINT raters_alias_unique UNIQUE (alias);
 
 
 --
@@ -855,6 +1721,70 @@ ALTER TABLE ONLY public.ratings
 
 
 --
+-- Name: social_accounts social_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_accounts
+    ADD CONSTRAINT social_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: social_accounts social_accounts_provider_name_provider_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_accounts
+    ADD CONSTRAINT social_accounts_provider_name_provider_id_unique UNIQUE (provider_name, provider_id);
+
+
+--
+-- Name: unique_dialogue_texts unique_dialogue_texts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.unique_dialogue_texts
+    ADD CONSTRAINT unique_dialogue_texts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: unique_dialogue_texts unique_dialogue_texts_text_hash_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.unique_dialogue_texts
+    ADD CONSTRAINT unique_dialogue_texts_text_hash_unique UNIQUE (text_hash);
+
+
+--
+-- Name: user_game_progress user_game_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_game_progress
+    ADD CONSTRAINT user_game_progress_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_game_progress user_game_progress_user_id_game_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_game_progress
+    ADD CONSTRAINT user_game_progress_user_id_game_id_unique UNIQUE (user_id, game_id);
+
+
+--
+-- Name: user_notification_preferences user_notification_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notification_preferences
+    ADD CONSTRAINT user_notification_preferences_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_notification_preferences user_notification_preferences_user_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notification_preferences
+    ADD CONSTRAINT user_notification_preferences_user_id_unique UNIQUE (user_id);
+
+
+--
 -- Name: users users_email_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -871,19 +1801,43 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: version_character_stats version_character_stats_game_version_id_iso_code_character_id_u; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: version_dialogue_lines version_dialogue_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.version_character_stats
-    ADD CONSTRAINT version_character_stats_game_version_id_iso_code_character_id_u UNIQUE (game_version_id, iso_code, character_id);
+ALTER TABLE ONLY public.version_dialogue_lines
+    ADD CONSTRAINT version_dialogue_lines_pkey PRIMARY KEY (id);
 
 
 --
--- Name: version_character_stats version_character_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: version_file_categories version_file_categories_game_version_id_category_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.version_character_stats
-    ADD CONSTRAINT version_character_stats_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.version_file_categories
+    ADD CONSTRAINT version_file_categories_game_version_id_category_unique UNIQUE (game_version_id, category);
+
+
+--
+-- Name: version_file_categories version_file_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_categories
+    ADD CONSTRAINT version_file_categories_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_file_types version_file_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_types
+    ADD CONSTRAINT version_file_types_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_file_types version_file_types_version_file_category_id_extension_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_types
+    ADD CONSTRAINT version_file_types_version_file_category_id_extension_unique UNIQUE (version_file_category_id, extension);
 
 
 --
@@ -900,6 +1854,54 @@ ALTER TABLE ONLY public.version_language_stats
 
 ALTER TABLE ONLY public.version_language_stats
     ADD CONSTRAINT version_language_stats_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_supported_languages version_supported_languages_game_version_id_iso_code_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_supported_languages
+    ADD CONSTRAINT version_supported_languages_game_version_id_iso_code_unique UNIQUE (game_version_id, iso_code);
+
+
+--
+-- Name: version_supported_languages version_supported_languages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_supported_languages
+    ADD CONSTRAINT version_supported_languages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: vn_list_entries vn_list_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_list_entries
+    ADD CONSTRAINT vn_list_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: vn_list_entries vn_list_entries_vn_list_id_game_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_list_entries
+    ADD CONSTRAINT vn_list_entries_vn_list_id_game_id_unique UNIQUE (vn_list_id, game_id);
+
+
+--
+-- Name: vn_lists vn_lists_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_lists
+    ADD CONSTRAINT vn_lists_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: vn_lists vn_lists_user_id_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_lists
+    ADD CONSTRAINT vn_lists_user_id_name_unique UNIQUE (user_id, name);
 
 
 --
@@ -938,10 +1940,59 @@ CREATE INDEX idx_game_versions_latest_lookup ON public.game_versions USING btree
 
 
 --
+-- Name: idx_processed_events_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_processed_events_event_id ON public.processed_events USING btree (event_id);
+
+
+--
+-- Name: idx_ratings_visible_only; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ratings_visible_only ON public.ratings USING btree (rater_id, rating) WHERE (is_visible = true);
+
+
+--
+-- Name: idx_ratings_visible_rater; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ratings_visible_rater ON public.ratings USING btree (is_visible, rater_id);
+
+
+--
 -- Name: idx_version_stats_version_lang; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_version_stats_version_lang ON public.version_language_stats USING btree (game_version_id, iso_code);
+
+
+--
+-- Name: notification_history_type_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notification_history_type_index ON public.notification_history USING btree (type);
+
+
+--
+-- Name: notification_history_user_id_game_id_type_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notification_history_user_id_game_id_type_index ON public.notification_history USING btree (user_id, game_id, type);
+
+
+--
+-- Name: notification_queue_channel_status_scheduled_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notification_queue_channel_status_scheduled_at_index ON public.notification_queue USING btree (channel, status, scheduled_at);
+
+
+--
+-- Name: notification_queue_user_id_channel_status_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notification_queue_user_id_channel_status_index ON public.notification_queue USING btree (user_id, channel, status);
 
 
 --
@@ -952,24 +2003,10 @@ CREATE INDEX personal_access_tokens_tokenable_type_tokenable_id_index ON public.
 
 
 --
--- Name: processed_events_event_id_index; Type: INDEX; Schema: public; Owner: -
+-- Name: push_subscriptions_user_id_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX processed_events_event_id_index ON public.processed_events USING btree (event_id);
-
-
---
--- Name: processed_events_game_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX processed_events_game_id_index ON public.processed_events USING btree (game_id);
-
-
---
--- Name: processed_events_processed_at_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX processed_events_processed_at_index ON public.processed_events USING btree (processed_at);
+CREATE INDEX push_subscriptions_user_id_index ON public.push_subscriptions USING btree (user_id);
 
 
 --
@@ -994,6 +2031,13 @@ CREATE INDEX ratings_published_at_index ON public.ratings USING btree (published
 
 
 --
+-- Name: ratings_rater_id_game_id_published_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ratings_rater_id_game_id_published_at_index ON public.ratings USING btree (rater_id, game_id, published_at);
+
+
+--
 -- Name: ratings_rater_id_visible_has_review_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1008,6 +2052,41 @@ CREATE INDEX ratings_visible_has_review_index ON public.ratings USING btree (is_
 
 
 --
+-- Name: unique_dialogue_texts_search_vector_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX unique_dialogue_texts_search_vector_index ON public.unique_dialogue_texts USING btree (search_vector);
+
+
+--
+-- Name: version_dialogue_lines_character_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_dialogue_lines_character_id_index ON public.version_dialogue_lines USING btree (character_id);
+
+
+--
+-- Name: version_dialogue_lines_game_version_id_iso_code_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_dialogue_lines_game_version_id_iso_code_index ON public.version_dialogue_lines USING btree (game_version_id, iso_code);
+
+
+--
+-- Name: version_file_categories_category_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_file_categories_category_index ON public.version_file_categories USING btree (category);
+
+
+--
+-- Name: version_file_types_extension_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_file_types_extension_index ON public.version_file_types USING btree (extension);
+
+
+--
 -- Name: games update_game_slug_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1019,6 +2098,54 @@ CREATE TRIGGER update_game_slug_trigger BEFORE INSERT OR UPDATE ON public.games 
 --
 
 CREATE TRIGGER update_game_version_latest_flag_trigger AFTER INSERT OR DELETE OR UPDATE OF published_at ON public.game_versions FOR EACH ROW EXECUTE FUNCTION public.update_game_version_latest_flag();
+
+
+--
+-- Name: version_character_stats character_version_stats_character_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_character_stats
+    ADD CONSTRAINT character_version_stats_character_id_foreign FOREIGN KEY (character_id) REFERENCES public.characters(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_character_stats character_version_stats_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_character_stats
+    ADD CONSTRAINT character_version_stats_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: characters characters_first_seen_in_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.characters
+    ADD CONSTRAINT characters_first_seen_in_version_id_foreign FOREIGN KEY (first_seen_in_version_id) REFERENCES public.game_versions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: characters characters_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.characters
+    ADD CONSTRAINT characters_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: characters characters_last_seen_in_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.characters
+    ADD CONSTRAINT characters_last_seen_in_version_id_foreign FOREIGN KEY (last_seen_in_version_id) REFERENCES public.game_versions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: monitored_scheduled_task_log_items fk_scheduled_task_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitored_scheduled_task_log_items
+    ADD CONSTRAINT fk_scheduled_task_id FOREIGN KEY (monitored_scheduled_task_id) REFERENCES public.monitored_scheduled_tasks(id) ON DELETE CASCADE;
 
 
 --
@@ -1038,6 +2165,70 @@ ALTER TABLE ONLY public.games
 
 
 --
+-- Name: language_mappings language_mappings_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.language_mappings
+    ADD CONSTRAINT language_mappings_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_history notification_history_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT notification_history_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_history notification_history_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT notification_history_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_history notification_history_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_history
+    ADD CONSTRAINT notification_history_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_queue notification_queue_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_queue
+    ADD CONSTRAINT notification_queue_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_queue notification_queue_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_queue
+    ADD CONSTRAINT notification_queue_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_queue notification_queue_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notification_queue
+    ADD CONSTRAINT notification_queue_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: push_subscriptions push_subscriptions_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_subscriptions
+    ADD CONSTRAINT push_subscriptions_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: ratings ratings_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1054,11 +2245,75 @@ ALTER TABLE ONLY public.ratings
 
 
 --
--- Name: version_character_stats version_character_stats_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: social_accounts social_accounts_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.version_character_stats
-    ADD CONSTRAINT version_character_stats_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.social_accounts
+    ADD CONSTRAINT social_accounts_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_game_progress user_game_progress_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_game_progress
+    ADD CONSTRAINT user_game_progress_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_game_progress user_game_progress_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_game_progress
+    ADD CONSTRAINT user_game_progress_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: user_game_progress user_game_progress_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_game_progress
+    ADD CONSTRAINT user_game_progress_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_notification_preferences user_notification_preferences_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notification_preferences
+    ADD CONSTRAINT user_notification_preferences_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_dialogue_lines version_dialogue_lines_character_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_dialogue_lines
+    ADD CONSTRAINT version_dialogue_lines_character_id_foreign FOREIGN KEY (character_id) REFERENCES public.characters(id) ON DELETE SET NULL;
+
+
+--
+-- Name: version_dialogue_lines version_dialogue_lines_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_dialogue_lines
+    ADD CONSTRAINT version_dialogue_lines_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_file_categories version_file_categories_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_categories
+    ADD CONSTRAINT version_file_categories_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_file_types version_file_types_version_file_category_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_file_types
+    ADD CONSTRAINT version_file_types_version_file_category_id_foreign FOREIGN KEY (version_file_category_id) REFERENCES public.version_file_categories(id) ON DELETE CASCADE;
 
 
 --
@@ -1067,6 +2322,46 @@ ALTER TABLE ONLY public.version_character_stats
 
 ALTER TABLE ONLY public.version_language_stats
     ADD CONSTRAINT version_language_stats_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_supported_languages version_supported_languages_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_supported_languages
+    ADD CONSTRAINT version_supported_languages_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_supported_languages version_supported_languages_iso_code_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_supported_languages
+    ADD CONSTRAINT version_supported_languages_iso_code_foreign FOREIGN KEY (iso_code) REFERENCES public.iso_639_3_languages(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: vn_list_entries vn_list_entries_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_list_entries
+    ADD CONSTRAINT vn_list_entries_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: vn_list_entries vn_list_entries_vn_list_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_list_entries
+    ADD CONSTRAINT vn_list_entries_vn_list_id_foreign FOREIGN KEY (vn_list_id) REFERENCES public.vn_lists(id) ON DELETE CASCADE;
+
+
+--
+-- Name: vn_lists vn_lists_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vn_lists
+    ADD CONSTRAINT vn_lists_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -1105,31 +2400,69 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 6	2024_03_01_000706_create_raters_table	1
 7	2024_03_01_000722_create_ratings_table	1
 8	2024_03_01_004125_create_game_versions_table	1
-9	2024_05_12_211909_modify_raters_table	1
-10	2024_05_12_211954_create_game_rater_table	1
-11	2024_05_13_200336_drop_game_rater_table	1
-12	2024_05_13_200810_modify_games_table	1
-13	2024_05_18_233635_modify_games_table	1
-14	2024_07_25_193937_add_uploads_column_to_games_table	1
-15	2024_12_28_001000_create_iso_639_3_languages_table	1
-16	2024_12_28_001100_create_language_mappings_table	1
-17	2024_12_28_001200_create_version_language_stats_table	1
-18	2024_12_28_001300_create_version_character_stats_table	1
-19	2024_12_28_114217_create_game_supported_languages_table	1
-20	2024_12_28_114259_migrate_version_stats	1
-21	2024_12_28_114327_modify_games_table	1
-22	2024_12_28_150226_rename_boolean_columns	1
-23	2024_12_28_233201_add_is_latest_to_game_versions_table	1
-24	2024_12_28_234040_add_indices_to_version_tables	1
-25	2025_01_05_174709_add_slug_to_games_table	1
-26	2025_01_05_230049_drop_stats_columns_from_game_versions_table	1
-27	2025_01_06_105417_create_processed_events_table	1
-28	2025_01_06_130710_add_is_feedless_to_games_table	1
-29	2025_01_06_134332_drop_duplicate_columns_from_games_table	1
-30	2025_01_10_172021_add_slug_trigger_for_games_table	1
-31	2025_01_10_220426_add_source_language_to_games_table	1
-32	2025_01_10_221901_drop_game_supported_languages_table	1
-33	2025_01_17_111449_set_default_values_in_database	1
+9	2024_05_12_211909_modify_raters_table	2
+10	2024_05_12_211954_create_game_rater_table	2
+11	2024_05_13_200336_drop_game_rater_table	3
+12	2024_05_13_200810_modify_games_table	3
+13	2024_05_18_233635_modify_games_table	4
+14	2024_07_25_193937_add_uploads_column_to_games_table	5
+15	2024_12_28_001000_create_iso_639_3_languages_table	6
+16	2024_12_28_001100_create_language_mappings_table	6
+17	2024_12_28_001200_create_version_language_stats_table	6
+18	2024_12_28_001300_create_version_character_stats_table	6
+19	2024_12_28_114217_create_game_supported_languages_table	6
+20	2024_12_28_114259_migrate_version_stats	6
+21	2024_12_28_114327_modify_games_table	6
+22	2024_12_28_150226_rename_boolean_columns	6
+23	2024_12_28_233201_add_is_latest_to_game_versions_table	6
+24	2024_12_28_234040_add_indices_to_version_tables	6
+25	2025_01_05_174709_add_slug_to_games_table	6
+26	2025_01_05_230049_drop_stats_columns_from_game_versions_table	6
+27	2025_01_06_105417_create_processed_events_table	7
+28	2025_01_06_130710_add_is_feedless_to_games_table	8
+29	2025_01_06_134332_drop_duplicate_columns_from_games_table	8
+30	2025_01_10_172021_add_slug_trigger_for_games_table	9
+31	2025_01_10_220426_add_source_language_to_games_table	10
+32	2025_01_10_221901_drop_game_supported_languages_table	10
+33	2025_01_17_111449_set_default_values_in_database	11
+34	2025_01_17_182345_add_default_columns_to_processed_events_table	12
+35	2025_01_17_190458_remove_processed_at_column_from_processed_events_table	12
+36	2025_01_19_163611_add_default_columns_to_discord_users_table	13
+37	2025_01_19_201905_migrate_version_character_stats	14
+38	2025_01_21_185728_add_display_name_corrections_to_character_table	15
+39	2025_01_28_220853_create_version_supported_languages_table	16
+40	2025_01_29_222525_add_index_to_ratings_table	17
+41	2025_01_24_135236_add_file_stats_tables	18
+42	2025_02_02_000804_increase_extension_column_length_in_version_file_types_table	19
+43	2025_02_02_180621_create_schedule_monitor_tables	20
+44	2025_02_11_234533_add_optimized_thumbnails_to_games_table	21
+45	2025_02_15_103117_add_alias_column_to_raters_table	22
+46	2025_02_16_143350_add_weight_to_raters_table	23
+47	2025_02_16_180625_add_scores_to_games_table	23
+48	2025_02_16_191716_add_suspicious_columns_to_raters_table	23
+49	2025_02_16_231617_create_cache_table	24
+50	2025_02_16_234103_add_indices_to_ratings_and_raters_tables	25
+51	2025_02_17_010819_add_raw_weighted_rating_to_games_table	26
+52	2025_03_02_001118_create_version_dialogue_lines_table	27
+53	2025_03_23_100103_add_game_id_column_to_language_mappings_table	28
+54	2025_03_23_124716_add_is_available_to_version_supported_languages_table	29
+55	2024_03_21_000001_create_social_accounts_table	30
+56	2025_03_21_121537_nullable_email_column_in_users_table	30
+57	2025_03_21_163104_add_avatar_column_to_users_table	30
+58	2025_03_23_000645_drop_weighted_scores_columns	30
+59	2024_03_22_000001_create_vn_lists_table	31
+60	2024_03_22_000002_create_vn_list_entries_table	31
+61	2024_03_25_000001_remove_rating_from_vn_list_entries	31
+62	2024_03_25_000002_add_sort_order_to_vn_list_entries	31
+63	2025_03_23_194354_create_user_game_progress_and_updates	31
+64	2025_03_25_000001_create_update_notifications_table	32
+65	2025_03_26_000001_create_user_notification_preferences_table	32
+66	2025_03_26_221629_add_notification_digest_to_user_notification_preferences	32
+67	2025_04_03_000001_create_push_subscriptions_table	33
+68	2025_04_03_000002_create_notification_queue_table	33
+69	2025_04_03_000003_add_receive_updates_to_user_game_progress	33
+70	2025_04_04_172600_add_meta_data_to_notification_queue	34
+71	2024_03_26_000001_create_import_states_table	35
 \.
 
 
@@ -1137,7 +2470,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 33, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 71, true);
 
 
 --
