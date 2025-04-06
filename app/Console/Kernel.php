@@ -6,6 +6,7 @@ namespace App\Console;
 
 use App\Console\Commands\BackfillRatings;
 use App\Console\Commands\GenerateSitemap;
+use App\Console\Commands\ImportGameVersionStats;
 use App\Console\Commands\ImportRatings;
 use App\Console\Commands\ProcessFeed;
 use App\Console\Commands\ProcessPushNotifications;
@@ -21,6 +22,7 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         GenerateSitemap::class,
+        ImportGameVersionStats::class,
         ImportRatings::class,
         ProcessFeed::class,
         RefreshFeedlessGames::class,
