@@ -14,7 +14,8 @@ export default defineConfig(({ command, mode }) => ({
                 'resources/js/charts-entry.ts',
                 'resources/js/push-notifications.js',
                 'resources/js/list-buttons.ts',
-                'resources/js/toggle-notifications.ts'
+                'resources/js/toggle-notifications.ts',
+                'resources/js/screenshots-lightbox.ts'
             ],
             refresh: true,
         }),

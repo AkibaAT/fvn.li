@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Console;
 
 use App\Console\Commands\BackfillRatings;
+use App\Console\Commands\FetchGameJamDetails;
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportGameVersionStats;
 use App\Console\Commands\ImportRatings;
 use App\Console\Commands\ProcessFeed;
+use App\Console\Commands\ProcessGameScreenshots;
+use App\Console\Commands\ProcessGameThumbnails;
 use App\Console\Commands\ProcessPushNotifications;
 use App\Console\Commands\QueueGameUpdateNotifications;
 use App\Console\Commands\RefreshFeedlessGames;
-use App\Console\Commands\RefreshGame;
+use App\Console\Commands\RefreshGames;
+use App\Console\Commands\SetGameJamRanking;
 use App\Console\Commands\UpdateWatchlist;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -25,12 +29,16 @@ class Kernel extends ConsoleKernel
         ImportGameVersionStats::class,
         ImportRatings::class,
         ProcessFeed::class,
+        ProcessGameScreenshots::class,
+        ProcessGameThumbnails::class,
         RefreshFeedlessGames::class,
-        RefreshGame::class,
+        RefreshGames::class,
         UpdateWatchlist::class,
         QueueGameUpdateNotifications::class,
         ProcessPushNotifications::class,
         BackfillRatings::class,
+        FetchGameJamDetails::class,
+        SetGameJamRanking::class,
     ];
 
     /**
@@ -44,6 +52,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('games:refresh-feedless')->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
+        $schedule->command('games:process-screenshots')->dailyAt('03:00')->withoutOverlapping();
+        $schedule->command('game-jams:fetch-details', ['--limit' => 20])->hourly()->withoutOverlapping();
 
         // Notification commands
         $schedule->command('notifications:queue-game-updates')->everyMinute()->withoutOverlapping();

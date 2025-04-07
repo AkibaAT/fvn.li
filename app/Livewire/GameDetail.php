@@ -299,6 +299,12 @@ class GameDetail extends Component
             'userLists' => $userLists,
             'publicLists' => $publicLists,
             'receiveNotifications' => $this->receiveNotifications,
+            'gameJams' => $this->game->gameJams,
+            'hasPrice' => $this->game->min_price > 0,
+            'minPrice' => $this->game->min_price,
+            'suggestedPrice' => $this->game->suggested_price,
+            'isOnSale' => $this->game->is_on_sale,
+            'screenshots' => $this->game->getScreenshots(),
         ])
             ->layout('components.layouts.app', [
                 'metaTags' => $metaTags,

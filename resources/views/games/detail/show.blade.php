@@ -17,6 +17,12 @@
                         Details
                     </a>
                 @endif
+                @if (count($screenshots) > 0)
+                    <a href="#screenshots"
+                       class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                        Screenshots
+                    </a>
+                @endif
                 @if ($versions->isNotEmpty())
                     <a href="#versions"
                        class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
@@ -114,7 +120,11 @@
                     @endif
 
                     <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
-                        {!! $game->description !!}
+                        @if ($game->full_description)
+                            {!! $game->full_description !!}
+                        @else
+                            {!! $game->description !!}
+                        @endif
                     </div>
                 </div>
             </div>
@@ -147,6 +157,7 @@
                             'Characters' => $versionCharacterCounts[$latestVersion?->id] ?? '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
+                            'Price' => $hasPrice ? ('$' . number_format($minPrice, 2) . ($isOnSale ? ' (On Sale)' : '')) : 'Free',
                         ] as $label => $value)
                             @if ($value)
                                 <div>
@@ -190,10 +201,66 @@
                         </div>
                     @endif
                 </div>
+
+                {{-- Game Jams --}}
+                @if ($gameJams->isNotEmpty())
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                            Game Jams
+                        </h2>
+                        <div class="space-y-4">
+                            @foreach ($gameJams as $jam)
+                                <div class="border-b border-gray-200 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
+                                    <h3 class="font-medium text-gray-900 dark:text-gray-100">
+                                        <a href="{{ $jam->url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                                            {{ $jam->name }}
+                                        </a>
+                                    </h3>
+                                    @if ($jam->start_date && $jam->end_date)
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                                            {{ $jam->start_date->format('M j, Y') }} - {{ $jam->end_date->format('M j, Y') }}
+                                        </p>
+                                    @endif
+                                    @if ($jam->theme)
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            <span class="font-medium">Theme:</span> {{ $jam->theme }}
+                                        </p>
+                                    @endif
+                                    @if ($jam->submission_count)
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            <span class="font-medium">Submissions:</span> {{ number_format($jam->submission_count) }}
+                                        </p>
+                                    @endif
+                                    @if ($jam->pivot && $jam->pivot->ranking)
+                                        <p class="text-sm font-medium text-green-600 dark:text-green-400 mt-1">
+                                            {{ $jam->pivot->ranking }}
+                                        </p>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+
             </div>
         @endif
 
-        {{-- Game Versions --}}
+        {{-- Screenshots Gallery (Full Width) --}}
+        @if (count($screenshots) > 0)
+            <div id="screenshots" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6 scroll-mt-14">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    Screenshots
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="screenshots-gallery">
+                    @foreach ($screenshots as $index => $screenshot)
+                        <a href="{{ $screenshot['url'] }}" data-title="Screenshot {{ $index + 1 }}" class="block overflow-hidden rounded-lg hover:opacity-90 transition-opacity">
+                            <img src="{{ $screenshot['thumbnail_url'] }}" alt="Screenshot {{ $index + 1 }}" class="w-full h-auto object-cover">
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
         @if ($versions->isNotEmpty())
             <div id="versions" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6 scroll-mt-14">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -529,6 +596,7 @@
     @push('scripts')
         @vite('resources/js/list-buttons.ts')
         @vite('resources/js/toggle-notifications.ts')
+        @vite('resources/js/screenshots-lightbox.ts')
     @endpush
 </div>
 

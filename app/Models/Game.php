@@ -32,12 +32,17 @@ class Game extends Model
         'is_visible',
         'is_nsfw',
         'description',
+        'full_description',
         'url',
         'thumb_url',
         'game_engine',
         'authors',
         'custom_tags',
         'source_language_id',
+        'min_price',
+        'suggested_price',
+        'is_on_sale',
+        'screenshots',
     ];
 
     protected $casts = [
@@ -45,6 +50,8 @@ class Game extends Model
         'latest_version_published_at' => 'datetime',
         'rating' => 'float',
         'rating_count' => 'integer',
+        'min_price' => 'float',
+        'suggested_price' => 'float',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
         'is_mac' => 'boolean',
@@ -52,9 +59,11 @@ class Game extends Model
         'is_web' => 'boolean',
         'is_nsfw' => 'boolean',
         'is_visible' => 'boolean',
+        'is_on_sale' => 'boolean',
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
+        'screenshots' => 'array',
         'average_score' => 'float',
         'ratings_count' => 'integer',
     ];
@@ -641,6 +650,18 @@ class Game extends Model
             $ratingCount = (int) $ratingCountElement->getAttribute('content');
         }
 
+        // Get price information
+        $this->extractPriceInformation($doc);
+
+        // Get full description
+        $this->extractFullDescription($doc);
+
+        // Get screenshots
+        $this->extractScreenshots($doc);
+
+        // Get game jam information
+        $this->extractGameJamInfo($doc);
+
         // Get game info table data
         $infoTable = $doc->querySelector('div.game_info_panel_widget table');
         if ($infoTable) {
@@ -714,7 +735,9 @@ class Game extends Model
             return $this->thumb_url;
         }
 
-        return Storage::disk('public')->url($this->optimized_thumbnails[$variant]['path']);
+        $path = $this->optimized_thumbnails[$variant]['path'];
+
+        return asset('storage/' . $path);
     }
 
     /**
@@ -741,6 +764,83 @@ class Game extends Model
     public function languageMappings(): HasMany
     {
         return $this->hasMany(LanguageMapping::class);
+    }
+
+    /**
+     * Get the game jams this game has participated in.
+     */
+    public function gameJams(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(GameJam::class, 'game_game_jam')
+            ->withPivot('ranking')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get a screenshot URL by variant
+     */
+    public function getScreenshotUrl(int $index = 0, string $variant = 'default'): ?string
+    {
+        if (empty($this->screenshots) || ! isset($this->screenshots[$index])) {
+            return null;
+        }
+
+        if (! isset($this->screenshots[$index]['optimized'][$variant])) {
+            return $this->screenshots[$index]['url'] ?? null;
+        }
+
+        $path = $this->screenshots[$index]['optimized'][$variant]['path'];
+
+        return asset('storage/' . $path);
+    }
+
+    /**
+     * Get all screenshots
+     *
+     * @param string $variant The variant of the screenshot to get (small, default, large)
+     * @return array The screenshots with optimized URLs if available
+     */
+    public function getScreenshots(string $variant = 'default'): array
+    {
+        if (empty($this->screenshots)) {
+            return [];
+        }
+
+        $screenshots = [];
+
+        foreach ($this->screenshots as $index => $screenshot) {
+            $screenshots[] = [
+                'url' => $this->getScreenshotUrl($index, 'large'),
+                'thumbnail_url' => $this->getScreenshotUrl($index, $variant),
+            ];
+        }
+
+        return $screenshots;
+    }
+
+    /**
+     * Clear all optimized screenshots
+     */
+    public function clearOptimizedScreenshots(): void
+    {
+        if (empty($this->screenshots)) {
+            return;
+        }
+
+        foreach ($this->screenshots as $index => $screenshot) {
+            if (isset($screenshot['optimized'])) {
+                foreach ($screenshot['optimized'] as $variant) {
+                    if (isset($variant['path'])) {
+                        Storage::disk('public')->delete($variant['path']);
+                    }
+                }
+
+                // Remove optimized data but keep original URL
+                $this->screenshots[$index]['optimized'] = null;
+            }
+        }
+
+        $this->save();
     }
 
     protected function devlog(): Attribute
@@ -771,6 +871,191 @@ class Game extends Model
                 'web' => $this->latestVersion?->is_web ?? false,
             ],
         );
+    }
+
+    /**
+     * Extract price information from the game page
+     */
+    private function extractPriceInformation(HTMLDocument $doc): void
+    {
+        // Check for price information
+        $buySection = $doc->querySelector('.buy_game_section');
+        if (! $buySection) {
+            // Game is free
+            $this->min_price = 0;
+            $this->suggested_price = 0;
+            $this->is_on_sale = false;
+
+            return;
+        }
+
+        // Check for sale status
+        $saleTag = $buySection->querySelector('.sale_tag');
+        $this->is_on_sale = $saleTag !== null;
+
+        // Get minimum price
+        $minPriceElement = $buySection->querySelector('.base_price');
+        if ($minPriceElement) {
+            $priceText = trim($minPriceElement->textContent);
+            // Extract numeric value from price text (e.g., "$5.00" -> 5.00)
+            preg_match('/\$?(\d+\.?\d*)/', $priceText, $matches);
+            $this->min_price = $matches[1] ?? 0;
+        } else {
+            $this->min_price = 0;
+        }
+
+        // Get suggested price if available
+        $suggestedPriceElement = $buySection->querySelector('.suggested_price');
+        if ($suggestedPriceElement) {
+            $priceText = trim($suggestedPriceElement->textContent);
+            preg_match('/\$?(\d+\.?\d*)/', $priceText, $matches);
+            $this->suggested_price = $matches[1] ?? $this->min_price;
+        } else {
+            $this->suggested_price = $this->min_price;
+        }
+    }
+
+    /**
+     * Extract full description from the game page
+     */
+    private function extractFullDescription(HTMLDocument $doc): void
+    {
+        $descriptionElement = $doc->querySelector('.formatted_description');
+        if ($descriptionElement) {
+            // Get the HTML content of the description
+            $this->full_description = $descriptionElement->innerHTML;
+
+            // Also update the regular description if it's empty
+            if (empty($this->description)) {
+                $this->description = strip_tags($this->full_description);
+            }
+        }
+    }
+
+    /**
+     * Extract screenshots from the game page
+     */
+    private function extractScreenshots(HTMLDocument $doc): void
+    {
+        $screenshots = [];
+
+        // Look for screenshots in the carousel
+        $carousel = $doc->querySelector('.screenshot_list');
+        if ($carousel) {
+            // First try with the screenshot_link class (older format)
+            $screenshotElements = $carousel->querySelectorAll('a.screenshot_link');
+
+            // If no elements found, try with data-image_lightbox attribute (newer format)
+            if (count($screenshotElements) === 0) {
+                $screenshotElements = $carousel->querySelectorAll('a[data-image_lightbox="true"]');
+            }
+
+            // If still no elements found, try with all a elements in the carousel
+            if (count($screenshotElements) === 0) {
+                $screenshotElements = $carousel->querySelectorAll('a');
+            }
+
+            foreach ($screenshotElements as $element) {
+                $imageUrl = $element->getAttribute('href');
+                if ($imageUrl) {
+                    $thumbnailElement = $element->querySelector('img');
+                    $thumbnailUrl = $thumbnailElement ? $thumbnailElement->getAttribute('src') : $imageUrl;
+
+                    // Skip if the URL doesn't look like an image
+                    if (!preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $imageUrl)) {
+                        continue;
+                    }
+
+                    $screenshots[] = [
+                        'url' => $imageUrl,
+                        'thumbnail_url' => $thumbnailUrl,
+                    ];
+                }
+            }
+        }
+
+        // Only update if we found screenshots and don't already have them
+        if (! empty($screenshots) && (empty($this->screenshots) || count($screenshots) > count($this->screenshots))) {
+            $this->screenshots = $screenshots;
+        }
+    }
+
+    /**
+     * Extract game jam information from the game page
+     */
+    private function extractGameJamInfo(HTMLDocument $doc): void
+    {
+        $jamUrl = null;
+        $jamName = null;
+
+        // First, look for the standard game jam info section
+        $jamSection = $doc->querySelector('.game_jam_info');
+        if ($jamSection) {
+            $jamLink = $jamSection->querySelector('a');
+            if ($jamLink) {
+                $jamUrl = $jamLink->getAttribute('href');
+                $jamName = trim($jamLink->textContent);
+            }
+        }
+
+        // If not found, look for submission links in the navigation area
+        if (! $jamUrl) {
+            // Look for links containing '/jam/' in their URL
+            $jamLinks = $doc->querySelectorAll('a[href*="/jam/"]');
+            foreach ($jamLinks as $link) {
+                $href = $link->getAttribute('href');
+                $text = trim($link->textContent);
+
+                // Check if it's a submission link
+                if (strpos($text, 'Submission to') === 0 ||
+                    strpos($href, '/rate/') !== false ||
+                    strpos($href, '/jam/') !== false) {
+
+                    // Extract jam name
+                    if (strpos($text, 'Submission to') === 0) {
+                        $jamName = str_replace('Submission to ', '', $text);
+                    } else {
+                        // Try to find the jam name in the page title
+                        $titleElement = $doc->querySelector('title');
+                        if ($titleElement) {
+                            $pageTitle = trim($titleElement->textContent);
+                            // Remove ' - itch.io' from the end if present
+                            $jamName = preg_replace('/ - itch\.io$/', '', $pageTitle);
+                        } else {
+                            // Use the URL slug as a fallback
+                            $urlParts = explode('/', $href);
+                            $slug = end($urlParts);
+                            $jamName = str_replace('-', ' ', $slug);
+                            $jamName = ucwords($jamName);
+                        }
+                    }
+
+                    // Extract the main game jam URL
+                    if (preg_match('|(https?://[^/]+/jam/[^/]+)/rate/|', $href, $matches)) {
+                        $jamUrl = $matches[1];
+                    } elseif (strpos($href, 'http') === 0) {
+                        $jamUrl = $href;
+                    } else {
+                        // Handle relative URLs
+                        $jamUrl = 'https://itch.io' . $href;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        if (empty($jamUrl) || empty($jamName)) {
+            return;
+        }
+
+        // Use the GameJam model to find or create the game jam
+        $gameJam = GameJam::findOrCreateFromUrl($jamUrl, $jamName);
+
+        // Associate the game with the game jam if not already associated
+        if (! $this->gameJams()->where('game_jam_id', $gameJam->id)->exists()) {
+            $this->gameJams()->attach($gameJam->id);
+        }
     }
 
     /**
