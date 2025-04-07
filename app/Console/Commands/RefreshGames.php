@@ -11,9 +11,9 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class RefreshGame extends Command
+class RefreshGames extends Command
 {
-    protected $signature = 'game:refresh
+    protected $signature = 'games:refresh
         {name : Part of the game name to search for}
         {--update-version : Refresh version information}
         {--update-info : Refresh base game information}
