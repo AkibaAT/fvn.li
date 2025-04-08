@@ -26,7 +26,7 @@ if [ -n "${DOCKER_IMAGE:-}" ]; then
   docker compose pull
 
   # Full restart
-  docker compose down
+  docker compose down --remove-orphans
   docker compose up -d
 
   # Run Laravel commands
@@ -61,7 +61,7 @@ else
     echo "Container is not running, starting it..."
 
     # Start the containers without pulling (using existing image)
-    docker compose up -d
+    docker compose up -d --remove-orphans
 
     # Run Laravel commands
     docker compose exec app php artisan storage:link

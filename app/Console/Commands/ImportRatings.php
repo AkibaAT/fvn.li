@@ -60,7 +60,7 @@ class ImportRatings extends Command
 
                     if ($startEventId) {
                         $successCount++;
-                        sleep(30); // Rate limiting between pages
+                        sleep(10); // Rate limiting between pages
                     }
                 } catch (Exception $e) {
                     $errorCount++;

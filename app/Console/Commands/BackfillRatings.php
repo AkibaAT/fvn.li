@@ -69,7 +69,7 @@ class BackfillRatings extends Command
                             break;
                         }
 
-                        sleep(30); // Rate limiting between pages
+                        sleep(5); // Rate limiting between pages
                     }
                 } catch (Exception $e) {
                     $errorCount++;
