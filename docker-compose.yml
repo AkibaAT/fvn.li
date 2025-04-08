@@ -2,8 +2,6 @@ x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
   image: postgres:17.4
-x-pgbouncer: &pgbouncer
-  image: edoburu/pgbouncer
 x-redis: &redis
   image: redis:7
 
@@ -29,7 +27,7 @@ services:
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=https"
-  postgres:
+  db:
     <<: *db
     restart: unless-stopped
     command:
@@ -42,27 +40,14 @@ services:
       - "shared_buffers=6GB"
     networks:
       - fvnli
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
     environment:
       - POSTGRES_DB=${DB_DATABASE}
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - db:/var/lib/postgresql/data
-  db:
-    <<: *pgbouncer
-    restart: unless-stopped
-    depends_on:
-      - postgres
-    networks:
-      - fvnli
-    ports:
-      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
-    environment:
-      - AUTH_TYPE=scram-sha-256
-      - DB_HOST=postgres
-      - DB_NAME=${DB_DATABASE}
-      - DB_USER=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
   redis:
     <<: *redis
     restart: unless-stopped
