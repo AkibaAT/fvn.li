@@ -1,3 +1,9 @@
+@if ($game->custom_css)
+    <style id="custom_css">
+        {!! $game->custom_css !!}
+    </style>
+@endif
+
 <div class="bg-gray-100 dark:bg-gray-900">
     <div class="max-w-7xl mx-auto">
         <div class="mb-5 flex items-center justify-between sticky top-0 z-10 bg-gray-100 dark:bg-gray-900 py-4">
@@ -119,7 +125,7 @@
                         </div>
                     @endif
 
-                    <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
+                    <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 game-description-container">
                         @if ($game->full_description)
                             {!! $game->full_description !!}
                         @else

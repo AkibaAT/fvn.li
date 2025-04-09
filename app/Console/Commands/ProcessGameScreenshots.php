@@ -262,25 +262,74 @@ class ProcessGameScreenshots extends Command
         array $config,
         int $quality
     ): void {
-        $image = $this->imageManager->read($sourcePath);
+        try {
+            // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
+            $imageInfo = getimagesize($sourcePath);
+            $mimeType = $imageInfo['mime'];
 
-        // Resize and maintain aspect ratio
-        $image->resize($config['width'], $config['height'], function ($constraint) {
-            $constraint->aspectRatio();
-            $constraint->upsize();
-        });
+            if ($mimeType === 'image/gif') {
+                $tempJpg = tempnam(sys_get_temp_dir(), 'screenshot_frame_');
+                // Extract first frame and convert to JPG
+                $command = sprintf(
+                    'convert %s[0] -background white -flatten %s',
+                    escapeshellarg($sourcePath),
+                    escapeshellarg($tempJpg)
+                );
+                exec($command, $output, $returnCode);
 
-        // Create a canvas with the target dimensions and background color
-        $canvas = $this->imageManager->create($config['width'], $config['height'], self::BACKGROUND_COLOR);
+                if ($returnCode !== 0) {
+                    throw new Exception('Failed to extract first frame from GIF');
+                }
 
-        // Center the image on the canvas
-        $canvas->place($image, 'center');
+                // Use the extracted frame as source
+                $sourcePath = $tempJpg;
+            }
 
-        // Save as WebP
-        Storage::disk('public')->put(
-            $targetPath,
-            (string) $canvas->toWebp($quality)
-        );
+            try {
+                // Load and process source image
+                $image = $this->imageManager->read($sourcePath);
+
+                // Verify we got a valid image
+                if ($image->width() === 0 || $image->height() === 0) {
+                    throw new Exception('Invalid image dimensions');
+                }
+
+                $this->info("Processing image: {$image->width()}x{$image->height()} pixels");
+
+                // Resize and maintain aspect ratio
+                $image->resize($config['width'], $config['height'], function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                });
+
+                // Create a canvas with the target dimensions and background color
+                $canvas = $this->imageManager->create($config['width'], $config['height'], self::BACKGROUND_COLOR);
+
+                // Center the image on the canvas
+                $canvas->place($image, 'center');
+
+                // Save as WebP
+                Storage::disk('public')->put(
+                    $targetPath,
+                    (string) $canvas->toWebp($quality)
+                );
+            } finally {
+                // Clean up temporary frame file if it exists
+                if (isset($tempJpg) && file_exists($tempJpg)) {
+                    unlink($tempJpg);
+                }
+            }
+        } catch (Exception $e) {
+            throw new Exception("Failed to process static image: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Get the absolute path for the given storage path
+     */
+    private function getRealPath(string $path): string
+    {
+        return Storage::disk('public')->path($path);
     }
 
     /**
@@ -288,7 +337,7 @@ class ProcessGameScreenshots extends Command
      */
     private function getImageDimensions(string $path): array
     {
-        $fullPath = Storage::disk('public')->path($path);
+        $fullPath = $this->getRealPath($path);
         $imageInfo = getimagesize($fullPath);
 
         return [

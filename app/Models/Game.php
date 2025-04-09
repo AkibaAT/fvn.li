@@ -33,6 +33,7 @@ class Game extends Model
         'is_nsfw',
         'description',
         'full_description',
+        'custom_css',
         'url',
         'thumb_url',
         'game_engine',
@@ -64,6 +65,7 @@ class Game extends Model
         'supported_languages' => 'collection',
         'uploads' => 'array',
         'screenshots' => 'array',
+        'custom_css' => 'string',
         'average_score' => 'float',
         'ratings_count' => 'integer',
     ];
@@ -659,6 +661,9 @@ class Game extends Model
         // Get screenshots
         $this->extractScreenshots($doc);
 
+        // Get custom CSS
+        $this->extractCustomCss($html);
+
         // Get game jam information
         $this->extractGameJamInfo($doc);
 
@@ -797,7 +802,7 @@ class Game extends Model
     /**
      * Get all screenshots
      *
-     * @param string $variant The variant of the screenshot to get (small, default, large)
+     * @param  string  $variant  The variant of the screenshot to get (small, default, large)
      * @return array The screenshots with optimized URLs if available
      */
     public function getScreenshots(string $variant = 'default'): array
@@ -962,7 +967,7 @@ class Game extends Model
                     $thumbnailUrl = $thumbnailElement ? $thumbnailElement->getAttribute('src') : $imageUrl;
 
                     // Skip if the URL doesn't look like an image
-                    if (!preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $imageUrl)) {
+                    if (! preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $imageUrl)) {
                         continue;
                     }
 
@@ -978,6 +983,26 @@ class Game extends Model
         if (! empty($screenshots) && (empty($this->screenshots) || count($screenshots) > count($this->screenshots))) {
             $this->screenshots = $screenshots;
         }
+    }
+
+    /**
+     * Extract custom CSS from the game page
+     */
+    private function extractCustomCss(string $html): void
+    {
+        $customCss = '';
+
+        // Look for the game theme CSS in the HTML
+        if (preg_match('/<style type="text\/css" id="game_theme">([\s\S]*?)<\/style>/i', $html, $matches)) {
+            $customCss .= trim($matches[1]) . "\n\n";
+        }
+
+        // Look for the custom CSS in the HTML
+        if (preg_match('/<style type="text\/css" id="custom_css">([\s\S]*?)<\/style>/i', $html, $matches)) {
+            $customCss .= trim($matches[1]);
+        }
+
+        $this->custom_css = ! empty($customCss) ? $customCss : null;
     }
 
     /**
