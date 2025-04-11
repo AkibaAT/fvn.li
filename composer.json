@@ -28,6 +28,7 @@
         "meilisearch/meilisearch-php": "^1.13",
         "minishlink/web-push": "^9.0",
         "predis/predis": "*",
+        "sabberworm/php-css-parser": "^8.8",
         "socialiteproviders/discord": "^4.2",
         "socialiteproviders/google": "^4.1",
         "socialiteproviders/steam": "^4.3",

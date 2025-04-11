@@ -928,11 +928,17 @@ class Game extends Model
         $descriptionElement = $doc->querySelector('.formatted_description');
         if ($descriptionElement) {
             // Get the HTML content of the description
-            $this->full_description = $descriptionElement->innerHTML;
+            $htmlContent = $descriptionElement->innerHTML;
+
+            // Process the HTML content to apply our styling
+            $htmlProcessor = app(\App\Services\ItchHtmlProcessor::class);
+            $processedHtml = $htmlProcessor->process($htmlContent);
+
+            $this->full_description = $processedHtml;
 
             // Also update the regular description if it's empty
             if (empty($this->description)) {
-                $this->description = strip_tags($this->full_description);
+                $this->description = strip_tags($processedHtml);
             }
         }
     }
@@ -1002,7 +1008,24 @@ class Game extends Model
             $customCss .= trim($matches[1]);
         }
 
-        $this->custom_css = ! empty($customCss) ? $customCss : null;
+        // If we have CSS, process it to remove colors and header styling
+        if (! empty($customCss)) {
+            // Process the CSS using our CSS processor
+            $cssProcessor = app(\App\Services\ItchCssProcessor::class);
+            $processedCss = $cssProcessor->process($customCss);
+
+            if (! empty($processedCss)) {
+                // Add proper scoping to the processed CSS
+                $customCss = ".game_description {\n" . $processedCss . "\n}";
+            } else {
+                // If processing resulted in empty CSS, set to null
+                $customCss = null;
+            }
+        } else {
+            $customCss = null;
+        }
+
+        $this->custom_css = $customCss;
     }
 
     /**
