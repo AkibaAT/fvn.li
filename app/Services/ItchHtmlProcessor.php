@@ -305,6 +305,13 @@ class ItchHtmlProcessor
             // Add Tailwind classes for images
             $imageClasses = ['max-w-full', 'h-auto', 'rounded-lg', 'my-4'];
 
+            // Check if parent is a paragraph with text-center class
+            $parent = $image->parentNode;
+            $parentClasses = $parent->getAttribute('class');
+            if (str_contains($parentClasses, 'text-center')) {
+                $imageClasses[] = 'mx-auto';
+            }
+
             foreach ($imageClasses as $class) {
                 if (! in_array($class, $classArray)) {
                     $classArray[] = $class;
