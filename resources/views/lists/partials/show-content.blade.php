@@ -277,7 +277,7 @@
                                 </form>
                             </div>
                             <div class="w-30 pr-1">
-                                <x-games::notification-toggle :game="$entry->game" />
+                                <x-games::notification-toggle :game="$entry->game" :compact="true" />
                             </div>
                         @endif
                     </div>
