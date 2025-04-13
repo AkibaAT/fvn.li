@@ -50,6 +50,12 @@ class GameList extends Component
 
     public bool $sfw = false;
 
+    public bool $showPaid = false;
+
+    public bool $showFree = false;
+
+    public bool $showDemo = false;
+
     public bool $showHidden = false;
 
     public string $sortField = 'latest_version_published_at';
@@ -71,6 +77,9 @@ class GameList extends Component
         'selectedGameJams' => ['except' => []],
         'nsfw' => ['except' => false],
         'sfw' => ['except' => false],
+        'showPaid' => ['except' => false],
+        'showFree' => ['except' => false],
+        'showDemo' => ['except' => false],
         'sortField' => ['except' => 'latest_version_published_at'],
         'sortDirection' => ['except' => 'desc'],
         'perPage' => ['except' => 9],
@@ -147,6 +156,9 @@ class GameList extends Component
         $this->selectedLanguages = [];
         $this->selectedGameJams = [];
         $this->nsfw = false;
+        $this->showPaid = false;
+        $this->showFree = false;
+        $this->showDemo = false;
 
         // Dispatch an event to notify Alpine components that filters were cleared
         $this->dispatch('filtersCleared');
@@ -256,6 +268,16 @@ class GameList extends Component
                 } elseif (! $this->sfw && $this->nsfw) {
                     $q->where('games.is_nsfw', true);
                 }
+            })
+            ->when($this->showPaid || $this->showFree, function ($q) {
+                if ($this->showPaid && ! $this->showFree) {
+                    $q->where('games.is_paid', true);
+                } elseif (! $this->showPaid && $this->showFree) {
+                    $q->where('games.is_paid', false);
+                }
+            })
+            ->when($this->showDemo, function ($q) {
+                $q->where('games.has_demo', true);
             });
 
         // Handle sorting

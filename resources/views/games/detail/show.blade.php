@@ -72,6 +72,18 @@
                                     NSFW
                                 </span>
                             @endif
+
+                            @if ($game->is_paid)
+                                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+                                    {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                                </span>
+                            @endif
+
+                            @if ($game->has_demo)
+                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full">
+                                    Demo
+                                </span>
+                            @endif
                         </div>
 
                         {{-- List Tags and Notifications --}}
@@ -164,7 +176,6 @@
                             'Characters' => $versionCharacterCounts[$latestVersion?->id] ?? '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
-                            'Price' => $hasPrice ? ('$' . number_format($minPrice, 2) . ($isOnSale ? ' (On Sale)' : '')) : 'Free',
                         ] as $label => $value)
                             @if ($value)
                                 <div>

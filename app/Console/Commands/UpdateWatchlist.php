@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Log;
 
 class UpdateWatchlist extends Command
 {
-    protected $signature = 'games:update-watchlist';
+    protected $signature = 'games:update-watchlist
+        {--collection=both : Which collection to process (free, paid, or both)}';
     protected $description = 'Update games from itch.io collection and follow creators';
 
     private ItchAuthService $authService;
@@ -36,24 +37,29 @@ class UpdateWatchlist extends Command
 
         try {
             $client = $this->authService->getClient();
-            $collectionId = config('services.itch.collection_id');
+            $collection = $this->option('collection');
 
-            if (! $collectionId) {
-                throw new Exception('Itch collection ID not configured');
+            // Process free collection
+            if ($collection === 'free' || $collection === 'both') {
+                $collectionId = config('services.itch.free_collection_id');
+                if (! $collectionId) {
+                    $this->warn('Free collection ID not configured, skipping');
+                } else {
+                    $this->info('Processing free games collection');
+                    $this->processCollection($client, $collectionId, false);
+                }
             }
 
-            $page = 1;
-            do {
-                $this->info("Processing page {$page}");
-                $hasMore = $this->processCollectionPage($client, $collectionId, $page);
-
-                if ($hasMore) {
-                    $this->info('Waiting 30 seconds before next page...');
-                    sleep(30);
+            // Process paid collection
+            if ($collection === 'paid' || $collection === 'both') {
+                $paidCollectionId = config('services.itch.paid_collection_id');
+                if (! $paidCollectionId) {
+                    $this->warn('Paid collection ID not configured, skipping');
+                } else {
+                    $this->info('Processing paid games collection');
+                    $this->processCollection($client, $paidCollectionId, true);
                 }
-
-                $page++;
-            } while ($hasMore);
+            }
 
             $this->info("Watchlist update completed. Processed {$this->processedGames} games, followed {$this->followedCreators} creators.");
 
@@ -72,7 +78,7 @@ class UpdateWatchlist extends Command
      *
      * @throws GuzzleException
      */
-    private function processCollectionPage($client, string $collectionId, int $page): bool
+    private function processCollectionPage($client, string $collectionId, int $page, bool $isPaid): bool
     {
         $response = $client->get("https://api.itch.io/collections/{$collectionId}/collection-games", [
             'query' => ['page' => $page],
@@ -87,17 +93,37 @@ class UpdateWatchlist extends Command
 
         foreach ($games as $collectionEntry) {
             $gameData = $collectionEntry['game'];
-            $this->processCollectionGame($client, $gameData);
+            $this->processCollectionGame($client, $gameData, $isPaid);
         }
 
         return true;
     }
 
     /**
+     * Process a collection
+     */
+    private function processCollection($client, string $collectionId, bool $isPaid): void
+    {
+        $page = 1;
+        do {
+            $this->info("Processing page {$page}");
+            $hasMore = $this->processCollectionPage($client, $collectionId, $page, $isPaid);
+
+            if ($hasMore) {
+                $this->info('Waiting 30 seconds before next page...');
+                sleep(30);
+            }
+
+            $page++;
+        } while ($hasMore);
+    }
+
+    /**
      * Process a single game from the collection
      */
-    private function processCollectionGame($client, array $gameData): void
+    private function processCollectionGame($client, array $gameData, bool $isPaid): void
     {
+        // Log the game being processed
         $this->processedGames++;
         $gameId = $gameData['id'];
 
@@ -124,11 +150,13 @@ class UpdateWatchlist extends Command
                 // Update if basic info has changed
                 if ($gameData['title'] !== $game->name ||
                     ($gameData['short_text'] ?? null) !== $game->description ||
-                    ($gameData['cover_url'] ?? null) !== $game->thumb_url) {
+                    ($gameData['cover_url'] ?? null) !== $game->thumb_url ||
+                    $game->is_paid !== $isPaid) {
 
                     $game->name = $gameData['title'];
                     $game->description = $gameData['short_text'] ?? null;
                     $game->thumb_url = $gameData['cover_url'] ?? null;
+                    $game->is_paid = $isPaid;
                     $game->updated_at = now();
                 }
 
@@ -147,13 +175,55 @@ class UpdateWatchlist extends Command
                     'url' => $gameData['url'],
                     'thumb_url' => $gameData['cover_url'] ?? null,
                     'source_language_id' => 'eng',
+                    'is_paid' => $isPaid,
+                    'is_visible' => true,
                 ]);
                 $shouldRefreshVersion = true;
             }
 
+            // Check if we need to do a full refresh for paid games
+            $needsFullRefresh = $shouldRefreshVersion;
+
+            // For paid games, we need to do a full refresh if:
+            // 1. The game is not visible
+            // 2. The paid status doesn't match what we expect
+            if ($isPaid && (! $game->is_visible || ! $game->is_paid)) {
+                $needsFullRefresh = true;
+                $this->info("  - Doing full refresh for paid game (visible: {$game->is_visible}, paid: {$game->is_paid})");
+            }
+
+            // Always set is_paid flag
+            $game->is_paid = $isPaid;
+            $game->is_visible = true;
+
+            // Check for demos in the uploads data
+            if ($isPaid && ! empty($game->uploads)) {
+                $hasDemo = false;
+                foreach ($game->uploads as $uploadData) {
+                    if (isset($uploadData['traits']) && is_array($uploadData['traits']) && in_array('demo', $uploadData['traits'])) {
+                        $hasDemo = true;
+                        break;
+                    }
+
+                    // Also check filename and display name for demo indicators
+                    $filename = strtolower($uploadData['filename'] ?? '');
+                    $displayName = strtolower($uploadData['display_name'] ?? '');
+
+                    if (str_contains($filename, 'demo') || str_contains($displayName, 'demo')) {
+                        $hasDemo = true;
+                        break;
+                    }
+                }
+
+                if ($hasDemo) {
+                    $this->info('  - Game has demo');
+                    $game->has_demo = true;
+                }
+            }
+
             // Load full details if needed
-            if ($shouldRefreshVersion) {
-                $game->is_visible = true;
+            if ($needsFullRefresh) {
+                $this->info('  - Loading full details');
                 $game->loadFullDetails($client);
             }
 

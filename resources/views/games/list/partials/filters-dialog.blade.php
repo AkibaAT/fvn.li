@@ -174,6 +174,30 @@
         @endforeach
 
         <div>
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pricing</div>
+            <div class="flex flex-wrap gap-2">
+                <button wire:click="$toggle('showFree')"
+                        class="px-3 py-1 rounded-lg text-sm {{ $showFree
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
+                    Free Games
+                </button>
+                <button wire:click="$toggle('showPaid')"
+                        class="px-3 py-1 rounded-lg text-sm {{ $showPaid
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
+                    Paid Games
+                </button>
+                <button wire:click="$toggle('showDemo')"
+                        class="px-3 py-1 rounded-lg text-sm {{ $showDemo
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
+                    Has Demo
+                </button>
+            </div>
+        </div>
+
+        <div>
             <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Visibility</div>
             <div class="flex flex-wrap gap-2">
                 <button wire:click="$toggle('showHidden')"

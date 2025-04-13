@@ -8,10 +8,22 @@
     class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         @if ($game->is_visible)
-            <div class="flex flex-col h-full">
+            <div class="flex flex-col h-full relative">
                 <a href="{{ route('games.show', $game) }}">
                     <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
                 </a>
+                <div class="absolute top-0 left-0 flex flex-col gap-0.5">
+                    @if ($game->is_paid)
+                        <div class="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-br">
+                            {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                        </div>
+                    @endif
+                    @if ($game->has_demo)
+                        <div class="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-br">
+                            Demo
+                        </div>
+                    @endif
+                </div>
             </div>
         @endif
         <div class="flex flex-col min-w-0 flex-1">

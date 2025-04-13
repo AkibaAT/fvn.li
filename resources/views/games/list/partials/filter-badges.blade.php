@@ -89,3 +89,27 @@
         <span class="ml-2">&times;</span>
     </button>
 @endif
+
+@if ($showPaid)
+    <button wire:click="$toggle('showPaid')"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+        Paid Games
+        <span class="ml-2">&times;</span>
+    </button>
+@endif
+
+@if ($showFree)
+    <button wire:click="$toggle('showFree')"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+        Free Games
+        <span class="ml-2">&times;</span>
+    </button>
+@endif
+
+@if ($showDemo)
+    <button wire:click="$toggle('showDemo')"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+        Has Demo
+        <span class="ml-2">&times;</span>
+    </button>
+@endif

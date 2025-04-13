@@ -36,7 +36,8 @@ return [
     'itch' => [
         'username' => env('ITCH_USERNAME'),
         'password' => env('ITCH_PASSWORD'),
-        'collection_id' => env('ITCH_COLLECTION_ID'),
+        'free_collection_id' => env('ITCH_FREE_COLLECTION_ID'),
+        'paid_collection_id' => env('ITCH_PAID_COLLECTION_ID'),
     ],
 
     'itchio' => [

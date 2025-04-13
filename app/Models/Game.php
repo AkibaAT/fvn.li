@@ -43,6 +43,8 @@ class Game extends Model
         'min_price',
         'suggested_price',
         'is_on_sale',
+        'is_paid',
+        'has_demo',
         'screenshots',
     ];
 
@@ -61,6 +63,8 @@ class Game extends Model
         'is_nsfw' => 'boolean',
         'is_visible' => 'boolean',
         'is_on_sale' => 'boolean',
+        'is_paid' => 'boolean',
+        'has_demo' => 'boolean',
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
@@ -814,6 +818,8 @@ class Game extends Model
             $this->min_price = 0;
             $this->suggested_price = 0;
             $this->is_on_sale = false;
+            $this->is_paid = false;
+            $this->has_demo = false;
 
             return;
         }
@@ -841,6 +847,78 @@ class Game extends Model
             $this->suggested_price = $matches[1] ?? $this->min_price;
         } else {
             $this->suggested_price = $this->min_price;
+        }
+
+        // Set paid status based on price
+        $this->is_paid = $this->min_price > 0;
+
+        // Check if a paid game has a demo
+        $this->has_demo = false;
+        if ($this->is_paid) {
+            // We'll determine if there's a demo by checking if there are any free downloads available
+            // or if there's a browser playable version
+
+            // First check for browser playable version
+            $playButton = $doc->querySelector('.play_btn');
+            $playInBrowser = $doc->querySelector('a[data-action="play_in_browser"]');
+            $hasBrowserPlayable = ($playButton !== null || $playInBrowser !== null);
+
+            // Then check for free downloads using the uploads data we already have
+            $hasFreeDownload = false;
+            if (! empty($this->uploads)) {
+                foreach ($this->uploads as $uploadData) {
+                    // Check if this is a demo by looking at the filename or display name
+                    $filename = strtolower($uploadData['filename'] ?? '');
+                    $displayName = strtolower($uploadData['display_name'] ?? '');
+
+                    // Check if it's explicitly marked as a demo
+                    $isDemoFile = str_contains($filename, 'demo') ||
+                                  str_contains($displayName, 'demo') ||
+                                  str_contains($filename, 'trial') ||
+                                  str_contains($displayName, 'trial') ||
+                                  str_contains($filename, 'sample') ||
+                                  str_contains($displayName, 'sample');
+
+                    // Check if it's a free download (no price) or a demo
+                    $isFreeDownload = false;
+                    $isDemo = false;
+                    if (isset($uploadData['traits']) && is_array($uploadData['traits'])) {
+                        // If the upload has the 'p_free' trait, it's a free download
+                        $isFreeDownload = in_array('p_free', $uploadData['traits']);
+                        // If the upload has the 'demo' trait, it's a demo
+                        $isDemo = in_array('demo', $uploadData['traits']);
+                    }
+
+                    if ($isDemoFile || $isFreeDownload || $isDemo) {
+                        $hasFreeDownload = true;
+                        break;
+                    }
+                }
+            }
+
+            $this->has_demo = ($hasBrowserPlayable || $hasFreeDownload);
+
+            // Log the detection for debugging
+            Log::info("Demo detection for {$this->name}", [
+                'game_id' => $this->id,
+                'has_demo' => $this->has_demo,
+                'browser_playable' => $hasBrowserPlayable,
+                'free_download' => $hasFreeDownload,
+                'uploads_count' => count($this->uploads ?? []),
+                'uploads' => array_map(function ($upload) {
+                    $traits = $upload['traits'] ?? [];
+                    $isDemo = is_array($traits) && in_array('demo', $traits);
+                    $isFree = is_array($traits) && in_array('p_free', $traits);
+
+                    return [
+                        'filename' => $upload['filename'] ?? '',
+                        'display_name' => $upload['display_name'] ?? '',
+                        'traits' => $traits,
+                        'is_demo' => $isDemo,
+                        'is_free' => $isFree,
+                    ];
+                }, $this->uploads ?? []),
+            ]);
         }
     }
 
