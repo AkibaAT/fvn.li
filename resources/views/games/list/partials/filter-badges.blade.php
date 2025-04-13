@@ -19,12 +19,39 @@
             'items' => $selectedLanguages,
             'class' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
             'label' => fn($item) => $languages[$this->decodeFilterValue($item)]['ref_name'] ?? '???'
+        ],
+        'gamejam' => [
+            'items' => $selectedGameJams,
+            'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+            'label' => fn($item) => $gameJams[$item] ?? '???'
         ]
     ];
 @endphp
 
 @foreach ($filterConfigs as $type => $config)
-    @foreach ($config['items'] as $item)
+    @php
+        // For game jams, sort the items alphabetically by their labels
+        $items = $config['items'];
+        if ($type === 'gamejam' && count($items) > 0) {
+            // Create an array of [item, label] pairs
+            $itemsWithLabels = [];
+            foreach ($items as $item) {
+                $itemsWithLabels[] = [$item, $config['label']($item)];
+            }
+
+            // Sort by label
+            usort($itemsWithLabels, function($a, $b) {
+                return strcmp($a[1], $b[1]);
+            });
+
+            // Extract just the items in the new order
+            $items = array_map(function($pair) {
+                return $pair[0];
+            }, $itemsWithLabels);
+        }
+    @endphp
+
+    @foreach ($items as $item)
         @php
             $decodedItem = $this->decodeFilterValue($item);
         @endphp

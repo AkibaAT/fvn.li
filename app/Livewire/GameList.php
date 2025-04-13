@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Game;
+use App\Models\GameJam;
 use App\Models\Language;
 use App\Models\VnList;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
 use App\Traits\SortsVnLists;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -44,6 +44,8 @@ class GameList extends Component
 
     public array $selectedLanguages = [];
 
+    public array $selectedGameJams = [];
+
     public bool $nsfw = false;
 
     public bool $sfw = false;
@@ -66,6 +68,7 @@ class GameList extends Component
         'selectedEngines' => ['except' => []],
         'selectedPlatforms' => ['except' => []],
         'selectedLanguages' => ['except' => []],
+        'selectedGameJams' => ['except' => []],
         'nsfw' => ['except' => false],
         'sfw' => ['except' => false],
         'sortField' => ['except' => 'latest_version_published_at'],
@@ -82,6 +85,7 @@ class GameList extends Component
     {
         Cache::forget('game-filter-options');
         Cache::forget('game-languages');
+        Cache::forget('game-jams');
         self::$filterOptions = [];
     }
 
@@ -109,6 +113,7 @@ class GameList extends Component
             'engine' => 'selectedEngines',
             'platform' => 'selectedPlatforms',
             'language' => 'selectedLanguages',
+            'gamejam' => 'selectedGameJams',
             default => null,
         };
 
@@ -127,6 +132,11 @@ class GameList extends Component
 
         $this->{$property} = array_map([$this, 'encodeFilterValue'], array_values($array));
         $this->resetPage();
+
+        // If this is a game jam filter, dispatch an event to update the Alpine component
+        if ($type === 'gamejam') {
+            $this->dispatch('gameJamFiltersUpdated', selectedGameJams: $this->selectedGameJams);
+        }
     }
 
     public function clearFilters(): void
@@ -135,7 +145,11 @@ class GameList extends Component
         $this->selectedEngines = [];
         $this->selectedPlatforms = [];
         $this->selectedLanguages = [];
+        $this->selectedGameJams = [];
         $this->nsfw = false;
+
+        // Dispatch an event to notify Alpine components that filters were cleared
+        $this->dispatch('filtersCleared');
         $this->sfw = false;
         $this->sortField = 'latest_version_published_at';
         $this->sortDirection = 'desc';
@@ -227,6 +241,15 @@ class GameList extends Component
                         ->where('version_supported_languages.is_available', true);
                 });
             })
+            ->when(! empty($this->selectedGameJams), function ($q) {
+                $decodedGameJams = array_map([$this, 'decodeFilterValue'], $this->selectedGameJams);
+                $q->whereExists(function ($query) use ($decodedGameJams) {
+                    $query->select(DB::raw(1))
+                        ->from('game_game_jam')
+                        ->whereColumn('game_game_jam.game_id', 'games.id')
+                        ->whereIn('game_game_jam.game_jam_id', $decodedGameJams);
+                });
+            })
             ->when($this->nsfw || $this->sfw, function ($q) {
                 if ($this->sfw && ! $this->nsfw) {
                     $q->where('games.is_nsfw', false);
@@ -246,6 +269,9 @@ class GameList extends Component
         $query->orderByRaw("{$column} {$this->sortDirection} NULLS LAST");
 
         $games = $query->paginate($this->perPage);
+
+        // Eager load game jams for all games in the current page
+        $games->load(['gameJams']);
 
         // Transform supported languages into collection
         foreach ($games as $game) {
@@ -385,6 +411,28 @@ class GameList extends Component
                         'ref_name' => $lang->ref_name,
                         'flag_code' => $lang->flag_code,
                     ],
+                ])
+                ->all();
+        });
+
+        // Cache game jams for 1 hour
+        self::$filterOptions['gameJams'] = Cache::remember('game-jams', 3600, function () use ($visibilityScope) {
+            // Get game jams that have games associated with them
+            return GameJam::query()
+                ->whereExists(function ($query) use ($visibilityScope) {
+                    $query->select('game_game_jam.id')
+                        ->from('game_game_jam')
+                        ->join('games', function ($join) use ($visibilityScope) {
+                            $join->on('games.id', '=', 'game_game_jam.game_id');
+                            $visibilityScope($join);
+                        })
+                        ->whereColumn('game_game_jam.game_jam_id', 'game_jams.id')
+                        ->limit(1);
+                })
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn ($jam) => [
+                    $this->encodeFilterValue((string) $jam->id) => $jam->name,
                 ])
                 ->all();
         });

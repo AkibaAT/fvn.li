@@ -35,6 +35,13 @@
                     'items' => $gameEngines,
                     'selected' => $selectedEngines,
                     'class' => 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                ],
+                [
+                    'title' => 'Game Jams',
+                    'type' => 'gamejam',
+                    'items' => $gameJams,
+                    'selected' => $selectedGameJams,
+                    'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
                 ]
             ];
         @endphp
@@ -60,21 +67,109 @@
         @foreach ($filterSections as $section)
             <div>
                 <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ $section['title'] }}</div>
-                <div class="flex flex-wrap gap-2">
-                    @foreach ($section['items'] as $value => $label)
-                        <button wire:click="toggleFilter('{{ $section['type'] }}', '{{ $value }}')"
-                                class="px-3 py-1 rounded-lg text-sm {{ in_array($value, $section['selected'])
-                                    ? $section['class']
-                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
-                            @if ($section['type'] === 'language')
-                                <span
-                                    class="fi fi-{{ $label['flag_code'] }} rounded-xs mr-1"></span>{{ $label['ref_name'] }}
-                            @else
-                                {{ $label }}
-                            @endif
+                @if ($section['type'] === 'gamejam')
+                    <div x-data="{
+                        open: false,
+                        search: '',
+                        items: @js($section['items']),
+                        selected: @js($section['selected']),
+                        get filteredItems() {
+                            // Get entries and sort them alphabetically by name (the second element in each entry)
+                            const entries = Object.entries(this.items);
+                            const sortedEntries = entries.sort((a, b) => a[1].localeCompare(b[1]));
+
+                            // If there's a search term, filter the sorted entries
+                            if (this.search) {
+                                return sortedEntries.filter(([id, name]) =>
+                                    name.toLowerCase().includes(this.search.toLowerCase())
+                                );
+                            }
+
+                            return sortedEntries;
+                        },
+                        isSelected(value) {
+                            return this.selected.includes(value);
+                        },
+                        toggle(value) {
+                            $wire.toggleFilter('{{ $section['type'] }}', value);
+                        },
+                        init() {
+                            // Listen for Livewire updates to selectedGameJams
+                            this.$watch('$wire.selectedGameJams', (newValue) => {
+                                this.selected = newValue;
+                            });
+
+                            // Listen for the clearFilters event
+                            $wire.$on('filtersCleared', () => {
+                                this.selected = [];
+                            });
+
+                            // Listen for the gameJamFiltersUpdated event
+                            $wire.$on('gameJamFiltersUpdated', (data) => {
+                                this.selected = data.selectedGameJams;
+                            });
+                        }
+                    }" class="relative">
+                        <button
+                            @click="open = !open"
+                            class="w-full flex items-center justify-between px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                            <span x-text="selected.length ? `${selected.length} selected` : 'Select game jams...'" class="text-sm"></span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
                         </button>
-                    @endforeach
-                </div>
+                        <div
+                            x-show="open"
+                            @click.away="open = false"
+                            class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="transform opacity-0 scale-95"
+                            x-transition:enter-end="transform opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="transform opacity-100 scale-100"
+                            x-transition:leave-end="transform opacity-0 scale-95">
+                            <div class="p-2">
+                                <input
+                                    x-model="search"
+                                    type="text"
+                                    placeholder="Search game jams..."
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400">
+                            </div>
+                            <div class="max-h-60 overflow-y-auto">
+                                <template x-if="filteredItems.length === 0">
+                                    <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No results found</div>
+                                </template>
+                                <template x-for="[value, label] in filteredItems" :key="value">
+                                    <button
+                                        @click="toggle(value)"
+                                        class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between"
+                                        :class="isSelected(value) ? '{{ $section['class'] }}' : 'text-gray-700 dark:text-gray-200'">
+                                        <span x-text="label"></span>
+                                        <svg x-show="isSelected(value)" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($section['items'] as $value => $label)
+                            <button wire:click="toggleFilter('{{ $section['type'] }}', '{{ $value }}')"
+                                    class="px-3 py-1 rounded-lg text-sm {{ in_array($value, $section['selected'])
+                                        ? $section['class']
+                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">
+                                @if ($section['type'] === 'language')
+                                    <span
+                                        class="fi fi-{{ $label['flag_code'] }} rounded-xs mr-1"></span>{{ $label['ref_name'] }}
+                                @else
+                                    {{ $label }}
+                                @endif
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         @endforeach
 

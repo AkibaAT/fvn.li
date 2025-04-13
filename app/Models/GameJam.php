@@ -10,6 +10,7 @@ use Exception;
 use GuzzleHttp\Client;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class GameJam extends Model
@@ -136,7 +137,28 @@ class GameJam extends Model
     {
         try {
             // Fetch the game jam page
-            $response = $client->get($this->url, ['cookies' => false]);
+            Log::info('Fetching game jam details page', [
+                'url' => $this->url,
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            $response = $client->get($this->url, [
+                'cookies' => false,
+                'http_errors' => false, // Don't throw exceptions for 4xx/5xx
+            ]);
+
+            $statusCode = $response->getStatusCode();
+
+            // Handle rate limiting and server errors
+            if ($statusCode === 429) {
+                throw new Exception('429 Too Many Requests - Rate limit exceeded when fetching game jam details');
+            }
+
+            if ($statusCode !== 200) {
+                throw new Exception("HTTP error {$statusCode} when fetching game jam details");
+            }
+
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
@@ -160,20 +182,36 @@ class GameJam extends Model
                 $this->extractSubmissionCount($doc);
             }
 
-            // Try to fetch results if the game jam has ended
-            if ($this->hasEnded()) {
-                $this->fetchResultsPage($client);
-            }
+            // We'll skip automatic results fetching here since the command will handle it
+            // This prevents duplicate fetching of results
+            // if ($this->hasEnded()) {
+            //     $this->fetchResultsPage($client);
+            // }
 
             $this->save();
+
+            Log::info('Successfully fetched game jam details', [
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+                'has_description' => ! empty($this->description),
+                'has_dates' => $this->start_date !== null && $this->end_date !== null,
+                'submission_count' => $this->submission_count,
+            ]);
 
             return true;
         } catch (Exception $e) {
             // Log error but don't throw
             Log::error('Error fetching game jam details', [
                 'jam_url' => $this->url,
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
                 'error' => $e->getMessage(),
             ]);
+
+            // Re-throw rate limit errors so they can be handled by the retry mechanism
+            if (strpos($e->getMessage(), '429 Too Many Requests') !== false) {
+                throw $e;
+            }
 
             return false;
         }
@@ -181,32 +219,81 @@ class GameJam extends Model
 
     /**
      * Fetch and parse the results page for this game jam
+     *
+     * @return bool True if rankings were successfully fetched, false otherwise
+     *
+     * @throws Exception If there was a critical error fetching rankings
      */
-    public function fetchResultsPage(Client $client): void
+    public function fetchResultsPage(Client $client, int $maxRetries = 5, int $retryDelay = 30): bool
     {
-        $maxRetries = 3;
-        $retryDelay = 2; // seconds
         $currentPage = 1;
         $hasMorePages = true;
+        $rankingsFound = 0;
+        $pagesProcessed = 0;
 
-        while ($hasMorePages) {
-            $pageDoc = $this->fetchResultsPageNumber($client, $currentPage, $maxRetries, $retryDelay);
-            if (! $pageDoc) {
-                break;
+        try {
+            Log::info('Starting to fetch rankings for game jam', [
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+                'url' => $this->url,
+            ]);
+
+            while ($hasMorePages) {
+                $pageDoc = $this->fetchResultsPageNumber($client, $currentPage, $maxRetries, $retryDelay);
+                if (! $pageDoc) {
+                    // If we couldn't fetch the first page, that's a critical error
+                    if ($currentPage === 1) {
+                        throw new Exception("Failed to fetch first page of rankings for game jam {$this->name}");
+                    }
+                    // Otherwise, we've probably reached the end of pagination
+                    break;
+                }
+
+                $pagesProcessed++;
+
+                // Process the results page to extract rankings
+                $pageRankings = $this->extractRankings($pageDoc);
+                $rankingsFound += $pageRankings;
+
+                // Check if there's a next page by looking for the pagination element
+                $nextPageLink = $pageDoc->querySelector('.next_page:not(.disabled)');
+                if (! $nextPageLink) {
+                    $hasMorePages = false;
+                } else {
+                    $currentPage++;
+                    // Add a small delay between page requests to be nice to the server
+                    sleep(1);
+                }
             }
 
-            // Process the results page to extract rankings
-            $this->extractRankings($pageDoc);
+            Log::info('Completed fetching rankings for game jam', [
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+                'pages_processed' => $pagesProcessed,
+                'rankings_found' => $rankingsFound,
+            ]);
 
-            // Check if there's a next page by looking for the pagination element
-            $nextPageLink = $pageDoc->querySelector('.next_page:not(.disabled)');
-            if (! $nextPageLink) {
-                $hasMorePages = false;
-            } else {
-                $currentPage++;
-                // Add a small delay between page requests to be nice to the server
-                sleep(1);
+            // If we processed pages but found no rankings, that's suspicious
+            if ($pagesProcessed > 0 && $rankingsFound === 0) {
+                Log::warning('No rankings found despite processing pages', [
+                    'game_jam_id' => $this->id,
+                    'game_jam_name' => $this->name,
+                    'pages_processed' => $pagesProcessed,
+                ]);
+
+                return false;
             }
+
+            return $rankingsFound > 0;
+
+        } catch (Exception $e) {
+            Log::error('Error fetching rankings for game jam', [
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            throw $e; // Re-throw to be handled by the retry mechanism
         }
     }
 
@@ -230,6 +317,8 @@ class GameJam extends Model
                     'page' => $pageNumber,
                     'attempt' => $attempt,
                     'max_attempts' => $maxRetries,
+                    'game_jam_id' => $this->id,
+                    'game_jam_name' => $this->name,
                 ]);
 
                 // Fetch the results page
@@ -245,10 +334,15 @@ class GameJam extends Model
                     $retryAfter = $response->getHeaderLine('Retry-After');
                     $sleepTime = $retryAfter ? (int) $retryAfter : $retryDelay * $attempt;
 
+                    // Increase cooldown with each retry, with a minimum of 30 seconds
+                    $sleepTime = max($sleepTime, 30 * $attempt);
+
                     Log::warning('Rate limited when fetching game jam results, retrying', [
                         'url' => $resultsUrl,
                         'attempt' => $attempt,
                         'retry_after' => $sleepTime,
+                        'game_jam_id' => $this->id,
+                        'game_jam_name' => $this->name,
                     ]);
 
                     // Sleep before retrying
@@ -262,7 +356,24 @@ class GameJam extends Model
                     Log::warning('Game jam results page not found', [
                         'url' => $resultsUrl,
                         'status_code' => $statusCode,
+                        'game_jam_id' => $this->id,
+                        'game_jam_name' => $this->name,
                     ]);
+
+                    // If it's a server error (5xx), we should retry
+                    if ($statusCode >= 500 && $statusCode < 600 && $attempt < $maxRetries) {
+                        $sleepTime = $retryDelay * $attempt;
+                        Log::warning('Server error, retrying after cooldown', [
+                            'url' => $resultsUrl,
+                            'status_code' => $statusCode,
+                            'attempt' => $attempt,
+                            'cooldown' => $sleepTime,
+                            'game_jam_id' => $this->id,
+                        ]);
+                        sleep($sleepTime);
+
+                        continue;
+                    }
 
                     return null;
                 }
@@ -270,6 +381,8 @@ class GameJam extends Model
                 Log::info('Successfully fetched game jam results page', [
                     'url' => $resultsUrl,
                     'page' => $pageNumber,
+                    'game_jam_id' => $this->id,
+                    'game_jam_name' => $this->name,
                 ]);
 
                 $html = $response->getBody()->getContents();
@@ -277,6 +390,27 @@ class GameJam extends Model
                 return HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
             } catch (Exception $e) {
+                // Check if it's a rate limiting error in the exception message
+                if (strpos($e->getMessage(), '429 Too Many Requests') !== false) {
+                    $sleepTime = max(30, $retryDelay * $attempt); // Minimum 30 seconds cooldown
+
+                    Log::warning('Rate limit exception when fetching game jam results, retrying', [
+                        'jam_url' => $this->url,
+                        'page' => $pageNumber,
+                        'attempt' => $attempt,
+                        'cooldown' => $sleepTime,
+                        'game_jam_id' => $this->id,
+                        'game_jam_name' => $this->name,
+                    ]);
+
+                    // If this is not the last attempt, wait and retry
+                    if ($attempt < $maxRetries) {
+                        sleep($sleepTime);
+
+                        continue;
+                    }
+                }
+
                 // Log error
                 Log::error('Error fetching game jam results', [
                     'jam_url' => $this->url,
@@ -284,6 +418,8 @@ class GameJam extends Model
                     'error' => $e->getMessage(),
                     'attempt' => $attempt,
                     'max_attempts' => $maxRetries,
+                    'game_jam_id' => $this->id,
+                    'game_jam_name' => $this->name,
                 ]);
 
                 // If this is the last attempt, return null
@@ -292,7 +428,8 @@ class GameJam extends Model
                 }
 
                 // Wait before retrying
-                sleep($retryDelay * $attempt);
+                $sleepTime = $retryDelay * $attempt;
+                sleep($sleepTime);
             }
         }
 
@@ -468,14 +605,19 @@ class GameJam extends Model
 
     /**
      * Extract rankings from the results page
+     *
+     * @return int The number of rankings found and processed
      */
-    private function extractRankings(HTMLDocument $doc): void
+    private function extractRankings(HTMLDocument $doc): int
     {
         // Keep track of how many rankings we found
         $rankingsFound = 0;
 
         // Find all game rank divs which contain the game entries and rankings
         $gameRankDivs = $doc->querySelectorAll('.game_rank');
+
+        // Collect all the ranking data first to avoid partial updates
+        $rankingData = [];
 
         foreach ($gameRankDivs as $gameRankDiv) {
             // Extract the game URL from the link
@@ -508,7 +650,7 @@ class GameJam extends Model
             $gameTitleElement = $gameRankDiv->querySelector('.game_summary h2 a');
             $gameTitle = $gameTitleElement ? trim($gameTitleElement->textContent) : $game->name;
 
-            Log::info('Processing game', ['title' => $gameTitle, 'url' => $gameUrl]);
+            Log::info('Processing game', ['title' => $gameTitle, 'url' => $gameUrl, 'game_id' => $game->id, 'game_jam_id' => $this->id]);
 
             // Extract the ranking - it's in an h3 tag with the format "Ranked <strong>Nth</strong> with X ratings..."
             $rankingElement = $gameRankDiv->querySelector('.game_summary h3 .ordinal_rank');
@@ -519,32 +661,73 @@ class GameJam extends Model
             }
 
             $ranking = trim($rankingElement->textContent);
-            Log::info('Found ranking', ['game' => $gameTitle, 'ranking' => $ranking]);
+            Log::info('Found ranking', ['game' => $gameTitle, 'ranking' => $ranking, 'game_id' => $game->id]);
 
-            // Update the pivot table with ranking information
-            $pivotData = ['ranking' => $ranking];
-
-            // Check if the game is already associated with this jam
-            if ($game->gameJams()->where('game_jam_id', $this->id)->exists()) {
-                // Update the existing pivot record
-                $game->gameJams()->updateExistingPivot($this->id, $pivotData);
-            } else {
-                // Create a new association
-                $game->gameJams()->attach($this->id, $pivotData);
-            }
-
-            Log::info('Updated game jam ranking', [
-                'game' => $game->name,
-                'jam' => $this->name,
+            // Store the ranking data for later processing
+            $rankingData[] = [
+                'game' => $game,
                 'ranking' => $ranking,
+            ];
+        }
+
+        // Now process all the rankings in a single transaction
+        if (! empty($rankingData)) {
+            Log::info('Starting transaction to update rankings', [
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+                'rankings_count' => count($rankingData),
             ]);
 
-            $rankingsFound++;
+            // Use a database transaction to ensure all updates are atomic
+            DB::transaction(function () use ($rankingData, &$rankingsFound) {
+                foreach ($rankingData as $data) {
+                    $game = $data['game'];
+                    $ranking = $data['ranking'];
+                    $pivotData = ['ranking' => $ranking];
+
+                    // Reload the game to ensure we have the latest data
+                    $game->refresh();
+
+                    // Check if the game is already associated with this jam
+                    if ($game->gameJams()->where('game_jam_id', $this->id)->exists()) {
+                        // Update the existing pivot record
+                        $game->gameJams()->updateExistingPivot($this->id, $pivotData);
+                        Log::info('Updated existing game jam ranking', [
+                            'game_id' => $game->id,
+                            'game' => $game->name,
+                            'jam_id' => $this->id,
+                            'jam' => $this->name,
+                            'ranking' => $ranking,
+                        ]);
+                    } else {
+                        // Create a new association
+                        $game->gameJams()->attach($this->id, $pivotData);
+                        Log::info('Created new game jam ranking', [
+                            'game_id' => $game->id,
+                            'game' => $game->name,
+                            'jam_id' => $this->id,
+                            'jam' => $this->name,
+                            'ranking' => $ranking,
+                        ]);
+                    }
+
+                    $rankingsFound++;
+                }
+            });
+
+            Log::info('Transaction completed successfully', [
+                'game_jam_id' => $this->id,
+                'rankings_updated' => $rankingsFound,
+            ]);
         }
 
         Log::info('Rankings extraction complete for current page', [
             'found' => $rankingsFound,
             'total_games' => count($gameRankDivs),
+            'game_jam_id' => $this->id,
+            'game_jam_name' => $this->name,
         ]);
+
+        return $rankingsFound;
     }
 }

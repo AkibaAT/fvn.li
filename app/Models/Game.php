@@ -437,12 +437,14 @@ class Game extends Model
 
     /**
      * Get the game jams this game has participated in.
+     * Default sorting is alphabetical by name.
      */
     public function gameJams(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(GameJam::class, 'game_game_jam')
             ->withPivot('ranking')
-            ->withTimestamps();
+            ->withTimestamps()
+            ->orderBy('name');
     }
 
     /**

@@ -160,6 +160,26 @@
         </div>
     @endif
 
+    @if ($game->gameJams && $game->gameJams->isNotEmpty())
+        <div class="mt-4 border-t border-gray-100 dark:border-gray-700/50 pt-4">
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Game Jams</h3>
+            <div class="flex flex-wrap gap-2">
+                @foreach ($game->gameJams as $jam)
+                    <button
+                        wire:click="toggleFilter('gamejam', '{{ $this->encodeFilterValue((string) $jam->id) }}')"
+                        class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/50">
+                        {{ $jam->name }}
+                        @if ($jam->pivot && $jam->pivot->ranking)
+                            <span class="ml-1.5 px-1.5 py-0.5 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-full text-xs font-medium">
+                                {{ $jam->pivot->ranking }}
+                            </span>
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     @auth
         <div class="mt-4"> </div>
         <div class="mt-auto flex items-center justify-between gap-4 border-t border-gray-100 dark:border-gray-700/50 pt-3">
