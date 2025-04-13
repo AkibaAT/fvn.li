@@ -41,7 +41,7 @@
                     'type' => 'gamejam',
                     'items' => $gameJams,
                     'selected' => $selectedGameJams,
-                    'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+                    'class' => 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                 ]
             ];
         @endphp
@@ -133,7 +133,7 @@
                                     x-model="search"
                                     type="text"
                                     placeholder="Search game jams..."
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400">
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                             </div>
                             <div class="max-h-60 overflow-y-auto">
                                 <template x-if="filteredItems.length === 0">

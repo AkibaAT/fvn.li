@@ -167,11 +167,33 @@
                 @foreach ($game->gameJams as $jam)
                     <button
                         wire:click="toggleFilter('gamejam', '{{ $this->encodeFilterValue((string) $jam->id) }}')"
-                        class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/50">
+                        class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50">
                         {{ $jam->name }}
                         @if ($jam->pivot && $jam->pivot->ranking)
-                            <span class="ml-1.5 px-1.5 py-0.5 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded-full text-xs font-medium">
+                            <span class="ml-1.5 px-1.5 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium">
                                 {{ $jam->pivot->ranking }}
+                            </span>
+                        @endif
+                        @if ($jam->pivot && $jam->pivot->criteria_rankings)
+                            @php
+                                $criteriaData = json_decode($jam->pivot->criteria_rankings, true) ?? [];
+                                $tooltipText = [];
+                                foreach ($criteriaData as $criteria => $details) {
+                                    if (is_array($details)) {
+                                        $tooltipText[] = $criteria . ': ' . ($details['rank'] ?? '') .
+                                            (isset($details['score']) ? ' (Score: ' . $details['score'] . ')' : '');
+                                    } else {
+                                        $tooltipText[] = $criteria . ': ' . $details;
+                                    }
+                                }
+                            @endphp
+                            <span
+                                class="ml-1.5 cursor-help"
+                                title="{{ implode(', ', $tooltipText) }}"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-600 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
                             </span>
                         @endif
                     </button>

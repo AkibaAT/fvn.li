@@ -76,7 +76,7 @@ class GameJam extends Model
     public function games(): BelongsToMany
     {
         return $this->belongsToMany(Game::class, 'game_game_jam')
-            ->withPivot('ranking')
+            ->withPivot('ranking', 'criteria_rankings')
             ->withTimestamps();
     }
 
@@ -663,10 +663,57 @@ class GameJam extends Model
             $ranking = trim($rankingElement->textContent);
             Log::info('Found ranking', ['game' => $gameTitle, 'ranking' => $ranking, 'game_id' => $game->id]);
 
+            // Extract criteria rankings if available
+            $criteriaRankings = [];
+
+            // The criteria rankings are in a table with columns: Criteria, Rank, Score*, Raw Score
+            $criteriaTable = $gameRankDiv->querySelector('table');
+            if ($criteriaTable) {
+                $criteriaRows = $criteriaTable->querySelectorAll('tr');
+                foreach ($criteriaRows as $row) {
+                    $cells = $row->querySelectorAll('td');
+                    if (count($cells) >= 3) { // We need at least Criteria, Rank, and Score
+                        $criteriaName = trim($cells[0]->textContent);
+                        $criteriaRank = trim($cells[1]->textContent);
+                        $criteriaScore = trim($cells[2]->textContent);
+
+                        // Skip header row or empty rows
+                        if (empty($criteriaName) || $criteriaName === 'Criteria') {
+                            continue;
+                        }
+
+                        $criteriaRankings[$criteriaName] = [
+                            'rank' => $criteriaRank,
+                            'score' => $criteriaScore,
+                        ];
+                    }
+                }
+
+                if (! empty($criteriaRankings)) {
+                    Log::info('Found criteria rankings', [
+                        'game' => $gameTitle,
+                        'criteria_count' => count($criteriaRankings),
+                        'game_id' => $game->id,
+                        'criteria' => array_keys($criteriaRankings),
+                    ]);
+                } else {
+                    Log::info('No criteria rankings found in table', [
+                        'game' => $gameTitle,
+                        'game_id' => $game->id,
+                    ]);
+                }
+            } else {
+                Log::info('No criteria table found', [
+                    'game' => $gameTitle,
+                    'game_id' => $game->id,
+                ]);
+            }
+
             // Store the ranking data for later processing
             $rankingData[] = [
                 'game' => $game,
                 'ranking' => $ranking,
+                'criteria_rankings' => ! empty($criteriaRankings) ? $criteriaRankings : null,
             ];
         }
 
@@ -683,7 +730,11 @@ class GameJam extends Model
                 foreach ($rankingData as $data) {
                     $game = $data['game'];
                     $ranking = $data['ranking'];
-                    $pivotData = ['ranking' => $ranking];
+                    $criteriaRankings = $data['criteria_rankings'] ?? null;
+                    $pivotData = [
+                        'ranking' => $ranking,
+                        'criteria_rankings' => $criteriaRankings ? json_encode($criteriaRankings) : null,
+                    ];
 
                     // Reload the game to ensure we have the latest data
                     $game->refresh();
@@ -698,6 +749,8 @@ class GameJam extends Model
                             'jam_id' => $this->id,
                             'jam' => $this->name,
                             'ranking' => $ranking,
+                            'has_criteria_rankings' => $criteriaRankings !== null,
+                            'criteria_count' => $criteriaRankings ? count($criteriaRankings) : 0,
                         ]);
                     } else {
                         // Create a new association
@@ -708,6 +761,8 @@ class GameJam extends Model
                             'jam_id' => $this->id,
                             'jam' => $this->name,
                             'ranking' => $ranking,
+                            'has_criteria_rankings' => $criteriaRankings !== null,
+                            'criteria_count' => $criteriaRankings ? count($criteriaRankings) : 0,
                         ]);
                     }
 

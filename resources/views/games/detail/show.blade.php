@@ -220,8 +220,9 @@
                                 <div class="border-b border-gray-200 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
                                     <h3 class="font-medium text-gray-900 dark:text-gray-100">
                                         <a href="{{ $jam->url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
-                                            {{ $jam->name }}
-                                        </a>
+                                            <span class="inline-flex items-center px-2 py-1 rounded-md text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                                {{ $jam->name }}
+                                            </span>
                                         </a>
                                     </h3>
                                     @if ($jam->start_date && $jam->end_date)
@@ -245,8 +246,31 @@
                                     @endif
                                     @if ($jam->pivot && $jam->pivot->ranking)
                                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                            <span class="font-medium">Game Rank:</span> {{ $jam->pivot->ranking }}
+                                            <span class="font-medium">Game Rank:</span>
+                                            <span class="px-1.5 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium">
+                                                {{ $jam->pivot->ranking }}
+                                            </span>
                                         </p>
+                                    @endif
+                                    @if ($jam->pivot && $jam->pivot->criteria_rankings)
+                                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            <span class="font-medium">Criteria Rankings:</span>
+                                            <ul class="mt-1 ml-4 list-disc space-y-1">
+                                                @foreach (json_decode($jam->pivot->criteria_rankings, true) ?? [] as $criteria => $details)
+                                                    <li>
+                                                        <span class="font-medium">{{ $criteria }}:</span>
+                                                        @if (is_array($details))
+                                                            {{ $details['rank'] ?? '' }}
+                                                            @if (isset($details['score']))
+                                                                <span class="text-xs px-1 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">(Score: {{ $details['score'] }})</span>
+                                                            @endif
+                                                        @else
+                                                            {{ $details }}
+                                                        @endif
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
                                     @endif
                                     @if ($jam->host)
                                         <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">

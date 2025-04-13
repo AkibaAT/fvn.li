@@ -442,7 +442,7 @@ class Game extends Model
     public function gameJams(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(GameJam::class, 'game_game_jam')
-            ->withPivot('ranking')
+            ->withPivot('ranking', 'criteria_rankings')
             ->withTimestamps()
             ->orderBy('name');
     }
