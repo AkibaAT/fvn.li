@@ -11,7 +11,6 @@ use GuzzleHttp\Client;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class GameJam extends Model
 {
@@ -24,9 +23,6 @@ class GameJam extends Model
         'submission_count',
         'participant_count',
         'host',
-        'theme',
-        'logo_url',
-        'optimized_logos',
         'needs_details_fetch',
     ];
 
@@ -35,7 +31,6 @@ class GameJam extends Model
         'end_date' => 'datetime',
         'submission_count' => 'integer',
         'participant_count' => 'integer',
-        'optimized_logos' => 'array',
         'needs_details_fetch' => 'boolean',
     ];
 
@@ -85,38 +80,6 @@ class GameJam extends Model
     }
 
     /**
-     * Get the URL for a logo variant
-     */
-    public function getLogoUrl(string $variant = 'default'): ?string
-    {
-        if (! isset($this->optimized_logos[$variant], $this->optimized_logos[$variant]['path'])) {
-            return $this->logo_url;
-        }
-
-        $path = $this->optimized_logos[$variant]['path'];
-
-        return asset('storage/' . $path);
-    }
-
-    /**
-     * Clear all optimized logos
-     */
-    public function clearOptimizedLogos(): void
-    {
-        if ($this->optimized_logos) {
-            foreach ($this->optimized_logos as $variant) {
-                if (isset($variant['path'])) {
-                    Storage::disk('public')->delete($variant['path']);
-                }
-            }
-
-            // Clear the logos data
-            $this->optimized_logos = null;
-            $this->save();
-        }
-    }
-
-    /**
      * Check if the game jam is currently active
      */
     public function isActive(): bool
@@ -163,7 +126,7 @@ class GameJam extends Model
             return null;
         }
 
-        return $this->start_date->diffInDays($this->end_date) + 1; // +1 to include both start and end days
+        return (int) ($this->start_date->diffInDays($this->end_date) + 1); // +1 to include both start and end days
     }
 
     /**
@@ -190,15 +153,6 @@ class GameJam extends Model
             $hostElement = $doc->querySelector('.jam_host_header a, .host_header a');
             if ($hostElement) {
                 $this->host = trim($hostElement->textContent);
-            }
-
-            // Extract theme
-            $this->extractTheme($doc);
-
-            // Extract logo
-            $logoElement = $doc->querySelector('.jam_cover_image img, .jam_header_image img');
-            if ($logoElement) {
-                $this->logo_url = $logoElement->getAttribute('src');
             }
 
             // If we couldn't find submission count in the stats, try to find it elsewhere
@@ -230,43 +184,116 @@ class GameJam extends Model
      */
     public function fetchResultsPage(Client $client): void
     {
-        try {
-            // Construct the results page URL
-            $resultsUrl = rtrim($this->url, '/') . '/results';
-            Log::info('Fetching game jam results page', ['url' => $resultsUrl]);
+        $maxRetries = 3;
+        $retryDelay = 2; // seconds
+        $currentPage = 1;
+        $hasMorePages = true;
 
-            // Fetch the results page
-            $response = $client->get($resultsUrl, [
-                'cookies' => false,
-                'http_errors' => false, // Don't throw exceptions for 404s
-            ]);
-
-            // If the page doesn't exist or there's an error, log and return
-            if ($response->getStatusCode() !== 200) {
-                Log::warning('Game jam results page not found', [
-                    'url' => $resultsUrl,
-                    'status_code' => $response->getStatusCode(),
-                ]);
-
-                return;
+        while ($hasMorePages) {
+            $pageDoc = $this->fetchResultsPageNumber($client, $currentPage, $maxRetries, $retryDelay);
+            if (!$pageDoc) {
+                break;
             }
 
-            Log::info('Successfully fetched game jam results page', ['url' => $resultsUrl]);
-
-            $html = $response->getBody()->getContents();
-            $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-
             // Process the results page to extract rankings
-            $this->extractRankings($doc);
+            $this->extractRankings($pageDoc);
 
-        } catch (Exception $e) {
-            // Log error but don't throw
-            Log::error('Error fetching game jam results', [
-                'jam_url' => $this->url,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            // Check if there's a next page by looking for the pagination element
+            $nextPageLink = $pageDoc->querySelector('.next_page:not(.disabled)');
+            if (!$nextPageLink) {
+                $hasMorePages = false;
+            } else {
+                $currentPage++;
+                // Add a small delay between page requests to be nice to the server
+                sleep(1);
+            }
         }
+    }
+
+    /**
+     * Fetch a specific page of results
+     * 
+     * @return HTMLDocument|null The parsed HTML document for the page, or null if the fetch failed
+     */
+    private function fetchResultsPageNumber(Client $client, int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
+    {
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                // Construct the results page URL with page number
+                $resultsUrl = rtrim($this->url, '/') . '/results';
+                if ($pageNumber > 1) {
+                    $resultsUrl .= '?page=' . $pageNumber;
+                }
+
+                Log::info('Fetching game jam results page', [
+                    'url' => $resultsUrl,
+                    'page' => $pageNumber,
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxRetries,
+                ]);
+
+                // Fetch the results page
+                $response = $client->get($resultsUrl, [
+                    'cookies' => false,
+                    'http_errors' => false, // Don't throw exceptions for 4xx/5xx
+                ]);
+
+                $statusCode = $response->getStatusCode();
+
+                // If we hit a rate limit, wait and retry
+                if ($statusCode === 429) {
+                    $retryAfter = $response->getHeaderLine('Retry-After');
+                    $sleepTime = $retryAfter ? (int) $retryAfter : $retryDelay * $attempt;
+
+                    Log::warning('Rate limited when fetching game jam results, retrying', [
+                        'url' => $resultsUrl,
+                        'attempt' => $attempt,
+                        'retry_after' => $sleepTime,
+                    ]);
+
+                    // Sleep before retrying
+                    sleep($sleepTime);
+                    continue;
+                }
+
+                // If the page doesn't exist or there's another error, log and return null
+                if ($statusCode !== 200) {
+                    Log::warning('Game jam results page not found', [
+                        'url' => $resultsUrl,
+                        'status_code' => $statusCode,
+                    ]);
+                    return null;
+                }
+
+                Log::info('Successfully fetched game jam results page', [
+                    'url' => $resultsUrl,
+                    'page' => $pageNumber,
+                ]);
+
+                $html = $response->getBody()->getContents();
+                return HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+            } catch (Exception $e) {
+                // Log error
+                Log::error('Error fetching game jam results', [
+                    'jam_url' => $this->url,
+                    'page' => $pageNumber,
+                    'error' => $e->getMessage(),
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxRetries,
+                ]);
+
+                // If this is the last attempt, return null
+                if ($attempt === $maxRetries) {
+                    return null;
+                }
+
+                // Wait before retrying
+                sleep($retryDelay * $attempt);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -387,75 +414,6 @@ class GameJam extends Model
     }
 
     /**
-     * Extract theme from game jam page
-     */
-    private function extractTheme(HTMLDocument $doc): void
-    {
-        // Extract theme - try different selectors
-        // We need to check all info lines since we can't use :contains() selector
-        $infoLines = $doc->querySelectorAll('.jam_info_line .info_value, .jam_info_widget .info_line .info_value');
-        foreach ($infoLines as $line) {
-            $parentText = $line->parentNode ? $line->parentNode->textContent : '';
-            if (str_contains($parentText, 'Theme')) {
-                $this->theme = trim($line->textContent);
-
-                return;
-            }
-        }
-
-        // Try to find theme in any element containing 'Theme:'
-        $infoLines = $doc->querySelectorAll('.info_line, .jam_info_line');
-        foreach ($infoLines as $line) {
-            if (strpos($line->textContent, 'Theme:') !== false) {
-                $parts = explode('Theme:', $line->textContent, 2);
-                if (count($parts) > 1) {
-                    $this->theme = trim($parts[1]);
-
-                    return;
-                }
-            }
-        }
-
-        // Look for theme in headers
-        $themeHeaders = $doc->querySelectorAll('h1, h2, h3');
-        foreach ($themeHeaders as $header) {
-            if (trim(strtolower($header->textContent)) === 'theme:') {
-                $nextElement = $header->nextElementSibling;
-                if ($nextElement) {
-                    $this->theme = trim($nextElement->textContent);
-
-                    return;
-                }
-            }
-        }
-
-        // Look for theme in a dedicated section
-        // We need to check all headers since we can't use :contains() selector
-        $headers = $doc->querySelectorAll('h1, h2, h3');
-        foreach ($headers as $header) {
-            if (str_contains($header->textContent, 'Theme')) {
-                $nextElement = $header->nextElementSibling;
-                if ($nextElement) {
-                    $this->theme = trim($nextElement->textContent);
-
-                    return;
-                } else {
-                    // The theme might be in the same element
-                    $text = $header->textContent;
-                    $parts = explode('Theme', $text, 2);
-                    if (count($parts) > 1) {
-                        // Remove any punctuation and get the rest of the text
-                        $theme = preg_replace('/^[:\s-]+/', '', $parts[1]);
-                        $this->theme = trim($theme);
-
-                        return;
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * Extract submission count from game jam page
      */
     private function extractSubmissionCount(HTMLDocument $doc): void
@@ -510,110 +468,76 @@ class GameJam extends Model
      */
     private function extractRankings(HTMLDocument $doc): void
     {
-        // The results page has a specific structure with game entries
-        // Each game entry has a link to the game and a heading with ranking info
-
-        // First, let's get all the game entries
-        // We'll look for links that point to itch.io game pages
-        $gameLinks = [];
-        $allLinks = $doc->querySelectorAll('a');
-        foreach ($allLinks as $link) {
-            $href = $link->getAttribute('href');
-            if ($href && strpos($href, 'itch.io/') !== false && strpos($href, '/jam/') === false) {
-                // This looks like a game link
-                $gameLinks[$href] = $link;
-            }
-        }
-
-        Log::info('Found game links', ['count' => count($gameLinks)]);
-
-        // Now, let's extract the rankings directly from the page content
-        $html = $doc->saveHTML();
-
-        // The rankings are in a specific format in the HTML
-        // Each game section has a structure like:
-        // <a href="https://akibaokapi.itch.io/after-passion">After Passion</a>
-        // ...
-        // <h3>Ranked <strong>4th</strong> with 41 ratings (Score: 4.390)</h3>
-
+        // Keep track of how many rankings we found
         $rankingsFound = 0;
 
-        foreach ($gameLinks as $gameUrl => $link) {
+        // Find all game rank divs which contain the game entries and rankings
+        $gameRankDivs = $doc->querySelectorAll('.game_rank');
+
+        foreach ($gameRankDivs as $gameRankDiv) {
+            // Extract the game URL from the link
+            $gameLink = $gameRankDiv->querySelector('a.game_cover');
+            if (! $gameLink) {
+                Log::info('No game link found in game rank div');
+                continue;
+            }
+
+            $gameUrl = $gameLink->getAttribute('href');
+            if (! $gameUrl) {
+                Log::info('No URL found in game link');
+                continue;
+            }
+
+            // Clean URL (remove any query parameters)
+            $gameUrl = preg_replace('/\?.*$/', '', $gameUrl);
+
             // Find the game in our database
             $game = Game::where('url', $gameUrl)->first();
             if (! $game) {
                 Log::info('Game not found in database', ['url' => $gameUrl]);
-
                 continue;
             }
 
-            // Get the game title from the link text
-            $gameTitle = trim($link->textContent);
-            if (empty($gameTitle)) {
-                // Try to get it from the database
-                $gameTitle = $game->name;
-            }
+            // Extract the game title
+            $gameTitleElement = $gameRankDiv->querySelector('.game_summary h2 a');
+            $gameTitle = $gameTitleElement ? trim($gameTitleElement->textContent) : $game->name;
 
             Log::info('Processing game', ['title' => $gameTitle, 'url' => $gameUrl]);
 
-            // Extract the ranking using a regex pattern
-            // We'll look for the game URL followed by any content and then the ranking
-            $pattern = '/' . preg_quote($gameUrl, '/') . '.*?Ranked\s+(?:\*\*|<strong>)(\d+[a-z]{2})(?:\*\*|<\/strong>)/s';
-            if (preg_match($pattern, $html, $matches)) {
-                $ranking = $matches[1];
-                Log::info('Found ranking', ['game' => $gameTitle, 'ranking' => $ranking]);
-
-                // Update the pivot table with ranking information
-                $pivotData = ['ranking' => $ranking];
-
-                // Check if the game is already associated with this jam
-                if ($game->gameJams()->where('game_jam_id', $this->id)->exists()) {
-                    // Update the existing pivot record
-                    $game->gameJams()->updateExistingPivot($this->id, $pivotData);
-                } else {
-                    // Create a new association
-                    $game->gameJams()->attach($this->id, $pivotData);
-                }
-
-                Log::info('Updated game jam ranking', [
-                    'game' => $game->name,
-                    'jam' => $this->name,
-                    'ranking' => $ranking,
-                ]);
-
-                $rankingsFound++;
-            } else {
-                // Try an alternative pattern
-                $pattern = '/Ranked\s+(?:\*\*|<strong>)(\d+[a-z]{2})(?:\*\*|<\/strong>).*?' . preg_quote($gameUrl, '/') . '/s';
-                if (preg_match($pattern, $html, $matches)) {
-                    $ranking = $matches[1];
-                    Log::info('Found ranking (alternative pattern)', ['game' => $gameTitle, 'ranking' => $ranking]);
-
-                    // Update the pivot table with ranking information
-                    $pivotData = ['ranking' => $ranking];
-
-                    // Check if the game is already associated with this jam
-                    if ($game->gameJams()->where('game_jam_id', $this->id)->exists()) {
-                        // Update the existing pivot record
-                        $game->gameJams()->updateExistingPivot($this->id, $pivotData);
-                    } else {
-                        // Create a new association
-                        $game->gameJams()->attach($this->id, $pivotData);
-                    }
-
-                    Log::info('Updated game jam ranking', [
-                        'game' => $game->name,
-                        'jam' => $this->name,
-                        'ranking' => $ranking,
-                    ]);
-
-                    $rankingsFound++;
-                } else {
-                    Log::info('No ranking found for game', ['game' => $gameTitle, 'url' => $gameUrl]);
-                }
+            // Extract the ranking - it's in an h3 tag with the format "Ranked <strong>Nth</strong> with X ratings..."
+            $rankingElement = $gameRankDiv->querySelector('.game_summary h3 .ordinal_rank');
+            if (! $rankingElement) {
+                Log::info('No ranking found for game', ['game' => $gameTitle, 'url' => $gameUrl]);
+                continue;
             }
+
+            $ranking = trim($rankingElement->textContent);
+            Log::info('Found ranking', ['game' => $gameTitle, 'ranking' => $ranking]);
+
+            // Update the pivot table with ranking information
+            $pivotData = ['ranking' => $ranking];
+
+            // Check if the game is already associated with this jam
+            if ($game->gameJams()->where('game_jam_id', $this->id)->exists()) {
+                // Update the existing pivot record
+                $game->gameJams()->updateExistingPivot($this->id, $pivotData);
+            } else {
+                // Create a new association
+                $game->gameJams()->attach($this->id, $pivotData);
+            }
+
+            Log::info('Updated game jam ranking', [
+                'game' => $game->name,
+                'jam' => $this->name,
+                'ranking' => $ranking,
+            ]);
+
+            $rankingsFound++;
         }
 
-        Log::info('Rankings extraction complete', ['found' => $rankingsFound, 'total_games' => count($gameLinks)]);
+        Log::info('Rankings extraction complete for current page', [
+            'found' => $rankingsFound,
+            'total_games' => count($gameRankDivs),
+        ]);
     }
 }

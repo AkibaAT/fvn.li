@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Exception;
+use Illuminate\Support\Facades\Log;
 use Sabberworm\CSS\CSSList\CSSList;
 use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parser as CssParser;
@@ -15,8 +16,8 @@ use Sabberworm\CSS\RuleSet\RuleSet;
 
 class ItchCssProcessor
 {
-    private const HEADER_SELECTORS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-    private const COLOR_PROPERTIES = [
+    private const array HEADER_SELECTORS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+    private const array COLOR_PROPERTIES = [
         // Basic color properties
         'color',
         'background',
@@ -106,7 +107,7 @@ class ItchCssProcessor
             return ! empty($output) ? $output : null;
         } catch (Exception $e) {
             // Log the error or handle it appropriately
-            \Illuminate\Support\Facades\Log::error('CSS Parsing/Processing failed: ' . $e->getMessage(), ['css' => $css]);
+            Log::error('CSS Parsing/Processing failed: ' . $e->getMessage(), ['css' => $css]);
 
             return null; // Return null or original CSS on error? Returning null for now.
         }

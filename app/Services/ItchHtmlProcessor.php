@@ -6,6 +6,7 @@ namespace App\Services;
 
 use Dom\HTMLDocument;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class ItchHtmlProcessor
 {
@@ -39,7 +40,7 @@ class ItchHtmlProcessor
             return $doc->saveHTML();
         } catch (Exception $e) {
             // Log the error
-            \Illuminate\Support\Facades\Log::error('HTML Processing failed: ' . $e->getMessage(), ['html' => $html]);
+            Log::error('HTML Processing failed: ' . $e->getMessage(), ['html' => $html]);
 
             return $html; // Return original HTML on error
         }

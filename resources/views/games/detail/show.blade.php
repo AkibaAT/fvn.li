@@ -222,10 +222,12 @@
                                         <a href="{{ $jam->url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
                                             {{ $jam->name }}
                                         </a>
+                                        </a>
                                     </h3>
                                     @if ($jam->start_date && $jam->end_date)
                                         <p class="text-sm text-gray-600 dark:text-gray-400">
                                             {{ $jam->start_date->format('M j, Y') }} - {{ $jam->end_date->format('M j, Y') }}
+                                            <span class="text-gray-500 dark:text-gray-500">({{ $jam->getDurationInDays() }} days)</span>
                                         </p>
                                     @endif
                                     @if ($jam->theme)
@@ -236,11 +238,19 @@
                                     @if ($jam->submission_count)
                                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
                                             <span class="font-medium">Submissions:</span> {{ number_format($jam->submission_count) }}
+                                            @if ($jam->participant_count)
+                                                <span class="text-gray-500 dark:text-gray-500 ml-1">({{ number_format($jam->participant_count) }} participants)</span>
+                                            @endif
                                         </p>
                                     @endif
                                     @if ($jam->pivot && $jam->pivot->ranking)
-                                        <p class="text-sm font-medium text-green-600 dark:text-green-400 mt-1">
-                                            {{ $jam->pivot->ranking }}
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            <span class="font-medium">Game Rank:</span> {{ $jam->pivot->ranking }}
+                                        </p>
+                                    @endif
+                                    @if ($jam->host)
+                                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                                            Hosted by {{ $jam->host }}
                                         </p>
                                     @endif
                                 </div>

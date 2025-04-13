@@ -16,7 +16,6 @@ use App\Console\Commands\ProcessPushNotifications;
 use App\Console\Commands\QueueGameUpdateNotifications;
 use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGames;
-use App\Console\Commands\SetGameJamRanking;
 use App\Console\Commands\UpdateWatchlist;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -38,7 +37,6 @@ class Kernel extends ConsoleKernel
         ProcessPushNotifications::class,
         BackfillRatings::class,
         FetchGameJamDetails::class,
-        SetGameJamRanking::class,
     ];
 
     /**
