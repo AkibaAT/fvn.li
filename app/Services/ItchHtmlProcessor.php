@@ -315,7 +315,7 @@ class ItchHtmlProcessor
             // Check if parent is a paragraph with text-center class
             $parent = $image->parentNode;
             $parentClasses = $parent->getAttribute('class');
-            if (str_contains($parentClasses, 'text-center')) {
+            if (!empty($parentClasses) && str_contains($parentClasses, 'text-center')) {
                 $imageClasses[] = 'mx-auto';
             }
 
