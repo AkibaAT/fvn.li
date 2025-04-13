@@ -312,10 +312,7 @@ class ItchHtmlProcessor
             // Add Tailwind classes for images
             $imageClasses = ['max-w-full', 'h-auto', 'rounded-lg', 'my-4'];
 
-            // Check if parent is a paragraph with text-center class
-            $parent = $image->parentNode;
-            $parentClasses = $parent->getAttribute('class');
-            if (!empty($parentClasses) && str_contains($parentClasses, 'text-center')) {
+            if ($this->hasParentWithClass($image, 'text-center')) {
                 $imageClasses[] = 'mx-auto';
             }
 
@@ -337,5 +334,34 @@ class ItchHtmlProcessor
 
             $image->setAttribute('class', implode(' ', $classArray));
         }
+    }
+
+    /**
+     * Check if any parent element has the specified class
+     *
+     * @param  mixed  $element  The element to check parents for
+     * @param  string  $className  The class name to look for
+     * @return bool True if any parent has the class, false otherwise
+     */
+    private function hasParentWithClass($element, string $className): bool
+    {
+        // Start with the immediate parent
+        $parent = $element->parentNode;
+
+        // Traverse up the DOM tree until we reach the root or find the class
+        while ($parent && method_exists($parent, 'getAttribute')) {
+            $classes = $parent->getAttribute('class');
+
+            // If this parent has the class we're looking for, return true
+            if (! empty($classes) && str_contains($classes, $className)) {
+                return true;
+            }
+
+            // Move up to the next parent
+            $parent = $parent->parentNode;
+        }
+
+        // If we've reached here, no parent had the class
+        return false;
     }
 }
