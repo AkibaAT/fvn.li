@@ -384,6 +384,8 @@ class VnListController extends Controller
         $validationRules = [
             'game_version_id' => ['nullable', 'exists:game_versions,id'],
             'notes' => ['nullable', 'string'],
+            'private_notes' => ['nullable', 'string'],
+            'personal_notes' => ['nullable', 'string'],
             'started_at' => ['nullable', 'date'],
         ];
 
@@ -410,7 +412,42 @@ class VnListController extends Controller
             unset($validated['completed_at']);
         }
 
-        $entry->update($validated);
+        // Update the VnListEntry with private_notes
+        $entryData = [];
+        if (isset($validated['private_notes'])) {
+            $entryData['private_notes'] = $validated['private_notes'];
+        }
+        $entry->update($entryData);
+
+        // Update the UserGameProgress with the remaining fields
+        $userProgress = UserGameProgress::firstOrNew([
+            'user_id' => auth()->id(),
+            'game_id' => $entry->game_id,
+        ]);
+
+        $progressData = [];
+
+        if (isset($validated['game_version_id'])) {
+            $progressData['game_version_id'] = $validated['game_version_id'];
+        }
+
+        if (isset($validated['started_at'])) {
+            $progressData['started_at'] = $validated['started_at'];
+        }
+
+        if (isset($validated['completed_at'])) {
+            $progressData['completed_at'] = $validated['completed_at'];
+        }
+
+        if (isset($validated['personal_notes'])) {
+            $progressData['personal_notes'] = $validated['personal_notes'];
+        }
+
+        // Set the status based on the list type
+        $progressData['status'] = $entry->list->type;
+
+        $userProgress->fill($progressData);
+        $userProgress->save();
 
         return response()->json([
             'success' => true,

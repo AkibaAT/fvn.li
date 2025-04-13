@@ -19,6 +19,7 @@ class VnListEntry extends Model
         'game_id',
         'sort_order',
         'notes',
+        'private_notes',
     ];
 
     /**

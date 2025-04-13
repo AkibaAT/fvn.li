@@ -182,11 +182,17 @@
 
                             @if ($userProgress?->personal_notes)
                                 <div class="text-xs italic truncate max-w-md">
-                                    "{{ $userProgress->personal_notes }}"
+                                    <span class="text-gray-500 dark:text-gray-400">Public:</span> "{{ $userProgress->personal_notes }}"
                                 </div>
                             @elseif ($ownerProgress?->personal_notes)
                                 <div class="text-xs italic truncate max-w-md">
-                                    "{{ $ownerProgress->personal_notes }}"
+                                    <span class="text-gray-500 dark:text-gray-400">Public:</span> "{{ $ownerProgress->personal_notes }}"
+                                </div>
+                            @endif
+
+                            @if ($isOwner && $entry->private_notes)
+                                <div class="text-xs italic truncate max-w-md mt-1">
+                                    <span class="text-purple-500 dark:text-purple-400">Private:</span> "{{ $entry->private_notes }}"
                                 </div>
                             @endif
                         </div>
@@ -369,11 +375,17 @@
                                     {{-- Notes Preview (truncated) --}}
                                     @if ($userProgress?->personal_notes)
                                         <div class="mt-1 text-xs italic line-clamp-1">
-                                            "{{ $userProgress->personal_notes }}"
+                                            <span class="text-gray-500 dark:text-gray-400">Public:</span> "{{ $userProgress->personal_notes }}"
                                         </div>
                                     @elseif ($ownerProgress?->personal_notes)
                                         <div class="mt-1 text-xs italic line-clamp-1">
-                                            "{{ $ownerProgress->personal_notes }}"
+                                            <span class="text-gray-500 dark:text-gray-400">Public:</span> "{{ $ownerProgress->personal_notes }}"
+                                        </div>
+                                    @endif
+
+                                    @if ($isOwner && $entry->private_notes)
+                                        <div class="mt-1 text-xs italic line-clamp-1">
+                                            <span class="text-purple-500 dark:text-purple-400">Private:</span> "{{ $entry->private_notes }}"
                                         </div>
                                     @endif
                                 </div>
@@ -422,11 +434,11 @@
                     @if ($isOwner)
                         <div id="edit-form-{{ $entry->id }}"
                              class="hidden border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 p-4">
-                            <form action="{{ route('user-progress.update', $entry->game->id) }}" method="POST"
+                            <form action="{{ route('list-entries.update', $entry) }}" method="POST"
                                   class="space-y-4 entry-edit-form">
                                 @csrf
                                 @method('PUT')
-                                <input type="hidden" name="game_id" value="{{ $entry->game->id }}">
+                                <input type="hidden" name="entry_id" value="{{ $entry->id }}">
                                 <div
                                     class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-{{ ($vnList->type === 'custom' || $vnList->type === 'completed') ? '3' : '2' }} gap-4">
                                     <div>
@@ -494,9 +506,18 @@
 
                                 <div>
                                     <label for="personal_notes-{{ $entry->id }}"
-                                           class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+                                           class="block text-sm font-medium text-gray-700 dark:text-gray-300">Public Notes</label>
                                     <textarea id="personal_notes-{{ $entry->id }}" name="personal_notes" rows="4"
                                               class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md py-2 px-3">{{ $userProgress?->personal_notes }}</textarea>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">These notes will be visible to anyone who can see this list.</p>
+                                </div>
+
+                                <div>
+                                    <label for="private_notes-{{ $entry->id }}"
+                                           class="block text-sm font-medium text-gray-700 dark:text-gray-300">Private Notes</label>
+                                    <textarea id="private_notes-{{ $entry->id }}" name="private_notes" rows="4"
+                                              class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-md py-2 px-3">{{ $entry->private_notes }}</textarea>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">These notes will only be visible to you, even if the list is public.</p>
                                 </div>
 
                                 <div class="flex justify-end space-x-2">
