@@ -253,465 +253,129 @@ class Game extends Model
     }
 
     /**
-     * Refresh version information for the game
-     *
-     * @throws GuzzleException|DateMalformedStringException
-     * @throws Exception
-     */
-    public function refreshVersion(Client $client, bool $force = false): void
-    {
-        DB::beginTransaction();
-
-        try {
-            $url = "https://api.itch.io/games/{$this->game_id}/uploads";
-
-            $response = $client->get($url);
-            if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
-                $this->is_visible = false;
-                $this->save();
-                DB::commit();
-
-                return;
-            }
-
-            $uploadsData = json_decode($response->getBody()->getContents(), true);
-            if (! isset($uploadsData['uploads'])) {
-                DB::rollBack();
-
-                return;
-            }
-
-            $seenUploads = $this->uploads ?: [];
-            $hasChanges = false;
-            $candidateUploads = [];
-
-            // Platform flags for the latest version
-            $isWindows = false;
-            $isLinux = false;
-            $isMac = false;
-            $isAndroid = false;
-            $isWeb = false;
-
-            foreach ($uploadsData['uploads'] as $upload) {
-                $fileId = (int) $upload['id'];
-                $currentFilename = $upload['filename'];
-                $currentDisplayName = $upload['display_name'] ?? null;
-                $currentMd5 = $upload['md5_hash'] ?? null;
-                $currentUpdatedAt = $upload['updated_at'];
-                $currentBuildId = $upload['build_id'] ?? null;
-                $currentBuild = $upload['build'] ?? [];
-                $currentUserVersion = $currentBuild['user_version'] ?? null;
-                $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
-
-                // Always store upload info regardless of processability
-                $isNewOrChanged = (
-                    ! isset($seenUploads[$fileId]) ||
-                    $seenUploads[$fileId]['md5_hash'] !== $currentMd5 ||
-                    $seenUploads[$fileId]['updated_at'] !== $currentUpdatedAt ||
-                    $seenUploads[$fileId]['build_id'] !== $currentBuildId ||
-                    $seenUploads[$fileId]['build_updated_at'] !== $currentBuildUpdatedAt
-                );
-
-                if ($isNewOrChanged) {
-                    $hasChanges = true;
-                    $seenUploads[$fileId] = [
-                        'display_name' => $currentDisplayName,
-                        'md5_hash' => $currentMd5,
-                        'updated_at' => $currentUpdatedAt,
-                        'build_id' => $currentBuildId,
-                        'build_updated_at' => $currentBuildUpdatedAt,
-                        'user_version' => $currentUserVersion,
-                        'filename' => $currentFilename,
-                        'traits' => $upload['traits'] ?? [],
-                        'type' => $upload['type'] ?? '',
-                    ];
-
-                    // Only add to candidate uploads if it's a processable file type
-                    $candidateUpload = Upload::fromArray($seenUploads[$fileId], $fileId);
-                    if ($candidateUpload->isProcessable()) {
-                        $candidateUploads[] = $candidateUpload;
-                    }
-                }
-
-                // Update platform flags based on traits
-                if (! empty($upload['traits'])) {
-                    if (in_array('p_windows', $upload['traits'])) {
-                        $isWindows = true;
-                    }
-                    if (in_array('p_linux', $upload['traits'])) {
-                        $isLinux = true;
-                    }
-                    if (in_array('p_osx', $upload['traits'])) {
-                        $isMac = true;
-                    }
-                    if (in_array('p_android', $upload['traits'])) {
-                        $isAndroid = true;
-                    }
-                }
-                if ($upload['type'] === 'html') {
-                    $isWeb = true;
-                }
-            }
-
-            if (! $hasChanges && ! $force) {
-                DB::rollBack();
-
-                return;
-            }
-
-            $this->uploads = $seenUploads;
-
-            $bestUpload = Upload::getBest(collect($candidateUploads));
-            if ($bestUpload) {
-                $newVersion = $this->extractVersion($seenUploads[$bestUpload->id], true);
-                $uploadTimestamp = $bestUpload->updatedAt;
-
-                // Get existing version if any
-                $existingVersion = $this->gameVersions()
-                    ->where('version', $newVersion)
-                    ->first();
-
-                if (! $existingVersion || $force) {
-                    // Update the game's info & get rating info
-                    sleep(10);
-                    $devlogLink = null;
-                    $versionRating = null;
-                    $versionRatingCount = null;
-
-                    // Get devlog link and ratings
-                    $this->refreshTagsAndRating($client, $devlogLink, $versionRating, $versionRatingCount);
-                    $this->save();
-
-                    // Create new version with basic info first
-                    $gameVersion = new GameVersion([
-                        'version' => $newVersion,
-                        'devlog' => $devlogLink,
-                        'is_windows' => $isWindows,
-                        'is_linux' => $isLinux,
-                        'is_mac' => $isMac,
-                        'is_android' => $isAndroid,
-                        'is_web' => $isWeb,
-                        'published_at' => $uploadTimestamp,
-                        'rating' => $versionRating,
-                        'rating_count' => $versionRatingCount,
-                        'is_latest' => ! $existingVersion,
-                    ]);
-
-                    $this->gameVersions()->save($gameVersion);
-
-                    // If creating a new version (not just refreshing an existing one)
-                    if (! $existingVersion) {
-                        // Find previous version that has any unavailable languages
-                        $previousVersion = $this->gameVersions()
-                            ->where('id', '!=', $gameVersion->id)
-                            ->whereHas('supportedLanguages', function ($query) {
-                                $query->where('is_available', false);
-                            })
-                            ->latest('published_at')
-                            ->first();
-
-                        // Copy language availability settings from previous version
-                        if ($previousVersion) {
-                            VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
-                        }
-                    }
-
-                    // Process statistics if it's a Ren'Py game
-                    if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
-                        try {
-                            $archiveService = app(GameArchiveService::class);
-                            $statsService = app(GameStatsService::class);
-
-                            // Download and process
-                            $result = $archiveService->downloadAndProcess(
-                                $this->url,
-                                $bestUpload->filename,
-                                $bestUpload->id,
-                                $this->id,
-                                $gameVersion->id
-                            );
-
-                            if ($result['stats']) {
-                                $this->game_engine = "Ren'Py";
-                                $this->save();
-
-                                // Save the stats - pass $this as the game object for game-specific language mappings
-                                $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id, $this);
-                            } else {
-                                // Copy language support from previous version
-                                $this->copyLanguageSupport($gameVersion);
-                            }
-                        } catch (Exception $e) {
-                            Log::error('Failed to extract game stats', [
-                                'game_id' => $this->id,
-                                'version' => $newVersion,
-                                'error' => $e->getMessage(),
-                            ]);
-
-                            // Copy language support from previous version on error
-                            $this->copyLanguageSupport($gameVersion);
-                        }
-                    } else {
-                        // For non-Ren'Py games, copy language support from previous version
-                        $this->copyLanguageSupport($gameVersion);
-                    }
-                }
-            } else {
-                // If we're not creating a new version or doing a forced update,
-                // update platform flags of the latest version if they've changed
-                $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
-                if ($latestVersion) {
-                    $platformsChanged = false;
-
-                    if ($latestVersion->is_windows !== $isWindows) {
-                        $latestVersion->is_windows = $isWindows;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_linux !== $isLinux) {
-                        $latestVersion->is_linux = $isLinux;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_mac !== $isMac) {
-                        $latestVersion->is_mac = $isMac;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_android !== $isAndroid) {
-                        $latestVersion->is_android = $isAndroid;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_web !== $isWeb) {
-                        $latestVersion->is_web = $isWeb;
-                        $platformsChanged = true;
-                    }
-
-                    // Save the changes if any platform flags were updated
-                    if ($platformsChanged) {
-                        $latestVersion->save();
-                    }
-                }
-            }
-
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
-    }
-
-    /**
-     * Extract version information from upload metadata
-     *
-     * @throws DateMalformedStringException
-     */
-    public function extractVersion(array $upload, bool $allowDateFallback = false): ?string
-    {
-        // Collect version candidates with source and priority
-        $candidates = [];
-
-        // Check build.user_version first (highest priority)
-        if (! empty($upload['build']['user_version'])) {
-            $version = $upload['build']['user_version'];
-            if ($this->isProbableVersion($version)) {
-                $candidates[] = [$version, 3];
-            }
-        }
-
-        if (! empty($upload['user_version'])) {
-            $version = $upload['user_version'];
-            if ($this->isProbableVersion($version)) {
-                $candidates[] = [$version, 3];
-            }
-        }
-
-        // Check display_name (high priority)
-        if (! empty($upload['display_name'])) {
-            // Look for version in parentheses first (highest priority for display name)
-            if (preg_match('/\(([0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)\)/', $upload['display_name'], $matches)) {
-                if ($this->isProbableVersion($matches[1])) {
-                    $candidates[] = [$matches[1], 3];
-                }
-            }
-
-            // Look for explicit version
-            preg_match_all(
-                '/(?:[vV](?:ersion)?)?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)(?=[-_. ]|$)/i',
-                $upload['display_name'],
-                $matches
-            );
-
-            // Find the highest semantic version
-            $highestVersion = null;
-            foreach ($matches[1] as $version) {
-                if ($this->isProbableVersion($version)) {
-                    if (! $highestVersion || version_compare($version, $highestVersion) > 0) {
-                        $highestVersion = $version;
-                    }
-                }
-            }
-
-            if ($highestVersion) {
-                $candidates[] = [$highestVersion, 2];
-            } else {
-                // Fallback: only look for single numbers if no semantic version found,
-                // but avoid matching numbers that are part of a dotted sequence.
-                preg_match_all('/(?<!\.)\b(\d+)\b/', $upload['display_name'], $matches);
-                foreach ($matches[1] as $version) {
-                    if ($this->isProbableVersion($version)) {
-                        if (! $highestVersion || version_compare($version, $highestVersion) > 0) {
-                            $highestVersion = $version;
-                        }
-                    }
-                }
-                if ($highestVersion) {
-                    $candidates[] = [$highestVersion, 1];  // Lower priority for single numbers
-                }
-            }
-        }
-
-        // Check filename (lowest priority)
-        $filename = $upload['filename'] ?? '';
-        $cleanedFilename = preg_replace('/\.(zip|tar\.bz2|tar\.gz)$/', '', $filename);
-
-        // Look for build numbers
-        if (preg_match('/[bB]uild[_\s-]*(\d+)/', $cleanedFilename, $matches)) {
-            if ($this->isProbableVersion($matches[1])) {
-                $candidates[] = [$matches[1], 1];
-            }
-        } else {
-            // Look for version patterns in filename
-            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
-                $cleanedFilename, $matches);
-            foreach ($matches[1] as $version) {
-                if ($this->isProbableVersion($version)) {
-                    $candidates[] = [$version, 0];
-                }
-            }
-        }
-
-        if (! empty($candidates)) {
-            // Sort by priority (desc) then version string
-            usort($candidates, fn ($a, $b) => $b[1] <=> $a[1] ?: strcmp($a[0], $b[0]));
-
-            return $candidates[0][0];
-        }
-
-        // Only return date-based version if explicitly allowed
-        if ($allowDateFallback) {
-            $timestamp = new DateTime($upload['updated_at']);
-
-            return $timestamp->format('Y.m.d');
-        }
-
-        return null;
-    }
-
-    /**
-     * Get all game versions for this game.
-     */
-    public function gameVersions(): HasMany
-    {
-        return $this->hasMany(GameVersion::class)->orderByDesc('published_at');
-    }
-
-    /**
-     * Refresh the game's tags and rating information
+     * Refresh all metadata for the game from its itch.io page
      *
      * @throws GuzzleException
      */
-    public function refreshTagsAndRating(
+    public function refreshMetadata(
         Client $client,
         ?string &$devlogLink = null,
         ?float &$rating = null,
         ?int &$ratingCount = null
     ): void {
-        $response = $client->get($this->url, ['cookies' => false]);
-        $html = $response->getBody()->getContents();
-        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        // Start a database transaction to ensure data consistency
+        DB::beginTransaction();
 
-        // Update status if not abandoned/canceled
-        if (! in_array($this->status, ['Abandoned', 'Canceled'])) {
-            $gameInfo = $doc->querySelector('div.game_info_panel_widget');
-            if ($gameInfo) {
-                $statusLinks = $gameInfo->querySelectorAll('a');
-                if (count($statusLinks) > 0) {
-                    $this->status = $statusLinks[0]->textContent;
+        try {
+            $response = $client->get($this->url, ['cookies' => false]);
+            $html = $response->getBody()->getContents();
+            $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+            // Update status if not abandoned/canceled
+            if (! in_array($this->status, ['Abandoned', 'Canceled'])) {
+                $gameInfo = $doc->querySelector('div.game_info_panel_widget');
+                if ($gameInfo) {
+                    $statusLinks = $gameInfo->querySelectorAll('a');
+                    if (count($statusLinks) > 0) {
+                        $this->status = $statusLinks[0]->textContent;
+                    }
                 }
             }
-        }
 
-        // Get rating information
-        $ratingElement = $doc->querySelector('div[itemprop=ratingValue]');
-        $ratingCountElement = $doc->querySelector('span[itemprop=ratingCount]');
+            // Get rating information
+            $ratingElement = $doc->querySelector('div[itemprop=ratingValue]');
+            $ratingCountElement = $doc->querySelector('span[itemprop=ratingCount]');
 
-        if ($ratingElement && $ratingCountElement) {
-            $rating = (float) $ratingElement->getAttribute('content');
-            $ratingCount = (int) $ratingCountElement->getAttribute('content');
-        }
+            if ($ratingElement && $ratingCountElement) {
+                $rating = (float) $ratingElement->getAttribute('content');
+                $ratingCount = (int) $ratingCountElement->getAttribute('content');
+            }
 
-        // Get price information
-        $this->extractPriceInformation($doc);
+            // Get price information
+            $this->extractPriceInformation($doc);
 
-        // Get full description
-        $this->extractFullDescription($doc);
+            // Get full description
+            $this->extractFullDescription($doc);
 
-        // Get screenshots
-        $this->extractScreenshots($doc);
+            // Get screenshots
+            $this->extractScreenshots($doc);
 
-        // Get custom CSS
-        $this->extractCustomCss($html);
+            // Get custom CSS
+            $this->extractCustomCss($html);
 
-        // Get game jam information
-        $this->extractGameJamInfo($doc);
+            // Get game jam information
+            $this->extractGameJamInfo($doc);
 
-        // Get game info table data
-        $infoTable = $doc->querySelector('div.game_info_panel_widget table');
-        if ($infoTable) {
-            foreach ($infoTable->querySelectorAll('tr') as $row) {
-                $cells = $row->querySelectorAll('td');
-                if (count($cells) < 2) {
-                    continue;
-                }
+            // Get game info table data
+            $infoTable = $doc->querySelector('div.game_info_panel_widget table');
+            if ($infoTable) {
+                foreach ($infoTable->querySelectorAll('tr') as $row) {
+                    $cells = $row->querySelectorAll('td');
+                    if (count($cells) < 2) {
+                        continue;
+                    }
 
-                $label = trim($cells[0]->textContent);
-                $value = trim($cells[1]->textContent);
+                    $label = trim($cells[0]->textContent);
+                    $value = trim($cells[1]->textContent);
 
-                switch ($label) {
-                    case 'Tags':
-                        $this->tags = $value;
-                        break;
-                    case 'Author':
-                    case 'Authors':
-                        $this->authors = '';
-                        foreach ($cells[1]->querySelectorAll('a') as $author) {
-                            if ($this->authors !== '') {
-                                $this->authors .= ',<br>';
+                    switch ($label) {
+                        case 'Tags':
+                            $this->tags = $value;
+                            break;
+                        case 'Author':
+                        case 'Authors':
+                            $this->authors = '';
+                            foreach ($cells[1]->querySelectorAll('a') as $author) {
+                                if ($this->authors !== '') {
+                                    $this->authors .= ',<br>';
+                                }
+                                $this->authors .= sprintf(
+                                    '<a href="%s" target="_blank">%s</a>',
+                                    $author->getAttribute('href'),
+                                    $author->textContent
+                                );
                             }
-                            $this->authors .= sprintf(
-                                '<a href="%s" target="_blank">%s</a>',
-                                $author->getAttribute('href'),
-                                $author->textContent
-                            );
-                        }
-                        break;
+                            break;
+                    }
                 }
             }
-        }
 
-        // Check NSFW status
-        $nsfw = $doc->querySelector('div.content_warning_inner');
-        $this->is_nsfw = $nsfw !== null;
+            // Check NSFW status
+            $nsfw = $doc->querySelector('div.content_warning_inner');
+            $this->is_nsfw = $nsfw !== null;
 
-        // Get devlog link if present
-        $devlog = $doc->querySelector('section#devlog');
-        if ($devlog) {
-            $devlogLinks = $devlog->querySelectorAll('a');
-            if (count($devlogLinks) > 0) {
-                $devlogLink = $devlogLinks[0]->getAttribute('href');
+            // Get devlog link if present
+            $devlog = $doc->querySelector('section#devlog');
+            if ($devlog) {
+                $devlogLinks = $devlog->querySelectorAll('a');
+                if (count($devlogLinks) > 0) {
+                    $devlogLink = $devlogLinks[0]->getAttribute('href');
+                }
             }
+
+            // Save all metadata changes within the transaction
+            Log::info('About to save game metadata', [
+                'game_id' => $this->id,
+                'game_name' => $this->name,
+                'has_custom_css' => isset($this->custom_css),
+                'custom_css_length' => strlen($this->custom_css ?? ''),
+                'dirty_attributes' => $this->getDirty(),
+            ]);
+
+            $this->save();
+
+            Log::info('Game metadata saved', [
+                'game_id' => $this->id,
+                'game_name' => $this->name,
+                'saved_custom_css_length' => strlen($this->custom_css ?? ''),
+                'saved_attributes' => $this->getAttributes(),
+            ]);
+
+            // Commit the transaction
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
     }
 
@@ -846,6 +510,264 @@ class Game extends Model
         }
 
         $this->save();
+    }
+
+    /**
+     * Get all game versions for this game.
+     */
+    public function gameVersions(): HasMany
+    {
+        return $this->hasMany(GameVersion::class)->orderByDesc('published_at');
+    }
+
+    /**
+     * Refresh version information for the game
+     *
+     * @throws GuzzleException|DateMalformedStringException
+     * @throws Exception
+     */
+    public function refreshVersion(Client $client, bool $force = false): void
+    {
+        DB::beginTransaction();
+
+        try {
+            $url = "https://api.itch.io/games/{$this->game_id}/uploads";
+
+            $response = $client->get($url);
+            if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
+                $this->is_visible = false;
+                $this->save();
+                DB::commit();
+
+                return;
+            }
+
+            $uploadsData = json_decode($response->getBody()->getContents(), true);
+            if (! isset($uploadsData['uploads'])) {
+                DB::rollBack();
+
+                return;
+            }
+
+            $seenUploads = $this->uploads ?: [];
+            $hasChanges = false;
+            $candidateUploads = [];
+
+            // Platform flags for the latest version
+            $isWindows = false;
+            $isLinux = false;
+            $isMac = false;
+            $isAndroid = false;
+            $isWeb = false;
+
+            foreach ($uploadsData['uploads'] as $upload) {
+                $fileId = (int) $upload['id'];
+                $currentFilename = $upload['filename'];
+                $currentDisplayName = $upload['display_name'] ?? null;
+                $currentMd5 = $upload['md5_hash'] ?? null;
+                $currentUpdatedAt = $upload['updated_at'];
+                $currentBuildId = $upload['build_id'] ?? null;
+                $currentBuild = $upload['build'] ?? [];
+                $currentUserVersion = $currentBuild['user_version'] ?? null;
+                $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
+
+                // Always store upload info regardless of processability
+                $isNewOrChanged = (
+                    ! isset($seenUploads[$fileId]) ||
+                    $seenUploads[$fileId]['md5_hash'] !== $currentMd5 ||
+                    $seenUploads[$fileId]['updated_at'] !== $currentUpdatedAt ||
+                    $seenUploads[$fileId]['build_id'] !== $currentBuildId ||
+                    $seenUploads[$fileId]['build_updated_at'] !== $currentBuildUpdatedAt
+                );
+
+                if ($isNewOrChanged) {
+                    $hasChanges = true;
+                    $seenUploads[$fileId] = [
+                        'display_name' => $currentDisplayName,
+                        'md5_hash' => $currentMd5,
+                        'updated_at' => $currentUpdatedAt,
+                        'build_id' => $currentBuildId,
+                        'build_updated_at' => $currentBuildUpdatedAt,
+                        'user_version' => $currentUserVersion,
+                        'filename' => $currentFilename,
+                        'traits' => $upload['traits'] ?? [],
+                        'type' => $upload['type'] ?? '',
+                    ];
+
+                    // Only add to candidate uploads if it's a processable file type
+                    $candidateUpload = Upload::fromArray($seenUploads[$fileId], $fileId);
+                    if ($candidateUpload->isProcessable()) {
+                        $candidateUploads[] = $candidateUpload;
+                    }
+                }
+
+                // Update platform flags based on traits
+                if (! empty($upload['traits'])) {
+                    if (in_array('p_windows', $upload['traits'])) {
+                        $isWindows = true;
+                    }
+                    if (in_array('p_linux', $upload['traits'])) {
+                        $isLinux = true;
+                    }
+                    if (in_array('p_osx', $upload['traits'])) {
+                        $isMac = true;
+                    }
+                    if (in_array('p_android', $upload['traits'])) {
+                        $isAndroid = true;
+                    }
+                }
+                if ($upload['type'] === 'html') {
+                    $isWeb = true;
+                }
+            }
+
+            if (! $hasChanges && ! $force) {
+                DB::rollBack();
+
+                return;
+            }
+
+            $this->uploads = $seenUploads;
+
+            $bestUpload = Upload::getBest(collect($candidateUploads));
+            if ($bestUpload) {
+                $newVersion = $this->extractVersion($seenUploads[$bestUpload->id], true);
+                $uploadTimestamp = $bestUpload->updatedAt;
+
+                // Get existing version if any
+                $existingVersion = $this->gameVersions()
+                    ->where('version', $newVersion)
+                    ->first();
+
+                if (! $existingVersion || $force) {
+                    // Update the game's info & get rating info
+                    sleep(10);
+                    $devlogLink = null;
+                    $versionRating = null;
+                    $versionRatingCount = null;
+
+                    // Get devlog link and ratings
+                    $this->refreshMetadata($client, $devlogLink, $versionRating, $versionRatingCount);
+                    $this->save();
+
+                    // Create new version with basic info first
+                    $gameVersion = new GameVersion([
+                        'version' => $newVersion,
+                        'devlog' => $devlogLink,
+                        'is_windows' => $isWindows,
+                        'is_linux' => $isLinux,
+                        'is_mac' => $isMac,
+                        'is_android' => $isAndroid,
+                        'is_web' => $isWeb,
+                        'published_at' => $uploadTimestamp,
+                        'rating' => $versionRating,
+                        'rating_count' => $versionRatingCount,
+                        'is_latest' => ! $existingVersion,
+                    ]);
+
+                    $this->gameVersions()->save($gameVersion);
+
+                    // If creating a new version (not just refreshing an existing one)
+                    if (! $existingVersion) {
+                        // Find previous version that has any unavailable languages
+                        $previousVersion = $this->gameVersions()
+                            ->where('id', '!=', $gameVersion->id)
+                            ->whereHas('supportedLanguages', function ($query) {
+                                $query->where('is_available', false);
+                            })
+                            ->latest('published_at')
+                            ->first();
+
+                        // Copy language availability settings from previous version
+                        if ($previousVersion) {
+                            VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
+                        }
+                    }
+
+                    // Process statistics if it's a Ren'Py game
+                    if (! $this->game_engine || $this->game_engine === "Ren'Py" || $this->game_engine === 'unknown') {
+                        try {
+                            $archiveService = app(GameArchiveService::class);
+                            $statsService = app(GameStatsService::class);
+
+                            // Download and process
+                            $result = $archiveService->downloadAndProcess(
+                                $this->url,
+                                $bestUpload->filename,
+                                $bestUpload->id,
+                                $this->id,
+                                $gameVersion->id
+                            );
+
+                            if ($result['stats']) {
+                                $this->game_engine = "Ren'Py";
+                                $this->save();
+
+                                // Save the stats - pass $this as the game object for game-specific language mappings
+                                $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id, $this);
+                            } else {
+                                // Copy language support from previous version
+                                $this->copyLanguageSupport($gameVersion);
+                            }
+                        } catch (Exception $e) {
+                            Log::error('Failed to extract game stats', [
+                                'game_id' => $this->id,
+                                'version' => $newVersion,
+                                'error' => $e->getMessage(),
+                            ]);
+
+                            // Copy language support from previous version on error
+                            $this->copyLanguageSupport($gameVersion);
+                        }
+                    } else {
+                        // For non-Ren'Py games, copy language support from previous version
+                        $this->copyLanguageSupport($gameVersion);
+                    }
+                }
+            } else {
+                // If we're not creating a new version or doing a forced update,
+                // update platform flags of the latest version if they've changed
+                $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
+                if ($latestVersion) {
+                    $platformsChanged = false;
+
+                    if ($latestVersion->is_windows !== $isWindows) {
+                        $latestVersion->is_windows = $isWindows;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_linux !== $isLinux) {
+                        $latestVersion->is_linux = $isLinux;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_mac !== $isMac) {
+                        $latestVersion->is_mac = $isMac;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_android !== $isAndroid) {
+                        $latestVersion->is_android = $isAndroid;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_web !== $isWeb) {
+                        $latestVersion->is_web = $isWeb;
+                        $platformsChanged = true;
+                    }
+
+                    // Save the changes if any platform flags were updated
+                    if ($platformsChanged) {
+                        $latestVersion->save();
+                    }
+                }
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     protected function devlog(): Attribute
@@ -999,13 +921,15 @@ class Game extends Model
         $customCss = '';
 
         // Look for the game theme CSS in the HTML
-        if (preg_match('/<style type="text\/css" id="game_theme">([\s\S]*?)<\/style>/i', $html, $matches)) {
+        if (preg_match('/<style[^>]*id="game_theme"[^>]*>([\s\S]*?)<\/style>/i', $html, $matches)) {
             $customCss .= trim($matches[1]) . "\n\n";
+            Log::info('Found game theme CSS', ['css' => $matches[1]]);
         }
 
         // Look for the custom CSS in the HTML
-        if (preg_match('/<style type="text\/css" id="custom_css">([\s\S]*?)<\/style>/i', $html, $matches)) {
+        if (preg_match('/<style[^>]*id="custom_css"[^>]*>([\s\S]*?)<\/style>/i', $html, $matches)) {
             $customCss .= trim($matches[1]);
+            Log::info('Found custom CSS', ['css' => $matches[1]]);
         }
 
         // If we have CSS, process it to remove colors and header styling
@@ -1017,13 +941,23 @@ class Game extends Model
             if (! empty($processedCss)) {
                 // Add proper scoping to the processed CSS
                 $customCss = ".game_description {\n" . $processedCss . "\n}";
+                Log::info('Processed and scoped CSS', ['css' => $customCss]);
             } else {
                 // If processing resulted in empty CSS, set to null
                 $customCss = null;
+                Log::info('CSS processing resulted in empty CSS');
             }
         } else {
             $customCss = null;
+            Log::info('No CSS found in HTML');
         }
+
+        Log::info('Setting custom_css attribute', [
+            'game_id' => $this->id,
+            'game_name' => $this->name,
+            'css_length' => strlen($customCss ?? ''),
+            'css_value' => $customCss,
+        ]);
 
         $this->custom_css = $customCss;
     }

@@ -191,7 +191,7 @@ class GameJam extends Model
 
         while ($hasMorePages) {
             $pageDoc = $this->fetchResultsPageNumber($client, $currentPage, $maxRetries, $retryDelay);
-            if (!$pageDoc) {
+            if (! $pageDoc) {
                 break;
             }
 
@@ -200,7 +200,7 @@ class GameJam extends Model
 
             // Check if there's a next page by looking for the pagination element
             $nextPageLink = $pageDoc->querySelector('.next_page:not(.disabled)');
-            if (!$nextPageLink) {
+            if (! $nextPageLink) {
                 $hasMorePages = false;
             } else {
                 $currentPage++;
@@ -212,7 +212,7 @@ class GameJam extends Model
 
     /**
      * Fetch a specific page of results
-     * 
+     *
      * @return HTMLDocument|null The parsed HTML document for the page, or null if the fetch failed
      */
     private function fetchResultsPageNumber(Client $client, int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
@@ -253,6 +253,7 @@ class GameJam extends Model
 
                     // Sleep before retrying
                     sleep($sleepTime);
+
                     continue;
                 }
 
@@ -262,6 +263,7 @@ class GameJam extends Model
                         'url' => $resultsUrl,
                         'status_code' => $statusCode,
                     ]);
+
                     return null;
                 }
 
@@ -271,6 +273,7 @@ class GameJam extends Model
                 ]);
 
                 $html = $response->getBody()->getContents();
+
                 return HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
             } catch (Exception $e) {
@@ -479,12 +482,14 @@ class GameJam extends Model
             $gameLink = $gameRankDiv->querySelector('a.game_cover');
             if (! $gameLink) {
                 Log::info('No game link found in game rank div');
+
                 continue;
             }
 
             $gameUrl = $gameLink->getAttribute('href');
             if (! $gameUrl) {
                 Log::info('No URL found in game link');
+
                 continue;
             }
 
@@ -495,6 +500,7 @@ class GameJam extends Model
             $game = Game::where('url', $gameUrl)->first();
             if (! $game) {
                 Log::info('Game not found in database', ['url' => $gameUrl]);
+
                 continue;
             }
 
@@ -508,6 +514,7 @@ class GameJam extends Model
             $rankingElement = $gameRankDiv->querySelector('.game_summary h3 .ordinal_rank');
             if (! $rankingElement) {
                 Log::info('No ranking found for game', ['game' => $gameTitle, 'url' => $gameUrl]);
+
                 continue;
             }
 

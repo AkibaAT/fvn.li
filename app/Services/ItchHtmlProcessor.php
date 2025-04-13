@@ -36,8 +36,14 @@ class ItchHtmlProcessor
             $this->processLinks($doc);
             $this->processImages($doc);
 
-            // Return the processed HTML
-            return $doc->saveHTML();
+            // Get the body content only
+            $body = $doc->querySelector('body');
+            if ($body) {
+                return trim($body->innerHTML);
+            }
+
+            // If no body tag (fragment), get the root content
+            return trim($doc->innerHTML);
         } catch (Exception $e) {
             // Log the error
             Log::error('HTML Processing failed: ' . $e->getMessage(), ['html' => $html]);

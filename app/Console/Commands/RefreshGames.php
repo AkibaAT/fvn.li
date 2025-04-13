@@ -152,8 +152,7 @@ class RefreshGames extends Command
                     $this->info('→ Refreshing metadata (tags, ratings, descriptions, screenshots, game jams)...');
 
                     $this->executeWithRetry(function () use ($game, $client) {
-                        $game->refreshTagsAndRating($client);
-                        $game->save();
+                        $game->refreshMetadata($client);
                     }, 'Metadata');
 
                     $this->info('  Waiting 10 seconds for rate limiting...');
