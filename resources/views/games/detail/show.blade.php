@@ -1,6 +1,9 @@
 <div class="bg-gray-100 dark:bg-gray-900">
     @if ($game->custom_css)
         <style id="custom_css">
+            .game_description img {
+                display: initial;
+            }
             {!! $game->custom_css !!}
         </style>
     @endif
