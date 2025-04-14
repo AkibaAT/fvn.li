@@ -17,8 +17,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Normalizer;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -75,51 +73,14 @@ readonly class GameStatsService
                 throw new RuntimeException('Could not find valid game directory');
             }
 
-            // Copy Ren'Py analysis files
-            $this->copyRenpyFiles($gameDir);
-
-            // Find and execute the game launcher
-            $launcher = $this->findGameLauncher($gameDir);
-            if (! $launcher) {
-                throw new RuntimeException('Could not find game launcher');
+            // Get the Ren'Py SDK path from configuration
+            $sdkPath = config('services.renpy.sdk_path');
+            if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
+                throw new RuntimeException('Ren\'Py SDK path not configured or invalid. Please set RENPY_SDK_PATH in .env');
             }
 
-            // Make files executable
-            $iterator = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($extractPath),
-                RecursiveIteratorIterator::SELF_FIRST
-            );
-            foreach ($iterator as $file) {
-                if (! is_executable($file->getPathname())) {
-                    chmod($file->getPathname(), 0755);
-                }
-            }
-
-            // Execute the script analysis
-            $process = new Process([$launcher, 'game', 'test'], $gameDir);
-            $process->setTimeout(300); // 5 minute timeout
-            $process->run();
-
-            // Check for successful execution
-            if (! $process->isSuccessful()) {
-                throw new RuntimeException(
-                    'Script analysis failed: ' . $process->getOutput()
-                );
-            }
-
-            // Read and parse the stats file
-            $statsFile = $gameDir . '/stats.json';
-            if (! File::exists($statsFile)) {
-                throw new RuntimeException('Stats file not generated');
-            }
-
-            $stats = json_decode(File::get($statsFile), true);
-            if (! $stats || ! isset($stats['languages'])) {
-                throw new RuntimeException('Invalid stats file format');
-            }
-
-            return $stats;
-
+            // Use the Ren'Py SDK to analyze the game
+            return $this->extractStatsWithSdk($gameDir, $sdkPath);
         } finally {
             // Cleanup
             if (File::exists($extractPath)) {
@@ -127,6 +88,54 @@ readonly class GameStatsService
             }
         }
     }
+
+    /**
+     * Extract statistics using the Ren'Py SDK
+     */
+    private function extractStatsWithSdk(string $gameDir, string $sdkPath): array
+    {
+        // Copy our analysis script to the game directory
+        File::copy(
+            resource_path('renpy/json_stats.rpy'),
+            $gameDir . '/game/json_stats.rpy'
+        );
+
+        // Execute the script analysis using the SDK
+        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
+        $process->setTimeout(300); // 5 minute timeout
+        $process->run();
+
+        // Check for successful execution
+        if (! $process->isSuccessful()) {
+            $output = $process->getOutput();
+            $errorOutput = $process->getErrorOutput();
+            Log::error('Script analysis failed using SDK', [
+                'output' => $output,
+                'error_output' => $errorOutput,
+                'exit_code' => $process->getExitCode(),
+                'sdk_path' => $sdkPath,
+                'game_dir' => $gameDir,
+            ]);
+            throw new RuntimeException(
+                'Script analysis failed: ' . $output . ' Error: ' . $errorOutput
+            );
+        }
+
+        // Read and parse the stats file
+        $statsFile = $gameDir . '/stats.json';
+        if (! File::exists($statsFile)) {
+            throw new RuntimeException('Stats file not generated');
+        }
+
+        $stats = json_decode(File::get($statsFile), true);
+        if (! $stats || ! isset($stats['languages'])) {
+            throw new RuntimeException('Invalid stats file format');
+        }
+
+        return $stats;
+    }
+
+
 
     /**
      * Save or update language and character statistics for a game version
@@ -424,7 +433,7 @@ readonly class GameStatsService
                 // Insert dialogue lines for this chunk
                 if (! empty($dialogueBatch)) {
                     // Process in smaller sub-batches to avoid parameter limits
-                    foreach (array_chunk($dialogueBatch, 1000) as $subBatchIndex => $subBatch) {
+                    foreach (array_chunk($dialogueBatch, 1000) as $subBatch) {
                         DialogueLine::insert($subBatch);
                     }
                 }
@@ -579,54 +588,5 @@ readonly class GameStatsService
         return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir . '/game'));
     }
 
-    /**
-     * Copy required Ren'Py analysis files to the game directory
-     */
-    private function copyRenpyFiles(string $gameDir): void
-    {
-        // Copy json_stats script
-        File::copy(
-            resource_path('renpy/json_stats.rpy'),
-            $gameDir . '/game/json_stats.rpy'
-        );
 
-        // Check if we need to copy Ren'Py runtime files
-        $hasRenpyRuntime = false;
-        foreach (['py2-linux-x86_64', 'py3-linux-x86_64', 'linux-x86_64'] as $dir) {
-            if (File::isDirectory($gameDir . '/lib/' . $dir)) {
-                $hasRenpyRuntime = true;
-                break;
-            }
-        }
-
-        if (! $hasRenpyRuntime) {
-            File::copy(
-                resource_path('renpy/renpy.py'),
-                $gameDir . '/renpy.py'
-            );
-            File::copy(
-                resource_path('renpy/renpy.sh'),
-                $gameDir . '/renpy.sh'
-            );
-            File::copyDirectory(
-                resource_path('renpy/py3-linux-x86_64'),
-                $gameDir . '/lib/py3-linux-x86_64'
-            );
-        }
-    }
-
-    /**
-     * Find the game launcher script
-     */
-    private function findGameLauncher(string $gameDir): ?string
-    {
-        $files = File::files($gameDir);
-        foreach ($files as $file) {
-            if ($file->getExtension() === 'sh') {
-                return $file->getPathname();
-            }
-        }
-
-        return null;
-    }
 }

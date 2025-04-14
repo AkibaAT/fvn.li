@@ -19,6 +19,7 @@ services:
       - app_storage:/app/storage
       - caddy_data:/data
       - caddy_config:/config
+      - /opt/renpy-sdk:/opt/renpy-sdk
       - ./:/app/
     labels:
       - "traefik.enable=true"

@@ -77,4 +77,8 @@ return [
         ],
     ],
 
+    'renpy' => [
+        'sdk_path' => env('RENPY_SDK_PATH'),
+    ],
+
 ];
