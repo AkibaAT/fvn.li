@@ -290,6 +290,12 @@ class Game extends Model
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
+            // Extract price information
+            $this->extractPriceInformation($doc);
+
+            // Check for demo availability
+            $this->checkForDemo($doc);
+
             // Update status if not abandoned/canceled
             if (! in_array($this->status, ['Abandoned', 'Canceled'])) {
                 $gameInfo = $doc->querySelector('div.game_info_panel_widget');
@@ -939,6 +945,8 @@ class Game extends Model
     {
         // Store the original is_paid value to respect it if it's already set
         $originalIsPaid = $this->is_paid;
+        $originalMinPrice = $this->min_price;
+        $originalIsOnSale = $this->is_on_sale;
 
         // Check for price information
         $buySection = $doc->querySelector('.buy_game_section');
@@ -952,6 +960,13 @@ class Game extends Model
             if (! $originalIsPaid) {
                 $this->is_paid = false;
             }
+
+            Log::info('Game appears free (no buy section)', [
+                'game_id' => $this->id,
+                'game_name' => $this->name,
+                'original_is_paid' => $originalIsPaid,
+                'new_is_paid' => $this->is_paid,
+            ]);
 
             return;
         }
@@ -979,7 +994,26 @@ class Game extends Model
             $this->is_paid = $this->min_price > 0;
         }
 
-        // Check if a paid game has a demo
+        // Log the price information extraction
+        Log::info('Extracted price information', [
+            'game_id' => $this->id,
+            'game_name' => $this->name,
+            'original_min_price' => $originalMinPrice,
+            'new_min_price' => $this->min_price,
+            'original_is_on_sale' => $originalIsOnSale,
+            'new_is_on_sale' => $this->is_on_sale,
+            'original_is_paid' => $originalIsPaid,
+            'new_is_paid' => $this->is_paid,
+            'price_element_found' => $minPriceElement !== null,
+            'price_text' => $minPriceElement ? trim($minPriceElement->textContent) : null,
+        ]);
+    }
+
+    /**
+     * Check if a paid game has a demo
+     */
+    private function checkForDemo(HTMLDocument $doc): void
+    {
         $this->has_demo = false;
         if ($this->is_paid) {
             // We'll determine if there's a demo by checking if there are any free downloads available
