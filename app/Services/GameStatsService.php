@@ -90,54 +90,6 @@ readonly class GameStatsService
     }
 
     /**
-     * Extract statistics using the Ren'Py SDK
-     */
-    private function extractStatsWithSdk(string $gameDir, string $sdkPath): array
-    {
-        // Copy our analysis script to the game directory
-        File::copy(
-            resource_path('renpy/json_stats.rpy'),
-            $gameDir . '/game/json_stats.rpy'
-        );
-
-        // Execute the script analysis using the SDK
-        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
-        $process->setTimeout(300); // 5 minute timeout
-        $process->run();
-
-        // Check for successful execution
-        if (! $process->isSuccessful()) {
-            $output = $process->getOutput();
-            $errorOutput = $process->getErrorOutput();
-            Log::error('Script analysis failed using SDK', [
-                'output' => $output,
-                'error_output' => $errorOutput,
-                'exit_code' => $process->getExitCode(),
-                'sdk_path' => $sdkPath,
-                'game_dir' => $gameDir,
-            ]);
-            throw new RuntimeException(
-                'Script analysis failed: ' . $output . ' Error: ' . $errorOutput
-            );
-        }
-
-        // Read and parse the stats file
-        $statsFile = $gameDir . '/stats.json';
-        if (! File::exists($statsFile)) {
-            throw new RuntimeException('Stats file not generated');
-        }
-
-        $stats = json_decode(File::get($statsFile), true);
-        if (! $stats || ! isset($stats['languages'])) {
-            throw new RuntimeException('Invalid stats file format');
-        }
-
-        return $stats;
-    }
-
-
-
-    /**
      * Save or update language and character statistics for a game version
      *
      * @param  GameVersion  $version  The game version to save stats for
@@ -504,6 +456,52 @@ readonly class GameStatsService
     }
 
     /**
+     * Extract statistics using the Ren'Py SDK
+     */
+    private function extractStatsWithSdk(string $gameDir, string $sdkPath): array
+    {
+        // Copy our analysis script to the game directory
+        File::copy(
+            resource_path('renpy/json_stats.rpy'),
+            $gameDir . '/game/json_stats.rpy'
+        );
+
+        // Execute the script analysis using the SDK
+        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
+        $process->setTimeout(300); // 5 minute timeout
+        $process->run();
+
+        // Check for successful execution
+        if (! $process->isSuccessful()) {
+            $output = $process->getOutput();
+            $errorOutput = $process->getErrorOutput();
+            Log::error('Script analysis failed using SDK', [
+                'output' => $output,
+                'error_output' => $errorOutput,
+                'exit_code' => $process->getExitCode(),
+                'sdk_path' => $sdkPath,
+                'game_dir' => $gameDir,
+            ]);
+            throw new RuntimeException(
+                'Script analysis failed: ' . $output . ' Error: ' . $errorOutput
+            );
+        }
+
+        // Read and parse the stats file
+        $statsFile = $gameDir . '/stats.json';
+        if (! File::exists($statsFile)) {
+            throw new RuntimeException('Stats file not generated');
+        }
+
+        $stats = json_decode(File::get($statsFile), true);
+        if (! $stats || ! isset($stats['languages'])) {
+            throw new RuntimeException('Invalid stats file format');
+        }
+
+        return $stats;
+    }
+
+    /**
      * Extract a game archive to the specified directory
      */
     private function extractArchive(string $archivePath, string $extractPath): void
@@ -587,6 +585,4 @@ readonly class GameStatsService
         // Check first-level subdirectories
         return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir . '/game'));
     }
-
-
 }
