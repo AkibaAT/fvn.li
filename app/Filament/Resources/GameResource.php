@@ -10,6 +10,7 @@ use App\Filament\Resources\GameResource\Pages\ListGames;
 use App\Filament\Resources\GameResource\Pages\ViewGame;
 use App\Filament\Resources\GameResource\RelationManagers\GameVersionsRelationManager;
 use App\Models\Game;
+use Exception;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
@@ -92,6 +93,30 @@ class GameResource extends Resource
                             ->maxLength(3),
                     ]),
 
+                Section::make('Pricing & Availability')
+                    ->schema([
+                        Toggle::make('is_paid')
+                            ->label('Is Paid Game')
+                            ->helperText('Indicates if this game requires payment to play')
+                            ->default(false),
+                        TextInput::make('min_price')
+                            ->label('Minimum Price')
+                            ->prefix('$')
+                            ->numeric()
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->visible(fn (callable $get) => $get('is_paid')),
+                        Toggle::make('is_on_sale')
+                            ->label('Currently On Sale')
+                            ->helperText('Indicates if this game is currently discounted')
+                            ->default(false)
+                            ->visible(fn (callable $get) => $get('is_paid')),
+                        Toggle::make('has_demo')
+                            ->label('Has Demo')
+                            ->helperText('Indicates if a free demo is available')
+                            ->default(false),
+                    ])->columns(2),
+
                 Section::make('Dates')
                     ->schema([
                         DateTimePicker::make('initially_published_at')
@@ -100,6 +125,9 @@ class GameResource extends Resource
             ]);
     }
 
+    /**
+     * @throws Exception
+     */
     public static function table(Table $table): Table
     {
         return $table
@@ -117,6 +145,18 @@ class GameResource extends Resource
                 IconColumn::make('is_nsfw')
                     ->boolean()
                     ->sortable(),
+                IconColumn::make('is_paid')
+                    ->boolean()
+                    ->label('Paid')
+                    ->sortable(),
+                IconColumn::make('has_demo')
+                    ->boolean()
+                    ->label('Demo')
+                    ->sortable(),
+                TextColumn::make('min_price')
+                    ->money('usd')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('game_engine')
                     ->sortable(),
                 TextColumn::make('initially_published_at')
@@ -142,6 +182,10 @@ class GameResource extends Resource
                     ]),
                 TernaryFilter::make('is_visible'),
                 TernaryFilter::make('is_nsfw'),
+                TernaryFilter::make('is_paid')
+                    ->label('Paid Games'),
+                TernaryFilter::make('has_demo')
+                    ->label('Has Demo'),
             ])
             ->actions([
                 ViewAction::make(),

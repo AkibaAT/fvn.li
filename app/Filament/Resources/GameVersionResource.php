@@ -11,6 +11,7 @@ use App\Filament\Resources\GameVersionResource\Pages\ViewGameVersion;
 use App\Filament\Resources\GameVersionResource\RelationManagers\CharacterStatsRelationManager;
 use App\Filament\Resources\GameVersionResource\RelationManagers\FileCategoriesRelationManager;
 use App\Models\GameVersion;
+use Exception;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -18,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteBulkAction;
@@ -48,7 +50,8 @@ class GameVersionResource extends Resource
                         Select::make('game_id')
                             ->relationship('game', 'name')
                             ->required()
-                            ->searchable(),
+                            ->searchable()
+                            ->default(fn () => request()->input('game_id')),
                         TextInput::make('version')
                             ->required()
                             ->maxLength(20),
@@ -87,6 +90,9 @@ class GameVersionResource extends Resource
             ]);
     }
 
+    /**
+     * @throws Exception
+     */
     public static function table(Table $table): Table
     {
         return $table
@@ -132,6 +138,74 @@ class GameVersionResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                Action::make('exportJson')
+                    ->label('Export JSON')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->action(function (GameVersion $record): void {
+                        // Prepare the version data for export
+                        $data = [
+                            'version' => $record->version,
+                            'published_at' => $record->published_at->toIso8601String(),
+                            'is_windows' => $record->is_windows,
+                            'is_linux' => $record->is_linux,
+                            'is_mac' => $record->is_mac,
+                            'is_android' => $record->is_android,
+                            'is_web' => $record->is_web,
+                            'rating' => $record->rating,
+                            'rating_count' => $record->rating_count,
+                            'devlog' => $record->devlog,
+                        ];
+
+                        // Add character stats
+                        $characterStats = [];
+                        foreach ($record->characterStats as $stat) {
+                            $characterStats[] = [
+                                'character_id' => $stat->character_id,
+                                'iso_code' => $stat->iso_code,
+                                'blocks' => $stat->blocks,
+                                'words' => $stat->words,
+                            ];
+                        }
+                        $data['character_stats'] = $characterStats;
+
+                        // Add language stats
+                        $languageStats = [];
+                        foreach ($record->languageStats as $stat) {
+                            $languageStats[] = [
+                                'iso_code' => $stat->iso_code,
+                                'blocks' => $stat->blocks,
+                                'words' => $stat->words,
+                            ];
+                        }
+                        $data['language_stats'] = $languageStats;
+
+                        // Add supported languages
+                        $supportedLanguages = [];
+                        foreach ($record->supportedLanguages as $lang) {
+                            $supportedLanguages[] = [
+                                'iso_code' => $lang->iso_code,
+                                'is_available' => $lang->is_available,
+                            ];
+                        }
+                        $data['supported_languages'] = $supportedLanguages;
+
+                        // Generate a filename
+                        $filename = 'version_' . $record->id . '_' . $record->version . '.json';
+
+                        // Create a response with the JSON data
+                        $response = response()->streamDownload(
+                            function () use ($data) {
+                                echo json_encode($data, JSON_PRETTY_PRINT);
+                            },
+                            $filename,
+                            [
+                                'Content-Type' => 'application/json',
+                                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                            ]
+                        );
+
+                        $response->send();
+                    }),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

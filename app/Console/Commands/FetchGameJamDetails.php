@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\GameJam;
+use App\Services\ItchHttpClientService;
 use Exception;
-use GuzzleHttp\Client;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 
 class FetchGameJamDetails extends Command
@@ -22,12 +23,6 @@ class FetchGameJamDetails extends Command
         {--retry-cooldown=30 : Base cooldown time in seconds between retries (increases with each retry)}';
 
     protected $description = 'Fetch additional details for game jams';
-
-    public function __construct(
-        private readonly Client $httpClient
-    ) {
-        parent::__construct();
-    }
 
     public function handle(): int
     {
@@ -87,9 +82,19 @@ class FetchGameJamDetails extends Command
                 // Fetch details from the game jam page with retry logic
                 $this->info('Fetching details for game jam: ' . $gameJam->name . ' (ID: ' . $gameJam->id . ')');
 
-                $success = $this->executeWithRetry(function () use ($gameJam) {
-                    return $gameJam->fetchDetailsFromUrl($this->httpClient);
-                }, 'Game jam details');
+                // Configure the ItchHttpClientService with the command options
+                $itchClient = App::make(ItchHttpClientService::class);
+                $itchClient->setMaxRetries((int) $this->option('max-retries'));
+                $itchClient->setBaseCooldown((int) $this->option('retry-cooldown'));
+
+                $success = $itchClient->executeWithRetry(
+                    function () use ($gameJam) {
+                        return $gameJam->fetchDetailsFromUrl();
+                    },
+                    'Game jam details',
+                    fn (string $op) => $this->info("  {$op} processed successfully"),
+                    fn (string $op, string $error) => $this->error("  Error during {$op}: {$error}")
+                );
 
                 // If we're forcing results and the fetch was successful, fetch the results page with retry logic
                 if ($success && $forceResults) {
@@ -101,7 +106,7 @@ class FetchGameJamDetails extends Command
 
                     // Fetch rankings directly with the configured retry settings
                     try {
-                        $rankingsSuccess = $gameJam->fetchResultsPage($this->httpClient, $maxRetries, $retryCooldown);
+                        $rankingsSuccess = $gameJam->fetchResultsPage($maxRetries, $retryCooldown);
                     } catch (Exception $e) {
                         $this->error("Error fetching rankings: {$e->getMessage()}");
                         $rankingsSuccess = false;
@@ -148,51 +153,5 @@ class FetchGameJamDetails extends Command
         $this->info("\nProcessing complete: {$successCount} succeeded, {$failCount} failed");
 
         return $failCount > 0 ? 1 : 0;
-    }
-
-    /**
-     * Execute a function with retry logic for rate limiting
-     *
-     * @param  callable  $callback  The function to execute
-     * @param  string  $operationName  Name of the operation for logging
-     * @return mixed The result of the callback function
-     *
-     * @throws Exception If the operation fails after all retries
-     */
-    private function executeWithRetry(callable $callback, string $operationName)
-    {
-        $maxRetries = (int) $this->option('max-retries');
-        $baseCooldown = (int) $this->option('retry-cooldown');
-        $retryCount = 0;
-        $success = false;
-        $result = null;
-
-        while (! $success && $retryCount <= $maxRetries) {
-            try {
-                $result = $callback();
-                $this->info("  {$operationName} processed successfully");
-                $success = true;
-            } catch (Exception $e) {
-                // Check if it's a rate limiting error (429 Too Many Requests)
-                if (strpos($e->getMessage(), '429 Too Many Requests') !== false) {
-                    $retryCount++;
-                    $cooldownTime = $baseCooldown * $retryCount; // Increase cooldown with each retry
-
-                    if ($retryCount <= $maxRetries) {
-                        $this->warn("  Rate limit exceeded. Waiting {$cooldownTime} seconds before retry {$retryCount}/{$maxRetries}...");
-                        sleep($cooldownTime);
-                    } else {
-                        $this->error("  Maximum retries reached. Skipping {$operationName} refresh.");
-                        throw $e; // Re-throw to be caught by the outer try-catch
-                    }
-                } else {
-                    // For other errors, log and re-throw immediately
-                    $this->error("  Error during {$operationName}: {$e->getMessage()}");
-                    throw $e;
-                }
-            }
-        }
-
-        return $result;
     }
 }

@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\ItchHttpClientService;
 use DateTime;
 use Dom\HTMLDocument;
 use Exception;
-use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class GameJam extends Model
 {
@@ -132,10 +136,16 @@ class GameJam extends Model
 
     /**
      * Fetch details about a game jam from its page
+     *
+     * @throws BindingResolutionException
+     * @throws GuzzleException
      */
-    public function fetchDetailsFromUrl(Client $client): bool
+    public function fetchDetailsFromUrl(): bool
     {
         try {
+            // Get the ItchHttpClientService
+            $itchClient = App::make(ItchHttpClientService::class);
+
             // Fetch the game jam page
             Log::info('Fetching game jam details page', [
                 'url' => $this->url,
@@ -143,18 +153,13 @@ class GameJam extends Model
                 'game_jam_name' => $this->name,
             ]);
 
-            $response = $client->get($this->url, [
+            $response = $itchClient->get($this->url, [
                 'cookies' => false,
-                'http_errors' => false, // Don't throw exceptions for 4xx/5xx
             ]);
 
             $statusCode = $response->getStatusCode();
 
-            // Handle rate limiting and server errors
-            if ($statusCode === 429) {
-                throw new Exception('429 Too Many Requests - Rate limit exceeded when fetching game jam details');
-            }
-
+            // The ItchHttpClientService handles 429 errors, but we still need to check for other errors
             if ($statusCode !== 200) {
                 throw new Exception("HTTP error {$statusCode} when fetching game jam details");
             }
@@ -209,7 +214,7 @@ class GameJam extends Model
             ]);
 
             // Re-throw rate limit errors so they can be handled by the retry mechanism
-            if (strpos($e->getMessage(), '429 Too Many Requests') !== false) {
+            if (str_contains($e->getMessage(), '429 Too Many Requests')) {
                 throw $e;
             }
 
@@ -223,8 +228,9 @@ class GameJam extends Model
      * @return bool True if rankings were successfully fetched, false otherwise
      *
      * @throws Exception If there was a critical error fetching rankings
+     * @throws Throwable
      */
-    public function fetchResultsPage(Client $client, int $maxRetries = 5, int $retryDelay = 30): bool
+    public function fetchResultsPage(int $maxRetries = 5, int $retryDelay = 30): bool
     {
         $currentPage = 1;
         $hasMorePages = true;
@@ -239,7 +245,7 @@ class GameJam extends Model
             ]);
 
             while ($hasMorePages) {
-                $pageDoc = $this->fetchResultsPageNumber($client, $currentPage, $maxRetries, $retryDelay);
+                $pageDoc = $this->fetchResultsPageNumber($currentPage, $maxRetries, $retryDelay);
                 if (! $pageDoc) {
                     // If we couldn't fetch the first page, that's a critical error
                     if ($currentPage === 1) {
@@ -301,139 +307,73 @@ class GameJam extends Model
      * Fetch a specific page of results
      *
      * @return HTMLDocument|null The parsed HTML document for the page, or null if the fetch failed
+     *
+     * @throws BindingResolutionException
+     * @throws GuzzleException
      */
-    private function fetchResultsPageNumber(Client $client, int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
+    private function fetchResultsPageNumber(int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
     {
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-            try {
-                // Construct the results page URL with page number
-                $resultsUrl = rtrim($this->url, '/') . '/results';
-                if ($pageNumber > 1) {
-                    $resultsUrl .= '?page=' . $pageNumber;
-                }
+        // Get the ItchHttpClientService
+        $itchClient = App::make(ItchHttpClientService::class);
+        $itchClient->setMaxRetries($maxRetries);
+        $itchClient->setBaseCooldown($retryDelay);
 
-                Log::info('Fetching game jam results page', [
-                    'url' => $resultsUrl,
-                    'page' => $pageNumber,
-                    'attempt' => $attempt,
-                    'max_attempts' => $maxRetries,
-                    'game_jam_id' => $this->id,
-                    'game_jam_name' => $this->name,
-                ]);
-
-                // Fetch the results page
-                $response = $client->get($resultsUrl, [
-                    'cookies' => false,
-                    'http_errors' => false, // Don't throw exceptions for 4xx/5xx
-                ]);
-
-                $statusCode = $response->getStatusCode();
-
-                // If we hit a rate limit, wait and retry
-                if ($statusCode === 429) {
-                    $retryAfter = $response->getHeaderLine('Retry-After');
-                    $sleepTime = $retryAfter ? (int) $retryAfter : $retryDelay * $attempt;
-
-                    // Increase cooldown with each retry, with a minimum of 30 seconds
-                    $sleepTime = max($sleepTime, 30 * $attempt);
-
-                    Log::warning('Rate limited when fetching game jam results, retrying', [
-                        'url' => $resultsUrl,
-                        'attempt' => $attempt,
-                        'retry_after' => $sleepTime,
-                        'game_jam_id' => $this->id,
-                        'game_jam_name' => $this->name,
-                    ]);
-
-                    // Sleep before retrying
-                    sleep($sleepTime);
-
-                    continue;
-                }
-
-                // If the page doesn't exist or there's another error, log and return null
-                if ($statusCode !== 200) {
-                    Log::warning('Game jam results page not found', [
-                        'url' => $resultsUrl,
-                        'status_code' => $statusCode,
-                        'game_jam_id' => $this->id,
-                        'game_jam_name' => $this->name,
-                    ]);
-
-                    // If it's a server error (5xx), we should retry
-                    if ($statusCode >= 500 && $statusCode < 600 && $attempt < $maxRetries) {
-                        $sleepTime = $retryDelay * $attempt;
-                        Log::warning('Server error, retrying after cooldown', [
-                            'url' => $resultsUrl,
-                            'status_code' => $statusCode,
-                            'attempt' => $attempt,
-                            'cooldown' => $sleepTime,
-                            'game_jam_id' => $this->id,
-                        ]);
-                        sleep($sleepTime);
-
-                        continue;
-                    }
-
-                    return null;
-                }
-
-                Log::info('Successfully fetched game jam results page', [
-                    'url' => $resultsUrl,
-                    'page' => $pageNumber,
-                    'game_jam_id' => $this->id,
-                    'game_jam_name' => $this->name,
-                ]);
-
-                $html = $response->getBody()->getContents();
-
-                return HTMLDocument::createFromString($html, LIBXML_NOERROR);
-
-            } catch (Exception $e) {
-                // Check if it's a rate limiting error in the exception message
-                if (strpos($e->getMessage(), '429 Too Many Requests') !== false) {
-                    $sleepTime = max(30, $retryDelay * $attempt); // Minimum 30 seconds cooldown
-
-                    Log::warning('Rate limit exception when fetching game jam results, retrying', [
-                        'jam_url' => $this->url,
-                        'page' => $pageNumber,
-                        'attempt' => $attempt,
-                        'cooldown' => $sleepTime,
-                        'game_jam_id' => $this->id,
-                        'game_jam_name' => $this->name,
-                    ]);
-
-                    // If this is not the last attempt, wait and retry
-                    if ($attempt < $maxRetries) {
-                        sleep($sleepTime);
-
-                        continue;
-                    }
-                }
-
-                // Log error
-                Log::error('Error fetching game jam results', [
-                    'jam_url' => $this->url,
-                    'page' => $pageNumber,
-                    'error' => $e->getMessage(),
-                    'attempt' => $attempt,
-                    'max_attempts' => $maxRetries,
-                    'game_jam_id' => $this->id,
-                    'game_jam_name' => $this->name,
-                ]);
-
-                // If this is the last attempt, return null
-                if ($attempt === $maxRetries) {
-                    return null;
-                }
-
-                // Wait before retrying
-                $sleepTime = $retryDelay * $attempt;
-                sleep($sleepTime);
+        try {
+            // Construct the results page URL with page number
+            $resultsUrl = rtrim($this->url, '/') . '/results';
+            if ($pageNumber > 1) {
+                $resultsUrl .= '?page=' . $pageNumber;
             }
-        }
 
-        return null;
+            Log::info('Fetching game jam results page', [
+                'url' => $resultsUrl,
+                'page' => $pageNumber,
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            // Fetch the results page - the ItchHttpClientService will handle retries for 429 errors
+            $response = $itchClient->get($resultsUrl, [
+                'cookies' => false,
+            ]);
+
+            $statusCode = $response->getStatusCode();
+
+            // The ItchHttpClientService handles 429 errors, but we still need to check for other errors
+            if ($statusCode !== 200) {
+                Log::warning('Game jam results page not found', [
+                    'url' => $resultsUrl,
+                    'status_code' => $statusCode,
+                    'game_jam_id' => $this->id,
+                    'game_jam_name' => $this->name,
+                ]);
+
+                return null;
+            }
+
+            Log::info('Successfully fetched game jam results page', [
+                'url' => $resultsUrl,
+                'page' => $pageNumber,
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            $html = $response->getBody()->getContents();
+
+            return HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+        } catch (Exception $e) {
+            // Log error
+            Log::error('Error fetching game jam results', [
+                'jam_url' => $this->url,
+                'page' => $pageNumber,
+                'error' => $e->getMessage(),
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            return null;
+        }
     }
 
     /**
@@ -506,21 +446,21 @@ class GameJam extends Model
                 $labelText = trim($label->textContent);
                 $valueText = trim($value->textContent);
 
-                if (strpos($labelText, 'Start') !== false) {
+                if (str_contains($labelText, 'Start')) {
                     try {
                         $this->start_date = new DateTime($valueText);
                     } catch (Exception) {
                         // Ignore date parsing errors
                     }
-                } elseif (strpos($labelText, 'End') !== false) {
+                } elseif (str_contains($labelText, 'End')) {
                     try {
                         $this->end_date = new DateTime($valueText);
                     } catch (Exception) {
                         // Ignore date parsing errors
                     }
-                } elseif (strpos($labelText, 'Submissions') !== false) {
+                } elseif (str_contains($labelText, 'Submissions')) {
                     $this->submission_count = (int) $valueText;
-                } elseif (strpos($labelText, 'Participants') !== false) {
+                } elseif (str_contains($labelText, 'Participants')) {
                     $this->participant_count = (int) $valueText;
                 }
             }
@@ -531,7 +471,7 @@ class GameJam extends Model
         foreach ($infoLines as $line) {
             $text = $line->textContent;
 
-            if (strpos($text, 'Starts:') !== false) {
+            if (str_contains($text, 'Starts:')) {
                 $parts = explode('Starts:', $text, 2);
                 if (count($parts) > 1) {
                     try {
@@ -540,7 +480,7 @@ class GameJam extends Model
                         // Ignore date parsing errors
                     }
                 }
-            } elseif (strpos($text, 'Ends:') !== false) {
+            } elseif (str_contains($text, 'Ends:')) {
                 $parts = explode('Ends:', $text, 2);
                 if (count($parts) > 1) {
                     try {
@@ -607,6 +547,8 @@ class GameJam extends Model
      * Extract rankings from the results page
      *
      * @return int The number of rankings found and processed
+     *
+     * @throws Throwable
      */
     private function extractRankings(HTMLDocument $doc): int
     {
@@ -652,7 +594,7 @@ class GameJam extends Model
 
             Log::info('Processing game', ['title' => $gameTitle, 'url' => $gameUrl, 'game_id' => $game->id, 'game_jam_id' => $this->id]);
 
-            // Extract the ranking - it's in an h3 tag with the format "Ranked <strong>Nth</strong> with X ratings..."
+            // Extract the ranking - it's in a h3 tag with the format "Ranked <strong>Nth</strong> with X ratings..."
             $rankingElement = $gameRankDiv->querySelector('.game_summary h3 .ordinal_rank');
             if (! $rankingElement) {
                 Log::info('No ranking found for game', ['game' => $gameTitle, 'url' => $gameUrl]);

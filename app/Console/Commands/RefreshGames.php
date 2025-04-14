@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
-use App\Services\ItchAuthService;
+use App\Services\ItchHttpClientService;
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -27,14 +29,14 @@ class RefreshGames extends Command
 
     protected $description = 'Refresh game information from itch.io for specific games or all visible games';
 
-    private ItchAuthService $authService;
-
-    public function __construct(ItchAuthService $authService)
+    public function __construct()
     {
         parent::__construct();
-        $this->authService = $authService;
     }
 
+    /**
+     * @throws BindingResolutionException
+     */
     public function handle(): int
     {
         $searchTerm = $this->argument('name');
@@ -119,15 +121,11 @@ class RefreshGames extends Command
             $this->line("- {$game->name} (ID: {$game->id}, Status: {$game->status})");
         }
 
-        $this->info("\nInitializing itch.io client...");
-        try {
-            $client = $this->authService->getClient();
-        } catch (Exception $e) {
-            $this->error('Failed to initialize itch.io client: ' . $e->getMessage());
-
-            return 1;
-        }
-        $this->info('Client initialized successfully');
+        // Configure the ItchHttpClientService with the command options
+        $itchClient = App::make(ItchHttpClientService::class);
+        $itchClient->setMaxRetries((int) $this->option('max-retries'));
+        $itchClient->setBaseCooldown((int) $this->option('retry-cooldown'));
+        $this->info('ItchHttpClientService configured successfully');
 
         foreach ($games as $game) {
             $this->info("\nProcessing game: {$game->name}");
@@ -138,10 +136,15 @@ class RefreshGames extends Command
                 if ($this->option('update-info')) {
                     $this->info('→ Refreshing base info...');
 
-                    $this->executeWithRetry(function () use ($game, $client) {
-                        $game->refreshBaseInfo($client);
-                        $game->save();
-                    }, 'Base info');
+                    $itchClient->executeWithRetry(
+                        function () use ($game) {
+                            $game->refreshBaseInfo();
+                            $game->save();
+                        },
+                        'Base info',
+                        fn (string $op) => $this->info("  {$op} updated successfully"),
+                        fn (string $op, string $error) => $this->error("  Error updating {$op}: {$error}")
+                    );
 
                     $this->info('  Waiting 10 seconds for rate limiting...');
                     sleep(10);
@@ -151,9 +154,14 @@ class RefreshGames extends Command
                 if ($this->option('update-metadata')) {
                     $this->info('→ Refreshing metadata (tags, ratings, descriptions, screenshots, game jams)...');
 
-                    $this->executeWithRetry(function () use ($game, $client) {
-                        $game->refreshMetadata($client);
-                    }, 'Metadata');
+                    $itchClient->executeWithRetry(
+                        function () use ($game) {
+                            $game->refreshMetadata();
+                        },
+                        'Metadata',
+                        fn (string $op) => $this->info("  {$op} updated successfully"),
+                        fn (string $op, string $error) => $this->error("  Error updating {$op}: {$error}")
+                    );
 
                     $this->info('  Waiting 10 seconds for rate limiting...');
                     sleep(10);
@@ -163,25 +171,30 @@ class RefreshGames extends Command
                 if ($this->option('update-version')) {
                     $this->info('→ Refreshing version information...');
 
-                    $this->executeWithRetry(function () use ($game, $client, $force) {
-                        DB::transaction(function () use ($game, $client, $force) {
-                            $game->refreshVersion($client, $force);
-                            $game->save();
+                    $itchClient->executeWithRetry(
+                        function () use ($game, $force) {
+                            DB::transaction(function () use ($game, $force) {
+                                $game->refreshVersion($force);
+                                $game->save();
 
-                            // Ensure only one latest version
-                            $latestVersion = $game->gameVersions()
-                                ->orderByDesc('published_at')
-                                ->first();
+                                // Ensure only one latest version
+                                $latestVersion = $game->gameVersions()
+                                    ->orderByDesc('published_at')
+                                    ->first();
 
-                            if ($latestVersion) {
-                                $game->gameVersions()
-                                    ->where('id', '!=', $latestVersion->id)
-                                    ->update(['is_latest' => false]);
-                                $latestVersion->is_latest = true;
-                                $latestVersion->save();
-                            }
-                        });
-                    }, 'Version information');
+                                if ($latestVersion) {
+                                    $game->gameVersions()
+                                        ->where('id', '!=', $latestVersion->id)
+                                        ->update(['is_latest' => false]);
+                                    $latestVersion->is_latest = true;
+                                    $latestVersion->save();
+                                }
+                            });
+                        },
+                        'Version information',
+                        fn (string $op) => $this->info("  {$op} updated successfully"),
+                        fn (string $op, string $error) => $this->error("  Error updating {$op}: {$error}")
+                    );
 
                     $this->info('  Waiting 10 seconds for rate limiting...');
                     sleep(10);
@@ -204,50 +217,5 @@ class RefreshGames extends Command
         $this->info("\nRefresh process completed");
 
         return 0;
-    }
-
-    /**
-     * Execute a function with retry logic for rate limiting
-     *
-     * @param  callable  $callback  The function to execute
-     * @param  string  $operationName  Name of the operation for logging
-     * @return mixed The result of the callback function
-     *
-     * @throws Exception If the operation fails after all retries
-     */
-    private function executeWithRetry(callable $callback, string $operationName)
-    {
-        $maxRetries = (int) $this->option('max-retries');
-        $baseCooldown = (int) $this->option('retry-cooldown');
-        $retryCount = 0;
-        $success = false;
-        $result = null;
-
-        while (! $success && $retryCount < $maxRetries) {
-            try {
-                $result = $callback();
-                $this->info("  {$operationName} updated successfully");
-                $success = true;
-            } catch (Exception $e) {
-                // Check if it's a rate limiting error (429 Too Many Requests)
-                if (strpos($e->getMessage(), '429 Too Many Requests') !== false) {
-                    $retryCount++;
-                    $cooldownTime = $baseCooldown * $retryCount; // Increase cooldown with each retry
-
-                    if ($retryCount < $maxRetries) {
-                        $this->warn("  Rate limit exceeded. Waiting {$cooldownTime} seconds before retry {$retryCount}/{$maxRetries}...");
-                        sleep($cooldownTime);
-                    } else {
-                        $this->error("  Maximum retries reached. Skipping {$operationName} refresh.");
-                        throw $e; // Re-throw to be caught by the outer try-catch
-                    }
-                } else {
-                    // Not a rate limiting error, re-throw
-                    throw $e;
-                }
-            }
-        }
-
-        return $result;
     }
 }

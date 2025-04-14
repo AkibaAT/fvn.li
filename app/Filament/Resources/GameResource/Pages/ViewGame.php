@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\GameResource\Pages;
 
 use App\Filament\Resources\GameResource;
+use App\Filament\Resources\GameVersionResource;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -16,6 +18,11 @@ class ViewGame extends ViewRecord
     {
         return [
             EditAction::make(),
+            Action::make('createVersion')
+                ->label('Create Version')
+                ->icon('heroicon-o-plus')
+                ->color('success')
+                ->url(fn () => GameVersionResource::getUrl('create', ['game_id' => $this->record->id])),
         ];
     }
 }

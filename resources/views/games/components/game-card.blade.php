@@ -12,14 +12,27 @@
                 <a href="{{ route('games.show', $game) }}">
                     <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
                 </a>
-                <div class="absolute top-0 left-0 flex flex-col gap-0.5">
+                <div class="absolute bottom-0 left-0 flex flex-col gap-0.5 shadow-sm">
+                    @if ($game->is_on_sale)
+                        <div class="bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-tr">
+                            Sale
+                            @if (isset($game->discount_percentage))
+                                -{{ $game->discount_percentage }}%
+                            @endif
+                        </div>
+                    @endif
                     @if ($game->is_paid)
-                        <div class="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-br">
-                            {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                        <div class="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-tr">
+                            @if ($game->is_on_sale && isset($game->original_price))
+                                <span class="line-through text-blue-200">${{ number_format($game->original_price, 2) }}</span>
+                                ${{ number_format($game->min_price, 2) }}
+                            @else
+                                {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                            @endif
                         </div>
                     @endif
                     @if ($game->has_demo)
-                        <div class="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-br">
+                        <div class="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-tr">
                             Demo
                         </div>
                     @endif

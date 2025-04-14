@@ -6,21 +6,27 @@ namespace App\Models;
 
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\Services\ItchCssProcessor;
+use App\Services\ItchHtmlProcessor;
+use App\Services\ItchHttpClientService;
 use App\ValueObjects\Upload;
 use DateMalformedStringException;
 use DateTime;
 use Dom\HTMLDocument;
 use Exception;
-use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class Game extends Model
 {
@@ -41,7 +47,6 @@ class Game extends Model
         'custom_tags',
         'source_language_id',
         'min_price',
-        'suggested_price',
         'is_on_sale',
         'is_paid',
         'has_demo',
@@ -54,7 +59,6 @@ class Game extends Model
         'rating' => 'float',
         'rating_count' => 'integer',
         'min_price' => 'float',
-        'suggested_price' => 'float',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
         'is_mac' => 'boolean',
@@ -75,7 +79,7 @@ class Game extends Model
     ];
 
     // Ensure custom_tags is never null
-    public function setCustomTagsAttribute($value)
+    public function setCustomTagsAttribute($value): void
     {
         $this->attributes['custom_tags'] = $value ?? '';
     }
@@ -221,15 +225,19 @@ class Game extends Model
     }
 
     /**
+     * @throws BindingResolutionException
      * @throws DateMalformedStringException
      * @throws GuzzleException
+     * @throws Throwable
      */
-    public function loadFullDetails(Client $client): void
+    public function loadFullDetails(): void
     {
         try {
-            $this->refreshBaseInfo($client);
+            $this->refreshBaseInfo();
             sleep(10);
-            $this->refreshVersion($client);
+            $this->refreshVersion();
+            sleep(10);
+            $this->refreshMetadata();
             $this->error = null;
         } catch (Exception $exception) {
             $this->error = $exception->getMessage();
@@ -241,13 +249,17 @@ class Game extends Model
      * Refresh the base game information from itch.io
      *
      * @throws DateMalformedStringException
+     * @throws BindingResolutionException
      * @throws GuzzleException
      */
-    public function refreshBaseInfo(Client $client): void
+    public function refreshBaseInfo(): void
     {
+        // Get the ItchHttpClientService
+        $itchClient = App::make(ItchHttpClientService::class);
+
         $url = 'https://api.itch.io/games/' . $this->game_id;
 
-        $response = $client->get($url);
+        $response = $itchClient->get($url);
         $game = json_decode($response->getBody()->getContents(), true);
 
         if (isset($game['game'])) {
@@ -259,10 +271,10 @@ class Game extends Model
     /**
      * Refresh all metadata for the game from its itch.io page
      *
-     * @throws GuzzleException
+     * @throws BindingResolutionException
+     * @throws Throwable
      */
     public function refreshMetadata(
-        Client $client,
         ?string &$devlogLink = null,
         ?float &$rating = null,
         ?int &$ratingCount = null
@@ -271,7 +283,10 @@ class Game extends Model
         DB::beginTransaction();
 
         try {
-            $response = $client->get($this->url, ['cookies' => false]);
+            // Get the ItchHttpClientService
+            $itchClient = App::make(ItchHttpClientService::class);
+
+            $response = $itchClient->get($this->url, ['cookies' => false]);
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
@@ -443,7 +458,7 @@ class Game extends Model
      * Get the game jams this game has participated in.
      * Default sorting is alphabetical by name.
      */
-    public function gameJams(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function gameJams(): BelongsToMany
     {
         return $this->belongsToMany(GameJam::class, 'game_game_jam')
             ->withPivot('ranking', 'criteria_rankings')
@@ -483,7 +498,7 @@ class Game extends Model
 
         $screenshots = [];
 
-        foreach ($this->screenshots as $index => $screenshot) {
+        foreach (array_keys($this->screenshots) as $index) {
             $screenshots[] = [
                 'url' => $this->getScreenshotUrl($index, 'large'),
                 'thumbnail_url' => $this->getScreenshotUrl($index, $variant),
@@ -531,15 +546,19 @@ class Game extends Model
      *
      * @throws GuzzleException|DateMalformedStringException
      * @throws Exception
+     * @throws Throwable
      */
-    public function refreshVersion(Client $client, bool $force = false): void
+    public function refreshVersion(bool $force = false): void
     {
         DB::beginTransaction();
 
         try {
+            // Get the ItchHttpClientService
+            $itchClient = App::make(ItchHttpClientService::class);
+
             $url = "https://api.itch.io/games/{$this->game_id}/uploads";
 
-            $response = $client->get($url);
+            $response = $itchClient->get($url);
             if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
                 $this->is_visible = false;
                 $this->save();
@@ -653,7 +672,7 @@ class Game extends Model
                     $versionRatingCount = null;
 
                     // Get devlog link and ratings
-                    $this->refreshMetadata($client, $devlogLink, $versionRating, $versionRatingCount);
+                    $this->refreshMetadata($devlogLink, $versionRating, $versionRatingCount);
                     $this->save();
 
                     // Create new version with basic info first
@@ -918,15 +937,21 @@ class Game extends Model
      */
     private function extractPriceInformation(HTMLDocument $doc): void
     {
+        // Store the original is_paid value to respect it if it's already set
+        $originalIsPaid = $this->is_paid;
+
         // Check for price information
         $buySection = $doc->querySelector('.buy_game_section');
         if (! $buySection) {
-            // Game is free
+            // Game appears free on the page
             $this->min_price = 0;
-            $this->suggested_price = 0;
             $this->is_on_sale = false;
-            $this->is_paid = false;
-            $this->has_demo = false;
+
+            // Only update is_paid if we don't already know it's paid
+            // This prevents overriding the flag for games we know are paid
+            if (! $originalIsPaid) {
+                $this->is_paid = false;
+            }
 
             return;
         }
@@ -946,18 +971,13 @@ class Game extends Model
             $this->min_price = 0;
         }
 
-        // Get suggested price if available
-        $suggestedPriceElement = $buySection->querySelector('.suggested_price');
-        if ($suggestedPriceElement) {
-            $priceText = trim($suggestedPriceElement->textContent);
-            preg_match('/\$?(\d+\.?\d*)/', $priceText, $matches);
-            $this->suggested_price = $matches[1] ?? $this->min_price;
-        } else {
-            $this->suggested_price = $this->min_price;
-        }
+        // We used to get suggested price here, but we've removed that column
 
-        // Set paid status based on price
-        $this->is_paid = $this->min_price > 0;
+        // Only update is_paid if we don't already know it's paid
+        // This prevents overriding the flag for games we know are paid
+        if (! $originalIsPaid) {
+            $this->is_paid = $this->min_price > 0;
+        }
 
         // Check if a paid game has a demo
         $this->has_demo = false;
@@ -1040,7 +1060,7 @@ class Game extends Model
             $htmlContent = $descriptionElement->innerHTML;
 
             // Process the HTML content to apply our styling
-            $htmlProcessor = app(\App\Services\ItchHtmlProcessor::class);
+            $htmlProcessor = app(ItchHtmlProcessor::class);
             $processedHtml = $htmlProcessor->process($htmlContent);
 
             $this->full_description = $processedHtml;
@@ -1122,7 +1142,7 @@ class Game extends Model
         // If we have CSS, process it to remove colors and header styling
         if (! empty($customCss)) {
             // Process the CSS using our CSS processor
-            $cssProcessor = app(\App\Services\ItchCssProcessor::class);
+            $cssProcessor = app(ItchCssProcessor::class);
             $processedCss = $cssProcessor->process($customCss);
 
             if (! empty($processedCss)) {
@@ -1176,12 +1196,12 @@ class Game extends Model
                 $text = trim($link->textContent);
 
                 // Check if it's a submission link
-                if (strpos($text, 'Submission to') === 0 ||
-                    strpos($href, '/rate/') !== false ||
-                    strpos($href, '/jam/') !== false) {
+                if (str_starts_with($text, 'Submission to') ||
+                    str_contains($href, '/rate/') ||
+                    str_contains($href, '/jam/')) {
 
                     // Extract jam name
-                    if (strpos($text, 'Submission to') === 0) {
+                    if (str_starts_with($text, 'Submission to')) {
                         $jamName = str_replace('Submission to ', '', $text);
                     } else {
                         // Try to find the jam name in the page title
@@ -1202,7 +1222,7 @@ class Game extends Model
                     // Extract the main game jam URL
                     if (preg_match('|(https?://[^/]+/jam/[^/]+)/rate/|', $href, $matches)) {
                         $jamUrl = $matches[1];
-                    } elseif (strpos($href, 'http') === 0) {
+                    } elseif (str_starts_with($href, 'http')) {
                         $jamUrl = $href;
                     } else {
                         // Handle relative URLs

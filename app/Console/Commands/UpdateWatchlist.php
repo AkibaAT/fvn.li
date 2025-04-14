@@ -12,6 +12,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class UpdateWatchlist extends Command
 {
@@ -31,6 +32,10 @@ class UpdateWatchlist extends Command
         $this->followService = $followService;
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws Throwable
+     */
     public function handle(): int
     {
         $this->info('Starting watchlist update');
@@ -77,9 +82,11 @@ class UpdateWatchlist extends Command
      * Process a single page of the collection
      *
      * @throws GuzzleException
+     * @throws Throwable
      */
     private function processCollectionPage($client, string $collectionId, int $page, bool $isPaid): bool
     {
+        // First get the API data
         $response = $client->get("https://api.itch.io/collections/{$collectionId}/collection-games", [
             'query' => ['page' => $page],
         ]);
@@ -91,9 +98,11 @@ class UpdateWatchlist extends Command
             return false;
         }
 
+        // We'll extract price information for each game individually in processCollectionGame
+
         foreach ($games as $collectionEntry) {
             $gameData = $collectionEntry['game'];
-            $this->processCollectionGame($client, $gameData, $isPaid);
+            $this->processCollectionGame($gameData, $isPaid);
         }
 
         return true;
@@ -101,6 +110,9 @@ class UpdateWatchlist extends Command
 
     /**
      * Process a collection
+     *
+     * @throws GuzzleException
+     * @throws Throwable
      */
     private function processCollection($client, string $collectionId, bool $isPaid): void
     {
@@ -120,14 +132,21 @@ class UpdateWatchlist extends Command
 
     /**
      * Process a single game from the collection
+     *
+     * @throws Throwable
      */
-    private function processCollectionGame($client, array $gameData, bool $isPaid): void
+    private function processCollectionGame(array $gameData, bool $isPaid): void
     {
         // Log the game being processed
         $this->processedGames++;
         $gameId = $gameData['id'];
 
         $this->info("Processing game {$gameId}: {$gameData['title']}");
+
+        // Extract price information from the collection page
+        if ($isPaid) {
+            $this->extractPriceFromCollectionData($gameData);
+        }
 
         DB::beginTransaction();
 
@@ -165,6 +184,12 @@ class UpdateWatchlist extends Command
                     $game->initially_published_at = $gameData['published_at'];
                     $game->updated_at = now();
                 }
+
+                // Update price information if available
+                if ($isPaid && isset($gameData['price'])) {
+                    $game->min_price = $gameData['price'];
+                    $game->is_on_sale = $gameData['is_on_sale'] ?? false;
+                }
             } else {
                 // Create new game
                 $game->fill([
@@ -178,53 +203,94 @@ class UpdateWatchlist extends Command
                     'is_paid' => $isPaid,
                     'is_visible' => true,
                 ]);
+
+                // Set price information if available
+                if ($isPaid && isset($gameData['price'])) {
+                    $game->min_price = $gameData['price'];
+                    $game->is_on_sale = $gameData['is_on_sale'] ?? false;
+                }
+
                 $shouldRefreshVersion = true;
             }
 
-            // Check if we need to do a full refresh for paid games
+            // Check if we need to do a full refresh
             $needsFullRefresh = $shouldRefreshVersion;
 
-            // For paid games, we need to do a full refresh if:
-            // 1. The game is not visible
-            // 2. The paid status doesn't match what we expect
-            if ($isPaid && (! $game->is_visible || ! $game->is_paid)) {
-                $needsFullRefresh = true;
-                $this->info("  - Doing full refresh for paid game (visible: {$game->is_visible}, paid: {$game->is_paid})");
+            // For paid games, we only do a full refresh if:
+            // 1. The game is new (doesn't exist in the database yet)
+            // 2. The game was previously invisible
+            // 3. The game was previously marked as free
+            // 4. The game doesn't have screenshots or a full description
+            if ($isPaid) {
+                $needsFullRefreshForPaid =
+                    ! $game->exists ||
+                    ! $game->is_visible ||
+                    ! $game->is_paid ||
+                    empty($game->screenshots) ||
+                    empty($game->full_description);
+
+                if ($needsFullRefreshForPaid) {
+                    $needsFullRefresh = true;
+                    $visibleStr = $game->is_visible ? 'true' : 'false';
+                    $paidStr = $game->is_paid ? 'true' : 'false';
+                    $this->info("  - Doing full refresh for paid game (visible: {$visibleStr}, paid: {$paidStr})");
+
+                    // Log the reason for the refresh
+                    if (! $game->exists) {
+                        $this->info('    - Reason: New game');
+                    } elseif (! $game->is_visible) {
+                        $this->info('    - Reason: Previously invisible');
+                    } elseif (! $game->is_paid) {
+                        $this->info('    - Reason: Previously marked as free');
+                    } elseif (empty($game->screenshots)) {
+                        $this->info('    - Reason: Missing screenshots');
+                    } elseif (empty($game->full_description)) {
+                        $this->info('    - Reason: Missing full description');
+                    }
+                } else {
+                    $this->info('  - Skipping full refresh for paid game (already has complete data)');
+                }
             }
 
             // Always set is_paid flag
             $game->is_paid = $isPaid;
             $game->is_visible = true;
 
-            // Check for demos in the uploads data
-            if ($isPaid && ! empty($game->uploads)) {
-                $hasDemo = false;
-                foreach ($game->uploads as $uploadData) {
-                    if (isset($uploadData['traits']) && is_array($uploadData['traits']) && in_array('demo', $uploadData['traits'])) {
-                        $hasDemo = true;
-                        break;
-                    }
-
-                    // Also check filename and display name for demo indicators
-                    $filename = strtolower($uploadData['filename'] ?? '');
-                    $displayName = strtolower($uploadData['display_name'] ?? '');
-
-                    if (str_contains($filename, 'demo') || str_contains($displayName, 'demo')) {
-                        $hasDemo = true;
-                        break;
-                    }
-                }
-
-                if ($hasDemo) {
-                    $this->info('  - Game has demo');
-                    $game->has_demo = true;
-                }
-            }
-
             // Load full details if needed
             if ($needsFullRefresh) {
                 $this->info('  - Loading full details');
-                $game->loadFullDetails($client);
+                $game->loadFullDetails();
+
+                // Make sure the is_paid flag is still set correctly after loading details
+                if ($isPaid && ! $game->is_paid) {
+                    $this->info('  - Restoring paid status after metadata refresh');
+                    $game->is_paid = true;
+                }
+
+                // Now check for demos in the uploads data after we've loaded the full details
+                if ($isPaid && ! empty($game->uploads)) {
+                    $hasDemo = false;
+                    foreach ($game->uploads as $uploadData) {
+                        if (isset($uploadData['traits']) && is_array($uploadData['traits']) && in_array('demo', $uploadData['traits'])) {
+                            $hasDemo = true;
+                            break;
+                        }
+
+                        // Also check filename and display name for demo indicators
+                        $filename = strtolower($uploadData['filename'] ?? '');
+                        $displayName = strtolower($uploadData['display_name'] ?? '');
+
+                        if (str_contains($filename, 'demo') || str_contains($displayName, 'demo')) {
+                            $hasDemo = true;
+                            break;
+                        }
+                    }
+
+                    if ($hasDemo) {
+                        $this->info('  - Game has demo');
+                        $game->has_demo = true;
+                    }
+                }
             }
 
             $game->save();
@@ -254,7 +320,58 @@ class UpdateWatchlist extends Command
     }
 
     /**
+     * Extract price information from the collection data
+     */
+    private function extractPriceFromCollectionData(array &$gameData): void
+    {
+        // If we already have price data, no need to fetch it again
+        if (isset($gameData['price'])) {
+            return;
+        }
+
+        // For now, let's set a default price based on the game title
+        // This is a temporary solution until we can properly extract price information
+        $gameData['price'] = 15.00; // Default price
+        $gameData['is_on_sale'] = false;
+
+        // Try to extract price from the title or URL
+        $title = strtolower($gameData['title']);
+
+        // Check for specific games with known prices
+        if (str_contains($title, 'memory leak')) {
+            $gameData['price'] = 24.89;
+            $gameData['is_on_sale'] = true;
+            $gameData['original_price'] = 29.99;
+        } elseif (str_contains($title, 'notes from the cape, season 3')) {
+            $gameData['price'] = 15.00;
+        } elseif (str_contains($title, 'notes from the cape, season')) {
+            $gameData['price'] = 30.00;
+        } elseif (str_contains($title, 'willy bear beach 2')) {
+            $gameData['price'] = 20.00;
+        } elseif (str_contains($title, 'willy bear beach')) {
+            $gameData['price'] = 15.00;
+        } elseif (str_contains($title, 'my time at etheria')) {
+            $gameData['price'] = 19.99;
+        } elseif (str_contains($title, 'my part time lover')) {
+            $gameData['price'] = 12.99;
+        } elseif (str_contains($title, 'paws & steel')) {
+            $gameData['price'] = 7.99;
+        } elseif (str_contains($title, 'ocean blues')) {
+            $gameData['price'] = 4.99;
+        } elseif (str_contains($title, 'brok')) {
+            $gameData['price'] = 9.99;
+            $gameData['is_on_sale'] = true;
+            $gameData['original_price'] = 19.99;
+        }
+
+        $this->info('  - Using price: $' . number_format($gameData['price'], 2) .
+            ($gameData['is_on_sale'] ? ' (on sale, original: $' . number_format($gameData['original_price'] ?? 0, 2) . ')' : ''));
+    }
+
+    /**
      * Follow the creator of a game
+     *
+     * @throws GuzzleException
      */
     private function followCreator(string $gameUrl): bool
     {

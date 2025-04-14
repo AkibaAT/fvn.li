@@ -38,6 +38,8 @@ return [
         'password' => env('ITCH_PASSWORD'),
         'free_collection_id' => env('ITCH_FREE_COLLECTION_ID'),
         'paid_collection_id' => env('ITCH_PAID_COLLECTION_ID'),
+        'max_retries' => env('ITCH_MAX_RETRIES', 5),
+        'retry_cooldown' => env('ITCH_RETRY_COOLDOWN', 30),
     ],
 
     'itchio' => [

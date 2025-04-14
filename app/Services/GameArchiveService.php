@@ -6,6 +6,8 @@ namespace App\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -16,7 +18,6 @@ use RuntimeException;
 readonly class GameArchiveService
 {
     public function __construct(
-        private Client $client,
         private GameStatsService $statsService
     ) {}
 
@@ -40,6 +41,7 @@ readonly class GameArchiveService
      *
      * @throws GuzzleException
      * @throws RuntimeException
+     * @throws BindingResolutionException
      */
     public function downloadAndProcess(
         string $gameUrl,
@@ -64,6 +66,7 @@ readonly class GameArchiveService
      *
      * @throws GuzzleException
      * @throws RuntimeException
+     * @throws BindingResolutionException
      */
     public function downloadAndStore(
         string $gameUrl,
@@ -73,8 +76,11 @@ readonly class GameArchiveService
         int $versionId,
         bool $force = false
     ): string {
+        // Get the ItchHttpClientService for itch.io requests
+        $itchClient = $this->getItchClient();
+
         // Get the download URL
-        $response = $this->client->post($gameUrl . '/file/' . $uploadId);
+        $response = $itchClient->post($gameUrl . '/file/' . $uploadId);
         $downloadInfo = json_decode($response->getBody()->getContents(), true);
 
         if (! isset($downloadInfo['url'])) {
@@ -88,8 +94,10 @@ readonly class GameArchiveService
         }
 
         try {
-            // Download the file
-            $this->client->get($downloadInfo['url'], [
+            // Create a new client for downloading the file
+            // The download URL is typically from a CDN, not itch.io directly
+            $downloadClient = new Client;
+            $downloadClient->get($downloadInfo['url'], [
                 'sink' => $tempFile,
             ]);
 
@@ -147,6 +155,16 @@ readonly class GameArchiveService
         }
 
         return $this->statsService->extractGameStats($archivePath);
+    }
+
+    /**
+     * Get the ItchHttpClientService instance
+     *
+     * @throws BindingResolutionException
+     */
+    private function getItchClient(): ItchHttpClientService
+    {
+        return App::make(ItchHttpClientService::class);
     }
 
     private function getStoragePath(int $gameId, int $versionId): string

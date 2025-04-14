@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Exception;
-use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 
 class ItchFollowService
 {
     private ItchAuthService $authService;
-    private ?Client $client = null;
 
-    public function __construct(ItchAuthService $authService)
+    private ItchHttpClientService $itchClient;
+
+    public function __construct(ItchAuthService $authService, ItchHttpClientService $itchClient)
     {
         $this->authService = $authService;
+        $this->itchClient = $itchClient;
     }
 
     /**
@@ -23,6 +25,8 @@ class ItchFollowService
      *
      * @param  string  $gameUrl  The game URL (e.g., https://username.itch.io/game-name)
      * @return bool Whether the follow operation was successful
+     *
+     * @throws GuzzleException
      */
     public function followCreatorFromGameUrl(string $gameUrl): bool
     {
@@ -65,12 +69,15 @@ class ItchFollowService
      *
      * @param  string  $followUrl  The follow URL for the creator
      * @return bool Whether the follow operation was successful
+     *
+     * @throws GuzzleException
      */
     public function followCreator(string $followUrl): bool
     {
         try {
-            // Get authenticated client
-            $client = $this->getClient();
+            // Get the cookie jar from the auth service
+            // This ensures we're using the same authenticated session
+            $cookieJar = $this->authService->getCookieJar();
 
             // Get CSRF token
             $csrfToken = $this->authService->getCsrfToken();
@@ -79,7 +86,7 @@ class ItchFollowService
             }
 
             // Make follow request
-            $response = $client->post($followUrl, [
+            $response = $this->itchClient->post($followUrl, [
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',
                     'Accept' => '*/*',
@@ -88,6 +95,7 @@ class ItchFollowService
                 'form_params' => [
                     'csrf_token' => $csrfToken,
                 ],
+                'cookies' => $cookieJar, // Use the cookies from the authenticated client
             ]);
 
             // Success if response is 200
@@ -100,17 +108,5 @@ class ItchFollowService
 
             return false;
         }
-    }
-
-    /**
-     * Get authenticated client
-     */
-    private function getClient(): Client
-    {
-        if (! $this->client) {
-            $this->client = $this->authService->getClient();
-        }
-
-        return $this->client;
     }
 }

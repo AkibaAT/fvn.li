@@ -20,8 +20,9 @@ class ItchAuthService
 
     private Client $client;
     private CookieJar $cookieJar;
+    private ItchHttpClientService $itchClient;
 
-    public function __construct()
+    public function __construct(ItchHttpClientService $itchClient)
     {
         $this->cookieJar = new CookieJar;
         $this->client = new Client([
@@ -29,6 +30,7 @@ class ItchAuthService
             'timeout' => 30,
             'connect_timeout' => 5,
         ]);
+        $this->itchClient = $itchClient;
     }
 
     /**
@@ -46,13 +48,27 @@ class ItchAuthService
     }
 
     /**
+     * Get the cookie jar used for authentication
+     *
+     * @throws RuntimeException If authentication fails
+     */
+    public function getCookieJar(): CookieJar
+    {
+        if (! $this->ensureAuthenticated()) {
+            throw new RuntimeException('Failed to authenticate with itch.io');
+        }
+
+        return $this->cookieJar;
+    }
+
+    /**
      * Extract the itch.io game ID from a game page URL
      *
      * @throws RuntimeException|GuzzleException If the game ID cannot be found
      */
     public function getGameId(string $url): int
     {
-        $response = $this->client->get($url);
+        $response = $this->itchClient->get($url, ['cookies' => $this->cookieJar]);
         $html = $response->getBody()->getContents();
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
@@ -67,7 +83,7 @@ class ItchAuthService
 
     public function getCsrfToken(): ?string
     {
-        $response = $this->client->get('https://itch.io/');
+        $response = $this->itchClient->get('https://itch.io/', ['cookies' => $this->cookieJar]);
         $html = $response->getBody()->getContents();
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
@@ -95,7 +111,10 @@ class ItchAuthService
                 }
 
                 // Verify session is still valid
-                $response = $this->client->get('https://itch.io/dashboard', ['allow_redirects' => false]);
+                $response = $this->itchClient->get('https://itch.io/dashboard', [
+                    'allow_redirects' => false,
+                    'cookies' => $this->cookieJar,
+                ]);
                 if ($response->getStatusCode() === 200) {
                     return true;
                 }
@@ -105,12 +124,12 @@ class ItchAuthService
             }
 
             // Get login page and extract form data
-            $response = $this->client->get('https://itch.io/login');
+            $response = $this->itchClient->get('https://itch.io/login', ['cookies' => $this->cookieJar]);
             $html = $response->getBody()->getContents();
             $formData = $this->getLoginFormData($html);
 
             // Perform login
-            $response = $this->client->post('https://itch.io/login', [
+            $response = $this->itchClient->post('https://itch.io/login', [
                 'form_params' => $formData,
                 'headers' => [
                     'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -119,13 +138,14 @@ class ItchAuthService
                     'Referer' => 'https://itch.io/login',
                 ],
                 'allow_redirects' => false,
+                'cookies' => $this->cookieJar,
             ]);
 
             // Check for successful login
             if ($response->getStatusCode() === 302) {
                 // Follow redirect to verify login
                 $redirectUrl = $response->getHeader('Location')[0];
-                $response = $this->client->get($redirectUrl);
+                $response = $this->itchClient->get($redirectUrl, ['cookies' => $this->cookieJar]);
 
                 if ($response->getStatusCode() === 200) {
                     // Cache cookies for future use
