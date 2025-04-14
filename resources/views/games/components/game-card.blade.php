@@ -8,35 +8,37 @@
     class="relative bg-white dark:bg-gray-800/50 rounded-lg shadow-sm p-4 flex flex-col backdrop-blur-xs border border-gray-200 dark:border-transparent transition-all duration-150">
     <div class="flex gap-4">
         @if ($game->is_visible)
-            <div class="flex flex-col h-full relative">
+            <div class="flex flex-col h-full">
                 <a href="{{ route('games.show', $game) }}">
                     <x-game-thumbnail :game="$game" variant="small" class="h-24 w-32 object-cover rounded-sm"/>
                 </a>
-                <div class="absolute bottom-0 left-0 flex flex-col gap-0.5 shadow-sm">
-                    @if ($game->is_on_sale)
-                        <div class="bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-tr">
-                            Sale
-                            @if (isset($game->discount_percentage))
-                                -{{ $game->discount_percentage }}%
-                            @endif
-                        </div>
-                    @endif
-                    @if ($game->is_paid)
-                        <div class="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-tr">
-                            @if ($game->is_on_sale && isset($game->original_price))
-                                <span class="line-through text-blue-200">${{ number_format($game->original_price, 2) }}</span>
-                                ${{ number_format($game->min_price, 2) }}
-                            @else
-                                {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
-                            @endif
-                        </div>
-                    @endif
-                    @if ($game->has_demo)
-                        <div class="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-tr">
-                            Demo
-                        </div>
-                    @endif
-                </div>
+                @if ($game->is_on_sale || $game->is_paid || $game->has_demo)
+                    <div class="flex flex-wrap gap-0.5 mt-1">
+                        @if ($game->is_on_sale)
+                            <div class="bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-sm">
+                                Sale
+                                @if (isset($game->discount_percentage))
+                                    -{{ $game->discount_percentage }}%
+                                @endif
+                            </div>
+                        @endif
+                        @if ($game->is_paid)
+                            <div class="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-sm">
+                                @if ($game->is_on_sale && isset($game->original_price))
+                                    <span class="line-through text-blue-200">${{ number_format($game->original_price, 2) }}</span>
+                                    ${{ number_format($game->min_price, 2) }}
+                                @else
+                                    {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                                @endif
+                            </div>
+                        @endif
+                        @if ($game->has_demo)
+                            <div class="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-sm">
+                                Demo
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </div>
         @endif
         <div class="flex flex-col min-w-0 flex-1">

@@ -69,29 +69,41 @@
                 List Entries ({{ $vnList->entries->count() }})
             </h2>
             @if ($isOwner && !$vnList->entries->isEmpty())
-                <div class="flex items-center">
-                    @php
-                        $allGameIds = $vnList->entries->pluck('game_id')->toArray();
-                        $userProgressRecords = App\Models\UserGameProgress::where('user_id', auth()->id())
-                            ->whereIn('game_id', $allGameIds)
-                            ->get()
-                            ->keyBy('game_id');
+                @php
+                    // Count free games in the list
+                    $freeGamesCount = $vnList->entries->filter(function($entry) {
+                        return !$entry->game->is_paid;
+                    })->count();
+                @endphp
 
-                        $allReceiveUpdates = count($allGameIds) > 0 && count($userProgressRecords) === count($allGameIds) &&
-                            $userProgressRecords->every(fn($progress) => $progress->receive_updates);
-                    @endphp
-                    @include('lists.partials.toggle-switch', [
-                        'action' => route('vn-lists.toggle-all-updates', $vnList),
-                        'name' => 'receive_updates',
-                        'value' => '1',
-                        'checked' => $allReceiveUpdates,
-                        'srText' => $allReceiveUpdates ? 'Turn off notifications for all entries' : 'Turn on notifications for all entries',
-                        'formClass' => 'toggle-all-updates-form',
-                        'label' => 'Notifications for all entries:',
-                        'extraClass' => 'toggle-all-checkbox',
-                        'justify' => 'justify-end'
-                    ])
-                </div>
+                @if ($freeGamesCount > 0)
+                    <div class="flex items-center">
+                        @php
+                            $freeGameIds = $vnList->entries->filter(function($entry) {
+                                return !$entry->game->is_paid;
+                            })->pluck('game_id')->toArray();
+
+                            $userProgressRecords = App\Models\UserGameProgress::where('user_id', auth()->id())
+                                ->whereIn('game_id', $freeGameIds)
+                                ->get()
+                                ->keyBy('game_id');
+
+                            $allReceiveUpdates = count($freeGameIds) > 0 && count($userProgressRecords) === count($freeGameIds) &&
+                                $userProgressRecords->every(fn($progress) => $progress->receive_updates);
+                        @endphp
+                        @include('lists.partials.toggle-switch', [
+                            'action' => route('vn-lists.toggle-all-updates', $vnList),
+                            'name' => 'receive_updates',
+                            'value' => '1',
+                            'checked' => $allReceiveUpdates,
+                            'srText' => $allReceiveUpdates ? 'Turn off notifications for all free entries' : 'Turn on notifications for all free entries',
+                            'formClass' => 'toggle-all-updates-form',
+                            'label' => 'Notifications for all free entries:',
+                            'extraClass' => 'toggle-all-checkbox',
+                            'justify' => 'justify-end'
+                        ])
+                    </div>
+                @endif
             @endif
         </div>
     </div>
@@ -283,7 +295,9 @@
                                 </form>
                             </div>
                             <div class="w-30 pr-1">
-                                <x-games::notification-toggle :game="$entry->game" :compact="true" />
+                                @if (!$entry->game->is_paid)
+                                    <x-games::notification-toggle :game="$entry->game" :compact="true" />
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -423,7 +437,9 @@
                                         <div class="h-px bg-gray-200 dark:bg-gray-700"></div>
 
                                         {{-- Notification Toggle --}}
-                                        <x-games::notification-toggle :game="$entry->game" :justify="'justify-start'" :label="'Notifications'" />
+                                        @if (!$entry->game->is_paid)
+                                            <x-games::notification-toggle :game="$entry->game" :justify="'justify-start'" :label="'Notifications'" />
+                                        @endif
                                     </div>
                                 @endif
                             </div>

@@ -155,7 +155,7 @@ class VnListController extends Controller
         // Eager load all the relationships we need
         $vnList->load(['entries' => function ($query) {
             $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails');
+                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price');
                 $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
@@ -316,9 +316,7 @@ class VnListController extends Controller
             ->first();
 
         // If the game is already in another list, remove it from that list first
-        if ($existingEntryInOtherList) {
-            $existingEntryInOtherList->delete();
-        }
+        $existingEntryInOtherList?->delete();
 
         // Prepare data for the new entry
         $entryData = [
@@ -569,7 +567,7 @@ class VnListController extends Controller
         // Eager load all the relationships we need
         $lists = VnList::with(['user', 'entries' => function ($query) {
             $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails');
+                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price');
                 $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
@@ -609,7 +607,7 @@ class VnListController extends Controller
     {
         $lists = VnList::with(['user', 'entries' => function ($query) {
             $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails');
+                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price');
                 $q->with(['latestVersion']);
             }]);
             $query->orderBy('sort_order');
@@ -833,8 +831,12 @@ class VnListController extends Controller
             $receiveUpdates = true;
         }
 
-        // Get all game IDs from this list
-        $gameIds = $vnList->entries()->pluck('game_id')->toArray();
+        // Get all free game IDs from this list (exclude paid games)
+        $gameIds = $vnList->entries()
+            ->join('games', 'games.id', '=', 'vn_list_entries.game_id')
+            ->where('games.is_paid', false)
+            ->pluck('vn_list_entries.game_id')
+            ->toArray();
 
         // For each game, update or create the user progress record
         foreach ($gameIds as $gameId) {
@@ -850,7 +852,7 @@ class VnListController extends Controller
         }
 
         $entriesCount = count($gameIds);
-        $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for all ' . $entriesCount . ' entries in this list';
+        $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for all ' . $entriesCount . ' free entries in this list';
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([

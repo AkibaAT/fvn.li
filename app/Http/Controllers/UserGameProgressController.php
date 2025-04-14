@@ -106,6 +106,14 @@ class UserGameProgressController extends Controller
     public function toggleUpdates(Request $request, Game $game): JsonResponse
     {
         try {
+            // Check if the game is paid - we don't allow notifications for paid games
+            if ($game->is_paid) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Notifications are not available for paid games.',
+                ], 400);
+            }
+
             // Find or create progress record for this game
             $progress = UserGameProgress::firstOrCreate(
                 [
