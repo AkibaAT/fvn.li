@@ -776,6 +776,113 @@ class Game extends Model
         }
     }
 
+    /**
+     * Extract version information from upload metadata
+     *
+     * @throws DateMalformedStringException
+     */
+    public function extractVersion(array $upload, bool $allowDateFallback = false): ?string
+    {
+        // Collect version candidates with source and priority
+        $candidates = [];
+
+        // Check build.user_version first (highest priority)
+        if (! empty($upload['build']['user_version'])) {
+            $version = $upload['build']['user_version'];
+            if ($this->isProbableVersion($version)) {
+                $candidates[] = [$version, 3];
+            }
+        }
+
+        if (! empty($upload['user_version'])) {
+            $version = $upload['user_version'];
+            if ($this->isProbableVersion($version)) {
+                $candidates[] = [$version, 3];
+            }
+        }
+
+        // Check display_name (high priority)
+        if (! empty($upload['display_name'])) {
+            // Look for version in parentheses first (highest priority for display name)
+            if (preg_match('/\(([0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)\)/', $upload['display_name'], $matches)) {
+                if ($this->isProbableVersion($matches[1])) {
+                    $candidates[] = [$matches[1], 3];
+                }
+            }
+
+            // Look for explicit version
+            preg_match_all(
+                '/(?:[vV](?:ersion)?)?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)(?=[-_. ]|$)/i',
+                $upload['display_name'],
+                $matches
+            );
+
+            // Find the highest semantic version
+            $highestVersion = null;
+            foreach ($matches[1] as $version) {
+                if ($this->isProbableVersion($version)) {
+                    if (! $highestVersion || version_compare($version, $highestVersion) > 0) {
+                        $highestVersion = $version;
+                    }
+                }
+            }
+
+            if ($highestVersion) {
+                $candidates[] = [$highestVersion, 2];
+            } else {
+                // Fallback: only look for single numbers if no semantic version found,
+                // but avoid matching numbers that are part of a dotted sequence.
+                preg_match_all('/(?<!\.)\b(\d+)\b/', $upload['display_name'], $matches);
+                foreach ($matches[1] as $version) {
+                    if ($this->isProbableVersion($version)) {
+                        if (! $highestVersion || version_compare($version, $highestVersion) > 0) {
+                            $highestVersion = $version;
+                        }
+                    }
+                }
+                if ($highestVersion) {
+                    $candidates[] = [$highestVersion, 1];  // Lower priority for single numbers
+                }
+            }
+        }
+
+        // Check filename (lowest priority)
+        $filename = $upload['filename'] ?? '';
+        $cleanedFilename = preg_replace('/\.(zip|tar\.bz2|tar\.gz)$/', '', $filename);
+
+        // Look for build numbers
+        if (preg_match('/[bB]uild[_\s-]*(\d+)/', $cleanedFilename, $matches)) {
+            if ($this->isProbableVersion($matches[1])) {
+                $candidates[] = [$matches[1], 1];
+            }
+        } else {
+            // Look for version patterns in filename
+            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
+                $cleanedFilename, $matches);
+            foreach ($matches[1] as $version) {
+                if ($this->isProbableVersion($version)) {
+                    $candidates[] = [$version, 0];
+                }
+            }
+        }
+
+        if (! empty($candidates)) {
+            // Sort by priority (desc) then version string
+            usort($candidates, fn ($a, $b) => $b[1] <=> $a[1] ?: strcmp($a[0], $b[0]));
+
+            return $candidates[0][0];
+        }
+
+        // Only return date-based version if explicitly allowed
+        if ($allowDateFallback) {
+            $timestamp = new DateTime($upload['updated_at']);
+
+            return $timestamp->format('Y.m.d');
+        }
+
+        return null;
+    }
+
     protected function devlog(): Attribute
     {
         return Attribute::make(
