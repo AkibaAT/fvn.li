@@ -71,10 +71,7 @@ class GameVersionsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('version')
-            ->heading(fn (): string => view('admin.partials.game-versions-heading', [
-                'gameId' => $this->ownerRecord->id,
-            ])->render()
-            )
+            ->heading('Game Versions')
             ->columns([
                 TextColumn::make('version')
                     ->sortable()
@@ -120,6 +117,11 @@ class GameVersionsRelationManager extends RelationManager
                 TernaryFilter::make('is_web'),
             ])
             ->headerActions([
+                Action::make('createVersion')
+                    ->label('Create New Version')
+                    ->icon('heroicon-o-plus')
+                    ->color('success')
+                    ->url(fn () => route('filament.admin.resources.game-versions.create', ['game_id' => $this->ownerRecord->id])),
                 CreateAction::make(),
                 Action::make('uploadJson')
                     ->label('Upload JSON')
