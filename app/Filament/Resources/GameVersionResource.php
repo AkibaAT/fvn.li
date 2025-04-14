@@ -11,13 +11,18 @@ use App\Filament\Resources\GameVersionResource\Pages\ViewGameVersion;
 use App\Filament\Resources\GameVersionResource\RelationManagers\CharacterStatsRelationManager;
 use App\Filament\Resources\GameVersionResource\RelationManagers\FileCategoriesRelationManager;
 use App\Models\GameVersion;
+use App\Models\Language;
 use Exception;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
+use Filament\Infolists\Components\Section as InfoSection;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkAction;
@@ -87,6 +92,119 @@ class GameVersionResource extends Resource
                             ->numeric()
                             ->step(1),
                     ])->columns(2),
+
+                Section::make('Supported Languages')
+                    ->schema([
+                        Repeater::make('supported_languages')
+                            ->schema([
+                                Select::make('iso_code')
+                                    ->label('Language')
+                                    ->options(function () {
+                                        return Language::orderBy('ref_name')
+                                            ->pluck('ref_name', 'id')
+                                            ->toArray();
+                                    })
+                                    ->searchable()
+                                    ->required(),
+                                Toggle::make('is_available')
+                                    ->label('Available to users')
+                                    ->default(true)
+                                    ->helperText('If disabled, this language will not be shown to users'),
+                            ])
+                            ->columns(2)
+                            ->itemLabel(function (array $state): ?string {
+                                if (empty($state['iso_code'])) {
+                                    return null;
+                                }
+
+                                $language = Language::find($state['iso_code']);
+
+                                return $language ? $language->ref_name : $state['iso_code'];
+                            })
+                            ->addActionLabel('Add Language')
+                            ->reorderableWithButtons()
+                            ->collapsible(),
+                    ]),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                InfoSection::make('Version Information')
+                    ->schema([
+                        TextEntry::make('game.name')
+                            ->label('Game'),
+                        TextEntry::make('version'),
+                        TextEntry::make('published_at')
+                            ->dateTime(),
+                        TextEntry::make('devlog'),
+                        TextEntry::make('is_latest')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                    ])->columns(2),
+
+                InfoSection::make('Platform Support')
+                    ->schema([
+                        TextEntry::make('is_windows')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                        TextEntry::make('is_linux')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                        TextEntry::make('is_mac')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                        TextEntry::make('is_android')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                        TextEntry::make('is_web')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
+                    ])->columns(3),
+
+                InfoSection::make('Ratings')
+                    ->schema([
+                        TextEntry::make('rating')
+                            ->numeric(2),
+                        TextEntry::make('rating_count')
+                            ->numeric(),
+                    ])->columns(2),
+
+                InfoSection::make('Supported Languages')
+                    ->schema([
+                        TextEntry::make('supported_languages')
+                            ->label('Languages')
+                            ->getStateUsing(function (GameVersion $record) {
+                                // Get the supported languages directly from the database
+                                $languages = $record->supportedLanguages()
+                                    ->with('language')
+                                    ->get()
+                                    ->map(function ($supportedLanguage) {
+                                        $language = Language::find($supportedLanguage->iso_code);
+
+                                        return [
+                                            'name' => $language ? $language->ref_name : $supportedLanguage->iso_code,
+                                            'is_available' => $supportedLanguage->is_available,
+                                        ];
+                                    })
+                                    ->toArray();
+
+                                if (empty($languages)) {
+                                    return 'No languages configured';
+                                }
+
+                                $result = [];
+                                foreach ($languages as $language) {
+                                    $status = $language['is_available'] ? '✅ Available' : '❌ Not Available';
+                                    $result[] = $language['name'] . ' - ' . $status;
+                                }
+
+                                return implode('<br>', $result);
+                            })
+                            ->html(),
+                    ]),
             ]);
     }
 

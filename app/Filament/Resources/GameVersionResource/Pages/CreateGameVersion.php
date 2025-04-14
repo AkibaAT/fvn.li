@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Filament\Resources\GameVersionResource\Pages;
 
 use App\Filament\Resources\GameVersionResource;
+use App\Filament\Resources\GameVersionResource\Traits\HandlesGameVersionLanguages;
 use App\Models\Game;
+use App\Models\GameVersion;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateGameVersion extends CreateRecord
 {
+    use HandlesGameVersionLanguages;
+
     protected static string $resource = GameVersionResource::class;
 
     /**
@@ -28,5 +32,19 @@ class CreateGameVersion extends CreateRecord
         }
 
         return $this->getResource()::getUrl('index');
+    }
+
+    /**
+     * Handle the supported languages after the record is created
+     */
+    protected function afterCreate(): void
+    {
+        /** @var GameVersion $gameVersion */
+        $gameVersion = $this->record;
+
+        // Process supported languages
+        if (isset($this->data['supported_languages']) && is_array($this->data['supported_languages'])) {
+            $this->saveSupportedLanguages($gameVersion, $this->data['supported_languages']);
+        }
     }
 }
