@@ -21,14 +21,10 @@ class ItchAuthService
     private Client $client;
     private CookieJar $cookieJar;
 
-    public function __construct()
+    public function __construct(private readonly ItchHttpClientFactory $clientFactory)
     {
-        $this->cookieJar = new CookieJar;
-        $this->client = new Client([
-            'cookies' => $this->cookieJar,
-            'timeout' => 30,
-            'connect_timeout' => 5,
-        ]);
+        $this->cookieJar = $this->clientFactory->createCookieJar();
+        $this->client = $this->clientFactory->createClient($this->cookieJar);
     }
 
     /**

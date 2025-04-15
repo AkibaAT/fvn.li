@@ -7,8 +7,10 @@ namespace App\Providers;
 use App\Livewire\Auth\SocialLoginButtons;
 use App\Models\Game;
 use App\Observers\GameObserver;
+use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\LanguageMappingService;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
@@ -26,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
         });
         $this->app->singleton(ItchHttpClientService::class, function () {
             return new ItchHttpClientService(
+                App::make(ItchHttpClientFactory::class),
                 config('services.itch.max_retries'),
                 config('services.itch.retry_cooldown')
             );

@@ -15,22 +15,17 @@ class ItchHttpClientService
 {
     private ?Client $authenticatedClient = null;
     private Client $anonymousClient;
-    private int $maxRetries;
-    private int $baseCooldown;
 
     /**
      * Create a new ItchHttpClientService instance.
      */
-    public function __construct(int $maxRetries = 5, int $baseCooldown = 30)
+    public function __construct(
+        private readonly ItchHttpClientFactory $clientFactory,
+        private int $maxRetries = 5,
+        private int $baseCooldown = 30
+    )
     {
-        $this->maxRetries = $maxRetries;
-        $this->baseCooldown = $baseCooldown;
-
-        // Create anonymous client for unauthenticated requests
-        $this->anonymousClient = new Client([
-            'timeout' => 30,
-            'connect_timeout' => 5,
-        ]);
+        $this->anonymousClient = $this->clientFactory->createClient();
     }
 
     /**
