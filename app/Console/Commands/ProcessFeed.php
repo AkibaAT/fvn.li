@@ -14,6 +14,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProcessFeed extends Command
 {
@@ -34,6 +35,9 @@ class ProcessFeed extends Command
 
     /**
      * Execute the console command.
+     *
+     * @throws GuzzleException
+     * @throws Throwable
      */
     public function handle(): int
     {
@@ -45,8 +49,7 @@ class ProcessFeed extends Command
         $this->skippedCount = 0;
 
         try {
-            // Get authenticated client
-            $client = $this->authService->getClient();
+            // Use the ItchHttpClientService which now uses an authenticated client
 
             // Get the import state if it exists
             $importState = ImportState::firstWhere('type', self::IMPORT_STATE_TYPE);
@@ -65,6 +68,8 @@ class ProcessFeed extends Command
             while (true) {
                 $this->info('Processing page ' . ($currentPage ? "from event {$currentPage}" : '(initial)'));
 
+                // Get authenticated client for feed page
+                $client = $this->authService->getClient();
                 $nextPage = $this->processFeedPage($client, $currentPage);
 
                 if (! $nextPage) {
@@ -108,6 +113,7 @@ class ProcessFeed extends Command
      * Process a single feed page
      *
      * @throws GuzzleException
+     * @throws Throwable
      */
     private function processFeedPage($client, ?int $fromEvent = null): ?int
     {
@@ -227,6 +233,8 @@ class ProcessFeed extends Command
 
     /**
      * Process an individual game update
+     *
+     * @throws Throwable
      */
     private function processGameUpdate(int $eventId, int $gameId): void
     {
@@ -248,7 +256,7 @@ class ProcessFeed extends Command
             $this->info("Processing update for game {$gameId}: {$game->name}");
 
             // Refresh game version info
-            $game->refreshVersion();
+            $game->refreshVersion(true); // Force refresh
             $game->error = null;
             $game->save();
 

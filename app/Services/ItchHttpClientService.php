@@ -13,36 +13,40 @@ use Psr\Http\Message\ResponseInterface;
 
 class ItchHttpClientService
 {
-    private Client $client {
-        get {
-            return $this->client;
-        }
-    }
+    private ?Client $authenticatedClient = null;
+    private Client $anonymousClient;
     private int $maxRetries;
     private int $baseCooldown;
 
     /**
      * Create a new ItchHttpClientService instance.
      */
-    public function __construct(Client $client, int $maxRetries = 5, int $baseCooldown = 30)
+    public function __construct(int $maxRetries = 5, int $baseCooldown = 30)
     {
-        $this->client = $client;
         $this->maxRetries = $maxRetries;
         $this->baseCooldown = $baseCooldown;
+
+        // Create anonymous client for unauthenticated requests
+        $this->anonymousClient = new Client([
+            'timeout' => 30,
+            'connect_timeout' => 5,
+        ]);
     }
 
     /**
      * Send a GET request with retry logic for itch.io domains.
+     * Uses authenticated client by default.
      *
      * @param  string  $url  The URL to request
      * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
      * @return ResponseInterface The response
      *
      * @throws Exception|GuzzleException If the request fails after all retries
      */
-    public function get(string $url, array $options = []): ResponseInterface
+    public function get(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
-        return $this->sendRequest('GET', $url, $options);
+        return $this->sendRequest('GET', $url, $options, $anonymous);
     }
 
     /**
@@ -50,13 +54,14 @@ class ItchHttpClientService
      *
      * @param  string  $url  The URL to request
      * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
      * @return ResponseInterface The response
      *
      * @throws Exception|GuzzleException If the request fails after all retries
      */
-    public function post(string $url, array $options = []): ResponseInterface
+    public function post(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
-        return $this->sendRequest('POST', $url, $options);
+        return $this->sendRequest('POST', $url, $options, $anonymous);
     }
 
     /**
@@ -64,13 +69,14 @@ class ItchHttpClientService
      *
      * @param  string  $url  The URL to request
      * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
      * @return ResponseInterface The response
      *
      * @throws Exception|GuzzleException If the request fails after all retries
      */
-    public function put(string $url, array $options = []): ResponseInterface
+    public function put(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
-        return $this->sendRequest('PUT', $url, $options);
+        return $this->sendRequest('PUT', $url, $options, $anonymous);
     }
 
     /**
@@ -78,13 +84,14 @@ class ItchHttpClientService
      *
      * @param  string  $url  The URL to request
      * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
      * @return ResponseInterface The response
      *
      * @throws Exception|GuzzleException If the request fails after all retries
      */
-    public function delete(string $url, array $options = []): ResponseInterface
+    public function delete(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
-        return $this->sendRequest('DELETE', $url, $options);
+        return $this->sendRequest('DELETE', $url, $options, $anonymous);
     }
 
     /**
@@ -93,22 +100,26 @@ class ItchHttpClientService
      * @param  string  $method  The HTTP method
      * @param  string  $url  The URL to request
      * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
      * @return ResponseInterface The response
      *
      * @throws Exception If the request fails after all retries
      * @throws GuzzleException
      */
-    public function sendRequest(string $method, string $url, array $options = []): ResponseInterface
+    public function sendRequest(string $method, string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
         // Set http_errors to false to prevent exceptions for 4xx/5xx responses
         $options['http_errors'] = false;
+
+        // Select the appropriate client
+        $client = $anonymous ? $this->anonymousClient : $this->getAuthenticatedClient();
 
         $retryCount = 0;
         $lastException = null;
 
         while ($retryCount <= $this->maxRetries) {
             try {
-                $response = $this->client->request($method, $url, $options);
+                $response = $client->request($method, $url, $options);
                 $statusCode = $response->getStatusCode();
 
                 // If we got a 429 status code, retry
@@ -224,6 +235,21 @@ class ItchHttpClientService
         $this->baseCooldown = $baseCooldown;
 
         return $this;
+    }
+
+    /**
+     * Get the authenticated client, initializing it if necessary
+     *
+     * @throws GuzzleException
+     */
+    private function getAuthenticatedClient(): Client
+    {
+        if ($this->authenticatedClient === null) {
+            $authService = app(ItchAuthService::class);
+            $this->authenticatedClient = $authService->getClient();
+        }
+
+        return $this->authenticatedClient;
     }
 
     /**

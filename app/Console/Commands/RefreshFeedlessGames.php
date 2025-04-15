@@ -6,14 +6,20 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use Exception;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class RefreshFeedlessGames extends Command
 {
     protected $signature = 'games:refresh-feedless';
     protected $description = 'Refresh version information for feedless games';
 
+    /**
+     * @throws GuzzleException
+     * @throws Throwable
+     */
     public function handle(): int
     {
         $this->info('Starting version refresh for feedless games');

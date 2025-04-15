@@ -257,7 +257,7 @@ class Game extends Model
         // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
 
-        $url = 'https://api.itch.io/games/' . $this->game_id;
+        $url = "https://api.itch.io/games/{$this->game_id}";
 
         $response = $itchClient->get($url);
         $game = json_decode($response->getBody()->getContents(), true);
@@ -286,7 +286,9 @@ class Game extends Model
             // Get the ItchHttpClientService
             $itchClient = App::make(ItchHttpClientService::class);
 
-            $response = $itchClient->get($this->url, ['cookies' => false]);
+            // For NSFW check, we need to use an unauthenticated client
+            // Use anonymous option for this specific request
+            $response = $itchClient->get($this->url, [], true);
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
@@ -301,8 +303,11 @@ class Game extends Model
                 $gameInfo = $doc->querySelector('div.game_info_panel_widget');
                 if ($gameInfo) {
                     $statusLinks = $gameInfo->querySelectorAll('a');
-                    if (count($statusLinks) > 0) {
-                        $this->status = $statusLinks[0]->textContent;
+                    foreach ($statusLinks as $index => $link) {
+                        if ($index === 0) {
+                            $this->status = $link->textContent;
+                            break;
+                        }
                     }
                 }
             }
@@ -373,8 +378,11 @@ class Game extends Model
             $devlog = $doc->querySelector('section#devlog');
             if ($devlog) {
                 $devlogLinks = $devlog->querySelectorAll('a');
-                if (count($devlogLinks) > 0) {
-                    $devlogLink = $devlogLinks[0]->getAttribute('href');
+                foreach ($devlogLinks as $index => $link) {
+                    if ($index === 0) {
+                        $devlogLink = $link->getAttribute('href');
+                        break;
+                    }
                 }
             }
 
