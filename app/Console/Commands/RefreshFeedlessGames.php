@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
-use App\Services\ItchAuthService;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -15,22 +14,11 @@ class RefreshFeedlessGames extends Command
     protected $signature = 'games:refresh-feedless';
     protected $description = 'Refresh version information for feedless games';
 
-    private ItchAuthService $authService;
-
-    public function __construct(ItchAuthService $authService)
-    {
-        parent::__construct();
-        $this->authService = $authService;
-    }
-
     public function handle(): int
     {
         $this->info('Starting version refresh for feedless games');
 
         try {
-            // Get authenticated client
-            $client = $this->authService->getClient();
-
             // Get all visible feedless games
             $games = Game::query()
                 ->where('is_visible', true)
@@ -44,7 +32,7 @@ class RefreshFeedlessGames extends Command
                 $this->info("Processing game: {$game->name}");
 
                 try {
-                    $game->refreshVersion($client);
+                    $game->refreshVersion();
                     $game->error = null;
                     $game->save();
 

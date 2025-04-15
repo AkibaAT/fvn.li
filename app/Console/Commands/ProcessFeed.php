@@ -111,7 +111,6 @@ class ProcessFeed extends Command
      */
     private function processFeedPage($client, ?int $fromEvent = null): ?int
     {
-        // No need for global variables, using class properties
         $url = 'https://itch.io/my-feed?filter=posts&format=json';
         if ($fromEvent) {
             $url .= "&from_event={$fromEvent}";
@@ -220,7 +219,7 @@ class ProcessFeed extends Command
             // Process game update
             $this->output->write('+');
             $this->processedCount++;
-            $this->processGameUpdate($client, $eventId, $gameId);
+            $this->processGameUpdate($eventId, $gameId);
         }
 
         return $nextPage;
@@ -229,7 +228,7 @@ class ProcessFeed extends Command
     /**
      * Process an individual game update
      */
-    private function processGameUpdate($client, int $eventId, int $gameId): void
+    private function processGameUpdate(int $eventId, int $gameId): void
     {
         DB::beginTransaction();
 
@@ -249,7 +248,7 @@ class ProcessFeed extends Command
             $this->info("Processing update for game {$gameId}: {$game->name}");
 
             // Refresh game version info
-            $game->refreshVersion($client);
+            $game->refreshVersion();
             $game->error = null;
             $game->save();
 
