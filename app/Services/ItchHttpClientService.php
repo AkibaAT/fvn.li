@@ -23,8 +23,7 @@ class ItchHttpClientService
         private readonly ItchHttpClientFactory $clientFactory,
         private int $maxRetries = 5,
         private int $baseCooldown = 30
-    )
-    {
+    ) {
         $this->anonymousClient = $this->clientFactory->createClient();
     }
 

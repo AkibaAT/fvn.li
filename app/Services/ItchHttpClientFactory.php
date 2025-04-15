@@ -25,6 +25,6 @@ class ItchHttpClientFactory
 
     public function createCookieJar(): CookieJar
     {
-        return new CookieJar();
+        return new CookieJar;
     }
 }

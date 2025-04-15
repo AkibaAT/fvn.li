@@ -154,6 +154,28 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cache (
+    key character varying(255) NOT NULL,
+    value text NOT NULL,
+    expiration integer NOT NULL
+);
+
+
+--
+-- Name: cache_locks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cache_locks (
+    key character varying(255) NOT NULL,
+    owner character varying(255) NOT NULL,
+    expiration integer NOT NULL
+);
+
+
+--
 -- Name: version_character_stats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -272,6 +294,79 @@ ALTER SEQUENCE public.failed_jobs_id_seq OWNED BY public.failed_jobs.id;
 
 
 --
+-- Name: game_game_jam; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.game_game_jam (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    game_id bigint NOT NULL,
+    game_jam_id bigint NOT NULL,
+    ranking character varying(255),
+    criteria_rankings jsonb
+);
+
+
+--
+-- Name: game_game_jam_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.game_game_jam_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: game_game_jam_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.game_game_jam_id_seq OWNED BY public.game_game_jam.id;
+
+
+--
+-- Name: game_jams; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.game_jams (
+    id bigint NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    name character varying(255) NOT NULL,
+    url character varying(255) NOT NULL,
+    description text,
+    start_date timestamp(0) without time zone,
+    end_date timestamp(0) without time zone,
+    submission_count integer,
+    participant_count integer,
+    host character varying(255),
+    needs_details_fetch boolean DEFAULT true NOT NULL
+);
+
+
+--
+-- Name: game_jams_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.game_jams_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: game_jams_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.game_jams_id_seq OWNED BY public.game_jams.id;
+
+
+--
 -- Name: game_versions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -341,7 +436,14 @@ CREATE TABLE public.games (
     source_language_id character varying(3),
     optimized_thumbnails jsonb,
     average_score numeric(8,4),
-    rating_count integer DEFAULT 0 NOT NULL
+    rating_count integer DEFAULT 0 NOT NULL,
+    min_price numeric(10,2),
+    is_on_sale boolean DEFAULT false NOT NULL,
+    screenshots jsonb,
+    full_description text,
+    custom_css text,
+    is_paid boolean DEFAULT false NOT NULL,
+    has_demo boolean DEFAULT false NOT NULL
 );
 
 
@@ -987,7 +1089,8 @@ CREATE TABLE public.users (
     remember_token character varying(100),
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
-    avatar character(255)
+    avatar character varying(255),
+    is_admin boolean DEFAULT false NOT NULL
 );
 
 
@@ -1194,7 +1297,8 @@ CREATE TABLE public.vn_list_entries (
     game_id bigint NOT NULL,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
-    sort_order integer DEFAULT 0 NOT NULL
+    sort_order integer DEFAULT 0 NOT NULL,
+    private_notes text
 );
 
 
@@ -1265,6 +1369,20 @@ ALTER TABLE ONLY public.characters ALTER COLUMN id SET DEFAULT nextval('public.c
 --
 
 ALTER TABLE ONLY public.failed_jobs ALTER COLUMN id SET DEFAULT nextval('public.failed_jobs_id_seq'::regclass);
+
+
+--
+-- Name: game_game_jam id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_game_jam ALTER COLUMN id SET DEFAULT nextval('public.game_game_jam_id_seq'::regclass);
+
+
+--
+-- Name: game_jams id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_jams ALTER COLUMN id SET DEFAULT nextval('public.game_jams_id_seq'::regclass);
 
 
 --
@@ -1457,6 +1575,22 @@ ALTER TABLE ONLY public.vn_lists ALTER COLUMN id SET DEFAULT nextval('public.vn_
 
 
 --
+-- Name: cache_locks cache_locks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cache_locks
+    ADD CONSTRAINT cache_locks_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: cache cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cache
+    ADD CONSTRAINT cache_pkey PRIMARY KEY (key);
+
+
+--
 -- Name: version_character_stats character_version_stats_game_version_id_character_id_iso_code_u; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1510,6 +1644,38 @@ ALTER TABLE ONLY public.failed_jobs
 
 ALTER TABLE ONLY public.failed_jobs
     ADD CONSTRAINT failed_jobs_uuid_unique UNIQUE (uuid);
+
+
+--
+-- Name: game_game_jam game_game_jam_game_id_game_jam_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_game_jam
+    ADD CONSTRAINT game_game_jam_game_id_game_jam_id_unique UNIQUE (game_id, game_jam_id);
+
+
+--
+-- Name: game_game_jam game_game_jam_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_game_jam
+    ADD CONSTRAINT game_game_jam_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: game_jams game_jams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_jams
+    ADD CONSTRAINT game_jams_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: game_jams game_jams_url_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_jams
+    ADD CONSTRAINT game_jams_url_unique UNIQUE (url);
 
 
 --
@@ -2149,6 +2315,22 @@ ALTER TABLE ONLY public.monitored_scheduled_task_log_items
 
 
 --
+-- Name: game_game_jam game_game_jam_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_game_jam
+    ADD CONSTRAINT game_game_jam_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: game_game_jam game_game_jam_game_jam_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.game_game_jam
+    ADD CONSTRAINT game_game_jam_game_jam_id_foreign FOREIGN KEY (game_jam_id) REFERENCES public.game_jams(id) ON DELETE CASCADE;
+
+
+--
 -- Name: game_versions game_versions_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2463,6 +2645,18 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 69	2025_04_03_000003_add_receive_updates_to_user_game_progress	33
 70	2025_04_04_172600_add_meta_data_to_notification_queue	34
 71	2024_03_26_000001_create_import_states_table	35
+72	2025_04_06_172154_add_is_admin_to_users_table	36
+73	2025_04_06_181624_change_avatar_column_type_in_users_table	36
+74	2025_05_01_000000_add_additional_game_details	36
+75	2025_05_01_000001_create_game_jams_table	36
+76	2025_05_01_000002_add_needs_details_fetch_to_game_jams	36
+77	2025_04_09_231946_add_custom_css_to_games_table	37
+78	2025_04_13_005722_remove_columns_from_game_jams_table	38
+79	2025_05_02_000001_add_criteria_rankings_to_game_game_jam_table	39
+80	2025_04_13_163436_add_criteria_rankings_to_game_game_jam_table	40
+81	2025_04_13_190609_add_private_notes_to_vn_list_entries	41
+82	2025_05_15_000000_add_paid_and_demo_columns_to_games_table	42
+83	2025_04_14_190104_remove_suggested_price_from_games_table	43
 \.
 
 
@@ -2470,7 +2664,7 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 71, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 83, true);
 
 
 --
