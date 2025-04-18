@@ -12,6 +12,7 @@ use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use Exception;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -70,17 +71,35 @@ readonly class GameStatsService
             // Find the game directory (it might be in a subdirectory)
             $gameDir = $this->findGameDirectory($extractPath);
             if (! $gameDir) {
-                throw new RuntimeException('Could not find valid game directory');
+                Log::warning('Could not find valid game directory', [
+                    'archive_path' => $archivePath,
+                    'extract_path' => $extractPath,
+                ]);
+
+                return null;
             }
 
             // Get the Ren'Py SDK path from configuration
             $sdkPath = config('services.renpy.sdk_path');
             if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
-                throw new RuntimeException('Ren\'Py SDK path not configured or invalid. Please set RENPY_SDK_PATH in .env');
+                Log::error('Ren\'Py SDK path not configured or invalid', [
+                    'sdk_path' => $sdkPath,
+                ]);
+
+                return null;
             }
 
             // Use the Ren'Py SDK to analyze the game
             return $this->extractStatsWithSdk($gameDir, $sdkPath);
+        } catch (Exception $e) {
+            // Log the exception but don't treat it as an error
+            Log::warning('Error during game stats extraction', [
+                'archive_path' => $archivePath,
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+
+            return null;
         } finally {
             // Cleanup
             if (File::exists($extractPath)) {
@@ -457,37 +476,47 @@ readonly class GameStatsService
 
     /**
      * Extract statistics using the Ren'Py SDK
+     *
+     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
+     *
+     * @throws RuntimeException|FileNotFoundException Only if stats file doesn't exist or is invalid after successful process execution
      */
-    private function extractStatsWithSdk(string $gameDir, string $sdkPath): array
+    private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?array
     {
-        // Copy our analysis script to the game directory
-        File::copy(
-            resource_path('renpy/json_stats.rpy'),
-            $gameDir . '/game/json_stats.rpy'
-        );
+        try {
+            // Copy our analysis script to the game directory
+            File::copy(
+                resource_path('renpy/json_stats.rpy'),
+                $gameDir . '/game/json_stats.rpy'
+            );
+        } catch (Exception $e) {
+            Log::warning('Failed to copy analysis script', [
+                'error' => $e->getMessage(),
+                'game_dir' => $gameDir,
+            ]);
+
+            return null;
+        }
 
         // Execute the script analysis using the SDK
         $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
         $process->setTimeout(300); // 5 minute timeout
         $process->run();
 
-        // Check for successful execution
+        // Check for successful execution, but don't treat it as an error
         if (! $process->isSuccessful()) {
             $output = $process->getOutput();
             $errorOutput = $process->getErrorOutput();
-            Log::error('Script analysis failed using SDK', [
+            Log::warning('Script analysis completed with non-zero exit code', [
                 'output' => $output,
                 'error_output' => $errorOutput,
                 'exit_code' => $process->getExitCode(),
                 'sdk_path' => $sdkPath,
                 'game_dir' => $gameDir,
             ]);
-            throw new RuntimeException(
-                'Script analysis failed: ' . $output . ' Error: ' . $errorOutput
-            );
         }
 
-        // Read and parse the stats file
+        // Read and parse the stats file - this is the only real error condition
         $statsFile = $gameDir . '/stats.json';
         if (! File::exists($statsFile)) {
             throw new RuntimeException('Stats file not generated');
@@ -503,6 +532,8 @@ readonly class GameStatsService
 
     /**
      * Extract a game archive to the specified directory
+     *
+     * @throws RuntimeException If extraction fails
      */
     private function extractArchive(string $archivePath, string $extractPath): void
     {

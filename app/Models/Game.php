@@ -738,18 +738,26 @@ class Game extends Model
                                 $gameVersion->id
                             );
 
-                            if ($result['stats']) {
+                            // Check if we have valid stats
+                            if (isset($result['stats']) && $result['stats']) {
                                 $this->game_engine = "Ren'Py";
                                 $this->save();
 
                                 // Save the stats - pass $this as the game object for game-specific language mappings
                                 $statsService->saveVersionStats($gameVersion, $result['stats'], $this->source_language_id, $this);
                             } else {
+                                // Log that we couldn't extract stats but don't treat it as an error
+                                Log::info('No stats extracted for game, copying language support from previous version', [
+                                    'game_id' => $this->id,
+                                    'version' => $newVersion,
+                                ]);
+
                                 // Copy language support from previous version
                                 $this->copyLanguageSupport($gameVersion);
                             }
                         } catch (Exception $e) {
-                            Log::error('Failed to extract game stats', [
+                            // Only log as an error if it's not related to stats extraction
+                            Log::error('Failed to process game archive', [
                                 'game_id' => $this->id,
                                 'version' => $newVersion,
                                 'error' => $e->getMessage(),

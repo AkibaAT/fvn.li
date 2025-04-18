@@ -54,7 +54,7 @@ readonly class GameArchiveService
         // Download and store the archive (force parameter is now passed through)
         $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
 
-        // Process the archive
+        // Process the archive - stats may be null if extraction failed but shouldn't be treated as an error
         return [
             'archive' => $archivePath,
             'stats' => $this->processArchive($archivePath),
@@ -146,9 +146,11 @@ readonly class GameArchiveService
     /**
      * Process statistics from an existing archive
      *
-     * @throws RuntimeException
+     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
+     *
+     * @throws RuntimeException If the archive file doesn't exist
      */
-    public function processArchive(string $archivePath): array
+    public function processArchive(string $archivePath): ?array
     {
         if (! File::exists($archivePath)) {
             throw new RuntimeException("Archive file not found: {$archivePath}");
