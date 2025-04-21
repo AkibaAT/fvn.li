@@ -324,10 +324,33 @@
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     Screenshots
                 </h2>
+
+                @if ($game->blur_screenshots)
+                    <div class="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Content Warning</h3>
+                                <div class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+                                    <p>Screenshots are blurred as they may contain sensitive or NSFW content. Click on any screenshot to view it in full.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="screenshots-gallery">
                     @foreach ($screenshots as $index => $screenshot)
                         <a href="{{ $screenshot['url'] }}" data-title="Screenshot {{ $index + 1 }}" class="block overflow-hidden rounded-lg hover:opacity-90 transition-opacity">
-                            <img src="{{ $screenshot['thumbnail_url'] }}" alt="Screenshot {{ $index + 1 }}" class="w-full h-auto object-cover">
+                            <img
+                                src="{{ $screenshot['thumbnail_url'] }}"
+                                alt="Screenshot {{ $index + 1 }}"
+                                class="w-full h-auto object-cover {{ $game->blur_screenshots ? 'blur-sm hover:blur-none transition-all duration-300' : '' }}"
+                            >
                         </a>
                     @endforeach
                 </div>

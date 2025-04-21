@@ -51,6 +51,7 @@ class Game extends Model
         'is_paid',
         'has_demo',
         'screenshots',
+        'blur_screenshots',
     ];
 
     protected $casts = [
@@ -69,6 +70,7 @@ class Game extends Model
         'is_on_sale' => 'boolean',
         'is_paid' => 'boolean',
         'has_demo' => 'boolean',
+        'blur_screenshots' => 'boolean',
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
@@ -82,6 +84,12 @@ class Game extends Model
     public function setCustomTagsAttribute($value): void
     {
         $this->attributes['custom_tags'] = $value ?? '';
+    }
+
+    public function setIsNsfwAttribute($value): void
+    {
+        $this->attributes['is_nsfw'] = $value;
+        $this->attributes['blur_screenshots'] = true;
     }
 
     /**

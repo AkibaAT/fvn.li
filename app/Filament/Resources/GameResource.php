@@ -91,6 +91,10 @@ class GameResource extends Resource
                             ->maxLength(255),
                         TextInput::make('source_language_id')
                             ->maxLength(3),
+                        Toggle::make('blur_screenshots')
+                            ->label('Blur Screenshots')
+                            ->helperText('When enabled, screenshots will be blurred on the game detail page with a warning about potential NSFW content')
+                            ->default(true),
                     ]),
 
                 Section::make('Pricing & Availability')
@@ -145,6 +149,10 @@ class GameResource extends Resource
                 IconColumn::make('is_nsfw')
                     ->boolean()
                     ->sortable(),
+                IconColumn::make('blur_screenshots')
+                    ->boolean()
+                    ->label('Blur SS')
+                    ->sortable(),
                 IconColumn::make('is_paid')
                     ->boolean()
                     ->label('Paid')
@@ -182,6 +190,8 @@ class GameResource extends Resource
                     ]),
                 TernaryFilter::make('is_visible'),
                 TernaryFilter::make('is_nsfw'),
+                TernaryFilter::make('blur_screenshots')
+                    ->label('Blur Screenshots'),
                 TernaryFilter::make('is_paid')
                     ->label('Paid Games'),
                 TernaryFilter::make('has_demo')

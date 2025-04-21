@@ -304,6 +304,7 @@ class GameDetail extends Component
             'minPrice' => $this->game->min_price,
             'isOnSale' => $this->game->is_on_sale,
             'screenshots' => $this->game->getScreenshots(),
+            'blur_screenshots' => $this->game->blur_screenshots,
         ])
             ->layout('components.layouts.app', [
                 'metaTags' => $metaTags,
