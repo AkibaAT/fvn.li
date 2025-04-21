@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Services\GameArchiveService;
 use App\Services\ItchHttpClientService;
 use Exception;
 use Illuminate\Console\Command;
@@ -188,6 +189,10 @@ class RefreshGames extends Command
                                         ->update(['is_latest' => false]);
                                     $latestVersion->is_latest = true;
                                     $latestVersion->save();
+
+                                    // Clean up old version downloads
+                                    $archiveService = App::make(GameArchiveService::class);
+                                    $archiveService->cleanupOldVersionDownloads($game->id, $latestVersion->id);
                                 }
                             });
                         },

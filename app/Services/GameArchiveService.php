@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Game;
+use App\Models\GameVersion;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -53,6 +56,9 @@ readonly class GameArchiveService
     ): array {
         // Download and store the archive (force parameter is now passed through)
         $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
+
+        // Clean up old version downloads for this game
+        $this->cleanupOldVersionDownloads($gameId, $versionId);
 
         // Process the archive - stats may be null if extraction failed but shouldn't be treated as an error
         return [
@@ -157,6 +163,81 @@ readonly class GameArchiveService
         }
 
         return $this->statsService->extractGameStats($archivePath);
+    }
+
+    /**
+     * Clean up old version downloads for a game, keeping only the latest version
+     */
+    public function cleanupOldVersionDownloads(int $gameId, ?int $latestVersionId = null): void
+    {
+        // If no specific latest version ID is provided, find the latest version for this game
+        if ($latestVersionId === null) {
+            $latestVersion = GameVersion::where('game_id', $gameId)
+                ->where('is_latest', true)
+                ->first();
+
+            if (! $latestVersion) {
+                // If no latest version is found, try to get the most recently published version
+                $latestVersion = GameVersion::where('game_id', $gameId)
+                    ->orderByDesc('published_at')
+                    ->first();
+
+                if (! $latestVersion) {
+                    // No versions found for this game
+                    return;
+                }
+            }
+
+            $latestVersionId = $latestVersion->id;
+        }
+
+        // Get all version IDs for this game except the latest
+        $oldVersionIds = GameVersion::where('game_id', $gameId)
+            ->where('id', '!=', $latestVersionId)
+            ->pluck('id')
+            ->toArray();
+
+        // Delete archives for old versions
+        foreach ($oldVersionIds as $versionId) {
+            $storagePath = $this->getStoragePath($gameId, $versionId);
+
+            // Check if directory exists
+            if (Storage::exists($storagePath)) {
+                // Get all files in the directory
+                $files = Storage::files($storagePath);
+
+                // Delete each file
+                foreach ($files as $file) {
+                    Storage::delete($file);
+                    Log::info('Deleted old game version archive', [
+                        'game_id' => $gameId,
+                        'version_id' => $versionId,
+                        'file' => $file,
+                    ]);
+                }
+
+                // Remove the directory if it's empty
+                if (empty(Storage::files($storagePath))) {
+                    Storage::deleteDirectory($storagePath);
+                }
+            }
+        }
+    }
+
+    /**
+     * Clean up old version downloads for all games
+     */
+    public function cleanupAllOldVersionDownloads(): int
+    {
+        $count = 0;
+        $games = Game::has('gameVersions')->get();
+
+        foreach ($games as $game) {
+            $this->cleanupOldVersionDownloads($game->id);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
