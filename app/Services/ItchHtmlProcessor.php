@@ -43,7 +43,7 @@ class ItchHtmlProcessor
             }
 
             // If no body tag (fragment), get the root content
-            return trim($doc->innerHTML);
+            return trim($doc->saveHTML());
         } catch (Exception $e) {
             // Log the error
             Log::error('HTML Processing failed: ' . $e->getMessage(), ['html' => $html]);
@@ -310,7 +310,28 @@ class ItchHtmlProcessor
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
             // Add Tailwind classes for images
-            $imageClasses = ['max-w-full', 'h-auto', 'rounded-lg', 'my-4'];
+            $imageClasses = ['max-w-full', 'rounded-lg', 'my-4'];
+
+            // Handle height attribute
+            if ($image->hasAttribute('height')) {
+                // For images with height attribute, add inline style to preserve height
+                // This overrides any CSS that might set height:auto
+                $height = $image->getAttribute('height');
+                $currentStyle = $image->getAttribute('style') ?: '';
+
+                // Clean up the style string to avoid double semicolons
+                $currentStyle = rtrim($currentStyle, ' ;');
+                $newStyle = $currentStyle;
+                if (! empty($currentStyle)) {
+                    $newStyle .= '; ';
+                }
+                $newStyle .= 'height: ' . $height . 'px';
+
+                $image->setAttribute('style', $newStyle);
+            } else {
+                // Only add h-auto class if no height attribute exists
+                $imageClasses[] = 'h-auto';
+            }
 
             if ($this->hasParentWithClass($image, 'text-center')) {
                 $imageClasses[] = 'mx-auto';
