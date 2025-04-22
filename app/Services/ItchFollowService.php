@@ -75,17 +75,14 @@ class ItchFollowService
     public function followCreator(string $followUrl): bool
     {
         try {
-            // Get the cookie jar from the auth service
-            // This ensures we're using the same authenticated session
-            $cookieJar = $this->authService->getCookieJar();
-
             // Get CSRF token
             $csrfToken = $this->authService->getCsrfToken();
             if (! $csrfToken) {
                 return false;
             }
 
-            // Make follow request
+            // Make follow request - use the authenticated client via ItchHttpClientService
+            // which will handle the authentication internally
             $response = $this->itchClient->post($followUrl, [
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -95,7 +92,6 @@ class ItchFollowService
                 'form_params' => [
                     'csrf_token' => $csrfToken,
                 ],
-                'cookies' => $cookieJar, // Use the cookies from the authenticated client
             ]);
 
             // Success if response is 200
