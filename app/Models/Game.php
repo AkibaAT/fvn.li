@@ -90,8 +90,11 @@ class Game extends Model
 
     public function setIsNsfwAttribute($value): void
     {
+        if (! $this->exists || ($value && ! $this->getOriginal('is_nsfw'))) {
+            $this->attributes['blur_screenshots'] = true;
+        }
+
         $this->attributes['is_nsfw'] = $value;
-        $this->attributes['blur_screenshots'] = true;
     }
 
     /**
@@ -382,7 +385,16 @@ class Game extends Model
 
             // Check NSFW status
             $nsfw = $doc->querySelector('div.content_warning_inner');
+
+            // Store the current blur_screenshots value before updating is_nsfw
+            $currentBlurScreenshots = $this->blur_screenshots;
+
             $this->is_nsfw = $nsfw !== null;
+
+            // Restore the blur_screenshots value if it was explicitly set before
+            if ($this->exists && $this->isDirty('blur_screenshots')) {
+                $this->blur_screenshots = $currentBlurScreenshots;
+            }
 
             // Get devlog link if present
             $devlog = $doc->querySelector('section#devlog');
