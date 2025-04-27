@@ -11,9 +11,11 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
-    ->in('Feature');
+pest()->extend(Tests\TestCase::class);
+
+// Use RefreshDatabase for Feature tests
+pest()->group('Feature')
+    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 /*
 |--------------------------------------------------------------------------

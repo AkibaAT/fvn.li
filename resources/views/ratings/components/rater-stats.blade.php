@@ -5,7 +5,7 @@
 
     <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {{ $rater->alias }}'s Ratings
+            {{ $rater->name }}'s Ratings
         </h1>
     </div>
 
