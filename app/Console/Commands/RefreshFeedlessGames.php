@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
@@ -13,7 +14,11 @@ use Throwable;
 
 class RefreshFeedlessGames extends Command
 {
-    protected $signature = 'games:refresh-feedless';
+    use SelectsGames;
+    protected $signature = 'games:refresh-feedless
+        {--game-id= : ID of the specific game to refresh}
+        {--game-name= : Name (or part of name) of the game(s) to refresh}
+        {--all : Refresh all visible feedless games}';
     protected $description = 'Refresh version information for feedless games';
 
     /**
@@ -22,17 +27,31 @@ class RefreshFeedlessGames extends Command
      */
     public function handle(): int
     {
+        // Validate that we have at least one game selection option
+        if (! $this->validateGameSelectionOptions()) {
+            return 1;
+        }
+
         $this->info('Starting version refresh for feedless games');
 
         try {
-            // Get all visible feedless games
-            $games = Game::query()
+            // Build query for games
+            $query = Game::query()
                 ->where('is_visible', true)
                 ->where('is_feedless', true)
-                ->orderBy('id')
-                ->get();
+                ->orderBy('id');
 
-            $this->info("Found {$games->count()} feedless games to process");
+            // Apply game selection filters
+            $this->applyGameSelectionFilters($query);
+
+            $games = $query->get();
+
+            // Display selected games
+            $this->displaySelectedGames($games);
+
+            if ($games->isEmpty()) {
+                return 1;
+            }
 
             foreach ($games as $game) {
                 $this->info("Processing game: {$game->name}");

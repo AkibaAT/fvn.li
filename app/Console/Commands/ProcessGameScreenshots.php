@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
+use App\Services\ImageProcessingService;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
 
 class ProcessGameScreenshots extends Command
 {
+    use SelectsGames;
     private const SCREENSHOTS_PATH = 'screenshots';
     private const VALID_MIME_TYPES = [
         'image/jpeg',
@@ -42,44 +43,49 @@ class ProcessGameScreenshots extends Command
         ],
     ];
 
-    /**
-     * Background color for padding (dark gray)
-     */
-    private const BACKGROUND_COLOR = '#1a1a1a';
-
     protected $signature = 'games:process-screenshots
         {--force : Process screenshots even if they already exist}
-        {--game-id= : Process specific game ID}
+        {--game-id= : ID of the specific game to process}
+        {--game-name= : Name (or part of name) of the game(s) to process}
+        {--all : Process all visible games with screenshots}
         {--quality=80 : WebP quality (0-100)}';
 
     protected $description = 'Process and optimize game screenshots';
 
-    private readonly ImageManager $imageManager;
-
     public function __construct(
-        private readonly Client $httpClient
+        private readonly Client $httpClient,
+        private readonly ImageProcessingService $imageProcessingService
     ) {
         parent::__construct();
-        $this->imageManager = new ImageManager(new Driver);
     }
 
     public function handle(): int
     {
         try {
+            // Validate that we have at least one game selection option
+            if (! $this->validateGameSelectionOptions()) {
+                return 1;
+            }
+
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
                 ->whereNotNull('screenshots');
 
-            // If specific game ID provided, only process that one
-            if ($gameId = $this->option('game-id')) {
-                $query->where('id', $gameId);
-            }
+            // Apply game selection filters
+            $this->applyGameSelectionFilters($query);
 
             $games = $query->get();
-            $totalGames = $games->count();
 
-            $this->info("Found {$totalGames} games with screenshots to process");
+            // Display selected games
+            $this->displaySelectedGames($games);
+
+            if ($games->isEmpty()) {
+                return 1;
+            }
+
+            $totalGames = $games->count();
+            $this->info("Processing {$totalGames} games with screenshots");
 
             foreach ($games as $i => $game) {
                 $this->info(sprintf("\nProcessing game %d/%d: %s", $i + 1, $totalGames, $game->name));
@@ -137,17 +143,6 @@ class ProcessGameScreenshots extends Command
         foreach ($game->screenshots as $index => $screenshot) {
             $this->info("Processing screenshot {$index}...");
 
-            // Skip if already optimized and not forcing
-            if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
-                $this->info('Screenshot already optimized, skipping (use --force to override)');
-                $updatedScreenshots[] = $screenshot;
-
-                continue;
-            }
-
-            // Generate a unique filename
-            $baseFilename = $this->generateScreenshotFilename($game, $index, $screenshot['url']);
-
             try {
                 // Download the screenshot
                 $this->info('Downloading screenshot...');
@@ -157,9 +152,31 @@ class ProcessGameScreenshots extends Command
                     'verify' => false,
                 ]);
 
+                // Get the content
+                $content = $response->getBody()->getContents();
+
                 // Create a temporary file
                 $tempFile = tempnam(sys_get_temp_dir(), 'screenshot_');
-                file_put_contents($tempFile, $response->getBody()->getContents());
+                file_put_contents($tempFile, $content);
+
+                // Skip if already optimized and not forcing
+                if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
+                    $this->info('Screenshot already optimized, skipping (use --force to override)');
+                    $updatedScreenshots[] = $screenshot;
+
+                    // Clean up temp file
+                    if (file_exists($tempFile)) {
+                        unlink($tempFile);
+                    }
+
+                    continue;
+                }
+
+                // Clean up existing screenshots for this game and index
+                $this->cleanupExistingScreenshots($game->id, $index);
+
+                // Generate a unique filename with content checksum
+                $baseFilename = $this->generateScreenshotFilename($game, $index, $screenshot['url'], $content);
 
                 // Verify it's a valid image
                 $imageInfo = getimagesize($tempFile);
@@ -235,14 +252,40 @@ class ProcessGameScreenshots extends Command
     /**
      * Generate a unique filename for a screenshot
      */
-    private function generateScreenshotFilename(Game $game, int $index, string $url): string
+    private function generateScreenshotFilename(Game $game, int $index, string $url, string $fileContent): string
     {
+        // Generate a checksum of the file content to ensure cache invalidation when the image changes
+        $contentChecksum = substr(md5($fileContent), 0, 8);
+
         return sprintf(
-            '%d_screenshot_%d_%s',
+            '%d_screenshot_%d_%s_%s',
             $game->id,
             $index,
-            substr(md5($url), 0, 8)
+            substr(md5($url), 0, 8),
+            $contentChecksum
         );
+    }
+
+    /**
+     * Clean up existing screenshot files for a game
+     */
+    private function cleanupExistingScreenshots(int $gameId, int $screenshotIndex): void
+    {
+        $this->info('Cleaning up existing screenshots...');
+
+        // Get all files in the screenshots directory
+        $files = Storage::disk('public')->files(self::SCREENSHOTS_PATH);
+
+        // Pattern to match files for this game ID and screenshot index
+        $pattern = "/^{$gameId}_screenshot_{$screenshotIndex}_[a-f0-9]{8}/";
+
+        foreach ($files as $file) {
+            $filename = basename($file);
+            if (preg_match($pattern, $filename)) {
+                $this->info("Deleting: {$filename}");
+                Storage::disk('public')->delete($file);
+            }
+        }
     }
 
     /**
@@ -263,73 +306,20 @@ class ProcessGameScreenshots extends Command
         int $quality
     ): void {
         try {
-            // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
+            // Get image info for logging
             $imageInfo = getimagesize($sourcePath);
-            $mimeType = $imageInfo['mime'];
+            $this->info("Processing image: {$imageInfo[0]}x{$imageInfo[1]} pixels");
 
-            if ($mimeType === 'image/gif') {
-                $tempJpg = tempnam(sys_get_temp_dir(), 'screenshot_frame_');
-                // Extract first frame and convert to JPG
-                $command = sprintf(
-                    'convert %s[0] -background white -flatten %s',
-                    escapeshellarg($sourcePath),
-                    escapeshellarg($tempJpg)
-                );
-                exec($command, $output, $returnCode);
-
-                if ($returnCode !== 0) {
-                    throw new Exception('Failed to extract first frame from GIF');
-                }
-
-                // Use the extracted frame as source
-                $sourcePath = $tempJpg;
-            }
-
-            try {
-                // Load and process source image
-                $image = $this->imageManager->read($sourcePath);
-
-                // Verify we got a valid image
-                if ($image->width() === 0 || $image->height() === 0) {
-                    throw new Exception('Invalid image dimensions');
-                }
-
-                $this->info("Processing image: {$image->width()}x{$image->height()} pixels");
-
-                // Resize and maintain aspect ratio
-                $image->resize($config['width'], $config['height'], function ($constraint) {
-                    $constraint->aspectRatio();
-                    $constraint->upsize();
-                });
-
-                // Create a canvas with the target dimensions and background color
-                $canvas = $this->imageManager->create($config['width'], $config['height'], self::BACKGROUND_COLOR);
-
-                // Center the image on the canvas
-                $canvas->place($image, 'center');
-
-                // Save as WebP
-                Storage::disk('public')->put(
-                    $targetPath,
-                    (string) $canvas->toWebp($quality)
-                );
-            } finally {
-                // Clean up temporary frame file if it exists
-                if (isset($tempJpg) && file_exists($tempJpg)) {
-                    unlink($tempJpg);
-                }
-            }
+            // Use the service to process the image
+            $this->imageProcessingService->processImageVariant(
+                $sourcePath,
+                $targetPath,
+                $config,
+                $quality
+            );
         } catch (Exception $e) {
             throw new Exception("Failed to process static image: {$e->getMessage()}");
         }
-    }
-
-    /**
-     * Get the absolute path for the given storage path
-     */
-    private function getRealPath(string $path): string
-    {
-        return Storage::disk('public')->path($path);
     }
 
     /**
@@ -337,12 +327,6 @@ class ProcessGameScreenshots extends Command
      */
     private function getImageDimensions(string $path): array
     {
-        $fullPath = $this->getRealPath($path);
-        $imageInfo = getimagesize($fullPath);
-
-        return [
-            'width' => $imageInfo[0],
-            'height' => $imageInfo[1],
-        ];
+        return $this->imageProcessingService->getImageDimensions($path);
     }
 }

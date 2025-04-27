@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\GameArchiveService;
 use App\Services\ItchHttpClientService;
@@ -16,8 +17,10 @@ use Illuminate\Support\Facades\Log;
 
 class RefreshGames extends Command
 {
+    use SelectsGames;
     protected $signature = 'games:refresh
-        {name? : Part of the game name to search for}
+        {--game-id= : ID of the specific game to refresh}
+        {--game-name= : Name (or part of name) of the game(s) to refresh}
         {--all : Refresh all visible games}
         {--limit=10 : Limit the number of games to process when using --all}
         {--sort=id : Sort games by field (id, name, created_at, updated_at)}
@@ -40,7 +43,6 @@ class RefreshGames extends Command
      */
     public function handle(): int
     {
-        $searchTerm = $this->argument('name');
         $force = $this->option('force');
         $refreshAll = $this->option('all');
 
@@ -51,18 +53,18 @@ class RefreshGames extends Command
             return 1;
         }
 
-        // Check if we have a search term or --all flag
-        if (! $searchTerm && ! $refreshAll) {
-            $this->error('You must provide either a game name to search for or use the --all flag');
-
+        // Validate that we have at least one game selection option
+        if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
 
         // Display refresh options
         if ($refreshAll) {
             $this->info('Starting refresh for all visible games');
-        } else {
-            $this->info("Starting refresh for games matching: \"{$searchTerm}\"");
+        } elseif ($this->option('game-id')) {
+            $this->info("Starting refresh for game with ID: {$this->option('game-id')}");
+        } elseif ($this->option('game-name')) {
+            $this->info("Starting refresh for games matching name: \"{$this->option('game-name')}\"");
         }
 
         $this->info('Force mode: ' . ($force ? 'Yes' : 'No'));
@@ -78,10 +80,8 @@ class RefreshGames extends Command
         $query = Game::query()
             ->where('is_visible', true);
 
-        // Add search term if provided
-        if ($searchTerm) {
-            $query->where('name', 'ilike', "%{$searchTerm}%");
-        }
+        // Apply game selection filters
+        $this->applyGameSelectionFilters($query);
 
         // Unless forced, exclude abandoned/canceled games
         if (! $force) {
@@ -109,17 +109,12 @@ class RefreshGames extends Command
 
         $this->info('Executing database query...');
         $games = $query->get();
-        $matchCount = $games->count();
 
-        if ($matchCount === 0) {
-            $this->error("Found no matches for \"{$searchTerm}\"");
+        // Display selected games
+        $this->displaySelectedGames($games);
 
+        if ($games->isEmpty()) {
             return 1;
-        }
-
-        $this->info("Found {$matchCount} matching games:");
-        foreach ($games as $game) {
-            $this->line("- {$game->name} (ID: {$game->id}, Status: {$game->status})");
         }
 
         // Configure the ItchHttpClientService with the command options

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameVersionStatsImportService;
@@ -14,8 +15,10 @@ use Illuminate\Support\Facades\Log;
 
 class ImportGameVersionStats extends Command
 {
+    use SelectsGames;
     protected $signature = 'games:import-stats
-        {--game-id= : Game ID in the database}
+        {--game-id= : ID of the specific game to process}
+        {--game-name= : Name of the game to process (only used if game-id is not provided)}
         {--version-id= : Game version ID in the database}
         {--stats-file= : Path to the stats JSON file to import}';
 
@@ -29,13 +32,12 @@ class ImportGameVersionStats extends Command
 
     public function handle(): int
     {
-        $gameId = $this->option('game-id');
         $versionId = $this->option('version-id');
         $statsFile = $this->option('stats-file');
 
         // Validate parameters
-        if (! $gameId) {
-            $this->error('Game ID is required');
+        if (! $this->option('game-id') && ! $this->option('game-name')) {
+            $this->error('Either game ID or game name is required');
 
             return 1;
         }
@@ -61,12 +63,21 @@ class ImportGameVersionStats extends Command
 
         try {
             // Find the game
-            $game = Game::find($gameId);
+            $query = Game::query();
+
+            // Apply game selection filters
+            $this->applyGameSelectionFilters($query);
+
+            $game = $query->first();
+
             if (! $game) {
-                $this->error("Game with ID {$gameId} not found");
+                $this->error('Game not found with the provided criteria');
 
                 return 1;
             }
+
+            $this->info("Found game: {$game->name} (ID: {$game->id})");
+            $gameId = $game->id;
 
             // Find the version
             $version = GameVersion::where('id', $versionId)

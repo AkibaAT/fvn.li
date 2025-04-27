@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
@@ -15,9 +16,12 @@ use Illuminate\Support\Facades\Log;
 
 class ReimportGameVersion extends Command
 {
+    use SelectsGames;
     protected $signature = 'games:reimport-version
-        {--game-id= : Game ID in the database}
-        {--game-version= : Version string to reimport}
+        {--game-id= : ID of the specific game to process}
+        {--game-name= : Name (or part of name) of the game(s) to process}
+        {--all : Process all visible Ren\'Py games}
+        {--game-version= : Version string to reimport (requires --game-id)}
         {--timestamp= : Timestamp for published_at (format: YYYY-MM-DD HH:mm:ss)}';
 
     protected $description = 'Reimport version statistics from stored game archives';
@@ -31,14 +35,18 @@ class ReimportGameVersion extends Command
 
     public function handle(): int
     {
-        $gameId = $this->option('game-id');
         $versionString = $this->option('game-version');
         $timestamp = $this->option('timestamp');
 
         // Validate parameters
-        if ($versionString && ! $gameId) {
-            $this->error('A game ID must be provided when specifying a version');
+        if ($versionString && ! $this->option('game-id')) {
+            $this->error('A specific game ID (--game-id) must be provided when specifying a version');
 
+            return 1;
+        }
+
+        // Validate that we have at least one game selection option
+        if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
 
@@ -48,10 +56,8 @@ class ReimportGameVersion extends Command
                 ->where('is_visible', true)
                 ->where('game_engine', "Ren'Py");
 
-            // If game ID provided, only process that one
-            if ($gameId) {
-                $query->where('id', $gameId);
-            }
+            // Apply game selection filters
+            $this->applyGameSelectionFilters($query);
 
             // Get games to process
             $games = $query->with([
@@ -64,14 +70,14 @@ class ReimportGameVersion extends Command
                 },
             ])->get();
 
-            if ($games->isEmpty()) {
-                $this->error('No matching games found');
+            // Display selected games
+            $this->displaySelectedGames($games);
 
+            if ($games->isEmpty()) {
                 return 1;
             }
 
             $totalGames = $games->count();
-            $this->info("Found {$totalGames} games to process");
 
             foreach ($games as $i => $game) {
                 $this->info(sprintf("\nProcessing game %d/%d: %s", $i + 1, $totalGames, $game->name));

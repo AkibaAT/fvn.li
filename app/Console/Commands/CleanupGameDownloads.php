@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\GameArchiveService;
 use Illuminate\Console\Command;
 
 class CleanupGameDownloads extends Command
 {
+    use SelectsGames;
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
     protected $signature = 'games:cleanup-downloads
-                            {--game-id= : Clean up downloads for a specific game}
+                            {--game-id= : ID of the specific game to clean up}
+                            {--game-name= : Name (or part of name) of the game(s) to clean up}
                             {--all : Clean up downloads for all games}';
 
     /**
@@ -31,32 +34,38 @@ class CleanupGameDownloads extends Command
      */
     public function handle(GameArchiveService $archiveService): int
     {
-        $gameId = $this->option('game-id');
-        $all = $this->option('all');
-
-        if (! $gameId && ! $all) {
-            $this->error('Please specify either --game-id or --all option');
-
+        // Validate that we have at least one game selection option
+        if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
 
-        if ($gameId) {
-            // Clean up for a specific game
-            $game = Game::find($gameId);
-            if (! $game) {
-                $this->error("Game with ID {$gameId} not found");
-
-                return 1;
-            }
-
-            $this->info("Cleaning up old downloads for game: {$game->name} (ID: {$game->id})");
-            $archiveService->cleanupOldVersionDownloads($game->id);
-            $this->info('Cleanup completed successfully');
-        } else {
+        if ($this->option('all')) {
             // Clean up for all games
             $this->info('Cleaning up old downloads for all games...');
             $count = $archiveService->cleanupAllOldVersionDownloads();
             $this->info("Cleanup completed successfully for {$count} games");
+        } else {
+            // Clean up for specific game(s)
+            $query = Game::query();
+
+            // Apply game selection filters
+            $this->applyGameSelectionFilters($query);
+
+            $games = $query->get();
+
+            // Display selected games
+            $this->displaySelectedGames($games);
+
+            if ($games->isEmpty()) {
+                return 1;
+            }
+
+            foreach ($games as $game) {
+                $this->info("Cleaning up old downloads for game: {$game->name} (ID: {$game->id})");
+                $archiveService->cleanupOldVersionDownloads($game->id);
+            }
+
+            $this->info('Cleanup completed successfully for ' . $games->count() . ' game(s)');
         }
 
         return 0;

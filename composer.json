@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.4",
         "ext-dom": "*",
+        "ext-gd": "*",
         "ext-intl": "*",
         "ext-libxml": "*",
         "ext-zip": "*",

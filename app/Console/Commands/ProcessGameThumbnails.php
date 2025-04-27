@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGames;
 use App\Models\Game;
+use App\Services\ImageProcessingService;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
 
 class ProcessGameThumbnails extends Command
 {
+    use SelectsGames;
     private const THUMBNAIL_PATH = 'thumbnails';
     private const VALID_MIME_TYPES = [
         'image/jpeg',
@@ -38,44 +39,49 @@ class ProcessGameThumbnails extends Command
         ],
     ];
 
-    /**
-     * Background color for padding (dark gray)
-     */
-    private const BACKGROUND_COLOR = '#1a1a1a';
-
     protected $signature = 'games:process-thumbnails
         {--force : Process thumbnails even if they already exist}
-        {--game-id= : Process specific game ID}
+        {--game-id= : ID of the specific game to process}
+        {--game-name= : Name (or part of name) of the game(s) to process}
+        {--all : Process all visible games with thumbnails}
         {--quality=80 : WebP quality (0-100)}';
 
     protected $description = 'Process and optimize game thumbnails';
 
-    private readonly ImageManager $imageManager;
-
     public function __construct(
-        private readonly Client $httpClient
+        private readonly Client $httpClient,
+        private readonly ImageProcessingService $imageProcessingService
     ) {
         parent::__construct();
-        $this->imageManager = new ImageManager(new Driver);
     }
 
     public function handle(): int
     {
         try {
+            // Validate that we have at least one game selection option
+            if (! $this->validateGameSelectionOptions()) {
+                return 1;
+            }
+
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
                 ->whereNotNull('thumb_url');
 
-            // If specific game ID provided, only process that one
-            if ($gameId = $this->option('game-id')) {
-                $query->where('id', $gameId);
-            }
+            // Apply game selection filters
+            $this->applyGameSelectionFilters($query);
 
             $games = $query->get();
-            $totalGames = $games->count();
 
-            $this->info("Found {$totalGames} games to process");
+            // Display selected games
+            $this->displaySelectedGames($games);
+
+            if ($games->isEmpty()) {
+                return 1;
+            }
+
+            $totalGames = $games->count();
+            $this->info("Processing {$totalGames} games with thumbnails");
 
             foreach ($games as $i => $game) {
                 $this->info(sprintf("\nProcessing game %d/%d: %s", $i + 1, $totalGames, $game->name));
@@ -117,14 +123,6 @@ class ProcessGameThumbnails extends Command
     {
         $quality = (int) $this->option('quality');
         $force = $this->option('force');
-        $baseFilename = $this->generateThumbnailFilename($game);
-
-        // Skip if files exist and not forcing
-        if (! $force && $game->optimized_thumbnails) {
-            $this->info('Thumbnails already exist, skipping (use --force to override)');
-
-            return;
-        }
 
         // Download the thumbnail
         $this->info('Downloading thumbnail...');
@@ -143,6 +141,16 @@ class ProcessGameThumbnails extends Command
         if (empty($content)) {
             throw new Exception('Downloaded content is empty');
         }
+
+        // Skip if files exist and not forcing
+        if (! $force && $game->optimized_thumbnails) {
+            $this->info('Thumbnails already exist, skipping (use --force to override)');
+
+            return;
+        }
+
+        // Generate a unique filename with content checksum
+        $baseFilename = $this->generateThumbnailFilename($game, $content);
 
         // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'thumb_');
@@ -240,12 +248,16 @@ class ProcessGameThumbnails extends Command
     /**
      * Generate a unique filename for a game's thumbnail
      */
-    private function generateThumbnailFilename(Game $game): string
+    private function generateThumbnailFilename(Game $game, string $fileContent): string
     {
+        // Generate a checksum of the file content to ensure cache invalidation when the image changes
+        $contentChecksum = substr(md5($fileContent), 0, 8);
+
         return sprintf(
-            '%d_%s',
+            '%d_%s_%s',
             $game->id,
-            substr(md5($game->thumb_url), 0, 8)
+            substr(md5($game->thumb_url), 0, 8),
+            $contentChecksum
         );
     }
 
@@ -260,7 +272,7 @@ class ProcessGameThumbnails extends Command
         $files = Storage::disk('public')->files(self::THUMBNAIL_PATH);
 
         // Pattern to match files for this game ID
-        $pattern = "/^{$gameId}_[a-f0-9]{8}_/";
+        $pattern = "/^{$gameId}_[a-f0-9]{8}/";
 
         foreach ($files as $file) {
             $filename = basename($file);
@@ -280,14 +292,6 @@ class ProcessGameThumbnails extends Command
     }
 
     /**
-     * Get the absolute path for the given storage path
-     */
-    private function getRealPath(string $path): string
-    {
-        return Storage::disk('public')->path($path);
-    }
-
-    /**
      * Process a static image variant
      */
     private function processStaticVariant(
@@ -297,102 +301,27 @@ class ProcessGameThumbnails extends Command
         int $quality
     ): void {
         try {
-            // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
+            // Get image info for logging
             $imageInfo = getimagesize($sourcePath);
-            $mimeType = $imageInfo['mime'];
+            $this->info("Processing image: {$imageInfo[0]}x{$imageInfo[1]} pixels");
 
-            if ($mimeType === 'image/gif') {
-                $tempJpg = tempnam(sys_get_temp_dir(), 'thumb_frame_');
-                // Extract first frame and convert to JPG
-                $command = sprintf(
-                    'convert %s[0] -background white -flatten %s',
-                    escapeshellarg($sourcePath),
-                    escapeshellarg($tempJpg)
-                );
-                exec($command, $output, $returnCode);
-
-                if ($returnCode !== 0) {
-                    throw new Exception('Failed to extract first frame from GIF');
-                }
-
-                // Use the extracted frame as source
-                $sourcePath = $tempJpg;
-            }
-
-            try {
-                // Create canvas with desired dimensions and background color
-                $canvas = $this->imageManager->create($config['width'], $config['height'])
-                    ->fill(self::BACKGROUND_COLOR);
-
-                // Load and process source image
-                $image = $this->imageManager->read($sourcePath);
-
-                // Verify we got a valid image
-                if ($image->width() === 0 || $image->height() === 0) {
-                    throw new Exception('Invalid image dimensions');
-                }
-
-                $this->info("Processing image: {$image->width()}x{$image->height()} pixels");
-
-                // Calculate dimensions to maintain aspect ratio
-                $sourceAspect = $image->width() / $image->height();
-                $targetAspect = $config['width'] / $config['height'];
-
-                if ($sourceAspect > $targetAspect) {
-                    // Image is wider than target - scale to match height
-                    $newHeight = $config['height'];
-                    $newWidth = intval($newHeight * $sourceAspect);
-                    $image = $image->scale(height: $newHeight);
-                } else {
-                    // Image is taller than target - scale to match width
-                    $newWidth = $config['width'];
-                    $newHeight = intval($newWidth / $sourceAspect);
-                    $image = $image->scale(width: $newWidth);
-                }
-
-                // Calculate position to center the image
-                $x = intval(($config['width'] - $image->width()) / 2);
-                $y = intval(($config['height'] - $image->height()) / 2);
-
-                // Place resized image onto canvas
-                $canvas->place($image, 'center', $x, $y);
-
-                // Encode and save
-                Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
-                $encoded = $canvas->toWebp($quality);
-                Storage::disk('public')->put($destPath, $encoded->toString());
-            } finally {
-                // Clean up temporary frame file if it exists
-                if (isset($tempJpg) && file_exists($tempJpg)) {
-                    unlink($tempJpg);
-                }
-            }
+            // Use the service to process the image
+            $this->imageProcessingService->processImageVariant(
+                $sourcePath,
+                $destPath,
+                $config,
+                $quality
+            );
         } catch (Exception $e) {
             throw new Exception("Failed to process static image: {$e->getMessage()}");
         }
     }
 
     /**
-     * Get image dimensions using ImageMagick's identify command
+     * Get image dimensions using the image processing service
      */
     private function getImageDimensions(string $path): array
     {
-        $realPath = $this->getRealPath($path);
-
-        // Use [0] to specify first frame, which works for both animated and static images
-        $command = sprintf('identify -format "%%wx%%h" %s[0]', escapeshellarg($realPath));
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0 || empty($output)) {
-            throw new Exception('Failed to get image dimensions');
-        }
-
-        // identify outputs dimensions in format "widthxheight"
-        [$width, $height] = explode('x', $output[0]);
-
-        return [
-            'width' => (int) $width,
-            'height' => (int) $height,
-        ];
+        return $this->imageProcessingService->getImageDimensions($path);
     }
 }

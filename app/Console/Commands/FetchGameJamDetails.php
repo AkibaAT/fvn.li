@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SelectsGameJams;
 use App\Models\GameJam;
 use App\Services\ItchHttpClientService;
 use Exception;
@@ -13,10 +14,12 @@ use Illuminate\Support\Facades\Log;
 
 class FetchGameJamDetails extends Command
 {
+    use SelectsGameJams;
     protected $signature = 'game-jams:fetch-details
         {--all : Fetch details for all game jams, not just those marked as needing details}
-        {--id= : Fetch details for a specific game jam ID}
-        {--url= : Fetch details for a game jam with the specified URL}
+        {--id= : ID of the specific game jam to process}
+        {--name= : Name (or part of name) of the game jam(s) to process}
+        {--url= : URL of the specific game jam to process}
         {--limit=10 : Limit the number of game jams to process}
         {--results : Force fetching of results pages even for ongoing jams}
         {--max-retries=3 : Maximum number of retries for rate-limited requests}
@@ -29,23 +32,19 @@ class FetchGameJamDetails extends Command
         $query = GameJam::query();
         $forceResults = $this->option('results');
 
-        // Process specific game jam if ID is provided
-        if ($id = $this->option('id')) {
-            $query->where('id', $id);
-            // Specific jam requested
-            // Always fetch results when a specific jam is requested
-            $forceResults = true;
+        // Validate that we have at least one game jam selection option
+        if (! $this->validateGameJamSelectionOptions()) {
+            return 1;
         }
 
-        // Process specific game jam if URL is provided
-        elseif ($url = $this->option('url')) {
-            $query->where('url', $url);
-            // Specific jam requested
-            // Always fetch results when a specific jam is requested
+        // Apply game jam selection filters
+        $this->applyGameJamSelectionFilters($query);
+
+        // If a specific jam is requested by ID, name, or URL, always fetch results
+        if ($this->option('id') || $this->option('name') || $this->option('url')) {
             $forceResults = true;
         }
-
-        // Process only game jams that need details
+        // Process only game jams that need details if not using --all
         elseif (! $this->option('all')) {
             $query->where('needs_details_fetch', true);
         } else {
@@ -55,14 +54,18 @@ class FetchGameJamDetails extends Command
 
         // Apply limit
         $limit = (int) $this->option('limit');
-        $gameJams = $query->limit($limit)->get();
+        $query->limit($limit);
 
-        $count = $gameJams->count();
-        if ($count === 0) {
-            $this->info('No game jams to process.');
+        $gameJams = $query->get();
 
+        // Display selected game jams
+        $this->displaySelectedGameJams($gameJams);
+
+        if ($gameJams->isEmpty()) {
             return 0;
         }
+
+        $count = $gameJams->count();
 
         // Display retry settings and whether we're fetching results
         $this->info("Processing {$count} game jams...");
