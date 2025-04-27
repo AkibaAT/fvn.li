@@ -167,8 +167,10 @@
 
             <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <!-- VN List Buttons - Compact Version -->
-                    <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :publicLists="$publicLists ?? null" />
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <!-- VN List Buttons - Compact Version -->
+                        <x-lists::list-buttons :game="$game" :userLists="$userLists ?? null" :publicLists="$publicLists ?? null" />
+                    </div>
                 </div>
             </div>
         </div>
@@ -362,8 +364,8 @@
                     Version History
                 </h2>
 
-                @if ($latestVersion && $latestVersion->dialogueLines()->count() > 0)
-                    <div class="mt-4 flex gap-4">
+                <div class="mt-4 flex flex-wrap gap-4">
+                    @if ($latestVersion && $latestVersion->dialogueLines()->count() > 0)
                         <a href="{{ route('dialogue.browser', ['gameId' => $game->id, 'versionId' => $latestVersion->id]) }}"
                            class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-300 disabled:opacity-25 transition">
                             <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,8 +382,15 @@
                             </svg>
                             View Duplicate Lines
                         </a>
-                    </div>
-                @endif
+                    @endif
+
+                    <!-- Android Build Button (only for logged in users and eligible games) -->
+                    @auth
+                        @if ($isEligibleForAndroidBuild && $latestVersion)
+                            @include('games.components.android-build-button-new', ['game' => $game, 'version' => $latestVersion])
+                        @endif
+                    @endauth
+                </div>
 
                 <div class="mt-6 mb-4">
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 my-3">

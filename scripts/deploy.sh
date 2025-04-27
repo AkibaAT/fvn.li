@@ -56,7 +56,10 @@ else
     # Reload FrankenPHP
     docker compose exec app curl -X POST http://localhost:2019/frankenphp/workers/restart
 
-    echo "FrankenPHP hot reload completed successfully!"
+    # Restart queue workers
+    docker compose exec app supervisorctl restart laravel-queue:*
+
+    echo "FrankenPHP and queue workers hot reload completed successfully!"
   else
     echo "Container is not running, starting it..."
 

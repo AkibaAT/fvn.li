@@ -12,6 +12,7 @@ use App\Services\ItchHttpClientService;
 use App\Services\LanguageMappingService;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use SocialiteProviders\Manager\SocialiteWasCalled;
@@ -41,6 +42,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Game::observe(GameObserver::class);
+
+        // Ensure the keystores directory exists and is secured
+        $keystoreDir = storage_path('app/keystores');
+        if (! File::exists($keystoreDir)) {
+            File::makeDirectory($keystoreDir, 0755, true, true);
+        }
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('discord', \SocialiteProviders\Discord\Provider::class);
             $event->extendSocialite('google', \SocialiteProviders\Google\Provider::class);

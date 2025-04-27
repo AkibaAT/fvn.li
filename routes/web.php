@@ -89,6 +89,16 @@ Route::middleware(['auth'])->group(function () {
         App\Http\Controllers\UserDashboardController::class, 'getVersionComparison',
     ])->name('users.dashboard.version-comparison');
 
+    // Android Build Routes
+    Route::prefix('android-builds')->name('user.android-builds.')->group(function () {
+        Route::get('/', [App\Http\Controllers\AndroidBuildController::class, 'index'])->name('index');
+        Route::post('check-eligibility', [App\Http\Controllers\AndroidBuildController::class, 'checkEligibility'])->name('check-eligibility');
+        Route::post('check-existing', [App\Http\Controllers\AndroidBuildController::class, 'checkExistingBuild'])->name('check-existing');
+        Route::post('request', [App\Http\Controllers\AndroidBuildController::class, 'requestBuild'])->name('request');
+        Route::post('status', [App\Http\Controllers\AndroidBuildController::class, 'checkStatus'])->name('status');
+        Route::get('download/{buildId}', [App\Http\Controllers\AndroidBuildController::class, 'download'])->name('download');
+    });
+
     Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
     Route::get('lists/create', [App\Http\Controllers\VnListController::class, 'create'])->name('vn-lists.create');
     Route::post('lists', [App\Http\Controllers\VnListController::class, 'store'])->name('vn-lists.store');

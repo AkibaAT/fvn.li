@@ -10,6 +10,7 @@ use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\AndroidBuildService;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\SortsVnLists;
 use Illuminate\Support\Collection;
@@ -25,6 +26,8 @@ class GameDetail extends Component
     public bool $receiveNotifications = false;
 
     public Game $game;
+
+    public bool $isEligibleForAndroidBuild = false;
 
     public bool $showAllRatings = false;
 
@@ -107,11 +110,16 @@ class GameDetail extends Component
         'selectedRating' => ['except' => null],
     ];
 
-    public function mount(Game $game): void
+    public function mount(Game $game, AndroidBuildService $androidBuildService): void
     {
         $this->game = $game;
         $this->normalizePerPage('versionsPerPage');
         $this->normalizePerPage('reviewsPerPage');
+
+        // Check if the game is eligible for Android builds
+        if (Auth::check()) {
+            $this->isEligibleForAndroidBuild = $androidBuildService->isEligibleForAndroidBuild($game);
+        }
 
         if (Auth::check()) {
             // Get only lists that contain this game
@@ -305,6 +313,7 @@ class GameDetail extends Component
             'isOnSale' => $this->game->is_on_sale,
             'screenshots' => $this->game->getScreenshots(),
             'blur_screenshots' => $this->game->blur_screenshots,
+            'isEligibleForAndroidBuild' => $this->isEligibleForAndroidBuild,
         ])
             ->layout('components.layouts.app', [
                 'metaTags' => $metaTags,
