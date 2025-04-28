@@ -40,8 +40,7 @@ Thumbs.db
 .github
 .dockerignore
 Dockerfile
-docker-compose.yml
-docker-compose.*.yml
+docker/docker/docker-compose.yml
 *.md
 tests
 phpunit.xml

@@ -66,6 +66,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: docker/Dockerfile
           push: true
           provenance: false
           platforms: linux/amd64
@@ -116,7 +117,8 @@ jobs:
       - name: Create or update .env file with deployment configuration
         run: ./scripts/create-env-deploy.sh "${{ env.REPO_LOWER }}" "${{ env.REF_NAME }}" "${{ steps.vars.outputs.dockerfile_changed }}"
 
-
+      - name: move docker-compose.yml
+        run: mv docker/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
         uses: burnett01/rsync-deployments@7.0.2
