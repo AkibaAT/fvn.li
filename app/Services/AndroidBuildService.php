@@ -485,6 +485,8 @@ class AndroidBuildService
                 'destination' => $androidKeystorePath,
             ]);
 
+            File::copy(resource_path('renpy/android-presplash.jpg'), $gameDir . '/android-presplash.jpg');
+
             // Create Android icon from game thumbnail
             $this->createAndroidIcon($game, $gameDir);
 
