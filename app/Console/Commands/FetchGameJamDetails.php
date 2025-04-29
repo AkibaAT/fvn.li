@@ -25,20 +25,16 @@ class FetchGameJamDetails extends Command
         {--max-retries=3 : Maximum number of retries for rate-limited requests}
         {--retry-cooldown=30 : Base cooldown time in seconds between retries (increases with each retry)}';
 
-    protected $description = 'Fetch additional details for game jams';
+    protected $description = 'Fetch additional details for game jams. By default, fetches details for game jams with needs_details_fetch=true';
 
     public function handle(): int
     {
         $query = GameJam::query();
         $forceResults = $this->option('results');
 
-        // Validate that we have at least one game jam selection option
-        if (! $this->validateGameJamSelectionOptions()) {
-            return 1;
+        if ($this->option('id') || $this->option('name') || $this->option('url') || $this->option('all')) {
+            $this->applyGameJamSelectionFilters($query);
         }
-
-        // Apply game jam selection filters
-        $this->applyGameJamSelectionFilters($query);
 
         // If a specific jam is requested by ID, name, or URL, always fetch results
         if ($this->option('id') || $this->option('name') || $this->option('url')) {
