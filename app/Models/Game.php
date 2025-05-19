@@ -396,7 +396,7 @@ class Game extends Model
 
                     switch ($label) {
                         case 'Tags':
-                            $this->tags = $value;
+                            $this->syncTagsFromString($value);
                             break;
                         case 'Author':
                         case 'Authors':
