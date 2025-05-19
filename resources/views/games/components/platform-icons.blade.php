@@ -14,10 +14,10 @@
                     wire:click="toggleFilter('platform', '{{ addslashes($platform) }}')"
                     title="Filter by {{ ucfirst($platform) }}"
                     @class([
-                        'px-1 rounded-sm',
+                        'px-1 rounded-sm transition-opacity duration-150 cursor-pointer',
                         'ring-2 ring-blue-500 dark:ring-blue-400' => in_array($platform, $selectedPlatforms ?? []),
                     ])>
-                    <i class="{{ $config['icon'] }} {{ $config['color'] }} hover:opacity-50"></i>
+                    <i class="{{ $config['icon'] }} {{ $config['color'] }} hover:opacity-70"></i>
                 </button>
             @else
                 <i class="{{ $config['icon'] }} {{ $config['color'] }}" title="{{ ucfirst($platform) }}"></i>

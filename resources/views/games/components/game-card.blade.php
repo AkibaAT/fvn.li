@@ -1,4 +1,4 @@
-@props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'selectedLanguages' => [], 'nsfw' => false, 'sfw' => false, 'userLists' => null, 'publicLists' => null])
+@props(['game', 'selectedStatuses' => [], 'selectedEngines' => [], 'selectedPlatforms' => [], 'selectedLanguages' => [], 'selectedTags' => [], 'nsfw' => false, 'sfw' => false, 'userLists' => null, 'publicLists' => null])
 
 @php
     use Illuminate\Support\Facades\Auth;
@@ -156,9 +156,9 @@
                     <button
                         wire:click="toggleFilter('{{ $detail['type'] }}', '{{ addslashes($detail['value']) }}')"
                         @class([
-                            'ml-1 hover:text-blue-400',
+                            'ml-1 hover:text-blue-400 cursor-pointer transition-colors duration-150',
                             'text-blue-400 font-medium' => $detail['isActive'] ?? false,
-                            'text-gray-700 dark:text-gray-200' => !$detail['isActive'] ?? true,
+                            'text-gray-700 dark:text-gray-200 hover:text-blue-400' => !$detail['isActive'] ?? true,
                         ])>
                         {{ $detail['value'] }}
                     </button>
@@ -181,15 +181,20 @@
             @foreach ($game->tags as $tag)
                 @php
                     $tagId = (string) $tag->id;
-                    $isActive = in_array($tagId, $selectedTags ?? []);
+                    $isActive = in_array($tagId, $selectedTags);
                 @endphp
                 <button
                     wire:click="toggleFilter('tag', '{{ addslashes($tagId) }}')"
                     @class([
-                        'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors',
-                        'bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-200 border border-blue-200 dark:border-blue-700' => $isActive,
-                        'bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50' => !$isActive
+                        'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer font-semibold',
+                        'bg-blue-600 text-white dark:bg-blue-700 border-2 border-blue-700 dark:border-blue-500 shadow-md' => $isActive,
+                        'bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50' => !$isActive
                     ])
+                    @if ($isActive)
+                        title="Click to remove this filter"
+                    @else
+                        title="Click to filter by this tag"
+                    @endif
                 >
                     {{ $tag->name }}
                 </button>

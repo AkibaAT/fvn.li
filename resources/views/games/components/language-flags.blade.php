@@ -10,7 +10,7 @@
             <button
                 wire:click="toggleFilter('language', '{{ addslashes($language['iso_code']) }}')"
                 @class([
-                    'inline-flex items-center gap-1 px-1 py-0.5 rounded-sm transition-all duration-150',
+                    'inline-flex items-center gap-1 px-1 py-0.5 rounded-sm transition-all duration-150 cursor-pointer',
                     'hover:bg-gray-100 dark:hover:bg-gray-700' => !$isSelected,
                     'ring-2 ring-blue-500 dark:ring-blue-400' => $isSelected,
                 ])

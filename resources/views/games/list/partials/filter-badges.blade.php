@@ -62,43 +62,43 @@
 
     @foreach ($items as $item)
         <button wire:click="toggleFilter('{{ $type }}', '{{ addslashes($item) }}')"
-                class="inline-flex items-center px-3 py-1 rounded-full text-sm {{ $config['class'] }}">
+                class="inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors duration-150 {{ $config['class'] }} hover:opacity-80">
             @if ($type === 'language' && isset($languages[$item]))
                 <span class="fi fi-{{ $languages[$item]['flag_code'] }} rounded-xs mr-2"></span>
             @endif
             {{ $config['label']($item) }}
-            <span class="ml-2">&times;</span>
+            <span class="ml-1">&times;</span>
         </button>
     @endforeach
 @endforeach
 
 @if ($showHidden)
     <button wire:click="$toggle('showHidden')"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors duration-150 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-800">
         Including Unlisted Games
-        <span class="ml-2">&times;</span>
+        <span class="ml-1">&times;</span>
     </button>
 @endif
 
 @if ($nsfw)
     <button wire:click="$toggle('nsfw')"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors duration-150 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800">
         NSFW
-        <span class="ml-2">&times;</span>
+        <span class="ml-1">&times;</span>
     </button>
 @endif
 
 @if ($sfw)
     <button wire:click="$toggle('sfw')"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors duration-150 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800">
         SFW
-        <span class="ml-2">&times;</span>
+        <span class="ml-1">&times;</span>
     </button>
 @endif
 
 @if ($showPaid)
     <button wire:click="$toggle('showPaid')"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors duration-150 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800">
         Paid Games
         <span class="ml-2">&times;</span>
     </button>

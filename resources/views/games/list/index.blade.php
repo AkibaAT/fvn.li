@@ -10,6 +10,7 @@
                              :selected-engines="$selectedEngines"
                              :selected-platforms="$selectedPlatforms"
                              :selected-languages="$selectedLanguages"
+                             :selected-tags="$selectedTags"
                              :nsfw="$nsfw"
                              :sfw="$sfw"
                              :user-lists="$userLists ?? null"/>
