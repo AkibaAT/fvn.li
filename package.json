@@ -7,10 +7,10 @@
         "build": "vite build"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.1.6",
-        "@types/node": "^22.15.17",
+        "@tailwindcss/vite": "^4.1.7",
+        "@types/node": "^22.15.19",
         "concurrently": "^9.1.2",
-        "eslint": "^9.26.0",
+        "eslint": "^9.27.0",
         "laravel-vite-plugin": "^1.2.0",
         "prettier": "^3.5.3",
         "prettier-plugin-organize-imports": "^4.1.0",
