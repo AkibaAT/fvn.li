@@ -3,11 +3,11 @@
 <div>
     <span class="text-gray-400">{{ $label }}:</span>
     @if ($isFilter && $type)
-        <button wire:click="toggleFilter('{{ $type }}', '{{ $this->encodeFilterValue($value) }}')"
+        <button wire:click="toggleFilter('{{ $type }}', '{{ addslashes($value) }}')"
             @class([
                 'ml-1 hover:text-blue-400',
-                'text-blue-400 font-medium' => in_array($this->encodeFilterValue($value), $selectedStatuses),
-                'text-gray-200' => !in_array($this->encodeFilterValue($value), $selectedStatuses),
+                'text-blue-400 font-medium' => in_array($value, $selectedStatuses),
+                'text-gray-200' => !in_array($value, $selectedStatuses),
             ])>
             {{ $value }}
         </button>

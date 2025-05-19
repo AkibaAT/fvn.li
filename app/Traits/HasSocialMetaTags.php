@@ -38,23 +38,23 @@ trait HasSocialMetaTags
             $filters = [];
 
             if (! empty($this->selectedStatuses)) {
-                $statuses = array_map(fn ($s) => strtolower($this->decodeFilterValue($s)), $this->selectedStatuses);
+                $statuses = array_map('strtolower', $this->selectedStatuses);
                 $filters[] = implode('/', $statuses);
             }
 
             if (! empty($this->selectedEngines)) {
-                $engines = array_map(fn ($e) => "made with {$this->decodeFilterValue($e)}", $this->selectedEngines);
+                $engines = array_map(fn ($e) => "made with {$e}", $this->selectedEngines);
                 $filters[] = implode(' and ', $engines);
             }
 
             if (! empty($this->selectedPlatforms)) {
-                $platforms = array_map(fn ($p) => 'for ' . ucfirst($this->decodeFilterValue($p)),
+                $platforms = array_map(fn ($p) => 'for ' . ucfirst($p),
                     $this->selectedPlatforms);
                 $filters[] = implode(' and ', $platforms);
             }
 
             if (! empty($this->selectedLanguages)) {
-                $languages = Language::whereIn('id', array_map([$this, 'decodeFilterValue'], $this->selectedLanguages))
+                $languages = Language::whereIn('id', $this->selectedLanguages)
                     ->pluck('ref_name')
                     ->map(fn ($lang) => "in {$lang}")
                     ->implode(' and ');
@@ -96,14 +96,13 @@ trait HasSocialMetaTags
 
             // Build status filter
             if (! empty($this->selectedStatuses)) {
-                $statuses = array_map(fn ($s) => strtolower($this->decodeFilterValue($s)), $this->selectedStatuses);
+                $statuses = array_map('strtolower', $this->selectedStatuses);
                 $filters[] = implode(' and ', $statuses);
             }
 
             // Build engine filter
             if (! empty($this->selectedEngines)) {
-                $engines = array_map(fn ($e) => $this->decodeFilterValue($e), $this->selectedEngines);
-                $filters[] = 'created with ' . implode(' and ', $engines);
+                $filters[] = 'created with ' . implode(' and ', $this->selectedEngines);
             }
 
             // Add NSFW/SFW status
@@ -115,7 +114,7 @@ trait HasSocialMetaTags
 
             // Add platform information
             if (! empty($this->selectedPlatforms)) {
-                $platforms = array_map(fn ($p) => ucfirst($this->decodeFilterValue($p)), $this->selectedPlatforms);
+                $platforms = array_map('ucfirst', $this->selectedPlatforms);
                 $description .= ' ' . implode('/', $platforms);
             }
 
@@ -128,7 +127,7 @@ trait HasSocialMetaTags
 
             // Add language information
             if (! empty($this->selectedLanguages)) {
-                $languages = Language::whereIn('id', array_map([$this, 'decodeFilterValue'], $this->selectedLanguages))
+                $languages = Language::whereIn('id', $this->selectedLanguages)
                     ->pluck('ref_name')
                     ->implode('/');
                 $description .= " in {$languages}";

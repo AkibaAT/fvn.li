@@ -7,6 +7,7 @@ namespace App\Livewire;
 use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\Language;
+use App\Models\Tag;
 use App\Models\VnList;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
@@ -46,6 +47,8 @@ class GameList extends Component
 
     public array $selectedGameJams = [];
 
+    public array $selectedTags = [];
+
     public bool $nsfw = false;
 
     public bool $sfw = false;
@@ -75,6 +78,7 @@ class GameList extends Component
         'selectedPlatforms' => ['except' => []],
         'selectedLanguages' => ['except' => []],
         'selectedGameJams' => ['except' => []],
+        'selectedTags' => ['except' => []],
         'nsfw' => ['except' => false],
         'sfw' => ['except' => false],
         'showPaid' => ['except' => false],
@@ -95,12 +99,42 @@ class GameList extends Component
         Cache::forget('game-filter-options');
         Cache::forget('game-languages');
         Cache::forget('game-jams');
+        Cache::forget('game-tags');
         self::$filterOptions = [];
     }
 
     public function mount(): void
     {
         $this->normalizePerPage();
+
+        // Handle selectedTags parameter from URL (already an array from Livewire)
+        if (request()->has('selectedTags') && is_array(request()->input('selectedTags'))) {
+            $this->selectedTags = collect(request()->input('selectedTags'))
+                ->map(fn ($id) => (string) $id)
+                ->toArray();
+        }
+
+        if (request()->has('selectedGameJams')) {
+            $gameJamIds = [];
+
+            // Handle array format: ?selectedGameJams[]=1&selectedGameJams[]=2
+            if (is_array(request()->input('selectedGameJams'))) {
+                $gameJamIds = request()->input('selectedGameJams');
+            }
+            // Handle query string format: ?selectedGameJams=1,2,3
+            elseif (is_string(request()->input('selectedGameJams'))) {
+                $gameJamIds = explode(',', request()->input('selectedGameJams'));
+            }
+
+            // Also check for PHP's query string array format: ?selectedGameJams[0]=1&selectedGameJams[1]=2
+            if (empty($gameJamIds) && is_array(request()->query('selectedGameJams', []))) {
+                $gameJamIds = request()->query('selectedGameJams');
+            }
+
+            $this->selectedGameJams = collect($gameJamIds)
+                ->map(fn ($id) => (string) $id)
+                ->toArray();
+        }
     }
 
     public function updated($name): void
@@ -123,6 +157,7 @@ class GameList extends Component
             'platform' => 'selectedPlatforms',
             'language' => 'selectedLanguages',
             'gamejam' => 'selectedGameJams',
+            'tag' => 'selectedTags',
             default => null,
         };
 
@@ -130,16 +165,22 @@ class GameList extends Component
             return;
         }
 
-        $decodedValue = $this->decodeFilterValue($value);
-        $array = array_map([$this, 'decodeFilterValue'], $this->{$property});
+        // Get the current array of values
+        $array = $this->{$property};
 
-        if (in_array($decodedValue, $array)) {
-            $array = array_diff($array, [$decodedValue]);
+        // Check if the value exists in the array
+        $key = array_search($value, $array);
+
+        if ($key !== false) {
+            // Remove if exists
+            unset($array[$key]);
         } else {
-            $array[] = $decodedValue;
+            // Add if not exists
+            $array[] = $value;
         }
 
-        $this->{$property} = array_map([$this, 'encodeFilterValue'], array_values($array));
+        // Re-index the array
+        $this->{$property} = array_values($array);
         $this->resetPage();
 
         // If this is a game jam filter, dispatch an event to update the Alpine component
@@ -155,6 +196,7 @@ class GameList extends Component
         $this->selectedPlatforms = [];
         $this->selectedLanguages = [];
         $this->selectedGameJams = [];
+        $this->selectedTags = [];
         $this->nsfw = false;
         $this->showPaid = false;
         $this->showFree = false;
@@ -218,30 +260,26 @@ class GameList extends Component
         // Apply filters
         $query->when(! $this->showHidden, fn ($q) => $q->where('is_visible', true))
             ->when($this->search, function ($q) {
-                $q->where(function (Builder $query) {
-                    $query->where('games.name', 'ilike', "%{$this->search}%")
-                        ->orWhere('games.authors', 'ilike', "%{$this->search}%")
-                        ->orWhere('games.tags', 'ilike', "%{$this->search}%")
-                        ->orWhere('games.custom_tags', 'ilike', "%{$this->search}%");
+                $searchTerm = "%{$this->search}%";
+                $q->where(function (Builder $query) use ($searchTerm) {
+                    $query->where('games.name', 'ilike', $searchTerm)
+                        ->orWhere('games.authors', 'ilike', $searchTerm)
+                        ->orWhere('games.custom_tags', 'ilike', $searchTerm);
                 });
             })
             ->when(! empty($this->selectedStatuses), function ($q) {
-                $decodedStatuses = array_map([$this, 'decodeFilterValue'], $this->selectedStatuses);
-                $q->whereIn('games.status', $decodedStatuses);
+                $q->whereIn('games.status', $this->selectedStatuses);
             })
             ->when(! empty($this->selectedEngines), function ($q) {
-                $decodedEngines = array_map([$this, 'decodeFilterValue'], $this->selectedEngines);
-                $q->whereIn('games.game_engine', $decodedEngines);
+                $q->whereIn('games.game_engine', $this->selectedEngines);
             })
             ->when(! empty($this->selectedPlatforms), function ($q) {
                 foreach ($this->selectedPlatforms as $platform) {
-                    $decodedPlatform = $this->decodeFilterValue($platform);
-                    $q->where("latest_versions.is_{$decodedPlatform}", true);
+                    $q->where("latest_versions.is_{$platform}", true);
                 }
             })
             ->when(! empty($this->selectedLanguages), function ($q) {
-                $decodedLanguages = array_map([$this, 'decodeFilterValue'], $this->selectedLanguages);
-                $q->whereExists(function ($query) use ($decodedLanguages) {
+                $q->whereExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('version_supported_languages')
                         ->join('game_versions', function ($join) {
@@ -249,18 +287,22 @@ class GameList extends Component
                                 ->where('game_versions.is_latest', true);
                         })
                         ->whereColumn('game_versions.game_id', 'games.id')
-                        ->whereIn('version_supported_languages.iso_code', $decodedLanguages)
+                        ->whereIn('version_supported_languages.iso_code', $this->selectedLanguages)
                         ->where('version_supported_languages.is_available', true);
                 });
             })
             ->when(! empty($this->selectedGameJams), function ($q) {
-                $decodedGameJams = array_map([$this, 'decodeFilterValue'], $this->selectedGameJams);
-                $q->whereExists(function ($query) use ($decodedGameJams) {
+                $q->whereExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('game_game_jam')
                         ->whereColumn('game_game_jam.game_id', 'games.id')
-                        ->whereIn('game_game_jam.game_jam_id', $decodedGameJams);
+                        ->whereIn('game_game_jam.game_jam_id', $this->selectedGameJams);
                 });
+            })
+            ->when(! empty($this->selectedTags), function ($q) {
+                $q->whereHas('tags', function ($query) {
+                    $query->whereIn('tags.id', $this->selectedTags);
+                }, '>=', count($this->selectedTags));
             })
             ->when($this->nsfw || $this->sfw, function ($q) {
                 if ($this->sfw && ! $this->nsfw) {
@@ -360,11 +402,6 @@ class GameList extends Component
         $this->perPage = $intValue;
     }
 
-    protected function decodeFilterValue(string $value): string
-    {
-        return rawurldecode($value);
-    }
-
     protected function updateMeta(array $metaTags): void
     {
         if (method_exists($this, 'dispatch')) {
@@ -384,38 +421,36 @@ class GameList extends Component
                 : $query;
         };
 
-        // Cache the status and engine options for 1 hour - they change infrequently
-        self::$filterOptions = Cache::remember('game-filter-options', 3600, function () use ($visibilityScope) {
-            $baseQuery = Game::query()->tap($visibilityScope);
+        // Get all games that have at least one version
+        $gameIds = DB::table('game_versions')
+            ->where('is_latest', true)
+            ->pluck('game_id');
 
-            return [
-                'statuses' => $baseQuery->clone()
-                    ->select('status')
-                    ->whereNotNull('status')
-                    ->distinct()
-                    ->orderBy('status')
-                    ->pluck('status')
-                    ->mapWithKeys(fn ($status) => [$this->encodeFilterValue($status) => $status])
-                    ->all(),
+        $games = Game::whereIn('id', $gameIds)
+            ->select([
+                'status',
+                'game_engine',
+                'is_nsfw',
+                'is_paid',
+                'has_demo',
+            ])
+            ->get();
 
-                'gameEngines' => $baseQuery->clone()
-                    ->select('game_engine')
-                    ->whereNotNull('game_engine')
-                    ->distinct()
-                    ->orderBy('game_engine')
-                    ->pluck('game_engine')
-                    ->mapWithKeys(fn ($engine) => [$this->encodeFilterValue($engine) => $engine])
-                    ->all(),
+        $statuses = $games->pluck('status')
+            ->unique()
+            ->filter()
+            ->sort()
+            ->mapWithKeys(fn ($status) => [
+                $status => $status,
+            ]);
 
-                'platforms' => [
-                    'windows' => 'Windows',
-                    'linux' => 'Linux',
-                    'mac' => 'Mac',
-                    'android' => 'Android',
-                    'web' => 'Web',
-                ],
-            ];
-        });
+        $engines = $games->pluck('game_engine')
+            ->unique()
+            ->filter()
+            ->sort()
+            ->mapWithKeys(fn ($engine) => [
+                $engine => $engine,
+            ]);
 
         // Cache languages for 24 hours since they change very rarely
         self::$filterOptions['languages'] = Cache::remember('game-languages', 86400, function () {
@@ -454,16 +489,34 @@ class GameList extends Component
                 ->orderBy('name')
                 ->get()
                 ->mapWithKeys(fn ($jam) => [
-                    $this->encodeFilterValue((string) $jam->id) => $jam->name,
+                    (string) $jam->id => $jam->name,
                 ])
                 ->all();
         });
 
-        return self::$filterOptions;
-    }
+        // Cache tags for 1 hour
+        self::$filterOptions['tags'] = Cache::remember('game-tags', 3600, function () {
+            return Tag::query()
+                ->withCount('games')
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn ($tag) => [
+                    (string) $tag->id => $tag->name . ' (' . $tag->games_count . ')',
+                ])
+                ->all();
+        });
 
-    protected function encodeFilterValue(string $value): string
-    {
-        return rawurlencode($value);
+        // Add statuses and engines to the filter options
+        self::$filterOptions['statuses'] = $statuses->all();
+        self::$filterOptions['gameEngines'] = $engines->all();
+        self::$filterOptions['platforms'] = [
+            'windows' => 'Windows',
+            'linux' => 'Linux',
+            'mac' => 'macOS',
+            'android' => 'Android',
+            'web' => 'Web',
+        ];
+
+        return self::$filterOptions;
     }
 }

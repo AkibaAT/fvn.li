@@ -143,8 +143,8 @@
 
     <div class="mt-4 grid grid-cols-2 gap-4 text-sm border-t border-gray-100 dark:border-gray-700/50 pt-4">
         @foreach ([
-            ['label' => 'Status', 'value' => $game->status, 'type' => 'status', 'isActive' => in_array($this->encodeFilterValue($game->status), $selectedStatuses ?? [])],
-            ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine', 'isActive' => in_array($this->encodeFilterValue($game->game_engine), $selectedEngines ?? [])],
+            ['label' => 'Status', 'value' => $game->status, 'type' => 'status', 'isActive' => in_array($game->status, $selectedStatuses ?? [])],
+            ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine', 'isActive' => in_array($game->game_engine, $selectedEngines ?? [])],
             ['label' => 'Words (EN)', 'value' => number_format($game->english_word_count ?? 0) ?: '-', 'isFilter' => false],
             ['label' => 'Reviews', 'value' => $game->rating_count ?? '-', 'isFilter' => false],
             ['label' => 'Released', 'value' => $game->initially_published_at?->format('M j, Y') ?? '-', 'isFilter' => false],
@@ -154,7 +154,7 @@
                 <span class="text-gray-500 dark:text-gray-400">{{ $detail['label'] }}:</span>
                 @if ($detail['isFilter'] ?? true)
                     <button
-                        wire:click="toggleFilter('{{ $detail['type'] }}', '{{ $this->encodeFilterValue($detail['value']) }}')"
+                        wire:click="toggleFilter('{{ $detail['type'] }}', '{{ addslashes($detail['value']) }}')"
                         @class([
                             'ml-1 hover:text-blue-400',
                             'text-blue-400 font-medium' => $detail['isActive'] ?? false,
@@ -176,13 +176,23 @@
         </div>
     </div>
 
-    @if ($game->tags)
+    @if ($game->tags->isNotEmpty())
         <div class="mt-4 flex flex-wrap gap-1.5">
-            @foreach (explode(',', $game->tags) as $tag)
-                <span
-                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors">
-                    {{ trim($tag) }}
-                </span>
+            @foreach ($game->tags as $tag)
+                @php
+                    $tagId = (string) $tag->id;
+                    $isActive = in_array($tagId, $selectedTags ?? []);
+                @endphp
+                <button
+                    wire:click="toggleFilter('tag', '{{ addslashes($tagId) }}')"
+                    @class([
+                        'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors',
+                        'bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-200 border border-blue-200 dark:border-blue-700' => $isActive,
+                        'bg-white dark:bg-gray-700/50 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50' => !$isActive
+                    ])
+                >
+                    {{ $tag->name }}
+                </button>
             @endforeach
         </div>
     @endif
@@ -193,7 +203,7 @@
             <div class="flex flex-wrap gap-2">
                 @foreach ($game->gameJams as $jam)
                     <button
-                        wire:click="toggleFilter('gamejam', '{{ $this->encodeFilterValue((string) $jam->id) }}')"
+                        wire:click="toggleFilter('gamejam', '{{ addslashes($jam->id) }}')"
                         class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50">
                         {{ $jam->name }}
                         @if ($jam->pivot && $jam->pivot->ranking)

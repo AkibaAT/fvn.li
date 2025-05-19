@@ -11,7 +11,7 @@
         @if ($platforms[$platform] ?? false)
             @if ($clickable)
                 <button
-                    wire:click="toggleFilter('platform', '{{ $platform }}')"
+                    wire:click="toggleFilter('platform', '{{ addslashes($platform) }}')"
                     title="Filter by {{ ucfirst($platform) }}"
                     @class([
                         'px-1 rounded-sm',

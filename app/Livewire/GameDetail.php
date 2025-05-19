@@ -480,14 +480,4 @@ class GameDetail extends Component
     {
         $this->dispatch('update-meta', metaTags: $metaTags);
     }
-
-    protected function encodeFilterValue(string $value): string
-    {
-        return rawurlencode($value);
-    }
-
-    protected function decodeFilterValue(string $value): string
-    {
-        return rawurldecode($value);
-    }
 }

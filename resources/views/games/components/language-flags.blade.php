@@ -3,13 +3,12 @@
 <div class="flex flex-wrap gap-2">
     @foreach ($languages as $language)
         @php
-            $encodedCode = $this->encodeFilterValue($language['iso_code']);
-            $isSelected = in_array($encodedCode, $selectedLanguages);
+            $isSelected = in_array($language['iso_code'], $selectedLanguages);
             $isFiltered = !empty($selectedLanguages) && $isSelected;
         @endphp
         @if ($clickable)
             <button
-                wire:click="toggleFilter('language', '{{ $encodedCode }}')"
+                wire:click="toggleFilter('language', '{{ addslashes($language['iso_code']) }}')"
                 @class([
                     'inline-flex items-center gap-1 px-1 py-0.5 rounded-sm transition-all duration-150',
                     'hover:bg-gray-100 dark:hover:bg-gray-700' => !$isSelected,

@@ -30,6 +30,13 @@
                     'class' => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                 ],
                 [
+                    'title' => 'Tags',
+                    'type' => 'tag',
+                    'items' => $tags,
+                    'selected' => $selectedTags,
+                    'class' => 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                ],
+                [
                     'title' => 'Game Engine',
                     'type' => 'engine',
                     'items' => $gameEngines,
@@ -67,7 +74,7 @@
         @foreach ($filterSections as $section)
             <div>
                 <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ $section['title'] }}</div>
-                @if ($section['type'] === 'gamejam')
+                @if (in_array($section['type'], ['gamejam', 'tag']))
                     <div x-data="{
                         open: false,
                         search: '',
@@ -76,7 +83,7 @@
                         get filteredItems() {
                             // Get entries and sort them alphabetically by name (the second element in each entry)
                             const entries = Object.entries(this.items);
-                            const sortedEntries = entries.sort((a, b) => a[1].localeCompare(b[1]));
+                            const sortedEntries = entries.sort((a, b) => a[1].toLowerCase().localeCompare(b[1].toLowerCase()));
 
                             // If there's a search term, filter the sorted entries
                             if (this.search) {
@@ -94,8 +101,14 @@
                             $wire.toggleFilter('{{ $section['type'] }}', value);
                         },
                         init() {
-                            // Listen for Livewire updates to selectedGameJams
-                            this.$watch('$wire.selectedGameJams', (newValue) => {
+                            // Listen for Livewire updates to selected items
+                            const propertyMap = {
+                                'gamejam': 'selectedGameJams',
+                                'tag': 'selectedTags',
+                            };
+
+                            const propertyName = propertyMap['{{ $section['type'] }}'] || `selected{{ Str::studly($section['type']) }}s`;
+                            this.$watch(`$wire.${propertyName}`, (newValue) => {
                                 this.selected = newValue;
                             });
 
@@ -103,17 +116,12 @@
                             $wire.$on('filtersCleared', () => {
                                 this.selected = [];
                             });
-
-                            // Listen for the gameJamFiltersUpdated event
-                            $wire.$on('gameJamFiltersUpdated', (data) => {
-                                this.selected = data.selectedGameJams;
-                            });
                         }
                     }" class="relative">
                         <button
                             @click="open = !open"
                             class="w-full flex items-center justify-between px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-                            <span x-text="selected.length ? `${selected.length} selected` : 'Select game jams...'" class="text-sm"></span>
+                            <span x-text="selected.length ? `${selected.length} selected` : 'Select {{ $section['title'] }}...'" class="text-sm"></span>
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>
@@ -132,7 +140,7 @@
                                 <input
                                     x-model="search"
                                     type="text"
-                                    placeholder="Search game jams..."
+                                    placeholder="Search {{ strtolower($section['title']) }}..."
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                             </div>
                             <div class="max-h-60 overflow-y-auto">
@@ -156,7 +164,7 @@
                 @else
                     <div class="flex flex-wrap gap-2">
                         @foreach ($section['items'] as $value => $label)
-                            <button wire:click="toggleFilter('{{ $section['type'] }}', '{{ $value }}')"
+                            <button wire:click="toggleFilter('{{ $section['type'] }}', '{{ addslashes($value) }}')"
                                     class="px-3 py-1 rounded-lg text-sm {{ in_array($value, $section['selected'])
                                         ? $section['class']
                                         : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' }}">

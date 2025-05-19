@@ -56,6 +56,10 @@ class Game extends Model
         'blur_screenshots',
     ];
 
+    protected $with = ['tags'];
+
+    protected $appends = ['tags_list'];
+
     protected $casts = [
         'initially_published_at' => 'datetime',
         'latest_version_published_at' => 'datetime',
@@ -82,10 +86,39 @@ class Game extends Model
         'ratings_count' => 'integer',
     ];
 
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class)->withTimestamps()->orderBy('name');
+    }
+
+    public function getTagsListAttribute(): array
+    {
+        return $this->tags->pluck('name')->toArray();
+    }
+
+    public function getTagsStringAttribute(): string
+    {
+        return $this->tags->pluck('name')->implode(',');
+    }
+
     // Ensure custom_tags is never null
     public function setCustomTagsAttribute($value): void
     {
         $this->attributes['custom_tags'] = $value ?? '';
+    }
+
+    // Sync tags from a comma-separated string
+    public function syncTagsFromString(string $tags): void
+    {
+        $tagNames = array_filter(array_map('trim', explode(',', $tags)));
+        $tagIds = [];
+
+        foreach ($tagNames as $tagName) {
+            $tag = Tag::firstOrCreate(['name' => $tagName]);
+            $tagIds[] = $tag->id;
+        }
+
+        $this->tags()->sync($tagIds);
     }
 
     public function setIsNsfwAttribute($value): void

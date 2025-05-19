@@ -227,19 +227,23 @@
                         Tags
                     </h2>
 
-                    @if ($game->tags || $game->custom_tags)
-                        <div class="flex flex-wrap gap-2">
-                            @foreach (array_merge(
-                                $game->tags ? explode(',', $game->tags) : [],
-                                $game->custom_tags ? explode(',', $game->custom_tags) : []
-                            ) as $tag)
-                                <span
-                                    class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-                                    {{ trim($tag) }}
-                                </span>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($game->tags as $tag)
+                            <a href="{{ route('games.index', ['selectedTags' => [$tag->id]]) }}"
+                               class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full transition-colors">
+                                {{ $tag->name }}
+                            </a>
+                        @endforeach
+                        @if ($game->custom_tags)
+                            @foreach (explode(',', $game->custom_tags) as $customTag)
+                                @if (trim($customTag))
+                                    <span class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+                                        {{ trim($customTag) }}
+                                    </span>
+                                @endif
                             @endforeach
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                 </div>
 
                 {{-- Game Jams --}}
