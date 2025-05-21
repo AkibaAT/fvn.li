@@ -32,6 +32,11 @@ use Throwable;
 class Game extends Model
 {
     use HasFactory;
+
+    protected array $pendingGameJamId = [];
+
+    protected array $pendingTagIds = [];
+
     protected $fillable = [
         'game_id',
         'slug',
@@ -118,7 +123,22 @@ class Game extends Model
             $tagIds[] = $tag->id;
         }
 
-        $this->tags()->sync($tagIds);
+        // If the game is already saved, sync tags immediately
+        if ($this->exists && $this->id) {
+            $this->tags()->sync($tagIds);
+            Log::info('Synced tags for existing game', [
+                'game_id' => $this->id,
+                'game_name' => $this->name,
+                'tag_ids' => $tagIds,
+            ]);
+        } else {
+            // Otherwise, store them for later processing
+            $this->pendingTagIds = $tagIds;
+            Log::info('Stored pending tags for new game', [
+                'game_name' => $this->name,
+                'tag_ids' => $tagIds,
+            ]);
+        }
     }
 
     public function setIsNsfwAttribute($value): void
@@ -458,6 +478,10 @@ class Game extends Model
                 'saved_custom_css_length' => strlen($this->custom_css ?? ''),
                 'saved_attributes' => $this->getAttributes(),
             ]);
+
+            // Process any pending associations now that the game is saved
+            $this->processPendingGameJams();
+            $this->processPendingTags();
 
             // Commit the transaction
             DB::commit();
@@ -979,6 +1003,82 @@ class Game extends Model
         return null;
     }
 
+    /**
+     * Process any pending game jam associations
+     * This should be called after the game is saved
+     */
+    public function processPendingGameJams(): void
+    {
+        // Check if we have any pending game jam associations
+        if (empty($this->pendingGameJamId)) {
+            return;
+        }
+
+        // Make sure the game has been saved and has an ID
+        if (! $this->exists || ! $this->id) {
+            Log::warning('Cannot process pending game jams - game not saved', [
+                'game_name' => $this->name,
+                'game_id' => $this->id,
+                'exists' => $this->exists,
+            ]);
+
+            return;
+        }
+
+        // Process each pending game jam
+        foreach ($this->pendingGameJamId as $jamId) {
+            // Check if the association already exists
+            if (! $this->gameJams()->where('game_jam_id', $jamId)->exists()) {
+                // Create the association
+                $this->gameJams()->attach($jamId);
+
+                Log::info('Associated game with game jam', [
+                    'game_id' => $this->id,
+                    'game_name' => $this->name,
+                    'jam_id' => $jamId,
+                ]);
+            }
+        }
+
+        // Clear the pending list
+        $this->pendingGameJamId = [];
+    }
+
+    /**
+     * Process any pending tag associations
+     * This should be called after the game is saved
+     */
+    public function processPendingTags(): void
+    {
+        // Check if we have any pending tag associations
+        if (empty($this->pendingTagIds)) {
+            return;
+        }
+
+        // Make sure the game has been saved and has an ID
+        if (! $this->exists || ! $this->id) {
+            Log::warning('Cannot process pending tags - game not saved', [
+                'game_name' => $this->name,
+                'game_id' => $this->id,
+                'exists' => $this->exists,
+            ]);
+
+            return;
+        }
+
+        // Sync the tags
+        $this->tags()->sync($this->pendingTagIds);
+
+        Log::info('Synced pending tags for game', [
+            'game_id' => $this->id,
+            'game_name' => $this->name,
+            'tag_ids' => $this->pendingTagIds,
+        ]);
+
+        // Clear the pending list
+        $this->pendingTagIds = [];
+    }
+
     protected function devlog(): Attribute
     {
         return Attribute::make(
@@ -1346,10 +1446,20 @@ class Game extends Model
         // Use the GameJam model to find or create the game jam
         $gameJam = GameJam::findOrCreateFromUrl($jamUrl, $jamName);
 
-        // Associate the game with the game jam if not already associated
-        if (! $this->gameJams()->where('game_jam_id', $gameJam->id)->exists()) {
-            $this->gameJams()->attach($gameJam->id);
+        // Add the game jam ID to the pending list if not already there
+        if (! in_array($gameJam->id, $this->pendingGameJamId)) {
+            $this->pendingGameJamId[] = $gameJam->id;
         }
+
+        // Log that we've found a game jam
+        Log::info('Found game jam for game', [
+            'game_id' => $this->id,
+            'game_name' => $this->name,
+            'game_exists' => $this->exists,
+            'jam_id' => $gameJam->id,
+            'jam_name' => $gameJam->name,
+            'pending_association' => true,
+        ]);
     }
 
     /**

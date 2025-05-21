@@ -30,6 +30,10 @@ class GameObserver
     public function created(Game $game): void
     {
         GameList::clearFilterCache();
+
+        // Process any pending associations
+        $game->processPendingGameJams();
+        $game->processPendingTags();
     }
 
     /**
@@ -67,6 +71,10 @@ class GameObserver
                 })->afterResponse();
             }
         }
+
+        // Process any pending associations
+        $game->processPendingGameJams();
+        $game->processPendingTags();
     }
 
     /**

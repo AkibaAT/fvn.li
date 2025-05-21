@@ -294,6 +294,11 @@ class UpdateWatchlist extends Command
             }
 
             $game->save();
+
+            // Process any pending associations now that the game is saved
+            $game->processPendingGameJams();
+            $game->processPendingTags();
+
             DB::commit();
 
             // Follow creator if the game is new or was previously invisible
