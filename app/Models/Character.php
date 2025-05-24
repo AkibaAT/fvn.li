@@ -28,10 +28,11 @@ class Character extends Model
         ?string $languageCode = null,
         ?int $versionId = null
     ): int {
-        // Get character stats for the specific version
+        // Get character stats for the specific version, excluding narrator
         return self::query()
             ->join('version_character_stats', 'characters.id', '=', 'version_character_stats.character_id')
             ->where('characters.game_id', $gameId)
+            ->where('characters.character_id', '!=', 'narrator')
             ->when($versionId, function ($query) use ($versionId) {
                 $query->where('version_character_stats.game_version_id', $versionId);
             })
