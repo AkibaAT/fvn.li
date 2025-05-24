@@ -144,7 +144,7 @@ class Game extends Model
     public function setIsNsfwAttribute($value): void
     {
         if (! $this->exists || ($value && ! $this->getOriginal('is_nsfw'))) {
-            $this->attributes['blur_screenshots'] = true;
+            $this->attributes['blur_screenshots'] = $value;
         }
 
         $this->attributes['is_nsfw'] = $value;
