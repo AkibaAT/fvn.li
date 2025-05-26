@@ -263,11 +263,9 @@
                                                 <div class="flex justify-between">
                                                     <span class="font-medium">{{ $example->game_name }} ({{ $example->version }})</span>
                                                     <span>{{
-                                                        !$example->character_id
-                                                            ? 'Narrator'
-                                                            : ($example->character_id === 'menu_choice'
-                                                                ? 'Choice'
-                                                                : ($example->character_display_name ?? $example->character_id))
+                                                        $example->character_id === 'menu_choice'
+                                                            ? 'Choice'
+                                                            : ($example->character_display_name ?? $example->character_id)
                                                     }}</span>
                                                 </div>
                                                 @if ($example->context)
@@ -321,13 +319,11 @@
 
                                             <div class="flex-1 min-w-0">
                                                 <p class="text-sm font-medium
-                                                    {{ !$line->character ? 'text-gray-600 dark:text-gray-400 italic' :
+                                                    {{ $line->character->character_id == 'narrator' ? 'text-gray-600 dark:text-gray-400 italic' :
                                                       ($line->character->character_id == 'menu_choice' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400') }}">
-                                                    {{ !$line->character
-                                                      ? 'Narrator'
-                                                      : ($line->character->character_id == 'menu_choice'
-                                                          ? 'Choice'
-                                                          : ($line->character->getDisplayName($line->iso_code) ?? $line->character->character_id)) }}
+                                                    {{ $line->character->character_id == 'menu_choice'
+                                                      ? 'Choice'
+                                                      : ($line->character->getDisplayName($line->iso_code) ?? $line->character->character_id) }}
                                                 </p>
 
                                                 <div class="text-gray-900 dark:text-gray-100 mt-1">
@@ -372,13 +368,11 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex justify-between items-start">
                                             <p class="text-sm font-medium
-                                                {{ !$line->character ? 'text-gray-600 dark:text-gray-400 italic' :
+                                                {{ $line->character->character_id == 'narrator' ? 'text-gray-600 dark:text-gray-400 italic' :
                                                   ($line->character->character_id == 'menu_choice' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400') }}">
-                                                {{ !$line->character
-                                                  ? 'Narrator'
-                                                  : ($line->character->character_id == 'menu_choice'
-                                                      ? 'Choice'
-                                                      : ($line->character->getDisplayName($line->iso_code) ?? $line->character->character_id)) }}
+                                                {{ $line->character->character_id == 'menu_choice'
+                                                  ? 'Choice'
+                                                  : ($line->character->getDisplayName($line->iso_code) ?? $line->character->character_id) }}
                                             </p>
 
                                             @if ($line->context)

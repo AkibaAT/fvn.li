@@ -55,6 +55,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:process-screenshots', ['--all'])->dailyAt('03:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details', ['--limit' => 20])->hourly()->withoutOverlapping();
         $schedule->command('games:cleanup-downloads', ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
+        $schedule->command('fix:characters:version-references')->weekly()->sundays()->at('03:00')->withoutOverlapping();
 
         // Notification commands
         $schedule->command('notifications:queue-game-updates')->everyMinute()->withoutOverlapping();

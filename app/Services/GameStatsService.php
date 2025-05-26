@@ -357,14 +357,15 @@ readonly class GameStatsService
                         continue;
                     }
 
-                    // Find character ID
+                    // Initialize character_id
                     $characterId = null;
 
                     // Special handling for menu_choice
                     if (! empty($line['character']) && $line['character'] === 'menu_choice') {
                         $characterId = $menuChoiceCharacter->id;
-                    } // Normal character handling
-                    elseif (! empty($line['character']) && $line['character'] !== 'narrator') {
+                    }
+                    // Normal character handling (including narrator)
+                    elseif (! empty($line['character'])) {
                         // Fixed: Provide default values for character creation to avoid NOT NULL violation
                         $character = Character::firstOrCreate(
                             [

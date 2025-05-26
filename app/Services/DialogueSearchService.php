@@ -59,15 +59,8 @@ class DialogueSearchService
         }
 
         if (! empty($filters['character_id'])) {
-            if ($filters['character_id'] === 'narrator') {
-                $query->whereNull('version_dialogue_lines.character_id');
-            } elseif ($filters['character_id'] === 'menu_choice') {
-                $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-                    ->where('characters.character_id', '=', 'menu_choice');
-            } else {
-                $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-                    ->where('characters.character_id', '=', $filters['character_id']);
-            }
+            $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
+                ->where('characters.character_id', '=', $filters['character_id']);
         }
 
         if (! empty($filters['context'])) {
@@ -117,12 +110,8 @@ class DialogueSearchService
         }
 
         if (! empty($filters['character_id'])) {
-            if ($filters['character_id'] === 'narrator') {
-                $query->whereNull('version_dialogue_lines.character_id');
-            } else {
-                $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-                    ->where('characters.character_id', '=', $filters['character_id']);
-            }
+            $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
+                ->where('characters.character_id', '=', $filters['character_id']);
         }
 
         $query->where('version_dialogue_lines.iso_code', '=', $language);
