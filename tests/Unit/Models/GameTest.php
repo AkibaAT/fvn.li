@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\Game;
+use App\Models\GameVersion;
+use App\Services\ItchHttpClientService;
+use GuzzleHttp\Psr7\Response;
 
 beforeEach(function () {
     $this->game = new Game;
@@ -222,7 +225,79 @@ test('extract version with date fallback', function (array $upload, string $expe
     expect($result)->toBe($expected);
 })->with('version extractions');
 
-test('extract version without date fallback', function (array $upload, string $expected, ?string $expectedWithoutDate) {
+test('extract version without date fallback', function (array $upload, string $_, ?string $expectedWithoutDate) {
     $result = $this->extractVersion->invoke($this->game, $upload, false);
     expect($result)->toBe($expectedWithoutDate);
 })->with('version extractions');
+
+test('platform flags are updated on latest version when no new version is created', function () {
+    // Create a game with a version
+    $game = Game::factory()->create([
+        'game_id' => 12345,
+        'uploads' => [
+            '1' => [
+                'display_name' => 'Game v1.0',
+                'md5_hash' => 'abc123',
+                'updated_at' => '2024-01-01T00:00:00Z',
+                'build_id' => null,
+                'build_updated_at' => null,
+                'user_version' => null,
+                'filename' => 'game-1.0.zip',
+                'traits' => ['p_windows'],
+                'type' => 'default',
+            ],
+        ],
+    ]);
+
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.0',
+        'is_latest' => true,
+        'is_windows' => true,
+        'is_linux' => false,
+        'is_mac' => false,
+        'is_android' => false,
+        'is_web' => false,
+    ]);
+
+    // Mock the itch.io API response with additional platform support but same version
+    // We need to change something to trigger hasChanges = true, so we'll change the MD5 hash
+    $mockResponse = new Response(200, [], json_encode([
+        'uploads' => [
+            [
+                'id' => 1,
+                'filename' => 'game-1.0.zip',
+                'display_name' => 'Game v1.0', // Same version
+                'md5_hash' => 'def456', // Changed MD5 hash to trigger update
+                'updated_at' => '2024-01-01T00:00:00Z',
+                'build_id' => null,
+                'build' => [],
+                'traits' => ['p_windows', 'p_linux'], // Added Linux support
+                'type' => 'default',
+            ],
+        ],
+    ]));
+
+    // Mock the HTTP client
+    $mockClient = Mockery::mock(ItchHttpClientService::class);
+    $mockClient->shouldReceive('get')
+        ->with("https://api.itch.io/games/{$game->game_id}/uploads")
+        ->andReturn($mockResponse);
+
+    $this->app->instance(ItchHttpClientService::class, $mockClient);
+
+    // Call refreshVersion - this should update platform flags without creating a new version
+    $game->refreshVersion();
+
+    // Refresh the version from database
+    $version->refresh();
+
+    // Assert that Linux support was added without creating a new version
+    expect($version->is_windows)->toBeTrue()
+        ->and($version->is_linux)->toBeTrue()
+        ->and($version->is_mac)->toBeFalse()
+        ->and($version->is_android)->toBeFalse()
+        ->and($version->is_web)->toBeFalse()
+        ->and($game->gameVersions()->count())->toBe(1)
+        ->and($version->is_latest)->toBeTrue();
+});

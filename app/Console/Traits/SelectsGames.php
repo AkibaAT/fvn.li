@@ -23,7 +23,7 @@ trait SelectsGames
     {
         // If game ID is provided, filter by ID
         if ($gameId = $this->option('game-id')) {
-            $query->where('id', $gameId);
+            $query->where('id', (int) $gameId);
         }
 
         // If game name is provided, filter by name (case-insensitive partial match)

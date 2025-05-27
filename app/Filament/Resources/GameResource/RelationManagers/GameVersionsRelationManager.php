@@ -164,6 +164,8 @@ class GameVersionsRelationManager extends RelationManager
                         $version->save();
 
                         // Process character stats if available
+                        // WARNING: This bypasses legacy data protection - only use for importing
+                        // new versions or when you're certain the data is not legacy
                         if (isset($jsonData['character_stats']) && is_array($jsonData['character_stats'])) {
                             foreach ($jsonData['character_stats'] as $stat) {
                                 $version->characterStats()->create([

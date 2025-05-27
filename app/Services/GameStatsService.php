@@ -32,11 +32,14 @@ use ZipArchive;
 readonly class GameStatsService
 {
     private LanguageMappingService $languageMappingService;
+    private CharacterStatsCalculationService $characterStatsService;
 
     public function __construct(
-        ?LanguageMappingService $languageMappingService = null
+        ?LanguageMappingService $languageMappingService = null,
+        ?CharacterStatsCalculationService $characterStatsService = null
     ) {
         $this->languageMappingService = $languageMappingService ?? app(LanguageMappingService::class);
+        $this->characterStatsService = $characterStatsService ?? app(CharacterStatsCalculationService::class);
     }
 
     /**
@@ -208,18 +211,9 @@ readonly class GameStatsService
                             $character->save();
                         }
 
-                        // Create character version stats
-                        VersionCharacterStats::updateOrCreate(
-                            [
-                                'game_version_id' => $version->id,
-                                'character_id' => $character->id,
-                                'iso_code' => $isoCode,
-                            ],
-                            [
-                                'blocks' => $charData['blocks'] ?? 0,
-                                'words' => $charData['words'] ?? 0,
-                            ]
-                        );
+                        // Store JSON stats for later comparison with calculated stats
+                        // We'll use our centralized calculation after dialogue import
+                        // but want to compare with JSON values for discrepancy reporting
                     }
                 }
             }
@@ -254,6 +248,12 @@ readonly class GameStatsService
             // Process dialogue lines
             if (isset($stats['dialogue_lines'])) {
                 $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game);
+
+                // Apply special character assignment fixes after importing dialogue lines
+                $this->applySpecialCharacterAssignments($version);
+
+                // Calculate character stats from the imported dialogue lines and compare with JSON
+                $this->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
             }
 
             DB::commit();
@@ -441,6 +441,76 @@ readonly class GameStatsService
     }
 
     /**
+     * Calculate character stats and report discrepancies with JSON stats
+     */
+    protected function calculateStatsAndReportDiscrepancies(
+        GameVersion $version,
+        array $stats,
+        string $defaultLanguage = 'eng',
+        ?Game $game = null
+    ): void {
+        // Calculate stats using our centralized service
+        $this->characterStatsService->calculateAndSaveStatsForVersion($version->id);
+
+        // Compare with JSON stats and report discrepancies
+        if (! isset($stats['languages'])) {
+            return;
+        }
+
+        $discrepanciesFound = false;
+
+        foreach ($stats['languages'] as $langKey => $langData) {
+            $isoCode = $langKey === 'default'
+                ? $defaultLanguage
+                : $this->languageMappingService->resolveLanguageCode($langKey, $game);
+
+            if (! $isoCode || ! isset($langData['characters'])) {
+                continue;
+            }
+
+            foreach ($langData['characters'] as $charId => $charData) {
+                // Find the character in our database
+                $character = Character::where('game_id', $version->game_id)
+                    ->where('character_id', $charId)
+                    ->first();
+
+                if (! $character) {
+                    continue;
+                }
+
+                // Get our calculated stats
+                $calculatedStats = VersionCharacterStats::where('game_version_id', $version->id)
+                    ->where('character_id', $character->id)
+                    ->where('iso_code', $isoCode)
+                    ->first();
+
+                if (! $calculatedStats) {
+                    continue;
+                }
+
+                // Compare JSON vs calculated stats
+                $jsonBlocks = $charData['blocks'] ?? 0;
+                $jsonWords = $charData['words'] ?? 0;
+                $calculatedBlocks = $calculatedStats->blocks;
+                $calculatedWords = $calculatedStats->words;
+
+                if ($jsonBlocks !== $calculatedBlocks || $jsonWords !== $calculatedWords) {
+                    if (! $discrepanciesFound) {
+                        Log::warning("Character stats discrepancies found for game version {$version->id}:");
+                        $discrepanciesFound = true;
+                    }
+
+                    Log::warning("Character '{$charId}' ({$isoCode}): JSON={$jsonBlocks} blocks, {$jsonWords} words | Calculated={$calculatedBlocks} blocks, {$calculatedWords} words");
+                }
+            }
+        }
+
+        if (! $discrepanciesFound) {
+            Log::info("Character stats validation passed for game version {$version->id} - no discrepancies found");
+        }
+    }
+
+    /**
      * Strip all diacritical marks from text.
      *
      * @param  string  $text  The input text.
@@ -493,6 +563,32 @@ readonly class GameStatsService
 
         // Avoid division by zero, and check if ratio exceeds threshold
         return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
+    }
+
+    /**
+     * Apply special character assignment fixes after importing dialogue lines
+     */
+    protected function applySpecialCharacterAssignments(GameVersion $version): void
+    {
+        Log::info("Applying special character assignments for game version {$version->id}");
+
+        // Use the special character assignment service to fix assignments
+        $specialCharacterService = app(CharacterSpecialAssignmentService::class);
+
+        // Apply fixes for this specific game (not dry run)
+        $result = $specialCharacterService->fixSpecialCharacterAssignments($version->game_id, null, false);
+
+        if ($result['lines_reassigned'] > 0) {
+            Log::info("Reassigned {$result['lines_reassigned']} special character lines for game {$version->game_id}");
+
+            // Clean up any orphaned special characters
+            $versionReferenceService = app(CharacterVersionReferenceService::class);
+            $cleanupResult = $versionReferenceService->fixVersionReferences($version->game_id, false);
+
+            if ($cleanupResult['characters_deleted'] > 0) {
+                Log::info("Deleted {$cleanupResult['characters_deleted']} orphaned special characters for game {$version->game_id}");
+            }
+        }
     }
 
     /**

@@ -850,42 +850,42 @@ class Game extends Model
                         $this->copyLanguageSupport($gameVersion);
                     }
                 }
-            } else {
-                // If we're not creating a new version or doing a forced update,
-                // update platform flags of the latest version if they've changed
-                $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
-                if ($latestVersion) {
-                    $platformsChanged = false;
+            }
 
-                    if ($latestVersion->is_windows !== $isWindows) {
-                        $latestVersion->is_windows = $isWindows;
-                        $platformsChanged = true;
-                    }
+            // Always update platform flags of the latest version if they've changed
+            // This ensures that newly detected platforms are updated even when no new version is created
+            $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
+            if ($latestVersion) {
+                $platformsChanged = false;
 
-                    if ($latestVersion->is_linux !== $isLinux) {
-                        $latestVersion->is_linux = $isLinux;
-                        $platformsChanged = true;
-                    }
+                if ($latestVersion->is_windows !== $isWindows) {
+                    $latestVersion->is_windows = $isWindows;
+                    $platformsChanged = true;
+                }
 
-                    if ($latestVersion->is_mac !== $isMac) {
-                        $latestVersion->is_mac = $isMac;
-                        $platformsChanged = true;
-                    }
+                if ($latestVersion->is_linux !== $isLinux) {
+                    $latestVersion->is_linux = $isLinux;
+                    $platformsChanged = true;
+                }
 
-                    if ($latestVersion->is_android !== $isAndroid) {
-                        $latestVersion->is_android = $isAndroid;
-                        $platformsChanged = true;
-                    }
+                if ($latestVersion->is_mac !== $isMac) {
+                    $latestVersion->is_mac = $isMac;
+                    $platformsChanged = true;
+                }
 
-                    if ($latestVersion->is_web !== $isWeb) {
-                        $latestVersion->is_web = $isWeb;
-                        $platformsChanged = true;
-                    }
+                if ($latestVersion->is_android !== $isAndroid) {
+                    $latestVersion->is_android = $isAndroid;
+                    $platformsChanged = true;
+                }
 
-                    // Save the changes if any platform flags were updated
-                    if ($platformsChanged) {
-                        $latestVersion->save();
-                    }
+                if ($latestVersion->is_web !== $isWeb) {
+                    $latestVersion->is_web = $isWeb;
+                    $platformsChanged = true;
+                }
+
+                // Save the changes if any platform flags were updated
+                if ($platformsChanged) {
+                    $latestVersion->save();
                 }
             }
 

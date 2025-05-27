@@ -74,6 +74,11 @@ class Character extends Model
         return $this->hasMany(VersionCharacterStats::class);
     }
 
+    public function dialogueLines(): HasMany
+    {
+        return $this->hasMany(DialogueLine::class);
+    }
+
     public function getDisplayName(string $isoCode): ?string
     {
         // First check for a manual correction

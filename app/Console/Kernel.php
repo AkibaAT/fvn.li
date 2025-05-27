@@ -7,6 +7,8 @@ namespace App\Console;
 use App\Console\Commands\BackfillRatings;
 use App\Console\Commands\CleanupGameDownloads;
 use App\Console\Commands\FetchGameJamDetails;
+use App\Console\Commands\FixCharacters;
+use App\Console\Commands\FixIncrementalPlatformSupport;
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportGameVersionStats;
 use App\Console\Commands\ImportRatings;
@@ -28,6 +30,8 @@ class Kernel extends ConsoleKernel
         BackfillRatings::class,
         CleanupGameDownloads::class,
         FetchGameJamDetails::class,
+        FixCharacters::class,
+        FixIncrementalPlatformSupport::class,
         GenerateSitemap::class,
         ImportGameVersionStats::class,
         ImportRatings::class,
@@ -55,7 +59,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:process-screenshots', ['--all'])->dailyAt('03:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details', ['--limit' => 20])->hourly()->withoutOverlapping();
         $schedule->command('games:cleanup-downloads', ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
-        $schedule->command('fix:characters:version-references')->weekly()->sundays()->at('03:00')->withoutOverlapping();
+        $schedule->command('fix:characters')->weekly()->sundays()->at('03:00')->withoutOverlapping();
 
         // Notification commands
         $schedule->command('notifications:queue-game-updates')->everyMinute()->withoutOverlapping();

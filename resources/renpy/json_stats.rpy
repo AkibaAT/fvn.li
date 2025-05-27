@@ -198,6 +198,35 @@ init 10000 python:
         # Find context (current label or scene)
         current_context = {}
 
+        # Track the last character who spoke in each language for extend statements
+        last_character = {}
+
+        def resolve_special_character(character_id, lang, last_character):
+            """
+            Resolve special Ren'Py characters to appropriate character assignments.
+
+            Args:
+                character_id: The original character ID from the dialogue
+                lang: The language code
+                last_character: Dictionary tracking last character per language
+
+            Returns:
+                tuple: (resolved_character_id, should_update_last_character)
+            """
+            # Handle extend statements - assign to previous character
+            if character_id == "extend":
+                if lang in last_character and last_character[lang]:
+                    return last_character[lang], False
+                else:
+                    # Fallback to narrator if no previous character
+                    return "narrator", False
+            elif character_id in ["centered", "vcentered", "nvl_narrator", "menu_choice", "wait"]:
+                # These special characters should be treated as narrator
+                return "narrator", False
+            else:
+                # Regular character - should update last_character tracking
+                return character_id, True
+
         # Second pass: gather dialogue and menu statistics
         for node in all_stmts:
             # Track context (labels)
@@ -217,6 +246,13 @@ init 10000 python:
                 cleaned_text = clean_text(say.what)
                 # Clean the character id if it exists
                 character_id = clean_text(say.who) if say.who else "narrator"
+
+                # Handle special Ren'Py characters
+                character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
+
+                # Update last character for this language (only for non-special characters)
+                if should_update_last:
+                    last_character[lang] = character_id
 
                 # Try to rescue broken game lines
                 if len(character_id) > 50:
@@ -251,6 +287,13 @@ init 10000 python:
                 who_var = getattr(node, "who", None)
                 character_id = clean_text(who_var) if who_var else "narrator"
 
+                # Handle special Ren'Py characters
+                character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
+
+                # Update last character for this language (only for non-special characters)
+                if should_update_last:
+                    last_character[lang] = character_id
+
                 # Try to rescue broken game lines
                 if len(character_id) > 50:
                     cleaned_text = character_id + " " + cleaned_text
@@ -277,8 +320,10 @@ init 10000 python:
                     if l:  # Only add non-empty choices
                         # Clean the text before adding
                         cleaned_text = clean_text(l)
+                        # Resolve menu_choice character using our function
+                        character_id, _ = resolve_special_character("menu_choice", "default", last_character)
                         dialogue_lines["default"].append({
-                            "character": "menu_choice",
+                            "character": character_id,
                             "text": cleaned_text,
                             "file": node.filename,
                             "line": getattr(node, "linenumber", 0),
