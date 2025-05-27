@@ -12,12 +12,15 @@ use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use Exception;
+use FilesystemIterator;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Normalizer;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -642,6 +645,8 @@ readonly class GameStatsService
      */
     private function findLinuxExecutable(string $gameDir): ?string
     {
+        $this->makeExecutables($gameDir);
+
         // Get all files in the game directory and its subdirectories
         $allFiles = $this->findAllFiles($gameDir);
 
@@ -726,9 +731,6 @@ readonly class GameStatsService
             return null;
         }
 
-        // Make sure the executable has execute permissions
-        chmod($executablePath, 0755);
-
         // Execute the game with the native executable
         $process = new Process([$executablePath, 'game', 'test'], dirname($executablePath));
         $process->setTimeout(300); // 5 minute timeout
@@ -770,6 +772,31 @@ readonly class GameStatsService
             ]);
 
             return null;
+        }
+    }
+
+    private function makeExecutables(string $dir): void
+    {
+        // root
+        foreach (File::files($dir) as $file) {
+            chmod($file->getPathname(), 0755);
+        }
+
+        // lib/
+        $lib = $dir . DIRECTORY_SEPARATOR . 'lib';
+        if (! File::isDirectory($lib)) {
+            return;
+        }
+
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($it as $file) {
+            if ($file->isFile()) {
+                chmod($file->getPathname(), 0755);
+            }
         }
     }
 }

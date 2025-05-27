@@ -187,7 +187,13 @@ init 10000 python:
                 for lang in known_languages:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
 
-        has_translate_say = hasattr(renpy.ast, "TranslateSay")
+        # Check through all nodes for TranslateSay
+        has_translate_say = False
+        if hasattr(renpy.ast, "TranslateSay"):
+            for node in all_stmts:
+                if isinstance(node, renpy.ast.TranslateSay):
+                    has_translate_say = True
+                    break
 
         # Find context (current label or scene)
         current_context = {}
