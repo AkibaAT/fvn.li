@@ -28,8 +28,8 @@ class Character extends Model
         ?string $languageCode = null,
         ?int $versionId = null
     ): int {
-        // Get character stats for the specific version, excluding narrator
-        return self::query()
+        // Get characters for the specific version, excluding narrator
+        $characters = self::query()
             ->join('version_character_stats', 'characters.id', '=', 'version_character_stats.character_id')
             ->where('characters.game_id', $gameId)
             ->where('characters.character_id', '!=', 'narrator')
@@ -40,7 +40,18 @@ class Character extends Model
                 $query->where('version_character_stats.iso_code', $languageCode);
             })
             ->distinct('characters.character_id')
-            ->count('characters.character_id');
+            ->select('characters.id', 'characters.character_id', 'characters.display_names', 'characters.display_name_corrections')
+            ->get();
+
+        // Use the provided language code for display names, fallback to English if none provided
+        $displayLanguageCode = $languageCode ?? 'eng';
+
+        // Extract display names in the specified language and count unique ones
+        $displayNames = $characters->map(function ($character) use ($displayLanguageCode) {
+            return $character->getDisplayName($displayLanguageCode) ?? $character->character_id;
+        })->unique()->values();
+
+        return $displayNames->count();
     }
 
     public function game(): BelongsTo
