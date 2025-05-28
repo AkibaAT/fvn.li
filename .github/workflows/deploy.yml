@@ -43,7 +43,7 @@ jobs:
 
           # Check if Dockerfile or related files have changed
           DOCKERFILE_CHANGED=false
-          git diff --name-only HEAD^ HEAD | grep -q -E '^(Dockerfile|docker/|docker-compose\.yml)$' && DOCKERFILE_CHANGED=true
+          git diff --name-only HEAD^ HEAD | grep -q -E '^(Dockerfile|docker/.*|docker-compose\.yml)$' && DOCKERFILE_CHANGED=true
           echo "dockerfile_changed=$DOCKERFILE_CHANGED" >> $GITHUB_OUTPUT
 
       # Build and push Docker image if Dockerfile or related files changed

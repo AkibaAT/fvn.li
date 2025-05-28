@@ -55,14 +55,14 @@ ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # Copy storage directory
-COPY ../storage /app/storage
+COPY storage /app/storage
 
 # Copy configuration files
-COPY php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
-COPY supervisor /etc/supervisor/conf.d/
+COPY docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
+COPY docker/supervisor /etc/supervisor/conf.d/
 
 # Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Set permissions and clean up
