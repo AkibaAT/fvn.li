@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE instance-profile
+        SYSTEM "https://resources.jetbrains.com/writerside/1.0/product-profile.dtd">
+
+<instance-profile id="in"
+                 name="FVN.li Documentation" start-page="README.md">
+
+    <toc-element topic="README.md"/>
+    <toc-element toc-title="Commands">
+        <toc-element topic="commands-overview.md" toc-title="Overview"/>
+        <toc-element toc-title="Fix Commands">
+            <toc-element topic="fix-commands-overview.md"/>
+            <toc-element topic="fix-characters.md" toc-title="Characters"/>
+            <toc-element toc-title="Platform Commands">
+                <toc-element topic="fix-platforms-incremental-support.md" toc-title="Incremental Support"/>
+            </toc-element>
+        </toc-element>
+        <toc-element toc-title="Feed Commands">
+            <toc-element topic="feed-commands-overview.md"/>
+            <toc-element topic="feed-process.md" toc-title="Process Feed"/>
+        </toc-element>
+        <toc-element toc-title="Game Jam Commands">
+            <toc-element topic="game-jams-commands-overview.md"/>
+            <toc-element topic="game-jams-fetch-details.md" toc-title="Fetch Details"/>
+        </toc-element>
+        <toc-element toc-title="Games Commands">
+            <toc-element topic="games-commands-overview.md"/>
+            <toc-element topic="games-cleanup-downloads.md" toc-title="Cleanup Downloads"/>
+            <toc-element topic="games-import-stats.md" toc-title="Import Stats"/>
+            <toc-element topic="games-process-screenshots.md" toc-title="Process Screenshots"/>
+            <toc-element topic="games-process-thumbnails.md" toc-title="Process Thumbnails"/>
+            <toc-element topic="games-refresh.md" toc-title="Refresh Games"/>
+            <toc-element topic="games-refresh-feedless.md" toc-title="Refresh Feedless"/>
+            <toc-element topic="games-reimport-version.md" toc-title="Reimport Version"/>
+            <toc-element topic="games-update-watchlist.md" toc-title="Update Watchlist"/>
+        </toc-element>
+        <toc-element toc-title="Notification Commands">
+            <toc-element topic="notifications-commands-overview.md"/>
+            <toc-element topic="notifications-process-push.md" toc-title="Process Push"/>
+            <toc-element topic="notifications-queue-game-updates.md" toc-title="Queue Game Updates"/>
+        </toc-element>
+        <toc-element toc-title="Rater Commands">
+            <toc-element topic="rater-commands-overview.md"/>
+            <toc-element topic="rater-mark-suspicious.md" toc-title="Mark Suspicious"/>
+        </toc-element>
+        <toc-element toc-title="Ratings Commands">
+            <toc-element topic="ratings-commands-overview.md"/>
+            <toc-element topic="ratings-backfill.md" toc-title="Backfill Ratings"/>
+            <toc-element topic="ratings-import.md" toc-title="Import Ratings"/>
+        </toc-element>
+        <toc-element toc-title="Sitemap Commands">
+            <toc-element topic="sitemap-commands-overview.md"/>
+            <toc-element topic="sitemap-generate.md" toc-title="Generate Sitemap"/>
+        </toc-element>
+    </toc-element>
+</instance-profile>

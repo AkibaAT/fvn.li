@@ -1,0 +1,213 @@
+# games:reimport-version
+
+Reimports version statistics from stored game archives.
+
+## Overview
+
+This command reprocesses stored game archives to regenerate version statistics and character data. It's useful when
+analysis algorithms have been improved or when data corruption requires regeneration from original source files.
+
+**Key Features**: Archive reprocessing, statistics regeneration, data validation, selective reimport.
+
+## Usage
+
+```bash
+php artisan games:reimport-version [options]
+```
+
+## Options
+
+The command supports various targeting options to control which versions are reimported and how the processing is
+performed.
+
+## Reimport Process
+
+The command follows this comprehensive workflow:
+
+1. **Identifies target versions** based on specified criteria
+2. **Locates stored archives** for each version
+3. **Extracts game files** from archives
+4. **Reanalyzes game content** using current algorithms
+5. **Regenerates statistics** and character data
+6. **Validates new data** against quality standards
+7. **Updates database records** with fresh analysis results
+8. **Cleans up temporary files** used during processing
+
+## Examples
+
+<tabs>
+<tab title="Specific Version">
+<code-block lang="bash">
+php artisan games:reimport-version --version-id=456
+</code-block>
+<p>Reimports statistics for a specific version ID.</p>
+</tab>
+<tab title="Game Versions">
+<code-block lang="bash">
+php artisan games:reimport-version --game-id=123
+</code-block>
+<p>Reimports all versions for a specific game.</p>
+</tab>
+<tab title="Recent Versions">
+<code-block lang="bash">
+php artisan games:reimport-version --days=30
+</code-block>
+<p>Reimports versions created in the last 30 days.</p>
+</tab>
+<tab title="Force Reimport">
+<code-block lang="bash">
+php artisan games:reimport-version --game-id=123 --force
+</code-block>
+<p>Forces reimport even if statistics appear current.</p>
+</tab>
+</tabs>
+
+## When to Use
+
+<procedure title="Recommended Usage Scenarios">
+<step>After improving analysis algorithms or character detection</step>
+<step>When statistics appear incorrect or incomplete</step>
+<step>After data corruption or database issues</step>
+<step>During migration to new analysis systems</step>
+<step>For quality assurance and data validation</step>
+</procedure>
+
+## Archive Requirements
+
+Successful reimport requires:
+
+### Archive Availability
+
+- **Stored Files**: Original game archives must be preserved
+- **File Integrity**: Archives must be uncorrupted and complete
+- **Access Permissions**: System must have read access to archive storage
+
+### Archive Format
+
+- **Supported Formats**: ZIP, RAR, 7Z, and other common archive formats
+- **File Structure**: Recognizable game file organization
+- **Metadata**: Sufficient information to identify game content
+
+## Processing Capabilities
+
+The reimport process can regenerate various types of data:
+
+### Character Statistics
+
+- **Dialogue Counts**: Blocks and words per character
+- **Language Analysis**: Statistics by language
+- **Character Relationships**: Interaction patterns and frequencies
+
+### Game Metadata
+
+- **File Analysis**: Game structure and organization
+- **Asset Inventory**: Images, audio, and other media files
+- **Technical Details**: Engine version, platform support
+
+### Quality Metrics
+
+- **Data Completeness**: Coverage of game content
+- **Analysis Confidence**: Reliability of extracted data
+- **Validation Results**: Consistency checks and error detection
+
+## Performance Considerations
+
+<table>
+<tr>
+    <td>Factor</td>
+    <td>Impact</td>
+    <td>Optimization</td>
+</tr>
+<tr>
+    <td>Archive Size</td>
+    <td>Processing time varies</td>
+    <td>Parallel processing</td>
+</tr>
+<tr>
+    <td>Extraction</td>
+    <td>Temporary disk usage</td>
+    <td>Cleanup management</td>
+</tr>
+<tr>
+    <td>Analysis</td>
+    <td>CPU intensive</td>
+    <td>Batch processing</td>
+</tr>
+<tr>
+    <td>Database Updates</td>
+    <td>Transaction overhead</td>
+    <td>Bulk operations</td>
+</tr>
+</table>
+
+## Data Validation
+
+The reimport process includes comprehensive validation:
+
+### Source Validation
+
+- **Archive Integrity**: Verifies archives are not corrupted
+- **File Completeness**: Ensures all necessary files are present
+- **Format Recognition**: Confirms game engine and format compatibility
+
+### Analysis Validation
+
+- **Statistics Consistency**: Checks for reasonable statistical values
+- **Character Data**: Validates character names and dialogue assignments
+- **Language Detection**: Verifies language identification accuracy
+
+### Output Validation
+
+- **Database Constraints**: Ensures data meets schema requirements
+- **Referential Integrity**: Maintains proper relationships between records
+- **Quality Thresholds**: Meets minimum quality standards for import
+
+## Error Handling
+
+Robust error handling manages various failure scenarios:
+
+### Archive Issues
+
+- **Missing Archives**: Graceful handling when archives are unavailable
+- **Corruption**: Detection and reporting of corrupted archives
+- **Access Problems**: Permission and storage access issues
+
+### Processing Failures
+
+- **Analysis Errors**: Continues with remaining versions on individual failures
+- **Memory Issues**: Manages memory usage for large games
+- **Timeout Handling**: Manages long-running analysis operations
+
+## Comparison and Reporting
+
+The command provides detailed reporting on changes:
+
+### Before/After Comparison
+
+- **Statistics Changes**: Differences in character counts and statistics
+- **Data Quality**: Improvements in data completeness and accuracy
+- **New Discoveries**: Previously undetected characters or content
+
+### Import Summary
+
+- **Processing Statistics**: Number of versions processed successfully
+- **Error Summary**: Types and frequencies of errors encountered
+- **Performance Metrics**: Processing time and resource usage
+
+## Recovery and Rollback
+
+The system supports recovery from failed reimports:
+
+- **Transaction Safety**: Database changes are wrapped in transactions
+- **Backup Preservation**: Original data is preserved during reimport
+- **Rollback Capability**: Can revert to previous data if needed
+- **Audit Trail**: Maintains records of all reimport operations
+
+> **Warning**: Reimporting can be time and resource intensive. Test with small batches before processing large numbers
+> of versions.
+
+## Related Commands
+
+- [games:import-stats](games-import-stats.md) - Import statistics from JSON files
+- [fix:characters](fix-characters.md) - Comprehensive character fixes
+- [games:refresh](games-refresh.md) - Refresh game information from itch.io

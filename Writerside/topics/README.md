@@ -1,12 +1,8 @@
 # FVN.li - Visual Novel Analytics and Tracking
 
-[![Deploy Writerside Documentation](https://github.com/AkibaAT/fvn.li/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/AkibaAT/fvn.li/actions/workflows/deploy-docs.yml)
-
-FVN.li is a web application that tracks, analyzes, and provides insights into games published on itch.io. It collects data about games, their versions, ratings, and dialogue content, making it easier for users to discover and evaluate games on the platform. The project is deployed and accessible at [FVN.li](https://fvn.li).
-
-## Documentation
-
-📚 **[View Documentation](https://akibaat.github.io/fvn.li/)** - Comprehensive documentation built with Writerside and deployed to GitHub Pages.
+FVN.li is a web application that tracks, analyzes, and provides insights into games published on itch.io. It collects
+data about games, their versions, ratings, and dialogue content, making it easier for users to discover and evaluate
+games on the platform. The project is deployed and accessible at [FVN.li](https://fvn.li).
 
 ## Features
 
@@ -86,6 +82,7 @@ FVN.li is a web application that tracks, analyzes, and provides insights into ga
 ## Database Structure
 
 The application uses several key models:
+
 - **Game**: Core game information from itch.io
 - **GameVersion**: Tracks different versions of games
 - **Rater**: Users who rate games
@@ -106,6 +103,7 @@ The application can be deployed using Docker in production environments:
    ```
 
 This will start the following containers:
+
 - Web application (Laravel)
 - PostgreSQL database with PgBouncer
 - Redis for caching
@@ -119,6 +117,7 @@ The application includes a Discord bot integration that provides:
 - User subscription management
 
 Bot API endpoints are available at:
+
 - `/api/search` - Search for games
 - `/api/updates` - Get recent game updates
 - `/api/subscribe` - Subscribe to update notifications
@@ -146,7 +145,8 @@ ddev composer test
 
 ## Deployment
 
-The application is deployed at [FVN.li](https://fvn.li). Deployment is handled through GitHub Actions which builds and publishes Docker images to GitHub Container Registry.
+The application is deployed at [FVN.li](https://fvn.li). Deployment is handled through GitHub Actions which builds and
+publishes Docker images to GitHub Container Registry.
 
 ## License
 

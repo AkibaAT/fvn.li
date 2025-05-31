@@ -18,6 +18,7 @@
 Homestead.json
 Homestead.yaml
 auth.json
+li.fvn.psql.gz
 npm-debug.log
 yarn-error.log
 /auth.json
@@ -31,3 +32,7 @@ yarn-error.log
 frankenphp
 frankenphp-worker.php
 .aider*
+
+# Writerside build artifacts
+/Writerside/artifacts/
+/Writerside/.idea/
