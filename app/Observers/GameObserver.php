@@ -53,8 +53,8 @@ class GameObserver
                 $game->clearOptimizedThumbnails();
             }
 
-            // Only process new thumbnail if it exists
-            if ($game->thumb_url) {
+            // Process new thumbnail if it exists, or if we have screenshots as fallback
+            if ($game->thumb_url || ! empty($game->screenshots)) {
                 // Process in background to avoid blocking the main operation
                 dispatch(function () use ($game) {
                     try {
@@ -70,6 +70,29 @@ class GameObserver
                     }
                 })->afterResponse();
             }
+        }
+
+        // Handle screenshot updates - if no thumbnail exists, process screenshots as thumbnail fallback
+        if ($game->wasChanged('screenshots') && ! $game->thumb_url && ! empty($game->screenshots)) {
+            // Clear old thumbnails if they exist
+            if ($game->optimized_thumbnails) {
+                $game->clearOptimizedThumbnails();
+            }
+
+            // Process first screenshot as thumbnail in background
+            dispatch(function () use ($game) {
+                try {
+                    Artisan::call('games:process-thumbnails', [
+                        '--game-id' => $game->id,
+                        '--force' => true,
+                    ]);
+                } catch (Exception $e) {
+                    Log::error('Failed to process screenshot as thumbnail fallback', [
+                        'game_id' => $game->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            })->afterResponse();
         }
 
         // Process any pending associations

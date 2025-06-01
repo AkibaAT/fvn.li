@@ -330,7 +330,7 @@ class Game extends Model
 
         if (isset($game['game'])) {
             $this->initially_published_at = new DateTime($game['game']['published_at']);
-            $this->thumb_url = $game['game']['cover_url'];
+            $this->thumb_url = $game['game']['cover_url'] ?? null;
         }
     }
 
@@ -513,12 +513,54 @@ class Game extends Model
     public function getThumbnailUrl(string $variant = 'default'): ?string
     {
         if (! isset($this->optimized_thumbnails[$variant], $this->optimized_thumbnails[$variant]['path'])) {
-            return $this->thumb_url;
+            // If no optimized thumbnail exists, try the original thumb_url
+            if ($this->thumb_url) {
+                return $this->thumb_url;
+            }
+
+            // Fallback to first screenshot if no thumbnail is available
+            return $this->getFirstScreenshotUrl($variant);
         }
 
         $path = $this->optimized_thumbnails[$variant]['path'];
 
         return asset('storage/' . $path);
+    }
+
+    /**
+     * Get the first screenshot URL as a fallback thumbnail
+     */
+    public function getFirstScreenshotUrl(string $variant = 'default'): ?string
+    {
+        if (empty($this->screenshots) || ! isset($this->screenshots[0])) {
+            return null;
+        }
+
+        $firstScreenshot = $this->screenshots[0];
+
+        // If we have optimized screenshots, use them
+        if (isset($firstScreenshot['optimized'][$variant]['path'])) {
+            return asset('storage/' . $firstScreenshot['optimized'][$variant]['path']);
+        }
+
+        // Fallback to original screenshot URL
+        return $firstScreenshot['url'] ?? null;
+    }
+
+    /**
+     * Check if the game has a thumbnail (either thumb_url or screenshots)
+     */
+    public function hasThumbnail(): bool
+    {
+        return ! empty($this->thumb_url) || ! empty($this->screenshots);
+    }
+
+    /**
+     * Get the effective thumbnail URL (thumb_url or first screenshot)
+     */
+    public function getEffectiveThumbnailUrl(): ?string
+    {
+        return $this->thumb_url ?: ($this->screenshots[0]['url'] ?? null);
     }
 
     /**

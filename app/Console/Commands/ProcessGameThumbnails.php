@@ -43,10 +43,10 @@ class ProcessGameThumbnails extends Command
         {--force : Process thumbnails even if they already exist}
         {--game-id= : ID of the specific game to process}
         {--game-name= : Name (or part of name) of the game(s) to process}
-        {--all : Process all visible games with thumbnails}
+        {--all : Process all visible games with thumbnails or screenshots}
         {--quality=80 : WebP quality (0-100)}';
 
-    protected $description = 'Process and optimize game thumbnails';
+    protected $description = 'Process and optimize game thumbnails (uses first screenshot as fallback if no thumbnail exists)';
 
     public function __construct(
         private readonly Client $httpClient,
@@ -66,7 +66,10 @@ class ProcessGameThumbnails extends Command
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
-                ->whereNotNull('thumb_url');
+                ->where(function ($q) {
+                    $q->whereNotNull('thumb_url')
+                        ->orWhereNotNull('screenshots');
+                });
 
             // Apply game selection filters
             $this->applyGameSelectionFilters($query);
@@ -124,9 +127,22 @@ class ProcessGameThumbnails extends Command
         $quality = (int) $this->option('quality');
         $force = $this->option('force');
 
+        // Determine the source URL for the thumbnail
+        $sourceUrl = $game->getEffectiveThumbnailUrl();
+
+        if (! $sourceUrl) {
+            throw new Exception('No thumbnail or screenshot available for processing');
+        }
+
+        $isUsingScreenshotFallback = ! $game->thumb_url && ! empty($game->screenshots);
+
+        if ($isUsingScreenshotFallback) {
+            $this->info('No thumbnail found, using first screenshot as fallback...');
+        }
+
         // Download the thumbnail
         $this->info('Downloading thumbnail...');
-        $response = $this->httpClient->get($game->thumb_url, [
+        $response = $this->httpClient->get($sourceUrl, [
             'timeout' => 30,
             'connect_timeout' => 10,
             'verify' => false,
@@ -150,7 +166,7 @@ class ProcessGameThumbnails extends Command
         }
 
         // Generate a unique filename with content checksum
-        $baseFilename = $this->generateThumbnailFilename($game, $content);
+        $baseFilename = $this->generateThumbnailFilename($game, $content, $sourceUrl);
 
         // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'thumb_');
@@ -248,7 +264,7 @@ class ProcessGameThumbnails extends Command
     /**
      * Generate a unique filename for a game's thumbnail
      */
-    private function generateThumbnailFilename(Game $game, string $fileContent): string
+    private function generateThumbnailFilename(Game $game, string $fileContent, string $sourceUrl): string
     {
         // Generate a checksum of the file content to ensure cache invalidation when the image changes
         $contentChecksum = substr(md5($fileContent), 0, 8);
@@ -256,7 +272,7 @@ class ProcessGameThumbnails extends Command
         return sprintf(
             '%d_%s_%s',
             $game->id,
-            substr(md5($game->thumb_url), 0, 8),
+            substr(md5($sourceUrl), 0, 8),
             $contentChecksum
         );
     }
