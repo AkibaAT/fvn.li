@@ -126,9 +126,20 @@ class CharacterStatsCalculationService
     {
         Log::info("Calculating character stats for version {$versionId}");
 
+        // Check for any dialogue lines with null character_id and warn about them
+        $nullCharacterCount = DialogueLine::where('game_version_id', $versionId)
+            ->whereNull('character_id')
+            ->count();
+
+        if ($nullCharacterCount > 0) {
+            Log::warning("Found {$nullCharacterCount} dialogue lines with null character_id for version {$versionId}. These will be skipped during stats calculation. Consider running fix:characters command to resolve this.");
+        }
+
         // Get all dialogue lines for this version grouped by character and language
         // Use sophisticated SQL that matches Python's text.split() behavior
+        // Filter out any dialogue lines with null character_id to prevent constraint violations
         $dialogueStats = DialogueLine::where('game_version_id', $versionId)
+            ->whereNotNull('character_id')
             ->join('unique_dialogue_texts', 'version_dialogue_lines.text_id', '=', 'unique_dialogue_texts.id')
             ->select('character_id', 'iso_code')
             ->selectRaw('COUNT(*) as blocks')

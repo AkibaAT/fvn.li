@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 class CharacterNullAssignmentService
 {
+    public function __construct(
+        private readonly EssentialCharacterService $essentialCharacterService
+    ) {}
+
     /**
      * Fix NULL character assignments by creating narrator characters and assigning them
      */
@@ -83,16 +87,8 @@ class CharacterNullAssignmentService
                 continue;
             }
 
-            // Get or create narrator character for this game
-            $narratorCharacter = Character::firstOrCreate(
-                [
-                    'game_id' => $currentGameId,
-                    'character_id' => 'narrator',
-                ],
-                [
-                    'display_names' => ['eng' => 'Narrator'],
-                ]
-            );
+            // Get or create narrator character using the centralized service
+            $narratorCharacter = $this->essentialCharacterService->getOrCreateNarratorCharacter($currentGameId);
 
             if ($narratorCharacter->wasRecentlyCreated) {
                 $narratorCharactersCreated++;

@@ -33,13 +33,16 @@ readonly class GameStatsService
 {
     private LanguageMappingService $languageMappingService;
     private CharacterStatsCalculationService $characterStatsService;
+    private EssentialCharacterService $essentialCharacterService;
 
     public function __construct(
         ?LanguageMappingService $languageMappingService = null,
-        ?CharacterStatsCalculationService $characterStatsService = null
+        ?CharacterStatsCalculationService $characterStatsService = null,
+        ?EssentialCharacterService $essentialCharacterService = null
     ) {
         $this->languageMappingService = $languageMappingService ?? app(LanguageMappingService::class);
         $this->characterStatsService = $characterStatsService ?? app(CharacterStatsCalculationService::class);
+        $this->essentialCharacterService = $essentialCharacterService ?? app(EssentialCharacterService::class);
     }
 
     /**
@@ -218,6 +221,13 @@ readonly class GameStatsService
                 }
             }
 
+            // Create essential characters with all found languages before processing dialogue lines
+            $this->essentialCharacterService->createEssentialCharactersWithLanguages(
+                $version->game_id,
+                $foundLanguages,
+                $defaultLanguage
+            );
+
             // Update supported languages for this version
             // First, add all languages found in the stats
             foreach ($foundLanguages as $isoCode) {
@@ -247,7 +257,7 @@ readonly class GameStatsService
 
             // Process dialogue lines
             if (isset($stats['dialogue_lines'])) {
-                $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game);
+                $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game, $foundLanguages);
 
                 // Apply special character assignment fixes after importing dialogue lines
                 $this->applySpecialCharacterAssignments($version);
@@ -271,21 +281,21 @@ readonly class GameStatsService
         GameVersion $version,
         array $dialogueLines,
         string $defaultLanguage = 'eng',
-        ?Game $game = null
+        ?Game $game = null,
+        array $foundLanguages = []
     ): void {
         // First, delete any existing dialogue lines for this version
         DialogueLine::where('game_version_id', $version->id)->delete();
 
-        // Ensure the special menu_choice character exists for this game
-        $menuChoiceCharacter = Character::firstOrCreate(
-            [
-                'game_id' => $version->game_id,
-                'character_id' => 'menu_choice',
-            ],
-            [
-                'display_names' => ['eng' => 'Menu Choice', $defaultLanguage => 'Menu Choice'],
-            ]
-        );
+        // Get the essential characters that were already created with all languages
+        $menuChoiceCharacter = $this->essentialCharacterService->getOrCreateMenuChoiceCharacter($version->game_id);
+        $narratorCharacter = $this->essentialCharacterService->getOrCreateNarratorCharacter($version->game_id);
+
+        // Create an in-memory cache for characters to avoid repeated database lookups
+        $characterCache = [
+            'menu_choice' => $menuChoiceCharacter->id,
+            'narrator' => $narratorCharacter->id,
+        ];
 
         // Process each language
         foreach ($dialogueLines as $langKey => $lines) {
@@ -357,35 +367,21 @@ readonly class GameStatsService
                         continue;
                     }
 
-                    // Initialize character_id
-                    $characterId = null;
+                    // Get character ID with caching to avoid repeated database lookups
+                    $characterName = empty($line['character']) ? 'narrator' : $line['character'];
 
-                    // Special handling for menu_choice
-                    if (! empty($line['character']) && $line['character'] === 'menu_choice') {
-                        $characterId = $menuChoiceCharacter->id;
-                    }
-                    // Normal character handling (including narrator)
-                    elseif (! empty($line['character'])) {
-                        // Fixed: Provide default values for character creation to avoid NOT NULL violation
-                        $character = Character::firstOrCreate(
-                            [
-                                'game_id' => $version->game_id,
-                                'character_id' => $line['character'],
-                            ],
-                            [
-                                // Set a default display_names value to satisfy NOT NULL constraint
-                                'display_names' => [$isoCode => $line['character']],
-                            ]
+                    if (isset($characterCache[$characterName])) {
+                        // Use cached character ID
+                        $characterId = $characterCache[$characterName];
+                    } else {
+                        // Create character and cache it
+                        $character = $this->createCharacter(
+                            $version->game_id,
+                            $characterName,
+                            $foundLanguages,
+                            $defaultLanguage
                         );
-
-                        // Ensure display_names has the current language if it's a new key
-                        if (! isset($character->display_names[$isoCode])) {
-                            $displayNames = $character->display_names;
-                            $displayNames[$isoCode] = $line['character'];
-                            $character->display_names = $displayNames;
-                            $character->save();
-                        }
-
+                        $characterCache[$characterName] = $character->id;
                         $characterId = $character->id;
                     }
 
@@ -438,6 +434,77 @@ readonly class GameStatsService
 
         // Log completion
         Log::info("Finished saving dialogue lines for game version {$version->id}");
+    }
+
+    /**
+     * Create or get a character with proper multi-language support
+     * This is the single function that handles all character creation logic
+     */
+    protected function createCharacter(
+        int $gameId,
+        string $characterId,
+        array $foundLanguages,
+        string $defaultLanguage
+    ): Character {
+        $character = Character::firstOrNew([
+            'game_id' => $gameId,
+            'character_id' => $characterId,
+        ]);
+
+        if (! $character->exists) {
+            // New character: create with all languages
+            $displayNames = [];
+
+            // Add display name for all found languages
+            foreach ($foundLanguages as $langCode) {
+                $displayNames[$langCode] = $characterId;
+            }
+
+            // Ensure English is always included
+            if (! in_array('eng', $foundLanguages)) {
+                $displayNames['eng'] = $characterId;
+            }
+
+            // Ensure default language is always included
+            if ($defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages)) {
+                $displayNames[$defaultLanguage] = $characterId;
+            }
+
+            $character->display_names = $displayNames;
+            $character->save();
+        } else {
+            // Existing character: only add missing languages (preserves JSON display names)
+            $displayNames = $character->display_names ?? [];
+            $needsUpdate = false;
+
+            // Add display name for all found languages if not already set
+            foreach ($foundLanguages as $langCode) {
+                if (! isset($displayNames[$langCode])) {
+                    $displayNames[$langCode] = $characterId;
+                    $needsUpdate = true;
+                }
+            }
+
+            // Ensure English is always included
+            if (! isset($displayNames['eng']) && ! in_array('eng', $foundLanguages)) {
+                $displayNames['eng'] = $characterId;
+                $needsUpdate = true;
+            }
+
+            // Ensure default language is always included
+            if (! isset($displayNames[$defaultLanguage]) && $defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages)) {
+                $displayNames[$defaultLanguage] = $characterId;
+                $needsUpdate = true;
+            }
+
+            // Only save if we made changes
+            if ($needsUpdate) {
+                $character->display_names = $displayNames;
+                $character->save();
+            }
+        }
+
+        return $character;
     }
 
     /**

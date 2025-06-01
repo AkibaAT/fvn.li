@@ -24,6 +24,10 @@ class CharacterSpecialAssignmentService
      */
     private const array ALL_SPECIAL_CHARACTERS = ['extend', 'centered', 'vcentered', 'nvl_narrator', 'wait'];
 
+    public function __construct(
+        private readonly EssentialCharacterService $essentialCharacterService
+    ) {}
+
     /**
      * Fix special character assignments by reassigning them appropriately
      */
@@ -143,7 +147,7 @@ class CharacterSpecialAssignmentService
                 ->orderBy('line_number', 'desc')
                 ->first(['character_id']);
 
-            if ($previousLine && $previousLine->character_id !== $specialCharacterId) {
+            if ($previousLine && $previousLine->character_id !== $specialCharacterId && $previousLine->character_id !== null) {
                 if ($dryRun) {
                     Log::info("Would reassign {$characterName} line {$specialLine->id} to character {$previousLine->character_id}");
                 } else {
@@ -157,8 +161,8 @@ class CharacterSpecialAssignmentService
 
                 $linesReassigned++;
             } else {
-                // No valid previous line found - assign to narrator instead
-                Log::warning("No valid previous line found for {$characterName} line {$specialLine->id}, assigning to narrator");
+                // No valid previous line found or previous line has null character_id - assign to narrator instead
+                Log::warning("No valid previous line found for {$characterName} line {$specialLine->id} (previous character_id: " . ($previousLine->character_id ?? 'null') . '), assigning to narrator');
                 $linesReassigned += $this->reassignToNarrator([$specialLine], $versionId, $characterName, $specialCharacterId, $dryRun);
             }
         }
@@ -173,30 +177,14 @@ class CharacterSpecialAssignmentService
     {
         $linesReassigned = 0;
 
-        // Get the narrator character for this game
+        // Get the game ID and narrator character using the centralized service
         $gameId = DB::table('game_versions')->where('id', $versionId)->value('game_id');
-        $narratorCharacter = DB::table('characters')
-            ->where('game_id', $gameId)
-            ->where('character_id', 'narrator')
-            ->first();
 
-        if (! $narratorCharacter) {
-            // Create a narrator character if it doesn't exist
-            if ($dryRun) {
-                Log::info("Would create narrator character for game {$gameId}");
-                // For dry run, we'll simulate having a narrator character
-                $narratorCharacterId = 999999; // Fake ID for dry run
-            } else {
-                $narratorCharacterId = DB::table('characters')->insertGetId([
-                    'game_id' => $gameId,
-                    'character_id' => 'narrator',
-                    'display_names' => json_encode(['narrator']),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-                Log::info("Created narrator character {$narratorCharacterId} for game {$gameId}");
-            }
+        if ($dryRun) {
+            // For dry run, we'll simulate having a narrator character
+            $narratorCharacterId = 999999; // Fake ID for dry run
         } else {
+            $narratorCharacter = $this->essentialCharacterService->getOrCreateNarratorCharacter($gameId);
             $narratorCharacterId = $narratorCharacter->id;
         }
 
