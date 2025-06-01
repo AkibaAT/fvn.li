@@ -17,12 +17,12 @@ class CharacterSpecialAssignmentService
     /**
      * Special characters that need to be reassigned to narrator
      */
-    private const array NARRATOR_CHARACTERS = ['centered', 'vcentered', 'nvl_narrator', 'menu_choice', 'wait'];
+    private const array NARRATOR_CHARACTERS = ['centered', 'vcentered', 'nvl_narrator', 'wait'];
 
     /**
      * All special characters that need processing
      */
-    private const array ALL_SPECIAL_CHARACTERS = ['extend', 'centered', 'vcentered', 'nvl_narrator', 'menu_choice', 'wait'];
+    private const array ALL_SPECIAL_CHARACTERS = ['extend', 'centered', 'vcentered', 'nvl_narrator', 'wait'];
 
     /**
      * Fix special character assignments by reassigning them appropriately

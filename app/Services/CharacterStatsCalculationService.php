@@ -333,8 +333,8 @@ class CharacterStatsCalculationService
             $q->where('characters.character_id', 'narrator')
                 ->orWhere('version_character_stats.blocks', 0)
                 ->orWhere('version_character_stats.words', 0)
-                // Include all special characters that might need recalculation
-                ->orWhereIn('characters.character_id', ['extend', 'centered', 'vcentered', 'nvl_narrator', 'menu_choice', 'wait']);
+                // Include all special characters that might need recalculation (excluding menu_choice)
+                ->orWhereIn('characters.character_id', ['extend', 'centered', 'vcentered', 'nvl_narrator', 'wait']);
         });
 
         return $query->select('version_character_stats.*')->get();

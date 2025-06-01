@@ -220,7 +220,7 @@ init 10000 python:
                 else:
                     # Fallback to narrator if no previous character
                     return "narrator", False
-            elif character_id in ["centered", "vcentered", "nvl_narrator", "menu_choice", "wait"]:
+            elif character_id in ["centered", "vcentered", "nvl_narrator", "wait"]:
                 # These special characters should be treated as narrator
                 return "narrator", False
             else:
@@ -235,44 +235,45 @@ init 10000 python:
                 for lang in ['default'] + list(known_languages):
                     current_context[lang] = node.name
 
-            # Older versions (without TranslateSay)
-            if (not has_translate_say and isinstance(node, renpy.ast.Translate) and
-                    len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say)):
+            # Older versions (without TranslateSay) - handle both Say and Menu blocks
+            if (not has_translate_say and isinstance(node, renpy.ast.Translate)):
                 lang = node.language or "default"
-                say = node.block[0]
-                all_lang_stats[lang]["filestats"][say.filename].add(say.what)
 
-                # Clean the text before adding to dialogue lines
-                cleaned_text = clean_text(say.what)
-                # Clean the character id if it exists
-                character_id = clean_text(say.who) if say.who else "narrator"
+                # Handle Say statements in translate blocks
+                if (len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say)):
+                    say = node.block[0]
+                    all_lang_stats[lang]["filestats"][say.filename].add(say.what)
 
-                # Handle special Ren'Py characters
-                character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
+                    # Clean the text before adding to dialogue lines
+                    cleaned_text = clean_text(say.what)
+                    # Clean the character id if it exists
+                    character_id = clean_text(say.who) if say.who else "narrator"
 
-                # Update last character for this language (only for non-special characters)
-                if should_update_last:
-                    last_character[lang] = character_id
+                    # Handle special Ren'Py characters
+                    character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
 
-                # Try to rescue broken game lines
-                if len(character_id) > 50:
-                    cleaned_text = character_id + " " + cleaned_text
-                    character_id = "narrator"
+                    # Update last character for this language (only for non-special characters)
+                    if should_update_last:
+                        last_character[lang] = character_id
 
-                # Add to dialogue lines
-                dialogue_lines[lang].append({
-                    "character": character_id,
-                    "text": cleaned_text,
-                    "file": say.filename,
-                    "line": getattr(say, "linenumber", 0),
-                    "context": current_context.get(lang, "")
-                })
+                    # Try to rescue broken game lines
+                    if len(character_id) > 50:
+                        cleaned_text = character_id + " " + cleaned_text
+                        character_id = "narrator"
 
-                if say.who and say.who in defined_characters:
-                    all_lang_stats[lang]["characters"][say.who].add(say.what)
-                else:
-                    all_lang_stats[lang]["characters"]["narrator"].add(say.what)
+                    # Add to dialogue lines
+                    dialogue_lines[lang].append({
+                        "character": character_id,
+                        "text": cleaned_text,
+                        "file": say.filename,
+                        "line": getattr(say, "linenumber", 0),
+                        "context": current_context.get(lang, "")
+                    })
 
+                    if say.who and say.who in defined_characters:
+                        all_lang_stats[lang]["characters"][say.who].add(say.what)
+                    else:
+                        all_lang_stats[lang]["characters"]["narrator"].add(say.what)
             elif has_translate_say and isinstance(node, renpy.ast.Say):
                 if isinstance(node, renpy.ast.TranslateSay) and node.language:
                     lang = node.language
@@ -313,23 +314,54 @@ init 10000 python:
                 else:
                     all_lang_stats[lang]["characters"]["narrator"].add(node.what)
             elif isinstance(node, renpy.ast.Menu):
-                all_lang_stats["default"]["menu_count"] += 1
+                # Count menus for all languages (they're the same count)
+                for lang in ['default'] + list(known_languages):
+                    all_lang_stats[lang]["menu_count"] += 1
+
                 for l, c, b in node.items:
-                    all_lang_stats["default"]["options_count"] += 1
-                    # Also track menu choices as dialogue
-                    if l:  # Only add non-empty choices
-                        # Clean the text before adding
-                        cleaned_text = clean_text(l)
-                        # Resolve menu_choice character using our function
-                        character_id, _ = resolve_special_character("menu_choice", "default", last_character)
+                    if l:  # Only process non-empty choices
+                        # Count options for all languages
+                        for lang in ['default'] + list(known_languages):
+                            all_lang_stats[lang]["options_count"] += 1
+
+                        # Clean the original text
+                        original_text = clean_text(l)
+                        character_id = "menu_choice"
+
+                        # Add menu choice for default language
                         dialogue_lines["default"].append({
                             "character": character_id,
-                            "text": cleaned_text,
+                            "text": original_text,
                             "file": node.filename,
                             "line": getattr(node, "linenumber", 0),
                             "context": current_context.get("default", "")
                         })
+                        all_lang_stats["default"]["characters"]["menu_choice"].add(l)
 
+                        # Add translated menu choices for each language
+                        for lang in known_languages:
+                            translated_text = translate_string(l, lang)
+                            if translated_text and translated_text != l:
+                                # Use translated text if it's different from original
+                                cleaned_translated_text = clean_text(translated_text)
+                                dialogue_lines[lang].append({
+                                    "character": character_id,
+                                    "text": cleaned_translated_text,
+                                    "file": node.filename,
+                                    "line": getattr(node, "linenumber", 0),
+                                    "context": current_context.get(lang, "")
+                                })
+                                all_lang_stats[lang]["characters"]["menu_choice"].add(translated_text)
+                            else:
+                                # Use original text if no translation available
+                                dialogue_lines[lang].append({
+                                    "character": character_id,
+                                    "text": original_text,
+                                    "file": node.filename,
+                                    "line": getattr(node, "linenumber", 0),
+                                    "context": current_context.get(lang, "")
+                                })
+                                all_lang_stats[lang]["characters"]["menu_choice"].add(l)
         collect_file_statistics()
         report_stats()
 
@@ -379,8 +411,12 @@ init 10000 python:
             }
 
             for char_var, char_count in data["characters"].items():
-                display_name = (defined_characters.get(char_var, {}).get(lang)
-                                if char_var != "narrator" else "Narrator")
+                if char_var == "narrator":
+                    display_name = "Narrator"
+                elif char_var == "menu_choice":
+                    display_name = "Menu Choice"
+                else:
+                    display_name = defined_characters.get(char_var, {}).get(lang)
                 char_info = {
                     "display_name": ensure_unicode(display_name) if display_name else None,
                     "blocks": char_count.blocks,
