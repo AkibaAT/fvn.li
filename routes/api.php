@@ -44,7 +44,8 @@ Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
 });
 
 // Push notification subscription routes
-Route::middleware('web')->group(function () {
+Route::middleware(['web', 'auth'])->group(function () {
     Route::post('push-subscriptions', [PushSubscriptionController::class, 'store']);
+    Route::post('push-subscriptions/verify', [PushSubscriptionController::class, 'verify']);
     Route::delete('push-subscriptions', [PushSubscriptionController::class, 'destroy']);
 });

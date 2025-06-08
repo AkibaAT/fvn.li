@@ -77,6 +77,29 @@ class PushSubscriptionController extends Controller
     }
 
     /**
+     * Verify if a push subscription exists on the server
+     */
+    public function verify(Request $request): JsonResponse
+    {
+        $request->validate([
+            'endpoint' => 'required|string',
+        ]);
+
+        $user = Auth::user();
+
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        // Check if subscription exists for this user
+        $exists = PushSubscription::where('user_id', $user->id)
+            ->where('endpoint', $request->input('endpoint'))
+            ->exists();
+
+        return response()->json(['exists' => $exists]);
+    }
+
+    /**
      * Delete a push subscription
      */
     public function destroy(Request $request): JsonResponse

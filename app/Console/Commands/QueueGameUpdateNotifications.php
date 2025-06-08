@@ -63,6 +63,7 @@ class QueueGameUpdateNotifications extends Command
                 $query->where('published_at', '>=', $latestDate)
                     ->where('is_latest', true);
             })
+                ->where('is_paid', false) // Only include free games
                 ->with(['latestVersion'])
                 ->limit($limit)
                 ->get();
@@ -91,26 +92,49 @@ class QueueGameUpdateNotifications extends Command
                     // For each notification channel they have enabled
                     $channelsToNotify = [];
 
+                    // Only add browser channel if user has browser notifications enabled
                     if ((bool) $user->browser_notifications_enabled) {
                         $channelsToNotify[] = 'browser';
                     }
 
+                    // Only add discord channel if user has discord notifications enabled AND has a Discord account
                     if ((bool) $user->discord_notifications_enabled) {
-                        $channelsToNotify[] = 'discord';
+                        // Check if user actually has a Discord social account
+                        $hasDiscordAccount = DB::table('social_accounts')
+                            ->where('user_id', $user->user_id)
+                            ->where('provider_name', 'discord')
+                            ->exists();
+
+                        if ($hasDiscordAccount) {
+                            $channelsToNotify[] = 'discord';
+                        }
                     }
 
                     // Add more channels here as needed
 
                     foreach ($channelsToNotify as $channel) {
-                        $this->queueNotification(
-                            $user->user_id,
-                            $game->id,
-                            $game->latestVersion->id,
-                            $channel,
-                            $user->notification_digest,
-                            $game
-                        );
-                        $notificationCount++;
+                        // Database unique constraint will prevent duplicates more reliably
+                        // than application-level checks, so we can remove the explicit check
+                        try {
+                            $this->queueNotification(
+                                $user->user_id,
+                                $game->id,
+                                $game->latestVersion->id,
+                                $channel,
+                                $user->notification_digest,
+                                $game
+                            );
+                            $notificationCount++;
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // If this is a duplicate key violation, just skip it silently
+                            if (str_contains($e->getMessage(), 'notification_queue_unique_constraint')) {
+                                $this->info("Notification already queued for user {$user->user_id}, game {$game->name}, channel {$channel}");
+
+                                continue;
+                            }
+                            // Re-throw other database exceptions
+                            throw $e;
+                        }
                     }
                 }
             }
@@ -132,31 +156,38 @@ class QueueGameUpdateNotifications extends Command
 
     /**
      * Get users who should be notified about a game update.
+     *
+     * IMPORTANT: This method was fixed to handle users who enable notifications
+     * without adding games to their reading lists. Previously, it required users
+     * to have the game in a VN list, but users can enable notifications independently
+     * via the notification toggle on game pages.
      */
     protected function getUsersToNotify(int $gameId, int $gameVersionId): array
     {
-        // Get all users who have the game in their list and have receive_updates=true in user_game_progress
-        return DB::table('vn_list_entries')
+        // Get all users who have receive_updates=true for this game in user_game_progress
+        // This includes users who enabled notifications without adding the game to a list
+        return DB::table('user_game_progress')
             ->select([
                 'users.id as user_id',
                 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled',
                 'user_notification_preferences.notification_digest',
             ])
-            ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
-            ->join('users', 'vn_lists.user_id', '=', 'users.id')
+            ->join('users', 'user_game_progress.user_id', '=', 'users.id')
             ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
-            ->join('user_game_progress', function ($join) use ($gameId) {
-                $join->on('user_game_progress.user_id', '=', 'users.id')
-                    ->where('user_game_progress.game_id', '=', $gameId)
-                    ->where('user_game_progress.receive_updates', '=', true);
-            })
             ->leftJoin('notification_history', function ($join) use ($gameId, $gameVersionId) {
                 $join->on('notification_history.user_id', '=', 'users.id')
                     ->where('notification_history.game_id', '=', $gameId)
                     ->where('notification_history.game_version_id', '=', $gameVersionId);
             })
+            ->where('user_game_progress.game_id', '=', $gameId)
+            ->where('user_game_progress.receive_updates', '=', true)
             ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
+            // Ensure user has at least one notification channel enabled
+            ->where(function ($query) {
+                $query->where('user_notification_preferences.browser_notifications_enabled', '=', true)
+                    ->orWhere('user_notification_preferences.discord_notifications_enabled', '=', true);
+            })
             ->groupBy('users.id', 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled', 'user_notification_preferences.notification_digest')
             ->get()

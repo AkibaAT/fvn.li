@@ -35,9 +35,10 @@ class UserNotificationsController extends Controller
         $gameVersionId = $request->input('game_version_id');
         $notificationType = $request->input('notification_type');
 
-        // Get users who have this game in their lists with receive_updates=true
+        // Get users who have receive_updates=true for this game in user_game_progress
+        // This includes users who enabled notifications without adding the game to a list
         $query = User::query()
-            ->whereHas('vnLists.entries', function ($query) use ($gameId) {
+            ->whereHas('gameProgress', function ($query) use ($gameId) {
                 $query->where('game_id', $gameId)
                     ->where('receive_updates', true);
             });

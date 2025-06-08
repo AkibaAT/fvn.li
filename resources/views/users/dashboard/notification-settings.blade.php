@@ -145,7 +145,8 @@
                 this.checkPermissionStatus();
                 // Initialize the toggle state based on both permission and stored preference
                 if (Notification.permission === 'granted') {
-                    this.browserNotificationsEnabled = this.$wire.browserNotificationsEnabled;
+                    // Check if we actually have a valid push subscription
+                    this.verifyPushSubscription();
                 } else {
                     this.browserNotificationsEnabled = false;
                     if (this.$wire.browserNotificationsEnabled) {
@@ -157,7 +158,10 @@
             },
 
             checkPermissionStatus() {
+                console.log('Checking permission status...');
+
                 if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+                    console.log('Push notifications not supported');
                     this.buttonText = 'Not Supported';
                     this.buttonDisabled = true;
                     this.buttonClass = 'bg-gray-600 cursor-not-allowed';
@@ -167,19 +171,19 @@
                 }
 
                 const permission = Notification.permission;
+                console.log('Browser permission:', permission);
 
                 if (permission === 'granted') {
                     this.permissionGranted = true;
-                    this.buttonText = 'Permission Granted';
-                    this.buttonDisabled = true;
-                    this.buttonClass = 'bg-green-600 hover:bg-green-700 cursor-not-allowed';
-                    // Don't override browserNotificationsEnabled here as it's set in init()
+                    // Don't set button text here - will be set by verifyPushSubscription
+                    console.log('Permission granted, will verify subscription');
                 } else if (permission === 'denied') {
                     this.permissionGranted = false;
                     this.buttonText = 'Permission Blocked';
                     this.buttonDisabled = true;
                     this.buttonClass = 'bg-red-600 hover:bg-red-700 cursor-not-allowed';
                     this.browserNotificationsEnabled = false;
+                    console.log('Permission denied');
                 } else {
                     // permission === 'default' (not yet requested)
                     this.permissionGranted = false;
@@ -187,18 +191,115 @@
                     this.buttonDisabled = false;
                     this.buttonClass = 'bg-indigo-600 hover:bg-indigo-700';
                     this.browserNotificationsEnabled = false;
+                    console.log('Permission not yet requested');
+                }
+            },
+
+            async verifyPushSubscription() {
+                try {
+                    console.log('Verifying push subscription...');
+
+                    // Check if we have a service worker registration
+                    if (!('serviceWorker' in navigator)) {
+                        throw new Error('Service Worker not supported');
+                    }
+
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (!registration) {
+                        throw new Error('No service worker registration found');
+                    }
+
+                    // Check if we have a push subscription
+                    const subscription = await registration.pushManager.getSubscription();
+                    console.log('Current subscription:', subscription);
+
+                    if (subscription) {
+                        console.log('Browser has subscription, checking database state...');
+
+                        // If browser notifications are disabled in the database,
+                        // it means the subscription doesn't exist on the server
+                        if (!this.$wire.browserNotificationsEnabled) {
+                            console.log('Database shows notifications disabled, auto-saving subscription...');
+
+                            // Automatically save the existing subscription to the database
+                            try {
+                                // Load push notifications module to save the subscription
+                                const module = await import('{{ Vite::asset("resources/js/push-notifications.js") }}');
+                                const pushNotifications = module.default;
+
+                                if (!window.pushNotifications) {
+                                    window.pushNotifications = pushNotifications;
+                                }
+
+                                // Save the existing subscription to the server
+                                await window.pushNotifications.sendSubscriptionToServer(subscription);
+
+                                console.log('Subscription saved successfully');
+                                this.buttonText = 'Permission Granted';
+                                this.buttonDisabled = true;
+                                this.buttonClass = 'bg-green-600 hover:bg-green-700 cursor-not-allowed';
+                                this.browserNotificationsEnabled = true;
+
+                                // Update the server state
+                                this.$wire.set('browserNotificationsEnabled', true);
+                                this.$wire.updateNotificationPreferences();
+
+                            } catch (error) {
+                                console.error('Error saving subscription:', error);
+                                this.buttonText = 'Setup Required';
+                                this.buttonDisabled = false;
+                                this.buttonClass = 'bg-yellow-600 hover:bg-yellow-700';
+                                this.browserNotificationsEnabled = false;
+                            }
+                        } else {
+                            console.log('Database shows notifications enabled, assuming valid subscription');
+                            this.buttonText = 'Permission Granted';
+                            this.buttonDisabled = true;
+                            this.buttonClass = 'bg-green-600 hover:bg-green-700 cursor-not-allowed';
+                            this.browserNotificationsEnabled = this.$wire.browserNotificationsEnabled;
+                        }
+                    } else {
+                        // Permission granted but no subscription - need to re-subscribe
+                        console.log('No subscription found, setup required');
+                        this.buttonText = 'Setup Required';
+                        this.buttonDisabled = false;
+                        this.buttonClass = 'bg-yellow-600 hover:bg-yellow-700';
+                        this.browserNotificationsEnabled = false;
+
+                        // Update server state to reflect that notifications aren't actually working
+                        if (this.$wire.browserNotificationsEnabled) {
+                            console.log('Updating server state to disabled');
+                            this.$wire.set('browserNotificationsEnabled', false);
+                            this.$wire.updateNotificationPreferences();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error verifying push subscription:', error);
+                    this.buttonText = 'Setup Required';
+                    this.buttonDisabled = false;
+                    this.buttonClass = 'bg-yellow-600 hover:bg-yellow-700';
+                    this.browserNotificationsEnabled = false;
+
+                    // Update server state
+                    if (this.$wire.browserNotificationsEnabled) {
+                        console.log('Updating server state to disabled due to error');
+                        this.$wire.set('browserNotificationsEnabled', false);
+                        this.$wire.updateNotificationPreferences();
+                    }
                 }
             },
 
             async requestPermission() {
                 try {
-                    const permission = await Notification.requestPermission();
+                    // If permission is already granted, we just need to set up the subscription
+                    let permission = Notification.permission;
+
+                    if (permission !== 'granted') {
+                        permission = await Notification.requestPermission();
+                    }
 
                     if (permission === 'granted') {
                         this.permissionGranted = true;
-                        this.buttonText = 'Permission Granted';
-                        this.buttonDisabled = true;
-                        this.buttonClass = 'bg-green-600 hover:bg-green-700 cursor-not-allowed';
 
                         // Load and initialize push notifications
                         try {
