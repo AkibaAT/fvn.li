@@ -26,7 +26,8 @@ Route::get('by-url/{url}', function ($url) {
 
 Route::get('/', GameList::class)->name('games.index');
 Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
-Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser');
+Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser')
+    ->where(['gameId' => '[0-9]+', 'versionId' => '[0-9]+']);
 
 Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
 Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
@@ -96,7 +97,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('check-existing', [App\Http\Controllers\AndroidBuildController::class, 'checkExistingBuild'])->name('check-existing');
         Route::post('request', [App\Http\Controllers\AndroidBuildController::class, 'requestBuild'])->name('request');
         Route::post('status', [App\Http\Controllers\AndroidBuildController::class, 'checkStatus'])->name('status');
-        Route::get('download/{buildId}', [App\Http\Controllers\AndroidBuildController::class, 'download'])->name('download');
+        Route::get('download/{buildId}', [App\Http\Controllers\AndroidBuildController::class, 'download'])->name('download')
+            ->where('buildId', '[0-9]+');
     });
 
     Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
@@ -189,7 +191,7 @@ Route::get('reviews/{id}', function ($id) {
     }
 
     return redirect(status: 301)->route('games.show', $game);
-});
+})->where('id', '[0-9]+');
 
 Route::get('api/reviews/{id}', function ($id) {
     $game = Game::find($id);
@@ -198,7 +200,7 @@ Route::get('api/reviews/{id}', function ($id) {
     }
 
     return redirect(status: 301)->route('games.show', $game);
-});
+})->where('id', '[0-9]+');
 
 Route::get('versions/{id}', function ($id) {
     $game = Game::find($id);
@@ -207,7 +209,7 @@ Route::get('versions/{id}', function ($id) {
     }
 
     return redirect(status: 301)->route('games.show', $game);
-});
+})->where('id', '[0-9]+');
 
 // Redirect old users URLs to raters
 Route::get('users/{id}', function ($id) {
@@ -220,7 +222,7 @@ Route::get('users/{id}', function ($id) {
     }
 
     return redirect(status: 301)->route('raters.show', $rater->id);
-});
+})->where('id', '[0-9]+');
 
 Route::get('api/users/{id}', function ($id) {
     $rater = Rater::find($id);
@@ -232,7 +234,7 @@ Route::get('api/users/{id}', function ($id) {
     }
 
     return redirect(status: 301)->route('raters.show', $rater->id);
-});
+})->where('id', '[0-9]+');
 
 // Catch-all route for game slugs (must be last and exclude 'lists' path)
 Route::get('{game:slug}', function ($slug) {
@@ -246,4 +248,4 @@ Route::get('by-game-id/{game:game_id}', function ($gameId) {
     }
 
     return redirect(status: 301)->route('games.show', $slug);
-});
+})->where('game_id', '[0-9]+');
