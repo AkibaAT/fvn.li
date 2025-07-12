@@ -54,3 +54,4 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 // Game reviews API for desktop client
 Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);
+Route::get('game-reviews/paginated', [GameReviewsController::class, 'getPaginatedReviews']);
