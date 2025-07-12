@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\DiscordBotController;
 use App\Http\Controllers\Api\DiscordNotificationsController;
+use App\Http\Controllers\Api\GameReviewsController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -50,3 +51,6 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('push-subscriptions/verify', [PushSubscriptionController::class, 'verify']);
     Route::delete('push-subscriptions', [PushSubscriptionController::class, 'destroy']);
 });
+
+// Game reviews API for desktop client
+Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);

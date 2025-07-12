@@ -1,0 +1,235 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Game;
+use App\Models\Rating;
+use App\Services\ItchAuthService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+
+class GameReviewsController extends Controller
+{
+    public function __construct(
+        private readonly ItchAuthService $itchAuthService
+    ) {}
+
+    /**
+     * Get review data for a game by URL or game ID.
+     * This endpoint is designed for the desktop client to fetch review information.
+     */
+    public function getGameReviews(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'url' => 'nullable|string|url',
+            'game_id' => 'nullable|integer|min:1',
+            'itch_game_id' => 'nullable|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        // Ensure at least one identifier is provided
+        if (!$request->filled('url') && !$request->filled('game_id') && !$request->filled('itch_game_id')) {
+            return response()->json([
+                'error' => 'At least one of url, game_id, or itch_game_id must be provided'
+            ], 422);
+        }
+
+        try {
+            $game = $this->findGame($request);
+            
+            if (!$game) {
+                return response()->json([
+                    'error' => 'Game not found',
+                    'has_reviews' => false,
+                    'review_data' => null
+                ], 404);
+            }
+
+            // Check cache first (6 hour cache)
+            $cacheKey = "game_reviews_{$game->id}";
+            $reviewData = Cache::remember($cacheKey, 6 * 60 * 60, function () use ($game) {
+                return $this->buildReviewData($game);
+            });
+
+            return response()->json([
+                'success' => true,
+                'has_reviews' => $reviewData['total_reviews'] > 0,
+                'review_data' => $reviewData,
+                'game' => [
+                    'id' => $game->id,
+                    'name' => $game->name,
+                    'url' => $game->url,
+                    'slug' => $game->slug,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching game reviews', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Internal server error',
+                'has_reviews' => false,
+                'review_data' => null
+            ], 500);
+        }
+    }
+
+    /**
+     * Find a game based on the provided identifiers.
+     */
+    private function findGame(Request $request): ?Game
+    {
+        // Try by internal game ID first (most direct)
+        if ($request->filled('game_id')) {
+            $game = Game::where('id', $request->input('game_id'))
+                ->where('is_visible', true)
+                ->first();
+            if ($game) {
+                return $game;
+            }
+        }
+
+        // Try by itch.io game ID
+        if ($request->filled('itch_game_id')) {
+            $game = Game::where('game_id', $request->input('itch_game_id'))
+                ->where('is_visible', true)
+                ->first();
+            if ($game) {
+                return $game;
+            }
+        }
+
+        // Try by URL (most complex, handles various URL formats)
+        if ($request->filled('url')) {
+            $url = $request->input('url');
+            
+            // First try direct URL match
+            $game = Game::where('url', $url)
+                ->where('is_visible', true)
+                ->first();
+            if ($game) {
+                return $game;
+            }
+
+            // Try to extract itch.io game ID from URL and find by that
+            try {
+                $itchGameId = $this->itchAuthService->getGameId($url);
+                $game = Game::where('game_id', $itchGameId)
+                    ->where('is_visible', true)
+                    ->first();
+                if ($game) {
+                    return $game;
+                }
+            } catch (\Exception $e) {
+                Log::debug('Could not extract game ID from URL', [
+                    'url' => $url,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            // Try normalized URL matching (similar to AdditionRequest logic)
+            $normalizedUrl = $this->normalizeUrl($url);
+            $game = Game::where('is_visible', true)
+                ->where(function ($query) use ($url, $normalizedUrl) {
+                    $query->where('url', $url)
+                        ->orWhere('url', 'https://' . $normalizedUrl)
+                        ->orWhere('url', 'http://' . $normalizedUrl)
+                        ->orWhere('url', 'https://www.' . $normalizedUrl)
+                        ->orWhere('url', 'http://www.' . $normalizedUrl);
+                })
+                ->first();
+            if ($game) {
+                return $game;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build review data for a game.
+     */
+    private function buildReviewData(Game $game): array
+    {
+        // Get all visible ratings for this game
+        $ratings = Rating::where('game_id', $game->id)
+            ->where('is_visible', true)
+            ->with(['rater:id,name'])
+            ->orderBy('published_at', 'desc')
+            ->get();
+
+        $totalReviews = $ratings->count();
+        
+        if ($totalReviews === 0) {
+            return [
+                'total_reviews' => 0,
+                'average_rating' => null,
+                'rating_distribution' => [],
+                'recent_reviews' => []
+            ];
+        }
+
+        // Calculate average rating
+        $averageRating = round($ratings->avg('rating'), 2);
+
+        // Calculate rating distribution
+        $distribution = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $count = $ratings->where('rating', $i)->count();
+            $distribution[$i] = [
+                'count' => $count,
+                'percentage' => $totalReviews > 0 ? round(($count / $totalReviews) * 100, 1) : 0
+            ];
+        }
+
+        // Get recent reviews (limit to 5 for desktop client)
+        $recentReviews = $ratings->where('is_reviewed', true)
+            ->take(5)
+            ->map(function ($rating) {
+                return [
+                    'id' => $rating->id,
+                    'rating' => $rating->rating,
+                    'review' => $rating->review,
+                    'published_at' => $rating->published_at->toISOString(),
+                    'rater' => [
+                        'id' => $rating->rater->id,
+                        'name' => $rating->rater->name
+                    ]
+                ];
+            })
+            ->values();
+
+        return [
+            'total_reviews' => $totalReviews,
+            'average_rating' => $averageRating,
+            'rating_distribution' => $distribution,
+            'recent_reviews' => $recentReviews
+        ];
+    }
+
+    /**
+     * Normalize a URL for matching (similar to AdditionRequest logic).
+     */
+    private function normalizeUrl(string $url): string
+    {
+        // Remove protocol, www, trailing slashes, and query parameters
+        $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
+        $normalized = rtrim($normalized, '/');
+        $normalized = strtok($normalized, '?'); // Remove query parameters
+
+        return strtolower($normalized);
+    }
+}
