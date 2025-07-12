@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Events\AdditionRequestSubmitted;
+use App\Listeners\SendAdditionRequestDiscordNotification;
 use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Auth\Events\Registered;
@@ -23,6 +25,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         Registered::class => [
             SendEmailVerificationNotification::class,
+        ],
+        AdditionRequestSubmitted::class => [
+            SendAdditionRequestDiscordNotification::class,
         ],
     ];
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdditionRequest;
 use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
 use App\Models\User;
@@ -197,6 +198,66 @@ class DiscordNotificationsController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Error recording Discord notification delivery status', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * Get pending addition request notifications for Discord.
+     * This endpoint is used by the Discord bot to fetch new addition requests that need admin attention.
+     */
+    public function getPendingAdditionRequests(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'integer|min:1|max:50',
+            'since' => 'date|nullable',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        $limit = $request->input('limit', 20);
+        $since = $request->input('since', now()->subHour()); // Default to last hour
+
+        try {
+            // Get pending addition requests created since the specified time
+            $requests = AdditionRequest::with(['users'])
+                ->where('status', AdditionRequest::STATUS_PENDING)
+                ->where('created_at', '>=', $since)
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            $notifications = $requests->map(function ($request) {
+                return [
+                    'id' => $request->id,
+                    'url' => $request->itch_url,
+                    'created_at' => $request->created_at->toISOString(),
+                    'user_count' => $request->users->count(),
+                    'users' => $request->users->map(function ($user) {
+                        return [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'requested_at' => $user->pivot->created_at->toISOString(),
+                        ];
+                    })->toArray(),
+                ];
+            });
+
+            return response()->json([
+                'notifications' => $notifications,
+                'count' => $notifications->count(),
+                'since' => $since,
+                'admin_panel_url' => config('app.url') . '/admin/addition-requests',
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching pending addition requests for Discord', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

@@ -6,6 +6,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -93,6 +94,16 @@ class User extends Authenticatable
     public function pushSubscriptions(): HasMany
     {
         return $this->hasMany(PushSubscription::class);
+    }
+
+    /**
+     * Get the user's addition requests.
+     */
+    public function additionRequests(): BelongsToMany
+    {
+        return $this->belongsToMany(AdditionRequest::class, 'addition_request_users')
+            ->withTimestamps()
+            ->orderBy('addition_request_users.created_at', 'desc');
     }
 
     /**

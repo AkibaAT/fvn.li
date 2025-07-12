@@ -54,6 +54,16 @@
             <div class="lg:mt-9">
                 <livewire:notification-settings />
             </div>
+
+            <!-- Addition Request Form Section -->
+            <div class="lg:mt-9">
+                <livewire:addition-request-form />
+            </div>
+
+            <!-- User Addition Requests Section -->
+            <div class="lg:mt-9">
+                <livewire:user-addition-requests />
+            </div>
         </div>
 
         <!-- Right Column - Account Connections -->
