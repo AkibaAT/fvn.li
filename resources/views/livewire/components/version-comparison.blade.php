@@ -1,1 +1,3 @@
-@include('games.components.version-comparison-dialog') 
+<div>
+    @include('games.components.version-comparison-dialog')
+</div>
