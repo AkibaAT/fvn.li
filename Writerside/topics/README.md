@@ -31,8 +31,8 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 - [Docker](https://www.docker.com/get-started)
 - [DDEV](https://ddev.readthedocs.io/en/stable/)
 - [Composer](https://getcomposer.org/)
-- [Node.js](https://nodejs.org/) (v18+)
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Node.js](https://nodejs.org/) (v22+)
+- [npm](https://www.npmjs.com/)
 
 ### Local Development Setup
 
@@ -55,8 +55,6 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 4. Install JavaScript dependencies:
    ```bash
    ddev npm install
-   # or
-   ddev yarn
    ```
 
 5. Copy the environment file and generate an application key:
@@ -72,8 +70,6 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 
 7. Start the development server:
    ```bash
-   ddev artisan serve
-   # In another terminal
    ddev npm run dev
    ```
 
