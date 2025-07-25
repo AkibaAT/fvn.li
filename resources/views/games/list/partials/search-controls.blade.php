@@ -17,7 +17,7 @@
             'filters' => [
                 'icon' => 'heroicon-o-funnel',
                 'modal' => 'filters-modal',
-                'active' => !empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || $nsfw
+                'active' => !empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || $nsfw || $sfw || $showPaid || $showFree || $showDemo || $showSuspended
             ]
         ] as $type => $config)
             <button

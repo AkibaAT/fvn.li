@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console;
 
 use App\Console\Commands\BackfillRatings;
+use App\Console\Commands\CheckSuspendedGames;
 use App\Console\Commands\CleanupGameDownloads;
 use App\Console\Commands\FetchGameJamDetails;
 use App\Console\Commands\FixCharacters;
@@ -28,6 +29,7 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         BackfillRatings::class,
+        CheckSuspendedGames::class,
         CleanupGameDownloads::class,
         FetchGameJamDetails::class,
         FixCharacters::class,

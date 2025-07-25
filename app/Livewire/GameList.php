@@ -59,6 +59,8 @@ class GameList extends Component
 
     public bool $showDemo = false;
 
+    public bool $showSuspended = false;
+
     public bool $showHidden = false;
 
     public string $sortField = 'latest_version_published_at';
@@ -84,6 +86,7 @@ class GameList extends Component
         'showPaid' => ['except' => false],
         'showFree' => ['except' => false],
         'showDemo' => ['except' => false],
+        'showSuspended' => ['except' => false],
         'sortField' => ['except' => 'latest_version_published_at'],
         'sortDirection' => ['except' => 'desc'],
         'perPage' => ['except' => 9],
@@ -201,6 +204,7 @@ class GameList extends Component
         $this->showPaid = false;
         $this->showFree = false;
         $this->showDemo = false;
+        $this->showSuspended = false;
 
         // Dispatch an event to notify Alpine components that filters were cleared
         $this->dispatch('filtersCleared');
@@ -320,6 +324,9 @@ class GameList extends Component
             })
             ->when($this->showDemo, function ($q) {
                 $q->where('games.has_demo', true);
+            })
+            ->when($this->showSuspended, function ($q) {
+                $q->where('games.is_suspended', true);
             });
 
         // Handle sorting

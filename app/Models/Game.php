@@ -57,6 +57,7 @@ class Game extends Model
         'is_on_sale',
         'is_paid',
         'has_demo',
+        'is_suspended',
         'screenshots',
         'blur_screenshots',
     ];
