@@ -651,10 +651,21 @@ class GameJam extends Model
                 ]);
             }
 
+            // Only use the overall ranking if there's actually an "Overall" category in criteria rankings
+            $finalRanking = null;
+            if (! empty($criteriaRankings)) {
+                foreach (array_keys($criteriaRankings) as $criteriaName) {
+                    if (strtolower($criteriaName) === 'overall') {
+                        $finalRanking = $ranking;
+                        break;
+                    }
+                }
+            }
+
             // Store the ranking data for later processing
             $rankingData[] = [
                 'game' => $game,
-                'ranking' => $ranking,
+                'ranking' => $finalRanking,
                 'criteria_rankings' => ! empty($criteriaRankings) ? $criteriaRankings : null,
             ];
         }
