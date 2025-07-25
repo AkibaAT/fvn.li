@@ -55,6 +55,7 @@ class Game extends Model
         'source_language_id',
         'min_price',
         'is_on_sale',
+        'sale_discount_percent',
         'is_paid',
         'has_demo',
         'is_suspended',
@@ -65,7 +66,7 @@ class Game extends Model
 
     protected $with = ['tags'];
 
-    protected $appends = ['tags_list'];
+    protected $appends = ['tags_list', 'current_price', 'original_price', 'discount_percentage'];
 
     protected $casts = [
         'initially_published_at' => 'datetime',
@@ -81,6 +82,7 @@ class Game extends Model
         'is_nsfw' => 'boolean',
         'is_visible' => 'boolean',
         'is_on_sale' => 'boolean',
+        'sale_discount_percent' => 'integer',
         'is_paid' => 'boolean',
         'has_demo' => 'boolean',
         'blur_screenshots' => 'boolean',
@@ -1177,6 +1179,43 @@ class Game extends Model
 
         // Clear the pending list
         $this->pendingTagIds = [];
+    }
+
+    /**
+     * Get the current price (after discount if on sale)
+     */
+    public function getCurrentPriceAttribute(): ?float
+    {
+        if (! $this->is_paid || $this->min_price === null) {
+            return null;
+        }
+
+        if ($this->is_on_sale && $this->sale_discount_percent) {
+            return round($this->min_price * (1 - $this->sale_discount_percent / 100), 2);
+        }
+
+        return $this->min_price;
+    }
+
+    /**
+     * Get the original price (before discount)
+     */
+    public function getOriginalPriceAttribute(): ?float
+    {
+        if (! $this->is_paid || $this->min_price === null) {
+            return null;
+        }
+
+        // min_price always represents the original/base price
+        return $this->min_price;
+    }
+
+    /**
+     * Get the discount percentage (alias for sale_discount_percent)
+     */
+    public function getDiscountPercentageAttribute(): ?int
+    {
+        return $this->sale_discount_percent;
     }
 
     protected function devlog(): Attribute

@@ -104,7 +104,8 @@ class GameResource extends Resource
                             ->helperText('Indicates if this game requires payment to play')
                             ->default(false),
                         TextInput::make('min_price')
-                            ->label('Minimum Price')
+                            ->label('Base Price')
+                            ->helperText('The original price before any discounts')
                             ->prefix('$')
                             ->numeric()
                             ->step(0.01)
@@ -115,6 +116,14 @@ class GameResource extends Resource
                             ->helperText('Indicates if this game is currently discounted')
                             ->default(false)
                             ->visible(fn (callable $get) => $get('is_paid')),
+                        TextInput::make('sale_discount_percent')
+                            ->label('Sale Discount %')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('%')
+                            ->helperText('Discount percentage if on sale')
+                            ->visible(fn (callable $get) => $get('is_paid') && $get('is_on_sale')),
                         Toggle::make('has_demo')
                             ->label('Has Demo')
                             ->helperText('Indicates if a free demo is available')

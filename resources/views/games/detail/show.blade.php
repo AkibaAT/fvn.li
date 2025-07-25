@@ -104,11 +104,11 @@
 
                             @if ($game->is_paid)
                                 <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
-                                    @if ($game->is_on_sale && isset($game->original_price))
+                                    @if ($game->is_on_sale && $game->current_price && $game->original_price)
                                         <span class="line-through text-blue-500 dark:text-blue-400">${{ number_format($game->original_price, 2) }}</span>
-                                        ${{ number_format($game->min_price, 2) }}
+                                        ${{ number_format($game->current_price, 2) }}
                                     @else
-                                        {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                                        {{ $game->current_price > 0 ? '$'.number_format($game->current_price, 2) : 'Paid' }}
                                     @endif
                                 </span>
                             @endif
@@ -212,9 +212,9 @@
                             'Characters' => $versionCharacterCounts[$latestVersion?->id] ?? '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
                             'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
-                            'Price' => $game->is_paid ? ($game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid') : 'Free',
-                            'Original Price' => ($game->is_paid && $game->is_on_sale && isset($game->original_price)) ? '$'.number_format($game->original_price, 2) : null,
-                            'Discount' => ($game->is_on_sale && isset($game->discount_percentage)) ? $game->discount_percentage.'%' : null,
+                            'Price' => $game->is_paid ? ($game->current_price > 0 ? '$'.number_format($game->current_price, 2) : 'Paid') : 'Free',
+                            'Original Price' => ($game->is_paid && $game->is_on_sale && $game->original_price) ? '$'.number_format($game->original_price, 2) : null,
+                            'Discount' => ($game->is_on_sale && $game->discount_percentage) ? $game->discount_percentage.'%' : null,
                         ] as $label => $value)
                             @if ($value)
                                 <div>

@@ -24,11 +24,11 @@
                         @endif
                         @if ($game->is_paid)
                             <div class="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-sm">
-                                @if ($game->is_on_sale && isset($game->original_price))
+                                @if ($game->is_on_sale && $game->current_price && $game->original_price)
                                     <span class="line-through text-blue-200">${{ number_format($game->original_price, 2) }}</span>
-                                    ${{ number_format($game->min_price, 2) }}
+                                    ${{ number_format($game->current_price, 2) }}
                                 @else
-                                    {{ $game->min_price > 0 ? '$'.number_format($game->min_price, 2) : 'Paid' }}
+                                    {{ $game->current_price > 0 ? '$'.number_format($game->current_price, 2) : 'Paid' }}
                                 @endif
                             </div>
                         @endif

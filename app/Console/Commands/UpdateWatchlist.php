@@ -143,9 +143,21 @@ class UpdateWatchlist extends Command
 
         $this->info("Processing game {$gameId}: {$gameData['title']}");
 
-        // Extract price information from the collection page
-        if ($isPaid) {
-            $this->extractPriceFromCollectionData($gameData);
+        // Extract price information from collection data if available
+        if ($isPaid && isset($gameData['min_price'])) {
+            // Convert from cents to dollars
+            $priceInDollars = $gameData['min_price'] / 100;
+
+            // Check for sale status and extract discount percentage
+            $isOnSale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
+                        isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
+            $discountPercent = $isOnSale ? (int) $gameData['sale']['rate'] : null;
+            $saleInfo = '';
+            if ($isOnSale) {
+                $saleInfo = ' (on sale: ' . $discountPercent . '% off)';
+            }
+
+            $this->info('  - Price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
         }
 
         DB::beginTransaction();
@@ -193,10 +205,22 @@ class UpdateWatchlist extends Command
                     $game->updated_at = now();
                 }
 
-                // Update price information if available
-                if ($isPaid && isset($gameData['price'])) {
-                    $game->min_price = $gameData['price'];
-                    $game->is_on_sale = $gameData['is_on_sale'] ?? false;
+                // Update price information from collection data if available
+                if ($isPaid && isset($gameData['min_price'])) {
+                    $priceInDollars = $gameData['min_price'] / 100;
+                    $game->min_price = $priceInDollars;
+
+                    // Check for sale status and store discount percentage
+                    $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
+                                       isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
+                    $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
+
+                    $saleInfo = '';
+                    if ($game->is_on_sale) {
+                        $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
+                    }
+
+                    $this->info('  - Updated price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
                 }
             } else {
                 // Create new game
@@ -212,10 +236,22 @@ class UpdateWatchlist extends Command
                     'is_visible' => true,
                 ]);
 
-                // Set price information if available
-                if ($isPaid && isset($gameData['price'])) {
-                    $game->min_price = $gameData['price'];
-                    $game->is_on_sale = $gameData['is_on_sale'] ?? false;
+                // Set price information from collection data if available
+                if ($isPaid && isset($gameData['min_price'])) {
+                    $priceInDollars = $gameData['min_price'] / 100;
+                    $game->min_price = $priceInDollars;
+
+                    // Check for sale status and store discount percentage
+                    $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
+                                       isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
+                    $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
+
+                    $saleInfo = '';
+                    if ($game->is_on_sale) {
+                        $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
+                    }
+
+                    $this->info('  - Set price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
                 }
 
                 $shouldRefreshVersion = true;
@@ -224,11 +260,7 @@ class UpdateWatchlist extends Command
             // Check if we need to do a full refresh
             $needsFullRefresh = $shouldRefreshVersion;
 
-            // For paid games, we only do a full refresh if:
-            // 1. The game is new (doesn't exist in the database yet)
-            // 2. The game was previously invisible
-            // 3. The game was previously marked as free
-            // 4. The game doesn't have screenshots or a full description
+            // For paid games, check if we need a full refresh for missing data
             if ($isPaid) {
                 $needsFullRefreshForPaid =
                     ! $game->exists ||
@@ -256,7 +288,8 @@ class UpdateWatchlist extends Command
                         $this->info('    - Reason: Missing full description');
                     }
                 } else {
-                    $this->info('  - Skipping full refresh for paid game (already has complete data)');
+                    // Price information is already updated from collection data above
+                    $this->info('  - Skipping metadata refresh (price updated from collection data)');
                 }
             }
 
@@ -330,55 +363,6 @@ class UpdateWatchlist extends Command
                 'exception' => $e,
             ]);
         }
-    }
-
-    /**
-     * Extract price information from the collection data
-     */
-    private function extractPriceFromCollectionData(array &$gameData): void
-    {
-        // If we already have price data, no need to fetch it again
-        if (isset($gameData['price'])) {
-            return;
-        }
-
-        // For now, let's set a default price based on the game title
-        // This is a temporary solution until we can properly extract price information
-        $gameData['price'] = 15.00; // Default price
-        $gameData['is_on_sale'] = false;
-
-        // Try to extract price from the title or URL
-        $title = strtolower($gameData['title']);
-
-        // Check for specific games with known prices
-        if (str_contains($title, 'memory leak')) {
-            $gameData['price'] = 24.89;
-            $gameData['is_on_sale'] = true;
-            $gameData['original_price'] = 29.99;
-        } elseif (str_contains($title, 'notes from the cape, season 3')) {
-            $gameData['price'] = 15.00;
-        } elseif (str_contains($title, 'notes from the cape, season')) {
-            $gameData['price'] = 30.00;
-        } elseif (str_contains($title, 'willy bear beach 2')) {
-            $gameData['price'] = 20.00;
-        } elseif (str_contains($title, 'willy bear beach')) {
-            $gameData['price'] = 15.00;
-        } elseif (str_contains($title, 'my time at etheria')) {
-            $gameData['price'] = 19.99;
-        } elseif (str_contains($title, 'my part time lover')) {
-            $gameData['price'] = 12.99;
-        } elseif (str_contains($title, 'paws & steel')) {
-            $gameData['price'] = 7.99;
-        } elseif (str_contains($title, 'ocean blues')) {
-            $gameData['price'] = 4.99;
-        } elseif (str_contains($title, 'brok')) {
-            $gameData['price'] = 9.99;
-            $gameData['is_on_sale'] = true;
-            $gameData['original_price'] = 19.99;
-        }
-
-        $this->info('  - Using price: $' . number_format($gameData['price'], 2) .
-            ($gameData['is_on_sale'] ? ' (on sale, original: $' . number_format($gameData['original_price'] ?? 0, 2) . ')' : ''));
     }
 
     /**
