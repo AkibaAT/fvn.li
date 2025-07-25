@@ -31,6 +31,12 @@
                         Screenshots
                     </a>
                 @endif
+                @if ($game->hasAdditionalLinks())
+                    <a href="#downloads"
+                       class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                        Downloads
+                    </a>
+                @endif
                 @if ($versions->isNotEmpty())
                     <a href="#versions"
                        class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
@@ -58,9 +64,11 @@
                         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                             {{ $game->name }}
                         </h1>
-                        <a href="{{ $game->url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
-                            Visit Game Page
-                        </a>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <a href="{{ $game->url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                Visit Game Page
+                            </a>
+                        </div>
                     </div>
 
                     <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
@@ -330,6 +338,7 @@
                 @endif
 
 
+
             </div>
         @endif
 
@@ -366,6 +375,103 @@
                                 alt="Screenshot {{ $index + 1 }}"
                                 class="w-full h-auto object-cover {{ $game->blur_screenshots ? 'blur-sm hover:blur-none transition-all duration-300' : '' }}"
                             >
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        {{-- Downloads (Full Width) --}}
+        @if ($game->hasAdditionalLinks())
+            <div id="downloads" class="bg-white dark:bg-gray-800 rounded-lg shadow-xs p-6 mb-6 scroll-mt-14">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+                    Downloads
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    @foreach ($game->additional_links as $link)
+                        <a href="{{ $link['url'] }}" target="_blank"
+                           class="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200 group">
+                            <div class="flex-shrink-0">
+                                @if (!empty($link['platform']))
+                                    @switch($link['platform'])
+                                        @case('windows')
+                                            <div class="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                                                <svg class="h-6 w-6 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.851"/>
+                                                </svg>
+                                            </div>
+                                            @break
+                                        @case('mac')
+                                            <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <svg class="h-6 w-6 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                                                </svg>
+                                            </div>
+                                            @break
+                                        @case('linux')
+                                            <div class="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
+                                                <svg class="h-6 w-6 text-orange-600 dark:text-orange-400" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c-.05-.024-.111-.04-.173-.065-.049-.021-.1-.04-.15-.06-.056-.014-.111-.027-.16-.062a.65.65 0 01-.248-.158.625.625 0 01-.162-.409c0-.021-.003-.042-.003-.063v-.02c0-.283.108-.54.249-.742.14-.202.293-.314.465-.314z"/>
+                                                </svg>
+                                            </div>
+                                            @break
+                                        @case('android')
+                                            <div class="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                                                <svg class="h-6 w-6 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.1185-9.4396"/>
+                                                </svg>
+                                            </div>
+                                            @break
+                                        @case('ios')
+                                            <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <svg class="h-6 w-6 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                                                </svg>
+                                            </div>
+                                            @break
+                                        @case('web')
+                                            <div class="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                                                <svg class="h-6 w-6 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                                                </svg>
+                                            </div>
+                                            @break
+                                        @default
+                                            <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <svg class="h-6 w-6 text-gray-600 dark:text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
+                                                </svg>
+                                            </div>
+                                    @endswitch
+                                @else
+                                    <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                        <svg class="h-6 w-6 text-gray-600 dark:text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
+                                        </svg>
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-1">
+                                    {{ $link['name'] }}
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                    @if (!empty($link['platform']))
+                                        <span class="capitalize font-medium">{{ $link['platform'] }}</span>
+                                    @endif
+                                    @if (!empty($link['last_edited_at']))
+                                        @if (!empty($link['platform']))
+                                            <span>•</span>
+                                        @endif
+                                        <span>Updated {{ \Carbon\Carbon::parse($link['last_edited_at'])->diffForHumans() }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                            </div>
                         </a>
                     @endforeach
                 </div>

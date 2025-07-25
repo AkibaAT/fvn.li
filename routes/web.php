@@ -138,6 +138,13 @@ Route::middleware(['auth'])->group(function () {
     // VN Lists ordering
     Route::post('vn-lists/{vnList}/update-order',
         [App\Http\Controllers\VnListController::class, 'updateOrder'])->name('vn-lists.update-order');
+
+    // User Game Management
+    Route::prefix('user/games')->name('user.games.')->group(function () {
+        Route::get('/', [App\Http\Controllers\UserGameManagementController::class, 'index'])->name('index');
+        Route::get('{game}/edit', [App\Http\Controllers\UserGameManagementController::class, 'edit'])->name('edit');
+        Route::put('{game}', [App\Http\Controllers\UserGameManagementController::class, 'update'])->name('update');
+    });
 });
 
 // Public VN List Routes (no auth required)

@@ -57,6 +57,67 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's itch.io username if they have an itch.io account connected
+     */
+    public function getItchioUsername(): ?string
+    {
+        $itchioAccount = $this->socialAccounts()
+            ->where('provider_name', 'itchio')
+            ->first();
+
+        if (! $itchioAccount || ! $itchioAccount->provider_data) {
+            return null;
+        }
+
+        return $itchioAccount->provider_data['username'] ?? null;
+    }
+
+    /**
+     * Check if this user owns a specific game based on their itch.io namespace
+     */
+    public function ownsGame(Game $game): bool
+    {
+        $username = $this->getItchioUsername();
+
+        if (! $username) {
+            return false;
+        }
+
+        // Check if the game URL belongs to this user's itch.io namespace
+        // Game URLs are typically in format: https://username.itch.io/game-name
+        // Lowercase the username since domain names are case-insensitive
+        $expectedDomain = strtolower("{$username}.itch.io");
+
+        $gameUrl = parse_url($game->url);
+        if (! $gameUrl || ! isset($gameUrl['host'])) {
+            return false;
+        }
+
+        return strtolower($gameUrl['host']) === $expectedDomain;
+    }
+
+    /**
+     * Get all games owned by this user in their itch.io namespace
+     */
+    public function getOwnedGames()
+    {
+        $username = $this->getItchioUsername();
+
+        if (! $username) {
+            return collect();
+        }
+
+        // Lowercase the username since domain names are case-insensitive
+        $expectedDomain = strtolower("{$username}.itch.io");
+
+        return Game::where('url', 'LIKE', "https://{$expectedDomain}/%")
+            ->orWhere('url', 'LIKE', "http://{$expectedDomain}/%")
+            ->where('is_visible', true)
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Get the user's VN lists.
      */
     public function vnLists(): HasMany

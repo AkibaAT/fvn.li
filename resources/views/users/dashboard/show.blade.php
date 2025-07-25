@@ -64,6 +64,61 @@
             <div class="lg:mt-9">
                 <livewire:user-addition-requests />
             </div>
+
+            <!-- Game Management Section -->
+            <div class="lg:mt-9">
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
+                    <div class="p-6">
+                        <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Game Management</h2>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Manage your games published on itch.io. Add additional download links and update game information.
+                        </p>
+
+                        @php
+                            $currentUser = Auth::user();
+                            $itchioUsername = $currentUser->getItchioUsername();
+                            $ownedGames = $itchioUsername ? $currentUser->getOwnedGames() : collect();
+                            $ownedGamesCount = $ownedGames->count();
+                            $gamesWithLinks = $ownedGames->filter(function($game) { return $game->hasAdditionalLinks(); })->count();
+                        @endphp
+
+                        @if ($itchioUsername)
+                            <div class="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-4">
+                                <div class="flex items-center gap-3">
+                                    @include('components.ui.icons.itchio', ['class' => 'h-5 w-5 text-blue-600 dark:text-blue-400'])
+                                    <div>
+                                        <div class="text-sm font-medium text-blue-800 dark:text-blue-300">
+                                            Connected: {{ $itchioUsername }}.itch.io
+                                        </div>
+                                        <div class="text-xs text-blue-600 dark:text-blue-400">
+                                            {{ $ownedGamesCount }} {{ Str::plural('game', $ownedGamesCount) }} found
+                                            @if ($gamesWithLinks > 0)
+                                                • {{ $gamesWithLinks }} with download links
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <div class="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg mb-4">
+                                <div class="flex items-center gap-3">
+                                    @include('components.ui.icons.itchio', ['class' => 'h-5 w-5 text-yellow-600 dark:text-yellow-400'])
+                                    <div class="text-sm text-yellow-800 dark:text-yellow-300">
+                                        Connect your itch.io account to manage your games
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <a href="{{ route('user.games.index') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span>Manage My Games</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Right Column - Account Connections -->

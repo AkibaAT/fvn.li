@@ -58,6 +58,7 @@ class Game extends Model
         'is_paid',
         'has_demo',
         'is_suspended',
+        'additional_links',
         'screenshots',
         'blur_screenshots',
     ];
@@ -87,10 +88,27 @@ class Game extends Model
         'supported_languages' => 'collection',
         'uploads' => 'array',
         'screenshots' => 'array',
+        'additional_links' => 'array',
         'custom_css' => 'string',
         'average_score' => 'float',
         'ratings_count' => 'integer',
     ];
+
+    /**
+     * Get the available platform options for additional links
+     */
+    public static function getAvailablePlatforms(): array
+    {
+        return [
+            'windows' => 'Windows',
+            'mac' => 'Mac',
+            'linux' => 'Linux',
+            'android' => 'Android',
+            'ios' => 'iOS',
+            'web' => 'Web',
+            'other' => 'Other',
+        ];
+    }
 
     public function tags(): BelongsToMany
     {
@@ -286,9 +304,48 @@ class Game extends Model
 
     public function resolveRouteBinding($value, $field = null): Game
     {
+        $field = $field ?: $this->getRouteKeyName();
         $query = $this->where($field, $value);
 
         return $query->firstOrFail();
+    }
+
+    /**
+     * Get additional links sorted by sort_order
+     */
+    public function getAdditionalLinksAttribute($value): array
+    {
+        if (! $value) {
+            return [];
+        }
+
+        $links = is_string($value) ? json_decode($value, true) : $value;
+
+        if (! is_array($links)) {
+            return [];
+        }
+
+        // Sort by sort_order, then by id for consistent ordering
+        usort($links, function ($a, $b) {
+            $orderA = $a['sort_order'] ?? 0;
+            $orderB = $b['sort_order'] ?? 0;
+
+            if ($orderA === $orderB) {
+                return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
+            }
+
+            return $orderA <=> $orderB;
+        });
+
+        return $links;
+    }
+
+    /**
+     * Check if the game has any additional links
+     */
+    public function hasAdditionalLinks(): bool
+    {
+        return ! empty($this->additional_links);
     }
 
     /**
