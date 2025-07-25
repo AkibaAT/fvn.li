@@ -244,8 +244,8 @@ class ProcessFeed extends Command
         $game = Game::firstOrNew(['game_id' => $gameId]);
 
         try {
-            // Skip if game isn't visible
-            if (! $game->exists || ! $game->is_visible) {
+            // Skip if game isn't visible or is suspended
+            if (! $game->exists || ! $game->is_visible || $game->is_suspended) {
                 DB::commit();
                 $this->output->write('.');
                 $this->skippedCount++;

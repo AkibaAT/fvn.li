@@ -70,6 +70,7 @@ class ProcessGameScreenshots extends Command
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
+                ->where('is_suspended', false)
                 ->whereNotNull('screenshots');
 
             // Apply game selection filters

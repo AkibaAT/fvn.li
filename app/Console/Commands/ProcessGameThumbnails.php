@@ -66,6 +66,7 @@ class ProcessGameThumbnails extends Command
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
+                ->where('is_suspended', false)
                 ->where(function ($q) {
                     $q->whereNotNull('thumb_url')
                         ->orWhereNotNull('screenshots');

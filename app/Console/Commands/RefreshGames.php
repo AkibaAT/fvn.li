@@ -78,7 +78,8 @@ class RefreshGames extends Command
 
         // Build query for games
         $query = Game::query()
-            ->where('is_visible', true);
+            ->where('is_visible', true)
+            ->where('is_suspended', false);
 
         // Apply game selection filters
         $this->applyGameSelectionFilters($query);
