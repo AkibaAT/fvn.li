@@ -8,6 +8,29 @@ use App\Models\Game;
 use App\Models\Rater;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Health Check Route
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/health', function () {
+    try {
+        // Check database connection
+        DB::connection()->getPdo();
+
+        // Check Redis connection
+        cache()->store('redis')->put('health_check', 'ok', 1);
+        cache()->store('redis')->get('health_check');
+
+        return response()->json(['status' => 'ok'], 200);
+    } catch (Exception $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 503);
+    }
+});
 
 /*
 |--------------------------------------------------------------------------

@@ -10,8 +10,16 @@ services:
     <<: *fvnli
     restart: unless-stopped
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - fvnli
       - web
@@ -39,6 +47,12 @@ services:
       - "pg_stat_statements.track=all"
       - "-c"
       - "shared_buffers=6GB"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - fvnli
     ports:
@@ -56,6 +70,12 @@ services:
       - "redis-server"
       - "--save"
       - "60 1"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - fvnli
     volumes:

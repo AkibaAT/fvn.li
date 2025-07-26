@@ -69,6 +69,7 @@ RUN chmod +x /entrypoint.sh
 RUN apt-get -y autoremove \
     && apt-get clean \
     && docker-php-source delete \
+    && mkdir -p /var/log/caddy \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && rm -f /var/log/lastlog /var/log/faillog \
     && chown -R www-data:www-data /app
