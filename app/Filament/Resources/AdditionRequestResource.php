@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AdditionRequestResource\Pages\EditAdditionRequest;
 use App\Filament\Resources\AdditionRequestResource\Pages\ListAdditionRequests;
 use App\Models\AdditionRequest;
+use App\Models\Game;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Components\DateTimePicker;
@@ -64,8 +65,14 @@ class AdditionRequestResource extends Resource
 
                         Select::make('game_id')
                             ->label('Linked Game')
-                            ->relationship('game', 'name')
-                            ->searchable()
+                            ->relationship(
+                                name: 'game',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: fn ($query) => $query->orderBy('name')
+                            )
+                            ->getOptionLabelFromRecordUsing(fn (Game $record): string => $record->name . ' (' . self::extractItchSubdomain($record->url) . ')'
+                            )
+                            ->searchable(['name'])
                             ->preload()
                             ->nullable()
                             ->helperText('Select the game if this request has been approved and added to the site'),
@@ -129,6 +136,13 @@ class AdditionRequestResource extends Resource
 
                 TextColumn::make('game.name')
                     ->label('Linked Game')
+                    ->formatStateUsing(function ($state, AdditionRequest $record): string {
+                        if (! $record->game) {
+                            return 'Not linked';
+                        }
+
+                        return $state . ' (' . self::extractItchSubdomain($record->game->url) . ')';
+                    })
                     ->searchable()
                     ->sortable()
                     ->placeholder('Not linked'),
@@ -266,5 +280,36 @@ class AdditionRequestResource extends Resource
         $pendingCount = static::getNavigationBadge();
 
         return $pendingCount > 0 ? 'warning' : null;
+    }
+
+    /**
+     * Extract the itch.io subdomain and game slug from a URL for display purposes.
+     */
+    private static function extractItchSubdomain(string $url): string
+    {
+        // Parse the URL to extract subdomain and path
+        $parsed = parse_url($url);
+
+        if (! $parsed || ! isset($parsed['host'])) {
+            return $url; // Return original URL if parsing fails
+        }
+
+        $host = $parsed['host'];
+        $path = $parsed['path'] ?? '';
+
+        // Extract subdomain from itch.io URLs
+        if (str_ends_with($host, '.itch.io')) {
+            $subdomain = str_replace('.itch.io', '', $host);
+            $gameSlug = trim($path, '/');
+
+            if ($gameSlug) {
+                return $subdomain . '/' . $gameSlug;
+            }
+
+            return $subdomain . '.itch.io';
+        }
+
+        // For non-itch.io URLs, return the full host
+        return $host . $path;
     }
 }

@@ -26,7 +26,7 @@ class EditAdditionRequest extends EditRecord
     {
         $originalStatus = $this->record->status;
         $newStatus = $data['status'];
-        
+
         // If status is changing from pending to approved/rejected, set review tracking
         if ($originalStatus === AdditionRequest::STATUS_PENDING && $newStatus !== AdditionRequest::STATUS_PENDING) {
             $user = Auth::user();
@@ -35,13 +35,13 @@ class EditAdditionRequest extends EditRecord
                 $data['reviewed_by'] = $user->id;
             }
         }
-        
+
         // Clear review tracking if changing back to pending
         if ($newStatus === AdditionRequest::STATUS_PENDING && $originalStatus !== AdditionRequest::STATUS_PENDING) {
             $data['reviewed_at'] = null;
             $data['reviewed_by'] = null;
         }
-        
+
         return $data;
     }
 }
