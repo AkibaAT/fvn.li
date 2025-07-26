@@ -493,14 +493,6 @@
                             </svg>
                             Browse Dialogue
                         </a>
-                        <a href="{{ route('dialogue.browser', ['gameId' => $game->id, 'versionId' => $latestVersion->id, 'showDuplicates' => true]) }}"
-                            class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-500 active:bg-indigo-700 focus:outline-none focus:border-indigo-700 focus:ring focus:ring-indigo-300 disabled:opacity-25 transition">
-                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                            </svg>
-                            View Duplicate Lines
-                        </a>
                     @endif
 
                     <!-- Android Build Button (only for logged in users and eligible games) -->
