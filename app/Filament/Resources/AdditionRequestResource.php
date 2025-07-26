@@ -83,14 +83,16 @@ class AdditionRequestResource extends Resource
                     ->schema([
                         DateTimePicker::make('reviewed_at')
                             ->label('Reviewed At')
-                            ->disabled(),
+                            ->disabled()
+                            ->dehydrated(false),
 
                         Select::make('reviewed_by')
                             ->label('Reviewed By')
                             ->relationship('reviewer', 'name')
-                            ->disabled(),
+                            ->disabled()
+                            ->dehydrated(false),
                     ])->columns(2)
-                    ->visible(fn (?AdditionRequest $record) => $record && $record->reviewed_at),
+                    ->visible(fn (?AdditionRequest $record) => $record && ($record->reviewed_at || $record->status !== AdditionRequest::STATUS_PENDING)),
             ]);
     }
 
