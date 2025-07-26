@@ -23,7 +23,7 @@ class RefreshGames extends Command
         {--game-name= : Name (or part of name) of the game(s) to refresh}
         {--all : Refresh all visible games}
         {--limit=10 : Limit the number of games to process when using --all}
-        {--sort=id : Sort games by field (id, name, created_at, updated_at)}
+        {--sort=updated_at : Sort games by field (id, name, created_at, updated_at)}
         {--update-version : Refresh version information}
         {--update-info : Refresh base game information}
         {--update-metadata : Refresh metadata (tags, ratings, descriptions, screenshots, game jams)}
@@ -97,8 +97,8 @@ class RefreshGames extends Command
             $query->orderBy($sortField);
             $this->info("Sorting by {$sortField}");
         } else {
-            $this->warn("Invalid sort field: {$sortField}. Using 'id' instead.");
-            $query->orderBy('id');
+            $this->warn("Invalid sort field: {$sortField}. Using 'updated_at' instead.");
+            $query->orderBy('updated_at');
         }
 
         // Apply limit when using --all option

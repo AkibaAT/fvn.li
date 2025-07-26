@@ -75,6 +75,9 @@ class ProcessGameThumbnails extends Command
             // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
+            // Order by most recently updated first to prioritize newer entries
+            $query->orderBy('updated_at', 'desc');
+
             $games = $query->get();
 
             // Display selected games
