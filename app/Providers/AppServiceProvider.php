@@ -7,14 +7,17 @@ namespace App\Providers;
 use App\Livewire\Auth\SocialLoginButtons;
 use App\Models\Game;
 use App\Observers\GameObserver;
+use App\Observers\UniversalAuditObserver;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\LanguageMappingService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use ReflectionClass;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
@@ -43,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Game::observe(GameObserver::class);
 
+        // Register universal audit observer for all Eloquent models
+        $this->registerUniversalAuditObserver();
+
         // Ensure the keystores directory exists and is secured
         $keystoreDir = storage_path('app/keystores');
         if (! File::exists($keystoreDir)) {
@@ -66,5 +72,48 @@ class AppServiceProvider extends ServiceProvider
         $this->loadViewsFrom(resource_path('views/users'), 'users');
         $this->loadViewsFrom(resource_path('views/admin'), 'admin');
         $this->loadViewsFrom(resource_path('views/dialogue'), 'dialogue');
+    }
+
+    /**
+     * Register the universal audit observer with all Eloquent models
+     */
+    private function registerUniversalAuditObserver(): void
+    {
+        // Check if audit logging is enabled
+        if (! config('audit.enabled', true)) {
+            return;
+        }
+
+        // Get all model files and register the observer with each
+        $modelPath = app_path('Models');
+        if (! is_dir($modelPath)) {
+            return;
+        }
+
+        $modelFiles = glob($modelPath . '/*.php');
+
+        foreach ($modelFiles as $file) {
+            $fileName = basename($file, '.php');
+            $modelClass = "App\\Models\\{$fileName}";
+
+            // Skip if class doesn't exist or isn't a model
+            if (! class_exists($modelClass)) {
+                continue;
+            }
+
+            // Check if it extends Model
+            if (! is_subclass_of($modelClass, Model::class)) {
+                continue;
+            }
+
+            // Skip abstract classes
+            $reflection = new ReflectionClass($modelClass);
+            if ($reflection->isAbstract()) {
+                continue;
+            }
+
+            // Register the observer
+            $modelClass::observe(UniversalAuditObserver::class);
+        }
     }
 }

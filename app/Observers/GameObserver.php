@@ -41,6 +41,18 @@ class GameObserver
      */
     public function updated(Game $game): void
     {
+        // Track when a game first becomes visible and log the visibility change
+        if ($game->wasChanged('is_visible')) {
+            $wasVisible = $game->getOriginal('is_visible');
+            $isVisible = $game->is_visible;
+
+            // Set first_visible_at when game becomes visible for the first time
+            if ($isVisible && ! $game->first_visible_at) {
+                $game->first_visible_at = now();
+                $game->saveQuietly(); // Prevent infinite recursion
+            }
+        }
+
         // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
             GameList::clearFilterCache();

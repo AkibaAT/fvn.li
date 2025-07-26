@@ -43,6 +43,7 @@ class Game extends Model
         'name',
         'status',
         'is_visible',
+        'first_visible_at',
         'is_nsfw',
         'description',
         'full_description',
@@ -71,6 +72,7 @@ class Game extends Model
     protected $casts = [
         'initially_published_at' => 'datetime',
         'latest_version_published_at' => 'datetime',
+        'first_visible_at' => 'datetime',
         'rating' => 'float',
         'rating_count' => 'integer',
         'min_price' => 'float',

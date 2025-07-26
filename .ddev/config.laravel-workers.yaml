@@ -3,5 +3,5 @@
 ddev_version_constraint: '>=v1.23.0'
 web_extra_daemons:
   - name: "queue-1"
-    command: 'while true; do /usr/bin/php /var/www/html/artisan queue:work --sleep=3 --tries=3 --queue=default,android; sleep 1; done'
+    command: 'while true; do /usr/bin/php /var/www/html/artisan queue:work redis --sleep=3 --tries=3 --queue=default,android,audit; sleep 1; done'
     directory: /var/www/html

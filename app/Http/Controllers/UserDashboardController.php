@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\ChangeLog;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Language;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserDashboardController extends Controller
@@ -203,6 +205,16 @@ class UserDashboardController extends Controller
             })->values()->toArray(),
         ];
 
+        // Include audit logs for GDPR compliance (Article 20 - Data Portability)
+        if (config('audit.privacy.enable_data_export', true)) {
+            $auditExport = ChangeLog::exportUserData($user->id);
+            $exportData['audit_logs'] = $auditExport['audit_logs'];
+            $exportData['audit_summary'] = [
+                'total_entries' => $auditExport['total_entries'],
+                'exported_at' => $auditExport['exported_at'],
+            ];
+        }
+
         return response()->streamDownload(function () use ($exportData) {
             echo json_encode($exportData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }, 'user-data-export.json', [
@@ -214,9 +226,21 @@ class UserDashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Start a transaction to ensure all related data is deleted
+        // Start a transaction to ensure all related data is properly handled
         DB::transaction(function () use ($user) {
-            // Delete all user's data
+            // Handle audit logs for GDPR compliance
+            if (config('audit.privacy.enable_data_deletion', true)) {
+                // Anonymize audit logs to preserve system audit integrity
+                // while removing personal identifiers (GDPR Article 17)
+                $anonymizedCount = ChangeLog::anonymizeUserData($user->id);
+
+                Log::info('Anonymized audit logs during account deletion', [
+                    'user_id' => $user->id,
+                    'anonymized_count' => $anonymizedCount,
+                ]);
+            }
+
+            // Delete all user's personal data
             $user->socialAccounts()->delete();
             $user->vnLists()->delete();
             $user->gameProgress()->delete();
