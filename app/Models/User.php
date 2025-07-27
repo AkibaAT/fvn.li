@@ -73,27 +73,46 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's itch.io URL if they have an itch.io account connected
+     */
+    public function getItchioUrl(): ?string
+    {
+        $itchioAccount = $this->socialAccounts()
+            ->where('provider_name', 'itchio')
+            ->first();
+
+        if (! $itchioAccount || ! $itchioAccount->provider_data) {
+            return null;
+        }
+
+        return $itchioAccount->provider_data['url'] ?? null;
+    }
+
+    /**
      * Check if this user owns a specific game based on their itch.io namespace
      */
     public function ownsGame(Game $game): bool
     {
-        $username = $this->getItchioUsername();
+        $itchioUrl = $this->getItchioUrl();
 
-        if (! $username) {
+        if (! $itchioUrl) {
+            return false;
+        }
+
+        // Extract the domain from the user's itch.io URL
+        $userUrl = parse_url($itchioUrl);
+        if (! $userUrl || ! isset($userUrl['host'])) {
             return false;
         }
 
         // Check if the game URL belongs to this user's itch.io namespace
-        // Game URLs are typically in format: https://username.itch.io/game-name
-        // Lowercase the username since domain names are case-insensitive
-        $expectedDomain = strtolower("{$username}.itch.io");
-
         $gameUrl = parse_url($game->url);
         if (! $gameUrl || ! isset($gameUrl['host'])) {
             return false;
         }
 
-        return strtolower($gameUrl['host']) === $expectedDomain;
+        // Compare the hosts (case-insensitive since domain names are case-insensitive)
+        return strtolower($gameUrl['host']) === strtolower($userUrl['host']);
     }
 
     /**
@@ -101,14 +120,20 @@ class User extends Authenticatable
      */
     public function getOwnedGames()
     {
-        $username = $this->getItchioUsername();
+        $itchioUrl = $this->getItchioUrl();
 
-        if (! $username) {
+        if (! $itchioUrl) {
             return collect();
         }
 
-        // Lowercase the username since domain names are case-insensitive
-        $expectedDomain = strtolower("{$username}.itch.io");
+        // Extract the domain from the user's itch.io URL
+        $userUrl = parse_url($itchioUrl);
+        if (! $userUrl || ! isset($userUrl['host'])) {
+            return collect();
+        }
+
+        // Use the exact domain from the user's itch.io URL
+        $expectedDomain = strtolower($userUrl['host']);
 
         return Game::where('url', 'LIKE', "https://{$expectedDomain}/%")
             ->orWhere('url', 'LIKE', "http://{$expectedDomain}/%")
