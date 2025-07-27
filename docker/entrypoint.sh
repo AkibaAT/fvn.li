@@ -17,5 +17,5 @@ fi
 echo "Supervisor status:"
 supervisorctl status
 
-# Start FrankenPHP
-exec php artisan octane:frankenphp --host=0.0.0.0 --port=80 --admin-port=2019
+# Start FrankenPHP with custom Caddyfile
+exec php artisan octane:frankenphp --host=0.0.0.0 --port=80 --admin-port=2019 --caddyfile=/etc/caddy/Caddyfile

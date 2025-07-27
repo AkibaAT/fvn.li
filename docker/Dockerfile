@@ -60,6 +60,7 @@ COPY storage /app/storage
 # Copy configuration files
 COPY docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
 COPY docker/supervisor /etc/supervisor/conf.d/
+COPY docker/Caddyfile /etc/caddy/Caddyfile
 
 # Copy entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
