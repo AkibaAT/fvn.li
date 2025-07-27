@@ -281,8 +281,9 @@
 
     // Image picker dialog function
     window.openImagePickerDialog = function() {
-        if (window._imagePickerDialog && window._imagePickerLoadImages) {
-            window._imagePickerLoadImages();
+        if (window._imagePickerDialog) {
+            // Trigger Alpine.js to load images by dispatching a custom event
+            window._imagePickerDialog.dispatchEvent(new CustomEvent('load-images'));
             window._imagePickerDialog.showModal();
         } else {
             console.error('Image picker dialog not properly initialized');
