@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 /*
 |--------------------------------------------------------------------------
@@ -96,6 +97,141 @@ Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthControlle
 
 // Authenticated VN List Routes
 Route::middleware(['auth'])->group(function () {
+    // Editor image upload endpoint
+    Route::post('api/upload-editor-image', function (Request $request) {
+        try {
+            $request->validate([
+                'file' => 'required|image|max:10240', // 10MB max
+                'game_id' => 'required|integer|exists:games,id',
+            ]);
+
+            $gameId = $request->input('game_id');
+            $user = $request->user();
+
+            // Get the game and check authorization
+            $game = Game::findOrFail($gameId);
+            if (! $game->canUserEdit($user)) {
+                return response()->json(['error' => 'You do not have permission to upload images for this game'], 403);
+            }
+
+            $file = $request->file('file');
+            $filename = uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs("editor-uploads/{$gameId}", $filename, 'public');
+
+            return response()->json([
+                'location' => '/storage/' . $path,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Upload failed: ' . $e->getMessage()], 400);
+        }
+    })->name('api.upload-editor-image');
+
+    // Get uploaded images for image picker
+    Route::get('api/editor-images', function (Request $request) {
+        try {
+            $request->validate([
+                'game_id' => 'required|integer|exists:games,id',
+            ]);
+
+            $gameId = $request->input('game_id');
+            $user = $request->user();
+
+            // Get the game and check authorization
+            $game = Game::findOrFail($gameId);
+            if (! $game->canUserEdit($user)) {
+                return response()->json(['error' => 'You do not have permission to view images for this game'], 403);
+            }
+
+            $images = [];
+
+            // Get images from game-specific editor-uploads directory
+            $gameUploadPath = "editor-uploads/{$gameId}";
+            if (Storage::disk('public')->exists($gameUploadPath)) {
+                $editorFiles = Storage::disk('public')->files($gameUploadPath);
+                foreach ($editorFiles as $file) {
+                    $images[] = [
+                        'url' => '/storage/' . $file,
+                        'path' => $file,
+                        'name' => basename($file),
+                        'size' => Storage::disk('public')->size($file),
+                        'modified' => Storage::disk('public')->lastModified($file),
+                        'type' => 'editor',
+                    ];
+                }
+            }
+
+            // Sort by modification date (newest first)
+            usort($images, function ($a, $b) {
+                return $b['modified'] - $a['modified'];
+            });
+
+            return response()->json([
+                'images' => $images,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to load images: ' . $e->getMessage()], 500);
+        }
+    })->name('api.editor-images');
+
+    // Delete uploaded image
+    Route::delete('api/editor-images/{path}', function (Request $request, string $path) {
+        try {
+            $request->validate([
+                'game_id' => 'required|integer|exists:games,id',
+            ]);
+
+            $gameId = $request->input('game_id');
+            $user = $request->user();
+
+            // Get the game and check authorization
+            $game = Game::findOrFail($gameId);
+            if (! $game->canUserEdit($user)) {
+                return response()->json(['error' => 'You do not have permission to delete images for this game'], 403);
+            }
+
+            // Decode the path (it comes URL encoded)
+            $decodedPath = urldecode($path);
+
+            // Ensure the path is within the game's directory for security
+            $expectedPrefix = "editor-uploads/{$gameId}/";
+            if (! str_starts_with($decodedPath, $expectedPrefix)) {
+                return response()->json(['error' => 'Invalid file path'], 403);
+            }
+
+            // Check if file exists
+            if (! Storage::disk('public')->exists($decodedPath)) {
+                return response()->json(['error' => 'File not found'], 404);
+            }
+
+            // Delete the file
+            $deleted = Storage::disk('public')->delete($decodedPath);
+
+            if ($deleted) {
+                return response()->json(['message' => 'File deleted successfully']);
+            } else {
+                return response()->json(['error' => 'Failed to delete file'], 500);
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Delete failed: ' . $e->getMessage()], 500);
+        }
+    })->name('api.delete-editor-image')->where('path', '.*');
+
     Route::get('user/dashboard',
         [App\Http\Controllers\UserDashboardController::class, 'show'])->name('user.dashboard.show');
     Route::get('user/notifications/digest/{date}', [

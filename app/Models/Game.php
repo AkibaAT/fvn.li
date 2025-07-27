@@ -63,6 +63,12 @@ class Game extends Model
         'additional_links',
         'screenshots',
         'blur_screenshots',
+        'has_custom_page',
+        'custom_description',
+        'custom_screenshots',
+        'custom_assets',
+        'custom_page_updated_at',
+        'custom_page_updated_by',
     ];
 
     protected $with = ['tags'];
@@ -96,6 +102,10 @@ class Game extends Model
         'custom_css' => 'string',
         'average_score' => 'float',
         'ratings_count' => 'integer',
+        'has_custom_page' => 'boolean',
+        'custom_screenshots' => 'array',
+        'custom_assets' => 'array',
+        'custom_page_updated_at' => 'datetime',
     ];
 
     /**
@@ -452,13 +462,16 @@ class Game extends Model
             // Get price information
             $this->extractPriceInformation($doc);
 
-            // Get full description
-            $this->extractFullDescription($doc);
+            // Only sync description and screenshots if custom page is not enabled
+            if (! $this->has_custom_page) {
+                // Get full description
+                $this->extractFullDescription($doc);
 
-            // Get screenshots
-            $this->extractScreenshots($doc);
+                // Get screenshots
+                $this->extractScreenshots($doc);
+            }
 
-            // Get custom CSS
+            // Always sync custom CSS (styling should be updated regardless of custom page status)
             $this->extractCustomCss($html);
 
             // Get game jam information
@@ -1220,6 +1233,116 @@ class Game extends Model
         return $this->sale_discount_percent;
     }
 
+    /**
+     * Get the effective description for display (custom or synced)
+     */
+    public function getEffectiveDescription(): ?string
+    {
+        return $this->has_custom_page && $this->custom_description
+            ? $this->custom_description
+            : $this->full_description;
+    }
+
+    /**
+     * Get the effective screenshots for display (custom or synced)
+     */
+    public function getEffectiveScreenshots(): array
+    {
+        return $this->has_custom_page && $this->custom_screenshots
+            ? $this->custom_screenshots
+            : $this->getScreenshots();
+    }
+
+    /**
+     * Check if the user can edit this game's custom page
+     */
+    public function canUserEdit(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        // Admin can edit all games
+        if ($user->is_admin) {
+            return true;
+        }
+
+        // Check if user has explicit ownership permission
+        if ($this->hasExplicitOwnership($user)) {
+            return true;
+        }
+
+        // Check if user's itch.io account matches the game's namespace
+        if ($this->hasItchIoOwnership($user)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Enable custom page editing and copy current data as baseline
+     */
+    public function enableCustomPage(User $user): void
+    {
+        $this->update([
+            'has_custom_page' => true,
+            'custom_description' => $this->full_description,
+            'custom_screenshots' => $this->screenshots ?: [],
+            'custom_assets' => [],
+            'custom_page_updated_at' => now(),
+            'custom_page_updated_by' => $user->id,
+        ]);
+    }
+
+    /**
+     * Disable custom page editing (revert to auto-sync)
+     */
+    public function disableCustomPage(): void
+    {
+        $this->update([
+            'has_custom_page' => false,
+            'custom_description' => null,
+            'custom_screenshots' => null,
+            'custom_assets' => null,
+            'custom_page_updated_at' => null,
+            'custom_page_updated_by' => null,
+        ]);
+    }
+
+    /**
+     * Update custom page content
+     */
+    public function updateCustomPage(array $data, User $user): void
+    {
+        $updateData = [
+            'custom_page_updated_at' => now(),
+            'custom_page_updated_by' => $user->id,
+        ];
+
+        if (isset($data['description'])) {
+            $updateData['custom_description'] = $data['description'];
+        }
+
+        if (isset($data['screenshots'])) {
+            $updateData['custom_screenshots'] = $data['screenshots'];
+        }
+
+        if (isset($data['assets'])) {
+            $updateData['custom_assets'] = $data['assets'];
+        }
+
+        $this->update($updateData);
+    }
+
+    /**
+     * Get the user who last updated the custom page
+     */
+    public function customPageUpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'custom_page_updated_by');
+    }
+
     protected function devlog(): Attribute
     {
         return Attribute::make(
@@ -1248,6 +1371,25 @@ class Game extends Model
                 'web' => $this->latestVersion?->is_web ?? false,
             ],
         );
+    }
+
+    /**
+     * Check if user has explicit ownership through database relationship
+     */
+    private function hasExplicitOwnership(User $user): bool
+    {
+        // This could be implemented with a game_owners table in the future
+        // For now, return false as we don't have this table
+        return false;
+    }
+
+    /**
+     * Check if user's itch.io account owns this game
+     */
+    private function hasItchIoOwnership(User $user): bool
+    {
+        // Use the existing ownsGame method from User model
+        return $user->ownsGame($this);
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\IpAnonymizationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,7 +50,7 @@ class ClickStat extends Model
             'type' => $type,
             'link_id' => $linkId,
             'session_id' => $sessionId,
-            'ip_address' => $ipAddress,
+            'ip_address' => IpAnonymizationService::anonymize($ipAddress, 'subnet'),
             'user_agent' => $userAgent,
             'referrer' => $referrer,
             'clicked_at' => now(),

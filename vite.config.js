@@ -3,6 +3,8 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import path from "node:path";
+import { copyFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 
 export default defineConfig(({ command, mode }) => ({
     plugins: [
@@ -20,7 +22,33 @@ export default defineConfig(({ command, mode }) => ({
             ],
             refresh: true,
         }),
-        visualizer({ gzipSize: true, brotliSize: true })
+        visualizer({ gzipSize: true, brotliSize: true }),
+        // Plugin to copy TinyMCE assets
+        {
+            name: 'copy-tinymce-assets',
+            buildStart() {
+                // Copy TinyMCE skins and other assets to public directory
+                this.addWatchFile('node_modules/tinymce/skins');
+            },
+            generateBundle() {
+                // This will copy TinyMCE assets during build
+                const copyTinyMCEAssets = async () => {
+                    const srcDir = 'node_modules/tinymce';
+                    const destDir = 'public/assets/tinymce';
+                    
+                    if (!existsSync(destDir)) {
+                        await mkdir(destDir, { recursive: true });
+                    }
+                    
+                    // Copy skins
+                    if (!existsSync(`${destDir}/skins`)) {
+                        await mkdir(`${destDir}/skins`, { recursive: true });
+                    }
+                };
+                
+                return copyTinyMCEAssets();
+            }
+        }
     ],
     resolve: {
         alias: [

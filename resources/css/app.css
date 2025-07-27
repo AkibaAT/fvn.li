@@ -29,3 +29,63 @@
 }
 
 @tailwind utilities;
+
+/* TinyMCE Editor Improvements */
+.tox-tinymce {
+    min-height: 600px !important;
+}
+
+.tox-edit-area {
+    min-height: 550px !important;
+}
+
+.tox-edit-area iframe {
+    min-height: 550px !important;
+}
+
+/* Ensure editor container has enough space */
+.game-page-editor .tox-tinymce {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Dark mode adjustments */
+.dark .tox-tinymce {
+    border-color: #4b5563;
+}
+
+/* Improve editor content area spacing and readability */
+.tox-edit-area__iframe {
+    padding: 0 !important;
+}
+
+/* Better line spacing in the editor content */
+.mce-content-body {
+    line-height: 1.8 !important;
+    font-size: 16px !important;
+}
+
+.mce-content-body p {
+    margin-bottom: 1.2em !important;
+}
+
+.mce-content-body h1,
+.mce-content-body h2,
+.mce-content-body h3,
+.mce-content-body h4,
+.mce-content-body h5,
+.mce-content-body h6 {
+    line-height: 1.4 !important;
+    margin-top: 1.5em !important;
+    margin-bottom: 0.8em !important;
+}
+
+.mce-content-body ul,
+.mce-content-body ol {
+    line-height: 1.8 !important;
+    margin-bottom: 1.2em !important;
+}
+
+.mce-content-body li {
+    margin-bottom: 0.4em !important;
+}

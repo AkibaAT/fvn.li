@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Jobs\ProcessAuditLog;
 use App\Models\ChangeLog;
+use App\Services\IpAnonymizationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
@@ -280,7 +281,7 @@ class UniversalAuditObserver
 
         if (request()) {
             if ($includeContext['ip_address'] ?? false) {
-                $context['ip_address'] = $this->getAnonymizedIpAddress(request()->ip());
+                $context['ip_address'] = IpAnonymizationService::getAnonymizedIpAddress(request()->ip());
             }
             if ($includeContext['user_agent'] ?? false) {
                 $context['user_agent'] = request()->userAgent();
@@ -363,7 +364,7 @@ class UniversalAuditObserver
         $request = request();
 
         // Create a unique identifier based on request properties
-        $ipAddress = $this->getAnonymizedIpAddress($request->ip());
+        $ipAddress = IpAnonymizationService::getAnonymizedIpAddress($request->ip());
         $signature = sprintf(
             '%s_%s_%s_%s_%d',
             $request->method(),
@@ -589,68 +590,5 @@ class UniversalAuditObserver
         }
 
         return $changedFields;
-    }
-
-    /**
-     * Get anonymized IP address based on privacy configuration
-     */
-    private function getAnonymizedIpAddress(?string $ipAddress): ?string
-    {
-        if (! $ipAddress) {
-            return null;
-        }
-
-        // Check if IP anonymization is enabled
-        if (! Config::get('audit.privacy.anonymize_ip_addresses', false)) {
-            return $ipAddress;
-        }
-
-        $method = Config::get('audit.privacy.ip_anonymization_method', 'subnet');
-
-        return match ($method) {
-            'subnet' => $this->anonymizeIpBySubnet($ipAddress),
-            'hash' => $this->anonymizeIpByHash($ipAddress),
-            'full' => '***',
-            default => $ipAddress,
-        };
-    }
-
-    /**
-     * Anonymize IP address by zeroing the last octet (IPv4) or last 64 bits (IPv6)
-     */
-    private function anonymizeIpBySubnet(string $ipAddress): string
-    {
-        if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            // IPv4: Zero out the last octet (e.g., 192.168.1.123 -> 192.168.1.0)
-            $parts = explode('.', $ipAddress);
-            $parts[3] = '0';
-
-            return implode('.', $parts);
-        }
-
-        if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-            // IPv6: Zero out the last 64 bits (interface identifier)
-            $binary = inet_pton($ipAddress);
-            if ($binary !== false) {
-                // Zero out the last 8 bytes (64 bits)
-                $binary = substr($binary, 0, 8) . str_repeat("\0", 8);
-
-                return inet_ntop($binary) ?: $ipAddress;
-            }
-        }
-
-        return $ipAddress;
-    }
-
-    /**
-     * Anonymize IP address using a one-way hash with salt
-     */
-    private function anonymizeIpByHash(string $ipAddress): string
-    {
-        // Use application key as salt for consistent hashing
-        $salt = Config::get('app.key', 'audit-salt');
-
-        // Create a truncated hash for privacy while maintaining some uniqueness
-        return 'hash_' . substr(hash('sha256', $salt . $ipAddress), 0, 12);
     }
 }

@@ -170,15 +170,24 @@
                         </div>
                     @endif
 
-                    <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 game_description">
-                        <div class="inner_column size_very_large family_grandstander" id="inner_column">
-                            @if ($game->full_description)
-                                {!! $game->full_description !!}
-                            @else
-                                {!! $game->description !!}
-                            @endif
+                    {{-- Game Page Editor Integration --}}
+                    @auth
+                        @if ($game->canUserEdit(auth()->user()))
+                            <livewire:game-page-editor :game="$game" />
+                        @else
+                            <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 game_description">
+                                <div class="inner_column size_very_large family_grandstander" id="inner_column">
+                                    {!! $game->getEffectiveDescription() !!}
+                                </div>
+                            </div>
+                        @endif
+                    @else
+                        <div class="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 game_description">
+                            <div class="inner_column size_very_large family_grandstander" id="inner_column">
+                                {!! $game->getEffectiveDescription() !!}
+                            </div>
                         </div>
-                    </div>
+                    @endauth
                 </div>
             </div>
 

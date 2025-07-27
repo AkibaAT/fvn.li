@@ -94,6 +94,15 @@ class GameList extends Component
         'showHidden' => ['except' => false],
     ];
 
+    protected $casts = [
+        'selectedStatuses' => 'array',
+        'selectedEngines' => 'array',
+        'selectedPlatforms' => 'array',
+        'selectedLanguages' => 'array',
+        'selectedGameJams' => 'array',
+        'selectedTags' => 'array',
+    ];
+
     private LengthAwarePaginator $games;
 
     // Add a method to bust the cache when needed (e.g., when a new game is added)
@@ -109,35 +118,7 @@ class GameList extends Component
     public function mount(): void
     {
         $this->normalizePerPage();
-
-        // Handle selectedTags parameter from URL (already an array from Livewire)
-        if (request()->has('selectedTags') && is_array(request()->input('selectedTags'))) {
-            $this->selectedTags = collect(request()->input('selectedTags'))
-                ->map(fn ($id) => (string) $id)
-                ->toArray();
-        }
-
-        if (request()->has('selectedGameJams')) {
-            $gameJamIds = [];
-
-            // Handle array format: ?selectedGameJams[]=1&selectedGameJams[]=2
-            if (is_array(request()->input('selectedGameJams'))) {
-                $gameJamIds = request()->input('selectedGameJams');
-            }
-            // Handle query string format: ?selectedGameJams=1,2,3
-            elseif (is_string(request()->input('selectedGameJams'))) {
-                $gameJamIds = explode(',', request()->input('selectedGameJams'));
-            }
-
-            // Also check for PHP's query string array format: ?selectedGameJams[0]=1&selectedGameJams[1]=2
-            if (empty($gameJamIds) && is_array(request()->query('selectedGameJams', []))) {
-                $gameJamIds = request()->query('selectedGameJams');
-            }
-
-            $this->selectedGameJams = collect($gameJamIds)
-                ->map(fn ($id) => (string) $id)
-                ->toArray();
-        }
+        $this->normalizeArrayProperties();
     }
 
     public function updated($name): void
@@ -525,5 +506,43 @@ class GameList extends Component
         ];
 
         return self::$filterOptions;
+    }
+
+    private function normalizeArrayProperties(): void
+    {
+        $arrayProperties = [
+            'selectedTags',
+            'selectedStatuses',
+            'selectedEngines',
+            'selectedPlatforms',
+            'selectedLanguages',
+            'selectedGameJams',
+        ];
+
+        foreach ($arrayProperties as $property) {
+            $value = $this->{$property};
+
+            // If it's already an array, ensure all values are strings
+            if (is_array($value)) {
+                $this->{$property} = collect($value)->map(fn ($id) => (string) $id)->toArray();
+            }
+            // If it's a string, try to convert it to an array
+            elseif (is_string($value)) {
+                // Handle comma-separated values
+                if (str_contains($value, ',')) {
+                    $this->{$property} = collect(explode(',', $value))
+                        ->map(fn ($id) => (string) trim($id))
+                        ->filter()
+                        ->toArray();
+                } else {
+                    // Single value
+                    $this->{$property} = $value ? [(string) $value] : [];
+                }
+            }
+            // Ensure it's always an array
+            else {
+                $this->{$property} = [];
+            }
+        }
     }
 }
