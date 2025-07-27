@@ -279,6 +279,16 @@
         window.open(imageSrc, '_blank');
     };
 
+    // Image picker dialog function
+    window.openImagePickerDialog = function() {
+        if (window._imagePickerDialog && window._imagePickerLoadImages) {
+            window._imagePickerLoadImages();
+            window._imagePickerDialog.showModal();
+        } else {
+            console.error('Image picker dialog not properly initialized');
+        }
+    };
+
     // Debounced preview update function
     let previewUpdateTimeout;
     window.updatePreview = function(content) {

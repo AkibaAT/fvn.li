@@ -4,7 +4,11 @@
     id="image-picker-dialog"
     class="m-auto rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl w-full max-w-4xl dark:text-gray-100 backdrop:backdrop-blur-md"
     x-data="imagePickerData({{ $gameId }})"
-    x-init="window.openImagePickerDialog = () => { loadImages(); $el.showModal(); }"
+    x-init="
+        // Store references for the global function
+        window._imagePickerDialog = $el;
+        window._imagePickerLoadImages = loadImages;
+    "
 >
     <x-ui.dialog-header title="Select an Image" />
 
