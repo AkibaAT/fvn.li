@@ -65,7 +65,7 @@
                             {{ $game->name }}
                         </h1>
                         <div class="flex flex-col sm:flex-row gap-2">
-                            <a href="{{ $game->url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                            <a href="{{ route('track.external-project', ['game_id' => $game->id, 'url' => $game->url]) }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
                                 Visit Game Page
                             </a>
                         </div>
@@ -336,9 +336,6 @@
                         </div>
                     </div>
                 @endif
-
-
-
             </div>
         @endif
 
@@ -389,7 +386,8 @@
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     @foreach ($game->additional_links as $link)
-                        <a href="{{ $link['url'] }}" target="_blank"
+                        <a href="{{ route('track.custom-link', ['game_id' => $game->id, 'link_id' => $link['id'], 'url' => $link['url']]) }}"
+                           target="_blank"
                            class="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200 group">
                             <div class="flex-shrink-0">
                                 @if (!empty($link['platform']))
@@ -865,6 +863,4 @@
             errorMessage.remove();
         }, 5000);
     }
-
-
 </script>

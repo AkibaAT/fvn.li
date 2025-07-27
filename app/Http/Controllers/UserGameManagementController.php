@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\ClickStat;
 use App\Models\Game;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -35,9 +37,19 @@ class UserGameManagementController extends Controller
         // Get owned games
         $games = $user->getOwnedGames();
 
+        // Get click statistics for the last 30 days
+        $gameIds = $games->pluck('id')->toArray();
+        $clickStats = [];
+
+        if (! empty($gameIds)) {
+            $since = Carbon::now()->subDays(30);
+            $clickStats = ClickStat::getMultipleGameStats($gameIds, $since);
+        }
+
         return view('users.game-management.index', [
             'games' => $games,
             'itchioUsername' => $itchioUsername,
+            'clickStats' => $clickStats,
             'metaTags' => [
                 'title' => 'Manage My Games',
                 'noindex' => true,
@@ -57,9 +69,22 @@ class UserGameManagementController extends Controller
             abort(403, 'You do not have permission to edit this game.');
         }
 
+        // Get detailed click statistics for the last 30 days
+        $since = Carbon::now()->subDays(30);
+        $clickStats = ClickStat::getGameStats($game->id, $since);
+
+        // Get daily statistics for charts
+        $dailyStats = ClickStat::getDailyStats($game->id, 30);
+
+        // Get link-specific statistics
+        $linkStats = ClickStat::getLinkStats($game->id, 30);
+
         return view('users.game-management.edit', [
             'game' => $game,
             'platforms' => Game::getAvailablePlatforms(),
+            'clickStats' => $clickStats,
+            'dailyStats' => $dailyStats,
+            'linkStats' => $linkStats,
             'metaTags' => [
                 'title' => "Edit {$game->name}",
                 'noindex' => true,

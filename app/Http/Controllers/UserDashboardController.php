@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\ChangeLog;
+use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Language;
@@ -205,6 +206,51 @@ class UserDashboardController extends Controller
             })->values()->toArray(),
         ];
 
+        // Include click statistics for owned games (for developers)
+        $itchioUsername = $user->getItchioUsername();
+        if ($itchioUsername) {
+            $ownedGames = $user->getOwnedGames();
+            if ($ownedGames->isNotEmpty()) {
+                $gameIds = $ownedGames->pluck('id')->toArray();
+
+                // Get all click statistics for owned games
+                $clickStats = ClickStat::whereIn('game_id', $gameIds)
+                    ->orderBy('clicked_at', 'desc')
+                    ->get();
+
+                $exportData['click_statistics'] = [
+                    'summary' => 'Click statistics for games you own/develop',
+                    'total_entries' => $clickStats->count(),
+                    'games_tracked' => $ownedGames->map(function ($game) use ($clickStats) {
+                        $gameStats = $clickStats->where('game_id', $game->id);
+
+                        return [
+                            'game_name' => $game->name,
+                            'game_url' => $game->url,
+                            'total_clicks' => $gameStats->count(),
+                            'page_views' => $gameStats->where('type', ClickStat::TYPE_PAGE_VIEW)->count(),
+                            'external_project_clicks' => $gameStats->where('type', ClickStat::TYPE_EXTERNAL_PROJECT)->count(),
+                            'custom_link_clicks' => $gameStats->where('type', ClickStat::TYPE_CUSTOM_LINK)->count(),
+                            'first_tracked' => $gameStats->min('clicked_at'),
+                            'last_tracked' => $gameStats->max('clicked_at'),
+                        ];
+                    })->values()->toArray(),
+                    'detailed_logs' => $clickStats->map(function ($stat) use ($ownedGames) {
+                        $game = $ownedGames->firstWhere('id', $stat->game_id);
+
+                        return [
+                            'game_name' => $game ? $game->name : 'Unknown Game',
+                            'type' => $stat->type,
+                            'link_id' => $stat->link_id,
+                            'clicked_at' => $stat->clicked_at,
+                            'referrer' => $stat->referrer,
+                            // Note: session_id, ip_address, and user_agent are excluded for privacy
+                        ];
+                    })->values()->toArray(),
+                ];
+            }
+        }
+
         // Include audit logs for GDPR compliance (Article 20 - Data Portability)
         if (config('audit.privacy.enable_data_export', true)) {
             $auditExport = ChangeLog::exportUserData($user->id);
@@ -239,6 +285,15 @@ class UserDashboardController extends Controller
                     'anonymized_count' => $anonymizedCount,
                 ]);
             }
+
+            // Anonymize click statistics to remove personal identifiers
+            // while preserving statistical data for legitimate business interests
+            $clickStatsAnonymized = ClickStat::anonymizePersonalData();
+
+            Log::info('Anonymized click statistics during account deletion', [
+                'user_id' => $user->id,
+                'anonymized_count' => $clickStatsAnonymized,
+            ]);
 
             // Delete all user's personal data
             $user->socialAccounts()->delete();

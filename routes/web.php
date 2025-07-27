@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/health', function () {
+Route::get('health', function () {
     try {
         // Check database connection
         DB::connection()->getPdo();
@@ -48,7 +48,9 @@ Route::get('by-url/{url}', function ($url) {
 })->where('url', '.*');
 
 Route::get('/', GameList::class)->name('games.index');
-Route::get('games/{game:slug}', App\Livewire\GameDetail::class)->name('games.show');
+Route::get('games/{game:slug}', App\Livewire\GameDetail::class)
+    ->name('games.show')
+    ->middleware('track.page.views');
 Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser')
     ->where(['gameId' => '[0-9]+', 'versionId' => '[0-9]+']);
 
@@ -265,6 +267,20 @@ Route::get('api/users/{id}', function ($id) {
 
     return redirect(status: 301)->route('raters.show', $rater->id);
 })->where('id', '[0-9]+');
+
+// Click tracking routes
+Route::get('track/link', [App\Http\Controllers\ClickTrackingController::class, 'redirectCustomLink'])
+    ->name('track.custom-link');
+Route::get('track/external', [App\Http\Controllers\ClickTrackingController::class, 'redirectExternalProject'])
+    ->name('track.external-project');
+Route::post('api/track/custom-link', [App\Http\Controllers\ClickTrackingController::class, 'trackCustomLink'])
+    ->name('api.track.custom-link');
+Route::get('api/games/{game}/stats', [App\Http\Controllers\ClickTrackingController::class, 'getGameStats'])
+    ->name('api.games.stats')
+    ->middleware('auth');
+Route::get('api/games/{game}/analytics', [App\Http\Controllers\ClickTrackingController::class, 'getDailyAnalytics'])
+    ->name('api.games.analytics')
+    ->middleware('auth');
 
 // Catch-all route for game slugs (must be last and exclude 'lists' path)
 Route::get('{game:slug}', function ($slug) {

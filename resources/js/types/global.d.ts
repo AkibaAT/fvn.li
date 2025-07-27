@@ -18,6 +18,11 @@ declare global {
             }
         ) => void;
         chartInitialized?: Promise<void>;
+        initializeMultiSeriesChart?: (
+            element: HTMLElement,
+            series: Array<{name: string, data: any[], color: string}>,
+            options?: any
+        ) => any;
     }
 }
 

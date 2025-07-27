@@ -12,6 +12,7 @@ export default defineConfig(({ command, mode }) => ({
                 'resources/css/app.css',
                 'resources/js/app.ts',
                 'resources/js/charts-entry.ts',
+                'resources/js/game-analytics-entry.ts',
                 'resources/js/push-notifications.js',
                 'resources/js/list-buttons.ts',
                 'resources/js/toggle-notifications.ts',

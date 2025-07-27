@@ -45,7 +45,7 @@
                     @endif
 
                     <div class="flex gap-2">
-                        <a href="{{ $game->url }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors">
+                        <a href="{{ route('track.external-project', ['game_id' => $game->id, 'url' => $game->url]) }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
@@ -59,12 +59,34 @@
                             View on Site
                         </a>
                     </div>
+
+                    <!-- Analytics Overview -->
+                    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Analytics (Last 30 Days)</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                                <div class="text-lg font-bold text-blue-900 dark:text-blue-100">{{ $clickStats['page_views_unique'] ?? 0 }}</div>
+                                <div class="text-xs text-blue-600 dark:text-blue-400">Page Views</div>
+                            </div>
+                            <div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+                                <div class="text-lg font-bold text-purple-900 dark:text-purple-100">{{ $clickStats['external_project_unique'] ?? 0 }}</div>
+                                <div class="text-xs text-purple-600 dark:text-purple-400">itch.io Visits</div>
+                            </div>
+                            <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg text-center">
+                                <div class="text-lg font-bold text-green-900 dark:text-green-100">{{ array_sum(array_column($clickStats['custom_links'] ?? [], 'unique_clicks')) }}</div>
+                                <div class="text-xs text-green-600 dark:text-green-400">Downloads</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+
         </div>
 
         <!-- Edit Form -->
         <div class="lg:col-span-2">
+            <!-- Downloads Management Form -->
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
                 <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Downloads</h2>
 
@@ -200,8 +222,324 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Analytics Charts -->
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6 mt-6">
+                <h2 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Analytics Charts (Last 30 Days)</h2>
+
+        <!-- Chart Tabs -->
+        <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+            <nav class="-mb-px flex space-x-8">
+                <button onclick="showChart('overview')" id="tab-overview" class="chart-tab active border-b-2 border-blue-500 py-2 px-1 text-sm font-medium text-blue-600 dark:text-blue-400">
+                    Overview
+                </button>
+                <button onclick="showChart('pageviews')" id="tab-pageviews" class="chart-tab border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                    Page Views
+                </button>
+                <button onclick="showChart('external')" id="tab-external" class="chart-tab border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                    itch.io Visits
+                </button>
+                @if (!empty($clickStats['custom_links']))
+                    <button onclick="showChart('downloads')" id="tab-downloads" class="chart-tab border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                        Downloads
+                    </button>
+                @endif
+            </nav>
+        </div>
+
+        <!-- Chart Containers -->
+        <div class="chart-container" id="chart-overview">
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div class="relative h-[300px] w-full">
+                    <div
+                        x-data="{
+                            chart: null,
+                            isLoading: false,
+                            initialized: false
+                        }"
+                        x-init="
+                            // Initialize immediately for overview (default tab)
+                            window.chartInitialized.then(() => {
+                                $nextTick(() => {
+                                    if (!initialized) {
+                                        isLoading = true;
+                                        chart = window.initializeMultiSeriesChart(
+                                            $refs.chartContainer,
+                                            [
+                                                {
+                                                    name: 'Page Views (Unique)',
+                                                    data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['page_views_unique']])),
+                                                    color: '#3b82f6'
+                                                },
+                                                {
+                                                    name: 'itch.io Visits (Unique)',
+                                                    data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['external_project_unique']])),
+                                                    color: '#8b5cf6'
+                                                },
+                                                {
+                                                    name: 'Downloads (Unique)',
+                                                    data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['custom_links_unique']])),
+                                                    color: '#10b981'
+                                                }
+                                            ],
+                                            { animation: false }
+                                        );
+                                        isLoading = false;
+                                        initialized = true;
+                                    }
+                                });
+                            });
+                        "
+                        @init-chart.window="
+                            if ($event.detail.chartType === 'overview' && !initialized) {
+                                isLoading = true;
+                                window.chartInitialized.then(() => {
+                                    chart = window.initializeMultiSeriesChart(
+                                        $refs.chartContainer,
+                                        [
+                                            {
+                                                name: 'Page Views (Unique)',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['page_views_unique']])),
+                                                color: '#3b82f6'
+                                            },
+                                            {
+                                                name: 'itch.io Visits (Unique)',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['external_project_unique']])),
+                                                color: '#8b5cf6'
+                                            },
+                                            {
+                                                name: 'Downloads (Unique)',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['custom_links_unique']])),
+                                                color: '#10b981'
+                                            }
+                                        ],
+                                        { animation: false }
+                                    );
+                                    isLoading = false;
+                                    initialized = true;
+                                });
+                            }
+                        "
+                        @disconnect.window="chart?.dispose()"
+                        class="h-full w-full"
+                        x-ref="chartContainer"
+                    >
+                        <template x-if="isLoading">
+                            <div class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
+                                <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container hidden" id="chart-pageviews">
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div class="relative h-[300px] w-full">
+                    <div
+                        x-data="{
+                            chart: null,
+                            isLoading: false,
+                            initialized: false
+                        }"
+                        @init-chart.window="
+                            if ($event.detail.chartType === 'pageviews' && !initialized) {
+                                isLoading = true;
+                                window.chartInitialized.then(() => {
+                                    chart = window.initializeMultiSeriesChart(
+                                        $refs.chartContainer,
+                                        [
+                                            {
+                                                name: 'Unique Views',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['page_views_unique']])),
+                                                color: '#3b82f6'
+                                            },
+                                            {
+                                                name: 'Total Views',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['page_views_total']])),
+                                                color: '#93c5fd'
+                                            }
+                                        ],
+                                        { title: 'Page Views Breakdown', animation: false }
+                                    );
+                                    isLoading = false;
+                                    initialized = true;
+                                });
+                            }
+                        "
+                        @disconnect.window="chart?.dispose()"
+                        class="h-full w-full"
+                        x-ref="chartContainer"
+                    >
+                        <template x-if="isLoading">
+                            <div class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
+                                <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container hidden" id="chart-external">
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div class="relative h-[300px] w-full">
+                    <div
+                        x-data="{
+                            chart: null,
+                            isLoading: false,
+                            initialized: false
+                        }"
+                        @init-chart.window="
+                            if ($event.detail.chartType === 'external' && !initialized) {
+                                isLoading = true;
+                                window.chartInitialized.then(() => {
+                                    chart = window.initializeMultiSeriesChart(
+                                        $refs.chartContainer,
+                                        [
+                                            {
+                                                name: 'Unique Visits',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['external_project_unique']])),
+                                                color: '#8b5cf6'
+                                            },
+                                            {
+                                                name: 'Total Visits',
+                                                data: @js(collect($dailyStats)->map(fn($day) => ['month' => $day['date'], 'count' => $day['external_project_total']])),
+                                                color: '#c4b5fd'
+                                            }
+                                        ],
+                                        { title: 'itch.io Visits Breakdown', animation: false }
+                                    );
+                                    isLoading = false;
+                                    initialized = true;
+                                });
+                            }
+                        "
+                        @disconnect.window="chart?.dispose()"
+                        class="h-full w-full"
+                        x-ref="chartContainer"
+                    >
+                        <template x-if="isLoading">
+                            <div class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
+                                <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!empty($clickStats['custom_links']))
+            <div class="chart-container hidden" id="chart-downloads">
+                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <div class="relative h-[300px] w-full">
+                        <div
+                            x-data="{
+                                chart: null,
+                                isLoading: false,
+                                initialized: false
+                            }"
+                            @init-chart.window="
+                                if ($event.detail.chartType === 'downloads' && !initialized) {
+                                    isLoading = true;
+                                    window.chartInitialized.then(() => {
+                                        // Create series for each download link
+                                        const linkSeries = [];
+                                        const linkColors = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899'];
+
+                                        @foreach ($linkStats as $index => $link)
+                                            // Create daily data array for this link
+                                            const link{{ $index }}Data = [];
+                                            @foreach ($dailyStats as $dayIndex => $day)
+                                                const date{{ $index }}_{{ $dayIndex }} = '{{ $day['date'] }}';
+                                                const count{{ $index }}_{{ $dayIndex }} = @js($link['daily_clicks'][$day['date']] ?? 0);
+                                                link{{ $index }}Data.push({ month: date{{ $index }}_{{ $dayIndex }}, count: count{{ $index }}_{{ $dayIndex }} });
+                                            @endforeach
+
+                                            linkSeries.push({
+                                                name: '{{ addslashes($link['link_name']) }}',
+                                                data: link{{ $index }}Data,
+                                                color: linkColors[{{ $index }} % linkColors.length]
+                                            });
+                                        @endforeach
+
+                                        chart = window.initializeMultiSeriesChart(
+                                            $refs.chartContainer,
+                                            linkSeries,
+                                            { title: 'Downloads per Link', animation: false }
+                                        );
+                                        isLoading = false;
+                                        initialized = true;
+                                    });
+                                }
+                            "
+                            @disconnect.window="chart?.dispose()"
+                            class="h-full w-full"
+                            x-ref="chartContainer"
+                        >
+                            <template x-if="isLoading">
+                                <div class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50">
+                                    <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <!-- Key Insights -->
+        <div class="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+            <h3 class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-3">📊 Key Insights</h3>
+            <div class="space-y-2 text-sm text-blue-700 dark:text-blue-300">
+                @php
+                    $totalPageViews = $clickStats['page_views_total'] ?? 0;
+                    $totalExternalVisits = $clickStats['external_project_total'] ?? 0;
+                    $totalDownloads = array_sum(array_column($clickStats['custom_links'] ?? [], 'total_clicks'));
+
+                    $conversionToExternal = $totalPageViews > 0 ? round(($totalExternalVisits / $totalPageViews) * 100, 1) : 0;
+                    $conversionToDownload = $totalPageViews > 0 ? round(($totalDownloads / $totalPageViews) * 100, 1) : 0;
+                @endphp
+
+                @if ($totalPageViews > 0)
+                    <div>• <strong>{{ $conversionToExternal }}%</strong> of page viewers visit your itch.io page</div>
+                    @if ($totalDownloads > 0)
+                        <div>• <strong>{{ $conversionToDownload }}%</strong> of page viewers download your game</div>
+                    @endif
+
+                    @if (!empty($linkStats))
+                        @php
+                            $bestPerformingLink = collect($linkStats)->sortByDesc('unique_clicks')->first();
+                        @endphp
+                        @if ($bestPerformingLink && $bestPerformingLink['unique_clicks'] > 0)
+                            <div>• <strong>"{{ $bestPerformingLink['link_name'] }}"</strong> is your most popular download</div>
+                        @endif
+                    @endif
+
+                    @php
+                        $recentDays = collect($dailyStats)->slice(-7);
+                        $avgDailyViews = $recentDays->avg('page_views_unique');
+                    @endphp
+                    @if ($avgDailyViews > 0)
+                        <div>• Averaging <strong>{{ round($avgDailyViews, 1) }}</strong> unique views per day this week</div>
+                    @endif
+                @else
+                    <div>• No analytics data available yet. Share your game to start seeing insights!</div>
+                @endif
+            </div>
+        </div>
+
+        @if (isset($clickStats['last_page_view']))
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-4">
+                Last page view: {{ \Carbon\Carbon::parse($clickStats['last_page_view'])->diffForHumans() }}
+            </div>
+        @endif
+            </div>
         </div>
     </div>
+
+    @vite(['resources/js/charts-entry.ts'])
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -431,6 +769,50 @@
                     }
                 }, { offset: Number.NEGATIVE_INFINITY }).element;
             }
+
         });
+
+        // Simple chart tab switching
+        function showChart(chartType) {
+            // Hide all chart containers
+            document.querySelectorAll('.chart-container').forEach(container => {
+                container.classList.add('hidden');
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.chart-tab').forEach(tab => {
+                tab.classList.remove('active', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+                tab.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            });
+
+            // Show selected chart container
+            const chartContainer = document.getElementById('chart-' + chartType);
+            if (chartContainer) {
+                chartContainer.classList.remove('hidden');
+
+                // Dispatch event to initialize chart if not already initialized
+                window.dispatchEvent(new CustomEvent('init-chart', {
+                    detail: { chartType: chartType }
+                }));
+            }
+
+            // Add active class to selected tab
+            const activeTab = document.getElementById('tab-' + chartType);
+            if (activeTab) {
+                activeTab.classList.add('active', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+                activeTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            }
+        }
     </script>
+
+    <style>
+        .chart-tab.active {
+            border-color: #3b82f6 !important;
+            color: #2563eb !important;
+        }
+
+        .dark .chart-tab.active {
+            color: #60a5fa !important;
+        }
+    </style>
 </x-layouts.app>

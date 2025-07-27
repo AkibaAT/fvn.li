@@ -96,10 +96,33 @@
                                                 No download links
                                             </p>
                                         @endif
+
+                                        {{-- Quick Stats (Last 30 days) --}}
+                                        @if (isset($clickStats[$game->id]))
+                                            @php $stats = $clickStats[$game->id]; @endphp
+                                            <div class="flex items-center gap-2 mt-2">
+                                                <div class="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded text-xs">
+                                                    <span class="font-medium text-blue-800 dark:text-blue-300">{{ $stats['page_views_unique'] }}</span>
+                                                    <span class="text-blue-600 dark:text-blue-400">views</span>
+                                                </div>
+                                                @if ($stats['external_project_unique'] > 0)
+                                                    <div class="bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded text-xs">
+                                                        <span class="font-medium text-purple-800 dark:text-purple-300">{{ $stats['external_project_unique'] }}</span>
+                                                        <span class="text-purple-600 dark:text-purple-400">visits</span>
+                                                    </div>
+                                                @endif
+                                                @if ($stats['custom_link_clicks_unique'] > 0)
+                                                    <div class="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded text-xs">
+                                                        <span class="font-medium text-green-800 dark:text-green-300">{{ $stats['custom_link_clicks_unique'] }}</span>
+                                                        <span class="text-green-600 dark:text-green-400">downloads</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ $game->url }}" target="_blank" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" title="View on itch.io">
+                                    <a href="{{ route('track.external-project', ['game_id' => $game->id, 'url' => $game->url]) }}" target="_blank" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300" title="View on itch.io">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                         </svg>
