@@ -78,6 +78,7 @@ return [
         'Laravel\Sanctum\PersonalAccessToken',
         'Illuminate\Notifications\DatabaseNotification',
         'App\Models\ChangeLog', // Prevent recursive logging
+        'App\Models\ClickStat', // Exclude click statistics from change log
     ],
 
     /**
