@@ -30,6 +30,7 @@ class GameList extends Component
     protected const array AVAILABLE_SORT_FIELDS = [
         'latest_version_published_at' => 'Latest Update',
         'initially_published_at' => 'Initial Release',
+        'first_visible_at' => 'Recently Added',
         'english_word_count' => 'Word Count',
         'rating_count' => 'Review Count',
         'name' => 'Name',
@@ -202,7 +203,8 @@ class GameList extends Component
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             $this->sortField = $field;
-            $this->sortDirection = 'asc';
+            // Default to descending for all fields except 'name'
+            $this->sortDirection = $field === 'name' ? 'asc' : 'desc';
         }
     }
 

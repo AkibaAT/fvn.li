@@ -295,7 +295,11 @@ class UpdateWatchlist extends Command
 
             // Always set is_paid flag
             $game->is_paid = $isPaid;
-            $game->is_visible = true;
+
+            // Only set is_visible = true if it's not already true to avoid unnecessary observer triggers
+            if (! $game->is_visible) {
+                $game->is_visible = true;
+            }
 
             // Load full details if needed
             if ($needsFullRefresh) {

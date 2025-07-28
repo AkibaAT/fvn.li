@@ -47,9 +47,16 @@ class GameObserver
             $isVisible = $game->is_visible;
 
             // Set first_visible_at when game becomes visible for the first time
-            if ($isVisible && ! $game->first_visible_at) {
+            // Only set if: game is now visible, was not visible before, and first_visible_at is not already set
+            if ($isVisible && ! $wasVisible && ! $game->first_visible_at) {
                 $game->first_visible_at = now();
                 $game->saveQuietly(); // Prevent infinite recursion
+
+                Log::info('Set first_visible_at for game becoming visible', [
+                    'game_id' => $game->id,
+                    'game_name' => $game->name,
+                    'first_visible_at' => $game->first_visible_at,
+                ]);
             }
         }
 

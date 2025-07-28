@@ -43,7 +43,6 @@ class Game extends Model
         'name',
         'status',
         'is_visible',
-        'first_visible_at',
         'is_nsfw',
         'description',
         'full_description',
@@ -181,6 +180,19 @@ class Game extends Model
         }
 
         $this->attributes['is_nsfw'] = $value;
+    }
+
+    /**
+     * Protect first_visible_at from being accidentally overwritten.
+     * Only allow setting if it's currently null.
+     */
+    public function setFirstVisibleAtAttribute($value): void
+    {
+        // Only allow setting first_visible_at if it's currently null
+        // This prevents accidental overwrites of the original timestamp
+        if ($this->attributes['first_visible_at'] ?? true) {
+            $this->attributes['first_visible_at'] = $value;
+        }
     }
 
     /**
