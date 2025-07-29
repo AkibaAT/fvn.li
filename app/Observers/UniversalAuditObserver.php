@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Jobs\ProcessAuditLog;
 use App\Models\ChangeLog;
+use App\Models\User;
 use App\Services\IpAnonymizationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -206,12 +207,26 @@ class UniversalAuditObserver
         $user = Auth::user();
         $context = $this->buildContext();
 
+        // Handle special case: user deleting themselves
+        // Use system user ID to avoid foreign key constraint violation
+        $userId = $user?->id;
+        if ($event === 'deleted' &&
+            $model instanceof User &&
+            $user &&
+            $user->id === $model->id) {
+            $userId = config('audit.system_user_id', 1);
+
+            // Add context about the self-deletion
+            $context['self_deletion'] = true;
+            $context['original_user_id'] = $user->id;
+        }
+
         return [
             'timestamp' => now(),
             'event_type' => $event,
             'entity_type' => get_class($model),
             'entity_id' => $model->getKey(),
-            'user_id' => $user?->id,
+            'user_id' => $userId,
             'changes' => $this->getChanges($event, $model),
             'old_values' => $this->getOldValues($event, $model),
             'new_values' => $this->getNewValues($event, $model),

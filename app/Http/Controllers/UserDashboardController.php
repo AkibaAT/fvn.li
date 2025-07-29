@@ -300,6 +300,12 @@ class UserDashboardController extends Controller
             $user->vnLists()->delete();
             $user->gameProgress()->delete();
             $user->notificationHistory()->delete();
+            $user->pushSubscriptions()->delete();
+
+            // Delete notification preferences (has CASCADE but explicit is cleaner)
+            if ($user->notificationPreferences) {
+                $user->notificationPreferences->delete();
+            }
 
             // Finally delete the user
             $user->delete();
