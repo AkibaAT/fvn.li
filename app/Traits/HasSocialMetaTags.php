@@ -37,23 +37,23 @@ trait HasSocialMetaTags
             // Add filter information
             $filters = [];
 
-            if (! empty($this->selectedStatuses)) {
+            if (property_exists($this, 'selectedStatuses') && ! empty($this->selectedStatuses)) {
                 $statuses = array_map('strtolower', $this->selectedStatuses);
                 $filters[] = implode('/', $statuses);
             }
 
-            if (! empty($this->selectedEngines)) {
+            if (property_exists($this, 'selectedEngines') && ! empty($this->selectedEngines)) {
                 $engines = array_map(fn ($e) => "made with {$e}", $this->selectedEngines);
                 $filters[] = implode(' and ', $engines);
             }
 
-            if (! empty($this->selectedPlatforms)) {
+            if (property_exists($this, 'selectedPlatforms') && ! empty($this->selectedPlatforms)) {
                 $platforms = array_map(fn ($p) => 'for ' . ucfirst($p),
                     $this->selectedPlatforms);
                 $filters[] = implode(' and ', $platforms);
             }
 
-            if (! empty($this->selectedLanguages)) {
+            if (property_exists($this, 'selectedLanguages') && ! empty($this->selectedLanguages)) {
                 $languages = Language::whereIn('id', $this->selectedLanguages)
                     ->pluck('ref_name')
                     ->map(fn ($lang) => "in {$lang}")
@@ -61,11 +61,11 @@ trait HasSocialMetaTags
                 $filters[] = $languages;
             }
 
-            if ($this->nsfw) {
+            if (property_exists($this, 'nsfw') && $this->nsfw) {
                 $filters[] = 'NSFW';
             }
 
-            if ($this->search) {
+            if (property_exists($this, 'search') && $this->search) {
                 $filters[] = "matching '{$this->search}'";
             }
 
@@ -95,25 +95,25 @@ trait HasSocialMetaTags
             $filters = [];
 
             // Build status filter
-            if (! empty($this->selectedStatuses)) {
+            if (property_exists($this, 'selectedStatuses') && ! empty($this->selectedStatuses)) {
                 $statuses = array_map('strtolower', $this->selectedStatuses);
                 $filters[] = implode(' and ', $statuses);
             }
 
             // Build engine filter
-            if (! empty($this->selectedEngines)) {
+            if (property_exists($this, 'selectedEngines') && ! empty($this->selectedEngines)) {
                 $filters[] = 'created with ' . implode(' and ', $this->selectedEngines);
             }
 
             // Add NSFW/SFW status
-            if ($this->nsfw) {
+            if (property_exists($this, 'nsfw') && $this->nsfw) {
                 $description .= ' NSFW';
-            } elseif ($this->sfw) {
+            } elseif (property_exists($this, 'sfw') && $this->sfw) {
                 $description .= ' SFW';
             }
 
             // Add platform information
-            if (! empty($this->selectedPlatforms)) {
+            if (property_exists($this, 'selectedPlatforms') && ! empty($this->selectedPlatforms)) {
                 $platforms = array_map('ucfirst', $this->selectedPlatforms);
                 $description .= ' ' . implode('/', $platforms);
             }
@@ -126,7 +126,7 @@ trait HasSocialMetaTags
             }
 
             // Add language information
-            if (! empty($this->selectedLanguages)) {
+            if (property_exists($this, 'selectedLanguages') && ! empty($this->selectedLanguages)) {
                 $languages = Language::whereIn('id', $this->selectedLanguages)
                     ->pluck('ref_name')
                     ->implode('/');
@@ -134,7 +134,7 @@ trait HasSocialMetaTags
             }
 
             // Add search term
-            if ($this->search) {
+            if (property_exists($this, 'search') && $this->search) {
                 $description .= " matching '{$this->search}'";
             }
 
@@ -148,7 +148,7 @@ trait HasSocialMetaTags
             }
 
             // Add sort information if not default
-            if (property_exists($this, 'sortField') &&
+            if (property_exists($this, 'sortField') && property_exists($this, 'sortDirection') &&
                 ($this->sortField !== 'latest_version_published_at' || $this->sortDirection !== 'desc')) {
                 $sortLabels = $this::AVAILABLE_SORT_FIELDS;
 
