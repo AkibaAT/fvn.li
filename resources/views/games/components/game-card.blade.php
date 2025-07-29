@@ -176,10 +176,12 @@
         @endforeach
         <div>
             <span class="text-gray-500 dark:text-gray-400">Rating:</span>
-            <span class="ml-1 text-gray-700 dark:text-gray-200">{{ number_format($game->average_score ?? 0, 2) }}</span>
-            <span class="text-gray-600 dark:text-gray-300 text-xs">
-                ({{ number_format($game->rating_count) }} ratings)
-            </span>
+            <span class="ml-1 text-gray-700 dark:text-gray-200">{{ $game->rating ? number_format($game->rating, 1) : '-' }}</span>
+            @if ($game->rating)
+                <span class="text-gray-600 dark:text-gray-300 text-xs">
+                    ({{ number_format($game->rating_count) }} reviews)
+                </span>
+            @endif
         </div>
     </div>
 
