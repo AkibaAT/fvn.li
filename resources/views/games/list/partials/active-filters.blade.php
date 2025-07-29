@@ -1,4 +1,4 @@
-@if (!empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || !empty($selectedLanguages) || !empty($selectedGameJams) || !empty($selectedTags) || $nsfw || $sfw || $showPaid || $showFree || $showDemo || $showSuspended || ($sortField !== 'latest_version_published_at' || $sortDirection !== 'desc') || $showHidden)
+@if (!empty($selectedPlatforms) || !empty($selectedStatuses) || !empty($selectedEngines) || !empty($selectedLanguages) || !empty($selectedGameJams) || !empty($selectedTags) || $nsfw || $sfw || $showPaid || $showFree || $showDemo || $showSuspended || ($sortField !== 'first_visible_at' || $sortDirection !== 'desc') || $showHidden)
     <div class="mb-4">
         <div class="flex items-center justify-between">
             <div class="text-sm font-medium text-gray-900 dark:text-gray-300">Active Filters:</div>

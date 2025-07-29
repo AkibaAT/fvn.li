@@ -28,13 +28,16 @@ class GameList extends Component
     private static array $filterOptions = [];
 
     protected const array AVAILABLE_SORT_FIELDS = [
+        'first_visible_at' => 'Recently Added',
         'latest_version_published_at' => 'Latest Update',
         'initially_published_at' => 'Initial Release',
-        'first_visible_at' => 'Recently Added',
         'english_word_count' => 'Word Count',
         'rating_count' => 'Review Count',
         'name' => 'Name',
     ];
+
+    private const string DEFAULT_SORT_FIELD = 'first_visible_at';
+    private const string DEFAULT_SORT_DIRECTION = 'desc';
 
     public string $search = '';
 
@@ -64,9 +67,9 @@ class GameList extends Component
 
     public bool $showHidden = false;
 
-    public string $sortField = 'latest_version_published_at';
+    public string $sortField = self::DEFAULT_SORT_FIELD;
 
-    public string $sortDirection = 'desc';
+    public string $sortDirection = self::DEFAULT_SORT_DIRECTION;
 
     public string|int $perPage = 9;
 
@@ -88,8 +91,8 @@ class GameList extends Component
         'showFree' => ['except' => false],
         'showDemo' => ['except' => false],
         'showSuspended' => ['except' => false],
-        'sortField' => ['except' => 'latest_version_published_at'],
-        'sortDirection' => ['except' => 'desc'],
+        'sortField' => ['except' => self::DEFAULT_SORT_FIELD],
+        'sortDirection' => ['except' => self::DEFAULT_SORT_DIRECTION],
         'perPage' => ['except' => 9],
         'page' => ['except' => 1],
         'showHidden' => ['except' => false],
@@ -191,8 +194,8 @@ class GameList extends Component
         // Dispatch an event to notify Alpine components that filters were cleared
         $this->dispatch('filtersCleared');
         $this->sfw = false;
-        $this->sortField = 'latest_version_published_at';
-        $this->sortDirection = 'desc';
+        $this->sortField = self::DEFAULT_SORT_FIELD;
+        $this->sortDirection = self::DEFAULT_SORT_DIRECTION;
         $this->showHidden = false;
         $this->resetPage();
     }
@@ -374,8 +377,8 @@ class GameList extends Component
 
     public function resetSort(): void
     {
-        $this->sortField = 'latest_version_published_at';
-        $this->sortDirection = 'desc';
+        $this->sortField = self::DEFAULT_SORT_FIELD;
+        $this->sortDirection = self::DEFAULT_SORT_DIRECTION;
         $this->resetPage();
     }
 
