@@ -32,7 +32,7 @@ trait HandlesGameVersionLanguages
                     ->visibility('private')
                     ->preserveFilenames()
                     ->storeFileNamesIn('original_filename')
-                    ->maxSize(10240) // 10MB max
+                    ->maxSize(102400) // 100MB max (matches PHP limit)
                     ->required()
                     ->helperText('Upload a JSON file containing game version statistics.'),
             ])
