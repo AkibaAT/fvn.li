@@ -20,7 +20,6 @@ class FetchGameJamDetails extends Command
         {--id= : ID of the specific game jam to process}
         {--name= : Name (or part of name) of the game jam(s) to process}
         {--url= : URL of the specific game jam to process}
-        {--limit=10 : Limit the number of game jams to process}
         {--results : Force fetching of results pages even for ongoing jams}
         {--max-retries=3 : Maximum number of retries for rate-limited requests}
         {--retry-cooldown=30 : Base cooldown time in seconds between retries (increases with each retry)}';
@@ -47,10 +46,6 @@ class FetchGameJamDetails extends Command
             // When using --all, always fetch results
             $forceResults = true;
         }
-
-        // Apply limit
-        $limit = (int) $this->option('limit');
-        $query->limit($limit);
 
         $gameJams = $query->get();
 

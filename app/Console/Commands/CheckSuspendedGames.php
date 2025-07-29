@@ -25,7 +25,6 @@ class CheckSuspendedGames extends Command
         {--game-id= : ID of the specific game to check}
         {--game-name= : Name (or part of name) of the game(s) to check}
         {--all : Check all visible games}
-        {--limit=10 : Limit the number of games to process when using --all}
         {--sort=id : Sort games by field (id, name, created_at, updated_at)}
         {--max-retries=3 : Maximum number of retries for rate-limited requests}
         {--retry-cooldown=30 : Base cooldown time in seconds between retries (increases with each retry)}';
