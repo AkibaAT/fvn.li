@@ -9,6 +9,7 @@ use App\Models\GameJam;
 use App\Models\Language;
 use App\Models\Tag;
 use App\Models\VnList;
+use App\Traits\HasDefaultSort;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
 use App\Traits\SortsVnLists;
@@ -23,7 +24,7 @@ use Livewire\WithPagination;
 
 class GameList extends Component
 {
-    use HasSocialMetaTags, HasSortableColumns, SortsVnLists, WithPagination;
+    use HasDefaultSort, HasSocialMetaTags, HasSortableColumns, SortsVnLists, WithPagination;
 
     private static array $filterOptions = [];
 
@@ -35,9 +36,6 @@ class GameList extends Component
         'rating_count' => 'Review Count',
         'name' => 'Name',
     ];
-
-    private const string DEFAULT_SORT_FIELD = 'first_visible_at';
-    private const string DEFAULT_SORT_DIRECTION = 'desc';
 
     public string $search = '';
 
@@ -194,8 +192,8 @@ class GameList extends Component
         // Dispatch an event to notify Alpine components that filters were cleared
         $this->dispatch('filtersCleared');
         $this->sfw = false;
-        $this->sortField = self::DEFAULT_SORT_FIELD;
-        $this->sortDirection = self::DEFAULT_SORT_DIRECTION;
+        $this->sortField = self::getDefaultSortField();
+        $this->sortDirection = self::getDefaultSortDirection();
         $this->showHidden = false;
         $this->resetPage();
     }
@@ -377,8 +375,8 @@ class GameList extends Component
 
     public function resetSort(): void
     {
-        $this->sortField = self::DEFAULT_SORT_FIELD;
-        $this->sortDirection = self::DEFAULT_SORT_DIRECTION;
+        $this->sortField = self::getDefaultSortField();
+        $this->sortDirection = self::getDefaultSortDirection();
         $this->resetPage();
     }
 

@@ -1,5 +1,5 @@
 @php
-    $isDefaultSort = $sortField === 'latest_version_published_at' && $sortDirection === 'desc';
+    $isDefaultSort = $this->isDefaultSort($sortField, $sortDirection);
 @endphp
 @if (!$isDefaultSort)
     <button
