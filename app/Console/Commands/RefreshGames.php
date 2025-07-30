@@ -121,6 +121,16 @@ class RefreshGames extends Command
             try {
                 $game->error = null;
 
+                // Check if we need to auto-enable version refresh for games without versions
+                $needsVersionRefresh = $this->option('update-version');
+                if (! $needsVersionRefresh && ($this->option('update-metadata') || $this->option('update-info'))) {
+                    // Auto-enable version refresh if game has no latest version
+                    if (! $game->latestVersion) {
+                        $needsVersionRefresh = true;
+                        $this->info('→ Auto-enabling version refresh (game has no version)');
+                    }
+                }
+
                 // Refresh base info if requested
                 if ($this->option('update-info')) {
                     $this->info('→ Refreshing base info...');
@@ -156,8 +166,8 @@ class RefreshGames extends Command
                     sleep(10);
                 }
 
-                // Refresh version if requested
-                if ($this->option('update-version')) {
+                // Refresh version if requested or auto-enabled
+                if ($needsVersionRefresh) {
                     $this->info('→ Refreshing version information...');
 
                     $itchClient->executeWithRetry(

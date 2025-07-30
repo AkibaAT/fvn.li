@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Jobs\UpdateGameRating;
 use App\Models\Game;
 use App\Models\ImportState;
 use App\Models\Rater;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\Log;
 
 class ImportRatings extends Command
 {
-    private const IMPORT_STATE_TYPE = 'ratings';
+    private const string IMPORT_STATE_TYPE = 'ratings';
 
     protected $signature = 'ratings:import';
     protected $description = 'Import latest ratings from itch.io';
@@ -257,5 +258,7 @@ class ImportRatings extends Command
             'is_visible' => true,
             'is_reviewed' => $reviewText !== '',
         ]);
+
+        UpdateGameRating::dispatch($game->id);
     }
 }

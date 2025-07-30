@@ -88,10 +88,8 @@ class ClickStat extends Model
 
         $result = [
             'page_views_total' => 0,
-            'page_views_unique' => 0,
             'last_page_view' => null,
             'external_project_total' => 0,
-            'external_project_unique' => 0,
             'last_external_project' => null,
             'custom_links' => [],
         ];
@@ -250,16 +248,22 @@ class ClickStat extends Model
     /**
      * Anonymize click statistics for a specific user
      * This is used when a user requests account deletion (GDPR Article 17)
-     * Only removes personally identifiable information: user_id and ip_address
+     * Removes user_id but anonymizes ip_address using hashing to preserve analytics value
      */
     public static function anonymizePersonalDataForUser(int $userId): bool
     {
-        return self::where('user_id', $userId)
-            ->update([
+        // Get all records for this user that need anonymization
+        $records = self::where('user_id', $userId)->get();
+
+        foreach ($records as $record) {
+            $record->update([
                 'user_id' => null,
-                'ip_address' => null,
+                'ip_address' => IpAnonymizationService::anonymize($record->ip_address, 'hash'),
                 'updated_at' => now(),
             ]);
+        }
+
+        return true;
     }
 
     /**

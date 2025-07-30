@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Jobs\UpdateGameRating;
 use App\Models\Game;
 use App\Models\ImportState;
 use App\Models\Rater;
@@ -280,5 +281,7 @@ class BackfillRatings extends Command
             'is_visible' => true,
             'is_reviewed' => $reviewText !== '',
         ]);
+
+        UpdateGameRating::dispatch($game->id);
     }
 }
