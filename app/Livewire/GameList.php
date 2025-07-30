@@ -29,13 +29,14 @@ class GameList extends Component
     private static array $filterOptions = [];
 
     protected const array AVAILABLE_SORT_FIELDS = [
-        'first_visible_at' => 'Recently Added',
-        'latest_version_published_at' => 'Latest Update',
-        'initially_published_at' => 'Initial Release',
-        'english_word_count' => 'Word Count',
-        'rating_count' => 'Review Count',
-        'name' => 'Name',
-        'trending' => 'Trending',
+        'first_visible_at',
+        'latest_version_published_at',
+        'trending',
+        'english_word_count',
+        'rating_count',
+        'rating',
+        'name',
+        'initially_published_at',
     ];
 
     public string $search = '';

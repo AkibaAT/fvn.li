@@ -152,9 +152,11 @@ trait HasSocialMetaTags
             // Add sort information if not default
             if (property_exists($this, 'sortField') && property_exists($this, 'sortDirection') &&
                 ! $this->isDefaultSort($this->sortField, $this->sortDirection)) {
-                $sortLabels = $this::AVAILABLE_SORT_FIELDS;
+                $sortLabel = method_exists($this, 'getSortLabel') ?
+                    $this->getSortLabel($this->sortField) :
+                    ucfirst(str_replace('_', ' ', $this->sortField));
 
-                $description .= ", sorted by {$sortLabels[$this->sortField]} " .
+                $description .= ", sorted by {$sortLabel} " .
                     ($this->sortDirection === 'asc' ? 'ascending' : 'descending');
             }
 

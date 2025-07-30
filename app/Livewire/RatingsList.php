@@ -15,8 +15,8 @@ class RatingsList extends Component
     use HasSortableColumns, WithPagination;
 
     protected const array AVAILABLE_SORT_FIELDS = [
-        'published_at' => 'Date',
-        'rating' => 'Rating',
+        'published_at',
+        'rating',
     ];
 
     public int $raterId;

@@ -6,7 +6,7 @@
     <x-ui.dialog-header title="Sort Games"/>
 
     <div class="space-y-2">
-        @foreach ($this->getAvailableSortFields() as $field => $label)
+        @foreach ($this->getAvailableSortFieldsWithLabels() as $field => $label)
             <button
                 wire:click="sortBy('{{ $field }}')"
                 class="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between {{ $sortField === $field ? 'bg-gray-50 dark:bg-gray-700' : '' }}"
