@@ -385,7 +385,7 @@ class GameDetail extends Component
         return [
             'title' => $this->game->name,
             'description' => $description,
-            'image' => $this->game->thumb_url ?: asset('favicon.ico'),
+            'image' => $this->game->getThumbnailUrl('default') ?: asset('favicon.ico'),
         ];
     }
 

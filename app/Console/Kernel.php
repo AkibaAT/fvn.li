@@ -8,12 +8,14 @@ use App\Console\Commands\AnonymizeClickStatIPs;
 use App\Console\Commands\BackfillRatings;
 use App\Console\Commands\CheckSuspendedGames;
 use App\Console\Commands\CleanupGameDownloads;
+use App\Console\Commands\CleanupSocialImages;
 use App\Console\Commands\FetchGameJamDetails;
 use App\Console\Commands\FixCharacters;
 use App\Console\Commands\FixIncrementalPlatformSupport;
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportGameVersionStats;
 use App\Console\Commands\ImportRatings;
+use App\Console\Commands\PreGenerateSocialImages;
 use App\Console\Commands\ProcessFeed;
 use App\Console\Commands\ProcessGameScreenshots;
 use App\Console\Commands\ProcessGameThumbnails;
@@ -34,6 +36,8 @@ class Kernel extends ConsoleKernel
         BackfillRatings::class,
         CheckSuspendedGames::class,
         CleanupGameDownloads::class,
+        CleanupSocialImages::class,
+        PreGenerateSocialImages::class,
         FetchGameJamDetails::class,
         FixCharacters::class,
         FixIncrementalPlatformSupport::class,
@@ -56,7 +60,6 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('model:prune', ['--model' => MonitoredScheduledTaskLogItem::class])->daily();
         $schedule->command('sitemap:generate')->daily()->withoutOverlapping();
         $schedule->command('ratings:import')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
@@ -65,12 +68,16 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
         $schedule->command('games:process-screenshots', ['--all'])->dailyAt('03:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details')->hourly()->withoutOverlapping();
-        $schedule->command('games:cleanup-downloads', ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
         $schedule->command('fix:characters')->weekly()->sundays()->at('03:00')->withoutOverlapping();
 
         // Notification commands
         $schedule->command('notifications:queue-game-updates')->everyMinute()->withoutOverlapping();
         $schedule->command('notifications:process-push')->everyFiveMinutes()->withoutOverlapping();
+
+        // Cleanup commands
+        $schedule->command('app:cleanup-social-images')->daily()->withoutOverlapping();
+        $schedule->command('games:cleanup-downloads', ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
+        $schedule->command('model:prune', ['--model' => MonitoredScheduledTaskLogItem::class])->daily();
     }
 
     /**

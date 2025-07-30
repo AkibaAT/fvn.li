@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\AndroidBuild;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Traits\HandlesLocalImages;
 use App\ValueObjects\Upload;
 use Exception;
 use GuzzleHttp\Client;
@@ -21,6 +22,8 @@ use ZipArchive;
 
 class AndroidBuildService
 {
+    use HandlesLocalImages;
+
     private ImageManager $imageManager;
 
     public function __construct(
@@ -713,38 +716,53 @@ class AndroidBuildService
                 return;
             }
 
+            // Use the same thumbnail logic as the frontend
+            $thumbnailUrl = $game->getThumbnailUrl('default');
+
             Log::info('Creating Android icon from game thumbnail', [
                 'game_id' => $game->id,
-                'thumb_url' => $game->thumb_url,
+                'thumb_url' => $thumbnailUrl,
             ]);
 
             // Create temporary directory
             $tempDir = storage_path('app/temp/android_icon_' . $game->id);
             File::makeDirectory($tempDir, 0755, true, true);
 
-            // Download the thumbnail
-            $tempFile = $tempDir . '/thumbnail.jpg';
-            $response = $this->httpClient->get($game->thumb_url, [
-                'timeout' => 30,
-                'connect_timeout' => 10,
-                'verify' => false,
-            ]);
+            // Handle local vs external thumbnails
+            if ($this->isLocalThumbnail($thumbnailUrl)) {
+                // Copy local cached thumbnail directly
+                $localPath = $this->getLocalThumbnailPath($thumbnailUrl);
+                if ($localPath && file_exists($localPath)) {
+                    $tempFile = $tempDir . '/thumbnail' . pathinfo($localPath, PATHINFO_EXTENSION);
+                    copy($localPath, $tempFile);
+                } else {
+                    throw new Exception('Local thumbnail not found: ' . $localPath);
+                }
+            } else {
+                // Download external thumbnail
+                $tempFile = $tempDir . '/thumbnail.jpg';
+                $response = $this->httpClient->get($thumbnailUrl, [
+                    'timeout' => 30,
+                    'connect_timeout' => 10,
+                    'verify' => false,
+                ]);
 
-            if ($response->getStatusCode() !== 200) {
-                throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
-            }
+                if ($response->getStatusCode() !== 200) {
+                    throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
+                }
 
-            // Save the thumbnail to a temporary file
-            $content = $response->getBody()->getContents();
-            if (empty($content)) {
-                throw new Exception('Downloaded content is empty');
-            }
+                // Save the thumbnail to a temporary file
+                $content = $response->getBody()->getContents();
+                if (empty($content)) {
+                    throw new Exception('Downloaded content is empty');
+                }
 
-            File::put($tempFile, $content);
+                File::put($tempFile, $content);
 
-            // Verify the downloaded file
-            if (! File::exists($tempFile) || File::size($tempFile) === 0) {
-                throw new Exception('Failed to save downloaded content');
+                // Verify the downloaded file
+                if (! File::exists($tempFile) || File::size($tempFile) === 0) {
+                    throw new Exception('Failed to save downloaded content');
+                }
             }
 
             // Create the foreground icon in the game directory

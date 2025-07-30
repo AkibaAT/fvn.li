@@ -11,6 +11,7 @@ use App\Observers\UniversalAuditObserver;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\LanguageMappingService;
+use App\Services\SocialImageService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
@@ -37,6 +38,10 @@ class AppServiceProvider extends ServiceProvider
                 config('services.itch.retry_cooldown')
             );
         });
+
+        $this->app->singleton(SocialImageService::class, function () {
+            return new SocialImageService;
+        });
     }
 
     /**
@@ -53,6 +58,12 @@ class AppServiceProvider extends ServiceProvider
         $keystoreDir = storage_path('app/keystores');
         if (! File::exists($keystoreDir)) {
             File::makeDirectory($keystoreDir, 0755, true, true);
+        }
+
+        // Ensure the social images directory exists
+        $socialImagesDir = storage_path('app/public/social-images');
+        if (! File::exists($socialImagesDir)) {
+            File::makeDirectory($socialImagesDir, 0755, true, true);
         }
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('discord', \SocialiteProviders\Discord\Provider::class);

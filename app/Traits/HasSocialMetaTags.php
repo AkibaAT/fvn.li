@@ -171,13 +171,137 @@ trait HasSocialMetaTags
     protected function getMetaImage(): string
     {
         if (property_exists($this, 'games') && $this->games->count() > 0) {
+            // Generate a collage only for GameList views with multiple games, and only for social media crawlers
+            // or when explicitly requested with ?social_preview=1 parameter
+            if ($this->isGameListView() &&
+                $this->games->count() > 1 &&
+                ($this->isSocialMediaCrawler() || $this->shouldGenerateSocialPreview())) {
+
+                $socialImageService = app(\App\Services\SocialImageService::class);
+
+                // Generate cache key based on current filters and games
+                $filters = $this->getCurrentFilters();
+                $cacheKey = $socialImageService->generateCacheKey($this->games, $filters);
+
+                $collageUrl = $socialImageService->generateGameCollage($this->games, $cacheKey);
+                if ($collageUrl) {
+                    return $collageUrl;
+                }
+            }
+
+            // Fallback to first game's thumbnail (using same logic as game cards)
             foreach ($this->games as $game) {
-                if ($game->thumb_url) {
-                    return $game->thumb_url;
+                $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
+                    ? $game->getThumbnailUrl('small')
+                    : $game->thumb_url;
+
+                if ($thumbnailUrl) {
+                    return $thumbnailUrl;
                 }
             }
         }
 
         return '';
+    }
+
+    /**
+     * Check if the current request is from a social media crawler
+     */
+    private function isSocialMediaCrawler(): bool
+    {
+        $userAgent = request()->header('User-Agent', '');
+
+        $socialCrawlers = [
+            'facebookexternalhit',     // Facebook
+            'Facebot',                 // Facebook
+            'Twitterbot',              // Twitter/X
+            'LinkedInBot',             // LinkedIn
+            'WhatsApp',                // WhatsApp
+            'Slackbot',                // Slack
+            'SkypeUriPreview',         // Skype
+            'TelegramBot',             // Telegram
+            'Discordbot',              // Discord
+            'redditbot',               // Reddit
+            'Applebot',                // Apple (iMessage, etc.)
+            'GoogleBot',               // Google (for Google+ and other services)
+            'bingbot',                 // Bing (for Bing social features)
+            'Mastodon',                // Mastodon
+            'BlueSkyBot',              // BlueSky
+        ];
+
+        foreach ($socialCrawlers as $crawler) {
+            if (stripos($userAgent, $crawler) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if social preview generation is explicitly requested
+     */
+    private function shouldGenerateSocialPreview(): bool
+    {
+        return request()->has('social_preview') && request()->get('social_preview') == '1';
+    }
+
+    /**
+     * Check if this is a GameList view (where we show multiple games in a list)
+     */
+    private function isGameListView(): bool
+    {
+        // Check if this is the GameList Livewire component
+        return $this instanceof \App\Livewire\GameList;
+    }
+
+    /**
+     * Get current filters as an array for cache key generation
+     */
+    private function getCurrentFilters(): array
+    {
+        $filters = [];
+
+        if (property_exists($this, 'search') && $this->search) {
+            $filters['search'] = $this->search;
+        }
+
+        if (property_exists($this, 'selectedStatuses') && ! empty($this->selectedStatuses)) {
+            $filters['statuses'] = $this->selectedStatuses;
+        }
+
+        if (property_exists($this, 'selectedEngines') && ! empty($this->selectedEngines)) {
+            $filters['engines'] = $this->selectedEngines;
+        }
+
+        if (property_exists($this, 'selectedPlatforms') && ! empty($this->selectedPlatforms)) {
+            $filters['platforms'] = $this->selectedPlatforms;
+        }
+
+        if (property_exists($this, 'selectedLanguages') && ! empty($this->selectedLanguages)) {
+            $filters['languages'] = $this->selectedLanguages;
+        }
+
+        if (property_exists($this, 'selectedGameJams') && ! empty($this->selectedGameJams)) {
+            $filters['gamejams'] = $this->selectedGameJams;
+        }
+
+        if (property_exists($this, 'selectedTags') && ! empty($this->selectedTags)) {
+            $filters['tags'] = $this->selectedTags;
+        }
+
+        if (property_exists($this, 'nsfw') && $this->nsfw) {
+            $filters['nsfw'] = true;
+        }
+
+        if (property_exists($this, 'sfw') && $this->sfw) {
+            $filters['sfw'] = true;
+        }
+
+        if (property_exists($this, 'sortField') && $this->sortField) {
+            $filters['sort'] = $this->sortField . '_' . ($this->sortDirection ?? 'desc');
+        }
+
+        return $filters;
     }
 }
