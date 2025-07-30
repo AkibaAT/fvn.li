@@ -6,12 +6,12 @@ namespace App\Traits;
 
 use App\Livewire\RaterDetail;
 use App\Models\Language;
-use App\Traits\HasDefaultSort;
 use Illuminate\Support\Str;
 
 trait HasSocialMetaTags
 {
     use HasDefaultSort;
+
     protected function getMetaTitle(): string
     {
         $title = '';
@@ -151,7 +151,7 @@ trait HasSocialMetaTags
 
             // Add sort information if not default
             if (property_exists($this, 'sortField') && property_exists($this, 'sortDirection') &&
-                !$this->isDefaultSort($this->sortField, $this->sortDirection)) {
+                ! $this->isDefaultSort($this->sortField, $this->sortDirection)) {
                 $sortLabels = $this::AVAILABLE_SORT_FIELDS;
 
                 $description .= ", sorted by {$sortLabels[$this->sortField]} " .
@@ -163,7 +163,7 @@ trait HasSocialMetaTags
             return $description;
         }
 
-        return config('app.description', 'Default description');
+        return (string) config('app.description', 'Default description');
     }
 
     protected function getMetaImage(): string

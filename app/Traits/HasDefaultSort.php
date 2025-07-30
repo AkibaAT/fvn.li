@@ -23,4 +23,4 @@ trait HasDefaultSort
     {
         return $sortField === self::DEFAULT_SORT_FIELD && $sortDirection === self::DEFAULT_SORT_DIRECTION;
     }
-} 
+}

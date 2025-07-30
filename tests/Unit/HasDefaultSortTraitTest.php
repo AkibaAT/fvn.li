@@ -11,21 +11,30 @@ class HasDefaultSortTraitTest extends TestCase
 {
     use HasDefaultSort;
 
-    public function test_get_default_sort_field(): void
+    /**
+     * @test
+     */
+    public function get_default_sort_field(): void
     {
         $this->assertEquals('first_visible_at', self::getDefaultSortField());
     }
 
-    public function test_get_default_sort_direction(): void
+    /**
+     * @test
+     */
+    public function get_default_sort_direction(): void
     {
         $this->assertEquals('desc', self::getDefaultSortDirection());
     }
 
-    public function test_is_default_sort(): void
+    /**
+     * @test
+     */
+    public function is_default_sort(): void
     {
         $this->assertTrue(self::isDefaultSort('first_visible_at', 'desc'));
         $this->assertFalse(self::isDefaultSort('first_visible_at', 'asc'));
         $this->assertFalse(self::isDefaultSort('name', 'desc'));
         $this->assertFalse(self::isDefaultSort('name', 'asc'));
     }
-} 
+}
