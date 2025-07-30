@@ -35,6 +35,7 @@ class GameList extends Component
         'english_word_count' => 'Word Count',
         'rating_count' => 'Review Count',
         'name' => 'Name',
+        'trending' => 'Trending',
     ];
 
     public string $search = '';
@@ -243,7 +244,19 @@ class GameList extends Component
             ->leftJoin('version_language_stats as english_stats', function ($join) {
                 $join->on('latest_versions.id', '=', 'english_stats.game_version_id')
                     ->where('english_stats.iso_code', '=', 'eng');
-            });
+            })
+            ->leftJoinSub(
+                DB::table('click_stats')
+                    ->selectRaw('COUNT(*) as trending_score, game_id')
+                    ->where('type', 'page_view')
+                    ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '14 days'"))
+                    ->groupBy('game_id'),
+                'trending',
+                function ($join) {
+                    $join->on('games.id', '=', 'trending.game_id');
+                }
+            )
+            ->addSelect(DB::raw('COALESCE(trending.trending_score, 0) as trending_score'));
 
         // Apply filters
         $query->when(! $this->showHidden, fn ($q) => $q->where('is_visible', true))
@@ -317,6 +330,7 @@ class GameList extends Component
         $column = match ($this->sortField) {
             'latest_version_published_at' => 'latest_versions.published_at',
             'english_word_count' => 'english_stats.words',
+            'trending' => 'trending_score',
             default => "games.{$this->sortField}"
         };
 
