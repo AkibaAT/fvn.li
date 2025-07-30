@@ -124,6 +124,24 @@ class GameList extends Component
         $this->normalizeArrayProperties();
     }
 
+    public function syncFromBrowserHistory(array $params): void
+    {
+        // Custom method to handle browser history synchronization
+        foreach ($params as $property => $value) {
+            if (property_exists($this, $property)) {
+                $this->{$property} = $value;
+
+                // Manually trigger lifecycle hooks that would normally be called
+                if ($property === 'search') {
+                    $this->resetPage();
+                }
+            }
+        }
+
+        $this->normalizePerPage();
+        $this->normalizeArrayProperties();
+    }
+
     public function updated($name): void
     {
         if ($name === 'perPage') {
