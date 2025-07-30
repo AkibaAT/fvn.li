@@ -24,8 +24,6 @@ class GameVersion extends Model
         'is_mac',
         'is_android',
         'is_web',
-        'rating',
-        'rating_count',
     ];
 
     protected $casts = [
@@ -35,8 +33,6 @@ class GameVersion extends Model
         'is_mac' => 'boolean',
         'is_android' => 'boolean',
         'is_web' => 'boolean',
-        'rating' => 'float',
-        'rating_count' => 'integer',
         'is_latest' => 'boolean',
     ];
 

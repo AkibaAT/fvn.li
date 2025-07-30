@@ -19,6 +19,7 @@ use App\Console\Commands\ProcessGameScreenshots;
 use App\Console\Commands\ProcessGameThumbnails;
 use App\Console\Commands\ProcessPushNotifications;
 use App\Console\Commands\QueueGameUpdateNotifications;
+use App\Console\Commands\RecalculateGameRatings;
 use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGames;
 use App\Console\Commands\UpdateWatchlist;
@@ -44,6 +45,7 @@ class Kernel extends ConsoleKernel
         ProcessGameThumbnails::class,
         ProcessPushNotifications::class,
         QueueGameUpdateNotifications::class,
+        RecalculateGameRatings::class,
         RefreshFeedlessGames::class,
         RefreshGames::class,
         UpdateWatchlist::class,

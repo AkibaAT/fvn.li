@@ -33,6 +33,8 @@ class Game extends Model
 {
     use HasFactory;
 
+    private static array $httpCache = [];
+
     protected array $pendingGameJamId = [];
 
     protected array $pendingTagIds = [];
@@ -68,6 +70,8 @@ class Game extends Model
         'custom_assets',
         'custom_page_updated_at',
         'custom_page_updated_by',
+        'rating_score',
+        'rating_count',
     ];
 
     protected $with = ['tags'];
@@ -78,7 +82,6 @@ class Game extends Model
         'initially_published_at' => 'datetime',
         'latest_version_published_at' => 'datetime',
         'first_visible_at' => 'datetime',
-        'rating' => 'float',
         'min_price' => 'float',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
@@ -98,11 +101,12 @@ class Game extends Model
         'screenshots' => 'array',
         'additional_links' => 'array',
         'custom_css' => 'string',
-        'ratings_count' => 'integer',
         'has_custom_page' => 'boolean',
         'custom_screenshots' => 'array',
         'custom_assets' => 'array',
         'custom_page_updated_at' => 'datetime',
+        'rating_score' => 'float',
+        'rating_count' => 'integer',
     ];
 
     /**
@@ -390,6 +394,8 @@ class Game extends Model
         } catch (Exception $exception) {
             $this->error = $exception->getMessage();
             throw $exception;
+        } finally {
+            $this->clearHttpCache();
         }
     }
 
@@ -422,22 +428,14 @@ class Game extends Model
      * @throws BindingResolutionException
      * @throws Throwable
      */
-    public function refreshMetadata(
-        ?string &$devlogLink = null,
-        ?float &$rating = null,
-        ?int &$ratingCount = null
-    ): void {
+    public function refreshMetadata(): void
+    {
         // Start a database transaction to ensure data consistency
         DB::beginTransaction();
 
         try {
-            // Get the ItchHttpClientService
-            $itchClient = App::make(ItchHttpClientService::class);
-
-            // For NSFW check, we need to use an unauthenticated client
-            // Use anonymous option for this specific request
-            $response = $itchClient->get($this->url, [], true);
-            $html = $response->getBody()->getContents();
+            $response = $this->getCachedResponse($this->url, [], true);
+            $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
             // Extract price information
@@ -458,15 +456,6 @@ class Game extends Model
                         }
                     }
                 }
-            }
-
-            // Get rating information
-            $ratingElement = $doc->querySelector('div[itemprop=ratingValue]');
-            $ratingCountElement = $doc->querySelector('span[itemprop=ratingCount]');
-
-            if ($ratingElement && $ratingCountElement) {
-                $rating = (float) $ratingElement->getAttribute('content');
-                $ratingCount = (int) $ratingCountElement->getAttribute('content');
             }
 
             // Get price information
@@ -532,18 +521,6 @@ class Game extends Model
             // Restore the blur_screenshots value if it was explicitly set before
             if ($this->exists && $this->isDirty('blur_screenshots')) {
                 $this->blur_screenshots = $currentBlurScreenshots;
-            }
-
-            // Get devlog link if present
-            $devlog = $doc->querySelector('section#devlog');
-            if ($devlog) {
-                $devlogLinks = $devlog->querySelectorAll('a');
-                foreach ($devlogLinks as $index => $link) {
-                    if ($index === 0) {
-                        $devlogLink = $link->getAttribute('href');
-                        break;
-                    }
-                }
             }
 
             // Save all metadata changes within the transaction
@@ -773,6 +750,26 @@ class Game extends Model
         DB::beginTransaction();
 
         try {
+            // Check if game has any existing versions - if not, create fallback immediately
+            if (! $this->gameVersions()->exists()) {
+                // Create fallback version and commit it immediately to ensure it persists
+                $fallbackVersion = new GameVersion([
+                    'version' => 'Unknown',
+                    'devlog' => $this->getDevlogLink(),
+                    'is_windows' => false,
+                    'is_linux' => false,
+                    'is_mac' => false,
+                    'is_android' => false,
+                    'is_web' => false,
+                    'published_at' => $this->initially_published_at ?? now(),
+                    'is_latest' => true,
+                ]);
+                $this->gameVersions()->save($fallbackVersion);
+                DB::commit();
+                DB::beginTransaction();
+                $force = true;
+            }
+
             // Get the ItchHttpClientService
             $itchClient = App::make(ItchHttpClientService::class);
 
@@ -825,7 +822,7 @@ class Game extends Model
                     $seenUploads[$fileId]['build_updated_at'] !== $currentBuildUpdatedAt
                 );
 
-                if ($isNewOrChanged) {
+                if ($isNewOrChanged || $force) {
                     $hasChanges = true;
                     $seenUploads[$fileId] = [
                         'display_name' => $currentDisplayName,
@@ -885,35 +882,31 @@ class Game extends Model
                     ->first();
 
                 if (! $existingVersion || $force) {
-                    // Update the game's info & get rating info
-                    sleep(10);
-                    $devlogLink = null;
-                    $versionRating = null;
-                    $versionRatingCount = null;
+                    $existingUnknownVersion = $this->gameVersions()
+                        ->where('version', 'Unknown')
+                        ->first();
 
-                    // Get devlog link and ratings
-                    $this->refreshMetadata($devlogLink, $versionRating, $versionRatingCount);
-                    $this->save();
-
-                    // Create new version with basic info first
-                    $gameVersion = new GameVersion([
+                    $versionValues = [
                         'version' => $newVersion,
-                        'devlog' => $devlogLink,
+                        'devlog' => $this->getDevlogLink(),
                         'is_windows' => $isWindows,
                         'is_linux' => $isLinux,
                         'is_mac' => $isMac,
                         'is_android' => $isAndroid,
                         'is_web' => $isWeb,
                         'published_at' => $uploadTimestamp,
-                        'rating' => $versionRating,
-                        'rating_count' => $versionRatingCount,
                         'is_latest' => ! $existingVersion,
-                    ]);
+                    ];
 
+                    if ($existingUnknownVersion) {
+                        $existingUnknownVersion->update($versionValues);
+                        $gameVersion = $existingUnknownVersion;
+                    } else {
+                        $gameVersion = new GameVersion($versionValues);
+                    }
                     $this->gameVersions()->save($gameVersion);
 
-                    // If creating a new version (not just refreshing an existing one)
-                    if (! $existingVersion) {
+                    if (! $existingUnknownVersion) {
                         // Find previous version that has any unavailable languages
                         $previousVersion = $this->gameVersions()
                             ->where('id', '!=', $gameVersion->id)
@@ -1353,6 +1346,11 @@ class Game extends Model
         return $this->belongsTo(User::class, 'custom_page_updated_by');
     }
 
+    public function clearHttpCache(): void
+    {
+        unset(self::$httpCache[$this->id]);
+    }
+
     protected function devlog(): Attribute
     {
         return Attribute::make(
@@ -1363,14 +1361,14 @@ class Game extends Model
     protected function rating(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->latestVersion?->rating
+            get: fn () => $this->attributes['rating_score'] ?? null
         );
     }
 
     protected function ratingCount(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->latestVersion?->rating_count
+            get: fn () => $this->attributes['rating_count'] ?? 0
         );
     }
 
@@ -1388,6 +1386,36 @@ class Game extends Model
                 'web' => $this->latestVersion?->is_web ?? false,
             ],
         );
+    }
+
+    /**
+     * Get the devlog link from the game's itch.io page
+     */
+    private function getDevlogLink(): ?string
+    {
+        try {
+            // Use cached HTML to avoid duplicate requests
+            $response = $this->getCachedResponse($this->url, [], true);
+            $html = $response['body'];
+            $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+            $devlog = $doc->querySelector('section#devlog');
+            if ($devlog) {
+                $devlogLinks = $devlog->querySelectorAll('a');
+                foreach ($devlogLinks as $index => $link) {
+                    if ($index === 0) {
+                        return $link->getAttribute('href');
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            Log::warning('Failed to get devlog link', [
+                'game_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
     }
 
     /**
@@ -1841,5 +1869,21 @@ class Game extends Model
                 $gameVersion->addSupportedLanguage('eng');
             }
         }
+    }
+
+    private function getCachedResponse(string $url, array $options = [], bool $anonymous = false): array
+    {
+        $urlKey = md5($url . serialize($options) . ($anonymous ? 'anon' : 'auth'));
+
+        if (! isset(self::$httpCache[$this->id][$urlKey])) {
+            $itchClient = App::make(ItchHttpClientService::class);
+            $response = $itchClient->get($url, $options, $anonymous);
+            self::$httpCache[$this->id][$urlKey] = [
+                'body' => $response->getBody()->getContents(),
+                'status_code' => $response->getStatusCode(),
+            ];
+        }
+
+        return self::$httpCache[$this->id][$urlKey];
     }
 }

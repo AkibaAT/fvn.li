@@ -296,8 +296,6 @@ class GameDetail extends Component
                 'android' => $latestVersion?->is_android ?? false,
                 'web' => $latestVersion?->is_web ?? false,
             ],
-            'rating' => $latestVersion?->rating,
-            'ratingCount' => $latestVersion?->rating_count,
             'devlog' => $latestVersion?->devlog,
             'englishStats' => $latestVersion?->getStatsForLanguage('eng'),
             'supportedLanguages' => $supportedLanguages,
@@ -369,9 +367,9 @@ class GameDetail extends Component
                 $descriptionParts[] = number_format($englishWordCount) . ' words long';
             }
 
-            // Add rating from latest version if available
-            if ($latestVersion?->rating_count) {
-                $descriptionParts[] = 'rated ' . number_format($latestVersion->rating_count) . ' times';
+            // Add rating from game if available
+            if ($this->game->rating_count) {
+                $descriptionParts[] = 'rated ' . number_format($this->game->rating_count) . ' times';
             }
         } else {
             // Get rating count from ratings table

@@ -153,7 +153,6 @@
             ['label' => 'Status', 'value' => $game->status, 'type' => 'status', 'isActive' => in_array($game->status, $selectedStatuses ?? [])],
             ['label' => 'Engine', 'value' => $game->game_engine, 'type' => 'engine', 'isActive' => in_array($game->game_engine, $selectedEngines ?? [])],
             ['label' => 'Words (EN)', 'value' => number_format($game->english_word_count ?? 0) ?: '-', 'isFilter' => false],
-            ['label' => 'Reviews', 'value' => $game->rating_count ?? '-', 'isFilter' => false],
             ['label' => 'Released', 'value' => $game->initially_published_at?->format('M j, Y') ?? '-', 'isFilter' => false],
             ['label' => 'Updated', 'value' => $game->latest_version_published_at?->format('M j, Y') ?? '-', 'isFilter' => false],
         ] as $detail)

@@ -215,7 +215,6 @@ class GameList extends Component
                 'games.*',
                 'latest_versions.published_at as latest_version_published_at',
                 'latest_versions.id as latest_version_id',
-                'latest_versions.rating as rating',
                 'latest_versions.devlog as devlog',
                 'latest_versions.is_windows as is_windows',
                 'latest_versions.is_linux as is_linux',
@@ -316,8 +315,8 @@ class GameList extends Component
         $column = match ($this->sortField) {
             'latest_version_published_at' => 'latest_versions.published_at',
             'english_word_count' => 'english_stats.words',
-            'rating_count' => 'latest_versions.rating_count',
-            'rating' => 'latest_versions.rating',
+            'rating_count' => 'games.rating_count',
+            'rating' => 'games.rating_score',
             default => "games.{$this->sortField}"
         };
 

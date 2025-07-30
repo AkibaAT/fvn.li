@@ -220,7 +220,7 @@
                             'Word Count (English)' => $englishStats?->words ? number_format($englishStats->words) : '-',
                             'Characters' => $versionCharacterCounts[$latestVersion?->id] ?? '-',
                             'Rating' => $game->rating ? number_format($game->rating, 1) : '-',
-                            'Review Count' => $game->rating_count ? number_format($game->rating_count) : '-',
+                            'Review Count' => $game->ratingCount ? number_format($game->ratingCount) : '-',
                             'Price' => $game->is_paid ? ($game->current_price > 0 ? '$'.number_format($game->current_price, 2) : 'Paid') : 'Free',
                             'Original Price' => ($game->is_paid && $game->is_on_sale && $game->original_price) ? '$'.number_format($game->original_price, 2) : null,
                             'Discount' => ($game->is_on_sale && $game->discount_percentage) ? $game->discount_percentage.'%' : null,
@@ -615,17 +615,6 @@
                                         <span class="ml-1 text-gray-900 dark:text-gray-100">
                                     {{ $englishStats && $englishStats->words ? number_format($englishStats->words) : '-' }}
                                 </span>
-                                    </div>
-
-                                    {{-- Rating --}}
-                                    <div class="w-full flex items-center whitespace-nowrap text-sm">
-                                        <span class="text-gray-500">Rating:</span>
-                                        <span class="ml-1 text-gray-900 dark:text-gray-100">
-                                    {{ $version->rating ? number_format($version->rating, 1) : '-' }}
-                                </span>
-                                        @if ($version->rating_count)
-                                            <span class="ml-1 text-gray-500">({{ $version->rating_count }})</span>
-                                        @endif
                                     </div>
                                 </div>
                             </div>
