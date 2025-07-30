@@ -18,6 +18,7 @@ class ClickStat extends Model
 
     protected $fillable = [
         'game_id',
+        'user_id',
         'type',
         'link_id',
         'session_id',
@@ -40,6 +41,7 @@ class ClickStat extends Model
         string $type,
         string $sessionId,
         ?string $linkId = null,
+        ?int $userId = null,
         ?string $ipAddress = null,
         ?string $userAgent = null,
         ?string $referrer = null
@@ -47,6 +49,7 @@ class ClickStat extends Model
         // Always record the click for total counts
         self::create([
             'game_id' => $gameId,
+            'user_id' => $userId,
             'type' => $type,
             'link_id' => $linkId,
             'session_id' => $sessionId,
@@ -245,35 +248,18 @@ class ClickStat extends Model
     }
 
     /**
-     * Anonymize click statistics by removing personal identifiers
+     * Anonymize click statistics for a specific user
      * This is used when a user requests account deletion (GDPR Article 17)
+     * Only removes personally identifiable information: user_id and ip_address
      */
-    public static function anonymizePersonalData(): int
+    public static function anonymizePersonalDataForUser(int $userId): bool
     {
-        // For click statistics, we anonymize by removing IP addresses, user agents, and session IDs
-        // We keep the statistical data (game_id, type, link_id, clicked_at) for legitimate business interests
-
-        $count = self::whereNotNull('ip_address')
-            ->orWhereNotNull('user_agent')
-            ->orWhereNotNull('session_id')
-            ->count();
-
-        if ($count === 0) {
-            return 0;
-        }
-
-        // Remove personal identifiers while keeping statistical data
-        self::whereNotNull('ip_address')
-            ->orWhereNotNull('user_agent')
-            ->orWhereNotNull('session_id')
+        return self::where('user_id', $userId)
             ->update([
+                'user_id' => null,
                 'ip_address' => null,
-                'user_agent' => null,
-                'session_id' => 'anonymized_' . now()->timestamp,
                 'updated_at' => now(),
             ]);
-
-        return $count;
     }
 
     /**
@@ -522,5 +508,13 @@ class ClickStat extends Model
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
+    }
+
+    /**
+     * Get the user that this click stat belongs to
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

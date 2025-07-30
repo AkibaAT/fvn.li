@@ -138,8 +138,6 @@ class ChangeLog extends Model
                 'context' => DB::raw("
                     context
                     - 'ip_address'
-                    - 'user_agent'
-                    - 'session_id'
                     || jsonb_build_object(
                         'anonymized', true,
                         'anonymized_at', now(),

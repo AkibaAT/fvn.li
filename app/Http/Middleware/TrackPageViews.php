@@ -47,6 +47,9 @@ class TrackPageViews
             // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
+            // Get authenticated user ID if logged in
+            $userId = $request->user()?->id;
+
             // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
@@ -58,6 +61,7 @@ class TrackPageViews
                 type: ClickStat::TYPE_PAGE_VIEW,
                 sessionId: $sessionId,
                 linkId: null,
+                userId: $userId,
                 ipAddress: $ipAddress,
                 userAgent: $userAgent,
                 referrer: $referrer

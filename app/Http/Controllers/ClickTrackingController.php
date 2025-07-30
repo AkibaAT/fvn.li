@@ -37,6 +37,9 @@ class ClickTrackingController extends Controller
             // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
+            // Get authenticated user ID if logged in
+            $userId = $request->user()?->id;
+
             // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
@@ -48,6 +51,7 @@ class ClickTrackingController extends Controller
                 type: ClickStat::TYPE_EXTERNAL_PROJECT,
                 sessionId: $sessionId,
                 linkId: null, // External project links don't have link IDs
+                userId: $userId,
                 ipAddress: $ipAddress,
                 userAgent: $userAgent,
                 referrer: $referrer
@@ -101,6 +105,9 @@ class ClickTrackingController extends Controller
             // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
+            // Get authenticated user ID if logged in
+            $userId = $request->user()?->id;
+
             // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
@@ -112,6 +119,7 @@ class ClickTrackingController extends Controller
                 type: ClickStat::TYPE_CUSTOM_LINK,
                 sessionId: $sessionId,
                 linkId: $validated['link_id'],
+                userId: $userId,
                 ipAddress: $ipAddress,
                 userAgent: $userAgent,
                 referrer: $referrer
@@ -167,6 +175,9 @@ class ClickTrackingController extends Controller
             // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
+            // Get authenticated user ID if logged in
+            $userId = $request->user()?->id;
+
             // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
@@ -178,6 +189,7 @@ class ClickTrackingController extends Controller
                 type: ClickStat::TYPE_CUSTOM_LINK,
                 sessionId: $sessionId,
                 linkId: $validated['link_id'],
+                userId: $userId,
                 ipAddress: $ipAddress,
                 userAgent: $userAgent,
                 referrer: $referrer

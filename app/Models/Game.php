@@ -79,7 +79,6 @@ class Game extends Model
         'latest_version_published_at' => 'datetime',
         'first_visible_at' => 'datetime',
         'rating' => 'float',
-        'rating_count' => 'integer',
         'min_price' => 'float',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
@@ -99,7 +98,6 @@ class Game extends Model
         'screenshots' => 'array',
         'additional_links' => 'array',
         'custom_css' => 'string',
-        'average_score' => 'float',
         'ratings_count' => 'integer',
         'has_custom_page' => 'boolean',
         'custom_screenshots' => 'array',
@@ -1366,6 +1364,13 @@ class Game extends Model
     {
         return Attribute::make(
             get: fn () => $this->latestVersion?->rating
+        );
+    }
+
+    protected function ratingCount(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->latestVersion?->rating_count
         );
     }
 
