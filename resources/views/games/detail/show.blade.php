@@ -808,6 +808,13 @@
         @vite('resources/js/list-buttons.ts')
         @vite('resources/js/toggle-notifications.ts')
         @vite('resources/js/screenshots-lightbox.ts')
+
+        {{-- Only load TinyMCE when user has edit rights --}}
+        @auth
+            @if ($game->canUserEdit(auth()->user()))
+                @vite('resources/js/tinymce-entry.ts')
+            @endif
+        @endauth
     @endpush
 </div>
 

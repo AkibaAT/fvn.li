@@ -269,6 +269,15 @@
         setTimeout(() => {
             if (typeof window.initTinyMCE === 'function') {
                 window.initTinyMCE();
+            } else {
+                // Try to load TinyMCE dynamically
+                loadTinyMCEDynamically().then(() => {
+                    if (typeof window.initTinyMCE === 'function') {
+                        window.initTinyMCE();
+                    }
+                }).catch((error) => {
+                    console.error('Error loading TinyMCE:', error);
+                });
             }
         }, 100);
     });
@@ -310,6 +319,36 @@
         }, 300); // 300ms debounce
     }
 
+    // Function to dynamically load TinyMCE when needed
+    async function loadTinyMCEDynamically() {
+        return new Promise((resolve, reject) => {
+            // Check if TinyMCE is already available
+            if (typeof window.initTinyMCE === 'function') {
+                resolve();
+                return;
+            }
+
+            // Create and load the TinyMCE script
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.onload = () => {
+                // Wait a bit for the module to initialize
+                setTimeout(() => {
+                    if (typeof window.initTinyMCE === 'function') {
+                        resolve();
+                    } else {
+                        reject(new Error('TinyMCE functions not available after loading'));
+                    }
+                }, 100);
+            };
+            script.onerror = () => reject(new Error('Failed to load TinyMCE script'));
+
+            // Use Vite's asset function to get the correct path
+            script.src = '{{ Vite::asset('resources/js/tinymce-entry.ts') }}';
+            document.head.appendChild(script);
+        });
+    }
+
     // Track TinyMCE state to prevent unnecessary operations
     let tinyMCEInitialized = false;
 
@@ -336,8 +375,20 @@
                     console.log('Calling initTinyMCE');
                     window.initTinyMCE();
                 } else {
-                    console.error('initTinyMCE function not available');
-                    tinyMCEInitialized = false; // Reset on error
+                    console.log('TinyMCE not loaded yet, attempting to load...');
+                    // TinyMCE might not be loaded yet, try to load it dynamically
+                    loadTinyMCEDynamically().then(() => {
+                        if (typeof window.initTinyMCE === 'function') {
+                            console.log('TinyMCE loaded dynamically, initializing');
+                            window.initTinyMCE();
+                        } else {
+                            console.error('Failed to load TinyMCE dynamically');
+                            tinyMCEInitialized = false;
+                        }
+                    }).catch((error) => {
+                        console.error('Error loading TinyMCE:', error);
+                        tinyMCEInitialized = false;
+                    });
                 }
             }, 100);
         }

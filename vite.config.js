@@ -13,6 +13,7 @@ export default defineConfig(({ command, mode }) => ({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.ts',
+                'resources/js/tinymce-entry.ts',
                 'resources/js/charts-entry.ts',
                 'resources/js/game-analytics-entry.ts',
                 'resources/js/push-notifications.js',
