@@ -26,6 +26,7 @@ trait HasSortableColumns
             'rating' => 'Rating',
             'rating_count' => 'Review Count',
             'name' => 'Name',
+            'trending' => 'Trending',
             default => ucfirst(str_replace('_', ' ', $field))
         };
     }

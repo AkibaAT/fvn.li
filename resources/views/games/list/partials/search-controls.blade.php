@@ -12,7 +12,7 @@
             'sort' => [
                 'icon' => 'heroicon-o-arrows-up-down',
                 'modal' => 'sort-modal',
-                'active' => $sortField !== 'latest_version_published_at' || $sortDirection !== 'desc'
+                'active' => !$this->isDefaultSort($sortField, $sortDirection)
             ],
             'filters' => [
                 'icon' => 'heroicon-o-funnel',

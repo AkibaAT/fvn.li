@@ -9,6 +9,7 @@ use App\Models\GameJam;
 use App\Models\Language;
 use App\Models\Tag;
 use App\Models\VnList;
+use App\Traits\HasDefaultSort;
 use App\Traits\HasSocialMetaTags;
 use App\Traits\HasSortableColumns;
 use App\Traits\SortsVnLists;
@@ -23,17 +24,18 @@ use Livewire\WithPagination;
 
 class GameList extends Component
 {
-    use HasSocialMetaTags, HasSortableColumns, SortsVnLists, WithPagination;
+    use HasDefaultSort, HasSocialMetaTags, HasSortableColumns, SortsVnLists, WithPagination;
 
     private static array $filterOptions = [];
 
     protected const array AVAILABLE_SORT_FIELDS = [
+        'first_visible_at' => 'Recently Added',
         'latest_version_published_at' => 'Latest Update',
         'initially_published_at' => 'Initial Release',
-        'first_visible_at' => 'Recently Added',
         'english_word_count' => 'Word Count',
         'rating_count' => 'Review Count',
         'name' => 'Name',
+        'trending' => 'Trending',
     ];
 
     public string $search = '';
@@ -64,9 +66,9 @@ class GameList extends Component
 
     public bool $showHidden = false;
 
-    public string $sortField = 'latest_version_published_at';
+    public string $sortField = self::DEFAULT_SORT_FIELD;
 
-    public string $sortDirection = 'desc';
+    public string $sortDirection = self::DEFAULT_SORT_DIRECTION;
 
     public string|int $perPage = 9;
 
@@ -88,8 +90,8 @@ class GameList extends Component
         'showFree' => ['except' => false],
         'showDemo' => ['except' => false],
         'showSuspended' => ['except' => false],
-        'sortField' => ['except' => 'latest_version_published_at'],
-        'sortDirection' => ['except' => 'desc'],
+        'sortField' => ['except' => self::DEFAULT_SORT_FIELD],
+        'sortDirection' => ['except' => self::DEFAULT_SORT_DIRECTION],
         'perPage' => ['except' => 9],
         'page' => ['except' => 1],
         'showHidden' => ['except' => false],
@@ -191,8 +193,8 @@ class GameList extends Component
         // Dispatch an event to notify Alpine components that filters were cleared
         $this->dispatch('filtersCleared');
         $this->sfw = false;
-        $this->sortField = 'latest_version_published_at';
-        $this->sortDirection = 'desc';
+        $this->sortField = self::getDefaultSortField();
+        $this->sortDirection = self::getDefaultSortDirection();
         $this->showHidden = false;
         $this->resetPage();
     }
@@ -241,7 +243,19 @@ class GameList extends Component
             ->leftJoin('version_language_stats as english_stats', function ($join) {
                 $join->on('latest_versions.id', '=', 'english_stats.game_version_id')
                     ->where('english_stats.iso_code', '=', 'eng');
-            });
+            })
+            ->leftJoinSub(
+                DB::table('click_stats')
+                    ->selectRaw('COUNT(*) as trending_score, game_id')
+                    ->where('type', 'page_view')
+                    ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '14 days'"))
+                    ->groupBy('game_id'),
+                'trending',
+                function ($join) {
+                    $join->on('games.id', '=', 'trending.game_id');
+                }
+            )
+            ->addSelect(DB::raw('COALESCE(trending.trending_score, 0) as trending_score'));
 
         // Apply filters
         $query->when(! $this->showHidden, fn ($q) => $q->where('is_visible', true))
@@ -315,6 +329,7 @@ class GameList extends Component
         $column = match ($this->sortField) {
             'latest_version_published_at' => 'latest_versions.published_at',
             'english_word_count' => 'english_stats.words',
+            'trending' => 'trending_score',
             'rating_count' => 'games.rating_count',
             'rating' => 'games.rating_score',
             default => "games.{$this->sortField}"
@@ -375,8 +390,8 @@ class GameList extends Component
 
     public function resetSort(): void
     {
-        $this->sortField = 'latest_version_published_at';
-        $this->sortDirection = 'desc';
+        $this->sortField = self::getDefaultSortField();
+        $this->sortDirection = self::getDefaultSortDirection();
         $this->resetPage();
     }
 
