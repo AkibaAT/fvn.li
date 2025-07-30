@@ -288,11 +288,12 @@ class UserDashboardController extends Controller
 
             // Anonymize click statistics to remove personal identifiers
             // while preserving statistical data for legitimate business interests
-            $clickStatsAnonymized = ClickStat::anonymizePersonalData();
+            // Only anonymize stats for games owned by this user
+            $clickStatsAnonymized = ClickStat::anonymizePersonalDataForUser($user->id);
 
             Log::info('Anonymized click statistics during account deletion', [
                 'user_id' => $user->id,
-                'anonymized_count' => $clickStatsAnonymized,
+                'anonymized' => $clickStatsAnonymized,
             ]);
 
             // Delete all user's personal data
