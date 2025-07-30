@@ -61,7 +61,7 @@ class NotificationService
                     ]);
 
                     // If endpoint expired or invalid, remove it
-                    if (in_array($report->getStatusCode(), [404, 410])) {
+                    if ($report->isSubscriptionExpired()) {
                         $endpoint = (string) $report->getRequest()->getUri();
                         PushSubscription::where('endpoint', $endpoint)->delete();
                     }
