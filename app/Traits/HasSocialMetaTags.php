@@ -214,6 +214,7 @@ trait HasSocialMetaTags
         $socialCrawlers = [
             'facebookexternalhit',     // Facebook
             'Facebot',                 // Facebook
+            'facebookcatalog',         // Facebook Catalog
             'Twitterbot',              // Twitter/X
             'LinkedInBot',             // LinkedIn
             'WhatsApp',                // WhatsApp
@@ -223,10 +224,14 @@ trait HasSocialMetaTags
             'Discordbot',              // Discord
             'redditbot',               // Reddit
             'Applebot',                // Apple (iMessage, etc.)
-            'GoogleBot',               // Google (for Google+ and other services)
-            'bingbot',                 // Bing (for Bing social features)
             'Mastodon',                // Mastodon
             'BlueSkyBot',              // BlueSky
+            'Cardyb',                  // BlueSky (Cardyb crawler)
+            'Pinterestbot',            // Pinterest
+            'Snap URL Preview Service', // Snapchat
+            'Viber',                   // Viber
+            'OdklBot',                 // Odnoklassniki
+            'ia_archiver',             // Internet Archive
         ];
 
         foreach ($socialCrawlers as $crawler) {

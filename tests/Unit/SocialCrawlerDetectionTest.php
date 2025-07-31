@@ -43,6 +43,24 @@ dataset('social_crawler_user_agents', [
     // Discord
     ['Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)', true],
 
+    // BlueSky
+    ['Mozilla/5.0 (compatible; Bluesky Cardyb/1.1; +mailto:support@bsky.app)', true],
+
+    // Pinterest
+    ['Mozilla/5.0 (compatible; Pinterestbot/1.0; +http://www.pinterest.com/bot.html)', true],
+
+    // Snapchat
+    ['Snap URL Preview Service; bot; snapchat; https://developers.snap.com/robots', true],
+
+    // Viber
+    ['Viber', true],
+
+    // Odnoklassniki
+    ['OdklBot/1.0 (share@odnoklassniki.ru)', true],
+
+    // Internet Archive
+    ['ia_archiver (+http://www.alexa.com/site/help/webmasters; crawler@alexa.com)', true],
+
     // Regular browsers (should not be detected)
     ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', false],
     ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', false],
