@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\Image;
 use Intervention\Image\ImageManager;
-use Intervention\Image\Typography\FontFactory;
 
 class SocialImageService
 {
@@ -63,7 +62,7 @@ class SocialImageService
                 : $game->thumb_url;
 
             return ! empty($thumbnailUrl);
-        })->take(9);
+        })->take(8);
 
         if ($gamesWithThumbs->isEmpty()) {
             return null;
@@ -87,16 +86,18 @@ class SocialImageService
                 // 3x2 grid for 5-6 thumbnails
                 $cols = 3;
                 $rows = 2;
-            } else {
-                // 3x3 grid for 7-9 thumbnails
-                $cols = 3;
-                $rows = 3;
+            } elseif ($thumbsCount <= 8) {
+                // 4x2 grid for 7-8 thumbnails
+                $cols = 4;
+                $rows = 2;
             }
 
             // Calculate square thumbnail dimensions with proper spacing
-            $spacing = 12; // Increased spacing for better visual separation
-            $availableWidth = $collageWidth - ($spacing * ($cols + 1));
-            $availableHeight = $collageHeight - 140 - ($spacing * ($rows + 1)); // Reserve space for branding
+            $horizontalSpacing = 25; // More horizontal spacing between thumbnails
+            $verticalSpacing = 0; // Less vertical spacing between rows
+            $overlayHeight = 100; // Reserve space for branding overlay
+            $availableWidth = $collageWidth - ($horizontalSpacing * ($cols + 1));
+            $availableHeight = $collageHeight - $overlayHeight - ($verticalSpacing * ($rows + 1));
 
             // Use the smaller dimension to ensure square thumbnails fit
             $maxThumbSize = min(
@@ -106,18 +107,26 @@ class SocialImageService
 
             $thumbWidth = $thumbHeight = $maxThumbSize;
 
+            // Calculate the total grid dimensions with different spacing
+            $totalGridWidth = ($cols * $thumbWidth) + (($cols - 1) * $horizontalSpacing);
+            $totalGridHeight = ($rows * $thumbHeight) + (($rows - 1) * $verticalSpacing);
+
+            // Calculate starting offsets to center the grid
+            $gridStartX = (int) (($collageWidth - $totalGridWidth) / 2);
+            $gridStartY = (int) (($collageHeight - $overlayHeight - $totalGridHeight) / 2);
+
             $index = 0;
             foreach ($gamesWithThumbs as $game) {
-                if ($index >= 9) {
+                if ($index >= 8) {
                     break;
-                } // Limit to 9 thumbnails max
+                }
 
                 $row = (int) floor($index / $cols);
                 $col = $index % $cols;
 
-                // Calculate position with spacing
-                $x = (int) ($spacing + ($col * ($thumbWidth + $spacing)));
-                $y = (int) ($spacing + ($row * ($thumbHeight + $spacing)));
+                // Calculate position with different horizontal and vertical spacing, centered within the collage
+                $x = (int) ($gridStartX + ($col * ($thumbWidth + $horizontalSpacing)));
+                $y = (int) ($gridStartY + ($row * ($thumbHeight + $verticalSpacing)));
 
                 try {
                     // Use the same thumbnail URL logic as game cards
@@ -214,7 +223,7 @@ class SocialImageService
         }
 
         // Use game IDs and their updated timestamps for cache key
-        $gameData = $gamesCollection->take(9)->map(function ($game) {
+        $gameData = $gamesCollection->take(8)->map(function ($game) {
             $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
                 ? $game->getThumbnailUrl('small')
                 : $game->thumb_url;
@@ -229,7 +238,7 @@ class SocialImageService
         $keyData = [
             'games' => $gameData,
             'filters' => $filters,
-            'version' => 'v5', // Increment this when changing collage generation logic
+            'version' => 'v1',
         ];
 
         return md5(serialize($keyData));
@@ -285,15 +294,16 @@ class SocialImageService
      */
     private function addBrandingOverlay(Image $image, int $width, int $height): void
     {
-        // Create a semi-transparent overlay at the bottom - much larger to accommodate big text
-        $overlayHeight = 150;
+        $overlayHeight = 100;
         $overlay = $this->imageManager->create($width, $overlayHeight)->fill('rgba(0, 0, 0, 0.8)');
         $image->place($overlay, 'bottom-left', 0, 0);
 
-        // Add site name/logo text (centered and much larger - 5x bigger than before)
-        $image->text('FVN.li', $width / 2, $height - 80, function (FontFactory $font) {
-            $font->filename('../resources/fonts/roboto.ttf');
-            $font->size(100);
+        $image->text('FVN.li', $width / 2, $height - 50, function ($font) {
+            $fontPath = resource_path('fonts/roboto.ttf');
+            if (file_exists($fontPath)) {
+                $font->filename($fontPath);
+            }
+            $font->size(60);
             $font->color('#ffffff');
             $font->align('center');
             $font->valign('middle');
