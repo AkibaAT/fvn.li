@@ -502,12 +502,7 @@
                         </a>
                     @endif
 
-                    <!-- Android Build Button (only for logged in users and eligible games) -->
-                    @auth
-                        @if ($isEligibleForAndroidBuild && $latestVersion)
-                            @include('games.components.android-build-button-new', ['game' => $game, 'version' => $latestVersion])
-                        @endif
-                    @endauth
+
                 </div>
 
                 <div class="mt-6 mb-4">
