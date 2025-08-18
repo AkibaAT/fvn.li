@@ -40,7 +40,8 @@ return new class extends Migration
 
         for ($month = 1; $month <= 12; $month++) {
             $startDate = sprintf('%d-%02d-01', $currentYear, $month);
-            $endDate = sprintf('%d-%02d-01', $month == 12 ? $currentYear + 1 : $currentYear, $month == 12 ? 1 : $month + 1);
+            $endDate = sprintf('%d-%02d-01', $month == 12 ? $currentYear + 1 : $currentYear,
+                $month == 12 ? 1 : $month + 1);
 
             $monthPadded = sprintf('%02d', $month);
             DB::statement("

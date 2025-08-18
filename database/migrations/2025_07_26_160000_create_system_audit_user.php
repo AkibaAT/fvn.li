@@ -11,31 +11,32 @@ return new class extends Migration
     {
         // Create a system user for anonymized audit logs
         // This preserves audit trail integrity while removing personal identifiers
-        DB::table('users')->insertOrIgnore([
-            'id' => 1,
-            'name' => 'System (Anonymized)',
-            'email' => 'system+anonymized@fvn.li',
-            'email_verified_at' => now(),
-            'password' => '', // Empty password - this user cannot log in
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $now = now();
+        DB::table('users')->updateOrInsert(
+            ['email' => 'system+anonymized@fvn.li'],
+            [
+                'name' => 'System (Anonymized)',
+                'email_verified_at' => $now,
+                'password' => '', // Empty password - this user cannot log in
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
     }
 
     public function down(): void
     {
-        // Remove the system user if it exists and has no non-anonymized audit logs
-        $systemUserId = 1;
+        // Remove the system user (located by email) if it has no non-anonymized audit logs
+        $system = DB::table('users')->where('email', 'system+anonymized@fvn.li')->first();
+        if ($system) {
+            $nonAnonymizedLogs = DB::table('change_logs')
+                ->where('user_id', $system->id)
+                ->whereRaw("context->'anonymized' IS NULL")
+                ->count();
 
-        // Check if there are any audit logs that aren't anonymized for this user
-        $nonAnonymizedLogs = DB::table('change_logs')
-            ->where('user_id', $systemUserId)
-            ->whereRaw("context->'anonymized' IS NULL")
-            ->count();
-
-        // Only delete if no non-anonymized logs exist (all logs are anonymized)
-        if ($nonAnonymizedLogs === 0) {
-            DB::table('users')->where('id', $systemUserId)->delete();
+            if ($nonAnonymizedLogs === 0) {
+                DB::table('users')->where('id', $system->id)->delete();
+            }
         }
     }
 };

@@ -18,7 +18,8 @@ return new class extends Migration
 
         // Add unique constraint to prevent duplicate pending notifications in queue
         Schema::table('notification_queue', function (Blueprint $table) {
-            $table->unique(['user_id', 'game_id', 'game_version_id', 'channel'], 'notification_queue_unique_constraint');
+            $table->unique(['user_id', 'game_id', 'game_version_id', 'channel'],
+                'notification_queue_unique_constraint');
         });
 
         // Add check constraint to ensure notification_queue status is valid
