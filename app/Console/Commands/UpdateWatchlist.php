@@ -301,6 +301,15 @@ class UpdateWatchlist extends Command
                 $game->is_visible = true;
             }
 
+            // Save the game first to ensure it has an ID before loading full details
+            // This is necessary because loadFullDetails() -> refreshVersion() needs the game ID
+            // to create GameVersion records
+            if ($needsFullRefresh && !$game->exists) {
+                $this->info('  - Saving new game before loading full details');
+                $game->save();
+                $game->refresh();
+            }
+
             // Load full details if needed
             if ($needsFullRefresh) {
                 $this->info('  - Loading full details');
