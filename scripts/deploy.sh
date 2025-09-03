@@ -57,7 +57,6 @@ else
     docker compose exec app curl -X POST http://localhost:2019/frankenphp/workers/restart
 
     # Restart workers
-    docker compose exec app supervisorctl restart laravel-nightwatch:*
     docker compose exec app supervisorctl restart laravel-queue:*
 
     echo "FrankenPHP and workers hot reload completed successfully!"
