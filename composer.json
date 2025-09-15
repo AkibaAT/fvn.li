@@ -14,7 +14,7 @@
         "ext-zip": "*",
         "blade-ui-kit/blade-heroicons": "^2.5",
         "fakerphp/faker": "^1.24",
-        "filament/filament": "^3.3",
+        "filament/filament": "^4.0",
         "guzzlehttp/guzzle": "*",
         "http-interop/http-factory-guzzle": "^1.2",
         "inertiajs/inertia-laravel": "^2.0",
