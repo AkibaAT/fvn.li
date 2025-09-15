@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "97986c169a115839a8e827c0509be002",
+    "content-hash": "e2de72d9ecb9749ddc11d8949b43920b",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -6902,16 +6902,16 @@
         },
         {
             "name": "spatie/laravel-schedule-monitor",
-            "version": "3.10.3",
+            "version": "4.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/spatie/laravel-schedule-monitor.git",
-                "reference": "8731755b91d5d724a5bd2c7028e3d0c8c930e8a1"
+                "reference": "a1c2b8c671505c6ef502456d24d96b905b3f2601"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/spatie/laravel-schedule-monitor/zipball/8731755b91d5d724a5bd2c7028e3d0c8c930e8a1",
-                "reference": "8731755b91d5d724a5bd2c7028e3d0c8c930e8a1",
+                "url": "https://api.github.com/repos/spatie/laravel-schedule-monitor/zipball/a1c2b8c671505c6ef502456d24d96b905b3f2601",
+                "reference": "a1c2b8c671505c6ef502456d24d96b905b3f2601",
                 "shasum": ""
             },
             "require": {
@@ -6924,7 +6924,6 @@
             },
             "require-dev": {
                 "mockery/mockery": "^1.4",
-                "ohdearapp/ohdear-php-sdk": "^3.0",
                 "orchestra/testbench": "^7.0|^8.0|^9.0|^10.0",
                 "pestphp/pest": "^1.20|^2.34|^3.7",
                 "pestphp/pest-plugin-laravel": "^1.2|^2.3|^3.1",
@@ -6932,15 +6931,15 @@
                 "spatie/phpunit-snapshot-assertions": "^4.2|^5.1",
                 "spatie/test-time": "^1.2"
             },
-            "suggest": {
-                "ohdearapp/ohdear-php-sdk": "Needed to sync your schedule with Oh Dear"
-            },
             "type": "library",
             "extra": {
                 "laravel": {
                     "providers": [
                         "Spatie\\ScheduleMonitor\\ScheduleMonitorServiceProvider"
                     ]
+                },
+                "branch-alias": {
+                    "dev-ohdear-monitor": "4.0.x-dev"
                 }
             },
             "autoload": {
@@ -6969,7 +6968,7 @@
             ],
             "support": {
                 "issues": "https://github.com/spatie/laravel-schedule-monitor/issues",
-                "source": "https://github.com/spatie/laravel-schedule-monitor/tree/3.10.3"
+                "source": "https://github.com/spatie/laravel-schedule-monitor/tree/4.1.0"
             },
             "funding": [
                 {
@@ -6977,7 +6976,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2025-02-21T19:56:48+00:00"
+            "time": "2025-09-11T09:03:31+00:00"
         },
         {
             "name": "spatie/laravel-sitemap",
