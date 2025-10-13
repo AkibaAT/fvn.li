@@ -20,20 +20,10 @@ class VnListFactory extends Factory
     public function definition(): array
     {
         $types = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped', 'custom'];
-        $listNames = [
-            'Currently Reading',
-            'Completed',
-            'Plan to Read',
-            'On Hold',
-            'Dropped',
-            'Favorites',
-            'Recommendations',
-            'Hidden Gems',
-        ];
 
         return [
             'user_id' => User::factory(),
-            'name' => fake()->randomElement($listNames),
+            'name' => fake()->unique()->words(3, true), // Generate unique list names
             'description' => fake()->optional()->paragraph(),
             'type' => fake()->randomElement($types),
             'is_default' => false,

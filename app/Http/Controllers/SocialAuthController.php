@@ -6,11 +6,10 @@ namespace App\Http\Controllers;
 
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Services\AccountMergeService;
 use Exception;
 use GuzzleHttp\Client;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -137,95 +136,9 @@ class SocialAuthController extends Controller
                     if ($existingSocialAccount->user_id !== $mergingUser->id) {
                         $otherUser = $existingSocialAccount->user;
 
-                        // Start transaction for merging
-                        DB::transaction(function () use ($mergingUser, $otherUser) {
-                            Log::info('Starting account merge transaction', [
-                                'merging_user_id' => $mergingUser->id,
-                                'other_user_id' => $otherUser->id,
-                                'other_user_lists_count' => $otherUser->vnLists->count(),
-                            ]);
-
-                            // Merge system lists (keeping entries unique and ensuring VNs are only on one system list)
-                            foreach ($otherUser->vnLists as $list) {
-                                Log::info('Processing list for merge', [
-                                    'list_id' => $list->id,
-                                    'list_name' => $list->name,
-                                    'is_default' => $list->is_default,
-                                    'entries_count' => $list->entries->count(),
-                                ]);
-
-                                if ($list->is_default) {
-                                    // Find corresponding system list of merging user
-                                    $mergingUserList = $mergingUser->vnLists()
-                                        ->where('is_default', true)
-                                        ->where('name', $list->name)
-                                        ->first();
-
-                                    if ($mergingUserList) {
-                                        // Move entries that don't exist in the merging user's list
-                                        foreach ($list->entries as $entry) {
-                                            // Check if the game exists in any of the merging user's system lists
-                                            $existsInOtherSystemList = $mergingUser->vnLists()
-                                                ->where('is_default', true)
-                                                ->where('id', '!=', $mergingUserList->id)
-                                                ->whereHas('entries', function ($query) use ($entry) {
-                                                    $query->where('game_id', $entry->game_id);
-                                                })
-                                                ->exists();
-
-                                            // Only move if the game doesn't exist in any system list
-                                            if (! $existsInOtherSystemList &&
-                                                ! $mergingUserList->entries()
-                                                    ->where('game_id', $entry->game_id)
-                                                    ->exists()) {
-                                                $entry->vn_list_id = $mergingUserList->id;
-                                                $entry->save();
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // For custom lists, just change the user_id
-                                    $list->user_id = $mergingUser->id;
-                                    $list->save();
-                                }
-                            }
-
-                            // Move social accounts to merging user
-                            $otherUser->socialAccounts()->update(['user_id' => $mergingUser->id]);
-
-                            // Move game progress (discard duplicates)
-                            foreach ($otherUser->gameProgress as $progress) {
-                                // Check if merging user already has progress for this game
-                                $existingProgress = $mergingUser->gameProgress()
-                                    ->where('game_id', $progress->game_id)
-                                    ->first();
-
-                                if (! $existingProgress) {
-                                    // No conflict, transfer the progress
-                                    $progress->user_id = $mergingUser->id;
-                                    $progress->save();
-                                } else {
-                                    // Keep current user's data, discard duplicate
-                                    $progress->delete();
-                                }
-                            }
-
-                            // Move notification history (discard duplicates)
-                            foreach ($otherUser->notificationHistory as $notification) {
-                                try {
-                                    $notification->user_id = $mergingUser->id;
-                                    $notification->save();
-                                } catch (QueryException) {
-                                    // Discard duplicate notifications
-                                    $notification->delete();
-                                }
-                            }
-
-                            // Delete the other user
-                            $otherUser->delete();
-
-                            Log::info('Account merge transaction completed successfully');
-                        });
+                        // Use the AccountMergeService to handle the merge
+                        $mergeService = new AccountMergeService();
+                        $mergeService->mergeAccounts($mergingUser, $otherUser);
 
                         return redirect()->route('dashboard')
                             ->with('success', 'Accounts successfully merged!');

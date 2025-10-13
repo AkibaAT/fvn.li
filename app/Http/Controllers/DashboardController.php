@@ -616,6 +616,7 @@ class DashboardController extends Controller
             ]);
         }
         DB::transaction(function () use ($user) {
+            // Anonymize audit logs (GDPR compliance - retain for legal purposes)
             try {
                 $anonymized = ChangeLog::anonymizeUserData($user->id);
                 Log::info('Anonymized audit logs during account deletion',
@@ -623,6 +624,8 @@ class DashboardController extends Controller
             } catch (Throwable $e) {
                 Log::warning('Failed to anonymize audit logs', ['user_id' => $user->id, 'error' => $e->getMessage()]);
             }
+
+            // Anonymize click statistics (GDPR compliance - retain for analytics)
             try {
                 $ok = ClickStat::anonymizePersonalDataForUser($user->id);
                 Log::info('Anonymized click statistics during account deletion',
@@ -630,6 +633,27 @@ class DashboardController extends Controller
             } catch (Throwable $e) {
                 Log::warning('Failed to anonymize click stats', ['user_id' => $user->id, 'error' => $e->getMessage()]);
             }
+
+            // Reassign addition request reviews to anonymous system user (ID 1)
+            DB::table('addition_requests')
+                ->where('reviewed_by', $user->id)
+                ->update(['reviewed_by' => 1]);
+
+            // Reset custom game pages to itch.io synced state
+            DB::table('games')
+                ->where('custom_page_updated_by', $user->id)
+                ->update([
+                    'custom_page_updated_by' => null,
+                    'has_custom_page' => false,
+                    'custom_description' => null,
+                    'custom_screenshots' => null,
+                    'custom_assets' => null,
+                    'custom_css' => null,
+                    'custom_tags' => null,
+                    'custom_page_updated_at' => null,
+                ]);
+
+            // Delete user data (cascade deletes will handle related records)
             $user->socialAccounts()->delete();
             if ($user->notificationPreferences) {
                 $user->notificationPreferences()->delete();
@@ -641,6 +665,8 @@ class DashboardController extends Controller
             });
             $user->gameProgress()->delete();
             $user->notificationHistory()->delete();
+
+            // Finally delete the user account
             $user->delete();
         });
 

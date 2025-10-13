@@ -33,7 +33,6 @@ class UserGameProgress extends Model
         'personal_notes',
         'status',
         'receive_updates',
-        'progress',
     ];
 
     /**

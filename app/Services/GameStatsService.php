@@ -422,7 +422,7 @@ readonly class GameStatsService
                 // Bulk insert dialogue lines for performance (skip observers during import)
                 // We'll update the search index once at the end instead of per-line
                 if (!empty($dialogueBatch)) {
-                    DB::table('dialogue_lines')->insert($dialogueBatch);
+                    DB::table('version_dialogue_lines')->insert($dialogueBatch);
                 }
 
                 // Log progress for large datasets
@@ -447,7 +447,7 @@ readonly class GameStatsService
     {
         try {
             // Get all unique text IDs used in this version's dialogue lines
-            $textIds = DB::table('dialogue_lines')
+            $textIds = DB::table('version_dialogue_lines')
                 ->where('game_version_id', $version->id)
                 ->distinct()
                 ->pluck('text_id')
