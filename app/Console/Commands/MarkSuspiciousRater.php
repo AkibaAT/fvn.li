@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 class MarkSuspiciousRater extends Command
 {
     protected $signature = 'rater:mark-suspicious {rater_id} {--reason=} {--unmark}';
+
     protected $description = 'Mark or unmark a rater as suspicious';
 
     public function handle(): void

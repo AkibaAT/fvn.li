@@ -8,6 +8,7 @@ use App\Jobs\ProcessAuditLog;
 use App\Models\ChangeLog;
 use App\Models\User;
 use App\Services\IpAnonymizationService;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
@@ -200,6 +201,36 @@ class UniversalAuditObserver
     }
 
     /**
+     * Check if the model should be excluded from audit logging
+     */
+    private function shouldExcludeModel(Model $model): bool
+    {
+        $modelClass = get_class($model);
+        $tableName = $model->getTable();
+
+        // Always exclude ChangeLog to prevent recursive logging
+        if ($modelClass === ChangeLog::class || $tableName === 'change_logs') {
+            return true;
+        }
+
+        $excludeModels = Config::get('audit.exclude_models', []);
+        $excludeTables = Config::get('audit.exclude_tables', []);
+
+        return in_array($modelClass, $excludeModels) ||
+            in_array($tableName, $excludeTables);
+    }
+
+    /**
+     * Check if the event should be logged
+     */
+    private function shouldLogEvent(string $event): bool
+    {
+        $excludeEvents = Config::get('audit.exclude_events', []);
+
+        return ! in_array($event, $excludeEvents);
+    }
+
+    /**
      * Build the audit data array
      */
     private function buildAuditData(string $event, Model $model): array
@@ -233,57 +264,6 @@ class UniversalAuditObserver
             'context' => $context,
             'source' => $this->detectSource(),
         ];
-    }
-
-    /**
-     * Get the changes for the model (structured diff for updates only)
-     */
-    private function getChanges(string $event, Model $model): array
-    {
-        // Only provide structured diff for updates - create/delete use old_values/new_values instead
-        if ($event !== 'updated') {
-            return [];
-        }
-
-        $changes = [];
-        foreach ($model->getDirty() as $field => $newValue) {
-            if ($this->shouldSkipField($field, $model)) {
-                continue;
-            }
-
-            $oldValue = $model->getOriginal($field);
-            $changes[$field] = [
-                'from' => $oldValue,
-                'to' => $newValue,
-            ];
-        }
-
-        return $changes;
-    }
-
-    /**
-     * Get old values for the model (smart storage approach)
-     */
-    private function getOldValues(string $event, Model $model): array
-    {
-        return match ($event) {
-            'updated' => $this->getChangedFieldsOldValues($model),
-            'deleted' => $this->getFilteredAttributes($model), // Full record for deleted
-            default => [], // Empty for created, restored, etc.
-        };
-    }
-
-    /**
-     * Get new values for the model (smart storage approach)
-     */
-    private function getNewValues(string $event, Model $model): array
-    {
-        return match ($event) {
-            'created' => $this->getFilteredAttributes($model), // Full record for created
-            'updated' => $this->getChangedFieldsNewValues($model), // Only changed fields
-            'restored' => $this->getFilteredAttributes($model), // Full record for restored
-            default => [], // Empty for deleted, etc.
-        };
     }
 
     /**
@@ -403,7 +383,7 @@ class UniversalAuditObserver
 
         try {
             // Get the current Artisan command if available
-            $kernel = app(\Illuminate\Contracts\Console\Kernel::class);
+            $kernel = app(Kernel::class);
 
             // Try to get command info from $_SERVER['argv']
             $argv = $_SERVER['argv'] ?? [];
@@ -480,6 +460,119 @@ class UniversalAuditObserver
     }
 
     /**
+     * Get the changes for the model (structured diff for updates only)
+     */
+    private function getChanges(string $event, Model $model): array
+    {
+        // Only provide structured diff for updates - create/delete use old_values/new_values instead
+        if ($event !== 'updated') {
+            return [];
+        }
+
+        $changes = [];
+        foreach ($model->getDirty() as $field => $newValue) {
+            if ($this->shouldSkipField($field, $model)) {
+                continue;
+            }
+
+            $oldValue = $model->getOriginal($field);
+            $changes[$field] = [
+                'from' => $oldValue,
+                'to' => $newValue,
+            ];
+        }
+
+        return $changes;
+    }
+
+    /**
+     * Check if a field should be skipped from audit logging
+     */
+    private function shouldSkipField(string $field, Model $model): bool
+    {
+        // Global excluded fields
+        $globalExcluded = Config::get('audit.exclude_fields', []);
+
+        // Model-specific excluded fields
+        $modelClass = get_class($model);
+        $modelSettings = Config::get("audit.model_settings.{$modelClass}", []);
+        $modelExcluded = $modelSettings['exclude_fields'] ?? [];
+
+        $excludedFields = array_merge($globalExcluded, $modelExcluded);
+
+        return in_array($field, $excludedFields);
+    }
+
+    /**
+     * Get old values for the model (smart storage approach)
+     */
+    private function getOldValues(string $event, Model $model): array
+    {
+        return match ($event) {
+            'updated' => $this->getChangedFieldsOldValues($model),
+            'deleted' => $this->getFilteredAttributes($model), // Full record for deleted
+            default => [], // Empty for created, restored, etc.
+        };
+    }
+
+    /**
+     * Get old values for only the fields that changed
+     */
+    private function getChangedFieldsOldValues(Model $model): array
+    {
+        $changedFields = [];
+
+        foreach ($model->getDirty() as $field => $newValue) {
+            if (! $this->shouldSkipField($field, $model)) {
+                $changedFields[$field] = $model->getOriginal($field);
+            }
+        }
+
+        return $changedFields;
+    }
+
+    /**
+     * Get filtered model attributes (excluding sensitive fields)
+     */
+    private function getFilteredAttributes(Model $model): array
+    {
+        return array_filter(
+            $model->getAttributes(),
+            fn ($field) => ! $this->shouldSkipField($field, $model),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+    /**
+     * Get new values for the model (smart storage approach)
+     */
+    private function getNewValues(string $event, Model $model): array
+    {
+        return match ($event) {
+            'created' => $this->getFilteredAttributes($model), // Full record for created
+            'updated' => $this->getChangedFieldsNewValues($model), // Only changed fields
+            'restored' => $this->getFilteredAttributes($model), // Full record for restored
+            default => [], // Empty for deleted, etc.
+        };
+    }
+
+    /**
+     * Get new values for only the fields that changed
+     */
+    private function getChangedFieldsNewValues(Model $model): array
+    {
+        $changedFields = [];
+
+        foreach ($model->getDirty() as $field => $newValue) {
+            if (! $this->shouldSkipField($field, $model)) {
+                $changedFields[$field] = $newValue;
+            }
+        }
+
+        return $changedFields;
+    }
+
+    /**
      * Detect the source of the change
      */
     private function detectSource(): string
@@ -502,54 +595,6 @@ class UniversalAuditObserver
     }
 
     /**
-     * Check if the model should be excluded from audit logging
-     */
-    private function shouldExcludeModel(Model $model): bool
-    {
-        $modelClass = get_class($model);
-        $tableName = $model->getTable();
-
-        // Always exclude ChangeLog to prevent recursive logging
-        if ($modelClass === ChangeLog::class || $tableName === 'change_logs') {
-            return true;
-        }
-
-        $excludeModels = Config::get('audit.exclude_models', []);
-        $excludeTables = Config::get('audit.exclude_tables', []);
-
-        return in_array($modelClass, $excludeModels) ||
-               in_array($tableName, $excludeTables);
-    }
-
-    /**
-     * Check if the event should be logged
-     */
-    private function shouldLogEvent(string $event): bool
-    {
-        $excludeEvents = Config::get('audit.exclude_events', []);
-
-        return ! in_array($event, $excludeEvents);
-    }
-
-    /**
-     * Check if a field should be skipped from audit logging
-     */
-    private function shouldSkipField(string $field, Model $model): bool
-    {
-        // Global excluded fields
-        $globalExcluded = Config::get('audit.exclude_fields', []);
-
-        // Model-specific excluded fields
-        $modelClass = get_class($model);
-        $modelSettings = Config::get("audit.model_settings.{$modelClass}", []);
-        $modelExcluded = $modelSettings['exclude_fields'] ?? [];
-
-        $excludedFields = array_merge($globalExcluded, $modelExcluded);
-
-        return in_array($field, $excludedFields);
-    }
-
-    /**
      * Check if the model has significant changes (excluding ignored fields)
      */
     private function hasSignificantChanges(Model $model): bool
@@ -561,49 +606,5 @@ class UniversalAuditObserver
         }
 
         return false;
-    }
-
-    /**
-     * Get filtered model attributes (excluding sensitive fields)
-     */
-    private function getFilteredAttributes(Model $model): array
-    {
-        return array_filter(
-            $model->getAttributes(),
-            fn ($field) => ! $this->shouldSkipField($field, $model),
-            ARRAY_FILTER_USE_KEY
-        );
-    }
-
-    /**
-     * Get old values for only the fields that changed
-     */
-    private function getChangedFieldsOldValues(Model $model): array
-    {
-        $changedFields = [];
-
-        foreach ($model->getDirty() as $field => $newValue) {
-            if (! $this->shouldSkipField($field, $model)) {
-                $changedFields[$field] = $model->getOriginal($field);
-            }
-        }
-
-        return $changedFields;
-    }
-
-    /**
-     * Get new values for only the fields that changed
-     */
-    private function getChangedFieldsNewValues(Model $model): array
-    {
-        $changedFields = [];
-
-        foreach ($model->getDirty() as $field => $newValue) {
-            if (! $this->shouldSkipField($field, $model)) {
-                $changedFields[$field] = $newValue;
-            }
-        }
-
-        return $changedFields;
     }
 }

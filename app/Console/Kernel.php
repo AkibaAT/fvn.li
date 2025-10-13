@@ -63,7 +63,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('sitemap:generate')->daily()->withoutOverlapping();
         $schedule->command('ratings:import')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
-        $schedule->command('games:refresh', ['--all', '--update-metadata', '--update-info'])->dailyAt('20:00')->withoutOverlapping();
+        $schedule->command('games:refresh',
+            ['--all', '--update-metadata', '--update-info'])->dailyAt('20:00')->withoutOverlapping();
         $schedule->command('games:refresh-feedless', ['--all'])->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
         $schedule->command('games:process-screenshots', ['--all'])->dailyAt('03:00')->withoutOverlapping();
@@ -76,7 +77,8 @@ class Kernel extends ConsoleKernel
 
         // Cleanup commands
         $schedule->command('app:cleanup-social-images')->daily()->withoutOverlapping();
-        $schedule->command('games:cleanup-downloads', ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
+        $schedule->command('games:cleanup-downloads',
+            ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
         $schedule->command('model:prune', ['--model' => MonitoredScheduledTaskLogItem::class])->daily();
     }
 

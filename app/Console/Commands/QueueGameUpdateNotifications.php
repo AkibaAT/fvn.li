@@ -10,6 +10,7 @@ use App\Services\NotificationService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -126,7 +127,7 @@ class QueueGameUpdateNotifications extends Command
                                 $game
                             );
                             $notificationCount++;
-                        } catch (\Illuminate\Database\QueryException $e) {
+                        } catch (QueryException $e) {
                             // If this is a duplicate key violation, just skip it silently
                             if (str_contains($e->getMessage(), 'notification_queue_unique_constraint')) {
                                 $this->info("Notification already queued for user {$user->user_id}, game {$game->name}, channel {$channel}");
@@ -190,7 +191,8 @@ class QueueGameUpdateNotifications extends Command
                     ->orWhere('user_notification_preferences.discord_notifications_enabled', '=', true);
             })
             ->groupBy('users.id', 'user_notification_preferences.browser_notifications_enabled',
-                'user_notification_preferences.discord_notifications_enabled', 'user_notification_preferences.notification_digest')
+                'user_notification_preferences.discord_notifications_enabled',
+                'user_notification_preferences.notification_digest')
             ->get()
             ->toArray();
     }

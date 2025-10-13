@@ -33,6 +33,7 @@ class UserGameProgress extends Model
         'personal_notes',
         'status',
         'receive_updates',
+        'progress',
     ];
 
     /**
@@ -44,6 +45,7 @@ class UserGameProgress extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'receive_updates' => 'boolean',
+        'progress' => 'integer',
     ];
 
     /**

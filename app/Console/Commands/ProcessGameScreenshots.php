@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\Storage;
 class ProcessGameScreenshots extends Command
 {
     use SelectsGames;
+
     private const SCREENSHOTS_PATH = 'screenshots';
+
     private const VALID_MIME_TYPES = [
         'image/jpeg',
         'image/png',
@@ -34,8 +36,10 @@ class ProcessGameScreenshots extends Command
             'height' => 180,
         ],
         'default' => [
-            'width' => 640,
-            'height' => 360,
+            // Updated: constrain by max-width 320 while preserving aspect ratio
+            // Use a large height cap so width becomes the limiting factor
+            'width' => 320,
+            'height' => 20000,
         ],
         'large' => [
             'width' => 1280,
@@ -254,23 +258,6 @@ class ProcessGameScreenshots extends Command
     }
 
     /**
-     * Generate a unique filename for a screenshot
-     */
-    private function generateScreenshotFilename(Game $game, int $index, string $url, string $fileContent): string
-    {
-        // Generate a checksum of the file content to ensure cache invalidation when the image changes
-        $contentChecksum = substr(md5($fileContent), 0, 8);
-
-        return sprintf(
-            '%d_screenshot_%d_%s_%s',
-            $game->id,
-            $index,
-            substr(md5($url), 0, 8),
-            $contentChecksum
-        );
-    }
-
-    /**
      * Clean up existing screenshot files for a game
      */
     private function cleanupExistingScreenshots(int $gameId, int $screenshotIndex): void
@@ -290,6 +277,23 @@ class ProcessGameScreenshots extends Command
                 Storage::disk('public')->delete($file);
             }
         }
+    }
+
+    /**
+     * Generate a unique filename for a screenshot
+     */
+    private function generateScreenshotFilename(Game $game, int $index, string $url, string $fileContent): string
+    {
+        // Generate a checksum of the file content to ensure cache invalidation when the image changes
+        $contentChecksum = substr(md5($fileContent), 0, 8);
+
+        return sprintf(
+            '%d_screenshot_%d_%s_%s',
+            $game->id,
+            $index,
+            substr(md5($url), 0, 8),
+            $contentChecksum
+        );
     }
 
     /**

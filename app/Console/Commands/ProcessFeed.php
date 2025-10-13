@@ -21,10 +21,13 @@ class ProcessFeed extends Command
     private const string IMPORT_STATE_TYPE = 'feed';
 
     protected $signature = 'feed:process';
+
     protected $description = 'Process the itch.io feed for game updates';
 
     private ItchAuthService $authService;
+
     private int $processedCount = 0;
+
     private int $skippedCount = 0;
 
     public function __construct(ItchAuthService $authService)

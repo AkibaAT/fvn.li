@@ -1,0 +1,387 @@
+import React, {useState} from 'react';
+import {FilterModal} from '@/components/filter-modal';
+import {useGameFilters} from '@/hooks/useGameFilters';
+import {usePlatformIcons, type GameCardPlatform} from '@/hooks/usePlatformIcons';
+import ActiveFilterChips from '@/components/games/ActiveFilterChips';
+import SortControls from '@/components/games/SortControls';
+import GamesGrid from '@/components/games/GamesGrid';
+import PaginationControls from '@/components/games/PaginationControls';
+import type {CurrentFilters, FilterOptions} from '@/types';
+import SeoHead, {type MetaTags as SeoMetaTags} from '@/components/seo/SeoHead';
+
+// No-op placeholder: Collapsible sections were removed; keep UI flat for now
+
+
+interface GamesIndexGame {
+    id: number;
+    name: string;
+    slug: string;
+    description?: string;
+    thumb_url?: string;
+    optimized_thumbnails?: {
+        default?: { path: string; width: number; height: number };
+    };
+    rating_score?: number;
+    rating_count?: number;
+    status: string;
+    game_engine?: string;
+    is_nsfw: boolean;
+    is_paid: boolean;
+    has_demo: boolean;
+    is_suspended: boolean;
+    authors?: string;
+    tags?: Array<{ id: number; name: string; slug: string }>;
+    gameJams?: Array<{ id: number; name: string }>;
+    supported_languages?: Array<{
+        iso_code: string;
+        ref_name: string;
+        flag_code: string;
+    }>;
+    is_windows?: boolean;
+    is_linux?: boolean;
+    is_mac?: boolean;
+    is_android?: boolean;
+    is_web?: boolean;
+    english_word_count?: number;
+    trending_score?: number;
+    initially_published_at?: string;
+    latest_version_published_at?: string;
+    rating?: number;
+    is_on_sale?: boolean;
+    [key: string]: unknown;
+    created_at: string;
+    updated_at: string;
+}
+
+
+
+interface PaginationLinks {
+    first?: string;
+    last?: string;
+    prev?: string | null;
+    next?: string | null;
+}
+
+interface PaginationMeta {
+    current_page: number;
+    from?: number;
+    last_page: number;
+    path?: string;
+    per_page: number;
+    to?: number;
+    total: number;
+}
+
+interface GamesIndexProps {
+    games: {
+        data: GamesIndexGame[];
+        links: PaginationLinks;
+        meta: PaginationMeta;
+    };
+    filters: FilterOptions;
+    currentFilters: CurrentFilters;
+    metaTags: SeoMetaTags;
+}
+
+export default function GamesIndex({
+    games,
+    filters,
+    currentFilters,
+    metaTags,
+}: GamesIndexProps) {
+    const [showFilters, setShowFilters] = useState(false);
+    const [showSort] = useState(false);
+
+    // Use the custom hook for filter logic
+    const {
+        updateFilters,
+        toggleFilter,
+        clearFilters,
+        hasActiveFilters,
+        buildActiveFilterChips,
+    } = useGameFilters({
+        currentFilters,
+        filters,
+        onGamesPage: true,
+    });
+
+    // Use the platform icons hook
+    const {getPlatformIcon: getTypedPlatformIcon} = usePlatformIcons();
+    
+    // Wrapper function to match the expected interface
+    const getPlatformIcon = (platform: string) => {
+        return getTypedPlatformIcon(platform as GameCardPlatform);
+    };
+
+    // Normalize pagination meta in case backend shape varies or meta is missing
+    const resolveGamesMeta = () => {
+        const rawMeta: PaginationMeta =
+            (games as GamesIndexProps['games'])?.meta || {};
+        const rawTop = games as unknown as {
+            total?: number;
+            current_page?: number;
+            last_page?: number;
+        };
+        const perPage =
+            Number(rawMeta.per_page ?? currentFilters.perPage ?? 8) || 8;
+        const total =
+            Number(rawMeta.total ?? rawTop.total ?? games?.data?.length ?? 0) ||
+            0;
+        const current =
+            Number(rawMeta.current_page ?? rawTop.current_page ?? 1) || 1;
+        const last =
+            Number(
+                rawMeta.last_page ??
+                rawTop.last_page ??
+                Math.max(1, Math.ceil(total / perPage)),
+            ) || 1;
+        const from = Number(
+            rawMeta.from ?? (total > 0 ? (current - 1) * perPage + 1 : 0),
+        );
+        const to = Number(
+            rawMeta.to ?? (total > 0 ? Math.min(current * perPage, total) : 0),
+        );
+        return {
+            current_page: current,
+            last_page: last,
+            total,
+            from,
+            to,
+            per_page: perPage,
+        };
+    };
+    const gamesMeta = resolveGamesMeta();
+
+    const getActiveFilterCount = () => {
+        return buildActiveFilterChips().length;
+    };
+
+    const getChipColorClass = (type?: string) => {
+        switch (type) {
+            case 'search':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+            case 'status':
+                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+            case 'platform':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+            case 'language':
+                return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
+            case 'engine':
+                return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300';
+            case 'tag':
+                return 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300';
+            case 'gameJam':
+                return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+            case 'sfw':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+            case 'nsfw':
+                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+            case 'free':
+                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+            case 'paid':
+                return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+            case 'demo':
+                return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300';
+            case 'suspended':
+                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+            case 'hidden':
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+            default:
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+        }
+    };
+
+    return (
+        <div className="space-y-8">
+            <SeoHead metaTags={metaTags} />
+
+            {/* Page Heading - visually hidden but accessible to screen readers */}
+            <h1 style={{
+                position: 'absolute',
+                width: '1px',
+                height: '1px',
+                padding: 0,
+                margin: '-1px',
+                overflow: 'hidden',
+                clip: 'rect(0, 0, 0, 0)',
+                whiteSpace: 'nowrap',
+                borderWidth: 0
+            }}>Browse Visual Novels</h1>
+
+                {/* Filter Modal */}
+                <FilterModal
+                    isOpen={showFilters}
+                    onClose={() => setShowFilters(false)}
+                    filters={filters}
+                    currentFilters={currentFilters}
+                    onGamesPage={true}
+                />
+
+                {/* Info Bar: Active Filters + Sorting + Filters */}
+                <div
+                    className="-mt-2 rounded-xl border border-gray-200/50 bg-white/70 px-4 py-3 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        {/* Section 1: Active Filters Display */}
+                        <div className="flex flex-wrap items-center gap-2 lg:flex-1">
+                            <ActiveFilterChips
+                                chips={buildActiveFilterChips()}
+                                onClearAll={clearFilters}
+                                getChipColorClass={getChipColorClass}
+                                getPlatformIcon={getPlatformIcon}
+                            />
+                        </div>
+
+                        {/* Visual Separator */}
+                        <div className="hidden lg:block h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+                        {/* Section 2: Sort Controls */}
+                        <SortControls
+                            currentSort={currentFilters.sort || ''}
+                            currentDirection={currentFilters.direction === 'asc' || currentFilters.direction === 'desc' ? currentFilters.direction : 'desc'}
+                            sortOptions={filters.sortOptions || {}}
+                            onSortChange={(sort) => updateFilters({sort})}
+                            onDirectionChange={(direction) => updateFilters({direction})}
+                            hasSearch={Boolean(currentFilters.search?.trim())}
+                        />
+
+                        {/* Visual Separator */}
+                        <div className="hidden lg:block h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+                        {/* Section 3: Filters Button */}
+                        <div className="flex items-center">
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                aria-expanded={showFilters}
+                                aria-controls="filter-modal"
+                            >
+                                <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                                    />
+                                </svg>
+                                Filters
+                                {hasActiveFilters() && (
+                                    <span
+                                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+                                        {getActiveFilterCount()}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sort Panel */}
+                {showSort && (
+                    <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+                        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                            Sort Options
+                        </h3>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {Object.entries(filters.sortOptions ?? {}).map(
+                                ([value, label]) => {
+                                    const defaultSort = currentFilters.search?.trim() ? 'relevance' : 'first_visible_at';
+                                    const isChecked = currentFilters.sort === value || (!currentFilters.sort && value === defaultSort);
+
+                                    return (
+                                        <label
+                                            key={value}
+                                            className="flex items-center"
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="sort"
+                                                value={value}
+                                                checked={isChecked}
+                                                onChange={() =>
+                                                    updateFilters({sort: value})
+                                                }
+                                                className="border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                                {label}
+                                            </span>
+                                        </label>
+                                    );
+                                },
+                            )}
+                        </div>
+
+                        <div className="mt-4">
+                            <h4 className="mb-2 font-medium text-gray-900 dark:text-white">
+                                Direction
+                            </h4>
+                            <div className="flex gap-4">
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="direction"
+                                        value="desc"
+                                        checked={
+                                            currentFilters.direction === 'desc'
+                                        }
+                                        onChange={() =>
+                                            updateFilters({direction: 'desc'})
+                                        }
+                                        className="border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                        Descending
+                                    </span>
+                                </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="direction"
+                                        value="asc"
+                                        checked={
+                                            currentFilters.direction === 'asc'
+                                        }
+                                        onChange={() =>
+                                            updateFilters({direction: 'asc'})
+                                        }
+                                        className="border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                        Ascending
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Games Grid */}
+                <GamesGrid
+                    games={games.data as GamesIndexGame[]}
+                    currentFilters={currentFilters}
+                    onPlatformClick={(p) => toggleFilter('platform', p)}
+                    onLanguageClick={(iso) => toggleFilter('language', iso)}
+                    onTagClick={(tagId) => toggleFilter('tag', tagId)}
+                    onStatusClick={(status) => toggleFilter('status', status)}
+                    onNsfwToggle={() => updateFilters({nsfw: !currentFilters.nsfw})}
+                    onPaidToggle={() => updateFilters({showPaid: !currentFilters.showPaid})}
+                    onDemoToggle={() => updateFilters({showDemo: !currentFilters.showDemo})}
+                    updateFilters={updateFilters}
+                />
+
+                {/* Pagination Controls */}
+                <PaginationControls
+                    meta={gamesMeta}
+                    currentFilters={currentFilters}
+                    updateFilters={updateFilters}
+                />
+            </div>
+    );
+}

@@ -1,9 +1,11 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:17.4
+  image: postgres:17.6
+x-meilisearch: &meilisearch
+  image: getmeili/meilisearch:v1.22
 x-redis: &redis
-  image: redis:7
+  image: redis:8
 
 services:
   app:
@@ -14,8 +16,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      meilisearch:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,6 +32,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - /opt/renpy-sdk:/opt/renpy-sdk
+      - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
       - ./:/app/
     labels:
       - "traefik.enable=true"
@@ -48,7 +53,7 @@ services:
       - "-c"
       - "shared_buffers=6GB"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -63,6 +68,26 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - db:/var/lib/postgresql/data
+  meilisearch:
+    <<: *meilisearch
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:7700/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - fvnli
+    ports:
+      - "127.0.0.1:${MEILISEARCH_HOST_PORT:-7700}:7700"
+    environment:
+      - MEILI_MASTER_KEY=${MEILISEARCH_KEY}
+      - MEILI_ENV=${MEILI_ENV:-production}
+      - MEILI_HTTP_ADDR=0.0.0.0:7700
+      - MEILI_LOG_LEVEL=INFO
+    volumes:
+      - meilisearch:/meili_data
   redis:
     <<: *redis
     restart: unless-stopped
@@ -71,7 +96,7 @@ services:
       - "--save"
       - "60 1"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -90,6 +115,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}_caddy_config
   db:
     name: ${COMPOSE_PROJECT_NAME}_db
+  meilisearch:
+    name: ${COMPOSE_PROJECT_NAME}_meilisearch
   redis:
     name: ${COMPOSE_PROJECT_NAME}_redis
 

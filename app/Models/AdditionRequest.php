@@ -17,7 +17,9 @@ class AdditionRequest extends Model
      * Available status values.
      */
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
 
     /**
@@ -59,38 +61,6 @@ class AdditionRequest extends Model
     }
 
     /**
-     * Normalize an itch.io URL for deduplication.
-     */
-    public static function normalizeUrl(string $url): string
-    {
-        // Remove protocol, www, trailing slashes, and query parameters
-        $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
-        $normalized = rtrim($normalized, '/');
-        $normalized = strtok($normalized, '?'); // Remove query parameters
-
-        return strtolower($normalized);
-    }
-
-    /**
-     * Check if a game with the given URL already exists and is visible.
-     */
-    public static function gameAlreadyExists(string $url): bool
-    {
-        $normalizedUrl = self::normalizeUrl($url);
-
-        // Check if a visible game exists with this URL
-        return Game::where('is_visible', true)
-            ->where(function ($query) use ($url, $normalizedUrl) {
-                $query->where('url', $url)
-                    ->orWhere('url', 'https://' . $normalizedUrl)
-                    ->orWhere('url', 'http://' . $normalizedUrl)
-                    ->orWhere('url', 'https://www.' . $normalizedUrl)
-                    ->orWhere('url', 'http://www.' . $normalizedUrl);
-            })
-            ->exists();
-    }
-
-    /**
      * Find or create an addition request for the given URL.
      * Returns the request and whether it was newly created.
      * Returns null if the game already exists and is visible.
@@ -120,6 +90,38 @@ class AdditionRequest extends Model
     }
 
     /**
+     * Check if a game with the given URL already exists and is visible.
+     */
+    public static function gameAlreadyExists(string $url): bool
+    {
+        $normalizedUrl = self::normalizeUrl($url);
+
+        // Check if a visible game exists with this URL
+        return Game::where('is_visible', true)
+            ->where(function ($query) use ($url, $normalizedUrl) {
+                $query->where('url', $url)
+                    ->orWhere('url', 'https://' . $normalizedUrl)
+                    ->orWhere('url', 'http://' . $normalizedUrl)
+                    ->orWhere('url', 'https://www.' . $normalizedUrl)
+                    ->orWhere('url', 'http://www.' . $normalizedUrl);
+            })
+            ->exists();
+    }
+
+    /**
+     * Normalize an itch.io URL for deduplication.
+     */
+    public static function normalizeUrl(string $url): string
+    {
+        // Remove protocol, www, trailing slashes, and query parameters
+        $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
+        $normalized = rtrim($normalized, '/');
+        $normalized = strtok($normalized, '?'); // Remove query parameters
+
+        return strtolower($normalized);
+    }
+
+    /**
      * Get the game that was created from this request (if approved).
      */
     public function game(): BelongsTo
@@ -136,16 +138,6 @@ class AdditionRequest extends Model
     }
 
     /**
-     * Get all users who requested this addition.
-     */
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'addition_request_users')
-            ->withTimestamps()
-            ->orderBy('addition_request_users.created_at');
-    }
-
-    /**
      * Add a user to this request if they haven't already requested it.
      */
     public function addUser(User $user): bool
@@ -157,6 +149,16 @@ class AdditionRequest extends Model
         $this->users()->attach($user->id);
 
         return true;
+    }
+
+    /**
+     * Get all users who requested this addition.
+     */
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'addition_request_users')
+            ->withTimestamps()
+            ->orderBy('addition_request_users.created_at');
     }
 
     /**
@@ -181,19 +183,19 @@ class AdditionRequest extends Model
     }
 
     /**
-     * Check if a user can cancel their participation in this request.
-     */
-    public function canBeCancelledByUser(User $user): bool
-    {
-        return $this->isPending() && $this->users()->where('user_id', $user->id)->exists();
-    }
-
-    /**
      * Check if this request is pending.
      */
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
+    }
+
+    /**
+     * Check if a user can cancel their participation in this request.
+     */
+    public function canBeCancelledByUser(User $user): bool
+    {
+        return $this->isPending() && $this->users()->where('user_id', $user->id)->exists();
     }
 
     /**

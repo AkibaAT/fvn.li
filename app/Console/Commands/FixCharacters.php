@@ -112,7 +112,8 @@ HELP;
         if (! $step || $step === 'special-assignments') {
             $this->info('');
             $this->info('=== Step 2: Fixing Special Character Assignments ===');
-            $results['special_assignments'] = $this->specialAssignmentService->fixSpecialCharacterAssignments($gameId, $specificCharacter, $dryRun);
+            $results['special_assignments'] = $this->specialAssignmentService->fixSpecialCharacterAssignments($gameId,
+                $specificCharacter, $dryRun);
             $this->displaySpecialAssignmentResults($results['special_assignments']);
         }
 
@@ -141,6 +142,20 @@ HELP;
         $this->info('Character fixes completed successfully!');
 
         return SymfonyCommand::SUCCESS;
+    }
+
+    private function displayNullAssignmentResults(array $results): void
+    {
+        $this->info("✓ Fixed {$results['lines_updated']} NULL character assignments");
+        $this->info("✓ Created {$results['narrator_characters_created']} narrator characters");
+        $this->info("✓ Processed {$results['games_processed']} games");
+    }
+
+    private function displaySpecialAssignmentResults(array $results): void
+    {
+        $this->info("✓ Reassigned {$results['lines_reassigned']} special character lines");
+        $this->info("✓ Processed {$results['versions_processed']} versions");
+        $this->info("✓ Handled {$results['characters_processed']} special character types");
     }
 
     private function recalculateStats(?int $gameId, ?int $versionId, bool $dryRun): array
@@ -195,20 +210,6 @@ HELP;
         return ['stats_updated' => $statsUpdated, 'versions_processed' => 0];
     }
 
-    private function displayNullAssignmentResults(array $results): void
-    {
-        $this->info("✓ Fixed {$results['lines_updated']} NULL character assignments");
-        $this->info("✓ Created {$results['narrator_characters_created']} narrator characters");
-        $this->info("✓ Processed {$results['games_processed']} games");
-    }
-
-    private function displaySpecialAssignmentResults(array $results): void
-    {
-        $this->info("✓ Reassigned {$results['lines_reassigned']} special character lines");
-        $this->info("✓ Processed {$results['versions_processed']} versions");
-        $this->info("✓ Handled {$results['characters_processed']} special character types");
-    }
-
     private function displayStatsResults(array $results): void
     {
         $this->info("✓ Updated {$results['stats_updated']} character statistics");
@@ -228,7 +229,7 @@ HELP;
         $action = $dryRun ? 'Would have' : 'Successfully';
 
         $totalLines = ($results['null_assignments']['lines_updated'] ?? 0) +
-                     ($results['special_assignments']['lines_reassigned'] ?? 0);
+            ($results['special_assignments']['lines_reassigned'] ?? 0);
         $totalStats = $results['stats']['stats_updated'] ?? 0;
         $totalCharacters = $results['version_references']['characters_updated'] ?? 0;
 

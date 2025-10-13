@@ -3,6 +3,6 @@ repository: tyler36/ddev-laravel-queue
 version: 1.0.0
 install_date: "2025-04-28T01:25:39+02:00"
 project_files:
-    - config.laravel-workers.yaml
-global_files: []
-removal_actions: []
+  - config.laravel-workers.yaml
+global_files: [ ]
+removal_actions: [ ]

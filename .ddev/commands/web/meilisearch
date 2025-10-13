@@ -1,0 +1,90 @@
+#!/bin/bash
+
+## Description: Interact with Meilisearch search engine
+## Usage: meilisearch [command]
+## Example: "ddev meilisearch status" or "ddev meilisearch setup"
+
+case "${1:-help}" in
+    help|--help|-h)
+        echo "Meilisearch commands for DDEV:"
+        echo ""
+        echo "  ddev meilisearch status    - Check Meilisearch service status"
+        echo "  ddev meilisearch setup     - Setup Meilisearch indexes and import data"
+        echo "  ddev meilisearch test      - Test search functionality"
+        echo "  ddev meilisearch reindex   - Reindex all content"
+        echo "  ddev meilisearch health    - Check search index health"
+        echo "  ddev meilisearch indexes   - List all search indexes and their stats"
+        echo "  ddev meilisearch logs      - Show Meilisearch container logs"
+        echo "  ddev meilisearch shell     - Open shell in Meilisearch container"
+        echo ""
+        echo "Meilisearch is available at: http://fvn-li.ddev.site:7700"
+        echo "Master key: dev-master-key-change-in-production"
+        ;;
+    status)
+        echo "🔍 Checking Meilisearch status..."
+        if curl -s -f http://meilisearch:7700/health > /dev/null 2>&1; then
+            echo "✅ Meilisearch is running and healthy"
+            echo "📊 Service info:"
+            # Use the master key for authenticated requests
+            MASTER_KEY="${MEILISEARCH_KEY:-dev-master-key-change-in-production}"
+            curl -s -H "Authorization: Bearer $MASTER_KEY" http://meilisearch:7700/version | jq '.' 2>/dev/null || echo "Version info not available"
+            echo ""
+            echo "🔗 Access Meilisearch UI at: http://fvn-li.ddev.site:7700"
+            echo "🔑 Master key: $MASTER_KEY"
+        else
+            echo "❌ Meilisearch is not responding"
+            echo "💡 Try: ddev restart"
+        fi
+        ;;
+    setup)
+        echo "🚀 Setting up Meilisearch..."
+        php artisan meilisearch:setup
+        ;;
+    test)
+        if [ -n "$2" ]; then
+            echo "🔍 Testing search with query: '$2'"
+            php artisan meilisearch:test "$2"
+        else
+            echo "🔍 Testing search with default query..."
+            php artisan meilisearch:test "test"
+        fi
+        ;;
+    reindex)
+        echo "🔄 Reindexing all content..."
+        php artisan meilisearch:reindex
+        ;;
+    health)
+        echo "🏥 Checking search index health..."
+        php artisan tinker --execute="
+            \$service = app(\App\Services\SearchIndexService::class);
+            \$health = \$service->healthCheck();
+            print_r(\$health);
+        "
+        ;;
+    indexes)
+        echo "📊 Listing search indexes..."
+        MASTER_KEY="${MEILISEARCH_KEY:-dev-master-key-change-in-production}"
+        echo ""
+        echo "Available indexes:"
+        curl -s -H "Authorization: Bearer $MASTER_KEY" http://meilisearch:7700/indexes | jq '.results[] | {uid: .uid, primaryKey: .primaryKey, createdAt: .createdAt}' 2>/dev/null || echo "Failed to fetch indexes"
+        echo ""
+        echo "Index statistics:"
+        for index in games dialogue_texts reviews tags; do
+            echo "📋 $index:"
+            curl -s -H "Authorization: Bearer $MASTER_KEY" "http://meilisearch:7700/indexes/$index/stats" | jq '{numberOfDocuments: .numberOfDocuments, isIndexing: .isIndexing}' 2>/dev/null || echo "  Index not found or error"
+        done
+        ;;
+    logs)
+        echo "📋 Meilisearch container logs:"
+        docker logs ddev-${DDEV_SITENAME}-meilisearch --tail=50 -f
+        ;;
+    shell)
+        echo "🐚 Opening shell in Meilisearch container..."
+        docker exec -it ddev-${DDEV_SITENAME}-meilisearch sh
+        ;;
+    *)
+        echo "❌ Unknown command: $1"
+        echo "💡 Use 'ddev meilisearch help' to see available commands"
+        exit 1
+        ;;
+esac

@@ -2,15 +2,22 @@
 
 declare(strict_types=1);
 
-use App\Livewire\DialogueBrowser;
-use App\Livewire\GameList;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DialogueController;
+use App\Http\Controllers\GamesController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\MyGamesController;
+use App\Http\Controllers\RatingsController;
+use App\Http\Controllers\SystemStatusController;
+use App\Http\Controllers\UserGameProgressController;
+use App\Http\Controllers\VnListController;
 use App\Models\Game;
-use App\Models\Rater;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,7 +42,7 @@ Route::get('health', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Current Routes
+| Web Routes (React/Inertia frontend)
 |--------------------------------------------------------------------------
 */
 
@@ -65,36 +72,77 @@ Route::get('by-url/{url}', function (Request $request, $url) {
     return redirect(status: 301)->route('games.show', $game);
 })->where('url', '.*');
 
-Route::get('/', GameList::class)->name('games.index');
-Route::get('games/{game:slug}', App\Livewire\GameDetail::class)
+// Home route
+Route::get('/', [HomeController::class, 'home'])
+    ->name('home');
+
+// Games routes
+Route::get('games', [GamesController::class, 'gamesIndex'])
+    ->name('games.index');
+Route::get('games/{game:slug}', [GamesController::class, 'gameShow'])
     ->name('games.show')
     ->middleware('track.page.views');
-Route::get('dialogue/browser/{gameId?}/{versionId?}', DialogueBrowser::class)->name('dialogue.browser')
-    ->where(['gameId' => '[0-9]+', 'versionId' => '[0-9]+']);
 
-Route::get('raters/{rater}', App\Livewire\RaterDetail::class)->name('raters.show');
-Route::get('system/status', App\Livewire\SystemStatus::class)->name('system.status');
+// Auth routes
+Route::get('login', [AuthController::class, 'login'])
+    ->name('login');
+Route::post('logout', [AuthController::class, 'logout'])
+    ->middleware('auth')
+    ->name('logout');
 
-// Login route
-Route::get('login', function () {
-    // If user is already authenticated, redirect to home page
-    if (Auth::check()) {
-        return redirect()->route('games.index');
-    }
+// User Dashboard
+Route::get('dashboard', [DashboardController::class, 'dashboard'])
+    ->middleware(['auth'])
+    ->name('dashboard');
 
-    // Store the previous URL as the intended destination after login
-    // Only if not already set by the middleware and the previous URL is not the login page itself
-    $previousUrl = url()->previous();
-    if (! session()->has('url.intended') && ! str_contains($previousUrl, route('login'))) {
-        session()->put('url.intended', $previousUrl);
-    }
+// User Account Management
+Route::middleware(['auth'])->group(function () {
+    Route::delete('user/account', [DashboardController::class, 'deleteAccount'])
+        ->name('user.account.delete');
+    Route::post('user/merge/{provider}', [DashboardController::class, 'mergeSocialAccounts'])
+        ->name('user.merge');
+    Route::delete('user/disconnect/{provider}', [DashboardController::class, 'disconnectSocialAccount'])
+        ->name('user.disconnect');
+    Route::get('user/notifications/digest/{date}', [DashboardController::class, 'showDigestNotifications'])
+        ->name('user.notifications.digest');
+    Route::post('users/dashboard/version-comparison', [DashboardController::class, 'getVersionComparison'])
+        ->name('users.dashboard.version-comparison');
+    Route::put('user-progress/{game:id}', [UserGameProgressController::class, 'update'])
+        ->name('user-progress.update');
+});
 
-    return view('users.auth.login', ['metaTags' => ['title' => 'Log in'], 'noindex' => true]);
-})->name('login');
+// VN Lists routes
+Route::get('lists', [VnListController::class, 'listsIndex'])
+    ->middleware(['auth'])
+    ->name('lists.index');
+Route::get('lists/create', [VnListController::class, 'listCreate'])
+    ->middleware(['auth'])
+    ->name('lists.create');
+
+// Public VN Lists routes (no auth required) - place before dynamic {vnList} routes
+Route::get('lists/public', [VnListController::class, 'publicLists'])
+    ->name('lists.public');
+Route::get('users/{user}/lists', [VnListController::class, 'userPublicLists'])
+    ->name('lists.user-public');
+
+// Dynamic VN List routes (constrained to numeric IDs)
+Route::get('lists/{vnList}/edit', [VnListController::class, 'listEdit'])
+    ->middleware(['auth'])
+    ->whereNumber('vnList')
+    ->name('lists.edit');
+Route::get('lists/{vnList}', [VnListController::class, 'listShow'])
+    ->whereNumber('vnList')
+    ->name('lists.show');
+
+// System Status
+Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
+    ->name('system.status');
 
 // Social Authentication Routes
 Route::get('auth/telegram', function () {
-    return view('users.auth.telegram-login');
+    return Inertia::render('auth/telegram-login', [
+        'metaTags' => ['title' => 'Login with Telegram'],
+    ]);
 })->name('auth.telegram');
 
 Route::get('auth/{provider}/redirect', [App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])
@@ -102,7 +150,9 @@ Route::get('auth/{provider}/redirect', [App\Http\Controllers\SocialAuthControlle
 
 // Special routes for itch.io
 Route::get('auth/itchio/callback', function () {
-    return view('users.auth.itchio-callback');
+    return Inertia::render('auth/itchio-callback', [
+        'metaTags' => ['title' => 'Completing itch.io Login'],
+    ]);
 })->name('auth.itchio.callback');
 
 Route::get('auth/itchio/process', function () {
@@ -112,328 +162,57 @@ Route::get('auth/itchio/process', function () {
 Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])
     ->name('auth.callback');
 
-// Authenticated VN List Routes
-Route::middleware(['auth'])->group(function () {
-    // Editor image upload endpoint
-    Route::post('api/upload-editor-image', function (Request $request) {
-        try {
-            $request->validate([
-                'file' => 'required|image|max:10240', // 10MB max
-                'game_id' => 'required|integer|exists:games,id',
-            ]);
+// Debug-only auth helpers (local/development only)
+if (app()->environment(['local', 'development'])) {
+    Route::get('__debug/login-7', function () {
+        Auth::loginUsingId(7);
 
-            $gameId = $request->input('game_id');
-            $user = $request->user();
+        return redirect('/my/games');
+    })->name('debug.login-7');
 
-            // Get the game and check authorization
-            $game = Game::findOrFail($gameId);
-            if (! $game->canUserEdit($user)) {
-                return response()->json(['error' => 'You do not have permission to upload images for this game'], 403);
-            }
+    Route::get('__debug/logout', function () {
+        Auth::logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
 
-            $file = $request->file('file');
-            $filename = uniqid() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs("editor-uploads/{$gameId}", $filename, 'public');
+        return redirect('/');
+    })->name('debug.logout');
+}
 
-            return response()->json([
-                'location' => '/storage/' . $path,
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Upload failed: ' . $e->getMessage()], 400);
-        }
-    })->name('api.upload-editor-image');
+// React/Inertia Dialogue Browser + JSON API
+// Support both query-string and path params for compatibility with legacy URLs
+Route::get('dialogue/browser/{gameId?}/{versionId?}', [DialogueController::class, 'dialogueBrowser'])
+    ->where(['gameId' => '[0-9]+', 'versionId' => '[0-9]+'])
+    ->name('dialogue.browser');
+// JSON endpoints moved to routes/react-api.php
 
-    // Get uploaded images for image picker
-    Route::get('api/editor-images', function (Request $request) {
-        try {
-            $request->validate([
-                'game_id' => 'required|integer|exists:games,id',
-            ]);
+// Ratings domain (React/Inertia) scaffolds
+Route::get('ratings', [RatingsController::class, 'ratingsIndex'])
+    ->name('ratings.index');
+Route::get('raters/{rater}', [RatingsController::class, 'raterShow'])
+    ->whereNumber('rater')
+    ->name('raters.show');
 
-            $gameId = $request->input('game_id');
-            $user = $request->user();
+// Rating history JSON for React modal
+Route::get('raters/{rater}/games/{game}/history', [RatingsController::class, 'getRatingHistory'])
+    ->whereNumber('rater')
+    ->whereNumber('game')
+    ->name('raters.games.history');
 
-            // Get the game and check authorization
-            $game = Game::findOrFail($gameId);
-            if (! $game->canUserEdit($user)) {
-                return response()->json(['error' => 'You do not have permission to view images for this game'], 403);
-            }
-
-            $images = [];
-
-            // Get images from game-specific editor-uploads directory
-            $gameUploadPath = "editor-uploads/{$gameId}";
-            if (Storage::disk('public')->exists($gameUploadPath)) {
-                $editorFiles = Storage::disk('public')->files($gameUploadPath);
-                foreach ($editorFiles as $file) {
-                    $images[] = [
-                        'url' => '/storage/' . $file,
-                        'path' => $file,
-                        'name' => basename($file),
-                        'size' => Storage::disk('public')->size($file),
-                        'modified' => Storage::disk('public')->lastModified($file),
-                        'type' => 'editor',
-                    ];
-                }
-            }
-
-            // Sort by modification date (newest first)
-            usort($images, function ($a, $b) {
-                return $b['modified'] - $a['modified'];
-            });
-
-            return response()->json([
-                'images' => $images,
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to load images: ' . $e->getMessage()], 500);
-        }
-    })->name('api.editor-images');
-
-    // Delete uploaded image
-    Route::delete('api/editor-images/{path}', function (Request $request, string $path) {
-        try {
-            $request->validate([
-                'game_id' => 'required|integer|exists:games,id',
-            ]);
-
-            $gameId = $request->input('game_id');
-            $user = $request->user();
-
-            // Get the game and check authorization
-            $game = Game::findOrFail($gameId);
-            if (! $game->canUserEdit($user)) {
-                return response()->json(['error' => 'You do not have permission to delete images for this game'], 403);
-            }
-
-            // Decode the path (it comes URL encoded)
-            $decodedPath = urldecode($path);
-
-            // Ensure the path is within the game's directory for security
-            $expectedPrefix = "editor-uploads/{$gameId}/";
-            if (! str_starts_with($decodedPath, $expectedPrefix)) {
-                return response()->json(['error' => 'Invalid file path'], 403);
-            }
-
-            // Check if file exists
-            if (! Storage::disk('public')->exists($decodedPath)) {
-                return response()->json(['error' => 'File not found'], 404);
-            }
-
-            // Delete the file
-            $deleted = Storage::disk('public')->delete($decodedPath);
-
-            if ($deleted) {
-                return response()->json(['message' => 'File deleted successfully']);
-            } else {
-                return response()->json(['error' => 'Failed to delete file'], 500);
-            }
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Delete failed: ' . $e->getMessage()], 500);
-        }
-    })->name('api.delete-editor-image')->where('path', '.*');
-
-    Route::get('user/dashboard',
-        [App\Http\Controllers\UserDashboardController::class, 'show'])->name('user.dashboard.show');
-    Route::get('user/notifications/digest/{date}', [
-        App\Http\Controllers\UserDashboardController::class, 'showDigestNotifications',
-    ])->name('user.notifications.digest');
-    Route::delete('user/account',
-        [App\Http\Controllers\UserDashboardController::class, 'deleteAccount'])->name('user.delete');
-    Route::post('user/merge/{provider}',
-        [App\Http\Controllers\UserDashboardController::class, 'mergeSocialAccounts'])->name('user.merge');
-    Route::delete('user/disconnect/{provider}',
-        [App\Http\Controllers\UserDashboardController::class, 'disconnectSocialAccount'])->name('user.disconnect');
-    Route::get('user/export', [App\Http\Controllers\UserDashboardController::class, 'exportData'])->name('user.export');
-    Route::put('user/notifications', [
-        App\Http\Controllers\UserDashboardController::class, 'updateNotificationPreferences',
-    ])->name('user.dashboard.notifications.update');
-    Route::post('users/dashboard/version-comparison', [
-        App\Http\Controllers\UserDashboardController::class, 'getVersionComparison',
-    ])->name('users.dashboard.version-comparison');
-
-    Route::get('lists', [App\Http\Controllers\VnListController::class, 'index'])->name('vn-lists.index');
-    Route::get('lists/create', [App\Http\Controllers\VnListController::class, 'create'])->name('vn-lists.create');
-    Route::post('lists', [App\Http\Controllers\VnListController::class, 'store'])->name('vn-lists.store');
-    Route::get('lists/{vnList}/edit', [App\Http\Controllers\VnListController::class, 'edit'])->name('vn-lists.edit');
-    Route::put('lists/{vnList}', [App\Http\Controllers\VnListController::class, 'update'])->name('vn-lists.update');
-    Route::delete('lists/{vnList}',
-        [App\Http\Controllers\VnListController::class, 'destroy'])->name('vn-lists.destroy');
-    Route::post('lists/{vnList}/toggle-visibility',
-        [App\Http\Controllers\VnListController::class, 'toggleVisibility'])->name('vn-lists.toggle-visibility');
-
-    // Game operations
-    Route::post('games/{game:id}/add-to-list',
-        [App\Http\Controllers\VnListController::class, 'addGame'])->name('games.add-to-list');
-    Route::post('lists/{vnList}/add-game',
-        [App\Http\Controllers\VnListController::class, 'addToCustomList'])->name('list-entries.add-to-custom');
-
-    // List entries
-    Route::put('list-entries/{entry}',
-        [App\Http\Controllers\VnListController::class, 'updateEntry'])->name('list-entries.update');
-    Route::post('list-entries/{entry}/move',
-        [App\Http\Controllers\VnListController::class, 'moveGame'])->name('list-entries.move');
-    Route::delete('list-entries/{entry}',
-        [App\Http\Controllers\VnListController::class, 'removeGame'])->name('list-entries.destroy');
-    Route::patch('lists/{vnList}/toggle-all-updates', function (Request $request, \App\Models\VnList $vnList) {
-        return app()->make(App\Http\Controllers\VnListController::class)->toggleAllUpdates($request, $vnList);
-    })->name('vn-lists.toggle-all-updates');
-
-    // User Game Progress
-    Route::put('user-progress/{game:id}',
-        [App\Http\Controllers\UserGameProgressController::class, 'update'])->name('user-progress.update');
-    Route::patch('user-progress/{game:id}/toggle-updates', function (Request $request, Game $game) {
-        return app()->make(App\Http\Controllers\UserGameProgressController::class)->toggleUpdates($request, $game);
-    })->name('user-progress.toggle-updates');
-
-    // VN Lists ordering
-    Route::post('vn-lists/{vnList}/update-order',
-        [App\Http\Controllers\VnListController::class, 'updateOrder'])->name('vn-lists.update-order');
-
-    // User Game Management
-    Route::prefix('user/games')->name('user.games.')->group(function () {
-        Route::get('/', [App\Http\Controllers\UserGameManagementController::class, 'index'])->name('index');
-        Route::get('{game}/edit', [App\Http\Controllers\UserGameManagementController::class, 'edit'])->name('edit');
-        Route::put('{game}', [App\Http\Controllers\UserGameManagementController::class, 'update'])->name('update');
-    });
+// Manage My Games (React/Inertia pages)
+Route::middleware('auth')->group(function () {
+    Route::get('my/games', [MyGamesController::class, 'myGamesIndex'])->name('my-games.index');
+    Route::get('my/games/{game:slug}/edit', [MyGamesController::class, 'myGamesEdit'])->name('my-games.edit');
 });
 
-// Public VN List Routes (no auth required)
-Route::get('lists/public', [App\Http\Controllers\VnListController::class, 'publicLists'])->name('vn-lists.public');
-Route::get('users/{user}/lists',
-    [App\Http\Controllers\VnListController::class, 'userPublicLists'])->name('vn-lists.user-public');
-Route::get('lists/{vnList}', [App\Http\Controllers\VnListController::class, 'show'])->name('vn-lists.show');
+// Use slug for these endpoints to match Show.tsx paths
+// React API JSON for versions moved to react-api.php
 
-/*
-|--------------------------------------------------------------------------
-| Permanent Redirects for old URLs
-|--------------------------------------------------------------------------
-*/
+// JSON list APIs moved to react-api.php
 
-// Redirect old ratings and game-versions filters to game pages
-Route::get('ratings', function (Request $request) {
-    $tableFilters = $request->query('tableFilters');
-    $gameId = $tableFilters['game']['value'] ?? null;
-    if (! $gameId) {
-        return redirect(status: 301)->route('games.index');
-    }
-
-    $game = Game::find($gameId);
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-});
-
-Route::get('game-versions', function (Request $request) {
-    $tableFilters = $request->query('tableFilters');
-    $gameId = $tableFilters['game']['value'] ?? null;
-    if (! $gameId) {
-        return redirect(status: 301)->route('games.index');
-    }
-
-    $game = Game::find($gameId);
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-});
-
-// Redirect old review URLs to game pages
-Route::get('reviews/{id}', function ($id) {
-    $game = Game::find($id);
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-})->where('id', '[0-9]+');
-
-Route::get('api/reviews/{id}', function ($id) {
-    $game = Game::find($id);
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-})->where('id', '[0-9]+');
-
-Route::get('versions/{id}', function ($id) {
-    $game = Game::find($id);
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-})->where('id', '[0-9]+');
-
-// Redirect old users URLs to raters
-Route::get('users/{id}', function ($id) {
-    $rater = Rater::find($id);
-    if (! $rater) {
-        $rater = Rater::firstWhere('user_id', $id);
-    }
-    if (! $rater) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('raters.show', $rater->id);
-})->where('id', '[0-9]+');
-
-Route::get('api/users/{id}', function ($id) {
-    $rater = Rater::find($id);
-    if (! $rater) {
-        $rater = Rater::firstWhere('user_id', $id);
-    }
-    if (! $rater) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('raters.show', $rater->id);
-})->where('id', '[0-9]+');
-
-// Click tracking routes
+// Click tracking routes (public)
 Route::get('track/link', [App\Http\Controllers\ClickTrackingController::class, 'redirectCustomLink'])
     ->name('track.custom-link');
 Route::get('track/external', [App\Http\Controllers\ClickTrackingController::class, 'redirectExternalProject'])
     ->name('track.external-project');
-Route::post('api/track/custom-link', [App\Http\Controllers\ClickTrackingController::class, 'trackCustomLink'])
-    ->name('api.track.custom-link');
-Route::get('api/games/{game}/stats', [App\Http\Controllers\ClickTrackingController::class, 'getGameStats'])
-    ->name('api.games.stats')
-    ->middleware('auth');
-Route::get('api/games/{game}/analytics', [App\Http\Controllers\ClickTrackingController::class, 'getDailyAnalytics'])
-    ->name('api.games.analytics')
-    ->middleware('auth');
-
-// Catch-all route for game slugs (must be last and exclude 'lists' path)
-Route::get('{game:slug}', function ($slug) {
-    return redirect(status: 301)->route('games.show', $slug);
-})->where('game:slug', '^(?!lists).*$');
-
-Route::get('by-game-id/{game:game_id}', function ($gameId) {
-    $slug = Game::where('game_id', $gameId)->first()?->slug;
-    if (! $slug) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $slug);
-})->where('game_id', '[0-9]+');
+// Click tracking JSON moved to react-api.php

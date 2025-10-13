@@ -6,7 +6,6 @@
 /.idea
 /.vscode
 /docker
-/node_modules
 /public/storage
 /storage
 /tests

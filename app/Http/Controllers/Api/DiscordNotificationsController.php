@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Models\AdditionRequest;
 use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
-use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;

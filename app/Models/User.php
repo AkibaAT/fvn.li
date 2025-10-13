@@ -51,11 +51,6 @@ class User extends Authenticatable
         'is_admin' => 'boolean',
     ];
 
-    public function socialAccounts(): HasMany
-    {
-        return $this->hasMany(SocialAccount::class);
-    }
-
     /**
      * Get the user's itch.io username if they have an itch.io account connected
      */
@@ -72,28 +67,33 @@ class User extends Authenticatable
         return $itchioAccount->provider_data['username'] ?? null;
     }
 
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
     /**
-     * Get the user's itch.io URL if they have an itch.io account connected
+     * Check if this user owns a specific game based on itch.io API data
      */
-    public function getItchioUrl(): ?string
+    public function ownsGame(Game $game): bool
     {
         $itchioAccount = $this->socialAccounts()
             ->where('provider_name', 'itchio')
             ->first();
 
-        if (! $itchioAccount || ! $itchioAccount->provider_data) {
-            return null;
+        if (! $itchioAccount) {
+            return false;
         }
 
-        return $itchioAccount->provider_data['url'] ?? null;
-    }
+        // First, check if we have API data with game IDs
+        if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
+            // Check if the game's itch.io ID is in the user's list of games
+            return in_array($game->game_id, $itchioAccount->itchio_game_ids, true);
+        }
 
-    /**
-     * Check if this user owns a specific game based on their itch.io namespace
-     */
-    public function ownsGame(Game $game): bool
-    {
-        $itchioUrl = $this->getItchioUrl();
+        // Fallback to URL-based check if API data is not available
+        // This handles cases where the user logged in before the API integration
+        $itchioUrl = $itchioAccount->provider_data['url'] ?? null;
 
         if (! $itchioUrl) {
             return false;
@@ -116,11 +116,45 @@ class User extends Authenticatable
     }
 
     /**
-     * Get all games owned by this user in their itch.io namespace
+     * Get the user's itch.io URL if they have an itch.io account connected
+     */
+    public function getItchioUrl(): ?string
+    {
+        $itchioAccount = $this->socialAccounts()
+            ->where('provider_name', 'itchio')
+            ->first();
+
+        if (! $itchioAccount || ! $itchioAccount->provider_data) {
+            return null;
+        }
+
+        return $itchioAccount->provider_data['url'] ?? null;
+    }
+
+    /**
+     * Get all games owned by this user based on itch.io API data
      */
     public function getOwnedGames()
     {
-        $itchioUrl = $this->getItchioUrl();
+        $itchioAccount = $this->socialAccounts()
+            ->where('provider_name', 'itchio')
+            ->first();
+
+        if (! $itchioAccount) {
+            return collect();
+        }
+
+        // First, check if we have API data with game IDs
+        if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
+            // Get games by their itch.io game IDs
+            return Game::whereIn('game_id', $itchioAccount->itchio_game_ids)
+                ->where('is_visible', true)
+                ->orderBy('name')
+                ->get();
+        }
+
+        // Fallback to URL-based check if API data is not available
+        $itchioUrl = $itchioAccount->provider_data['url'] ?? null;
 
         if (! $itchioUrl) {
             return collect();
@@ -135,19 +169,13 @@ class User extends Authenticatable
         // Use the exact domain from the user's itch.io URL
         $expectedDomain = strtolower($userUrl['host']);
 
-        return Game::where('url', 'LIKE', "https://{$expectedDomain}/%")
-            ->orWhere('url', 'LIKE', "http://{$expectedDomain}/%")
+        return Game::where(function ($query) use ($expectedDomain) {
+            $query->where('url', 'LIKE', "https://{$expectedDomain}/%")
+                ->orWhere('url', 'LIKE', "http://{$expectedDomain}/%");
+        })
             ->where('is_visible', true)
             ->orderBy('name')
             ->get();
-    }
-
-    /**
-     * Get the user's VN lists.
-     */
-    public function vnLists(): HasMany
-    {
-        return $this->hasMany(VnList::class)->latest();
     }
 
     /**
@@ -193,6 +221,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's ratings.
+     */
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class);
+    }
+
+    /**
      * Initialize default VN lists for a new user.
      */
     public function initializeDefaultLists(): void
@@ -208,5 +244,13 @@ class User extends Authenticatable
         foreach ($defaultLists as $list) {
             $this->vnLists()->create($list);
         }
+    }
+
+    /**
+     * Get the user's VN lists.
+     */
+    public function vnLists(): HasMany
+    {
+        return $this->hasMany(VnList::class)->latest();
     }
 }

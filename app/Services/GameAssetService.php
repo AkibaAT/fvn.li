@@ -23,6 +23,22 @@ class GameAssetService
     }
 
     /**
+     * Upload multiple images for a game's custom page
+     */
+    public function uploadMultipleImages(Game $game, array $files): array
+    {
+        $uploadedImages = [];
+
+        foreach ($files as $file) {
+            if ($file instanceof UploadedFile) {
+                $uploadedImages[] = $this->uploadImage($game, $file);
+            }
+        }
+
+        return $uploadedImages;
+    }
+
+    /**
      * Upload and process an image for a game's custom page
      */
     public function uploadImage(Game $game, UploadedFile $file): array
@@ -45,22 +61,6 @@ class GameAssetService
             'alt' => '',
             'caption' => '',
         ];
-    }
-
-    /**
-     * Upload multiple images for a game's custom page
-     */
-    public function uploadMultipleImages(Game $game, array $files): array
-    {
-        $uploadedImages = [];
-
-        foreach ($files as $file) {
-            if ($file instanceof UploadedFile) {
-                $uploadedImages[] = $this->uploadImage($game, $file);
-            }
-        }
-
-        return $uploadedImages;
     }
 
     /**
@@ -218,6 +218,16 @@ class GameAssetService
     }
 
     /**
+     * Get variant filename
+     */
+    private function getVariantFilename(string $originalFilename, string $size): string
+    {
+        $pathInfo = pathinfo($originalFilename);
+
+        return $pathInfo['filename'] . "_{$size}." . $pathInfo['extension'];
+    }
+
+    /**
      * Delete all variants of an image
      */
     private function deleteImageVariants(string $originalPath): void
@@ -233,15 +243,5 @@ class GameAssetService
             $variantPath = "{$basePath}/{$filename}_{$size}.{$extension}";
             Storage::disk('public')->delete($variantPath);
         }
-    }
-
-    /**
-     * Get variant filename
-     */
-    private function getVariantFilename(string $originalFilename, string $size): string
-    {
-        $pathInfo = pathinfo($originalFilename);
-
-        return $pathInfo['filename'] . "_{$size}." . $pathInfo['extension'];
     }
 }

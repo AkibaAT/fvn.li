@@ -9,6 +9,47 @@ use Illuminate\Support\Facades\Config;
 class IpAnonymizationService
 {
     /**
+     * Check if an IP address appears to be already anonymized
+     */
+    public static function isAnonymized(string $ipAddress): bool
+    {
+        // Check for subnet anonymization patterns
+        if (str_ends_with($ipAddress, '.0') || str_ends_with($ipAddress, '::')) {
+            return true;
+        }
+
+        // Check for hash anonymization pattern
+        if (str_starts_with($ipAddress, 'hash_')) {
+            return true;
+        }
+
+        // Check for full anonymization
+        if ($ipAddress === '***') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get anonymized IP address based on audit privacy configuration
+     * This method respects the global anonymization setting
+     */
+    public static function getAnonymizedIpAddress(?string $ipAddress): ?string
+    {
+        if (! $ipAddress) {
+            return null;
+        }
+
+        // Check if IP anonymization is enabled globally
+        if (! Config::get('audit.privacy.anonymize_ip_addresses', false)) {
+            return $ipAddress;
+        }
+
+        return self::anonymize($ipAddress);
+    }
+
+    /**
      * Anonymize an IP address based on configuration
      */
     public static function anonymize(?string $ipAddress, ?string $method = null): ?string
@@ -66,46 +107,5 @@ class IpAnonymizationService
 
         // Create a truncated hash for privacy while maintaining some uniqueness
         return 'hash_' . substr(hash('sha256', $salt . $ipAddress), 0, 12);
-    }
-
-    /**
-     * Check if an IP address appears to be already anonymized
-     */
-    public static function isAnonymized(string $ipAddress): bool
-    {
-        // Check for subnet anonymization patterns
-        if (str_ends_with($ipAddress, '.0') || str_ends_with($ipAddress, '::')) {
-            return true;
-        }
-
-        // Check for hash anonymization pattern
-        if (str_starts_with($ipAddress, 'hash_')) {
-            return true;
-        }
-
-        // Check for full anonymization
-        if ($ipAddress === '***') {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Get anonymized IP address based on audit privacy configuration
-     * This method respects the global anonymization setting
-     */
-    public static function getAnonymizedIpAddress(?string $ipAddress): ?string
-    {
-        if (! $ipAddress) {
-            return null;
-        }
-
-        // Check if IP anonymization is enabled globally
-        if (! Config::get('audit.privacy.anonymize_ip_addresses', false)) {
-            return $ipAddress;
-        }
-
-        return self::anonymize($ipAddress);
     }
 }

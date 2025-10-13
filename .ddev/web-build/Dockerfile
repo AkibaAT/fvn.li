@@ -4,7 +4,15 @@ FROM $BASE_IMAGE
 RUN (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null) \
     && (echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list) \
     && apt-get update \
-    && apt-get install -y --no-install-recommends temurin-21-jdk \
+    && apt-get install -y --no-install-recommends  \
+        libnspr4 \
+        libnss3 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libatspi2.0-0 \
+        libxcomposite1 \
+        libxdamage1 \
+        temurin-21-jdk \
     && ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "amd64" ]; then \
         ln -s /usr/lib/jvm/temurin-21-jdk-amd64 /usr/lib/jvm/jdk-21; \

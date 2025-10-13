@@ -14,17 +14,24 @@ class ChangeLog extends Model
      * Standard Eloquent event types
      */
     public const EVENT_CREATED = 'created';
+
     public const EVENT_UPDATED = 'updated';
+
     public const EVENT_DELETED = 'deleted';
+
     public const EVENT_RESTORED = 'restored';
 
     /**
      * Source types constants
      */
     public const SOURCE_WEB = 'web';
+
     public const SOURCE_API = 'api';
+
     public const SOURCE_COMMAND = 'command';
+
     public const SOURCE_CRON = 'cron';
+
     public const SOURCE_SYSTEM = 'system';
 
     /**

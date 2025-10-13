@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Traits;
 
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+
 /**
  * Trait for sorting VN Lists in a standardized order.
  */
@@ -26,20 +29,23 @@ trait SortsVnLists
      * Sort lists by type order (plan_to_read, reading, completed, on_hold, dropped)
      * followed by custom lists in alphabetical order.
      *
-     * @param  \Illuminate\Support\Collection|\Illuminate\Pagination\LengthAwarePaginator  $lists
-     * @return \Illuminate\Support\Collection|\Illuminate\Pagination\LengthAwarePaginator
+     * @param  Collection|LengthAwarePaginator  $lists
+     * @return Collection|LengthAwarePaginator
      */
     protected function sortListsByType($lists)
     {
-        if ($lists instanceof \Illuminate\Pagination\LengthAwarePaginator) {
-            $lists->setCollection($lists->getCollection()->sortBy(function ($list) {
+        if ($lists instanceof LengthAwarePaginator) {
+            $sorted = $lists->getCollection()->sortBy(function ($list) {
                 if (isset($this->typeOrder[$list->type])) {
                     return $this->typeOrder[$list->type];
                 }
 
                 // Custom lists come after standard types, ordered alphabetically
                 return 1000 . $list->name;
-            }));
+            })->values();
+
+            // Reindex keys to avoid sparse keys breaking JSON serialization/UI
+            $lists->setCollection($sorted);
         } else {
             $lists = $lists->sort(function ($a, $b) {
                 // If both are standard types, use the predefined order
@@ -57,7 +63,7 @@ trait SortsVnLists
 
                 // Both are custom lists, sort alphabetically by name
                 return $a->name <=> $b->name;
-            });
+            })->values();
         }
 
         return $lists;

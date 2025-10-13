@@ -82,7 +82,7 @@ jobs:
           instance: 'Writerside/in'
 
   deploy:
-    needs: [build, test]
+    needs: [ build, test ]
     runs-on: ubuntu-latest
 
     environment:

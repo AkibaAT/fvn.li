@@ -16,7 +16,6 @@ use Spatie\LaravelIgnition\Solutions\SolutionProviders\InvalidRouteActionSolutio
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\MissingAppKeySolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\MissingColumnSolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\MissingImportSolutionProvider;
-use Spatie\LaravelIgnition\Solutions\SolutionProviders\MissingLivewireComponentSolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\MissingMixManifestSolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\MissingViteManifestSolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\OpenAiSolutionProvider;
@@ -26,6 +25,8 @@ use Spatie\LaravelIgnition\Solutions\SolutionProviders\TableNotFoundSolutionProv
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\UndefinedViewVariableSolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\UnknownValidationSolutionProvider;
 use Spatie\LaravelIgnition\Solutions\SolutionProviders\ViewNotFoundSolutionProvider;
+
+// Livewire decommissioned
 
 return [
 
@@ -121,7 +122,7 @@ return [
         UnknownValidationSolutionProvider::class,
         MissingMixManifestSolutionProvider::class,
         MissingViteManifestSolutionProvider::class,
-        MissingLivewireComponentSolutionProvider::class,
+        // MissingLivewireComponentSolutionProvider::class,
         UndefinedViewVariableSolutionProvider::class,
         GenericLaravelExceptionSolutionProvider::class,
         OpenAiSolutionProvider::class,

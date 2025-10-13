@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 class ReimportGameVersion extends Command
 {
     use SelectsGames;
+
     protected $signature = 'games:reimport-version
         {--game-id= : ID of the specific game to process}
         {--game-name= : Name (or part of name) of the game(s) to process}

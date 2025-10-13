@@ -261,6 +261,19 @@ class GameReviewsController extends Controller
     }
 
     /**
+     * Normalize a URL for matching (similar to AdditionRequest logic).
+     */
+    private function normalizeUrl(string $url): string
+    {
+        // Remove protocol, www, trailing slashes, and query parameters
+        $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
+        $normalized = rtrim($normalized, '/');
+        $normalized = strtok($normalized, '?'); // Remove query parameters
+
+        return strtolower($normalized);
+    }
+
+    /**
      * Build review data for a game.
      */
     private function buildReviewData(Game $game): array
@@ -318,18 +331,5 @@ class GameReviewsController extends Controller
             'rating_distribution' => $distribution,
             'recent_reviews' => $recentReviews,
         ];
-    }
-
-    /**
-     * Normalize a URL for matching (similar to AdditionRequest logic).
-     */
-    private function normalizeUrl(string $url): string
-    {
-        // Remove protocol, www, trailing slashes, and query parameters
-        $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
-        $normalized = rtrim($normalized, '/');
-        $normalized = strtok($normalized, '?'); // Remove query parameters
-
-        return strtolower($normalized);
     }
 }

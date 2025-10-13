@@ -56,9 +56,11 @@ class UserNotificationsController extends Controller
             $query->whereHas('socialAccounts', function ($query) {
                 $query->where('provider_name', 'telegram');
             });
-            $users = $query->with(['socialAccounts' => function ($query) {
-                $query->where('provider_name', 'telegram');
-            }])->get();
+            $users = $query->with([
+                'socialAccounts' => function ($query) {
+                    $query->where('provider_name', 'telegram');
+                },
+            ])->get();
 
             // Format the response for Telegram
             $telegramIds = $users->pluck('socialAccounts.0.provider_id')->filter()->values();

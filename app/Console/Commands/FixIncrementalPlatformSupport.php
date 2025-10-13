@@ -16,6 +16,7 @@ class FixIncrementalPlatformSupport extends Command
     protected $description = 'Report platform support inconsistencies across game versions (platforms should only be gained, not lost)';
 
     private array $platforms = ['is_windows', 'is_linux', 'is_mac', 'is_android', 'is_web'];
+
     private array $platformNames = [
         'is_windows' => 'Win',
         'is_linux' => 'Linux',
@@ -23,7 +24,9 @@ class FixIncrementalPlatformSupport extends Command
         'is_android' => 'Android',
         'is_web' => 'Web',
     ];
+
     private int $gamesProcessed = 0;
+
     private int $gamesWithIssues = 0;
 
     /**
@@ -68,9 +71,11 @@ HELP;
             ->whereHas('gameVersions', function ($q) {
                 $q->where('is_latest', false); // Only process games with multiple versions
             })
-            ->with(['gameVersions' => function ($q) {
-                $q->orderBy('published_at');
-            }]);
+            ->with([
+                'gameVersions' => function ($q) {
+                    $q->orderBy('published_at');
+                },
+            ]);
 
         if ($gameId = $this->option('game-id')) {
             $query->where('id', (int) $gameId);

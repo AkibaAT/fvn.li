@@ -304,79 +304,6 @@ class GameJam extends Model
     }
 
     /**
-     * Fetch a specific page of results
-     *
-     * @return HTMLDocument|null The parsed HTML document for the page, or null if the fetch failed
-     *
-     * @throws BindingResolutionException
-     * @throws GuzzleException
-     */
-    private function fetchResultsPageNumber(int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
-    {
-        // Get the ItchHttpClientService
-        $itchClient = App::make(ItchHttpClientService::class);
-        $itchClient->setMaxRetries($maxRetries);
-        $itchClient->setBaseCooldown($retryDelay);
-
-        try {
-            // Construct the results page URL with page number
-            $resultsUrl = rtrim($this->url, '/') . '/results';
-            if ($pageNumber > 1) {
-                $resultsUrl .= '?page=' . $pageNumber;
-            }
-
-            Log::info('Fetching game jam results page', [
-                'url' => $resultsUrl,
-                'page' => $pageNumber,
-                'game_jam_id' => $this->id,
-                'game_jam_name' => $this->name,
-            ]);
-
-            // Fetch the results page - the ItchHttpClientService will handle retries for 429 errors
-            $response = $itchClient->get($resultsUrl, [
-                'cookies' => false,
-            ]);
-
-            $statusCode = $response->getStatusCode();
-
-            // The ItchHttpClientService handles 429 errors, but we still need to check for other errors
-            if ($statusCode !== 200) {
-                Log::warning('Game jam results page not found', [
-                    'url' => $resultsUrl,
-                    'status_code' => $statusCode,
-                    'game_jam_id' => $this->id,
-                    'game_jam_name' => $this->name,
-                ]);
-
-                return null;
-            }
-
-            Log::info('Successfully fetched game jam results page', [
-                'url' => $resultsUrl,
-                'page' => $pageNumber,
-                'game_jam_id' => $this->id,
-                'game_jam_name' => $this->name,
-            ]);
-
-            $html = $response->getBody()->getContents();
-
-            return HTMLDocument::createFromString($html, LIBXML_NOERROR);
-
-        } catch (Exception $e) {
-            // Log error
-            Log::error('Error fetching game jam results', [
-                'jam_url' => $this->url,
-                'page' => $pageNumber,
-                'error' => $e->getMessage(),
-                'game_jam_id' => $this->id,
-                'game_jam_name' => $this->name,
-            ]);
-
-            return null;
-        }
-    }
-
-    /**
      * Extract dates from game jam page
      */
     private function extractDates(HTMLDocument $doc): void
@@ -396,7 +323,8 @@ class GameJam extends Model
 
         if ($jamOverText) {
             $text = $jamOverText->textContent;
-            if (preg_match('/ran from (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) to (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/', $text, $matches)) {
+            if (preg_match('/ran from (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) to (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/',
+                $text, $matches)) {
                 try {
                     $this->start_date = new DateTime($matches[1]);
                     $this->end_date = new DateTime($matches[2]);
@@ -420,7 +348,8 @@ class GameJam extends Model
 
         if ($submissionsText) {
             $text = $submissionsText->textContent;
-            if (preg_match('/Submissions open from (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) to (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/', $text, $matches)) {
+            if (preg_match('/Submissions open from (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) to (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/',
+                $text, $matches)) {
                 try {
                     $this->start_date = new DateTime($matches[1]);
                     $this->end_date = new DateTime($matches[2]);
@@ -544,6 +473,79 @@ class GameJam extends Model
     }
 
     /**
+     * Fetch a specific page of results
+     *
+     * @return HTMLDocument|null The parsed HTML document for the page, or null if the fetch failed
+     *
+     * @throws BindingResolutionException
+     * @throws GuzzleException
+     */
+    private function fetchResultsPageNumber(int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
+    {
+        // Get the ItchHttpClientService
+        $itchClient = App::make(ItchHttpClientService::class);
+        $itchClient->setMaxRetries($maxRetries);
+        $itchClient->setBaseCooldown($retryDelay);
+
+        try {
+            // Construct the results page URL with page number
+            $resultsUrl = rtrim($this->url, '/') . '/results';
+            if ($pageNumber > 1) {
+                $resultsUrl .= '?page=' . $pageNumber;
+            }
+
+            Log::info('Fetching game jam results page', [
+                'url' => $resultsUrl,
+                'page' => $pageNumber,
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            // Fetch the results page - the ItchHttpClientService will handle retries for 429 errors
+            $response = $itchClient->get($resultsUrl, [
+                'cookies' => false,
+            ]);
+
+            $statusCode = $response->getStatusCode();
+
+            // The ItchHttpClientService handles 429 errors, but we still need to check for other errors
+            if ($statusCode !== 200) {
+                Log::warning('Game jam results page not found', [
+                    'url' => $resultsUrl,
+                    'status_code' => $statusCode,
+                    'game_jam_id' => $this->id,
+                    'game_jam_name' => $this->name,
+                ]);
+
+                return null;
+            }
+
+            Log::info('Successfully fetched game jam results page', [
+                'url' => $resultsUrl,
+                'page' => $pageNumber,
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            $html = $response->getBody()->getContents();
+
+            return HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+        } catch (Exception $e) {
+            // Log error
+            Log::error('Error fetching game jam results', [
+                'jam_url' => $this->url,
+                'page' => $pageNumber,
+                'error' => $e->getMessage(),
+                'game_jam_id' => $this->id,
+                'game_jam_name' => $this->name,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Extract rankings from the results page
      *
      * @return int The number of rankings found and processed
@@ -592,7 +594,8 @@ class GameJam extends Model
             $gameTitleElement = $gameRankDiv->querySelector('.game_summary h2 a');
             $gameTitle = $gameTitleElement ? trim($gameTitleElement->textContent) : $game->name;
 
-            Log::info('Processing game', ['title' => $gameTitle, 'url' => $gameUrl, 'game_id' => $game->id, 'game_jam_id' => $this->id]);
+            Log::info('Processing game',
+                ['title' => $gameTitle, 'url' => $gameUrl, 'game_id' => $game->id, 'game_jam_id' => $this->id]);
 
             // Extract the ranking - it's in a h3 tag with the format "Ranked <strong>Nth</strong> with X ratings..."
             $rankingElement = $gameRankDiv->querySelector('.game_summary h3 .ordinal_rank');

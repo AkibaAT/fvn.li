@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Exception;
+use GuzzleHttp\Client;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -29,8 +31,8 @@ class SocialAuthController extends Controller
                 session()->put('url.intended', $previousUrl);
                 Log::info('Storing intended URL in redirectToProvider', ['url' => $previousUrl]);
             } else {
-                // If coming from login page, try to redirect to lists
-                session()->put('url.intended', route('vn-lists.index'));
+                // If coming from login page, try to redirect to games index
+                session()->put('url.intended', route('games.index'));
             }
         }
 
@@ -54,7 +56,7 @@ class SocialAuthController extends Controller
             case 'itchio':
                 // For itch.io, we need to handle the implicit flow
                 return Socialite::driver($provider)
-                    ->setScopes(['profile:me'])
+                    ->setScopes(['profile:me', 'profile:games'])
                     ->redirect();
 
             default:
@@ -213,7 +215,7 @@ class SocialAuthController extends Controller
                                 try {
                                     $notification->user_id = $mergingUser->id;
                                     $notification->save();
-                                } catch (\Illuminate\Database\QueryException) {
+                                } catch (QueryException) {
                                     // Discard duplicate notifications
                                     $notification->delete();
                                 }
@@ -225,18 +227,18 @@ class SocialAuthController extends Controller
                             Log::info('Account merge transaction completed successfully');
                         });
 
-                        return redirect()->route('user.dashboard.show')
+                        return redirect()->route('dashboard')
                             ->with('success', 'Accounts successfully merged!');
                     }
 
-                    return redirect()->route('user.dashboard.show')
+                    return redirect()->route('dashboard')
                         ->with('error', 'This social account is already linked to your account.');
                 }
 
                 // If the social account doesn't exist, create it for the merging user
                 $this->updateOrCreateSocialAccount($mergingUser, $socialiteUser, $provider);
 
-                return redirect()->route('user.dashboard.show')
+                return redirect()->route('dashboard')
                     ->with('success', 'Social account successfully linked!');
             }
 
@@ -278,9 +280,9 @@ class SocialAuthController extends Controller
             // Get the intended URL or fall back to games.index
             $redirectTo = session()->pull('url.intended', route('games.index'));
 
-            // If the redirectTo is the login page, redirect to lists instead
+            // If the redirectTo is the login page, redirect to dashboard instead
             if (strpos($redirectTo, route('login')) !== false) {
-                $redirectTo = route('vn-lists.index');
+                $redirectTo = route('dashboard');
             }
 
             return redirect($redirectTo);
@@ -295,6 +297,93 @@ class SocialAuthController extends Controller
             session()->flash('error', 'Failed to authenticate with ' . $provider);
 
             return redirect(route('games.index'));
+        }
+    }
+
+    /**
+     * Update or create a social account for the user.
+     */
+    private function updateOrCreateSocialAccount($user, $socialiteUser, string $provider): void
+    {
+        // Default values for token-related fields
+        $tokenData = [
+            'token' => $socialiteUser->token ?? null,
+            'refresh_token' => $socialiteUser->refreshToken ?? null,
+            'token_expires_at' => null,
+        ];
+
+        // Only calculate expiry if we have both a token and an expiry time
+        if (isset($socialiteUser->token) && isset($socialiteUser->expiresIn)) {
+            $tokenData['token_expires_at'] = now()->addSeconds($socialiteUser->expiresIn);
+        }
+
+        // Extract provider data (some providers might not include this)
+        $providerData = isset($socialiteUser->user) ? $socialiteUser->user : [];
+
+        // For Telegram, we might need to construct provider data from available fields
+        if ($provider === 'telegram' && empty($providerData)) {
+            $providerData = [
+                'id' => $socialiteUser->getId(),
+                'name' => $socialiteUser->getName(),
+                'nickname' => $socialiteUser->getNickname(),
+                'avatar' => $socialiteUser->getAvatar(),
+            ];
+        }
+
+        // Update the user's information
+        $user->update([
+            'name' => $this->getProviderSpecificName($socialiteUser, $provider),
+            'avatar' => $socialiteUser->getAvatar() ?? $user->avatar,
+        ]);
+
+        // For itch.io, fetch the user's games using the profile:games scope
+        $itchioGameIds = null;
+        if ($provider === 'itchio' && isset($socialiteUser->token)) {
+            $itchioGameIds = $this->fetchItchioGames($socialiteUser->token);
+        }
+
+        $accountData = array_merge($tokenData, [
+            'provider_data' => $providerData,
+        ]);
+
+        // Add itch.io game IDs if available
+        if ($itchioGameIds !== null) {
+            $accountData['itchio_game_ids'] = $itchioGameIds;
+        }
+
+        $user->socialAccounts()->updateOrCreate(
+            [
+                'provider_name' => $provider,
+                'provider_id' => $socialiteUser->getId(),
+            ],
+            $accountData
+        );
+    }
+
+    /**
+     * Get the appropriate name from the socialite user based on provider.
+     */
+    private function getProviderSpecificName($socialiteUser, string $provider): string
+    {
+        $userData = $socialiteUser->user ?? [];
+
+        switch ($provider) {
+            case 'google':
+                return $userData['given_name']
+                    ?? $socialiteUser->getName()
+                    ?? $socialiteUser->getNickname()
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+
+            case 'discord':
+                return $userData['global_name']
+                    ?? $socialiteUser->getName()
+                    ?? $socialiteUser->getNickname()
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+
+            default:
+                return $socialiteUser->getName()
+                    ?? $socialiteUser->getNickname()
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
         }
     }
 
@@ -360,76 +449,47 @@ class SocialAuthController extends Controller
     }
 
     /**
-     * Get the appropriate name from the socialite user based on provider.
+     * Fetch the user's games from itch.io using the profile:games scope
+     *
+     * @param  string  $accessToken  The itch.io access token
+     * @return array Array of game IDs the user has edit permissions for
      */
-    private function getProviderSpecificName($socialiteUser, string $provider): string
+    private function fetchItchioGames(string $accessToken): array
     {
-        $userData = $socialiteUser->user ?? [];
+        try {
+            $client = new Client;
+            $response = $client->get("https://itch.io/api/1/{$accessToken}/my-games");
+            $data = json_decode($response->getBody()->getContents(), true);
 
-        switch ($provider) {
-            case 'google':
-                return $userData['given_name']
-                    ?? $socialiteUser->getName()
-                    ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+            if (isset($data['errors'])) {
+                Log::error('itch.io API error when fetching games', ['errors' => $data['errors']]);
 
-            case 'discord':
-                return $userData['global_name']
-                    ?? $socialiteUser->getName()
-                    ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                return [];
+            }
 
-            default:
-                return $socialiteUser->getName()
-                    ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+            // Extract game IDs from the response
+            $gameIds = [];
+            if (isset($data['games']) && is_array($data['games'])) {
+                foreach ($data['games'] as $game) {
+                    if (isset($game['id'])) {
+                        $gameIds[] = $game['id'];
+                    }
+                }
+            }
+
+            Log::info('Fetched itch.io games for user', [
+                'game_count' => count($gameIds),
+                'game_ids' => $gameIds,
+            ]);
+
+            return $gameIds;
+        } catch (Exception $e) {
+            Log::error('Failed to fetch itch.io games', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [];
         }
-    }
-
-    /**
-     * Update or create a social account for the user.
-     */
-    private function updateOrCreateSocialAccount($user, $socialiteUser, string $provider): void
-    {
-        // Default values for token-related fields
-        $tokenData = [
-            'token' => $socialiteUser->token ?? null,
-            'refresh_token' => $socialiteUser->refreshToken ?? null,
-            'token_expires_at' => null,
-        ];
-
-        // Only calculate expiry if we have both a token and an expiry time
-        if (isset($socialiteUser->token) && isset($socialiteUser->expiresIn)) {
-            $tokenData['token_expires_at'] = now()->addSeconds($socialiteUser->expiresIn);
-        }
-
-        // Extract provider data (some providers might not include this)
-        $providerData = isset($socialiteUser->user) ? $socialiteUser->user : [];
-
-        // For Telegram, we might need to construct provider data from available fields
-        if ($provider === 'telegram' && empty($providerData)) {
-            $providerData = [
-                'id' => $socialiteUser->getId(),
-                'name' => $socialiteUser->getName(),
-                'nickname' => $socialiteUser->getNickname(),
-                'avatar' => $socialiteUser->getAvatar(),
-            ];
-        }
-
-        // Update the user's information
-        $user->update([
-            'name' => $this->getProviderSpecificName($socialiteUser, $provider),
-            'avatar' => $socialiteUser->getAvatar() ?? $user->avatar,
-        ]);
-
-        $user->socialAccounts()->updateOrCreate(
-            [
-                'provider_name' => $provider,
-                'provider_id' => $socialiteUser->getId(),
-            ],
-            array_merge($tokenData, [
-                'provider_data' => $providerData,
-            ])
-        );
     }
 }

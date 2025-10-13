@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 class RefreshGames extends Command
 {
     use SelectsGames;
+
     protected $signature = 'games:refresh
         {--game-id= : ID of the specific game to refresh}
         {--game-name= : Name (or part of name) of the game(s) to refresh}

@@ -5,491 +5,1026 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
-use App\Models\GameVersion;
 use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\VnListCacheService;
 use App\Traits\SortsVnLists;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class VnListController extends Controller
 {
     use SortsVnLists;
 
-    /**
-     * Display the user's VN lists.
-     *
-     * @param  Request  $request  The incoming request
-     */
-    public function index(Request $request): View
+    public function listsIndex(Request $request): Response
     {
-        $user = Auth::user();
+        $authId = Auth::id();
+        if (! $authId) {
+            return Inertia::render('auth/login', [
+                'metaTags' => ['title' => 'Log in'],
+            ]);
+        }
+        $user = User::findOrFail($authId);
 
-        // Filter by visibility if requested
-        $listsQuery = $user->vnLists();
+        $perPage = $request->input('per_page', 8);
+        $visibility = $request->input('visibility', 'all');
 
-        if ($request->has('visibility')) {
-            if ($request->visibility === 'public') {
+        // Get counts for each tab with a single query using conditional aggregation
+        $counts = VnList::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as all_count')
+            ->selectRaw('SUM(CASE WHEN is_public = true THEN 1 ELSE 0 END) as public_count')
+            ->selectRaw('SUM(CASE WHEN is_public = false THEN 1 ELSE 0 END) as private_count')
+            ->first();
+
+        $listsQuery = VnList::withCount('entries')
+            ->with([
+                'entries' => function ($query) {
+                    $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
+                        ->with([
+                            'game' => function ($q) {
+                                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails',
+                                    'is_paid',
+                                    'has_demo', 'is_on_sale', 'min_price');
+                                // Explicitly prevent tags from being loaded
+                                $q->without(['tags']);
+                                // Only load latestVersion if we actually need it for display
+                                $q->with([
+                                    'latestVersion' => function ($vq) {
+                                        $vq->select('id', 'game_id', 'version');
+                                    },
+                                ]);
+                            },
+                        ])
+                        ->orderBy('sort_order')
+                        ->limit(6); // Only load first 6 entries for card preview
+                },
+            ])
+            ->select('id', 'user_id', 'name', 'description', 'type', 'is_public', 'is_default', 'created_at',
+                'updated_at')
+            ->where('user_id', $user->id);
+
+        // Apply visibility filter if provided
+        if ($visibility !== 'all') {
+            if ($visibility === 'public') {
                 $listsQuery->where('is_public', true);
-            } elseif ($request->visibility === 'private') {
+            } elseif ($visibility === 'private') {
                 $listsQuery->where('is_public', false);
             }
         }
 
-        // Order lists by creation time (latest first)
-        $listsQuery->latest();
+        // Sort by type priority first, then by creation date
+        $lists = $listsQuery->orderByRaw("
+            CASE type
+                WHEN 'reading' THEN 1
+                WHEN 'plan_to_read' THEN 2
+                WHEN 'completed' THEN 3
+                WHEN 'on_hold' THEN 4
+                WHEN 'dropped' THEN 5
+                ELSE 6
+            END, created_at DESC
+        ")->paginate($perPage);
 
-        $lists = $listsQuery->with(['entries.game'])->get();
+        // Ensure thumbnails prefer optimized versions in the serialized payload
+        $lists->getCollection()->each(function ($list) {
+            $list->entries->each(function ($entry) {
+                if ($entry->game) {
+                    $optimized = $entry->game->getThumbnailUrl('default');
+                    if ($optimized) {
+                        $entry->game->setAttribute('thumb_url', $optimized);
+                    }
+                }
+            });
+        });
 
-        // Sort lists by type and custom lists alphabetically
-        $lists = $this->sortListsByType($lists);
-
-        // Generate metadata for the user's lists page
-        $visibility = $request->visibility ?? 'all';
         $metaTags = [
             'title' => 'Your Visual Novel Lists',
             'description' => 'Manage your ' . ($visibility === 'all' ? '' : $visibility . ' ') .
                 'visual novel lists. ' .
-                "Currently managing {$lists->count()} lists" .
+                "Currently managing {$lists->total()} lists" .
                 ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
                     return "{$list->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
-            'image' => $lists->isNotEmpty() && $lists->first()->entries->isNotEmpty() &&
-                $lists->first()->entries->first()->game->thumb_url ?
-                $lists->first()->entries->first()->game->thumb_url : '',
-        ];
-
-        return view('lists.user.index', ['lists' => $lists, 'metaTags' => $metaTags]);
-    }
-
-    /**
-     * Show the form for creating a new list.
-     */
-    public function create(): View
-    {
-        $metaTags = [
-            'title' => 'Create New Visual Novel List',
-            'description' => 'Create a new visual novel list to organize and share your favorite visual novels.',
-            'noindex' => true, // We don't want search engines to index the create form
-        ];
-
-        return view('lists.user.create', ['metaTags' => $metaTags]);
-    }
-
-    /**
-     * Store a newly created list.
-     *
-     * @param  Request  $request  The incoming request
-     */
-    public function store(Request $request): RedirectResponse|JsonResponse
-    {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('vn_lists')->where(function ($query) {
-                return $query->where('user_id', auth()->id());
-            })],
-            'game_id' => 'nullable|exists:games,id',
-            'description' => 'nullable|string',
-            'is_public' => 'nullable',
-        ]);
-
-        $list = VnList::create([
-            'name' => $request->name,
-            'description' => $request->description,
-            'user_id' => auth()->id(),
-            'is_default' => false,
-            'is_public' => $request->has('is_public'),
-            'type' => 'custom',
-        ]);
-
-        if ($request->game_id) {
-            // Add the game to the new list
-            $entry = VnListEntry::create([
-                'vn_list_id' => $list->id,
-                'game_id' => $request->game_id,
-            ]);
-
-            if ($request->wantsJson()) {
-                return response()->json([
-                    'message' => 'List created and game added successfully',
-                    'list' => [
-                        'id' => $list->id,
-                        'name' => $list->name,
-                    ],
-                    'entry_id' => $entry->id,
-                ]);
-            }
-
-            return redirect()->route('vn-lists.show', $list)
-                ->with('success', 'List created and game added successfully');
-        }
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'message' => 'List created successfully',
-                'list' => [
-                    'id' => $list->id,
-                    'name' => $list->name,
+            'structuredData' => [
+                '@type' => 'WebPage',
+                'name' => 'Your Visual Novel Lists',
+                'description' => 'Manage your personal visual novel reading lists and track your progress',
+                'url' => route('lists.index'),
+                'mainEntity' => [
+                    '@type' => 'ItemList',
+                    'name' => 'Visual Novel Lists',
+                    'numberOfItems' => $lists->total(),
+                    'itemListElement' => $lists->take(3)->map(function ($list, $index) {
+                        return [
+                            '@type' => 'ListItem',
+                            'position' => $index + 1,
+                            'item' => [
+                                '@type' => 'CreativeWork',
+                                'name' => $list->name,
+                                'description' => $list->description ?? 'A visual novel list',
+                                'numberOfItems' => $list->entries_count,
+                            ],
+                        ];
+                    })->toArray(),
                 ],
-            ]);
-        }
+            ],
+        ];
 
-        return redirect()->route('vn-lists.show', $list)
-            ->with('success', 'List created successfully');
+        return Inertia::render('lists/index', [
+            'lists' => $lists,
+            'visibility' => $visibility,
+            'metaTags' => $metaTags,
+            'counts' => [
+                'all' => $counts->all_count,
+                'public' => $counts->public_count,
+                'private' => $counts->private_count,
+            ],
+        ]);
     }
 
-    /**
-     * Display the specified list.
-     *
-     * @param  VnList  $vnList  The list to display
-     */
-    public function show(VnList $vnList): View
+    public function listShow(VnList $vnList): Response
     {
         $this->authorize('view', $vnList);
 
-        // Eager load all the relationships we need
-        $vnList->load(['entries' => function ($query) {
-            $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price');
-                $q->with(['latestVersion']);
-            }]);
-            $query->orderBy('sort_order');
-        }, 'user']);
+        $vnList->load([
+            'entries' => function ($query) {
+                $query->with([
+                    'game' => function ($q) {
+                        $q->select([
+                            'id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo',
+                            'is_on_sale', 'min_price',
+                        ]);
+                        $q->with(['latestVersion', 'gameVersions']);
+                        if (Auth::check()) {
+                            $q->with([
+                                'userProgress' => function ($upQuery) {
+                                    $upQuery->where('user_id', Auth::id())
+                                        ->with('gameVersion');
+                                },
+                            ]);
+                        }
+                    },
+                ]);
+                $query->orderBy('sort_order');
+            }, 'user',
+        ]);
 
-        $isOwner = auth()->check() && auth()->id() === $vnList->user_id;
+        $isOwner = Auth::check() && Auth::id() === $vnList->user_id;
 
-        // Generate metadata for the list
-        $listType = str_replace('_', ' ', $vnList->type);
+        $availableLists = [];
+        if ($isOwner) {
+            $availableLists = VnList::where('user_id', Auth::id())
+                ->where('id', '!=', $vnList->id)
+                ->select(['id', 'name', 'type'])
+                ->get();
+        }
+
         $metaTags = [
-            'title' => $vnList->name . ($isOwner ? '' : " by {$vnList->user->name}"),
-            'description' => ($isOwner ? 'Your' : "{$vnList->user->name}'s") . ' ' . $listType . ' list' .
-                ($vnList->description ? ": {$vnList->description}" : '') .
-                ". Contains {$vnList->entries->count()} visual novels" .
-                ($vnList->entries->isNotEmpty() ? ', including: ' . $vnList->entries->take(4)->map(function ($entry) {
-                    return $entry->game->name;
-                })->implode(', ') : ''),
-            'image' => $vnList->entries->isNotEmpty() && $vnList->entries->first()->game->thumb_url ?
-                $vnList->entries->first()->game->thumb_url : '',
+            'title' => $vnList->name . ' - Visual Novel List',
+            'description' => $vnList->description ?:
+                "A visual novel list by {$vnList->user->name} containing {$vnList->entries->count()} games.",
+            'image' => $vnList->entries->first()?->game?->getThumbnailUrl('default') ?? asset('images/social-fallback.jpg'),
+            'structuredData' => [
+                '@type' => 'ItemList',
+                'name' => $vnList->name,
+                'description' => $vnList->description ?? "A visual novel list by {$vnList->user->name}",
+                'url' => route('lists.show', $vnList),
+                'author' => [
+                    '@type' => 'Person',
+                    'name' => $vnList->user->name,
+                ],
+                'numberOfItems' => $vnList->entries->count(),
+                'itemListElement' => $vnList->entries->take(10)->map(function ($entry, $index) {
+                    return [
+                        '@type' => 'ListItem',
+                        'position' => $index + 1,
+                        'item' => [
+                            '@type' => 'SoftwareApplication',
+                            'name' => $entry->game->name,
+                            'url' => route('games.show', $entry->game->slug),
+                            'image' => $entry->game->getThumbnailUrl('default'),
+                        ],
+                    ];
+                })->toArray(),
+            ],
         ];
 
-        return view('lists.user.show', [
+        return Inertia::render('lists/show', [
             'vnList' => $vnList,
             'isOwner' => $isOwner,
+            'availableLists' => $availableLists,
             'metaTags' => $metaTags,
         ]);
     }
 
-    /**
-     * Show the form for editing a list.
-     *
-     * @param  VnList  $vnList  The list to edit
-     */
-    public function edit(VnList $vnList): View
+    public function listCreate(): Response
+    {
+        return Inertia::render('lists/create', [
+            'metaTags' => [
+                'title' => 'Create New Visual Novel List',
+                'description' => 'Create a new custom visual novel list to organize and track your favorite games.',
+                'structuredData' => [
+                    '@type' => 'WebPage',
+                    'name' => 'Create New Visual Novel List',
+                    'description' => 'Create a new custom visual novel list to organize and track your favorite games.',
+                    'url' => route('lists.create'),
+                ],
+            ],
+        ]);
+    }
+
+    public function listEdit(VnList $vnList): Response
     {
         $this->authorize('update', $vnList);
+
+        return Inertia::render('lists/edit', [
+            'vnList' => $vnList,
+            'metaTags' => [
+                'title' => 'Edit List - ' . $vnList->name,
+                'description' => 'Edit your visual novel list: ' . $vnList->name . '. Update the description, visibility, and manage your game entries.',
+                'structuredData' => [
+                    '@type' => 'WebPage',
+                    'name' => 'Edit List - ' . $vnList->name,
+                    'description' => 'Edit your visual novel list: ' . $vnList->name,
+                    'url' => route('lists.edit', $vnList),
+                ],
+            ],
+        ]);
+    }
+
+    public function publicLists(Request $request): Response
+    {
+        $perPage = $request->input('per_page', 8);
+        $type = $request->input('type', 'all');
+        $page = $request->input('page', 1);
+
+        // Create a unique cache key for this request
+        $cacheKey = "public_lists:{$type}:{$perPage}:{$page}";
+
+        // Try to get cached data
+        $cachedData = Cache::get($cacheKey);
+
+        if ($cachedData) {
+            return Inertia::render('lists/public', $cachedData);
+        }
+
+        // Get counts for each tab with a single query using conditional aggregation
+        $counts = VnList::where('is_public', true)
+            ->has('entries')
+            ->selectRaw('COUNT(*) as all_count')
+            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as plan_to_read_count', ['plan_to_read'])
+            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as reading_count', ['reading'])
+            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as completed_count', ['completed'])
+            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as on_hold_count', ['on_hold'])
+            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as dropped_count', ['dropped'])
+            ->selectRaw('SUM(CASE WHEN type NOT IN (?, ?, ?, ?, ?) THEN 1 ELSE 0 END) as custom_count',
+                ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'])
+            ->first();
+
+        // Optimize the main query to only load necessary data
+        $query = VnList::withCount('entries')
+            ->with([
+                'user' => function ($q) {
+                    $q->select('id', 'name', 'avatar');
+                },
+                'entries' => function ($query) {
+                    // Load only first 6 entries for carousel with minimal game data
+                    $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
+                        ->orderBy('sort_order')
+                        ->limit(6)
+                        ->with([
+                            'game' => function ($q) {
+                                // Only select essential fields for the game
+                                $q->select([
+                                    'id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid',
+                                    'has_demo', 'is_on_sale', 'min_price',
+                                ]);
+                                // Explicitly prevent tags from being loaded
+                                $q->without(['tags']);
+                            },
+                        ]);
+                },
+            ])
+            ->select('id', 'user_id', 'name', 'description', 'type', 'is_public', 'created_at', 'updated_at')
+            ->where('is_public', true)
+            ->has('entries');
+
+        // Apply type filter if provided
+        if ($type !== 'all') {
+            if ($type === 'custom') {
+                $query->whereNotIn('type', ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped']);
+            } else {
+                $query->where('type', $type);
+            }
+        }
+
+        // Sort by type priority first, then by creation date
+        $lists = $query->orderByRaw("
+            CASE type
+                WHEN 'reading' THEN 1
+                WHEN 'plan_to_read' THEN 2
+                WHEN 'completed' THEN 3
+                WHEN 'on_hold' THEN 4
+                WHEN 'dropped' THEN 5
+                ELSE 6
+            END, created_at DESC
+        ")->paginate($perPage);
+
+        // Get first list for meta tag image using optimized thumbnail helper
+        $firstGameThumbUrl = '';
+        if ($lists->isNotEmpty()) {
+            $firstList = $lists->first();
+            if ($firstList && $firstList->entries->isNotEmpty()) {
+                $firstEntry = $firstList->entries->first();
+                if ($firstEntry && $firstEntry->game) {
+                    // Prefer optimized thumbnails with built-in fallback
+                    $firstGameThumbUrl = $firstEntry->game->getThumbnailUrl('default') ?? '';
+                }
+            }
+        }
+
+        // Normalize game thumbnails to optimized URLs for client/preload
+        $lists->getCollection()->each(function ($list) {
+            $list->entries->each(function ($entry) {
+                if ($entry->game) {
+                    $optimized = $entry->game->getThumbnailUrl('default');
+                    if ($optimized) {
+                        $entry->game->setAttribute('thumb_url', $optimized);
+                    }
+                }
+            });
+        });
 
         $metaTags = [
-            'title' => 'Edit ' . $vnList->name,
-            'description' => 'Edit your ' . str_replace('_', ' ', $vnList->type) . ' list "' . $vnList->name . '".',
-            'noindex' => true, // We don't want search engines to index the edit form
+            'title' => 'Public Visual Novel Lists',
+            'description' => 'Browse public visual novel lists shared by the community. ' .
+                "Currently featuring {$lists->total()} public lists" .
+                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
+                    return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
+                })->implode(', ') : ''),
+            'image' => $firstGameThumbUrl ?: asset('images/social-fallback.jpg'),
+            'structuredData' => [
+                '@type' => 'CollectionPage',
+                'name' => 'Public Visual Novel Lists',
+                'description' => 'Browse public visual novel lists shared by the community',
+                'url' => route('lists.public'),
+                'numberOfItems' => $lists->total(),
+                'mainEntity' => [
+                    '@type' => 'ItemList',
+                    'name' => 'Public Visual Novel Lists',
+                    'numberOfItems' => $lists->total(),
+                    'itemListElement' => $lists->take(3)->map(function ($list, $index) {
+                        return [
+                            '@type' => 'ListItem',
+                            'position' => $index + 1,
+                            'item' => [
+                                '@type' => 'CreativeWork',
+                                'name' => $list->name,
+                                'description' => $list->description ?? 'A public visual novel list',
+                                'author' => [
+                                    '@type' => 'Person',
+                                    'name' => $list->user->name,
+                                ],
+                                'numberOfItems' => $list->entries_count,
+                                'url' => route('lists.show', $list),
+                            ],
+                        ];
+                    })->toArray(),
+                ],
+            ],
         ];
 
-        return view('lists.user.edit', ['vnList' => $vnList, 'metaTags' => $metaTags]);
-    }
-
-    /**
-     * Update the specified list.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnList  $vnList  The list to update
-     */
-    public function update(Request $request, VnList $vnList): RedirectResponse
-    {
-        $this->authorize('update', $vnList);
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('vn_lists')->where(function ($query) use ($vnList) {
-                return $query->where('user_id', auth()->id())
-                    ->where('id', '!=', $vnList->id);
-            })],
-            'description' => ['nullable', 'string'],
-            'is_public' => ['sometimes', 'boolean'],
-        ]);
-
-        // Always preserve the original type of the list
-        $validated['type'] = $vnList->type;
-
-        $validated['is_public'] = $request->has('is_public');
-
-        $vnList->update($validated);
-
-        return redirect()->route('vn-lists.index')
-            ->with('success', 'List updated successfully.');
-    }
-
-    /**
-     * Remove the specified list.
-     *
-     * @param  VnList  $vnList  The list to delete
-     */
-    public function destroy(VnList $vnList): RedirectResponse
-    {
-        $this->authorize('delete', $vnList);
-
-        // Don't allow deleting default lists
-        if ($vnList->is_default) {
-            return back()->with('error', 'Default lists cannot be deleted.');
-        }
-
-        $vnList->delete();
-
-        return redirect()->route('vn-lists.index')->with('success', 'List deleted successfully.');
-    }
-
-    /**
-     * Add a game to a default list type.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  Game  $game  The game to add
-     */
-    public function addGame(Request $request, Game $game): RedirectResponse|JsonResponse
-    {
-        $validated = $request->validate([
-            'list_type' => ['required', Rule::in(['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped', 'custom'])],
-            'list_id' => ['nullable', 'exists:vn_lists,id'],
-        ]);
-
-        // If list_type is 'custom', a list_id must be provided
-        if ($validated['list_type'] === 'custom' && empty($validated['list_id'])) {
-            return back()->with('error', 'A specific list must be selected when adding to a custom list.');
-        }
-
-        // Determine which list to add to
-        if ($validated['list_type'] === 'custom' && ! empty($validated['list_id'])) {
-            $list = VnList::findOrFail($validated['list_id']);
-            // Ensure the list belongs to the user
-            if ($list->user_id !== Auth::id()) {
-                return back()->with('error', 'You can only add games to your own lists.');
-            }
-        } else {
-            // Use default list of the selected type
-            $list = VnList::where('user_id', Auth::id())
-                ->where('is_default', true)
-                ->where('type', $validated['list_type'])
-                ->first();
-
-            if (! $list) {
-                return back()->with('error', 'Default list not found for the selected type.');
-            }
-        }
-
-        // First, check if the game is already in the target list
-        $existingEntryInTargetList = VnListEntry::where('vn_list_id', $list->id)
-            ->where('game_id', $game->id)
-            ->first();
-
-        if ($existingEntryInTargetList) {
-            // If it's already in the target list, remove it
-            $existingEntryInTargetList->delete();
-
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Game removed from your ' . strtolower(str_replace('_', ' ', $list->type)) . ' list.',
-                ]);
-            }
-
-            return back()->with('success', 'Game removed from your ' . strtolower(str_replace('_', ' ', $list->type)) . ' list.');
-        }
-
-        // Check if the game is already in any of the user's other lists
-        $existingEntryInOtherList = VnListEntry::whereHas('list', function ($query) use ($list) {
-            $query->where('user_id', Auth::id())
-                ->where('id', '!=', $list->id);
-        })
-            ->where('game_id', $game->id)
-            ->first();
-
-        // If the game is already in another list, remove it from that list first
-        $existingEntryInOtherList?->delete();
-
-        // Prepare data for the new entry
-        $entryData = [
-            'vn_list_id' => $list->id,
-            'game_id' => $game->id,
+        $responseData = [
+            'lists' => $lists,
+            'metaTags' => $metaTags,
+            'type' => $type,
+            'counts' => [
+                'all' => $counts->all_count,
+                'plan_to_read' => $counts->plan_to_read_count,
+                'reading' => $counts->reading_count,
+                'completed' => $counts->completed_count,
+                'on_hold' => $counts->on_hold_count,
+                'dropped' => $counts->dropped_count,
+                'custom' => $counts->custom_count,
+            ],
         ];
 
-        // Get the highest sort_order in the target list
-        $maxSortOrder = $list->entries()->max('sort_order') ?? 0;
-        $entryData['sort_order'] = $maxSortOrder + 10;
+        // Cache the response for 1 hour
+        Cache::put($cacheKey, $responseData, now()->addHour());
 
-        // Get or initialize user progress for this game
-        $userProgress = UserGameProgress::firstOrNew([
+        return Inertia::render('lists/public', $responseData);
+    }
+
+    public function userPublicLists(Request $request, User $user): Response
+    {
+        $perPage = $request->input('per_page', 8);
+        $search = $request->input('search', '');
+        $types = $request->input('types', '');
+
+        $query = VnList::withCount('entries')
+            ->with([
+                'user' => function ($q) {
+                    $q->select('id', 'name', 'avatar');
+                },
+                'entries' => function ($query) {
+                    $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
+                        ->with([
+                            'game' => function ($q) {
+                                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails',
+                                    'is_paid',
+                                    'has_demo', 'is_on_sale', 'min_price');
+                                // Explicitly prevent tags from being loaded
+                                $q->without(['tags']);
+                                $q->with([
+                                    'latestVersion' => function ($vq) {
+                                        $vq->select('id', 'game_id', 'version');
+                                    },
+                                ]);
+                            },
+                        ])
+                        ->orderBy('sort_order')
+                        ->limit(6); // Only load first 6 entries for card preview
+                },
+            ])
+            ->select('id', 'user_id', 'name', 'description', 'type', 'is_public', 'created_at', 'updated_at')
+            ->where('user_id', $user->id)
+            ->where('is_public', true)
+            ->has('entries');
+
+        // Apply search filter if provided
+        if (! empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+
+        // Apply type filters if provided
+        if (! empty($types)) {
+            $typeArray = explode(',', $types);
+            $query->where(function ($q) use ($typeArray) {
+                foreach ($typeArray as $type) {
+                    if ($type === 'custom') {
+                        $q->orWhereNotIn('type', ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped']);
+                    } else {
+                        $q->orWhere('type', $type);
+                    }
+                }
+            });
+        }
+
+        // Sort by type priority first, then by creation date
+        $lists = $query->orderByRaw("
+            CASE type
+                WHEN 'reading' THEN 1
+                WHEN 'plan_to_read' THEN 2
+                WHEN 'completed' THEN 3
+                WHEN 'on_hold' THEN 4
+                WHEN 'dropped' THEN 5
+                ELSE 6
+            END, created_at DESC
+        ")->paginate($perPage);
+
+        // Normalize game thumbnails to optimized URLs for client/preload
+        $lists->getCollection()->each(function ($list) {
+            $list->entries->each(function ($entry) {
+                if ($entry->game) {
+                    $optimized = $entry->game->getThumbnailUrl('default');
+                    if ($optimized) {
+                        $entry->game->setAttribute('thumb_url', $optimized);
+                    }
+                }
+            });
+        });
+
+        $metaTags = [
+            'title' => "{$user->name}'s Visual Novel Lists",
+            'description' => "Browse {$user->name}'s public visual novel lists. " .
+                "Currently featuring {$lists->total()} public lists" .
+                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
+                    return "{$list->name} (" . $list->entries->count() . ' games)';
+                })->implode(', ') : ''),
+            'image' => ($lists->isNotEmpty() && $lists->first()->entries->isNotEmpty())
+                ? ($lists->first()->entries->first()->game?->getThumbnailUrl('default') ?? asset('images/social-fallback.jpg'))
+                : asset('images/social-fallback.jpg'),
+            'structuredData' => [
+                '@type' => 'ProfilePage',
+                'name' => "{$user->name}'s Visual Novel Lists",
+                'description' => "Browse {$user->name}'s public visual novel lists",
+                'url' => route('lists.user-public', $user),
+                'mainEntity' => [
+                    '@type' => 'Person',
+                    'name' => $user->name,
+                ],
+                'mainEntityOfPage' => [
+                    '@type' => 'ItemList',
+                    'name' => "{$user->name}'s Public Lists",
+                    'numberOfItems' => $lists->total(),
+                    'itemListElement' => $lists->take(3)->map(function ($list, $index) {
+                        return [
+                            '@type' => 'ListItem',
+                            'position' => $index + 1,
+                            'item' => [
+                                '@type' => 'CreativeWork',
+                                'name' => $list->name,
+                                'description' => $list->description ?? 'A visual novel list',
+                                'numberOfItems' => $list->entries_count,
+                                'url' => route('lists.show', $list),
+                            ],
+                        ];
+                    })->toArray(),
+                ],
+            ],
+        ];
+
+        return Inertia::render('lists/user-public', [
+            'lists' => $lists,
+            'user' => $user,
+            'metaTags' => $metaTags,
+        ]);
+    }
+
+    public function storeVnList(\App\Http\Requests\StoreVnListRequest $request): JsonResponse
+    {
+
+        $isPublic = $request->boolean('is_public', false);
+        $vnList = VnList::create([
             'user_id' => Auth::id(),
-            'game_id' => $game->id,
+            'name' => $request->name,
+            'description' => $request->description,
+            'type' => 'custom', // All user-created lists are custom type
+            'is_public' => $isPublic,
+            'is_default' => false, // User-created lists are never default
         ]);
 
-        // Set timestamps based on list type according to the specified rules
-        if ($validated['list_type'] === 'reading') {
-            // For "Currently Reading" list, set started_at if it's currently null
-            if ($userProgress->started_at === null) {
-                $userProgress->started_at = now();
-            }
-        } elseif ($validated['list_type'] === 'completed') {
-            // For "Completed" list, set completed_at if it's currently null
-            if ($userProgress->completed_at === null) {
-                $userProgress->completed_at = now();
-            }
-        }
-
-        // Update status based on list type
-        $userProgress->status = $validated['list_type'];
-        $userProgress->save();
-
-        $entry = $list->entries()->create($entryData);
-
-        $message = $existingEntryInOtherList
-            ? 'Game moved to your ' . strtolower(str_replace('_', ' ', $list->type)) . ' list.'
-            : 'Game added to your ' . strtolower(str_replace('_', ' ', $list->type)) . ' list.';
-
-        if ($request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => $message,
-                'entryId' => $entry->id,
-                'is_public' => $list->is_public,
+        // If a game_id is provided, add the game to the new list
+        if ($request->has('game_id')) {
+            VnListEntry::create([
+                'vn_list_id' => $vnList->id,
+                'game_id' => $request->game_id,
+                'sort_order' => 10,
             ]);
         }
 
-        return back()->with('success', $message);
+        // Clear cache if this is a public list
+        if ($isPublic) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $request->has('game_id')
+                ? 'List created and game added successfully.'
+                : 'List created successfully.',
+            'list' => $vnList,
+        ]);
     }
 
-    /**
-     * Update a list entry.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnListEntry  $entry  The entry to update
-     */
-    public function updateEntry(Request $request, VnListEntry $entry): JsonResponse
+    public function updateVnList(\App\Http\Requests\UpdateVnListRequest $request, VnList $vnList): JsonResponse
+    {
+        $this->authorize('update', $vnList);
+
+        // Note: List type cannot be changed after creation
+        // System lists (is_default=true) have fixed types
+        // User lists are always 'custom' type
+
+        $wasPublic = $vnList->is_public;
+        $vnList->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'is_public' => $request->boolean('is_public', $vnList->is_public),
+        ]);
+
+        // Clear cache if this is a public list or was public before
+        if ($wasPublic || $vnList->is_public) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'List updated successfully.',
+            'vnList' => $vnList->fresh(),
+        ]);
+    }
+
+    public function destroyVnList(VnList $vnList): JsonResponse
+    {
+        $this->authorize('delete', $vnList);
+
+        if ($vnList->is_default) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete default lists.',
+            ], 422);
+        }
+
+        // Check if this is a public list before deleting
+        $isPublic = $vnList->is_public;
+        $vnList->delete();
+
+        // Clear cache if this was a public list
+        if ($isPublic) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'List deleted successfully.',
+        ]);
+    }
+
+    public function toggleVnListVisibility(VnList $vnList): JsonResponse
+    {
+        $this->authorize('update', $vnList);
+
+        $vnList->update(['is_public' => ! $vnList->is_public]);
+        $status = $vnList->is_public ? 'public' : 'private';
+
+        // Clear cache since this list's visibility has changed
+        app(VnListCacheService::class)->clearPublicListsCache();
+
+        return response()->json([
+            'success' => true,
+            'message' => "List is now {$status}.",
+            'is_public' => $vnList->is_public,
+        ]);
+    }
+
+    public function toggleAllUpdates(\App\Http\Requests\ToggleAllUpdatesRequest $request, VnList $vnList): JsonResponse
+    {
+        $this->authorize('update', $vnList);
+
+        $freeGameIds = $vnList->entries()
+            ->whereHas('game', function ($query) {
+                $query->where('is_paid', false);
+            })
+            ->pluck('game_id')
+            ->toArray();
+
+        if (empty($freeGameIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No free games found in this list.',
+            ], 422);
+        }
+
+        $receiveUpdates = $request->boolean('receive_updates');
+
+        // Update all free games' notification settings
+        UserGameProgress::where('user_id', Auth::id())
+            ->whereIn('game_id', $freeGameIds)
+            ->update(['receive_updates' => $receiveUpdates]);
+
+        // Also create records for games that don't have user_game_progress yet
+        $existingGameIds = UserGameProgress::where('user_id', Auth::id())
+            ->whereIn('game_id', $freeGameIds)
+            ->pluck('game_id')
+            ->toArray();
+
+        $missingGameIds = array_diff($freeGameIds, $existingGameIds);
+
+        if (! empty($missingGameIds)) {
+            $insertData = array_map(function ($gameId) use ($receiveUpdates) {
+                return [
+                    'user_id' => Auth::id(),
+                    'game_id' => $gameId,
+                    'receive_updates' => $receiveUpdates,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }, $missingGameIds);
+
+            UserGameProgress::insert($insertData);
+        }
+
+        $status = $receiveUpdates ? 'enabled' : 'disabled';
+
+        // Clear cache if this is a public list
+        if ($vnList->is_public) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Notifications {$status} for all free games in this list.",
+            'updated_game_ids' => $freeGameIds,
+            'receive_updates' => $receiveUpdates,
+        ]);
+    }
+
+    public function addGameToList(\App\Http\Requests\AddGameToListRequest $request, Game $game): JsonResponse
+    {
+
+        // Handle both list_id and list_type parameters
+        if ($request->has('list_id')) {
+            $vnList = VnList::findOrFail($request->list_id);
+        } elseif ($request->has('list_type')) {
+            // Find the user's default list of the specified type
+            $vnList = VnList::where('user_id', Auth::id())
+                ->where('type', $request->list_type)
+                ->where('is_default', true)
+                ->first();
+
+            if (! $vnList) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Default list not found for type: ' . $request->list_type,
+                ], 404);
+            }
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either list_id or list_type must be provided.',
+            ], 422);
+        }
+
+        $this->authorize('update', $vnList);
+
+        $existingEntry = VnListEntry::where('vn_list_id', $vnList->id)
+            ->where('game_id', $game->id)
+            ->first();
+
+        // For default lists, toggle behavior: remove if exists, add if doesn't exist
+        if ($request->has('list_type') && $existingEntry) {
+            // Remove from list (toggle off)
+            $existingEntry->delete();
+
+            // Clear cache if this is a public list
+            if ($vnList->is_public) {
+                app(VnListCacheService::class)->clearPublicListsCache();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Game removed from {$vnList->name} successfully.",
+                'action' => 'removed',
+            ]);
+        }
+
+        // For regular list_id requests, don't allow duplicates
+        if ($request->has('list_id') && $existingEntry) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Game is already in this list.',
+            ], 422);
+        }
+
+        // For default lists with list_type, remove from other default lists first
+        if ($request->has('list_type')) {
+            // Remove game from all other default lists for this user
+            $otherDefaultLists = VnList::where('user_id', Auth::id())
+                ->where('is_default', true)
+                ->where('type', '!=', $request->list_type)
+                ->whereIn('type', ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'])
+                ->pluck('id');
+
+            VnListEntry::whereIn('vn_list_id', $otherDefaultLists)
+                ->where('game_id', $game->id)
+                ->delete();
+        }
+
+        // Add to the specified list
+        $entry = VnListEntry::create([
+            'vn_list_id' => $vnList->id,
+            'game_id' => $game->id,
+            'sort_order' => ($vnList->entries()->max('sort_order') ?? 0) + 10,
+        ]);
+
+        // Clear cache if this is a public list
+        if ($vnList->is_public) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Game added to {$vnList->name} successfully.",
+            'action' => 'added',
+            'entry' => $entry->load('game'),
+        ]);
+    }
+
+    public function addGameToCustomList(\App\Http\Requests\AddGameToCustomListRequest $request, VnList $vnList): JsonResponse
+    {
+        $this->authorize('update', $vnList);
+
+        $game = Game::findOrFail($request->game_id);
+
+        $existingEntry = VnListEntry::where('vn_list_id', $vnList->id)
+            ->where('game_id', $game->id)
+            ->first();
+
+        // Toggle behavior: remove if exists, add if doesn't exist
+        if ($existingEntry) {
+            $existingEntry->delete();
+
+            // Clear cache if this is a public list
+            if ($vnList->is_public) {
+                app(VnListCacheService::class)->clearPublicListsCache();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Game removed from {$vnList->name} successfully.",
+                'action' => 'removed',
+            ]);
+        }
+
+        $entry = VnListEntry::create([
+            'vn_list_id' => $vnList->id,
+            'game_id' => $game->id,
+            'sort_order' => ($vnList->entries()->max('sort_order') ?? 0) + 10,
+        ]);
+
+        // Clear cache if this is a public list
+        if ($vnList->is_public) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Game added to {$vnList->name} successfully.",
+            'action' => 'added',
+            'entry' => $entry->load('game'),
+        ]);
+    }
+
+    public function updateUserProgress(\App\Http\Requests\UpdateUserProgressRequest $request, Game $game): JsonResponse
+    {
+
+        $progress = UserGameProgress::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'game_id' => $game->id,
+            ],
+            [
+                'game_version_id' => $request->game_version_id ?: null,
+                'personal_notes' => $request->personal_notes ?: null,
+                'started_at' => $request->started_at ?: null,
+                'completed_at' => $request->completed_at ?: null,
+            ]
+        );
+
+        // Clear cache if this game is in any public lists
+        $publicListsContainingGame = VnList::where('is_public', true)
+            ->whereHas('entries', function ($query) use ($game) {
+                $query->where('game_id', $game->id);
+            })
+            ->exists();
+
+        if ($publicListsContainingGame) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Progress updated successfully.',
+            'progress' => $progress->fresh(['gameVersion']),
+        ]);
+    }
+
+    public function toggleUserProgressUpdates(\App\Http\Requests\ToggleUserProgressUpdatesRequest $request, int $game): JsonResponse
+    {
+
+        $receiveUpdates = $request->boolean('receive_updates');
+
+        // Use a direct update/insert query for maximum performance
+        // This will be a single query instead of multiple
+        UserGameProgress::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'game_id' => $game,
+            ],
+            [
+                'receive_updates' => $receiveUpdates,
+            ]
+        );
+
+        $status = $receiveUpdates ? 'enabled' : 'disabled';
+
+        return response()->json([
+            'success' => true,
+            'message' => "Notifications {$status}.",
+            'receive_updates' => $receiveUpdates,
+        ]);
+    }
+
+    public function getUserProgressStatus(Game $game): JsonResponse
+    {
+        $authId = Auth::id();
+        if (! $authId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        // Get the user's progress for this game
+        $progress = UserGameProgress::where('user_id', $authId)
+            ->where('game_id', $game->id)
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'receive_updates' => $progress ? $progress->receive_updates : false,
+        ]);
+    }
+
+    public function getUserLists(): JsonResponse
+    {
+        $authId = Auth::id();
+        if (! $authId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+        $user = User::findOrFail($authId);
+
+        $baseQuery = method_exists($user, 'vnLists') ? $user->vnLists() : VnList::where('user_id', $user->id);
+        $lists = $baseQuery
+            ->select('id', 'name', 'type', 'is_default')
+            ->orderBy('created_at')
+            ->get();
+
+        $lists = $this->sortListsByType($lists);
+
+        return response()->json([
+            'success' => true,
+            'lists' => $lists,
+        ]);
+    }
+
+    public function getGameLists(Game $game): JsonResponse
+    {
+        $authId = Auth::id();
+        if (! $authId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        // Get all list IDs that contain this game for the authenticated user
+        $listIds = VnListEntry::whereHas('list', function ($query) use ($authId) {
+            $query->where('user_id', $authId);
+        })
+            ->where('game_id', $game->id)
+            ->pluck('vn_list_id')
+            ->toArray();
+
+        return response()->json([
+            'success' => true,
+            'list_ids' => $listIds,
+        ]);
+    }
+
+    public function updateListEntry(\App\Http\Requests\UpdateListEntryRequest $request, VnListEntry $entry): JsonResponse
     {
         $this->authorize('update', $entry->list);
 
-        $validationRules = [
-            'game_version_id' => ['nullable', 'exists:game_versions,id'],
-            'notes' => ['nullable', 'string'],
-            'private_notes' => ['nullable', 'string'],
-            'personal_notes' => ['nullable', 'string'],
-            'started_at' => ['nullable', 'date'],
-        ];
+        $progress = UserGameProgress::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'game_id' => $entry->game_id,
+            ],
+            [
+                'game_version_id' => $request->game_version_id ?: null,
+                'personal_notes' => $request->personal_notes ?: null,
+                'started_at' => $request->started_at ?: null,
+                'completed_at' => $request->completed_at ?: null,
+            ]
+        );
 
-        // Only allow completed_at for custom and completed lists
-        if ($entry->list->type === 'custom' || $entry->list->type === 'completed') {
-            $validationRules['completed_at'] = ['nullable', 'date'];
-        }
-
-        $validated = $request->validate($validationRules);
-
-        // If game_version_id is set, verify it belongs to the correct game
-        if (! empty($validated['game_version_id'])) {
-            $gameVersion = GameVersion::findOrFail($validated['game_version_id']);
-            if ($gameVersion->game_id !== $entry->game_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid game version selected.',
-                ], 422);
-            }
-        }
-
-        // For non-custom/completed lists, ensure completed_at is not updated
-        if (! ($entry->list->type === 'custom' || $entry->list->type === 'completed')) {
-            unset($validated['completed_at']);
-        }
-
-        // Update the VnListEntry with private_notes
-        $entryData = [];
-        if (isset($validated['private_notes'])) {
-            $entryData['private_notes'] = $validated['private_notes'];
-        }
-        $entry->update($entryData);
-
-        // Update the UserGameProgress with the remaining fields
-        $userProgress = UserGameProgress::firstOrNew([
-            'user_id' => auth()->id(),
-            'game_id' => $entry->game_id,
+        $entry->update([
+            'private_notes' => $request->private_notes,
         ]);
 
-        $progressData = [];
-
-        if (isset($validated['game_version_id'])) {
-            $progressData['game_version_id'] = $validated['game_version_id'];
+        // Clear cache if this is a public list
+        if ($entry->list->is_public) {
+            app(VnListCacheService::class)->clearPublicListsCache();
         }
-
-        if (isset($validated['started_at'])) {
-            $progressData['started_at'] = $validated['started_at'];
-        }
-
-        if (isset($validated['completed_at'])) {
-            $progressData['completed_at'] = $validated['completed_at'];
-        }
-
-        if (isset($validated['personal_notes'])) {
-            $progressData['personal_notes'] = $validated['personal_notes'];
-        }
-
-        // Set the status based on the list type
-        $progressData['status'] = $entry->list->type;
-
-        $userProgress->fill($progressData);
-        $userProgress->save();
 
         return response()->json([
             'success' => true,
             'message' => 'Entry updated successfully.',
+            'progress' => $progress->fresh(['gameVersion']),
+            'entry' => $entry->fresh(),
         ]);
     }
 
-    /**
-     * Move a game to a different list.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnListEntry  $entry  The entry to move
-     */
-    public function moveGame(Request $request, VnListEntry $entry): JsonResponse
+    public function moveListEntry(\App\Http\Requests\MoveListEntryRequest $request, VnListEntry $entry): JsonResponse
     {
         $this->authorize('update', $entry->list);
 
-        $validated = $request->validate([
-            'target_list_id' => ['required', 'exists:vn_lists,id'],
-        ]);
-
-        $targetList = VnList::findOrFail($validated['target_list_id']);
-
-        // Check if the target list belongs to the user
+        $targetList = VnList::findOrFail($request->target_list_id);
         $this->authorize('update', $targetList);
 
-        // Check if there are any valid lists to move to
-        $listsWithThisGame = VnList::where('user_id', auth()->id())
-            ->whereHas('entries', function ($query) use ($entry) {
-                $query->where('game_id', $entry->game_id);
-            })
-            ->pluck('id')
-            ->toArray();
-
-        $totalUserLists = auth()->user()->vnLists()->count();
-
-        if (count($listsWithThisGame) >= $totalUserLists - 1) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This VN is already in all your other lists.',
-            ], 400);
-        }
-
-        // Check if the game is already in the target list
         $existingEntry = VnListEntry::where('vn_list_id', $targetList->id)
             ->where('game_id', $entry->game_id)
             ->first();
@@ -498,58 +1033,39 @@ class VnListController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Game is already in the target list.',
-            ], 400);
+            ], 422);
         }
 
-        // Get the highest sort_order in the target list
-        $maxSortOrder = VnListEntry::where('vn_list_id', $targetList->id)
-            ->max('sort_order') ?? 0;
+        // Check if either list is public before moving
+        $sourceIsPublic = $entry->list->is_public;
+        $targetIsPublic = $targetList->is_public;
 
-        // Move the entry to the new list and update its sort order
-        $entry->update([
-            'vn_list_id' => $targetList->id,
-            'sort_order' => $maxSortOrder + 10,
-        ]);
+        $entry->update(['vn_list_id' => $targetList->id]);
 
-        // Get user progress for this game or create a new one if it doesn't exist
-        $userProgress = UserGameProgress::firstOrNew([
-            'user_id' => auth()->id(),
-            'game_id' => $entry->game_id,
-        ]);
-
-        // Update timestamps based on target list type according to the specified rules
-        if ($targetList->type === 'reading') {
-            // For "Currently Reading" list, set started_at if it's currently null
-            if ($userProgress->started_at === null) {
-                $userProgress->started_at = now();
-            }
-        } elseif ($targetList->type === 'completed') {
-            // For "Completed" list, set completed_at if it's currently null
-            if ($userProgress->completed_at === null) {
-                $userProgress->completed_at = now();
-            }
+        // Clear cache if either list is public
+        if ($sourceIsPublic || $targetIsPublic) {
+            app(VnListCacheService::class)->clearPublicListsCache();
         }
-
-        // Update status based on target list type
-        $userProgress->status = $targetList->type;
-        $userProgress->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Game moved to ' . $targetList->name . ' list.',
+            'message' => 'Game moved successfully.',
+            'target_list' => $targetList,
         ]);
     }
 
-    /**
-     * Remove a game from a list.
-     *
-     * @param  VnListEntry  $entry  The entry to remove
-     */
-    public function removeGame(VnListEntry $entry): JsonResponse
+    public function removeListEntry(VnListEntry $entry): JsonResponse
     {
         $this->authorize('update', $entry->list);
 
+        // Check if this is a public list before deleting
+        $isPublic = $entry->list->is_public;
         $entry->delete();
+
+        // Clear cache if this was a public list
+        if ($isPublic) {
+            app(VnListCacheService::class)->clearPublicListsCache();
+        }
 
         return response()->json([
             'success' => true,
@@ -557,311 +1073,61 @@ class VnListController extends Controller
         ]);
     }
 
-    /**
-     * Display all public lists.
-     *
-     * @param  Request  $request  The incoming request
-     */
-    public function publicLists(Request $request): View
-    {
-        // Eager load all the relationships we need
-        $lists = VnList::with(['user', 'entries' => function ($query) {
-            $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price');
-                $q->with(['latestVersion']);
-            }]);
-            $query->orderBy('sort_order');
-        }])
-            ->where('is_public', true)
-            ->latest()
-            ->paginate(9);
-
-        $lists = $this->sortListsByType($lists);
-
-        // Generate metadata for public lists page
-        $metaTags = [
-            'title' => 'Public Visual Novel Lists',
-            'description' => 'Browse public visual novel lists shared by the community. ' .
-                "Currently featuring {$lists->total()} public lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
-                })->implode(', ') : ''),
-            'image' => $lists->isNotEmpty() && $lists->first()->entries->isNotEmpty() &&
-                $lists->first()->entries->first()->game->thumb_url ?
-                $lists->first()->entries->first()->game->thumb_url : '',
-        ];
-
-        return view('lists.public.index', [
-            'lists' => $lists,
-            'metaTags' => $metaTags,
-        ]);
-    }
-
-    /**
-     * Display a user's public lists.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  User  $user  The user whose lists to display
-     */
-    public function userPublicLists(Request $request, User $user): View
-    {
-        $lists = VnList::with(['user', 'entries' => function ($query) {
-            $query->with(['game' => function ($q) {
-                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price');
-                $q->with(['latestVersion']);
-            }]);
-            $query->orderBy('sort_order');
-        }])
-            ->where('user_id', $user->id)
-            ->where('is_public', true)
-            ->latest()
-            ->paginate(9);
-
-        $lists = $this->sortListsByType($lists);
-
-        // Generate metadata for user's public lists page
-        $metaTags = [
-            'title' => "{$user->name}'s Visual Novel Lists",
-            'description' => "Browse {$user->name}'s public visual novel lists. " .
-                "Currently featuring {$lists->total()} public lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} (" . $list->entries->count() . ' games)';
-                })->implode(', ') : ''),
-            'image' => $lists->isNotEmpty() && $lists->first()->entries->isNotEmpty() &&
-                $lists->first()->entries->first()->game->thumb_url ?
-                $lists->first()->entries->first()->game->thumb_url : '',
-        ];
-
-        return view('lists.public.user', [
-            'lists' => $lists,
-            'user' => $user,
-            'metaTags' => $metaTags,
-        ]);
-    }
-
-    /**
-     * Toggle a list's visibility.
-     *
-     * @param  VnList  $vnList  The list to toggle
-     */
-    public function toggleVisibility(VnList $vnList): JsonResponse
+    public function reorderListEntries(\App\Http\Requests\ReorderListEntriesRequest $request, VnList $vnList): JsonResponse
     {
         $this->authorize('update', $vnList);
 
-        $vnList->update(['is_public' => ! $vnList->is_public]);
+        // Get all valid entry IDs for this list in one query for security check
+        $validEntryIds = VnListEntry::where('vn_list_id', $vnList->id)
+            ->pluck('id')
+            ->toArray();
 
-        $status = $vnList->is_public ? 'public' : 'private';
+        // Filter out any invalid entry IDs
+        $entryIds = array_intersect($request->entry_ids, $validEntryIds);
 
-        return response()->json([
-            'success' => true,
-            'message' => "List is now {$status}.",
-        ]);
-    }
-
-    /**
-     * Add a game to a custom list.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnList  $vnList  The list to add to
-     */
-    public function addToCustomList(Request $request, VnList $vnList): JsonResponse
-    {
-        $this->authorize('update', $vnList);
-
-        // Validate the game_id exists
-        $validated = $request->validate([
-            'game_id' => ['required', 'exists:games,id'],
-        ]);
-
-        // Check if the game is already in this list
-        $existingEntry = $vnList->entries()->where('game_id', $validated['game_id'])->first();
-
-        if ($existingEntry) {
-            // If the game is already in the list, remove it
-            $existingEntry->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Game removed from "' . $vnList->name . '" list.',
-            ]);
-        }
-
-        // Check if the game is in any other custom list
-        $existingEntryInOtherList = VnListEntry::whereIn(
-            'vn_list_id',
-            VnList::where('user_id', auth()->id())
-                ->where('is_default', false)
-                ->where('id', '!=', $vnList->id)
-                ->pluck('id')
-        )
-            ->where('game_id', $validated['game_id'])
-            ->first();
-
-        // Get the highest sort_order in the list
-        $maxSortOrder = $vnList->entries()->max('sort_order') ?? 0;
-
-        // Add the game to the list
-        $entry = $vnList->entries()->create([
-            'game_id' => $validated['game_id'],
-            'sort_order' => $maxSortOrder + 10,
-        ]);
-
-        // Get or initialize user progress for this game
-        $userProgress = UserGameProgress::firstOrNew([
-            'user_id' => auth()->id(),
-            'game_id' => $validated['game_id'],
-        ]);
-
-        // For custom lists, don't automatically set any date fields
-        // Now we can use 'custom' as a valid status value
-        $userProgress->status = 'custom';
-        $userProgress->save();
-
-        $message = $existingEntryInOtherList
-            ? 'Game moved to "' . $vnList->name . '" list.'
-            : 'Game added to "' . $vnList->name . '" list.';
-
-        return response()->json([
-            'success' => true,
-            'message' => $message,
-            'entry_id' => $entry->id,
-        ]);
-    }
-
-    /**
-     * Update the order of games in a list.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnList  $vnList  The list to update
-     */
-    public function updateOrder(Request $request, VnList $vnList): JsonResponse
-    {
-        $this->authorize('update', $vnList);
-
-        $validated = $request->validate([
-            'entries' => ['required', 'array'],
-            'entries.*' => ['required', 'integer', 'exists:vn_list_entries,id'],
-        ]);
-
-        // Verify all entries belong to this list
-        $entries = VnListEntry::whereIn('id', $validated['entries'])
-            ->where('vn_list_id', $vnList->id)
-            ->get();
-
-        if ($entries->count() !== count($validated['entries'])) {
+        if (count($entryIds) !== count($request->entry_ids)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid entries provided.',
+                'message' => 'Some entry IDs are invalid for this list.',
             ], 422);
         }
 
-        // Update sort order for each entry
-        foreach ($validated['entries'] as $index => $entryId) {
-            VnListEntry::where('id', $entryId)->update([
-                'sort_order' => ($index + 1) * 10,
-            ]);
+        // Use a single query to update all entries at once
+        $cases = [];
+        $ids = [];
+        foreach ($entryIds as $index => $entryId) {
+            $sortOrder = ($index + 1) * 10;
+            $cases[] = "WHEN id = {$entryId} THEN {$sortOrder}";
+            $ids[] = $entryId;
+        }
+
+        if (! empty($cases)) {
+            $casesString = implode(' ', $cases);
+            $idsString = implode(',', $ids);
+
+            DB::statement("
+                UPDATE vn_list_entries
+                SET sort_order = CASE {$casesString} END
+                WHERE id IN ({$idsString}) AND vn_list_id = {$vnList->id}
+            ");
+        }
+
+        // Clear cache if this is a public list
+        if ($vnList->is_public) {
+            app(VnListCacheService::class)->clearPublicListsCache();
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Order updated successfully.',
+            'message' => 'List order updated.',
         ]);
     }
 
     /**
-     * Toggle update notifications for a list entry.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnListEntry  $entry  The entry to update
+     * Clear the public lists cache
      */
-    public function toggleUpdates(Request $request, VnListEntry $entry): RedirectResponse|JsonResponse
+    private function clearPublicListsCache(): void
     {
-        $this->authorize('update', $entry->list);
-
-        // Determine if updates should be received based on the checkbox state
-        $receiveUpdates = false;
-
-        // Check if the checkbox is checked (value is '1' or true)
-        if ($request->input('receive_updates') == '1' || $request->input('receive_updates') === true) {
-            $receiveUpdates = true;
-        }
-
-        // Find or create progress record for this game
-        $progress = UserGameProgress::firstOrCreate(
-            [
-                'user_id' => Auth::id(),
-                'game_id' => $entry->game_id,
-            ],
-            [
-                'status' => 'custom',
-            ]
-        );
-
-        $progress->receive_updates = $receiveUpdates;
-        $progress->save();
-
-        $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for ' . $entry->game->name;
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => $message,
-                'receive_updates' => $receiveUpdates,
-            ]);
-        }
-
-        return back()->with('success', $message);
-    }
-
-    /**
-     * Toggle update notifications for all entries in a list.
-     *
-     * @param  Request  $request  The incoming request
-     * @param  VnList  $vnList  The list whose entries to update
-     */
-    public function toggleAllUpdates(Request $request, VnList $vnList): RedirectResponse|JsonResponse
-    {
-        $this->authorize('update', $vnList);
-
-        // Determine if updates should be received based on the checkbox state
-        $receiveUpdates = false;
-
-        // Check if the checkbox is checked (value is '1' or true)
-        if ($request->input('receive_updates') == '1' || $request->input('receive_updates') === true) {
-            $receiveUpdates = true;
-        }
-
-        // Get all free game IDs from this list (exclude paid games)
-        $gameIds = $vnList->entries()
-            ->join('games', 'games.id', '=', 'vn_list_entries.game_id')
-            ->where('games.is_paid', false)
-            ->pluck('vn_list_entries.game_id')
-            ->toArray();
-
-        // For each game, update or create the user progress record
-        foreach ($gameIds as $gameId) {
-            UserGameProgress::updateOrCreate(
-                [
-                    'user_id' => Auth::id(),
-                    'game_id' => $gameId,
-                ],
-                [
-                    'receive_updates' => $receiveUpdates,
-                ]
-            );
-        }
-
-        $entriesCount = count($gameIds);
-        $message = 'Update notifications ' . ($receiveUpdates ? 'enabled' : 'disabled') . ' for all ' . $entriesCount . ' free entries in this list';
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => $message,
-                'receive_updates' => $receiveUpdates,
-            ]);
-        }
-
-        return back()->with('success', $message);
+        app(VnListCacheService::class)->clearPublicListsCache();
     }
 }

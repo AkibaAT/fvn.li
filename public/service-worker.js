@@ -1,4 +1,4 @@
-self.addEventListener('push', function(event) {
+self.addEventListener('push', function (event) {
     const payload = event.data ? event.data.json() : {};
     event.waitUntil(
         self.registration.showNotification(payload.title || 'New Update', {
@@ -17,13 +17,13 @@ self.addEventListener('push', function(event) {
     );
 });
 
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('notificationclick', function (event) {
     event.notification.close();
-    
+
     if (event.action === 'view' || !event.action) {
         // Default action is to open the URL from the notification data
         const urlToOpen = event.notification.data.url || '/';
-        
+
         event.waitUntil(
             clients.openWindow(urlToOpen)
         );

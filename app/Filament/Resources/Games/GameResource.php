@@ -1,0 +1,255 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources\Games;
+
+use App\Filament\Resources\Games\Pages\CreateGame;
+use App\Filament\Resources\Games\Pages\EditGame;
+use App\Filament\Resources\Games\Pages\ListGames;
+use App\Filament\Resources\Games\Pages\ViewGame;
+use App\Filament\Resources\Games\RelationManagers\GameVersionsRelationManager;
+use App\Models\Game;
+use BackedEnum;
+use Exception;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Collection;
+use UnitEnum;
+
+class GameResource extends Resource
+{
+    protected static ?string $model = Game::class;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-play';
+
+    protected static string|UnitEnum|null $navigationGroup = 'Content Management';
+
+    protected static ?string $recordTitleAttribute = 'name';
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Section::make('Game Information')
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255),
+                        TextInput::make('slug')
+                            ->required()
+                            ->maxLength(255),
+                        TextInput::make('game_id')
+                            ->required()
+                            ->numeric(),
+                        TextInput::make('status')
+                            ->required()
+                            ->default('In development')
+                            ->maxLength(50),
+                        Toggle::make('is_visible')
+                            ->required(),
+                        Toggle::make('is_nsfw')
+                            ->required(),
+                        Textarea::make('description')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+
+                Section::make('URLs & Media')
+                    ->schema([
+                        TextInput::make('url')
+                            ->required()
+                            ->maxLength(255),
+                        TextInput::make('thumb_url')
+                            ->maxLength(255),
+                        TextInput::make('game_engine')
+                            ->required()
+                            ->default('unknown')
+                            ->maxLength(50),
+                    ]),
+
+                Section::make('Additional Information')
+                    ->schema([
+                        TextInput::make('authors')
+                            ->maxLength(255),
+                        TextInput::make('custom_tags')
+                            ->default('')
+                            ->maxLength(255),
+                        TextInput::make('source_language_id')
+                            ->maxLength(3),
+                        Toggle::make('blur_screenshots')
+                            ->label('Blur Screenshots')
+                            ->helperText('When enabled, screenshots will be blurred on the game detail page with a warning about potential NSFW content')
+                            ->default(true),
+                    ]),
+
+                Section::make('Pricing & Availability')
+                    ->schema([
+                        Toggle::make('is_paid')
+                            ->label('Is Paid Game')
+                            ->helperText('Indicates if this game requires payment to play')
+                            ->default(false),
+                        TextInput::make('min_price')
+                            ->label('Base Price')
+                            ->helperText('The original price before any discounts')
+                            ->prefix('$')
+                            ->numeric()
+                            ->step(0.01)
+                            ->minValue(0)
+                            ->visible(fn (callable $get) => $get('is_paid')),
+                        Toggle::make('is_on_sale')
+                            ->label('Currently On Sale')
+                            ->helperText('Indicates if this game is currently discounted')
+                            ->default(false)
+                            ->visible(fn (callable $get) => $get('is_paid')),
+                        TextInput::make('sale_discount_percent')
+                            ->label('Sale Discount %')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('%')
+                            ->helperText('Discount percentage if on sale')
+                            ->visible(fn (callable $get) => $get('is_paid') && $get('is_on_sale')),
+                        Toggle::make('has_demo')
+                            ->label('Has Demo')
+                            ->helperText('Indicates if a free demo is available')
+                            ->default(false),
+                    ])->columns(2),
+
+                Section::make('Dates')
+                    ->schema([
+                        DateTimePicker::make('initially_published_at')
+                            ->label('Initially Published'),
+                    ]),
+            ]);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('id')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('name')
+                    ->searchable(),
+                TextColumn::make('status')
+                    ->sortable(),
+                IconColumn::make('is_visible')
+                    ->boolean()
+                    ->sortable(),
+                IconColumn::make('is_nsfw')
+                    ->boolean()
+                    ->sortable(),
+                IconColumn::make('blur_screenshots')
+                    ->boolean()
+                    ->label('Blur SS')
+                    ->sortable(),
+                IconColumn::make('is_paid')
+                    ->boolean()
+                    ->label('Paid')
+                    ->sortable(),
+                IconColumn::make('has_demo')
+                    ->boolean()
+                    ->label('Demo')
+                    ->sortable(),
+                TextColumn::make('min_price')
+                    ->money('usd')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('game_engine')
+                    ->sortable(),
+                TextColumn::make('initially_published_at')
+                    ->label('Initially Published')
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->options([
+                        'In development' => 'In development',
+                        'Released' => 'Released',
+                        'Abandoned' => 'Abandoned',
+                        'On hold' => 'On hold',
+                    ]),
+                TernaryFilter::make('is_visible'),
+                TernaryFilter::make('is_nsfw'),
+                TernaryFilter::make('blur_screenshots')
+                    ->label('Blur Screenshots'),
+                TernaryFilter::make('is_paid')
+                    ->label('Paid Games'),
+                TernaryFilter::make('has_demo')
+                    ->label('Has Demo'),
+            ])
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                    BulkAction::make('toggleVisibility')
+                        ->label('Toggle Visibility')
+                        ->icon('heroicon-o-eye')
+                        ->action(function (Collection $records): void {
+                            foreach ($records as $record) {
+                                $record->is_visible = ! $record->is_visible;
+                                $record->save();
+                            }
+                        }),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            GameVersionsRelationManager::class,
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListGames::route('/'),
+            'create' => CreateGame::route('/create'),
+            'view' => ViewGame::route('/{record}'),
+            'edit' => EditGame::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
+}

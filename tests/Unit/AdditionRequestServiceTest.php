@@ -6,6 +6,10 @@ use App\Models\AdditionRequest;
 use App\Models\Game;
 use App\Models\User;
 use App\Services\AdditionRequestService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+// Ensure a clean database state per test so user IDs are always dynamic and sequences are in sync
+uses(RefreshDatabase::class);
 
 test('is valid itch url validates correctly', function () {
     $service = new AdditionRequestService;

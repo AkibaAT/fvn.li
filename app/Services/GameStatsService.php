@@ -8,6 +8,7 @@ use App\Models\Character;
 use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\UniqueDialogueText;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
@@ -32,7 +33,9 @@ use ZipArchive;
 readonly class GameStatsService
 {
     private LanguageMappingService $languageMappingService;
+
     private CharacterStatsCalculationService $characterStatsService;
+
     private EssentialCharacterService $essentialCharacterService;
 
     public function __construct(
@@ -345,17 +348,15 @@ readonly class GameStatsService
                     ];
                 }
 
-                // Bulk insert unique texts for this chunk (ignoring duplicates)
-                if (! empty($uniqueTexts)) {
-                    DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
+                // Create unique texts using Eloquent (automatic search indexing)
+                $textIdMapping = [];
+                foreach ($uniqueTexts as $textHash => $textData) {
+                    $dialogueText = UniqueDialogueText::firstOrCreate(
+                        ['text_hash' => $textHash],
+                        ['text_content' => $textData['text_content']]
+                    );
+                    $textIdMapping[$textHash] = $dialogueText->id;
                 }
-
-                // Create a mapping of text hashes to IDs for this chunk
-                $textHashes = array_keys($uniqueTexts);
-                $textIdMapping = DB::table('unique_dialogue_texts')
-                    ->whereIn('text_hash', $textHashes)
-                    ->pluck('id', 'text_hash')
-                    ->toArray();
 
                 // Now process dialogue lines for this chunk
                 $dialogueBatch = [];
@@ -418,12 +419,10 @@ readonly class GameStatsService
                     $processedLines++;
                 }
 
-                // Insert dialogue lines for this chunk
-                if (! empty($dialogueBatch)) {
-                    // Process in smaller sub-batches to avoid parameter limits
-                    foreach (array_chunk($dialogueBatch, 1000) as $subBatch) {
-                        DialogueLine::insert($subBatch);
-                    }
+                // Bulk insert dialogue lines for performance (skip observers during import)
+                // We'll update the search index once at the end instead of per-line
+                if (!empty($dialogueBatch)) {
+                    DB::table('dialogue_lines')->insert($dialogueBatch);
                 }
 
                 // Log progress for large datasets
@@ -434,6 +433,101 @@ readonly class GameStatsService
 
         // Log completion
         Log::info("Finished saving dialogue lines for game version {$version->id}");
+
+        // Update search index for all unique dialogue texts used in this version
+        // This is much more efficient than updating per-line via observers
+        $this->updateDialogueSearchIndex($version);
+    }
+
+    /**
+     * Update Meilisearch index for all unique dialogue texts in this version.
+     * This is called once after bulk importing dialogue lines.
+     */
+    protected function updateDialogueSearchIndex(GameVersion $version): void
+    {
+        try {
+            // Get all unique text IDs used in this version's dialogue lines
+            $textIds = DB::table('dialogue_lines')
+                ->where('game_version_id', $version->id)
+                ->distinct()
+                ->pluck('text_id')
+                ->filter();
+
+            if ($textIds->isEmpty()) {
+                return;
+            }
+
+            Log::info("Updating search index for {$textIds->count()} unique dialogue texts");
+
+            // Update search index in chunks with eager loading to avoid N+1 queries
+            UniqueDialogueText::whereIn('id', $textIds)
+                ->with(['dialogueLines.character', 'dialogueLines.gameVersion.game'])
+                ->chunk(500, function ($texts) {
+                    $texts->searchable();
+                });
+
+            Log::info("Search index updated successfully");
+        } catch (Exception $e) {
+            Log::warning('Failed to update dialogue search index', [
+                'version_id' => $version->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Process the text:
+     * - If it's Zalgo text (excessive diacritics), strip diacritical marks.
+     * - Otherwise, normalize to NFC to preserve diacritical marks.
+     *
+     * @param  string  $text  The input text.
+     * @return string The processed text.
+     */
+    protected function processText(string $text): string
+    {
+        if ($this->isZalgo($text)) {
+            // Zalgo text: remove all diacritical marks.
+            return $this->stripDiacritics($text);
+        } else {
+            // Normal text: normalize to NFC to ensure canonical form (preserving diacritics).
+            return Normalizer::normalize($text, Normalizer::FORM_C);
+        }
+    }
+
+    /**
+     * Check if the given text is likely Zalgo text.
+     *
+     * @param  string  $text  The input text.
+     * @param  float  $threshold  The ratio of diacritics to total characters to trigger stripping.
+     * @return bool Returns true if the text is considered Zalgo.
+     */
+    protected function isZalgo(string $text, float $threshold = 0.9): bool
+    {
+        // Normalize to decomposed form so that diacritical marks are separate characters
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+        // Total number of characters in decomposed string
+        $totalLength = mb_strlen($decomposed, 'UTF-8');
+        // Count all combining diacritical marks (Unicode category Mn)
+        preg_match_all('/\p{Mn}/u', $decomposed, $matches);
+        $diacriticCount = count($matches[0]);
+
+        // Avoid division by zero, and check if ratio exceeds threshold
+        return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
+    }
+
+    /**
+     * Strip all diacritical marks from text.
+     *
+     * @param  string  $text  The input text.
+     * @return string The text with diacritical marks removed.
+     */
+    protected function stripDiacritics(string $text): string
+    {
+        // Normalize to decomposed form (so diacritics are separate)
+        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
+
+        // Remove all combining diacritical marks
+        return preg_replace('/\p{Mn}/u', '', $decomposed);
     }
 
     /**
@@ -492,7 +586,8 @@ readonly class GameStatsService
             }
 
             // Ensure default language is always included
-            if (! isset($displayNames[$defaultLanguage]) && $defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages)) {
+            if (! isset($displayNames[$defaultLanguage]) && $defaultLanguage !== 'eng' && ! in_array($defaultLanguage,
+                $foundLanguages)) {
                 $displayNames[$defaultLanguage] = $characterId;
                 $needsUpdate = true;
             }
@@ -505,6 +600,32 @@ readonly class GameStatsService
         }
 
         return $character;
+    }
+
+    /**
+     * Apply special character assignment fixes after importing dialogue lines
+     */
+    protected function applySpecialCharacterAssignments(GameVersion $version): void
+    {
+        Log::info("Applying special character assignments for game version {$version->id}");
+
+        // Use the special character assignment service to fix assignments
+        $specialCharacterService = app(CharacterSpecialAssignmentService::class);
+
+        // Apply fixes for this specific game (not dry run)
+        $result = $specialCharacterService->fixSpecialCharacterAssignments($version->game_id, null, false);
+
+        if ($result['lines_reassigned'] > 0) {
+            Log::info("Reassigned {$result['lines_reassigned']} special character lines for game {$version->game_id}");
+
+            // Clean up any orphaned special characters
+            $versionReferenceService = app(CharacterVersionReferenceService::class);
+            $cleanupResult = $versionReferenceService->fixVersionReferences($version->game_id, false);
+
+            if ($cleanupResult['characters_deleted'] > 0) {
+                Log::info("Deleted {$cleanupResult['characters_deleted']} orphaned special characters for game {$version->game_id}");
+            }
+        }
     }
 
     /**
@@ -575,143 +696,6 @@ readonly class GameStatsService
         if (! $discrepanciesFound) {
             Log::info("Character stats validation passed for game version {$version->id} - no discrepancies found");
         }
-    }
-
-    /**
-     * Strip all diacritical marks from text.
-     *
-     * @param  string  $text  The input text.
-     * @return string The text with diacritical marks removed.
-     */
-    protected function stripDiacritics(string $text): string
-    {
-        // Normalize to decomposed form (so diacritics are separate)
-        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-
-        // Remove all combining diacritical marks
-        return preg_replace('/\p{Mn}/u', '', $decomposed);
-    }
-
-    /**
-     * Process the text:
-     * - If it's Zalgo text (excessive diacritics), strip diacritical marks.
-     * - Otherwise, normalize to NFC to preserve diacritical marks.
-     *
-     * @param  string  $text  The input text.
-     * @return string The processed text.
-     */
-    protected function processText(string $text): string
-    {
-        if ($this->isZalgo($text)) {
-            // Zalgo text: remove all diacritical marks.
-            return $this->stripDiacritics($text);
-        } else {
-            // Normal text: normalize to NFC to ensure canonical form (preserving diacritics).
-            return Normalizer::normalize($text, Normalizer::FORM_C);
-        }
-    }
-
-    /**
-     * Check if the given text is likely Zalgo text.
-     *
-     * @param  string  $text  The input text.
-     * @param  float  $threshold  The ratio of diacritics to total characters to trigger stripping.
-     * @return bool Returns true if the text is considered Zalgo.
-     */
-    protected function isZalgo(string $text, float $threshold = 0.9): bool
-    {
-        // Normalize to decomposed form so that diacritical marks are separate characters
-        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-        // Total number of characters in decomposed string
-        $totalLength = mb_strlen($decomposed, 'UTF-8');
-        // Count all combining diacritical marks (Unicode category Mn)
-        preg_match_all('/\p{Mn}/u', $decomposed, $matches);
-        $diacriticCount = count($matches[0]);
-
-        // Avoid division by zero, and check if ratio exceeds threshold
-        return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
-    }
-
-    /**
-     * Apply special character assignment fixes after importing dialogue lines
-     */
-    protected function applySpecialCharacterAssignments(GameVersion $version): void
-    {
-        Log::info("Applying special character assignments for game version {$version->id}");
-
-        // Use the special character assignment service to fix assignments
-        $specialCharacterService = app(CharacterSpecialAssignmentService::class);
-
-        // Apply fixes for this specific game (not dry run)
-        $result = $specialCharacterService->fixSpecialCharacterAssignments($version->game_id, null, false);
-
-        if ($result['lines_reassigned'] > 0) {
-            Log::info("Reassigned {$result['lines_reassigned']} special character lines for game {$version->game_id}");
-
-            // Clean up any orphaned special characters
-            $versionReferenceService = app(CharacterVersionReferenceService::class);
-            $cleanupResult = $versionReferenceService->fixVersionReferences($version->game_id, false);
-
-            if ($cleanupResult['characters_deleted'] > 0) {
-                Log::info("Deleted {$cleanupResult['characters_deleted']} orphaned special characters for game {$version->game_id}");
-            }
-        }
-    }
-
-    /**
-     * Extract statistics using the Ren'Py SDK
-     *
-     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
-     *
-     * @throws RuntimeException|FileNotFoundException Only if stats file doesn't exist or is invalid after successful process execution
-     */
-    private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?array
-    {
-        try {
-            // Copy our analysis script to the game directory
-            File::copy(
-                resource_path('renpy/json_stats.rpy'),
-                $gameDir . '/game/json_stats.rpy'
-            );
-        } catch (Exception $e) {
-            Log::warning('Failed to copy analysis script', [
-                'error' => $e->getMessage(),
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        // Execute the script analysis using the SDK
-        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
-        $process->setTimeout(300); // 5 minute timeout
-        $process->run();
-
-        // Check for successful execution, but don't treat it as an error
-        if (! $process->isSuccessful()) {
-            $output = $process->getOutput();
-            $errorOutput = $process->getErrorOutput();
-            Log::warning('Script analysis completed with non-zero exit code', [
-                'output' => $output,
-                'error_output' => $errorOutput,
-                'exit_code' => $process->getExitCode(),
-                'sdk_path' => $sdkPath,
-                'game_dir' => $gameDir,
-            ]);
-        }
-
-        // Read and parse the stats file - this is the only real error condition
-        $statsFile = $gameDir . '/stats.json';
-        if (! File::exists($statsFile)) {
-            throw new RuntimeException('Stats file not generated');
-        }
-
-        $stats = json_decode(File::get($statsFile), true);
-        if (! $stats || ! isset($stats['languages'])) {
-            throw new RuntimeException('Invalid stats file format');
-        }
-
-        return $stats;
     }
 
     /**
@@ -844,6 +828,31 @@ readonly class GameStatsService
         return $firstExecutable;
     }
 
+    private function makeExecutables(string $dir): void
+    {
+        // root
+        foreach (File::files($dir) as $file) {
+            chmod($file->getPathname(), 0755);
+        }
+
+        // lib/
+        $lib = $dir . DIRECTORY_SEPARATOR . 'lib';
+        if (! File::isDirectory($lib)) {
+            return;
+        }
+
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($it as $file) {
+            if ($file->isFile()) {
+                chmod($file->getPathname(), 0755);
+            }
+        }
+    }
+
     /**
      * Find all files in a directory and its subdirectories
      *
@@ -939,28 +948,59 @@ readonly class GameStatsService
         }
     }
 
-    private function makeExecutables(string $dir): void
+    /**
+     * Extract statistics using the Ren'Py SDK
+     *
+     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
+     *
+     * @throws RuntimeException|FileNotFoundException Only if stats file doesn't exist or is invalid after successful process execution
+     */
+    private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?array
     {
-        // root
-        foreach (File::files($dir) as $file) {
-            chmod($file->getPathname(), 0755);
+        try {
+            // Copy our analysis script to the game directory
+            File::copy(
+                resource_path('renpy/json_stats.rpy'),
+                $gameDir . '/game/json_stats.rpy'
+            );
+        } catch (Exception $e) {
+            Log::warning('Failed to copy analysis script', [
+                'error' => $e->getMessage(),
+                'game_dir' => $gameDir,
+            ]);
+
+            return null;
         }
 
-        // lib/
-        $lib = $dir . DIRECTORY_SEPARATOR . 'lib';
-        if (! File::isDirectory($lib)) {
-            return;
+        // Execute the script analysis using the SDK
+        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
+        $process->setTimeout(300); // 5 minute timeout
+        $process->run();
+
+        // Check for successful execution, but don't treat it as an error
+        if (! $process->isSuccessful()) {
+            $output = $process->getOutput();
+            $errorOutput = $process->getErrorOutput();
+            Log::warning('Script analysis completed with non-zero exit code', [
+                'output' => $output,
+                'error_output' => $errorOutput,
+                'exit_code' => $process->getExitCode(),
+                'sdk_path' => $sdkPath,
+                'game_dir' => $gameDir,
+            ]);
         }
 
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY
-        );
-
-        foreach ($it as $file) {
-            if ($file->isFile()) {
-                chmod($file->getPathname(), 0755);
-            }
+        // Read and parse the stats file - this is the only real error condition
+        $statsFile = $gameDir . '/stats.json';
+        if (! File::exists($statsFile)) {
+            throw new RuntimeException('Stats file not generated');
         }
+
+        $stats = json_decode(File::get($statsFile), true);
+        if (! $stats || ! isset($stats['languages'])) {
+            throw new RuntimeException('Invalid stats file format');
+        }
+
+        return $stats;
     }
 }

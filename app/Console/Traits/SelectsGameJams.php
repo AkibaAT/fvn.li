@@ -14,32 +14,6 @@ use Illuminate\Support\Collection;
 trait SelectsGameJams
 {
     /**
-     * Apply game jam selection filters to a query based on command options
-     *
-     * @param  Builder  $query  The base query to modify
-     * @return Builder The modified query
-     */
-    protected function applyGameJamSelectionFilters(Builder $query): Builder
-    {
-        // If game jam ID is provided, filter by ID
-        if ($jamId = $this->option('id')) {
-            $query->where('id', $jamId);
-        }
-
-        // If game jam name is provided, filter by name (case-insensitive partial match)
-        elseif ($jamName = $this->option('name')) {
-            $query->where('name', 'ilike', "%{$jamName}%");
-        }
-
-        // If URL is provided, filter by URL
-        elseif ($url = $this->option('url')) {
-            $query->where('url', $url);
-        }
-
-        return $query;
-    }
-
-    /**
      * Get game jams based on selection criteria
      *
      * @param  array  $additionalWhere  Additional where clauses to apply
@@ -64,6 +38,28 @@ trait SelectsGameJams
         $this->applyGameJamSelectionFilters($query);
 
         return $query->get();
+    }
+
+    /**
+     * Apply game jam selection filters to a query based on command options
+     *
+     * @param  Builder  $query  The base query to modify
+     * @return Builder The modified query
+     */
+    protected function applyGameJamSelectionFilters(Builder $query): Builder
+    {
+        // If game jam ID is provided, filter by ID
+        if ($jamId = $this->option('id')) {
+            $query->where('id', $jamId);
+        } // If game jam name is provided, filter by name (case-insensitive partial match)
+        elseif ($jamName = $this->option('name')) {
+            $query->where('name', 'ilike', "%{$jamName}%");
+        } // If URL is provided, filter by URL
+        elseif ($url = $this->option('url')) {
+            $query->where('url', $url);
+        }
+
+        return $query;
     }
 
     /**

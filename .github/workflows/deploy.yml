@@ -61,6 +61,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.REPO_LOWER }}
+          tags: |
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push Docker image
         if: steps.vars.outputs.dockerfile_changed == 'true'
         uses: docker/build-push-action@v5
@@ -70,15 +79,15 @@ jobs:
           push: true
           provenance: false
           platforms: linux/amd64
-          tags: |
-            ghcr.io/${{ env.REPO_LOWER }}:${{ env.REF_NAME }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
             type=gha,scope=docker-cache-amd64
             type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-amd64
           cache-to: |
             type=gha,mode=max,scope=docker-cache-amd64
             type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-amd64,mode=max
-          outputs: type=image,name=ghcr.io/${{ env.REPO_LOWER }}:${{ env.REF_NAME }},push-by-digest=false,push=true,name-canonical=false
+          outputs: type=image,name=ghcr.io/${{ env.REPO_LOWER }}:${{ steps.meta.outputs.TAG }},push-by-digest=false,push=true,name-canonical=false
 
       # Always run these steps for code deployment
       - name: Setup PHP
@@ -102,20 +111,26 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+          run_install: false
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: 22
+          cache: 'pnpm'
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Build assets
-        run: npm run build
+        run: pnpm run build:ssr
 
       - name: Create or update .env file with deployment configuration
-        run: ./scripts/create-env-deploy.sh "${{ env.REPO_LOWER }}" "${{ env.REF_NAME }}" "${{ steps.vars.outputs.dockerfile_changed }}"
+        run: ./scripts/create-env-deploy.sh "${{ steps.meta.outputs.tags }}" "${{ steps.vars.outputs.dockerfile_changed }}"
 
       - name: move docker-compose.yml
         run: mv docker/docker-compose.yml docker-compose.yml

@@ -6,11 +6,6 @@ namespace App\Traits;
 
 trait HasSortableColumns
 {
-    public function getAvailableSortFields(): array
-    {
-        return static::AVAILABLE_SORT_FIELDS;
-    }
-
     public function getAvailableSortFieldsWithLabels(): array
     {
         $fields = $this->getAvailableSortFields();
@@ -23,9 +18,9 @@ trait HasSortableColumns
         return $result;
     }
 
-    protected function getSortLabelLowercase(string $field): string
+    public function getAvailableSortFields(): array
     {
-        return strtolower($this->getSortLabel($field));
+        return static::AVAILABLE_SORT_FIELDS;
     }
 
     protected function getSortLabel(string $field): string
@@ -42,5 +37,10 @@ trait HasSortableColumns
             'published_at' => 'Date',
             default => ucfirst(str_replace('_', ' ', $field))
         };
+    }
+
+    protected function getSortLabelLowercase(string $field): string
+    {
+        return strtolower($this->getSortLabel($field));
     }
 }

@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 class ItchHttpClientService
 {
     private ?Client $authenticatedClient = null;
+
     private Client $anonymousClient;
 
     /**
@@ -44,51 +45,6 @@ class ItchHttpClientService
     }
 
     /**
-     * Send a POST request with retry logic for itch.io domains.
-     *
-     * @param  string  $url  The URL to request
-     * @param  array  $options  Request options
-     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
-     * @return ResponseInterface The response
-     *
-     * @throws Exception|GuzzleException If the request fails after all retries
-     */
-    public function post(string $url, array $options = [], bool $anonymous = false): ResponseInterface
-    {
-        return $this->sendRequest('POST', $url, $options, $anonymous);
-    }
-
-    /**
-     * Send a PUT request with retry logic for itch.io domains.
-     *
-     * @param  string  $url  The URL to request
-     * @param  array  $options  Request options
-     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
-     * @return ResponseInterface The response
-     *
-     * @throws Exception|GuzzleException If the request fails after all retries
-     */
-    public function put(string $url, array $options = [], bool $anonymous = false): ResponseInterface
-    {
-        return $this->sendRequest('PUT', $url, $options, $anonymous);
-    }
-
-    /**
-     * Send a DELETE request with retry logic for itch.io domains.
-     *
-     * @param  string  $url  The URL to request
-     * @param  array  $options  Request options
-     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
-     * @return ResponseInterface The response
-     *
-     * @throws Exception|GuzzleException If the request fails after all retries
-     */
-    public function delete(string $url, array $options = [], bool $anonymous = false): ResponseInterface
-    {
-        return $this->sendRequest('DELETE', $url, $options, $anonymous);
-    }
-
-    /**
      * Send a request with retry logic for itch.io domains.
      *
      * @param  string  $method  The HTTP method
@@ -100,8 +56,12 @@ class ItchHttpClientService
      * @throws Exception If the request fails after all retries
      * @throws GuzzleException
      */
-    public function sendRequest(string $method, string $url, array $options = [], bool $anonymous = false): ResponseInterface
-    {
+    public function sendRequest(
+        string $method,
+        string $url,
+        array $options = [],
+        bool $anonymous = false
+    ): ResponseInterface {
         // Set http_errors to false to prevent exceptions for 4xx/5xx responses
         $options['http_errors'] = false;
 
@@ -162,6 +122,51 @@ class ItchHttpClientService
 
         // This should never happen, but just in case
         throw new Exception("Failed to send request to {$url} after {$this->maxRetries} retries");
+    }
+
+    /**
+     * Send a POST request with retry logic for itch.io domains.
+     *
+     * @param  string  $url  The URL to request
+     * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
+     * @return ResponseInterface The response
+     *
+     * @throws Exception|GuzzleException If the request fails after all retries
+     */
+    public function post(string $url, array $options = [], bool $anonymous = false): ResponseInterface
+    {
+        return $this->sendRequest('POST', $url, $options, $anonymous);
+    }
+
+    /**
+     * Send a PUT request with retry logic for itch.io domains.
+     *
+     * @param  string  $url  The URL to request
+     * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
+     * @return ResponseInterface The response
+     *
+     * @throws Exception|GuzzleException If the request fails after all retries
+     */
+    public function put(string $url, array $options = [], bool $anonymous = false): ResponseInterface
+    {
+        return $this->sendRequest('PUT', $url, $options, $anonymous);
+    }
+
+    /**
+     * Send a DELETE request with retry logic for itch.io domains.
+     *
+     * @param  string  $url  The URL to request
+     * @param  array  $options  Request options
+     * @param  bool  $anonymous  Whether to use anonymous client (no authentication)
+     * @return ResponseInterface The response
+     *
+     * @throws Exception|GuzzleException If the request fails after all retries
+     */
+    public function delete(string $url, array $options = [], bool $anonymous = false): ResponseInterface
+    {
+        return $this->sendRequest('DELETE', $url, $options, $anonymous);
     }
 
     /**
@@ -257,8 +262,12 @@ class ItchHttpClientService
      *
      * @throws Exception If the maximum number of retries has been reached
      */
-    private function handleRateLimitResponse(ResponseInterface $response, int $retryCount, string $url, string $method): bool
-    {
+    private function handleRateLimitResponse(
+        ResponseInterface $response,
+        int $retryCount,
+        string $url,
+        string $method
+    ): bool {
         // If we've reached the maximum retries, throw an exception
         if ($retryCount > $this->maxRetries) {
             throw new Exception("429 Too Many Requests - Rate limit exceeded after {$this->maxRetries} retries");
@@ -278,6 +287,44 @@ class ItchHttpClientService
             'max_retries' => $this->maxRetries,
             'cooldown' => $cooldownTime,
             'retry_after' => $retryAfter,
+        ]);
+
+        // Sleep before retrying
+        sleep($cooldownTime);
+
+        return true;
+    }
+
+    /**
+     * Handle a server error response (HTTP 5xx)
+     *
+     * @param  ResponseInterface  $response  The response with a 5xx status code
+     * @param  int  $retryCount  The current retry count
+     * @param  string  $url  The URL that was requested
+     * @param  string  $method  The HTTP method that was used
+     * @return bool True if the request should be retried, false otherwise
+     */
+    private function handleServerErrorResponse(
+        ResponseInterface $response,
+        int $retryCount,
+        string $url,
+        string $method
+    ): bool {
+        // If we've reached the maximum retries, return false to indicate we should stop retrying
+        if ($retryCount > $this->maxRetries) {
+            return false;
+        }
+
+        $statusCode = $response->getStatusCode();
+        $cooldownTime = $this->baseCooldown * $retryCount;
+
+        Log::warning('Server error from itch.io, retrying', [
+            'url' => $url,
+            'method' => $method,
+            'status_code' => $statusCode,
+            'attempt' => $retryCount,
+            'max_retries' => $this->maxRetries,
+            'cooldown' => $cooldownTime,
         ]);
 
         // Sleep before retrying
@@ -313,40 +360,6 @@ class ItchHttpClientService
             'max_retries' => $this->maxRetries,
             'cooldown' => $cooldownTime,
             'exception' => $exception->getMessage(),
-        ]);
-
-        // Sleep before retrying
-        sleep($cooldownTime);
-
-        return true;
-    }
-
-    /**
-     * Handle a server error response (HTTP 5xx)
-     *
-     * @param  ResponseInterface  $response  The response with a 5xx status code
-     * @param  int  $retryCount  The current retry count
-     * @param  string  $url  The URL that was requested
-     * @param  string  $method  The HTTP method that was used
-     * @return bool True if the request should be retried, false otherwise
-     */
-    private function handleServerErrorResponse(ResponseInterface $response, int $retryCount, string $url, string $method): bool
-    {
-        // If we've reached the maximum retries, return false to indicate we should stop retrying
-        if ($retryCount > $this->maxRetries) {
-            return false;
-        }
-
-        $statusCode = $response->getStatusCode();
-        $cooldownTime = $this->baseCooldown * $retryCount;
-
-        Log::warning('Server error from itch.io, retrying', [
-            'url' => $url,
-            'method' => $method,
-            'status_code' => $statusCode,
-            'attempt' => $retryCount,
-            'max_retries' => $this->maxRetries,
-            'cooldown' => $cooldownTime,
         ]);
 
         // Sleep before retrying

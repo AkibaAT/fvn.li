@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\DiscordBotController;
 use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\GameReviewsController;
-use App\Http\Controllers\Api\PushSubscriptionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -45,12 +44,7 @@ Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
     Route::post('record', [App\Http\Controllers\Api\UserNotificationsController::class, 'recordNotification']);
 });
 
-// Push notification subscription routes
-Route::middleware(['web', 'auth'])->group(function () {
-    Route::post('push-subscriptions', [PushSubscriptionController::class, 'store']);
-    Route::post('push-subscriptions/verify', [PushSubscriptionController::class, 'verify']);
-    Route::delete('push-subscriptions', [PushSubscriptionController::class, 'destroy']);
-});
+// Push notification subscription routes moved to react-api (session-based)
 
 // Game reviews API for desktop client
 Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);

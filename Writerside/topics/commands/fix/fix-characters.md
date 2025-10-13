@@ -7,11 +7,12 @@ Comprehensive character data fixes that run in the correct dependency order to e
 This command performs all character maintenance tasks in a single, logical workflow:
 
 1. **NULL Assignments**: Assigns dialogue lines with NULL character_id to narrator characters
-2. **Special Assignments**: Fixes 'extend' and 'centered' character assignments to previous line's character  
+2. **Special Assignments**: Fixes 'extend' and 'centered' character assignments to previous line's character
 3. **Statistics**: Recalculates character and language statistics from dialogue lines
 4. **Version References**: Updates first_seen/last_seen versions, creates missing stats, deletes orphaned characters
 
-**Data Completeness Protection**: Only versions with full dialogue line details will have statistics updated. This protects versions with incomplete data (e.g., Godot games with language totals only).
+**Data Completeness Protection**: Only versions with full dialogue line details will have statistics updated. This
+protects versions with incomplete data (e.g., Godot games with language totals only).
 
 ### Data Completeness Levels
 
@@ -19,7 +20,7 @@ The system recognizes four levels of data completeness:
 
 - **Full Detail**: Has individual dialogue lines with text content - **Safe to update**
 - **Character Stats**: Has character-level statistics but no individual lines - **Protected from updates**
-- **Language Only**: Has only language-level totals - **Protected from updates**  
+- **Language Only**: Has only language-level totals - **Protected from updates**
 - **No Detail**: Has only basic version info - **Protected from updates**
 
 Only versions with "Full Detail" level will have their character statistics recalculated.
@@ -85,6 +86,7 @@ php artisan fix:characters --game-id=138 --dry-run
 **Purpose**: Assign dialogue lines with NULL character_id to narrator characters
 
 **Actions**:
+
 - Finds all dialogue lines with NULL character_id
 - Creates narrator characters for games that don't have them
 - Assigns all NULL lines to the appropriate narrator character
@@ -97,12 +99,14 @@ php artisan fix:characters --game-id=138 --dry-run
 **Purpose**: Fix special character assignments that should belong to previous line's character
 
 **Actions**:
+
 - Processes 'extend' and 'centered' characters
 - Finds the previous dialogue line in the same file
 - Reassigns special character lines to the previous line's character
 - Reports lines reassigned and versions processed
 
 **Special Characters Handled**:
+
 - `extend` - Continuation of previous character's dialogue
 - `centered` - Centered text that should belong to previous character
 
@@ -111,18 +115,21 @@ php artisan fix:characters --game-id=138 --dry-run
 **Purpose**: Recalculate character and language statistics from dialogue lines
 
 **Actions**:
+
 - Recalculates blocks and words for characters with issues (narrator + zero stats)
 - Uses sophisticated SQL that matches Python's text.split() behavior
 - Automatically recalculates language totals to ensure consistency
 - Respects data completeness protection
 
-**Language Totals**: When character statistics are recalculated, the corresponding language-level totals are automatically updated to ensure consistency between character breakdowns and language totals.
+**Language Totals**: When character statistics are recalculated, the corresponding language-level totals are
+automatically updated to ensure consistency between character breakdowns and language totals.
 
 ### Step 4: Version References
 
 **Purpose**: Update version tracking and cleanup orphaned data
 
 **Actions**:
+
 - Updates first_seen_in_version_id and last_seen_in_version_id for characters
 - Creates missing version_character_stats entries for characters in dialogue
 - Deletes orphaned characters that have no dialogue lines
@@ -176,6 +183,7 @@ Character fixes completed successfully!
 ## Error Handling
 
 The command includes comprehensive error handling:
+
 - Data completeness protection prevents corruption of incomplete data
 - Individual step failures don't stop the entire process
 - Detailed logging shows what was skipped and why

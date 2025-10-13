@@ -1,0 +1,1387 @@
+import {ConnectedAccounts} from '@/components/dashboard/connected-accounts';
+import type {SocialAccount as TypedSocialAccount, User as TypedUser,} from '@/types';
+import {authenticatedFetch} from '@/utils/csrf';
+import {toast} from '@/utils/toast';
+import {Head, Link} from '@inertiajs/react';
+import {useEffect, useState} from 'react';
+// Import the ItchioIcon component
+import ItchioIcon from '@/components/icons/itchio';
+
+interface User {
+    id: number;
+    name: string;
+    email?: string;
+    avatar?: string;
+    created_at: string;
+    updated_at?: string;
+}
+
+interface SocialAccount {
+    display_name?: string;
+    avatar?: string;
+}
+
+interface NotificationPreferences {
+    browser_notifications_enabled: boolean;
+    discord_notifications_enabled: boolean;
+    notification_digest: string;
+}
+
+interface AdditionRequest {
+    id: number;
+    itch_url: string;
+    status: string;
+    status_label: string;
+    status_color: string;
+    created_at: string;
+    reviewed_at?: string;
+    rejection_reason?: string;
+    game?: {
+        id: number;
+        name: string;
+        slug: string;
+    };
+    reviewer?: {
+        name: string;
+    };
+}
+
+interface DashboardProps {
+    user: User;
+    connectedProviders: string[];
+    socialAccounts: Record<string, SocialAccount>;
+    itchioData: {
+        username?: string;
+        ownedGamesCount: number;
+        gamesWithLinks: number;
+    };
+    notificationPreferences: NotificationPreferences;
+    recentRequests: AdditionRequest[];
+    metaTags?: {
+        title?: string;
+    };
+    vapidPublicKey?: string;
+}
+
+// removed unused getProviderIcon
+
+export default function Dashboard({
+                                      user,
+                                      connectedProviders,
+                                      socialAccounts,
+                                      itchioData: itchioDataInitial,
+                                      notificationPreferences: notificationPreferencesInitial,
+                                      recentRequests: recentRequestsInitial,
+                                      metaTags,
+                                  }: DashboardProps) {
+    // Local interactive state hydrated from server props
+    const [notifPrefs, setNotifPrefs] = useState(
+        notificationPreferencesInitial,
+    );
+    const [savingPrefs, setSavingPrefs] = useState(false);
+
+    const [itchioData] = useState(itchioDataInitial);
+
+    const [requestText, setRequestText] = useState('');
+    type SubmissionResult = {
+        success_count: number;
+        duplicate_count: number;
+        invalid_count: number;
+        already_exists_count?: number;
+        errors: string[];
+    };
+    const [showRequestSuccess, setShowRequestSuccess] = useState(false);
+    const [requestResults, setRequestResults] =
+        useState<SubmissionResult | null>(null);
+    const [requests, setRequests] = useState<AdditionRequest[]>(
+        recentRequestsInitial || [],
+    );
+    const [requestsLoading, setRequestsLoading] = useState(false);
+    const [requestSearch, setRequestSearch] = useState('');
+    const [requestStatus, setRequestStatus] = useState<
+        'all' | 'pending' | 'processing' | 'completed' | 'rejected'
+    >('all');
+    const [submittingRequest, setSubmittingRequest] = useState(false);
+    const [notificationPermission, setNotificationPermission] =
+        useState<NotificationPermission>(
+            typeof window !== 'undefined' && 'Notification' in window
+                ? Notification.permission
+                : 'default',
+        );
+    const [vapidKey] = useState<string | undefined>(undefined);
+
+    // Helpers for API calls
+    async function jsonGet<T>(url: string): Promise<T> {
+        const res = await fetch(url, {credentials: 'same-origin'});
+        if (!res.ok) throw new Error(`GET ${url} failed (${res.status})`);
+        return res.json();
+    }
+
+    async function jsonPost<T>(url: string, payload: unknown): Promise<T> {
+        const res = await authenticatedFetch(url, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || data?.success === false) {
+            // Show user-friendly feedback when available
+            if (data?.errors && typeof data.errors === 'object') {
+                const messages = Object.values<string | string[]>(
+                    data.errors,
+                ).flat();
+                messages.forEach((m) => toast.error(String(m)));
+            }
+            if (data?.message) {
+                toast.error(String(data.message));
+            }
+            const message = data?.message || 'Request failed';
+            const errors = data?.errors ? JSON.stringify(data.errors) : '';
+            throw new Error(`${message}${errors ? `: ${errors}` : ''}`);
+        }
+        return data;
+    }
+
+    // Hydrate from SSR props to avoid extra round trips
+    useEffect(() => {
+        // Already provided: notificationPreferences and itchioData; nothing to fetch here
+    }, [metaTags]);
+
+    // Keep local permission state in sync
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('Notification' in window))
+            return;
+        setNotificationPermission(Notification.permission);
+    }, [metaTags]);
+
+    // Helper to convert VAPID base64 url key
+    function base64UrlToUint8Array(base64String: string) {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding)
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i)
+            outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+    }
+
+    // Ensure a server-side push subscription exists if permission is granted
+    useEffect(() => {
+        (async () => {
+            try {
+                if (
+                    !('Notification' in window) ||
+                    !('serviceWorker' in navigator)
+                )
+                    return;
+                if (notificationPermission !== 'granted') return;
+                // Wait for service worker
+                const reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                // If no local subscription, try to subscribe if VAPID key is available
+                const win =
+                    typeof window !== 'undefined'
+                        ? (window as unknown as {
+                            __VAPID_PUBLIC_KEY?: string;
+                        })
+                        : undefined;
+                const effectiveVapid =
+                    vapidKey || win?.__VAPID_PUBLIC_KEY || undefined;
+                if (!sub && effectiveVapid) {
+                    try {
+                        sub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey:
+                                base64UrlToUint8Array(effectiveVapid),
+                        });
+                    } catch {
+                        // silently ignore; user may have blocked
+                    }
+                }
+                if (!sub) return;
+                // Verify on server
+                const verifyRes = await authenticatedFetch(
+                    route('react-api.push-subscriptions.verify'),
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({endpoint: sub.endpoint}),
+                    },
+                );
+                const verify: { exists?: boolean } = await verifyRes
+                    .json()
+                    .catch(() => ({exists: false}));
+                if (!verifyRes.ok || verify?.exists !== true) {
+                    // Re-store subscription on server
+                    await fetch(route('react-api.push-subscriptions.store'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN':
+                                (
+                                    document.querySelector(
+                                        'meta[name="csrf-token"]',
+                                    ) as HTMLMetaElement
+                                )?.content || '',
+                        },
+                        body: JSON.stringify({subscription: sub.toJSON()}),
+                    }).catch(() => {
+                    });
+                }
+            } catch {
+                // noop
+            }
+        })();
+    }, [notificationPermission, vapidKey]);
+
+    // Requests list loader
+    const loadRequests = async (opts?: {
+        status?: string;
+        search?: string;
+    }) => {
+        setRequestsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            params.set('status', (opts?.status ?? requestStatus) as string);
+            if ((opts?.search ?? requestSearch).trim() !== '') {
+                params.set('search', (opts?.search ?? requestSearch).trim());
+            }
+            const res = await jsonGet<{
+                success: boolean;
+                requests: AdditionRequest[];
+            }>(
+                `${route('react-api.dashboard.addition-requests.index')}?${params.toString()}`,
+            );
+            if (res.success) {
+                setRequests(res.requests);
+            }
+        } catch {
+            // Ignore errors; UI remains with previous state
+        } finally {
+            setRequestsLoading(false);
+        }
+    };
+
+    // Note: We skip initial load; use SSR recentRequests to avoid extra request.
+
+    // Toggle handlers for notification prefs
+    const toggleBrowser = async () => {
+        const next = {
+            ...notifPrefs,
+            browser_notifications_enabled:
+                !notifPrefs.browser_notifications_enabled,
+        };
+        setNotifPrefs(next);
+        setSavingPrefs(true);
+        try {
+            await jsonPost(
+                route('react-api.dashboard.notifications.update'),
+                next,
+            );
+        } catch {
+            // Revert on error
+            setNotifPrefs((prev) => ({
+                ...prev,
+                browser_notifications_enabled:
+                    !next.browser_notifications_enabled,
+            }));
+        } finally {
+            setSavingPrefs(false);
+        }
+    };
+
+    const toggleDiscord = async () => {
+        const next = {
+            ...notifPrefs,
+            discord_notifications_enabled:
+                !notifPrefs.discord_notifications_enabled,
+        };
+        setNotifPrefs(next);
+        setSavingPrefs(true);
+        try {
+            await jsonPost(
+                route('react-api.dashboard.notifications.update'),
+                next,
+            );
+        } catch {
+            setNotifPrefs((prev) => ({
+                ...prev,
+                discord_notifications_enabled:
+                    !next.discord_notifications_enabled,
+            }));
+        } finally {
+            setSavingPrefs(false);
+        }
+    };
+
+    const updateDigest = async (
+        value: NotificationPreferences['notification_digest'],
+    ) => {
+        if (value === notifPrefs.notification_digest) return;
+        const prev = notifPrefs.notification_digest;
+        setNotifPrefs((p) => ({...p, notification_digest: value}));
+        setSavingPrefs(true);
+        try {
+            await jsonPost(route('react-api.dashboard.notifications.update'), {
+                ...notifPrefs,
+                notification_digest: value,
+            });
+        } catch {
+            setNotifPrefs((p) => ({...p, notification_digest: prev}));
+        } finally {
+            setSavingPrefs(false);
+        }
+    };
+
+    // Addition request submit and cancel
+    const submitRequest = async () => {
+        const trimmed = requestText.trim();
+        if (!trimmed) return;
+        setSubmittingRequest(true);
+        try {
+            const res = await authenticatedFetch(
+                route('react-api.dashboard.addition-requests.submit'),
+                {
+                    method: 'POST',
+                    body: JSON.stringify({urls: trimmed}),
+                },
+            );
+            const data = await res.json();
+
+            if (res.ok && data?.success) {
+                const result: SubmissionResult = data.result;
+                setRequestResults(result);
+                setShowRequestSuccess(result?.success_count > 0);
+                if (result?.success_count > 0) {
+                    const successMsg =
+                        typeof data.message === 'string' &&
+                        data.message.trim() !== ''
+                            ? data.message
+                            : `Successfully submitted ${result.success_count} request(s)!`;
+                    toast.success(successMsg);
+                    setRequestText('');
+                }
+                await loadRequests({
+                    status: requestStatus,
+                    search: requestSearch,
+                });
+            } else {
+                const result: SubmissionResult | undefined = data?.result;
+                setRequestResults(
+                    result ?? {
+                        success_count: 0,
+                        duplicate_count: 0,
+                        invalid_count: 0,
+                        errors: [],
+                    },
+                );
+                setShowRequestSuccess(false);
+                // Toast field/general errors
+                if (Array.isArray(data?.errors)) {
+                    data.errors.forEach((m: string) => toast.error(String(m)));
+                } else if (data?.errors && typeof data.errors === 'object') {
+                    Object.values<string | string[]>(data.errors)
+                        .flat()
+                        .forEach((m) => toast.error(String(m)));
+                }
+                if (data?.message) toast.error(String(data.message));
+            }
+        } catch {
+            toast.error('An error occurred while submitting requests.');
+        } finally {
+            setSubmittingRequest(false);
+        }
+    };
+
+    const cancelRequest = async (id: number) => {
+        try {
+            await jsonPost(
+                route('react-api.dashboard.addition-requests.cancel', {
+                    request: id,
+                }),
+                {},
+            );
+            await loadRequests({
+                status: requestStatus,
+                search: requestSearch,
+            });
+        } catch {
+            // noop
+        }
+    };
+
+    const handleExportData = () => {
+        if (typeof window === 'undefined') return;
+        window.location.href = route('react-api.user.export');
+    };
+
+    return (<>
+            <Head title={metaTags?.title || 'Dashboard'}/>
+
+            <div className="mb-6 flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {metaTags?.title || 'User Dashboard'}
+                </h1>
+            </div>
+
+            {/* Flash Messages */}
+            {/* Note: In a real implementation, these would be populated from session data or state */}
+            <div className="mb-4">
+                {/* Success message example - would be conditionally rendered */}
+                {/* <div className="p-4 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-300">
+                    Your changes have been saved successfully.
+                </div> */}
+
+                {/* Error message example - would be conditionally rendered */}
+                {/* <div className="p-4 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
+                    There was an error saving your changes. Please try again.
+                </div> */}
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                {/* Left Column - User Settings */}
+                <div className="space-y-6 lg:col-span-3">
+                    {/* Profile Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                                Profile Information
+                            </h2>
+                            <div className="flex items-center gap-4">
+                                {user.avatar ? (
+                                    <img
+                                        src={user.avatar}
+                                        alt={user.name}
+                                        className="h-16 w-16 rounded-full"
+                                    />
+                                ) : (
+                                    <div
+                                        className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500 text-2xl font-bold text-white">
+                                        {user.name.charAt(0)}
+                                    </div>
+                                )}
+                                <div>
+                                    <div className="text-xl font-medium text-gray-900 dark:text-white">
+                                        {user.name}
+                                    </div>
+                                    {user.email && (
+                                        <div className="text-gray-500 dark:text-gray-400">
+                                            {user.email}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <button
+                                    onClick={handleExportData}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                        />
+                                    </svg>
+                                    <span>Export My Data</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Notification Settings Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                                Notification Settings
+                            </h2>
+
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex-grow">
+                                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                                            Browser Push Notifications
+                                        </div>
+                                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                            Receive notifications directly in
+                                            your browser when games are updated.
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <button
+                                            className={`mr-3 rounded-md px-3 py-2 text-sm font-medium text-white ${notificationPermission === 'granted' ? 'cursor-default bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                            onClick={async () => {
+                                                try {
+                                                    if (
+                                                        !(
+                                                            'Notification' in
+                                                            window
+                                                        )
+                                                    ) {
+                                                        toast.error(
+                                                            'Browser notifications are not supported.',
+                                                        );
+                                                        return;
+                                                    }
+                                                    if (
+                                                        notificationPermission ===
+                                                        'granted'
+                                                    ) {
+                                                        toast.info(
+                                                            'Permission already granted.',
+                                                        );
+                                                        return;
+                                                    }
+                                                    const permission =
+                                                        await Notification.requestPermission();
+                                                    setNotificationPermission(
+                                                        permission,
+                                                    );
+                                                    if (
+                                                        permission !== 'granted'
+                                                    ) {
+                                                        toast.error(
+                                                            'Permission denied.',
+                                                        );
+                                                        return;
+                                                    }
+                                                    // Enable in preferences once permission granted
+                                                    const next = {
+                                                        ...notifPrefs,
+                                                        browser_notifications_enabled: true,
+                                                    };
+                                                    setNotifPrefs(next);
+                                                    await jsonPost(
+                                                        route(
+                                                            'react-api.dashboard.notifications.update',
+                                                        ),
+                                                        next,
+                                                    );
+                                                    toast.success(
+                                                        'Browser notifications enabled.',
+                                                    );
+                                                } catch {
+                                                    toast.error(
+                                                        'Failed to enable browser notifications.',
+                                                    );
+                                                }
+                                            }}
+                                            disabled={
+                                                notificationPermission ===
+                                                'granted'
+                                            }
+                                            title={
+                                                notificationPermission ===
+                                                'granted'
+                                                    ? 'Permission already granted'
+                                                    : undefined
+                                            }
+                                        >
+                                            {notificationPermission ===
+                                            'granted'
+                                                ? 'Permission Granted'
+                                                : 'Request Permission'}
+                                        </button>
+                                        <label className="relative inline-flex cursor-pointer items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    notifPrefs.browser_notifications_enabled
+                                                }
+                                                onChange={toggleBrowser}
+                                                disabled={savingPrefs}
+                                                className="peer sr-only"
+                                            />
+                                            <div
+                                                className="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 peer-focus:ring-4 peer-focus:ring-indigo-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:translate-x-[-100%] dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-indigo-800"></div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <div className="flex-grow">
+                                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                                            Discord Notifications
+                                        </div>
+                                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                            Receive notifications via Discord
+                                            when games are updated.
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="relative inline-flex cursor-pointer items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    notifPrefs.discord_notifications_enabled
+                                                }
+                                                onChange={toggleDiscord}
+                                                disabled={savingPrefs}
+                                                className="peer sr-only"
+                                            />
+                                            <div
+                                                className="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 peer-focus:ring-4 peer-focus:ring-indigo-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:translate-x-[-100%] dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-indigo-800"></div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6">
+                                    <div className="font-medium text-gray-700 dark:text-gray-300">
+                                        Notification Frequency
+                                    </div>
+                                    <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        Choose how often you'd like to receive
+                                        update notifications.
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                        <label
+                                            className={`relative flex cursor-pointer rounded-lg border border-gray-200 p-4 shadow-sm focus:outline-none dark:border-gray-700 ${notifPrefs.notification_digest === 'asap' ? 'border-indigo-500 ring-2 ring-indigo-500' : ''}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="notification_digest"
+                                                value="asap"
+                                                checked={
+                                                    notifPrefs.notification_digest ===
+                                                    'asap'
+                                                }
+                                                onChange={(e) =>
+                                                    updateDigest(
+                                                        e.target
+                                                            .value as NotificationPreferences['notification_digest'],
+                                                    )
+                                                }
+                                                disabled={savingPrefs}
+                                                className="sr-only"
+                                            />
+                                            <div className="flex w-full items-center justify-between">
+                                                <div className="flex items-center">
+                                                    <div className="text-sm">
+                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                            As soon as possible
+                                                        </p>
+                                                        <p className="text-gray-500 dark:text-gray-400">
+                                                            Get notified
+                                                            immediately when
+                                                            games are updated
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 text-indigo-600 dark:text-indigo-400">
+                                                    <svg
+                                                        className="h-6 w-6"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        strokeWidth="1.5"
+                                                        stroke="currentColor"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            className={`relative flex cursor-pointer rounded-lg border border-gray-200 p-4 shadow-sm focus:outline-none dark:border-gray-700 ${notifPrefs.notification_digest === 'daily' ? 'border-indigo-500 ring-2 ring-indigo-500' : ''}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="notification_digest"
+                                                value="daily"
+                                                checked={
+                                                    notifPrefs.notification_digest ===
+                                                    'daily'
+                                                }
+                                                onChange={(e) =>
+                                                    updateDigest(
+                                                        e.target
+                                                            .value as NotificationPreferences['notification_digest'],
+                                                    )
+                                                }
+                                                disabled={savingPrefs}
+                                                className="sr-only"
+                                            />
+                                            <div className="flex w-full items-center justify-between">
+                                                <div className="flex items-center">
+                                                    <div className="text-sm">
+                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                            Daily digest
+                                                        </p>
+                                                        <p className="text-gray-500 dark:text-gray-400">
+                                                            Get a summary of all
+                                                            updates once per day
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 text-indigo-600 dark:text-indigo-400">
+                                                    <svg
+                                                        className="h-6 w-6"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        strokeWidth="1.5"
+                                                        stroke="currentColor"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            className={`relative flex cursor-pointer rounded-lg border border-gray-200 p-4 shadow-sm focus:outline-none dark:border-gray-700 ${notifPrefs.notification_digest === 'weekly' ? 'border-indigo-500 ring-2 ring-indigo-500' : ''}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="notification_digest"
+                                                value="weekly"
+                                                checked={
+                                                    notifPrefs.notification_digest ===
+                                                    'weekly'
+                                                }
+                                                onChange={(e) =>
+                                                    updateDigest(
+                                                        e.target
+                                                            .value as NotificationPreferences['notification_digest'],
+                                                    )
+                                                }
+                                                disabled={savingPrefs}
+                                                className="sr-only"
+                                            />
+                                            <div className="flex w-full items-center justify-between">
+                                                <div className="flex items-center">
+                                                    <div className="text-sm">
+                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                            Weekly digest
+                                                        </p>
+                                                        <p className="text-gray-500 dark:text-gray-400">
+                                                            Get a summary of all
+                                                            updates once per
+                                                            week
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 text-indigo-600 dark:text-indigo-400">
+                                                    <svg
+                                                        className="h-6 w-6"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        strokeWidth="1.5"
+                                                        stroke="currentColor"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Addition Request Form Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                                Request VN Addition
+                            </h2>
+                            <p className="mb-6 text-gray-600 dark:text-gray-400">
+                                Submit itch.io URLs for visual novels you'd like
+                                to see added to the site. You can submit
+                                multiple URLs at once, one per line.
+                            </p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Itch.io URLs
+                                    </label>
+                                    <textarea
+                                        value={requestText}
+                                        onChange={(e) =>
+                                            setRequestText(e.target.value)
+                                        }
+                                        rows={6}
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        placeholder="https://developer.itch.io/game-name&#10;https://anotherdeveloper.itch.io/another-game&#10;..."
+                                    />
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={submitRequest}
+                                        disabled={
+                                            submittingRequest ||
+                                            requestText.trim() === ''
+                                        }
+                                        className={`rounded-lg px-4 py-2 text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${submittingRequest ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                    >
+                                        {submittingRequest
+                                            ? 'Submitting...'
+                                            : 'Submit Requests'}
+                                    </button>
+                                    <button
+                                        onClick={() => setRequestText('')}
+                                        className="rounded-lg bg-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Success panel mirroring Livewire */}
+                            {showRequestSuccess && requestResults && (
+                                <div
+                                    className="mt-6 rounded-lg border border-green-200 bg-green-100 p-4 dark:border-green-800 dark:bg-green-900/20">
+                                    <div className="flex items-start">
+                                        <svg
+                                            className="mt-0.5 mr-3 h-5 w-5 text-green-600 dark:text-green-400"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                clipRule="evenodd"
+                                            ></path>
+                                        </svg>
+                                        <div>
+                                            <h3 className="font-medium text-green-800 dark:text-green-400">
+                                                Requests Submitted Successfully!
+                                            </h3>
+                                            <div className="mt-2 text-sm text-green-700 dark:text-green-300">
+                                                {requestResults.success_count >
+                                                    0 && (
+                                                        <p>
+                                                            ✓{' '}
+                                                            {
+                                                                requestResults.success_count
+                                                            }{' '}
+                                                            new request(s) submitted
+                                                        </p>
+                                                    )}
+                                                {requestResults.duplicate_count >
+                                                    0 && (
+                                                        <p>
+                                                            ℹ{' '}
+                                                            {
+                                                                requestResults.duplicate_count
+                                                            }{' '}
+                                                            URL(s) already requested
+                                                            by you
+                                                        </p>
+                                                    )}
+                                                {(requestResults.already_exists_count ??
+                                                    0) > 0 && (
+                                                    <p>
+                                                        ℹ{' '}
+                                                        {
+                                                            requestResults.already_exists_count
+                                                        }{' '}
+                                                        game(s) already exist on
+                                                        the site
+                                                    </p>
+                                                )}
+                                                {requestResults.invalid_count >
+                                                    0 && (
+                                                        <p>
+                                                            ⚠{' '}
+                                                            {
+                                                                requestResults.invalid_count
+                                                            }{' '}
+                                                            invalid URL(s) skipped
+                                                        </p>
+                                                    )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Error panel mirroring Livewire */}
+                            {requestResults?.errors &&
+                                requestResults.errors.length > 0 && (
+                                    <div
+                                        className="mt-6 rounded-lg border border-red-200 bg-red-100 p-4 dark:border-red-800 dark:bg-red-900/20">
+                                        <h3 className="mb-2 font-medium text-red-800 dark:text-red-400">
+                                            Some errors occurred:
+                                        </h3>
+                                        <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
+                                            {requestResults.errors.map(
+                                                (error, idx) => (
+                                                    <li key={idx}>• {error}</li>
+                                                ),
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
+
+                            {/* Guidelines Section */}
+                            <div
+                                className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                                <h3 className="mb-2 font-medium text-blue-800 dark:text-blue-400">
+                                    Guidelines:
+                                </h3>
+                                <ul className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
+                                    <li>
+                                        • Only itch.io URLs are accepted (e.g.,
+                                        https://developer.itch.io/game-name)
+                                    </li>
+                                    <li>
+                                        • Submit one URL per line for bulk
+                                        requests
+                                    </li>
+                                    <li>• Maximum 50 URLs per submission</li>
+                                    <li>
+                                        • Games already on the site will be
+                                        automatically filtered out
+                                    </li>
+                                    <li>
+                                        • Duplicate requests are automatically
+                                        handled
+                                    </li>
+                                    <li>
+                                        • You'll be able to track the status of
+                                        your requests in your dashboard
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* User Addition Requests Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <div className="mb-6 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    My Addition Requests
+                                </h2>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    {requests.length} request(s)
+                                </span>
+                            </div>
+
+                            {/* Filters */}
+                            <div className="mb-6 flex flex-col gap-4 sm:flex-row">
+                                <div className="flex-1">
+                                    <input
+                                        type="text"
+                                        value={requestSearch}
+                                        onChange={(e) =>
+                                            setRequestSearch(e.target.value)
+                                        }
+                                        placeholder="Search by URL or status..."
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    />
+                                </div>
+                                <div>
+                                    <select
+                                        value={requestStatus}
+                                        onChange={(e) => {
+                                            const next = e.target.value as
+                                                | 'all'
+                                                | 'pending'
+                                                | 'processing'
+                                                | 'completed'
+                                                | 'rejected';
+                                            setRequestStatus(next);
+                                            loadRequests({status: next});
+                                        }}
+                                        className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    >
+                                        <option value="all">
+                                            All Requests
+                                        </option>
+                                        <option value="pending">Pending</option>
+                                        <option value="processing">
+                                            Processing
+                                        </option>
+                                        <option value="completed">
+                                            Completed
+                                        </option>
+                                        <option value="rejected">
+                                            Rejected
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {(requests.length
+                                        ? requests
+                                        : recentRequestsInitial.slice(0, 5)
+                                ).map((request) => (
+                                    <div
+                                        key={request.id}
+                                        className="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="mb-2 flex items-center gap-2">
+                                                    <span
+                                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                                            request.status_color ===
+                                                            'yellow'
+                                                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                                                                : request.status_color ===
+                                                                'green'
+                                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                                                    : request.status_color ===
+                                                                    'red'
+                                                                        ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                                                        }`}
+                                                    >
+                                                        {request.status_label}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        Requested{' '}
+                                                        {new Date(
+                                                            request.created_at,
+                                                        ).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+
+                                                <div className="mb-2">
+                                                    <a
+                                                        href={request.itch_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="break-all text-blue-600 hover:underline dark:text-blue-400"
+                                                    >
+                                                        {request.itch_url}
+                                                        <svg
+                                                            className="ml-1 inline h-3 w-3"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                                            />
+                                                        </svg>
+                                                    </a>
+                                                </div>
+
+                                                {request.game && (
+                                                    <div className="mb-2">
+                                                        <span className="text-sm text-green-600 dark:text-green-400">
+                                                            ✓ Added to site:
+                                                            <a
+                                                                href={route(
+                                                                    'games.show',
+                                                                    request.game
+                                                                        .slug,
+                                                                )}
+                                                                className="ml-1 hover:underline"
+                                                            >
+                                                                {
+                                                                    request.game
+                                                                        .name
+                                                                }
+                                                            </a>
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {request.rejection_reason && (
+                                                    <div className="mb-2">
+                                                        <div className="text-sm text-red-600 dark:text-red-400">
+                                                            <strong>
+                                                                Rejection
+                                                                reason:
+                                                            </strong>{' '}
+                                                            {
+                                                                request.rejection_reason
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {request.reviewed_at && (
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                        Reviewed{' '}
+                                                        {new Date(
+                                                            request.reviewed_at,
+                                                        ).toLocaleDateString()}
+                                                        {request.reviewer && (
+                                                            <>
+                                                                {' '}
+                                                                by{' '}
+                                                                {
+                                                                    request
+                                                                        .reviewer
+                                                                        .name
+                                                                }
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="ml-4 flex flex-shrink-0 flex-col items-end gap-2">
+                                                {(request.status ===
+                                                    'pending' ||
+                                                    request.status ===
+                                                    'processing') && (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (
+                                                                confirm(
+                                                                    'Are you sure you want to cancel this request? This action cannot be undone.',
+                                                                )
+                                                            ) {
+                                                                cancelRequest(
+                                                                    request.id,
+                                                                );
+                                                            }
+                                                        }}
+                                                        className="inline-flex items-center rounded border border-red-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-600 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                    >
+                                                        <svg
+                                                            className="mr-1 h-3 w-3"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M6 18L18 6M6 6l12 12"
+                                                            />
+                                                        </svg>
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {requestsLoading && (
+                                    <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                                        Loading...
+                                    </div>
+                                )}
+                                {!requestsLoading &&
+                                    requests.length === 0 &&
+                                    recentRequestsInitial.length === 0 && (
+                                        <div className="py-8 text-center">
+                                            <svg
+                                                className="mx-auto h-12 w-12 text-gray-400"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth="2"
+                                                    d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                                />
+                                            </svg>
+                                            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                                                No requests found
+                                            </h3>
+                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                You haven't submitted any
+                                                addition requests yet.
+                                            </p>
+                                        </div>
+                                    )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Game Management Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                                Game Management
+                            </h2>
+                            <p className="mb-4 text-gray-600 dark:text-gray-400">
+                                Manage your games published on itch.io. Add
+                                additional download links and update game
+                                information.
+                            </p>
+
+                            {itchioData.username ? (
+                                <div
+                                    className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+                                    <div className="flex items-center gap-3">
+                                        <ItchioIcon className="h-5 w-5 text-blue-600 dark:text-blue-400"/>
+                                        <div>
+                                            <div className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                                                Connected: {itchioData.username}
+                                                .itch.io
+                                            </div>
+                                            <div className="text-xs text-blue-600 dark:text-blue-400">
+                                                {itchioData.ownedGamesCount}{' '}
+                                                {itchioData.ownedGamesCount ===
+                                                1
+                                                    ? 'game'
+                                                    : 'games'}{' '}
+                                                found
+                                                {itchioData.gamesWithLinks >
+                                                    0 && (
+                                                        <>
+                                                            {' '}
+                                                            •{' '}
+                                                            {
+                                                                itchioData.gamesWithLinks
+                                                            }{' '}
+                                                            with download links
+                                                        </>
+                                                    )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    className="mb-4 flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                                    <div className="flex items-center gap-3">
+                                        <svg
+                                            className="h-5 w-5 text-yellow-600 dark:text-yellow-400"
+                                            viewBox="0 0 245.371 220.736"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                d="M31.99 1.365C21.287 7.72 13.498 18.838 8.617 30.819 3.937 42.3 1.172 55.632 1.172 70.221c0 14.391 2.774 27.523 7.546 38.803 4.971 11.68 12.569 22.401 23.07 28.747 10.501 6.345 23.806 9.519 39.993 9.519h103.507c16.286 0 29.59-3.174 40.091-9.52 10.502-6.345 18.1-17.066 23.071-28.746 4.772-11.28 7.546-24.412 7.546-38.803 0-14.589-2.765-27.92-7.445-39.402-4.881-11.98-12.67-23.098-23.373-29.454C204.081-5.091 190.677-8.265 174.39-8.265H70.883c-16.287 0-29.59 3.174-40.091 9.52l1.198 2.065zm45.893 13.58c-6.345 0-12.491 1.198-18.24 3.562-5.55 2.364-10.501 5.948-14.784 10.43-4.284 4.483-7.669 10.032-9.934 16.377-2.265 6.146-3.462 13.09-3.462 20.433 0 7.144 1.197 14.088 3.462 20.234 2.265 6.345 5.65 11.894 9.934 16.377 4.283 4.482 9.235 8.066 14.784 10.43 5.749 2.364 11.895 3.562 18.24 3.562h89.304c6.345 0 12.491-1.198 18.24-3.562 5.55-2.364 10.501-5.948 14.785-10.43 4.283-4.483 7.668-10.032 9.933-16.377 2.265-6.146 3.463-13.09 3.463-20.234 0-7.343-1.198-14.287-3.463-20.433-2.265-6.345-5.65-11.894-9.933-16.377-4.284-4.482-9.235-8.066-14.785-10.43-5.749-2.364-11.895-3.562-18.24-3.562H77.883z"/>
+                                        </svg>
+                                        <div className="text-sm text-yellow-800 dark:text-yellow-300">
+                                            Connect your itch.io account to
+                                            manage your games
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <Link
+                                href={route('my-games.index')}
+                                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                                    />
+                                </svg>
+                                <span>Manage My Games</span>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column - Connected Accounts */}
+                <div className="space-y-6 lg:col-span-2">
+                    <ConnectedAccounts
+                        user={user as unknown as TypedUser}
+                        connectedProviders={connectedProviders}
+                        socialAccounts={
+                            socialAccounts as unknown as Record<
+                                string,
+                                TypedSocialAccount
+                            >
+                        }
+                    />
+
+                    {/* Danger Zone */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <h2 className="mb-4 text-lg font-semibold text-red-600 dark:text-red-500">
+                                Danger Zone
+                            </h2>
+                            <div
+                                className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                                <h3 className="mb-2 font-medium text-red-800 dark:text-red-400">
+                                    Delete Account
+                                </h3>
+                                <p className="mb-4 text-sm text-red-700 dark:text-red-300">
+                                    Once you delete your account, there is no
+                                    going back. Please be certain.
+                                </p>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            if (
+                                                !confirm(
+                                                    'Are you sure you want to delete your account? This action cannot be undone.',
+                                                )
+                                            ) {
+                                                return;
+                                            }
+                                            const res = await authenticatedFetch(
+                                                route('user.account.delete'),
+                                                {
+                                                    method: 'POST',
+                                                    body: JSON.stringify({
+                                                        _method: 'DELETE',
+                                                        password: '',
+                                                    }),
+                                                },
+                                            );
+                                            if (res.ok) {
+                                                // Redirect to home after deletion
+                                                window.location.href =
+                                                    route('home');
+                                            } else {
+                                                const data = await res
+                                                    .json()
+                                                    .catch(() => ({}));
+                                                alert(
+                                                    data?.message ||
+                                                    'Failed to delete account. Please verify your password.',
+                                                );
+                                            }
+                                        } catch {
+                                            alert(
+                                                'An error occurred while deleting the account.',
+                                            );
+                                        }
+                                    }}
+                                    className="rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
+                                >
+                                    Delete Account
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+}

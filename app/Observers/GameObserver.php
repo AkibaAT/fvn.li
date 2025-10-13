@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
-use App\Livewire\GameList;
 use App\Models\Game;
+use App\Services\GameFilterService;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -29,7 +29,7 @@ class GameObserver
      */
     public function created(Game $game): void
     {
-        GameList::clearFilterCache();
+        GameFilterService::clearCache();
 
         // Process any pending associations
         $game->processPendingGameJams();
@@ -62,7 +62,7 @@ class GameObserver
 
         // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
-            GameList::clearFilterCache();
+            GameFilterService::clearCache();
         }
 
         // Handle thumbnail updates
@@ -124,7 +124,7 @@ class GameObserver
      */
     public function deleted(Game $game): void
     {
-        GameList::clearFilterCache();
+        GameFilterService::clearCache();
 
         // Clean up optimized thumbnails if they exist
         if ($game->optimized_thumbnails) {

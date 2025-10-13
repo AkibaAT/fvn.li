@@ -15,10 +15,12 @@ use Throwable;
 class RefreshFeedlessGames extends Command
 {
     use SelectsGames;
+
     protected $signature = 'games:refresh-feedless
         {--game-id= : ID of the specific game to refresh}
         {--game-name= : Name (or part of name) of the game(s) to refresh}
         {--all : Refresh all visible feedless games}';
+
     protected $description = 'Refresh version information for feedless games';
 
     /**

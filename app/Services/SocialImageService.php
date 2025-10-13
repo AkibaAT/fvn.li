@@ -42,37 +42,84 @@ class SocialImageService
         // Check if we already have a cached image
         $cachedImagePath = Cache::get("social_image_{$cacheKey}");
         if ($cachedImagePath && Storage::disk('public')->exists($cachedImagePath)) {
-            return Storage::disk('public')->url($cachedImagePath);
+            return Storage::url($cachedImagePath);
         }
 
         // Ensure games is a collection
         if ($games instanceof Collection) {
             $gamesCollection = $games;
-        } elseif (method_exists($games, 'getCollection')) {
-            $gamesCollection = $games->getCollection();
         } else {
             $gamesCollection = collect($games);
         }
 
         // Filter games that have thumbnails (using the same logic as game cards)
         $gamesWithThumbs = $gamesCollection->filter(function ($game) {
-            // Use the same method as the game cards to get thumbnail URL
-            $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
-                ? $game->getThumbnailUrl('small')
-                : $game->thumb_url;
+            // Handle both object and array formats
+            if (is_object($game)) {
+                $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
+                    ? $game->getThumbnailUrl('small')
+                    : ($game->thumb_url ?? null);
+            } else {
+                // Handle array format (from paginator)
+                $thumbnailUrl = $game['thumb_url'] ?? null;
+            }
 
             return ! empty($thumbnailUrl);
         })->take(8);
 
         if ($gamesWithThumbs->isEmpty()) {
-            return null;
+            // Log why no thumbnails were found for debugging
+            logger()->warning('No games with thumbnails found for collage generation', [
+                'total_games' => $gamesCollection->count(),
+                'games_data' => $gamesCollection->take(3)->map(function ($game) {
+                    if (is_object($game)) {
+                        return [
+                            'id' => $game->id ?? 'unknown',
+                            'name' => $game->name ?? 'unknown',
+                            'thumb_url' => $game->thumb_url ?? null,
+                            'has_getThumbnailUrl' => method_exists($game, 'getThumbnailUrl'),
+                        ];
+                    } else {
+                        return [
+                            'id' => $game['id'] ?? 'unknown',
+                            'name' => $game['name'] ?? 'unknown',
+                            'thumb_url' => $game['thumb_url'] ?? null,
+                        ];
+                    }
+                })->toArray(),
+            ]);
+
+            // Return default fallback image when no games have thumbnails
+            return $this->getDefaultSocialImage();
         }
+
+        // Log games with thumbnails for debugging
+        logger()->info('Starting collage generation', [
+            'games_with_thumbs_count' => $gamesWithThumbs->count(),
+            'cache_key' => $cacheKey,
+            'first_few_games' => $gamesWithThumbs->take(3)->map(function ($game) {
+                if (is_object($game)) {
+                    return [
+                        'id' => $game->id ?? 'unknown',
+                        'name' => $game->name ?? 'unknown',
+                        'thumb_url' => $game->thumb_url ?? null,
+                    ];
+                } else {
+                    return [
+                        'id' => $game['id'] ?? 'unknown',
+                        'name' => $game['name'] ?? 'unknown',
+                        'thumb_url' => $game['thumb_url'] ?? null,
+                    ];
+                }
+            })->toArray(),
+        ]);
 
         try {
             // Create the base collage image (1200x630 for optimal social media sharing)
             $collageWidth = 1200;
             $collageHeight = 630;
-            $collage = $this->imageManager->create($collageWidth, $collageHeight)->fill('#1f2937'); // Dark gray background
+            $collage = $this->imageManager->create($collageWidth,
+                $collageHeight)->fill('#1f2937'); // Dark gray background
 
             // Calculate grid layout optimized for square thumbnails
             $thumbsCount = $gamesWithThumbs->count();
@@ -130,9 +177,14 @@ class SocialImageService
 
                 try {
                     // Use the same thumbnail URL logic as game cards
-                    $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
-                        ? $game->getThumbnailUrl('small')
-                        : $game->thumb_url;
+                    if (is_object($game)) {
+                        $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
+                            ? $game->getThumbnailUrl('small')
+                            : ($game->thumb_url ?? null);
+                    } else {
+                        // Handle array format (from paginator)
+                        $thumbnailUrl = $game['thumb_url'] ?? null;
+                    }
 
                     if (! $thumbnailUrl) {
                         continue;
@@ -195,7 +247,7 @@ class SocialImageService
             // Cache the image path for 6 hours
             Cache::put("social_image_{$cacheKey}", $imagePath, 21600);
 
-            return Storage::disk('public')->url($imagePath);
+            return Storage::url($imagePath);
 
         } catch (Exception $e) {
             // Log error but don't fail completely
@@ -204,7 +256,8 @@ class SocialImageService
                 'cache_key' => $cacheKey,
             ]);
 
-            return null;
+            // Return default fallback image on generation failure
+            return $this->getDefaultSocialImage();
         }
     }
 
@@ -216,23 +269,31 @@ class SocialImageService
         // Ensure games is a collection
         if ($games instanceof Collection) {
             $gamesCollection = $games;
-        } elseif (method_exists($games, 'getCollection')) {
-            $gamesCollection = $games->getCollection();
         } else {
             $gamesCollection = collect($games);
         }
 
         // Use game IDs and their updated timestamps for cache key
         $gameData = $gamesCollection->take(8)->map(function ($game) {
-            $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
-                ? $game->getThumbnailUrl('small')
-                : $game->thumb_url;
+            // Handle both object and array formats
+            if (is_object($game)) {
+                $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
+                    ? $game->getThumbnailUrl('small')
+                    : ($game->thumb_url ?? null);
 
-            return [
-                'id' => $game->id,
-                'updated' => $game->updated_at?->timestamp,
-                'thumb' => $thumbnailUrl,
-            ];
+                return [
+                    'id' => $game->id,
+                    'updated' => $game->updated_at?->timestamp ?? 0,
+                    'thumb' => $thumbnailUrl,
+                ];
+            } else {
+                // Handle array format (from paginator)
+                return [
+                    'id' => $game['id'] ?? 0,
+                    'updated' => isset($game['updated_at']) ? strtotime($game['updated_at']) : 0,
+                    'thumb' => $game['thumb_url'] ?? null,
+                ];
+            }
         })->toArray();
 
         $keyData = [
@@ -269,6 +330,20 @@ class SocialImageService
     }
 
     /**
+     * Get the default social media image URL
+     */
+    public function getDefaultSocialImage(): string
+    {
+        // Use social-fallback.jpg as the primary fallback for all social embeds
+        $socialFallbackPath = public_path('images/social-fallback.jpg');
+        if (file_exists($socialFallbackPath)) {
+            return url('images/social-fallback.jpg');
+        }
+
+        return '';
+    }
+
+    /**
      * Download an image from URL
      */
     private function downloadImage(string $url): ?string
@@ -302,6 +377,9 @@ class SocialImageService
             $fontPath = resource_path('fonts/roboto.ttf');
             if (file_exists($fontPath)) {
                 $font->filename($fontPath);
+            } else {
+                // Fallback to system font if Roboto is not available
+                $font->filename('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf');
             }
             $font->size(60);
             $font->color('#ffffff');

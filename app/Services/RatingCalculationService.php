@@ -31,6 +31,24 @@ class RatingCalculationService
     }
 
     /**
+     * Calculate rating statistics for a specific game
+     */
+    public function calculateGameRating(int $gameId): array
+    {
+        $ratingStats = Rating::where('game_id', $gameId)->where('is_visible', true)
+            ->selectRaw('
+                COUNT(*) as total_count,
+                AVG(rating) as average_rating
+            ')
+            ->first();
+
+        return [
+            'total_count' => (int) ($ratingStats->total_count ?? 0),
+            'average_rating' => $ratingStats->average_rating ? round((float) $ratingStats->average_rating, 2) : null,
+        ];
+    }
+
+    /**
      * Recalculate ratings for all games
      */
     public function recalculateAllGameRatings(): int
@@ -68,23 +86,5 @@ class RatingCalculationService
         ]);
 
         return $updatedCount + $resetCount;
-    }
-
-    /**
-     * Calculate rating statistics for a specific game
-     */
-    public function calculateGameRating(int $gameId): array
-    {
-        $ratingStats = Rating::where('game_id', $gameId)->where('is_visible', true)
-            ->selectRaw('
-                COUNT(*) as total_count,
-                AVG(rating) as average_rating
-            ')
-            ->first();
-
-        return [
-            'total_count' => (int) ($ratingStats->total_count ?? 0),
-            'average_rating' => $ratingStats->average_rating ? round((float) $ratingStats->average_rating, 2) : null,
-        ];
     }
 }

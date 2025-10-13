@@ -18,6 +18,48 @@ use Minishlink\WebPush\WebPush;
 class NotificationService
 {
     /**
+     * Send a push notification directly to a user.
+     */
+    public function sendPushToUser(User $user, Game $game, GameVersion $gameVersion): bool
+    {
+        $subscriptions = PushSubscription::where('user_id', $user->id)->get();
+
+        if ($subscriptions->isEmpty()) {
+            return false;
+        }
+
+        $payload = [
+            'title' => $game->name . ' - New Update Available',
+            'body' => 'Version ' . $gameVersion->version . ' is now available.',
+            'data' => [
+                'url' => route('games.show', $game->slug),
+                'game_id' => $game->id,
+                'game_version_id' => $gameVersion->id,
+                'version' => $gameVersion->version,
+            ],
+            'icon' => $game->getThumbnailUrl('small'),
+        ];
+
+        $success = $this->sendPushNotifications($subscriptions, $payload);
+
+        if ($success) {
+            // Record in notification history
+            NotificationHistory::create([
+                'user_id' => $user->id,
+                'game_id' => $game->id,
+                'game_version_id' => $gameVersion->id,
+                'type' => 'browser',
+                'success' => true,
+                'meta_data' => [
+                    'digest' => false,
+                ],
+            ]);
+        }
+
+        return $success;
+    }
+
+    /**
      * Send push notifications to a collection of subscriptions.
      */
     public function sendPushNotifications(Collection $subscriptions, array $payload): bool
@@ -80,48 +122,6 @@ class NotificationService
     }
 
     /**
-     * Send a push notification directly to a user.
-     */
-    public function sendPushToUser(User $user, Game $game, GameVersion $gameVersion): bool
-    {
-        $subscriptions = PushSubscription::where('user_id', $user->id)->get();
-
-        if ($subscriptions->isEmpty()) {
-            return false;
-        }
-
-        $payload = [
-            'title' => $game->name . ' - New Update Available',
-            'body' => 'Version ' . $gameVersion->version . ' is now available.',
-            'data' => [
-                'url' => route('games.show', $game->slug),
-                'game_id' => $game->id,
-                'game_version_id' => $gameVersion->id,
-                'version' => $gameVersion->version,
-            ],
-            'icon' => $game->getThumbnailUrl('small'),
-        ];
-
-        $success = $this->sendPushNotifications($subscriptions, $payload);
-
-        if ($success) {
-            // Record in notification history
-            NotificationHistory::create([
-                'user_id' => $user->id,
-                'game_id' => $game->id,
-                'game_version_id' => $gameVersion->id,
-                'type' => 'browser',
-                'success' => true,
-                'meta_data' => [
-                    'digest' => false,
-                ],
-            ]);
-        }
-
-        return $success;
-    }
-
-    /**
      * Send a digest notification to a user.
      */
     public function sendDigestToUser(User $user, Collection $games, string $digestType): bool
@@ -145,7 +145,7 @@ class NotificationService
             'title' => $title,
             'body' => $body,
             'data' => [
-                'url' => route('user.notifications.digest', ['date' => now()->format('Y-m-d')]),
+                'url' => route('dashboard'),
                 'digest' => true,
                 'games' => $games->map(function ($game) {
                     return [

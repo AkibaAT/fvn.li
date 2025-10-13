@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Character extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'game_id',
         'character_id',
         'display_names',
         'first_seen_in_version_id',
         'last_seen_in_version_id',
+        'gender',
+        'species',
+        'age',
     ];
 
     protected $casts = [
@@ -41,7 +47,8 @@ class Character extends Model
                 $query->where('version_character_stats.iso_code', $languageCode);
             })
             ->distinct('characters.character_id')
-            ->select('characters.id', 'characters.character_id', 'characters.display_names', 'characters.display_name_corrections')
+            ->select('characters.id', 'characters.character_id', 'characters.display_names',
+                'characters.display_name_corrections')
             ->get();
 
         // Use the provided language code for display names, fallback to English if none provided
@@ -53,6 +60,17 @@ class Character extends Model
         })->unique()->values();
 
         return $displayNames->count();
+    }
+
+    public function getDisplayName(string $isoCode): ?string
+    {
+        // First check for a manual correction
+        if (isset($this->display_name_corrections[$isoCode])) {
+            return $this->display_name_corrections[$isoCode];
+        }
+
+        // Fall back to the original display name
+        return $this->display_names[$isoCode] ?? null;
     }
 
     public function game(): BelongsTo
@@ -78,16 +96,5 @@ class Character extends Model
     public function dialogueLines(): HasMany
     {
         return $this->hasMany(DialogueLine::class);
-    }
-
-    public function getDisplayName(string $isoCode): ?string
-    {
-        // First check for a manual correction
-        if (isset($this->display_name_corrections[$isoCode])) {
-            return $this->display_name_corrections[$isoCode];
-        }
-
-        // Fall back to the original display name
-        return $this->display_names[$isoCode] ?? null;
     }
 }

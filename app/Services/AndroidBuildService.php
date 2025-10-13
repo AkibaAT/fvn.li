@@ -11,10 +11,12 @@ use App\Traits\HandlesLocalImages;
 use App\ValueObjects\Upload;
 use Exception;
 use GuzzleHttp\Client;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 use RuntimeException;
 use Symfony\Component\Process\Process as SymfonyProcess;
@@ -31,47 +33,13 @@ class AndroidBuildService
         private readonly Client $httpClient
     ) {
         // Initialize ImageManager with GD driver using fully qualified class name
-        $this->imageManager = new ImageManager(\Intervention\Image\Drivers\Gd\Driver::class);
-    }
-
-    /**
-     * Check if a game is eligible for Android builds
-     */
-    public function isEligibleForAndroidBuild(Game $game, ?GameVersion $version = null): bool
-    {
-        // Must be a Ren'Py game
-        if ($game->game_engine !== "Ren'Py") {
-            return false;
-        }
-
-        // If a specific version is provided, check if it already has Android support
-        if ($version && $version->is_android) {
-            return false;
-        }
-
-        // If no specific version, check if the latest version has Android support
-        if (! $version && $game->gameVersions()->where('is_latest', true)->where('is_android', true)->exists()) {
-            return false;
-        }
-
-        // Check if the Ren'Py SDK is configured
-        $sdkPath = config('services.renpy.sdk_path');
-        if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
-            return false;
-        }
-
-        // Check if the Android SDK is configured within Ren'Py
-        if (! File::exists($sdkPath . '/rapt')) {
-            return false;
-        }
-
-        return true;
+        $this->imageManager = new ImageManager(Driver::class);
     }
 
     /**
      * Request an Android build for a game
      *
-     * @param  \Illuminate\Contracts\Auth\Authenticatable  $user
+     * @param  Authenticatable  $user
      * @param  bool  $createNew  Whether to create a new build record or just check for existing ones
      *
      * @throws Exception
@@ -124,6 +92,40 @@ class AndroidBuildService
             'status' => 'pending',
             'build_id' => Str::uuid(),
         ]);
+    }
+
+    /**
+     * Check if a game is eligible for Android builds
+     */
+    public function isEligibleForAndroidBuild(Game $game, ?GameVersion $version = null): bool
+    {
+        // Must be a Ren'Py game
+        if ($game->game_engine !== "Ren'Py") {
+            return false;
+        }
+
+        // If a specific version is provided, check if it already has Android support
+        if ($version && $version->is_android) {
+            return false;
+        }
+
+        // If no specific version, check if the latest version has Android support
+        if (! $version && $game->gameVersions()->where('is_latest', true)->where('is_android', true)->exists()) {
+            return false;
+        }
+
+        // Check if the Ren'Py SDK is configured
+        $sdkPath = config('services.renpy.sdk_path');
+        if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
+            return false;
+        }
+
+        // Check if the Android SDK is configured within Ren'Py
+        if (! File::exists($sdkPath . '/rapt')) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -372,6 +374,100 @@ class AndroidBuildService
     }
 
     /**
+     * Get an existing keystore for this game or create a new one
+     */
+    private function getOrCreateKeystore(Game $game): string
+    {
+        $keystoreDir = storage_path('app/keystores');
+        File::makeDirectory($keystoreDir, 0755, true, true);
+
+        $keystorePath = $keystoreDir . '/' . $game->id . '.keystore';
+
+        // If keystore already exists, return it
+        if (File::exists($keystorePath)) {
+            Log::info('Using existing keystore for game', [
+                'game_id' => $game->id,
+                'keystore_path' => $keystorePath,
+            ]);
+
+            return $keystorePath;
+        }
+
+        Log::info('Creating new keystore for game', [
+            'game_id' => $game->id,
+            'keystore_path' => $keystorePath,
+        ]);
+
+        try {
+            // Use the correct command for generating a keystore with empty passwords
+            $process = new SymfonyProcess([
+                'keytool',
+                '-genkey',
+                '-v',
+                '-keystore', $keystorePath,
+                '-alias', 'android',
+                '-keyalg', 'RSA',
+                '-keysize', '2048',
+                '-keypass', 'android',
+                '-storepass', 'android',
+                '-validity', '20000',
+                '-dname', "CN={$game->name}, OU=FVN.li, O=FVN.li, L=Unknown, ST=Unknown, C=AT",
+            ]);
+
+            $process->setTimeout(60); // Give it a minute to run
+            $process->run();
+
+            if (! $process->isSuccessful()) {
+                $output = $process->getOutput();
+                $errorOutput = $process->getErrorOutput();
+                $exitCode = $process->getExitCode();
+
+                Log::error('Failed to generate keystore with keytool', [
+                    'output' => $output,
+                    'error_output' => $errorOutput,
+                    'exit_code' => $exitCode,
+                    'game_id' => $game->id,
+                ]);
+
+                // Fall back to creating a dummy keystore
+                Log::info('Falling back to dummy keystore for game', [
+                    'game_id' => $game->id,
+                ]);
+
+                // Create a simple keystore file with some random data
+                $keystoreData = random_bytes(2048); // Generate some random data
+                File::put($keystorePath, $keystoreData);
+            } else {
+                Log::info('Successfully created keystore with keytool', [
+                    'game_id' => $game->id,
+                ]);
+            }
+
+            return $keystorePath;
+        } catch (Exception $e) {
+            Log::error('Failed to create keystore', [
+                'error' => $e->getMessage(),
+                'game_id' => $game->id,
+            ]);
+
+            // Fall back to creating a dummy keystore
+            try {
+                Log::info('Falling back to dummy keystore after exception', [
+                    'game_id' => $game->id,
+                ]);
+
+                // Create a simple keystore file with some random data
+                $keystoreData = random_bytes(2048); // Generate some random data
+                File::put($keystorePath, $keystoreData);
+
+                return $keystorePath;
+            } catch (Exception $innerException) {
+                throw new RuntimeException('Failed to create keystore: ' . $e->getMessage() . ' and fallback also failed: ' . $innerException->getMessage());
+            }
+        }
+    }
+
+    /**
      * Extract the game archive
      */
     private function extractArchive(string $archivePath, string $extractPath): void
@@ -567,121 +663,6 @@ class AndroidBuildService
     }
 
     /**
-     * Get an existing keystore for this game or create a new one
-     */
-    private function getOrCreateKeystore(Game $game): string
-    {
-        $keystoreDir = storage_path('app/keystores');
-        File::makeDirectory($keystoreDir, 0755, true, true);
-
-        $keystorePath = $keystoreDir . '/' . $game->id . '.keystore';
-
-        // If keystore already exists, return it
-        if (File::exists($keystorePath)) {
-            Log::info('Using existing keystore for game', [
-                'game_id' => $game->id,
-                'keystore_path' => $keystorePath,
-            ]);
-
-            return $keystorePath;
-        }
-
-        Log::info('Creating new keystore for game', [
-            'game_id' => $game->id,
-            'keystore_path' => $keystorePath,
-        ]);
-
-        try {
-            // Use the correct command for generating a keystore with empty passwords
-            $process = new SymfonyProcess([
-                'keytool',
-                '-genkey',
-                '-v',
-                '-keystore', $keystorePath,
-                '-alias', 'android',
-                '-keyalg', 'RSA',
-                '-keysize', '2048',
-                '-keypass', 'android',
-                '-storepass', 'android',
-                '-validity', '20000',
-                '-dname', "CN={$game->name}, OU=FVN.li, O=FVN.li, L=Unknown, ST=Unknown, C=AT",
-            ]);
-
-            $process->setTimeout(60); // Give it a minute to run
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                $output = $process->getOutput();
-                $errorOutput = $process->getErrorOutput();
-                $exitCode = $process->getExitCode();
-
-                Log::error('Failed to generate keystore with keytool', [
-                    'output' => $output,
-                    'error_output' => $errorOutput,
-                    'exit_code' => $exitCode,
-                    'game_id' => $game->id,
-                ]);
-
-                // Fall back to creating a dummy keystore
-                Log::info('Falling back to dummy keystore for game', [
-                    'game_id' => $game->id,
-                ]);
-
-                // Create a simple keystore file with some random data
-                $keystoreData = random_bytes(2048); // Generate some random data
-                File::put($keystorePath, $keystoreData);
-            } else {
-                Log::info('Successfully created keystore with keytool', [
-                    'game_id' => $game->id,
-                ]);
-            }
-
-            return $keystorePath;
-        } catch (Exception $e) {
-            Log::error('Failed to create keystore', [
-                'error' => $e->getMessage(),
-                'game_id' => $game->id,
-            ]);
-
-            // Fall back to creating a dummy keystore
-            try {
-                Log::info('Falling back to dummy keystore after exception', [
-                    'game_id' => $game->id,
-                ]);
-
-                // Create a simple keystore file with some random data
-                $keystoreData = random_bytes(2048); // Generate some random data
-                File::put($keystorePath, $keystoreData);
-
-                return $keystorePath;
-            } catch (Exception $innerException) {
-                throw new RuntimeException('Failed to create keystore: ' . $e->getMessage() . ' and fallback also failed: ' . $innerException->getMessage());
-            }
-        }
-    }
-
-    /**
-     * Store the APK file
-     *
-     * @param  AndroidBuild  $build  The build parameter is not used but kept for future tracking purposes
-     */
-    private function storeApk(string $apkPath, Game $game, GameVersion $version, AndroidBuild $build): string
-    {
-        // @phpstan-ignore-next-line
-
-        $storagePath = "public/android_builds/{$game->id}/{$version->id}";
-        $filename = "fvn-li-{$game->slug}-{$version->version}.apk";
-
-        // Ensure directory exists
-        Storage::makeDirectory($storagePath);
-
-        // Store the APK
-        Storage::putFileAs($storagePath, $apkPath, $filename);
-
-        return "{$storagePath}/{$filename}";
-    }
-
-    /**
      * Convert a version string to a numeric version code for Android
      *
      * Takes a version string like "0.4.1" and converts it to a numeric version
@@ -813,5 +794,26 @@ class AndroidBuildService
                 'exception' => $e,
             ]);
         }
+    }
+
+    /**
+     * Store the APK file
+     *
+     * @param  AndroidBuild  $build  The build parameter is not used but kept for future tracking purposes
+     */
+    private function storeApk(string $apkPath, Game $game, GameVersion $version, AndroidBuild $build): string
+    {
+        // @phpstan-ignore-next-line
+
+        $storagePath = "public/android_builds/{$game->id}/{$version->id}";
+        $filename = "fvn-li-{$game->slug}-{$version->version}.apk";
+
+        // Ensure directory exists
+        Storage::makeDirectory($storagePath);
+
+        // Store the APK
+        Storage::putFileAs($storagePath, $apkPath, $filename);
+
+        return "{$storagePath}/{$filename}";
     }
 }

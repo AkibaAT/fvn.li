@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 class GameVersion extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'published_at',
         'game_id',

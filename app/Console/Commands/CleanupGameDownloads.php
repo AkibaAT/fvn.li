@@ -12,6 +12,7 @@ use Illuminate\Console\Command;
 class CleanupGameDownloads extends Command
 {
     use SelectsGames;
+
     /**
      * The name and signature of the console command.
      *

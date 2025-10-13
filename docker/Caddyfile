@@ -44,6 +44,15 @@
 			respond "Access denied" 403
 		}
 
+		# Handle collage images with fallback to social-fallback.jpg
+		@collage_images {
+			path_regexp collage ^/storage/social-images/collage_.*\.(webp|jpg|jpeg|png)$
+		}
+		handle @collage_images {
+			try_files {path} /images/social-fallback.jpg
+			header Cache-Control "public, max-age=31536000, immutable"
+		}
+
 		# Mercure configuration is injected here...
 		{$CADDY_SERVER_EXTRA_DIRECTIVES}
 

@@ -1,0 +1,172 @@
+/* Base theme CSS variables */
+:root {
+    /* Brand colors */
+    --color-itchio: #FA5C5C;
+    --color-steam-primary: #144b7e;
+    --color-steam-secondary: #fff;
+
+    /* Platform colors */
+    --color-platform-windows: #00A4EF;
+    --color-platform-linux-light: #000000;
+    --color-platform-linux-dark: #F0B90B;
+    --color-platform-mac-light: #555555;
+    --color-platform-mac-dark: #e5e7eb;
+    --color-platform-android: #3DDC84;
+    --color-platform-web: #4285F4;
+
+    /* Progress colors */
+    --color-progress-primary: #4F46E5;
+
+    /* Chart colors */
+    --color-chart-primary: #3b82f6;
+    --color-chart-secondary: #8b5cf6;
+    --color-chart-success: #10b981;
+    --color-chart-warning: #EAB308;
+
+    /* Chart background colors with alpha */
+    --color-chart-primary-bg: rgba(59, 130, 246, 0.1);
+    --color-chart-secondary-bg: rgba(139, 92, 246, 0.1);
+    --color-chart-success-bg: rgba(16, 185, 129, 0.1);
+    --color-chart-warning-bg: rgba(234, 179, 8, 0.1);
+
+    /* Chart light variants */
+    --color-chart-primary-light: #93c5fd;
+    --color-chart-primary-light-bg: rgba(147, 197, 253, 0.1);
+    --color-chart-secondary-light: #c4b5fd;
+    --color-chart-secondary-light-bg: rgba(196, 181, 253, 0.1);
+    --color-chart-success-light: #6ee7b7;
+    --color-chart-success-light-bg: rgba(110, 231, 183, 0.1);
+
+    /* Grid and axis colors for charts */
+    --color-chart-grid-axis-label: rgb(156, 163, 175);
+    --color-chart-grid-line-light: rgba(148, 163, 184, 0.35);
+    --color-chart-grid-line-dark: rgba(255, 255, 255, 0.1);
+    --color-chart-grid-split-line: rgba(148, 163, 184, 0.15);
+    --color-chart-axis-line-light: rgba(71, 85, 105, 0.6);
+    --color-chart-axis-line-dark: rgba(203, 213, 225, 0.6);
+}
+
+/* Light mode UI colors */
+:root {
+    --color-ui-background: #ffffff;
+    --color-ui-text: #111827;
+    --color-ui-border: #e5e7eb;
+
+    /* Tooltip colors */
+    --color-tooltip-background: rgba(255, 255, 255, 0.95);
+    --color-tooltip-border: rgba(229, 231, 235, 1);
+    --color-tooltip-title: #111827;
+    --color-tooltip-body: #111827;
+
+    /* Editor colors */
+    --color-editor-background: #ffffff;
+    --color-editor-text: #111827;
+    --color-editor-toolbar-border: #ddd;
+    --color-editor-toolbar-background: #ffffff;
+    --color-editor-link: #2563eb;
+    --color-editor-menubar-background: #f3f4f6;
+    --color-editor-menubar-text: #1f2937;
+    --color-editor-content-background: #f9fafb;
+    --color-editor-content-text: #111827;
+    --color-editor-content-border: #e5e7eb;
+    --color-editor-blockquote-border: #2563eb;
+    --color-editor-pre-text: #6b7280;
+}
+
+/* Dark mode UI colors */
+.dark {
+    --color-ui-background: #1f2937;
+    --color-ui-text: #f9fafb;
+    --color-ui-border: #4b5563;
+
+    /* Tooltip colors */
+    --color-tooltip-background: rgba(17, 24, 39, 0.95);
+    --color-tooltip-border: rgba(55, 65, 81, 1);
+    --color-tooltip-title: #E5E7EB;
+    --color-tooltip-body: #E5E7EB;
+
+    /* Editor colors */
+    --color-editor-background: #1f2937;
+    --color-editor-text: #f9fafb;
+    --color-editor-toolbar-border: #4b5563;
+    --color-editor-toolbar-background: #374151;
+    --color-editor-link: #60a5fa;
+    --color-editor-menubar-background: #374151;
+    --color-editor-menubar-text: #f9fafb;
+    --color-editor-content-background: #111827;
+    --color-editor-content-text: #f9fafb;
+    --color-editor-content-border: #4b5563;
+    --color-editor-blockquote-border: #60a5fa;
+    --color-editor-pre-text: #d1d5db;
+}
+
+/* Utility classes for platform colors */
+.text-platform-windows {
+    color: var(--color-platform-windows);
+}
+
+.text-platform-linux {
+    color: var(--color-platform-linux-light);
+}
+
+.dark .text-platform-linux {
+    color: var(--color-platform-linux-dark);
+}
+
+.text-platform-mac {
+    color: var(--color-platform-mac-light);
+}
+
+.dark .text-platform-mac {
+    color: var(--color-platform-mac-dark);
+}
+
+.text-platform-android {
+    color: var(--color-platform-android);
+}
+
+.text-platform-web {
+    color: var(--color-platform-web);
+}
+
+/* Utility classes for brand colors */
+.text-itchio {
+    color: var(--color-itchio);
+}
+
+.fill-itchio {
+    fill: var(--color-itchio);
+}
+
+/* Utility classes for chart colors */
+.border-chart-primary {
+    border-color: var(--color-chart-primary);
+}
+
+.border-chart-secondary {
+    border-color: var(--color-chart-secondary);
+}
+
+.border-chart-success {
+    border-color: var(--color-chart-success);
+}
+
+.border-chart-warning {
+    border-color: var(--color-chart-warning);
+}
+
+.bg-chart-primary {
+    background-color: var(--color-chart-primary-bg);
+}
+
+.bg-chart-secondary {
+    background-color: var(--color-chart-secondary-bg);
+}
+
+.bg-chart-success {
+    background-color: var(--color-chart-success-bg);
+}
+
+.bg-chart-warning {
+    background-color: var(--color-chart-warning-bg);
+}

@@ -102,6 +102,55 @@ class ManageAuditPrivacy extends Command
     }
 
     /**
+     * Get the target user for operations
+     */
+    private function getTargetUser(): ?User
+    {
+        $userId = $this->option('user-id');
+        $email = $this->option('email');
+
+        if (! $userId && ! $email) {
+            $this->error('Either --user-id or --email must be provided.');
+
+            return null;
+        }
+
+        if ($userId) {
+            $user = User::find($userId);
+            if (! $user) {
+                $this->error("User with ID {$userId} not found.");
+
+                return null;
+            }
+        } else {
+            $user = User::where('email', $email)->first();
+            if (! $user) {
+                $this->error("User with email {$email} not found.");
+
+                return null;
+            }
+        }
+
+        return $user;
+    }
+
+    /**
+     * Format bytes to human readable format
+     */
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes >= 1073741824) {
+            return round($bytes / 1073741824, 2) . ' GB';
+        } elseif ($bytes >= 1048576) {
+            return round($bytes / 1048576, 2) . ' MB';
+        } elseif ($bytes >= 1024) {
+            return round($bytes / 1024, 2) . ' KB';
+        } else {
+            return $bytes . ' bytes';
+        }
+    }
+
+    /**
      * Handle data deletion (GDPR Article 17 - Right to Erasure)
      */
     private function handleDelete(): int
@@ -213,7 +262,8 @@ class ManageAuditPrivacy extends Command
         $anonymizedClickStats = ClickStat::where('session_id', 'like', 'anonymized_%')->count();
 
         $clickStatsIPPercentage = $totalClickStats > 0 ? round(($clickStatsWithIP / $totalClickStats) * 100, 2) : 0;
-        $clickStatsAnonymizedPercentage = $totalClickStats > 0 ? round(($anonymizedClickStats / $totalClickStats) * 100, 2) : 0;
+        $clickStatsAnonymizedPercentage = $totalClickStats > 0 ? round(($anonymizedClickStats / $totalClickStats) * 100,
+            2) : 0;
 
         // Oldest and newest entries
         $oldestEntry = ChangeLog::orderBy('timestamp')->first();
@@ -236,8 +286,14 @@ class ManageAuditPrivacy extends Command
         $this->table(['Metric', 'Value', 'Percentage'], [
             ['Total Click Statistics', number_format($totalClickStats), '100%'],
             ['Stats with IP Addresses', number_format($clickStatsWithIP), "{$clickStatsIPPercentage}%"],
-            ['Stats with User Agents', number_format($clickStatsWithUserAgent), $totalClickStats > 0 ? round(($clickStatsWithUserAgent / $totalClickStats) * 100, 2) . '%' : '0%'],
-            ['Stats with Session IDs', number_format($clickStatsWithSession), $totalClickStats > 0 ? round(($clickStatsWithSession / $totalClickStats) * 100, 2) . '%' : '0%'],
+            [
+                'Stats with User Agents', number_format($clickStatsWithUserAgent),
+                $totalClickStats > 0 ? round(($clickStatsWithUserAgent / $totalClickStats) * 100, 2) . '%' : '0%',
+            ],
+            [
+                'Stats with Session IDs', number_format($clickStatsWithSession),
+                $totalClickStats > 0 ? round(($clickStatsWithSession / $totalClickStats) * 100, 2) . '%' : '0%',
+            ],
             ['Anonymized Click Stats', number_format($anonymizedClickStats), "{$clickStatsAnonymizedPercentage}%"],
         ]);
 
@@ -249,9 +305,18 @@ class ManageAuditPrivacy extends Command
         $this->info('');
         $this->info('Click Types Breakdown:');
         $this->table(['Click Type', 'Count', 'Percentage'], [
-            ['Page Views', number_format($pageViews), $totalClickStats > 0 ? round(($pageViews / $totalClickStats) * 100, 2) . '%' : '0%'],
-            ['External Project Visits', number_format($externalClicks), $totalClickStats > 0 ? round(($externalClicks / $totalClickStats) * 100, 2) . '%' : '0%'],
-            ['Custom Link Downloads', number_format($customLinkClicks), $totalClickStats > 0 ? round(($customLinkClicks / $totalClickStats) * 100, 2) . '%' : '0%'],
+            [
+                'Page Views', number_format($pageViews),
+                $totalClickStats > 0 ? round(($pageViews / $totalClickStats) * 100, 2) . '%' : '0%',
+            ],
+            [
+                'External Project Visits', number_format($externalClicks),
+                $totalClickStats > 0 ? round(($externalClicks / $totalClickStats) * 100, 2) . '%' : '0%',
+            ],
+            [
+                'Custom Link Downloads', number_format($customLinkClicks),
+                $totalClickStats > 0 ? round(($customLinkClicks / $totalClickStats) * 100, 2) . '%' : '0%',
+            ],
         ]);
 
         $this->info('');
@@ -296,54 +361,5 @@ class ManageAuditPrivacy extends Command
         $this->info('Available actions: export, delete, anonymize, report');
 
         return self::FAILURE;
-    }
-
-    /**
-     * Get the target user for operations
-     */
-    private function getTargetUser(): ?User
-    {
-        $userId = $this->option('user-id');
-        $email = $this->option('email');
-
-        if (! $userId && ! $email) {
-            $this->error('Either --user-id or --email must be provided.');
-
-            return null;
-        }
-
-        if ($userId) {
-            $user = User::find($userId);
-            if (! $user) {
-                $this->error("User with ID {$userId} not found.");
-
-                return null;
-            }
-        } else {
-            $user = User::where('email', $email)->first();
-            if (! $user) {
-                $this->error("User with email {$email} not found.");
-
-                return null;
-            }
-        }
-
-        return $user;
-    }
-
-    /**
-     * Format bytes to human readable format
-     */
-    private function formatBytes(int $bytes): string
-    {
-        if ($bytes >= 1073741824) {
-            return round($bytes / 1073741824, 2) . ' GB';
-        } elseif ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . ' MB';
-        } elseif ($bytes >= 1024) {
-            return round($bytes / 1024, 2) . ' KB';
-        } else {
-            return $bytes . ' bytes';
-        }
     }
 }

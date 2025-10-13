@@ -16,7 +16,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 ## Tech Stack
 
 - **Backend**: Laravel 12 with PHP 8.4
-- **Frontend**: Livewire, TypeScript, Tailwind CSS
+- **Frontend**: React (Inertia.js), TypeScript, Tailwind CSS
 - **Database**: PostgreSQL 17 with PgBouncer
 - **Caching**: Redis
 - **Development**: DDEV for local development environment
@@ -153,7 +153,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Laravel](https://laravel.com) - The web framework used
 - [itch.io](https://itch.io) - The game distribution platform this project tracks
 - [DDEV](https://ddev.com) - Local development environment
-- [Livewire](https://livewire.laravel.com) - Full-stack framework for Laravel
+  React/Inertia is now the primary frontend; Livewire removed.
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
-- [ECharts](https://echarts.apache.org) - Charting library
+- [Chart.js](https://www.chartjs.org) - Charting library
 - [Discord](https://discord.com) - Platform for bot integration

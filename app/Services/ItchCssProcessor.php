@@ -13,10 +13,14 @@ use Sabberworm\CSS\Property\Selector;
 use Sabberworm\CSS\Rule\Rule;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
 use Sabberworm\CSS\RuleSet\RuleSet;
+use Sabberworm\CSS\Value\Color;
+use Sabberworm\CSS\Value\RuleValueList;
+use Sabberworm\CSS\Value\Size;
 
 class ItchCssProcessor
 {
     private const array HEADER_SELECTORS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
     private const array COLOR_PROPERTIES = [
         // Basic color properties
         'color',
@@ -206,7 +210,24 @@ class ItchCssProcessor
 
                 // Check values for color functions or color names in any property
                 $value = $declaration->getValue();
-                $valueString = (string) $value;
+
+                // Handle special value objects that can't be cast to string
+                if ($value instanceof Color) {
+                    // Color objects are colors by definition, so remove them
+                    $declarationsToRemove[] = $declaration;
+
+                    continue;
+                }
+
+                if ($value instanceof RuleValueList) {
+                    // Convert RuleValueList to string using render method with OutputFormat
+                    $valueString = $value->render(OutputFormat::createCompact());
+                } elseif ($value instanceof Size) {
+                    // Convert Size to string using render method with OutputFormat
+                    $valueString = $value->render(OutputFormat::createCompact());
+                } else {
+                    $valueString = (string) $value;
+                }
 
                 // Check for hex colors, rgb/rgba/hsl/hsla functions
                 if (preg_match('/(#[0-9a-fA-F]{3,8}\b|\b(rgb|rgba|hsl|hsla|hwb|lab|lch|color)\s*\()/i', $valueString)) {
@@ -223,7 +244,8 @@ class ItchCssProcessor
                 }
 
                 // Check for gradient functions
-                if (preg_match('/\b(linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\(/i', $valueString)) {
+                if (preg_match('/\b(linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\(/i',
+                    $valueString)) {
                     $declarationsToRemove[] = $declaration;
 
                     continue;
@@ -251,13 +273,17 @@ class ItchCssProcessor
         // List of CSS color names
         static $colorNames = [
             'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond',
-            'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue',
+            'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral',
+            'cornflowerblue',
             'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey',
             'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon',
-            'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink',
+            'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet',
+            'deeppink',
             'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia',
-            'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink',
-            'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue',
+            'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew',
+            'hotpink',
+            'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon',
+            'lightblue',
             'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink',
             'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue',
             'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue',
@@ -266,8 +292,10 @@ class ItchCssProcessor
             'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise',
             'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple',
             'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna',
-            'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal',
-            'thistle', 'tomato', 'transparent', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen',
+            'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan',
+            'teal',
+            'thistle', 'tomato', 'transparent', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow',
+            'yellowgreen',
             // CSS4 color keywords
             'currentcolor', 'inherit',
         ];
@@ -298,7 +326,8 @@ class ItchCssProcessor
         }
 
         // Check for gradient functions
-        if (preg_match('/\b(linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\(/i', $value)) {
+        if (preg_match('/\b(linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\(/i',
+            $value)) {
             return true;
         }
 

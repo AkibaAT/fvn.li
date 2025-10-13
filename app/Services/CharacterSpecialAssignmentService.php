@@ -31,8 +31,11 @@ class CharacterSpecialAssignmentService
     /**
      * Fix special character assignments by reassigning them appropriately
      */
-    public function fixSpecialCharacterAssignments(?int $gameId = null, ?string $specificCharacter = null, bool $dryRun = false): array
-    {
+    public function fixSpecialCharacterAssignments(
+        ?int $gameId = null,
+        ?string $specificCharacter = null,
+        bool $dryRun = false
+    ): array {
         Log::info('Starting special character assignment fixes...');
 
         $totalLinesReassigned = 0;
@@ -122,10 +125,12 @@ class CharacterSpecialAssignmentService
         // Determine target character based on special character type
         if (in_array($characterName, self::EXTEND_CHARACTERS)) {
             // 'extend' characters should be assigned to previous line's character
-            $linesReassigned = $this->reassignToPreviousCharacter($specialLines, $versionId, $characterName, $specialCharacter->id, $dryRun);
+            $linesReassigned = $this->reassignToPreviousCharacter($specialLines, $versionId, $characterName,
+                $specialCharacter->id, $dryRun);
         } elseif (in_array($characterName, self::NARRATOR_CHARACTERS)) {
             // Other special characters should be assigned to narrator
-            $linesReassigned = $this->reassignToNarrator($specialLines, $versionId, $characterName, $specialCharacter->id, $dryRun);
+            $linesReassigned = $this->reassignToNarrator($specialLines, $versionId, $characterName,
+                $specialCharacter->id, $dryRun);
         }
 
         return $linesReassigned;
@@ -134,8 +139,13 @@ class CharacterSpecialAssignmentService
     /**
      * Reassign special character lines to the previous line's character (for 'extend')
      */
-    private function reassignToPreviousCharacter($specialLines, int $versionId, string $characterName, int $specialCharacterId, bool $dryRun): int
-    {
+    private function reassignToPreviousCharacter(
+        $specialLines,
+        int $versionId,
+        string $characterName,
+        int $specialCharacterId,
+        bool $dryRun
+    ): int {
         $linesReassigned = 0;
 
         foreach ($specialLines as $specialLine) {
@@ -163,7 +173,8 @@ class CharacterSpecialAssignmentService
             } else {
                 // No valid previous line found or previous line has null character_id - assign to narrator instead
                 Log::warning("No valid previous line found for {$characterName} line {$specialLine->id} (previous character_id: " . ($previousLine->character_id ?? 'null') . '), assigning to narrator');
-                $linesReassigned += $this->reassignToNarrator([$specialLine], $versionId, $characterName, $specialCharacterId, $dryRun);
+                $linesReassigned += $this->reassignToNarrator([$specialLine], $versionId, $characterName,
+                    $specialCharacterId, $dryRun);
             }
         }
 
@@ -173,8 +184,13 @@ class CharacterSpecialAssignmentService
     /**
      * Reassign special character lines to narrator (for menu_choice, centered, etc.)
      */
-    private function reassignToNarrator($specialLines, int $versionId, string $characterName, int $specialCharacterId, bool $dryRun): int
-    {
+    private function reassignToNarrator(
+        $specialLines,
+        int $versionId,
+        string $characterName,
+        int $specialCharacterId,
+        bool $dryRun
+    ): int {
         $linesReassigned = 0;
 
         // Get the game ID and narrator character using the centralized service

@@ -18,11 +18,15 @@ class UpdateWatchlist extends Command
 {
     protected $signature = 'games:update-watchlist
         {--collection=both : Which collection to process (free, paid, or both)}';
+
     protected $description = 'Update games from itch.io collection and follow creators';
 
     private ItchAuthService $authService;
+
     private ItchFollowService $followService;
+
     private int $processedGames = 0;
+
     private int $followedCreators = 0;
 
     public function __construct(ItchAuthService $authService, ItchFollowService $followService)
@@ -79,6 +83,28 @@ class UpdateWatchlist extends Command
     }
 
     /**
+     * Process a collection
+     *
+     * @throws GuzzleException
+     * @throws Throwable
+     */
+    private function processCollection($client, string $collectionId, bool $isPaid): void
+    {
+        $page = 1;
+        do {
+            $this->info("Processing page {$page}");
+            $hasMore = $this->processCollectionPage($client, $collectionId, $page, $isPaid);
+
+            if ($hasMore) {
+                $this->info('Waiting 30 seconds before next page...');
+                sleep(30);
+            }
+
+            $page++;
+        } while ($hasMore);
+    }
+
+    /**
      * Process a single page of the collection
      *
      * @throws GuzzleException
@@ -109,28 +135,6 @@ class UpdateWatchlist extends Command
     }
 
     /**
-     * Process a collection
-     *
-     * @throws GuzzleException
-     * @throws Throwable
-     */
-    private function processCollection($client, string $collectionId, bool $isPaid): void
-    {
-        $page = 1;
-        do {
-            $this->info("Processing page {$page}");
-            $hasMore = $this->processCollectionPage($client, $collectionId, $page, $isPaid);
-
-            if ($hasMore) {
-                $this->info('Waiting 30 seconds before next page...');
-                sleep(30);
-            }
-
-            $page++;
-        } while ($hasMore);
-    }
-
-    /**
      * Process a single game from the collection
      *
      * @throws Throwable
@@ -150,7 +154,7 @@ class UpdateWatchlist extends Command
 
             // Check for sale status and extract discount percentage
             $isOnSale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
-                        isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
+                isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
             $discountPercent = $isOnSale ? (int) $gameData['sale']['rate'] : null;
             $saleInfo = '';
             if ($isOnSale) {
@@ -212,7 +216,7 @@ class UpdateWatchlist extends Command
 
                     // Check for sale status and store discount percentage
                     $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
-                                       isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
+                        isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
                     $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
 
                     $saleInfo = '';
@@ -243,7 +247,7 @@ class UpdateWatchlist extends Command
 
                     // Check for sale status and store discount percentage
                     $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
-                                       isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
+                        isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
                     $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
 
                     $saleInfo = '';
@@ -316,7 +320,8 @@ class UpdateWatchlist extends Command
                 if ($isPaid && ! empty($game->uploads)) {
                     $hasDemo = false;
                     foreach ($game->uploads as $uploadData) {
-                        if (isset($uploadData['traits']) && is_array($uploadData['traits']) && in_array('demo', $uploadData['traits'])) {
+                        if (isset($uploadData['traits']) && is_array($uploadData['traits']) && in_array('demo',
+                            $uploadData['traits'])) {
                             $hasDemo = true;
                             break;
                         }

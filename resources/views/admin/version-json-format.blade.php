@@ -28,7 +28,9 @@
 
         <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Character Stats</h2>
         <p class="mb-4 text-gray-700 dark:text-white">
-            The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">character_stats</code> array contains statistics for each character in each language:
+            The <code
+                class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">character_stats</code>
+            array contains statistics for each character in each language:
         </p>
         <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
 "character_stats": [
@@ -49,7 +51,9 @@
 
         <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Language Stats</h2>
         <p class="mb-4 text-gray-700 dark:text-white">
-            The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">language_stats</code> array contains overall statistics for each language:
+            The <code
+                class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">language_stats</code>
+            array contains overall statistics for each language:
         </p>
         <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
 "language_stats": [
@@ -68,7 +72,8 @@
 
         <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Supported Languages</h2>
         <p class="mb-4 text-gray-700 dark:text-white">
-            The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">supported_languages</code> array lists all languages supported by this version:
+            The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">supported_languages</code>
+            array lists all languages supported by this version:
         </p>
         <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
 "supported_languages": [
@@ -85,10 +90,25 @@
 
         <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Notes</h2>
         <ul class="list-disc pl-6 mb-4 text-gray-700 dark:text-white">
-            <li>All fields except <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">version</code> and <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">published_at</code> are optional</li>
-            <li>If <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">published_at</code> is not provided, the current date and time will be used</li>
-            <li>Platform fields (<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">is_windows</code>, etc.) default to <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">false</code> if not provided</li>
-            <li>The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">character_stats</code>, <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">language_stats</code>, and <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">supported_languages</code> arrays can be empty or omitted</li>
+            <li>All fields except <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">version</code>
+                and <code
+                    class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">published_at</code>
+                are optional
+            </li>
+            <li>If <code
+                    class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">published_at</code>
+                is not provided, the current date and time will be used
+            </li>
+            <li>Platform fields (<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">is_windows</code>,
+                etc.) default to <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">false</code>
+                if not provided
+            </li>
+            <li>The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">character_stats</code>,
+                <code
+                    class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">language_stats</code>,
+                and <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">supported_languages</code>
+                arrays can be empty or omitted
+            </li>
         </ul>
     </x-filament::section>
 </x-filament::page>

@@ -7,6 +7,7 @@ namespace App\Traits;
 trait HasDefaultSort
 {
     protected const string DEFAULT_SORT_FIELD = 'first_visible_at';
+
     protected const string DEFAULT_SORT_DIRECTION = 'desc';
 
     public static function getDefaultSortField(): string

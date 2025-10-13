@@ -14,27 +14,6 @@ use Illuminate\Support\Collection;
 trait SelectsGames
 {
     /**
-     * Apply game selection filters to a query based on command options
-     *
-     * @param  Builder  $query  The base query to modify
-     * @return Builder The modified query
-     */
-    protected function applyGameSelectionFilters(Builder $query): Builder
-    {
-        // If game ID is provided, filter by ID
-        if ($gameId = $this->option('game-id')) {
-            $query->where('id', (int) $gameId);
-        }
-
-        // If game name is provided, filter by name (case-insensitive partial match)
-        elseif ($gameName = $this->option('game-name')) {
-            $query->where('name', 'ilike', "%{$gameName}%");
-        }
-
-        return $query;
-    }
-
-    /**
      * Get games based on selection criteria
      *
      * @param  array  $additionalWhere  Additional where clauses to apply
@@ -59,6 +38,25 @@ trait SelectsGames
         $this->applyGameSelectionFilters($query);
 
         return $query->get();
+    }
+
+    /**
+     * Apply game selection filters to a query based on command options
+     *
+     * @param  Builder  $query  The base query to modify
+     * @return Builder The modified query
+     */
+    protected function applyGameSelectionFilters(Builder $query): Builder
+    {
+        // If game ID is provided, filter by ID
+        if ($gameId = $this->option('game-id')) {
+            $query->where('id', (int) $gameId);
+        } // If game name is provided, filter by name (case-insensitive partial match)
+        elseif ($gameName = $this->option('game-name')) {
+            $query->where('name', 'ilike', "%{$gameName}%");
+        }
+
+        return $query;
     }
 
     /**

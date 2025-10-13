@@ -1,4 +1,5 @@
 /.phpunit.cache
+/.pnpm-store
 /bootstrap/ssr
 /itchbot
 /node_modules
@@ -36,3 +37,8 @@ frankenphp-worker.php
 # Writerside build artifacts
 /Writerside/artifacts/
 /Writerside/.idea/
+
+# E2E and accessibility test reports
+/tests/e2e/reports/
+/playwright-report/
+/test-results/

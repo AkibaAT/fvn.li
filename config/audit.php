@@ -79,6 +79,9 @@ return [
         'Illuminate\Notifications\DatabaseNotification',
         'App\Models\ChangeLog', // Prevent recursive logging
         'App\Models\ClickStat', // Exclude click statistics from change log
+        'App\Models\UniqueDialogueText', // Exclude dialogue texts - high volume, automatic indexing
+        'App\Models\DialogueLine', // Exclude dialogue lines - high volume, automatic indexing
+        'App\Models\ImportState', // Exclude import state tracking - temporary operational data
     ],
 
     /**
@@ -123,7 +126,8 @@ return [
         'cleanup_command' => true, // Enable automatic cleanup command
 
         // Privacy-compliant retention policies
-        'sensitive_data_retention_days' => env('AUDIT_SENSITIVE_RETENTION_DAYS', 90), // Shorter retention for sensitive data
+        'sensitive_data_retention_days' => env('AUDIT_SENSITIVE_RETENTION_DAYS', 90),
+        // Shorter retention for sensitive data
         'ip_address_retention_days' => env('AUDIT_IP_RETENTION_DAYS', 365), // 1 year for IP addresses (GDPR compliant)
     ],
 

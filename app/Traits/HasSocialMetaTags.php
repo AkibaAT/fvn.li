@@ -4,19 +4,41 @@ declare(strict_types=1);
 
 namespace App\Traits;
 
-use App\Livewire\RaterDetail;
 use App\Models\Language;
+use App\Services\SocialImageService;
 use Illuminate\Support\Str;
 
 trait HasSocialMetaTags
 {
     use HasDefaultSort;
 
+    /**
+     * Store meta tags data
+     */
+    protected array $metaTags = [];
+
+    /**
+     * Set meta tags for the current page
+     */
+    public function setMetaTags(array $metaTags): void
+    {
+        $this->metaTags = array_merge($this->metaTags, $metaTags);
+    }
+
+    /**
+     * Get the current meta tags
+     */
+    public function getMetaTags(): array
+    {
+        return $this->metaTags;
+    }
+
     protected function getMetaTitle(): string
     {
         $title = '';
 
-        if ($this instanceof RaterDetail) {
+        // Legacy Livewire-specific branch removed
+        if (false) {
             $title = "{$this->totalRatingsCount} ratings";
 
             if ($this->visibleGamesRatingsCount < $this->totalRatingsCount) {
@@ -31,7 +53,7 @@ trait HasSocialMetaTags
             $title = "{$totalRecords} " . Str::plural(rtrim(strtolower($this->getHeading()), 's'), $totalRecords);
         }
 
-        // For Livewire game list
+        // For list-like views with a games paginator/collection
         if (property_exists($this, 'games')) {
             $totalRecords = $this->games->total();
             $title = "{$totalRecords} FVNs";
@@ -81,7 +103,7 @@ trait HasSocialMetaTags
 
     protected function getMetaDescription(): string
     {
-        if ($this instanceof RaterDetail) {
+        if (false) {
             $description = "Viewing {$this->rater->id}'s game ratings";
 
             $description .= ". Total ratings: {$this->totalRatingsCount}, ";
@@ -90,7 +112,7 @@ trait HasSocialMetaTags
             return $description;
         }
 
-        // For game list
+        // For game list-like views
         if (property_exists($this, 'games')) {
             $description = 'Browse';
 
@@ -171,37 +193,95 @@ trait HasSocialMetaTags
     protected function getMetaImage(): string
     {
         if (property_exists($this, 'games') && $this->games->count() > 0) {
-            // Generate a collage only for GameList views with multiple games, and only for social media crawlers
-            // or when explicitly requested with ?social_preview=1 parameter
-            if ($this->isGameListView() &&
-                $this->games->count() > 1 &&
-                ($this->isSocialMediaCrawler() || $this->shouldGenerateSocialPreview())) {
+            // Extract actual games from paginator if needed
+            $actualGames = $this->games;
+            if (method_exists($this->games, 'items')) {
+                // This is a paginator, get the actual items
+                $actualGames = collect($this->games->items());
+            } elseif (isset($this->games->data)) {
+                // This might be an array with data property
+                $actualGames = collect($this->games->data);
+            }
 
-                $socialImageService = app(\App\Services\SocialImageService::class);
+            // Generate a collage for GameList views with multiple games when:
+            // 1. It's a social media crawler
+            $shouldGenerateCollage = $this->isGameListView() &&
+                $actualGames->count() > 1 &&
+                $this->isSocialMediaCrawler();
+
+            if ($shouldGenerateCollage) {
+                // Log collage generation attempt for debugging
+                logger()->info('Attempting to generate social media collage', [
+                    'games_count' => $actualGames->count(),
+                    'is_game_list_view' => $this->isGameListView(),
+                    'is_social_crawler' => $this->isSocialMediaCrawler(),
+                    'user_agent' => request()->header('User-Agent'),
+                ]);
+
+                $socialImageService = app(SocialImageService::class);
 
                 // Generate cache key based on current filters and games
                 $filters = $this->getCurrentFilters();
-                $cacheKey = $socialImageService->generateCacheKey($this->games, $filters);
+                $cacheKey = $socialImageService->generateCacheKey($actualGames, $filters);
 
-                $collageUrl = $socialImageService->generateGameCollage($this->games, $cacheKey);
+                $collageUrl = $socialImageService->generateGameCollage($actualGames, $cacheKey);
                 if ($collageUrl) {
+                    // Log successful collage generation for debugging
+                    logger()->info('Generated social media collage', [
+                        'url' => $collageUrl,
+                        'cache_key' => $cacheKey,
+                        'games_count' => $actualGames->count(),
+                        'is_social_crawler' => $this->isSocialMediaCrawler(),
+                        'user_agent' => request()->header('User-Agent'),
+                    ]);
+
                     return $collageUrl;
+                }
+
+                // If collage generation failed, use static fallback image
+                $fallbackUrl = $socialImageService->getDefaultSocialImage();
+                if ($fallbackUrl) {
+                    return $fallbackUrl;
                 }
             }
 
-            // Fallback to first game's thumbnail (using same logic as game cards)
-            foreach ($this->games as $game) {
-                $thumbnailUrl = method_exists($game, 'getThumbnailUrl')
-                    ? $game->getThumbnailUrl('small')
-                    : $game->thumb_url;
-
-                if ($thumbnailUrl) {
-                    return $thumbnailUrl;
+            // For non-social media requests with games, return first game's thumbnail
+            if ($actualGames->count() > 0) {
+                $game = $actualGames->first();
+                if ($game) {
+                    // Handle real Game models with getThumbnailUrl() method
+                    if (method_exists($game, 'getThumbnailUrl')) {
+                        $thumbnailUrl = $game->getThumbnailUrl();
+                        if ($thumbnailUrl) {
+                            return $thumbnailUrl;
+                        }
+                    }
+                    // Handle test objects with thumb_url property
+                    elseif (isset($game->thumb_url)) {
+                        return $game->thumb_url;
+                    }
                 }
             }
         }
 
-        return '';
+        // For no games or empty games, return empty string (not default image)
+        if (property_exists($this, 'games') && $this->games->count() === 0) {
+            return '';
+        }
+
+        // Final fallback to default social image for other cases
+        $socialImageService = app(SocialImageService::class);
+
+        return $socialImageService->getDefaultSocialImage();
+    }
+
+    /**
+     * Check if this is a GameList view (where we show multiple games in a list)
+     */
+    private function isGameListView(): bool
+    {
+        // Consider presence of a paginator with multiple games as a list view
+        return property_exists($this, 'games');
     }
 
     /**
@@ -241,23 +321,6 @@ trait HasSocialMetaTags
         }
 
         return false;
-    }
-
-    /**
-     * Check if social preview generation is explicitly requested
-     */
-    private function shouldGenerateSocialPreview(): bool
-    {
-        return request()->has('social_preview') && request()->get('social_preview') == '1';
-    }
-
-    /**
-     * Check if this is a GameList view (where we show multiple games in a list)
-     */
-    private function isGameListView(): bool
-    {
-        // Check if this is the GameList Livewire component
-        return $this instanceof \App\Livewire\GameList;
     }
 
     /**
@@ -308,5 +371,60 @@ trait HasSocialMetaTags
         }
 
         return $filters;
+    }
+
+    /**
+     * Check if there are any active filters on the current view
+     */
+    private function hasActiveFilters(): bool
+    {
+        // Check for various filter properties that indicate active filtering
+        if (property_exists($this, 'selectedStatuses') && ! empty($this->selectedStatuses)) {
+            return true;
+        }
+
+        if (property_exists($this, 'selectedEngines') && ! empty($this->selectedEngines)) {
+            return true;
+        }
+
+        if (property_exists($this, 'selectedPlatforms') && ! empty($this->selectedPlatforms)) {
+            return true;
+        }
+
+        if (property_exists($this, 'selectedLanguages') && ! empty($this->selectedLanguages)) {
+            return true;
+        }
+
+        if (property_exists($this, 'selectedGameJams') && ! empty($this->selectedGameJams)) {
+            return true;
+        }
+
+        if (property_exists($this, 'selectedTags') && ! empty($this->selectedTags)) {
+            return true;
+        }
+
+        if (property_exists($this, 'search') && $this->search) {
+            return true;
+        }
+
+        if (property_exists($this, 'nsfw') && $this->nsfw) {
+            return true;
+        }
+
+        if (property_exists($this, 'sfw') && $this->sfw) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if social preview should be generated based on query parameter
+     */
+    private function shouldGenerateSocialPreview(): bool
+    {
+        $socialPreview = request()->query('social_preview');
+
+        return $socialPreview === '1' || $socialPreview === 'true';
     }
 }

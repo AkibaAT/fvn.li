@@ -25,12 +25,13 @@ RUN apt-get update \
         unzip \
         wget \
         git \
+    && (curl -fsSL https://deb.nodesource.com/setup_22.x | bash -) \
     && (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null) \
     && (echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list) \
     && apt-get update \
     && apt-get install -yqq --no-install-recommends --show-progress \
+        nodejs \
         temurin-21-jdk \
-    # Install PHP extensions
     && install-php-extensions \
         bcmath \
         bz2 \

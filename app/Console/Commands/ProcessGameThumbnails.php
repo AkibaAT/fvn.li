@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\Storage;
 class ProcessGameThumbnails extends Command
 {
     use SelectsGames;
+
     private const THUMBNAIL_PATH = 'thumbnails';
+
     private const VALID_MIME_TYPES = [
         'image/jpeg',
         'image/png',
@@ -30,12 +32,12 @@ class ProcessGameThumbnails extends Command
      */
     private const VARIANTS = [
         'small' => [
-            'width' => 128,
-            'height' => 101,
+            'width' => 158,
+            'height' => 125,
         ],
         'default' => [
-            'width' => 256,
-            'height' => 203,
+            'width' => 315,
+            'height' => 250,
         ],
     ];
 

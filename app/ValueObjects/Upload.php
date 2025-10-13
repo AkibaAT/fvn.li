@@ -19,6 +19,7 @@ class Upload
     ];
 
     public DateTimeInterface $updatedAt;
+
     public ?DateTimeInterface $buildUpdatedAt;
 
     private ?string $extractedVersion = null;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Livewire\GameList;
+// Legacy GameList removed
 use App\Traits\HasSocialMetaTags;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -46,9 +46,13 @@ it('uses first thumbnail for non game list views', function () {
         use HasSocialMetaTags;
 
         public $games;
+
         public $search = '';
+
         public $selectedStatuses = [];
+
         public $sortField = 'name';
+
         public $sortDirection = 'asc';
 
         public function testGetMetaImage()
@@ -76,7 +80,8 @@ it('uses first thumbnail for non game list views', function () {
 
 it('generates collage for facebook crawler on game list', function () {
     // Mock Facebook crawler user agent
-    $this->app['request']->headers->set('User-Agent', 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)');
+    $this->app['request']->headers->set('User-Agent',
+        'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)');
 
     $games = collect([
         (object) [
@@ -96,8 +101,12 @@ it('generates collage for facebook crawler on game list', function () {
     $paginator = new LengthAwarePaginator($games, 2, 9, 1, ['path' => '/']);
 
     // Create a test class that extends GameList to simulate being on the list view
-    $testClass = new class extends GameList
+    $testClass = new class
     {
+        use HasSocialMetaTags;
+
+        public $games;
+
         public function testGetMetaImage()
         {
             return $this->getMetaImage();
@@ -133,8 +142,12 @@ it('generates collage with preview parameter on game list', function () {
     $paginator = new LengthAwarePaginator($games, 2, 9, 1, ['path' => '/']);
 
     // Create a test class that extends GameList to simulate being on the list view
-    $testClass = new class extends GameList
+    $testClass = new class
     {
+        use HasSocialMetaTags;
+
+        public $games;
+
         public function testGetMetaImage()
         {
             return $this->getMetaImage();
@@ -208,15 +221,25 @@ it('current filters includes all filter types', function () {
         use HasSocialMetaTags;
 
         public $search = 'test search';
+
         public $selectedStatuses = ['completed'];
+
         public $selectedEngines = ['Ren\'Py'];
+
         public $selectedPlatforms = ['windows', 'linux'];
+
         public $selectedLanguages = ['eng'];
+
         public $selectedGameJams = ['1'];
+
         public $selectedTags = ['2'];
+
         public $nsfw = true;
+
         public $sfw = false;
+
         public $sortField = 'rating';
+
         public $sortDirection = 'desc';
 
         public function testGetCurrentFilters()

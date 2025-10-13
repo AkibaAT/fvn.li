@@ -100,7 +100,7 @@ class ProcessPushNotifications extends Command
                     $firstNotification = $userNotifications->first();
                     $user = $firstNotification->user;
                     $isDigest = $user && $user->notificationPreferences &&
-                               in_array($user->notificationPreferences->notification_digest, ['daily', 'weekly']);
+                        in_array($user->notificationPreferences->notification_digest, ['daily', 'weekly']);
 
                     if ($isDigest && $userNotifications->count() > 1) {
                         // This is a digest notification, combine them
@@ -145,6 +145,17 @@ class ProcessPushNotifications extends Command
     }
 
     /**
+     * Mark a notification as failed.
+     */
+    protected function markAsFailed(NotificationQueue $notification, string $error): void
+    {
+        $notification->status = 'failed';
+        $notification->processed_at = Carbon::now();
+        $notification->error = $error;
+        $notification->save();
+    }
+
+    /**
      * Process a digest notification (combining multiple game updates).
      */
     protected function processDigestNotifications($notifications, $subscriptions): void
@@ -180,7 +191,7 @@ class ProcessPushNotifications extends Command
             'title' => $title,
             'body' => $body,
             'data' => [
-                'url' => route('user.notifications.digest', ['date' => now()->format('Y-m-d')]),
+                'url' => route('dashboard'),
                 'digest' => true,
                 'games' => $games->toArray(),
             ],
@@ -210,6 +221,16 @@ class ProcessPushNotifications extends Command
                 $this->markAsFailed($notification, 'Failed to send digest push notification');
             }
         }
+    }
+
+    /**
+     * Mark a notification as processed.
+     */
+    protected function markAsProcessed(NotificationQueue $notification): void
+    {
+        $notification->status = 'sent';
+        $notification->processed_at = Carbon::now();
+        $notification->save();
     }
 
     /**
@@ -243,26 +264,5 @@ class ProcessPushNotifications extends Command
 
             return false;
         }
-    }
-
-    /**
-     * Mark a notification as processed.
-     */
-    protected function markAsProcessed(NotificationQueue $notification): void
-    {
-        $notification->status = 'sent';
-        $notification->processed_at = Carbon::now();
-        $notification->save();
-    }
-
-    /**
-     * Mark a notification as failed.
-     */
-    protected function markAsFailed(NotificationQueue $notification, string $error): void
-    {
-        $notification->status = 'failed';
-        $notification->processed_at = Carbon::now();
-        $notification->error = $error;
-        $notification->save();
     }
 }

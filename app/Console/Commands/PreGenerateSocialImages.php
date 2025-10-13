@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Livewire\GameList;
+use App\Models\Game;
 use App\Services\SocialImageService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use ReflectionMethod;
 
 class PreGenerateSocialImages extends Command
 {
@@ -20,16 +19,11 @@ class PreGenerateSocialImages extends Command
     {
         $this->info('Pre-generating social media images...');
 
-        // Create a GameList component instance to get games
-        $gameList = new GameList;
-
-        // Initialize the component
-        $gameList->mount();
-
-        // Get the games without rendering the full view
-        $reflection = new ReflectionMethod($gameList, 'render');
-        $view = $reflection->invoke($gameList);
-        $games = $view->getData()['games'];
+        // Fetch games directly for social image generation (React-only)
+        $games = Game::where('is_visible', true)
+            ->orderByDesc('rating_count')
+            ->limit(50)
+            ->get(['id', 'name', 'thumb_url', 'optimized_thumbnails', 'updated_at']);
 
         if ($games->isEmpty()) {
             $this->warn('No games found to generate images for.');
@@ -58,7 +52,10 @@ class PreGenerateSocialImages extends Command
             ];
         } else {
             // Generate for all possible single-filter combinations
-            $filterOptions = $gameList->getFilterOptions();
+            $filterOptions = [
+                'gameEngines' => array_values(Game::query()->distinct()->pluck('game_engine')->filter()->values()->all()),
+                'platforms' => ['windows', 'linux', 'mac', 'android', 'web'],
+            ];
 
             // Add base combinations
             $filterCombinations[] = [];

@@ -19,6 +19,7 @@ class ItchAuthService
     private const string CACHE_KEY = 'itch_cookies';
 
     private Client $client;
+
     private CookieJar $cookieJar;
 
     public function __construct(private readonly ItchHttpClientFactory $clientFactory)

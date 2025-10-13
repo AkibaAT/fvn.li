@@ -12,7 +12,8 @@ use SocialiteProviders\Manager\Config;
 class ItchIoProvider extends AbstractProvider
 {
     protected array $config;
-    protected $scopes = ['profile:me'];
+
+    protected $scopes = ['profile:me', 'profile:games'];
 
     public static function additionalConfigKeys(): array
     {
@@ -88,7 +89,7 @@ class ItchIoProvider extends AbstractProvider
         $fields = parent::getCodeFields($state);
         $fields['response_type'] = 'token';
         $fields['redirect_uri'] = route('auth.itchio.callback');
-        $fields['scope'] = 'profile:me';
+        $fields['scope'] = 'profile:me profile:games';
 
         return $fields;
     }

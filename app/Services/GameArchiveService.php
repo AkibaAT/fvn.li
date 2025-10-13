@@ -150,22 +150,6 @@ readonly class GameArchiveService
     }
 
     /**
-     * Process statistics from an existing archive
-     *
-     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
-     *
-     * @throws RuntimeException If the archive file doesn't exist
-     */
-    public function processArchive(string $archivePath): ?array
-    {
-        if (! File::exists($archivePath)) {
-            throw new RuntimeException("Archive file not found: {$archivePath}");
-        }
-
-        return $this->statsService->extractGameStats($archivePath);
-    }
-
-    /**
      * Clean up old version downloads for a game, keeping only the latest version
      */
     public function cleanupOldVersionDownloads(int $gameId, ?int $latestVersionId = null): void
@@ -225,6 +209,22 @@ readonly class GameArchiveService
     }
 
     /**
+     * Process statistics from an existing archive
+     *
+     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
+     *
+     * @throws RuntimeException If the archive file doesn't exist
+     */
+    public function processArchive(string $archivePath): ?array
+    {
+        if (! File::exists($archivePath)) {
+            throw new RuntimeException("Archive file not found: {$archivePath}");
+        }
+
+        return $this->statsService->extractGameStats($archivePath);
+    }
+
+    /**
      * Clean up old version downloads for all games
      */
     public function cleanupAllOldVersionDownloads(): int
@@ -240,6 +240,11 @@ readonly class GameArchiveService
         return $count;
     }
 
+    private function getStoragePath(int $gameId, int $versionId): string
+    {
+        return "games/{$gameId}/{$versionId}";
+    }
+
     /**
      * Get the ItchHttpClientService instance
      *
@@ -248,10 +253,5 @@ readonly class GameArchiveService
     private function getItchClient(): ItchHttpClientService
     {
         return App::make(ItchHttpClientService::class);
-    }
-
-    private function getStoragePath(int $gameId, int $versionId): string
-    {
-        return "games/{$gameId}/{$versionId}";
     }
 }

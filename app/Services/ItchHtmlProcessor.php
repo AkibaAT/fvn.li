@@ -124,30 +124,6 @@ class ItchHtmlProcessor
     }
 
     /**
-     * Process paragraphs
-     */
-    private function processParagraphs(HTMLDocument $doc): void
-    {
-        $paragraphs = $doc->querySelectorAll('p');
-
-        foreach ($paragraphs as $paragraph) {
-            $classes = $paragraph->getAttribute('class');
-            $classArray = ! empty($classes) ? explode(' ', $classes) : [];
-
-            // Add Tailwind classes for paragraphs
-            $paragraphClasses = ['text-gray-600', 'dark:text-gray-300', 'mb-4'];
-
-            foreach ($paragraphClasses as $class) {
-                if (! in_array($class, $classArray)) {
-                    $classArray[] = $class;
-                }
-            }
-
-            $paragraph->setAttribute('class', implode(' ', $classArray));
-        }
-    }
-
-    /**
      * Process lists (ul, ol)
      */
     private function processLists(HTMLDocument $doc): void
@@ -208,6 +184,30 @@ class ItchHtmlProcessor
     }
 
     /**
+     * Process paragraphs
+     */
+    private function processParagraphs(HTMLDocument $doc): void
+    {
+        $paragraphs = $doc->querySelectorAll('p');
+
+        foreach ($paragraphs as $paragraph) {
+            $classes = $paragraph->getAttribute('class');
+            $classArray = ! empty($classes) ? explode(' ', $classes) : [];
+
+            // Add Tailwind classes for paragraphs
+            $paragraphClasses = ['text-gray-600', 'dark:text-gray-300', 'mb-4'];
+
+            foreach ($paragraphClasses as $class) {
+                if (! in_array($class, $classArray)) {
+                    $classArray[] = $class;
+                }
+            }
+
+            $paragraph->setAttribute('class', implode(' ', $classArray));
+        }
+    }
+
+    /**
      * Process tables
      */
     private function processTables(HTMLDocument $doc): void
@@ -235,7 +235,9 @@ class ItchHtmlProcessor
                 $headerClasses = $header->getAttribute('class');
                 $headerClassArray = ! empty($headerClasses) ? explode(' ', $headerClasses) : [];
 
-                $thClasses = ['px-4', 'py-3', 'text-left', 'text-sm', 'font-semibold', 'text-gray-900', 'dark:text-gray-100'];
+                $thClasses = [
+                    'px-4', 'py-3', 'text-left', 'text-sm', 'font-semibold', 'text-gray-900', 'dark:text-gray-100',
+                ];
 
                 foreach ($thClasses as $class) {
                     if (! in_array($class, $headerClassArray)) {

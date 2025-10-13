@@ -26,9 +26,11 @@ class ImportRatings extends Command
     private const string IMPORT_STATE_TYPE = 'ratings';
 
     protected $signature = 'ratings:import';
+
     protected $description = 'Import latest ratings from itch.io';
 
     private Client $client;
+
     private ItchAuthService $authService;
 
     public function __construct(ItchAuthService $authService)
@@ -242,10 +244,13 @@ class ImportRatings extends Command
             $game->save();
         }
 
-        // Mark previous ratings as not visible
+        // Mark previous ratings as not visible (using Eloquent to trigger search index updates)
         Rating::where('game_id', $game->id)
             ->where('rater_id', $rater->id)
-            ->update(['is_visible' => false]);
+            ->get()
+            ->each(function ($rating) {
+                $rating->update(['is_visible' => false]);
+            });
 
         // Create new rating
         Rating::create([

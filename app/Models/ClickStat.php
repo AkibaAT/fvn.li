@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
 class ClickStat extends Model
 {
     public const string TYPE_PAGE_VIEW = 'page_view';
+
     public const string TYPE_CUSTOM_LINK = 'custom_link';
+
     public const string TYPE_EXTERNAL_PROJECT = 'external_project';
 
     protected $fillable = [
@@ -60,6 +62,51 @@ class ClickStat extends Model
         ]);
 
         return true;
+    }
+
+    /**
+     * Get aggregated stats for multiple games (for developer dashboard)
+     * Returns both total and unique metrics
+     */
+    public static function getMultipleGameStats(array $gameIds, ?Carbon $since = null): array
+    {
+        $result = [];
+
+        // Initialize result structure
+        foreach ($gameIds as $gameId) {
+            $result[$gameId] = [
+                'page_views_total' => 0,
+                'page_views_unique' => 0,
+                'external_project_total' => 0,
+                'external_project_unique' => 0,
+                'custom_link_clicks_total' => 0,
+                'custom_link_clicks_unique' => 0,
+            ];
+        }
+
+        // Get stats for each game individually to ensure accurate unique counting
+        foreach ($gameIds as $gameId) {
+            $gameStats = self::getGameStats($gameId, $since);
+
+            $result[$gameId]['page_views_total'] = $gameStats['page_views_total'];
+            $result[$gameId]['page_views_unique'] = $gameStats['page_views_unique'];
+            $result[$gameId]['external_project_total'] = $gameStats['external_project_total'];
+            $result[$gameId]['external_project_unique'] = $gameStats['external_project_unique'];
+
+            // Sum up custom link clicks
+            $totalCustomClicks = 0;
+            $uniqueCustomClicks = 0;
+
+            foreach ($gameStats['custom_links'] as $linkStats) {
+                $totalCustomClicks += $linkStats['total_clicks'];
+                $uniqueCustomClicks += $linkStats['unique_clicks'];
+            }
+
+            $result[$gameId]['custom_link_clicks_total'] = $totalCustomClicks;
+            $result[$gameId]['custom_link_clicks_unique'] = $uniqueCustomClicks;
+        }
+
+        return $result;
     }
 
     /**
@@ -126,51 +173,6 @@ class ClickStat extends Model
                     'last_click' => null,
                 ];
             }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Get aggregated stats for multiple games (for developer dashboard)
-     * Returns both total and unique metrics
-     */
-    public static function getMultipleGameStats(array $gameIds, ?Carbon $since = null): array
-    {
-        $result = [];
-
-        // Initialize result structure
-        foreach ($gameIds as $gameId) {
-            $result[$gameId] = [
-                'page_views_total' => 0,
-                'page_views_unique' => 0,
-                'external_project_total' => 0,
-                'external_project_unique' => 0,
-                'custom_link_clicks_total' => 0,
-                'custom_link_clicks_unique' => 0,
-            ];
-        }
-
-        // Get stats for each game individually to ensure accurate unique counting
-        foreach ($gameIds as $gameId) {
-            $gameStats = self::getGameStats($gameId, $since);
-
-            $result[$gameId]['page_views_total'] = $gameStats['page_views_total'];
-            $result[$gameId]['page_views_unique'] = $gameStats['page_views_unique'];
-            $result[$gameId]['external_project_total'] = $gameStats['external_project_total'];
-            $result[$gameId]['external_project_unique'] = $gameStats['external_project_unique'];
-
-            // Sum up custom link clicks
-            $totalCustomClicks = 0;
-            $uniqueCustomClicks = 0;
-
-            foreach ($gameStats['custom_links'] as $linkStats) {
-                $totalCustomClicks += $linkStats['total_clicks'];
-                $uniqueCustomClicks += $linkStats['unique_clicks'];
-            }
-
-            $result[$gameId]['custom_link_clicks_total'] = $totalCustomClicks;
-            $result[$gameId]['custom_link_clicks_unique'] = $uniqueCustomClicks;
         }
 
         return $result;

@@ -30,8 +30,6 @@ class GameVersionFactory extends Factory
             'is_android' => fake()->boolean(30),
             'is_web' => fake()->boolean(20),
             'is_latest' => false,
-            'rating' => fake()->randomFloat(1, 3, 5),
-            'rating_count' => fake()->numberBetween(1, 100),
         ];
     }
 

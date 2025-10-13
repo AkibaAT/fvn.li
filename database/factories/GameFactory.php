@@ -28,7 +28,7 @@ class GameFactory extends Factory
             'is_nsfw' => fake()->boolean(20),
             'description' => fake()->paragraph(),
             'url' => fake()->url(),
-            'thumb_url' => fake()->imageUrl(),
+            'thumb_url' => 'https://via.placeholder.com/630x500',
             'game_engine' => "Ren'Py",
             'authors' => fake()->name(),
             'is_paid' => fake()->boolean(30),

@@ -103,7 +103,8 @@ Monitor the following during feed processing:
 - **Processing time** - Longer times may indicate API issues
 - **Error rates** - High error rates suggest configuration problems
 
-> **Note**: Feed processing is designed to be idempotent - running it multiple times will not create duplicate data due to the processed events tracking system.
+> **Note**: Feed processing is designed to be idempotent - running it multiple times will not create duplicate data due
+> to the processed events tracking system.
 
 ## Processing Flow
 

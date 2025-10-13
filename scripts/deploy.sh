@@ -59,6 +59,7 @@ else
     # Restart workers
     docker compose exec app supervisorctl restart laravel-nightwatch:*
     docker compose exec app supervisorctl restart laravel-queue:*
+    docker compose exec app supervisorctl restart inertia-ssr:*
 
     echo "FrankenPHP and workers hot reload completed successfully!"
   else

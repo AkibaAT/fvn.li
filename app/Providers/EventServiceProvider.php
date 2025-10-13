@@ -9,6 +9,8 @@ use App\Observers\UserObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
+use SocialiteProviders\Steam\SteamExtendSocialite;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -18,8 +20,8 @@ class EventServiceProvider extends ServiceProvider
      * @var array<class-string, array<int, class-string>>
      */
     protected $listen = [
-        \SocialiteProviders\Manager\SocialiteWasCalled::class => [
-            \SocialiteProviders\Steam\SteamExtendSocialite::class . '@handle',
+        SocialiteWasCalled::class => [
+            SteamExtendSocialite::class . '@handle',
         ],
         Registered::class => [
             SendEmailVerificationNotification::class,

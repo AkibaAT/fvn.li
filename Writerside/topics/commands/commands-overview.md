@@ -100,7 +100,8 @@ Use `php artisan COMMAND --help` for detailed help on any specific command.
 
 ### Error Handling
 
-All commands include comprehensive error handling with retry logic for temporary failures and detailed logging for troubleshooting.
+All commands include comprehensive error handling with retry logic for temporary failures and detailed logging for
+troubleshooting.
 
 ## Data Flow Diagrams
 

@@ -3,7 +3,10 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "keywords": [
+        "laravel",
+        "framework"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.4",
@@ -13,8 +16,7 @@
         "ext-libxml": "*",
         "ext-zip": "*",
         "blade-ui-kit/blade-heroicons": "^2.5",
-        "fakerphp/faker": "^1.24",
-        "filament/filament": "^3.3",
+        "filament/filament": "^4.0",
         "guzzlehttp/guzzle": "*",
         "http-interop/http-factory-guzzle": "^1.2",
         "inertiajs/inertia-laravel": "^2.0",
@@ -30,23 +32,27 @@
         "meilisearch/meilisearch-php": "^1.13",
         "minishlink/web-push": "^9.0",
         "predis/predis": "*",
-        "sabberworm/php-css-parser": "^8.8",
+        "sabberworm/php-css-parser": "^9.0",
         "socialiteproviders/discord": "^4.2",
         "socialiteproviders/google": "^4.1",
         "socialiteproviders/steam": "^4.3",
         "socialiteproviders/telegram": "^4.1",
-        "spatie/laravel-schedule-monitor": "^3.9",
+        "spatie/laravel-schedule-monitor": "^4.0",
         "spatie/laravel-sitemap": "^7.3",
         "tightenco/ziggy": "^2.5",
         "tpetry/laravel-postgresql-enhanced": "*"
     },
     "require-dev": {
+        "fakerphp/faker": "^1.24",
+        "filament/upgrade": "^4.0",
+        "laravel/boost": "^1.0",
         "laravel/pail": "^1.1",
         "laravel/pint": "^1.19",
         "mockery/mockery": "*",
         "nunomaduro/collision": "*",
-        "pestphp/pest": "^3.7",
-        "pestphp/pest-plugin-laravel": "^3.0",
+        "pestphp/pest": "^4.0 ",
+        "pestphp/pest-plugin-browser": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
         "phpunit/phpunit": "*",
         "spatie/laravel-ignition": "*",
         "tightenco/duster": "*"
@@ -81,7 +87,15 @@
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi"
         ],
-        "test": "./vendor/bin/pest"
+        "test": "php artisan test --env=testing",
+        "test:coverage": "php artisan test --env=testing --coverage",
+        "test:parallel": "php artisan test --env=testing --parallel",
+        "test:unit": "php artisan test --env=testing --testsuite=Unit",
+        "test:feature": "php artisan test --env=testing --testsuite=Feature",
+        "migrate:test": "php artisan migrate:fresh --seed --env=testing",
+        "lint": "php vendor/bin/duster lint",
+        "lint:fix": "php vendor/bin/duster fix",
+        "hooks:install": "git config core.hooksPath .githooks"
     },
     "extra": {
         "laravel": {

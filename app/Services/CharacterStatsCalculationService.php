@@ -16,9 +16,23 @@ class CharacterStatsCalculationService
      * Data completeness levels for version statistics
      */
     public const DATA_LEVEL_NONE = 'none';
+
     public const DATA_LEVEL_LANGUAGE_ONLY = 'language_only';
+
     public const DATA_LEVEL_CHARACTER_STATS = 'character_stats';
+
     public const DATA_LEVEL_FULL_DETAIL = 'full_detail';
+
+    /**
+     * Check if we can safely create missing character stats for a version.
+     * This is more permissive than updates - we can create if we have dialogue lines.
+     */
+    public function canCreateCharacterStats(int $versionId): bool
+    {
+        $dataLevel = $this->getVersionDataLevel($versionId);
+
+        return in_array($dataLevel, [self::DATA_LEVEL_FULL_DETAIL]);
+    }
 
     /**
      * Determine the data completeness level for a version.
@@ -65,40 +79,6 @@ class CharacterStatsCalculationService
     }
 
     /**
-     * Check if a version is safe to update character statistics.
-     * Only versions with full detail level can have their character stats recalculated.
-     */
-    public function isVersionSafeToUpdate(int $versionId): bool
-    {
-        return $this->getVersionDataLevel($versionId) === self::DATA_LEVEL_FULL_DETAIL;
-    }
-
-    /**
-     * Check if we can safely create missing character stats for a version.
-     * This is more permissive than updates - we can create if we have dialogue lines.
-     */
-    public function canCreateCharacterStats(int $versionId): bool
-    {
-        $dataLevel = $this->getVersionDataLevel($versionId);
-
-        return in_array($dataLevel, [self::DATA_LEVEL_FULL_DETAIL]);
-    }
-
-    /**
-     * Get a human-readable description of the data level.
-     */
-    public function getDataLevelDescription(string $dataLevel): string
-    {
-        return match ($dataLevel) {
-            self::DATA_LEVEL_FULL_DETAIL => 'Full dialogue line details with text content',
-            self::DATA_LEVEL_CHARACTER_STATS => 'Character statistics only (no individual lines)',
-            self::DATA_LEVEL_LANGUAGE_ONLY => 'Language statistics only (no character breakdown)',
-            self::DATA_LEVEL_NONE => 'No detailed statistics available',
-            default => 'Unknown data level',
-        };
-    }
-
-    /**
      * Calculate and save character stats for a specific game version with data completeness protection
      * This method provides consistent calculation logic used by both
      * stats import and fix commands
@@ -114,6 +94,29 @@ class CharacterStatsCalculationService
         }
 
         return $this->calculateAndSaveStatsForVersion($versionId);
+    }
+
+    /**
+     * Check if a version is safe to update character statistics.
+     * Only versions with full detail level can have their character stats recalculated.
+     */
+    public function isVersionSafeToUpdate(int $versionId): bool
+    {
+        return $this->getVersionDataLevel($versionId) === self::DATA_LEVEL_FULL_DETAIL;
+    }
+
+    /**
+     * Get a human-readable description of the data level.
+     */
+    public function getDataLevelDescription(string $dataLevel): string
+    {
+        return match ($dataLevel) {
+            self::DATA_LEVEL_FULL_DETAIL => 'Full dialogue line details with text content',
+            self::DATA_LEVEL_CHARACTER_STATS => 'Character statistics only (no individual lines)',
+            self::DATA_LEVEL_LANGUAGE_ONLY => 'Language statistics only (no character breakdown)',
+            self::DATA_LEVEL_NONE => 'No detailed statistics available',
+            default => 'Unknown data level',
+        };
     }
 
     /**
@@ -186,6 +189,30 @@ class CharacterStatsCalculationService
     }
 
     /**
+     * Calculate stats for multiple character/version/language combinations
+     * Used for bulk recalculation in fix commands
+     */
+    public function calculateStatsForMultiple(array $statsToUpdate): array
+    {
+        $results = [];
+
+        foreach ($statsToUpdate as $stat) {
+            $calculatedStats = $this->calculateStatsForCharacter(
+                $stat->game_version_id,
+                $stat->character_id,
+                $stat->iso_code
+            );
+
+            $results[] = [
+                'stat' => $stat,
+                'calculated' => $calculatedStats,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
      * Calculate stats for a specific character/version/language combination
      * Used by fix commands for targeted recalculation
      */
@@ -214,30 +241,6 @@ class CharacterStatsCalculationService
             'blocks' => $dialogueStats->blocks ?? 0,
             'words' => $dialogueStats->words ?? 0,
         ];
-    }
-
-    /**
-     * Calculate stats for multiple character/version/language combinations
-     * Used for bulk recalculation in fix commands
-     */
-    public function calculateStatsForMultiple(array $statsToUpdate): array
-    {
-        $results = [];
-
-        foreach ($statsToUpdate as $stat) {
-            $calculatedStats = $this->calculateStatsForCharacter(
-                $stat->game_version_id,
-                $stat->character_id,
-                $stat->iso_code
-            );
-
-            $results[] = [
-                'stat' => $stat,
-                'calculated' => $calculatedStats,
-            ];
-        }
-
-        return $results;
     }
 
     /**

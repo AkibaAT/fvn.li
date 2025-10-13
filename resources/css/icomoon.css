@@ -10,7 +10,8 @@
     font-display: block;
 }
 
-[class^="icon-"], [class*=" icon-"] {
+[class^='icon-'],
+[class*=' icon-'] {
     /* use !important to prevent issues with browser extensions that change fonts */
     font-family: 'icomoon' !important;
     speak: never;
@@ -26,41 +27,41 @@
 }
 
 .icon-external-link:before {
-    content: "\e902";
+    content: '\e902';
 }
 
 .icon-discord:before {
-    content: "\e901";
+    content: '\e901';
 }
 
 .icon-bluesky:before {
-    content: "\e900";
+    content: '\e900';
 }
 
 .icon-linux:before {
-    content: "\f17c";
+    content: '\f17c';
 }
 
 .icon-telegram:before {
-    content: "\ea95";
+    content: '\ea95';
 }
 
 .icon-github:before {
-    content: "\eab0";
+    content: '\eab0';
 }
 
 .icon-apple:before {
-    content: "\eabe";
+    content: '\eabe';
 }
 
 .icon-android:before {
-    content: "\eac0";
+    content: '\eac0';
 }
 
 .icon-windows:before {
-    content: "\eac2";
+    content: '\eac2';
 }
 
 .icon-web:before {
-    content: "\ead9";
+    content: '\ead9';
 }

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "resources/js/app.tsx",
+    "resources/js/ssr.tsx",
+    "resources/js/pages/**/*.tsx",
+    "resources/js/layouts/**/*.tsx",
+    "resources/js/components/**/*.tsx"
+  ],
+  "project": [
+    "resources/js/**/*.{ts,tsx}"
+  ],
+  "ignore": [
+    "public/**"
+  ],
+  "ignoreDependencies": [
+    "@rollup/rollup-linux-x64-gnu",
+    "@tailwindcss/oxide-linux-x64-gnu",
+    "lightningcss-linux-x64-gnu"
+  ],
+  "paths": {
+    "@/*": ["resources/js/*"]
+  }
+}
+

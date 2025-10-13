@@ -2,11 +2,14 @@
 
 [![Deploy Writerside Documentation](https://github.com/AkibaAT/fvn.li/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/AkibaAT/fvn.li/actions/workflows/deploy-docs.yml)
 
-FVN.li is a web application that tracks, analyzes, and provides insights into games published on itch.io. It collects data about games, their versions, ratings, and dialogue content, making it easier for users to discover and evaluate games on the platform. The project is deployed and accessible at [FVN.li](https://fvn.li).
+FVN.li is a web application that tracks, analyzes, and provides insights into games published on itch.io. It collects
+data about games, their versions, ratings, and dialogue content, making it easier for users to discover and evaluate
+games on the platform. The project is deployed and accessible at [FVN.li](https://fvn.li).
 
 ## Documentation
 
-📚 **[View Documentation](https://akibaat.github.io/fvn.li/)** - Comprehensive documentation built with Writerside and deployed to GitHub Pages.
+📚 **[View Documentation](https://akibaat.github.io/fvn.li/)** - Comprehensive documentation built with Writerside and
+deployed to GitHub Pages.
 
 ## Features
 
@@ -20,7 +23,7 @@ FVN.li is a web application that tracks, analyzes, and provides insights into ga
 ## Tech Stack
 
 - **Backend**: Laravel 12 with PHP 8.4
-- **Frontend**: Livewire, TypeScript, Tailwind CSS
+- **Frontend**: React (Inertia.js), TypeScript, Tailwind CSS
 - **Database**: PostgreSQL 17 with PgBouncer
 - **Caching**: Redis
 - **Development**: DDEV for local development environment
@@ -82,6 +85,7 @@ FVN.li is a web application that tracks, analyzes, and provides insights into ga
 ## Database Structure
 
 The application uses several key models:
+
 - **Game**: Core game information from itch.io
 - **GameVersion**: Tracks different versions of games
 - **Rater**: Users who rate games
@@ -102,6 +106,7 @@ The application can be deployed using Docker in production environments:
    ```
 
 This will start the following containers:
+
 - Web application (Laravel)
 - PostgreSQL database with PgBouncer
 - Redis for caching
@@ -115,6 +120,7 @@ The application includes a Discord bot integration that provides:
 - User subscription management
 
 Bot API endpoints are available at:
+
 - `/api/search` - Search for games
 - `/api/updates` - Get recent game updates
 - `/api/subscribe` - Subscribe to update notifications
@@ -132,17 +138,41 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Testing
 
-Run the test suite with:
+Run the test suite with the testing environment (served at https://fvn-li-testing.ddev.site):
 
 ```bash
-ddev artisan test
-# or
+ddev artisan test --env=testing
+# or, via Composer script (also uses --env=testing)
 ddev composer test
 ```
 
+For coverage or parallel runs, use:
+
+```bash
+ddev composer test:coverage
+ddev composer test:parallel
+```
+
+Reset the testing DB when needed:
+
+```bash
+ddev composer migrate:test
+```
+
+## DDEV Conventions
+
+- Run Composer and npm inside DDEV: `ddev composer <cmd>`, `ddev npm <cmd>`.
+- Linting: `ddev composer lint` (PHP/Duster), `ddev npm run lint` (ESLint/Prettier).
+- Formatting: `ddev composer lint:fix`.
+- Git hooks run linters and tests via DDEV. Enable with `composer hooks:install` and ensure hooks are executable.
+- Testing URL: `fvn-li-testing.ddev.site` is configured via DDEV `additional_fqdns`. Run `ddev restart` after pulling
+  config changes.
+- Dev URL: `fvn-li.ddev.site` (default DDEV project URL).
+
 ## Deployment
 
-The application is deployed at [FVN.li](https://fvn.li). Deployment is handled through GitHub Actions which builds and publishes Docker images to GitHub Container Registry.
+The application is deployed at [FVN.li](https://fvn.li). Deployment is handled through GitHub Actions which builds and
+publishes Docker images to GitHub Container Registry.
 
 ## License
 
@@ -153,7 +183,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Laravel](https://laravel.com) - The web framework used
 - [itch.io](https://itch.io) - The game distribution platform this project tracks
 - [DDEV](https://ddev.com) - Local development environment
-- [Livewire](https://livewire.laravel.com) - Full-stack framework for Laravel
+  Legacy Livewire removed; React/Inertia is the primary frontend.
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
-- [ECharts](https://echarts.apache.org) - Charting library
+- [Chart.js](https://www.chartjs.org) - Charting library
 - [Discord](https://discord.com) - Platform for bot integration

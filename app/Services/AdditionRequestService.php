@@ -95,6 +95,17 @@ class AdditionRequestService
     }
 
     /**
+     * Validate if a URL is a valid itch.io URL.
+     */
+    public function isValidItchUrl(string $url): bool
+    {
+        // Basic validation for itch.io URLs
+        $pattern = '/^https?:\/\/(www\.)?[a-zA-Z0-9\-]+\.itch\.io\/[a-zA-Z0-9\-]+\/?$/';
+
+        return preg_match($pattern, $url) === 1;
+    }
+
+    /**
      * Get addition requests for a user with optional filtering.
      */
     public function getUserRequests(User $user, ?string $status = null): Collection
@@ -171,17 +182,6 @@ class AdditionRequestService
             ->with(['users', 'reviewer'])
             ->orderBy('created_at', 'asc')
             ->get();
-    }
-
-    /**
-     * Validate if a URL is a valid itch.io URL.
-     */
-    public function isValidItchUrl(string $url): bool
-    {
-        // Basic validation for itch.io URLs
-        $pattern = '/^https?:\/\/(www\.)?[a-zA-Z0-9\-]+\.itch\.io\/[a-zA-Z0-9\-]+\/?$/';
-
-        return preg_match($pattern, $url) === 1;
     }
 
     /**

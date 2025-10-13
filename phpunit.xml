@@ -23,8 +23,10 @@
         <env name="CACHE_DRIVER" value="array"/>
         <env name="DB_DATABASE" value="db_test"/>
         <env name="MAIL_MAILER" value="array"/>
+        <env name="MEILISEARCH_HOST" value="http://localhost:9999"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SCOUT_DRIVER" value="null"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>

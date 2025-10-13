@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 class FetchGameJamDetails extends Command
 {
     use SelectsGameJams;
+
     protected $signature = 'game-jams:fetch-details
         {--all : Fetch details for all game jams, not just those marked as needing details}
         {--id= : ID of the specific game jam to process}
@@ -38,8 +39,7 @@ class FetchGameJamDetails extends Command
         // If a specific jam is requested by ID, name, or URL, always fetch results
         if ($this->option('id') || $this->option('name') || $this->option('url')) {
             $forceResults = true;
-        }
-        // Process only game jams that need details if not using --all
+        } // Process only game jams that need details if not using --all
         elseif (! $this->option('all')) {
             $query->where('needs_details_fetch', true);
         } else {

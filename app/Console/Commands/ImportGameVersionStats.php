@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class ImportGameVersionStats extends Command
 {
     use SelectsGames;
+
     protected $signature = 'games:import-stats
         {--game-id= : ID of the specific game to process}
         {--game-name= : Name of the game to process (only used if game-id is not provided)}
