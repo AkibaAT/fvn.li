@@ -129,7 +129,7 @@ class GamesDisplayController extends Controller
         }
 
         // Prepare social meta tags
-        $this->prepareSocialMetaTags($game, $reviews);
+        $this->prepareSocialMetaTags($game, $reviews, $englishStats);
 
         // Track page view
         ClickStat::recordClick(
@@ -292,7 +292,7 @@ class GamesDisplayController extends Controller
     /**
      * Prepare social meta tags for game page
      */
-    private function prepareSocialMetaTags(Game $game, $reviews): void
+    private function prepareSocialMetaTags(Game $game, $reviews, ?array $englishStats = null): void
     {
         $title = $game->name;
         $description = $game->description ?: "Discover {$game->name} on fvn.li - Visual Novel Database and Analytics";
@@ -309,6 +309,26 @@ class GamesDisplayController extends Controller
         if ($game->status) {
             $metaDescription .= " ({$game->status})";
         }
+
+        // Add word count information
+        if ($englishStats && isset($englishStats['words']) && $englishStats['words']) {
+            $wordCount = number_format($englishStats['words']);
+            $metaDescription .= " - {$wordCount} words";
+        }
+
+        // Add platform information
+        $platforms = [];
+        if ($game->latestVersion) {
+            if ($game->latestVersion->is_windows) $platforms[] = 'Windows';
+            if ($game->latestVersion->is_mac) $platforms[] = 'macOS';
+            if ($game->latestVersion->is_linux) $platforms[] = 'Linux';
+            if ($game->latestVersion->is_android) $platforms[] = 'Android';
+            if ($game->latestVersion->is_web) $platforms[] = 'Web';
+        }
+        if (!empty($platforms)) {
+            $metaDescription .= " - Available on: " . implode(', ', $platforms);
+        }
+
         if ($reviews->total() > 0) {
             $metaDescription .= " - {$reviews->total()} reviews";
         }
