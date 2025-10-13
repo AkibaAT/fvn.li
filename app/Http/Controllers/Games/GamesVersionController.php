@@ -72,42 +72,70 @@ class GamesVersionController extends Controller
 
         $characterStats = $version->characterStats()
             ->with(['character', 'language'])
-            ->orderBy('lines', 'desc')
+            ->orderBy('words', 'desc')
             ->get();
 
-        $groupedStats = $characterStats->groupBy('iso_code')->map(function ($stats, $isoCode) {
-            $language = $stats->first()->language;
+        // Group by language
+        $groupedByLanguage = $characterStats->groupBy('iso_code');
 
+        // Extract unique character names (ordered alphabetically by English display name)
+        // Use English as the primary language for character names
+        $characterIdToName = []; // Map character IDs to their English display names
+
+        foreach ($characterStats as $stat) {
+            $characterId = $stat->character_id;
+
+            // Get the character's display name in English (or fallback to character_id)
+            if (!isset($characterIdToName[$characterId])) {
+                $characterIdToName[$characterId] = $stat->character->getDisplayName('eng')
+                    ?? $stat->character->character_id
+                    ?? 'Unknown';
+            }
+        }
+
+        // Get unique character names and sort alphabetically (case-insensitive)
+        $characters = array_unique(array_values($characterIdToName));
+        sort($characters, SORT_STRING | SORT_FLAG_CASE);
+
+        // Extract languages and sort (English first, then alphabetically by ISO code)
+        $languages = $groupedByLanguage->map(function ($stats, $isoCode) {
+            $language = $stats->first()->language;
             return [
-                'language' => [
-                    'iso_code' => $isoCode,
-                    'ref_name' => $language->ref_name,
-                    'flag_code' => $language->flag_code,
-                ],
-                'characters' => $stats->map(function ($stat) {
-                    return [
-                        'character_id' => $stat->character_id,
-                        'character_name' => $stat->character->name ?? 'Unknown',
-                        'lines' => $stat->lines,
-                        'words' => $stat->words,
-                        'percentage' => $stat->percentage,
-                    ];
-                })->values(),
+                'id' => $isoCode,
+                'flag' => $language->flag_code,
+                'name' => $language->ref_name,
             ];
-        })->values();
+        })->sortBy(function ($language) {
+            // English first, then sort alphabetically by ISO code
+            return $language['id'] === 'eng' ? '0' : '1' . $language['id'];
+        })->values()->toArray();
+
+        // Build word counts matrix: character -> language -> word count
+        $wordCounts = [];
+        foreach ($characterStats as $stat) {
+            $characterId = $stat->character_id;
+            $characterName = $characterIdToName[$characterId];
+            $isoCode = $stat->iso_code;
+            if (!isset($wordCounts[$characterName])) {
+                $wordCounts[$characterName] = [];
+            }
+            $wordCounts[$characterName][$isoCode] = $stat->words;
+        }
+
+        // Calculate language totals
+        $languageTotals = [];
+        foreach ($groupedByLanguage as $isoCode => $stats) {
+            $languageTotals[$isoCode] = $stats->sum('words');
+        }
 
         return response()->json([
-            'game' => [
-                'id' => $game->id,
-                'name' => $game->name,
-                'slug' => $game->slug,
+            'success' => true,
+            'data' => [
+                'characters' => $characters,
+                'languages' => $languages,
+                'wordCounts' => $wordCounts,
+                'languageTotals' => $languageTotals,
             ],
-            'version' => [
-                'id' => $version->id,
-                'version' => $version->version,
-                'published_at' => $version->published_at,
-            ],
-            'character_stats' => $groupedStats,
         ]);
     }
 
@@ -121,52 +149,34 @@ class GamesVersionController extends Controller
         }
 
         try {
-            $fileStats = $version->fileStats()
-                ->with('language')
-                ->orderBy('iso_code')
-                ->orderBy('filename')
+            $fileCategories = $version->fileCategories()
+                ->with('fileTypes')
+                ->orderBy('category')
                 ->get();
 
-            $groupedStats = $fileStats->groupBy('iso_code')->map(function ($stats, $isoCode) {
-                $language = $stats->first()->language;
-
+            $formattedCategories = $fileCategories->map(function ($category) {
                 return [
-                    'language' => [
-                        'iso_code' => $isoCode,
-                        'ref_name' => $language?->ref_name ?? $isoCode,
-                        'flag_code' => $language?->flag_code ?? strtolower(substr($isoCode, 0, 2)),
-                    ],
-                    'files' => $stats->map(function ($stat) {
+                    'category' => $category->category,
+                    'total_count' => $category->total_count,
+                    'total_size' => $category->total_size,
+                    'file_types' => $category->fileTypes->map(function ($fileType) {
                         return [
-                            'filename' => $stat->filename,
-                            'lines' => $stat->lines,
-                            'words' => $stat->words,
-                            'characters' => $stat->characters,
-                            'size_bytes' => $stat->size_bytes,
+                            'extension' => $fileType->extension,
+                            'count' => $fileType->count,
+                            'size' => $fileType->size,
                         ];
-                    })->values(),
-                    'totals' => [
-                        'files' => $stats->count(),
-                        'lines' => $stats->sum('lines'),
-                        'words' => $stats->sum('words'),
-                        'characters' => $stats->sum('characters'),
-                        'size_bytes' => $stats->sum('size_bytes'),
-                    ],
+                    })->values()->toArray(),
                 ];
-            })->values();
+            })->values()->toArray();
 
             return response()->json([
-                'game' => [
-                    'id' => $game->id,
-                    'name' => $game->name,
-                    'slug' => $game->slug,
+                'success' => true,
+                'data' => [
+                    'version' => [
+                        'version' => $version->version,
+                    ],
+                    'file_categories' => $formattedCategories,
                 ],
-                'version' => [
-                    'id' => $version->id,
-                    'version' => $version->version,
-                    'published_at' => $version->published_at,
-                ],
-                'file_stats' => $groupedStats,
             ]);
         } catch (Exception $e) {
             Log::error('Error retrieving file stats', [
@@ -176,6 +186,7 @@ class GamesVersionController extends Controller
             ]);
 
             return response()->json([
+                'success' => false,
                 'error' => 'Unable to retrieve file statistics',
             ], 500);
         }

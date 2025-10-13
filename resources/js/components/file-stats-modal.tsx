@@ -21,6 +21,22 @@ interface FileStatsModalProps {
     closeFileStatsDialog: (versionId: number) => void;
 }
 
+/**
+ * Format bytes to human readable format
+ * Matches the PHP HelperService::formatBytes() implementation
+ */
+function formatBytes(bytes: number, precision: number = 2): string {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+    bytes = Math.max(bytes, 0);
+    const pow = Math.floor((bytes ? Math.log(bytes) : 0) / Math.log(1024));
+    const powClamped = Math.min(pow, units.length - 1);
+
+    const value = bytes / Math.pow(1024, powClamped);
+
+    return `${value.toFixed(precision)} ${units[powClamped]}`;
+}
+
 export default function FileStatsModal({
                                            versionId,
                                            showFileStats,
@@ -117,7 +133,7 @@ export default function FileStatsModal({
                                     (category, index) => (
                                         <div
                                             key={index}
-                                            className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800"
+                                            className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50"
                                         >
                                             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                                                 {category.category
@@ -130,9 +146,7 @@ export default function FileStatsModal({
                                                 {category.total_count.toLocaleString()}
                                             </div>
                                             <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                {category.total_size > 0
-                                                    ? `${(category.total_size / 1024 / 1024).toFixed(2)} MB`
-                                                    : '0 B'}
+                                                {formatBytes(category.total_size)}
                                             </div>
                                         </div>
                                     ),
@@ -153,7 +167,7 @@ export default function FileStatsModal({
                                                 category.category.slice(1)}{' '}
                                             Files
                                         </h4>
-                                        <div className="overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
+                                        <div className="overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-700/50">
                                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                                                 <thead>
                                                 <tr>
@@ -184,10 +198,7 @@ export default function FileStatsModal({
                                                                 {fileType.count.toLocaleString()}
                                                             </td>
                                                             <td className="px-4 py-2 text-right text-sm text-gray-900 dark:text-gray-100">
-                                                                {fileType.size >
-                                                                0
-                                                                    ? `${(fileType.size / 1024 / 1024).toFixed(2)} MB`
-                                                                    : '0 B'}
+                                                                {formatBytes(fileType.size)}
                                                             </td>
                                                         </tr>
                                                     ),

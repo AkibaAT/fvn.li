@@ -28,6 +28,7 @@ class GamesDisplayController extends Controller
     {
         $game->load([
             'latestVersion.supportedLanguages.language',
+            'latestVersion.languageStats.language',
             'tags',
             'gameJams',
         ]);
@@ -74,8 +75,41 @@ class GamesDisplayController extends Controller
                 ])
                 ->values();
 
+            // Transform languageStats to include language data
+            $version->languageStats = $version->languageStats
+                ->map(fn ($ls) => [
+                    'words' => $ls->words,
+                    'language' => [
+                        'id' => $ls->language->id,
+                        'iso_code' => $ls->language->id,
+                        'ref_name' => $ls->language->ref_name,
+                        'flag_code' => $ls->language->flag_code,
+                    ],
+                ])
+                ->values();
+
             return $version;
         });
+
+        // Get English word count from latest version for game detail section
+        $englishStats = null;
+        if ($game->latestVersion) {
+            $englishLanguageStats = $game->latestVersion->languageStats
+                ->where('iso_code', 'eng')
+                ->first();
+
+            if ($englishLanguageStats) {
+                $englishStats = [
+                    'words' => $englishLanguageStats->words,
+                    'language' => [
+                        'id' => $englishLanguageStats->language->id,
+                        'iso_code' => $englishLanguageStats->language->id,
+                        'ref_name' => $englishLanguageStats->language->ref_name,
+                        'flag_code' => $englishLanguageStats->language->flag_code,
+                    ],
+                ];
+            }
+        }
 
         // Get user's current VN lists to show list membership status
         $userVnLists = [];
@@ -191,6 +225,7 @@ class GamesDisplayController extends Controller
             'reviews' => $reviews,
             'availableRatings' => $availableRatings,
             'gameVersions' => $gameVersions,
+            'englishStats' => $englishStats,
             'versionCharacterCounts' => $versionCharacterCounts,
             'userVnLists' => $userVnLists,
             'gameListMembership' => $gameListMembership,

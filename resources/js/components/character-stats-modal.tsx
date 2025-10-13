@@ -163,7 +163,7 @@ export default function CharacterStatsModal({
                             )}
                             </tbody>
                             <tfoot>
-                            <tr className="bg-gray-100 dark:bg-gray-900">
+                            <tr className="bg-gray-50 dark:bg-gray-700/50">
                                 <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
                                     Total
                                 </td>
