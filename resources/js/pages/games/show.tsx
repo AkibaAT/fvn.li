@@ -832,8 +832,11 @@ export default function GameShow({
         );
     }
 
-    // Generate meta tags if not provided by controller
-    const gameMetaTags = metaTags || createGameMetaTags(game);
+    // Generate meta tags - merge backend meta tags with frontend-generated structured data
+    const frontendMetaTags = createGameMetaTags(game);
+    const gameMetaTags = metaTags
+        ? { ...metaTags, structuredData: frontendMetaTags.structuredData }
+        : frontendMetaTags;
 
     return (
         <>

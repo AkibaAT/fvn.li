@@ -5,6 +5,14 @@ interface GameTag {
     name: string;
 }
 
+interface GameVersion {
+    is_windows?: boolean;
+    is_mac?: boolean;
+    is_linux?: boolean;
+    is_android?: boolean;
+    is_web?: boolean;
+}
+
 interface Game {
     id: number | string;
     slug?: string;
@@ -27,6 +35,9 @@ interface Game {
     is_linux?: boolean;
     is_android?: boolean;
     is_web?: boolean;
+    rating_score?: number;
+    rating_count?: number;
+    latest_version?: GameVersion;
 }
 
 export interface MetaTags {
@@ -198,12 +209,19 @@ export function createGameMetaTags(game: Game, options: Partial<MetaTags> = {}):
             genre: 'Visual Novel',
             keywords: game.tags?.map((tag: GameTag) => tag.name).join(', '),
             operatingSystem: [
-                game.is_windows && 'Windows',
-                game.is_mac && 'macOS',
-                game.is_linux && 'Linux',
-                game.is_android && 'Android',
-                game.is_web && 'Web Browser',
+                (game.latest_version?.is_windows || game.is_windows) && 'Windows',
+                (game.latest_version?.is_mac || game.is_mac) && 'macOS',
+                (game.latest_version?.is_linux || game.is_linux) && 'Linux',
+                (game.latest_version?.is_android || game.is_android) && 'Android',
+                (game.latest_version?.is_web || game.is_web) && 'Web Browser',
             ].filter(Boolean).join(', '),
+            aggregateRating: game.rating_count && game.rating_count > 0 ? {
+                '@type': 'AggregateRating',
+                ratingValue: game.rating_score,
+                ratingCount: game.rating_count,
+                bestRating: 5,
+                worstRating: 1,
+            } : undefined,
         },
         ...options,
     };
