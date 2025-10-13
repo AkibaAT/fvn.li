@@ -128,9 +128,6 @@ class GameVersionsRelationManager extends RelationManager
                             'is_mac' => $jsonData['is_mac'] ?? false,
                             'is_android' => $jsonData['is_android'] ?? false,
                             'is_web' => $jsonData['is_web'] ?? false,
-                            'rating' => $jsonData['rating'] ?? null,
-                            'rating_count' => $jsonData['rating_count'] ?? 0,
-                            'is_latest' => false,
                         ]);
 
                         $version->save();

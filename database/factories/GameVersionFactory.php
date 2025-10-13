@@ -29,17 +29,18 @@ class GameVersionFactory extends Factory
             'is_mac' => fake()->boolean(50),
             'is_android' => fake()->boolean(30),
             'is_web' => fake()->boolean(20),
-            'is_latest' => false,
         ];
     }
 
     /**
      * Indicate that the version is the latest.
+     * Note: is_latest must be set after creation since it's not fillable.
      */
     public function latest(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'is_latest' => true,
-        ]);
+        return $this->afterCreating(function (GameVersion $version) {
+            $version->is_latest = true;
+            $version->save();
+        });
     }
 }

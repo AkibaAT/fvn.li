@@ -87,7 +87,7 @@ class GameDataSyncService
             // Check if game has any existing versions - if not, create fallback immediately
             if (! $game->gameVersions()->exists()) {
                 // Create fallback version and commit it immediately to ensure it persists
-                $fallbackVersion = new GameVersion([
+                $fallbackVersion = $game->gameVersions()->create([
                     'version' => 'Unknown',
                     'devlog' => $this->getDevlogLink($game),
                     'is_windows' => false,
@@ -96,9 +96,12 @@ class GameDataSyncService
                     'is_android' => false,
                     'is_web' => false,
                     'published_at' => $game->initially_published_at ?? now(),
-                    'is_latest' => true,
                 ]);
-                $game->gameVersions()->save($fallbackVersion);
+
+                // Set is_latest separately since it's not fillable
+                $fallbackVersion->is_latest = true;
+                $fallbackVersion->save();
+
                 DB::commit();
                 DB::beginTransaction();
                 $force = true;
@@ -230,16 +233,20 @@ class GameDataSyncService
                         'is_android' => $isAndroid,
                         'is_web' => $isWeb,
                         'published_at' => $uploadTimestamp,
-                        'is_latest' => ! $existingVersion,
                     ];
 
                     if ($existingUnknownVersion) {
                         $existingUnknownVersion->update($versionValues);
                         $gameVersion = $existingUnknownVersion;
                     } else {
-                        $gameVersion = new GameVersion($versionValues);
+                        $gameVersion = $game->gameVersions()->create($versionValues);
                     }
-                    $game->gameVersions()->save($gameVersion);
+
+                    // Set is_latest separately since it's not fillable
+                    if (! $existingVersion) {
+                        $gameVersion->is_latest = true;
+                        $gameVersion->save();
+                    }
 
                     if (! $existingUnknownVersion) {
                         // Find previous version that has any unavailable languages
