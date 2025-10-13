@@ -13,6 +13,7 @@ use App\Models\Concerns\HasGameSearch;
 use App\Models\Concerns\HasGameTags;
 use App\Services\GameDataSyncService;
 use App\Services\GameVersionParser;
+use Carbon\Carbon;
 use DateMalformedStringException;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
@@ -321,6 +322,94 @@ class Game extends Model
     public function customPageUpdatedBy()
     {
         return $this->belongsTo(User::class, 'custom_page_updated_by');
+    }
+
+    /**
+     * Get additional links sorted by sort_order, filtered by release date
+     */
+    public function getAdditionalLinksAttribute($value): array
+    {
+        if (! $value) {
+            return [];
+        }
+
+        $links = is_string($value) ? json_decode($value, true) : $value;
+
+        if (! is_array($links)) {
+            return [];
+        }
+
+        // Filter out links that haven't reached their release date yet
+        $now = Carbon::now();
+        $links = array_filter($links, function ($link) use ($now) {
+            // If no release_at is set, the link is immediately available
+            if (empty($link['release_at'])) {
+                return true;
+            }
+
+            try {
+                $releaseDate = Carbon::parse($link['release_at']);
+
+                return $now->gte($releaseDate);
+            } catch (Exception $e) {
+                // If parsing fails, show the link (fail safe)
+                return true;
+            }
+        });
+
+        // Sort by sort_order, then by id for consistent ordering
+        usort($links, function ($a, $b) {
+            $orderA = $a['sort_order'] ?? 0;
+            $orderB = $b['sort_order'] ?? 0;
+
+            if ($orderA === $orderB) {
+                return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
+            }
+
+            return $orderA <=> $orderB;
+        });
+
+        return $links;
+    }
+
+    /**
+     * Get all additional links (including unreleased ones) for management purposes
+     */
+    public function getAllAdditionalLinks(): array
+    {
+        $value = $this->attributes['additional_links'] ?? null;
+
+        if (! $value) {
+            return [];
+        }
+
+        $links = is_string($value) ? json_decode($value, true) : $value;
+
+        if (! is_array($links)) {
+            return [];
+        }
+
+        // Sort by sort_order, then by id for consistent ordering
+        usort($links, function ($a, $b) {
+            $orderA = $a['sort_order'] ?? 0;
+            $orderB = $b['sort_order'] ?? 0;
+
+            if ($orderA === $orderB) {
+                return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
+            }
+
+            return $orderA <=> $orderB;
+        });
+
+        return $links;
+    }
+
+    /**
+     * Check if the game has any additional links (only released ones)
+     */
+    public function hasAdditionalLinks(): bool
+    {
+        return ! empty($this->additional_links);
     }
 
     /**

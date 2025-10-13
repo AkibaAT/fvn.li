@@ -83,6 +83,27 @@
     border-color: #4b5563;
 }
 
+/* Global dark theme form controls */
+.dark input,
+.dark select,
+.dark textarea {
+    color-scheme: dark;
+}
+
+/* Media query fallback for system dark mode preference */
+@media (prefers-color-scheme: dark) {
+    input,
+    select,
+    textarea {
+        color-scheme: dark;
+    }
+}
+
+/* Calendar icon pointer cursor */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+}
+
 /* Improve editor content area spacing and readability */
 .tox-edit-area__iframe {
     padding: 0 !important;

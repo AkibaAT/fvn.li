@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\User;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -134,7 +136,9 @@ class MyGamesController extends Controller
             ? array_keys(Game::getAvailablePlatforms())
             : ['windows', 'linux', 'mac', 'android', 'web'];
 
-        $editableLinks = $game->additional_links ?? [];
+        $editableLinks = method_exists($game, 'getAllAdditionalLinks')
+            ? $game->getAllAdditionalLinks()
+            : ($game->additional_links ?? []);
 
         return Inertia::render('my-games/edit', [
             'game' => [
@@ -212,11 +216,44 @@ class MyGamesController extends Controller
                 },
             ],
             'links.*.platform' => 'nullable|string|in:' . implode(',', array_keys(Game::getAvailablePlatforms())),
+            'links.*.release_at' => [
+                'nullable',
+                'date',
+                function (string $attribute, $value, $fail) {
+                    if ($value) {
+                        try {
+                            $releaseDate = Carbon::parse($value);
+                            $now = Carbon::now();
+
+                            // Allow past dates (for retroactive releases) but warn about very old dates
+                            if ($releaseDate->lt($now->copy()->subYears(10))) {
+                                $fail('The release date cannot be more than 10 years in the past.');
+
+                                return;
+                            }
+
+                            // Allow future dates up to 10 years
+                            if ($releaseDate->gt($now->copy()->addYears(10))) {
+                                $fail('The release date cannot be more than 10 years in the future.');
+
+                                return;
+                            }
+                        } catch (Exception $e) {
+                            $fail('The release date must be a valid date and time.');
+                        }
+                    }
+                },
+            ],
         ]);
 
         $links = $request->input('links', []);
+
+        // Debug: Log the incoming links data
+
         $processedLinks = [];
-        $existingLinks = $game->additional_links ?? [];
+        $existingLinks = method_exists($game, 'getAllAdditionalLinks')
+            ? $game->getAllAdditionalLinks()
+            : ($game->additional_links ?? []);
         $existingLinksById = collect($existingLinks)->keyBy('id');
 
         foreach ($links as $index => $link) {
@@ -227,10 +264,42 @@ class MyGamesController extends Controller
             $linkId = $link['id'] ?? uniqid();
             $existingLink = $existingLinksById->get($linkId);
 
+            // Handle release_at datetime - convert from user's local time to UTC
+            $releaseAt = null;
+            if (! empty($link['release_at'])) {
+                try {
+                    // The user submits their local time (e.g., "2025-10-10T12:54")
+                    // We need to convert this to UTC for storage
+
+                    // Parse the input as if it's in UTC first
+                    $inputTime = Carbon::parse($link['release_at']);
+
+                    // Since the user meant this as their local time, we need to subtract their timezone offset to get UTC
+                    // Get user timezone offset from the form
+                    $timezoneOffset = (int) ($request->input('timezone_offset', 0));
+
+                    // Subtract the offset to convert local time to UTC
+                    $utcTime = $inputTime->copy()->subHours($timezoneOffset);
+
+                    $releaseAt = $utcTime->toISOString();
+
+                } catch (Exception $e) {
+                    // If parsing fails during processing (after validation),
+                    // this shouldn't happen but we'll handle it gracefully
+                    $releaseAt = null;
+                    Log::error('Failed to parse release_at', [
+                        'input' => $link['release_at'],
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // Check if the link has been modified
             $hasChanged = ! $existingLink ||
                 $existingLink['name'] !== trim($link['name']) ||
                 $existingLink['url'] !== filter_var(trim($link['url']), FILTER_SANITIZE_URL) ||
-                ($existingLink['platform'] ?? null) !== ($link['platform'] ?? null);
+                ($existingLink['platform'] ?? null) !== ($link['platform'] ?? null) ||
+                ($existingLink['release_at'] ?? null) !== $releaseAt;
 
             $processedLinks[] = [
                 'id' => $linkId,
@@ -238,6 +307,7 @@ class MyGamesController extends Controller
                 'url' => filter_var(trim($link['url']), FILTER_SANITIZE_URL),
                 'platform' => $link['platform'] ?? null,
                 'sort_order' => $index,
+                'release_at' => $releaseAt,
                 'last_edited_at' => $hasChanged ? now()->toISOString() : ($existingLink['last_edited_at'] ?? now()->toISOString()),
             ];
         }
