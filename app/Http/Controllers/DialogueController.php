@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DialogueSearchService;
 use App\Services\MeilisearchService;
@@ -16,20 +17,24 @@ use Inertia\Response;
 
 class DialogueController extends Controller
 {
-    public function dialogueBrowser(Request $request): Response
+    public function dialogueBrowser(Request $request, int $gameId): Response
     {
-        // Accept either query parameters or optional path params
-        $gameId = $request->route('gameId') ?? $request->input('gameId');
+        // gameId is now required, versionId is optional
         $versionId = $request->route('versionId') ?? $request->input('versionId');
 
+        // Verify game exists
+        $game = Game::findOrFail($gameId);
+
         $initial = [
-            'gameId' => $gameId ? (int) $gameId : null,
+            'gameId' => $gameId,
+            'gameName' => $game->name,
+            'gameSlug' => $game->slug,
             'versionId' => $versionId ? (int) $versionId : null,
         ];
 
         return Inertia::render('dialogue/browser', [
             'initial' => $initial,
-            'metaTags' => ['title' => 'Dialogue Browser'],
+            'metaTags' => ['title' => 'Dialogue Browser - ' . $game->name],
         ]);
     }
 
@@ -229,12 +234,13 @@ class DialogueController extends Controller
     }
 
     /**
-     * Options for the Dialogue Browser (games, versions, characters, contexts, languages)
+     * Options for the Dialogue Browser (versions, characters, contexts, languages)
+     * gameId is now required - we only fetch data for a specific game
      */
     public function getDialogueOptions(Request $request): JsonResponse
     {
         $request->validate([
-            'gameId' => 'nullable|integer|exists:games,id',
+            'gameId' => 'required|integer|exists:games,id',
             'versionId' => 'nullable|integer|exists:game_versions,id',
             'language' => 'nullable|string|size:3',
         ]);
@@ -243,38 +249,32 @@ class DialogueController extends Controller
         $versionId = $request->integer('versionId');
         $language = $request->input('language', 'eng');
 
-        // Games that have dialogue data (version_dialogue_lines)
-        $games = DB::table('games as g')
-            ->join('game_versions as gv', 'gv.game_id', '=', 'g.id')
-            ->join('version_dialogue_lines as vdl', 'vdl.game_version_id', '=', 'gv.id')
-            ->select('g.id', 'g.name', 'g.slug')
-            ->distinct()
-            ->orderBy('g.name')
-            ->get()
-            ->map(fn ($r) => ['id' => (int) $r->id, 'name' => (string) $r->name, 'slug' => (string) $r->slug])
-            ->values();
-
-        // Versions with dialogue for selected game
-        $versions = collect();
-        if ($gameId) {
-            $versions = DB::table('game_versions as gv')
-                ->join('version_dialogue_lines as vdl', 'vdl.game_version_id', '=', 'gv.id')
-                ->where('gv.game_id', '=', $gameId)
-                ->select('gv.id', 'gv.version', 'gv.published_at')
-                ->distinct()
-                ->orderByDesc('gv.published_at')
-                ->get()
-                ->map(fn ($r) => [
-                    'id' => (int) $r->id, 'version' => (string) $r->version, 'published_at' => $r->published_at,
-                ])
-                ->values();
-        }
-
-        // Languages available (global)
-        $languages = DB::table('iso_639_3_languages as l')
+        // Versions with dialogue for the specific game - much faster query
+        $versions = DB::table('game_versions as gv')
+            ->where('gv.game_id', '=', $gameId)
             ->whereExists(function ($q) {
                 $q->select('id')
                     ->from('version_dialogue_lines as vdl')
+                    ->whereColumn('vdl.game_version_id', 'gv.id')
+                    ->limit(1);
+            })
+            ->select('gv.id', 'gv.version', 'gv.published_at')
+            ->orderByDesc('gv.published_at')
+            ->get()
+            ->map(fn ($r) => [
+                'id' => (int) $r->id,
+                'version' => (string) $r->version,
+                'published_at' => $r->published_at,
+            ])
+            ->values();
+
+        // Languages available for this specific game - much faster query
+        $languages = DB::table('iso_639_3_languages as l')
+            ->whereExists(function ($q) use ($gameId) {
+                $q->select('vdl.id')
+                    ->from('version_dialogue_lines as vdl')
+                    ->join('game_versions as gv', 'gv.id', '=', 'vdl.game_version_id')
+                    ->where('gv.game_id', '=', $gameId)
                     ->whereColumn('vdl.iso_code', 'l.id')
                     ->limit(1);
             })
@@ -325,7 +325,6 @@ class DialogueController extends Controller
 
         return response()->json([
             'success' => true,
-            'games' => $games,
             'versions' => $versions,
             'languages' => $languages,
             'characters' => $characters,

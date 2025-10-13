@@ -10,8 +10,10 @@ declare global {
 }
 
 type InitialProps = {
-    initial?: {
-        gameId?: number | null;
+    initial: {
+        gameId: number;
+        gameName: string;
+        gameSlug: string;
         versionId?: number | null;
     };
 };
@@ -29,7 +31,6 @@ type Pagination = {
     last_page: number;
 };
 
-type GameOption = { id: number; name: string; slug: string };
 type VersionOption = {
     id: number;
     version: string;
@@ -74,7 +75,11 @@ type DuplicateItem = {
 
 export default function DialogueBrowser({initial}: InitialProps) {
     const inertiaPage = usePage();
-    const preselectedGameId = initial?.gameId ?? null;
+
+    // gameId is now required and fixed - comes from route parameter
+    const gameId = initial.gameId;
+    const gameName = initial.gameName;
+    const gameSlug = initial.gameSlug;
     const preselectedVersionId = initial?.versionId ?? null;
 
     // Parse initial state from URL if present (SSR-safe using Ziggy location)
@@ -97,7 +102,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
     );
     const qp = url.searchParams;
 
-    const qpGameId = qp.get('gameId');
     const qpVersionId = qp.get('versionId');
     const qpQ = qp.get('q') ?? '';
     const qpPage = parseInt(qp.get('page') || '1', 10);
@@ -107,9 +111,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
         .map((s) => s.trim())
         .filter(Boolean);
 
-    const [gameId, setGameId] = useState<number | null>(
-        qpGameId ? Number(qpGameId) : preselectedGameId,
-    );
     const [versionId, setVersionId] = useState<number | null>(
         qpVersionId ? Number(qpVersionId) : preselectedVersionId,
     );
@@ -121,7 +122,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
         [25, 50, 100].includes(qpPerPage) ? qpPerPage : 25,
     );
 
-    const [games, setGames] = useState<GameOption[]>([]);
     const [versions, setVersions] = useState<VersionOption[]>([]);
     const [languages, setLanguages] = useState<ApiLanguage[]>([]);
     const [characters, setCharacters] = useState<CharacterOption[]>([]);
@@ -189,7 +189,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
             );
             if (resp.data && resp.data.success) {
                 // Options
-                if (Array.isArray(resp.data.games)) setGames(resp.data.games);
                 if (Array.isArray(resp.data.versions))
                     setVersions(resp.data.versions);
                 // Items are stored but not currently displayed in UI
@@ -222,22 +221,19 @@ export default function DialogueBrowser({initial}: InitialProps) {
     };
 
     const fetchOptions = async () => {
-        if (!gameId && !versionId) return;
-        // loadingOptions is tracked but not currently displayed in UI
-        // setLoadingOptions(true);
+        // gameId is now always available (required)
         try {
             const resp = await window.axios.get(
                 route('react-api.dialogue.options'),
                 {
                     params: {
-                        gameId: gameId ?? undefined,
+                        gameId,
                         versionId: versionId ?? undefined,
                         language,
                     },
                 },
             );
             if (resp.data?.success) {
-                if (Array.isArray(resp.data.games)) setGames(resp.data.games);
                 if (Array.isArray(resp.data.versions))
                     setVersions(resp.data.versions);
                 if (Array.isArray(resp.data.languages))
@@ -249,9 +245,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
             }
         } catch (e) {
             console.error('Failed to load options', e);
-        } finally {
-            // loadingOptions is tracked but not currently displayed in UI
-            // setLoadingOptions(false);
         }
     };
 
@@ -354,7 +347,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
     };
 
     useEffect(() => {
-        // Initial load: options first; avoid heavy item query unless needed
+        // Initial load: fetch options once (gameId is always available)
         fetchOptions();
         if (versionId) {
             fetchVersionStats();
@@ -363,27 +356,13 @@ export default function DialogueBrowser({initial}: InitialProps) {
     }, []);
 
     const canSearch = useMemo(
-        () => !!gameId && !!versionId,
-        [gameId, versionId],
+        () => !!versionId,
+        [versionId],
     );
-
-    // When game or version are preselected via URL, fetch options and stats only
-    useEffect(() => {
-        // If we have preselected IDs from URL, ensure options are loaded
-        if (
-            preselectedGameId ||
-            preselectedVersionId ||
-            qpGameId ||
-            qpVersionId
-        ) {
-            fetchOptions();
-            fetchVersionStats();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [preselectedGameId, preselectedVersionId]);
 
     // When version or language changes, refresh characters/contexts and reset their selections
     useEffect(() => {
+        if (!versionId) return;
         setSelectedCharacterId('');
         setSelectedContext('');
         fetchOptions();
@@ -449,7 +428,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
         sp.delete('perPage');
         sp.delete('selectedLangs');
 
-        if (gameId) sp.set('gameId', String(gameId));
+        // gameId is in the route path, not query params
         if (versionId) sp.set('versionId', String(versionId));
         if (q) sp.set('q', q);
         if (currentPage && currentPage !== 1)
@@ -463,7 +442,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
         if (newUrl !== window.location.pathname + window.location.search) {
             window.history.replaceState({}, '', newUrl);
         }
-    }, [gameId, versionId, q, currentPage, perPage, selectedLangs]);
+    }, [versionId, q, currentPage, perPage, selectedLangs]);
 
     const onApplyFilters = async () => {
         setCurrentPage(1);
@@ -526,87 +505,34 @@ export default function DialogueBrowser({initial}: InitialProps) {
                 <div className="mx-auto max-w-7xl">
                     <div
                         className="sticky top-0 z-10 mb-4 flex items-center justify-between bg-gray-100 py-4 dark:bg-gray-900">
-                        {gameId && games.length > 0 ? (
-                            <Link
-                                href={route(
-                                    'games.show',
-                                    games.find((g) => g.id === gameId)?.slug ??
-                                    '',
-                                )}
-                                className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                        <Link
+                            href={route('games.show', gameSlug)}
+                            className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                        >
+                            <svg
+                                className="mr-1 h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                             >
-                                <svg
-                                    className="mr-1 h-5 w-5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M15 19l-7-7 7-7"
-                                    />
-                                </svg>
-                                Back to Game Details
-                            </Link>
-                        ) : (
-                            <Link
-                                href={route('games.index')}
-                                className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-                            >
-                                <svg
-                                    className="mr-1 h-5 w-5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M15 19l-7-7 7-7"
-                                    />
-                                </svg>
-                                Back to Game List
-                            </Link>
-                        )}
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M15 19l-7-7 7-7"
+                                />
+                            </svg>
+                            Back to {gameName}
+                        </Link>
                     </div>
 
                     <div className="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
                         <div className="mb-4 flex items-center justify-between">
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                Dialogue Browser
+                                Dialogue Browser - {gameName}
                             </h1>
                         </div>
-                        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Game
-                                </label>
-                                <select
-                                    value={gameId ?? ''}
-                                    onChange={async (e) => {
-                                        const nextGameId = e.target.value
-                                            ? Number(e.target.value)
-                                            : null;
-                                        setGameId(nextGameId);
-                                        setVersionId(null);
-                                        setCurrentPage(1);
-                                        // Fetch to refresh versions list
-                                        await fetchOptions();
-                                    }}
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                                >
-                                    <option value="">All Games</option>
-                                    {games.map((g) => (
-                                        <option key={g.id} value={g.id}>
-                                            {g.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
+                        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Version
@@ -620,10 +546,9 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                 : null,
                                         )
                                     }
-                                    disabled={!gameId}
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 >
-                                    <option value="">All Versions</option>
+                                    <option value="">Select Version</option>
                                     {versions.map((v) => (
                                         <option key={v.id} value={v.id}>
                                             {v.version}
@@ -1163,15 +1088,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                                                     <div
                                                                                         className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                                                                                         <span className="font-medium">
-                                                                                            {games.find(
-                                                                                                    (
-                                                                                                        g,
-                                                                                                    ) =>
-                                                                                                        g.id ===
-                                                                                                        row.game_version_id,
-                                                                                                )
-                                                                                                    ?.name ||
-                                                                                                'Unknown Game'}
+                                                                                            {gameName}
                                                                                         </span>
 
                                                                                         (
@@ -1289,15 +1206,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                                             <div
                                                                                 className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                                                                                 <span className="font-medium">
-                                                                                    {games.find(
-                                                                                            (
-                                                                                                g,
-                                                                                            ) =>
-                                                                                                g.id ===
-                                                                                                row.game_version_id,
-                                                                                        )
-                                                                                            ?.name ||
-                                                                                        'Unknown Game'}
+                                                                                    {gameName}
                                                                                 </span>
 
                                                                                 (

@@ -79,12 +79,10 @@ export default function SearchResults({
                             ))}
                         </div>
                         {globalResults.total_dialogue > globalResults.dialogue.length && (
-                            <Link
-                                href={route('dialogue.browser', { q: query })}
-                                className="inline-block mt-3 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                                View all {globalResults.total_dialogue} dialogue texts →
-                            </Link>
+                            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                                Showing {globalResults.dialogue.length} of {globalResults.total_dialogue} dialogue results.
+                                Visit individual game pages to browse all dialogue.
+                            </p>
                         )}
                     </div>
                 )}
