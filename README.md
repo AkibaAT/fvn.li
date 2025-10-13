@@ -23,13 +23,18 @@ deployed to GitHub Pages.
 ## Tech Stack
 
 - **Backend**: Laravel 12 with PHP 8.4
-- **Frontend**: React (Inertia.js), TypeScript, Tailwind CSS
-- **Database**: PostgreSQL 17 with PgBouncer
+- **Frontend**: React 19 with TypeScript, Inertia.js 2.x, Tailwind CSS 4
+- **Build Tool**: Vite 7 with SSR support
+- **Database**: PostgreSQL 17
+- **Search**: Meilisearch for full-text search
 - **Caching**: Redis
 - **Development**: DDEV for local development environment
-- **Visualization**: ECharts for data visualization
+- **Visualization**: Chart.js for data visualization
+- **Testing**: Playwright for E2E and accessibility testing
 - **Deployment**: Docker for containerized deployment
 - **API**: RESTful API endpoints for Discord bot integration
+
+For detailed architecture information, see the [Frontend Architecture](https://akibaat.github.io/fvn.li/frontend-architecture.html) documentation.
 
 ## Getting Started
 
@@ -61,7 +66,7 @@ deployed to GitHub Pages.
 
 4. Install JavaScript dependencies:
    ```bash
-   ddev npm install
+   ddev pnpm install
    ```
 
 5. Copy the environment file and generate an application key:
@@ -75,12 +80,14 @@ deployed to GitHub Pages.
    ddev artisan migrate
    ```
 
-7. Start the development server:
+7. Start the Vite development server:
    ```bash
-   ddev npm run dev
+   ddev pnpm dev
    ```
 
 8. Access the application at [https://fvn-li.ddev.site](https://fvn-li.ddev.site)
+
+For more detailed development instructions, see the [Development Guide](https://akibaat.github.io/fvn.li/development-guide.html).
 
 ## Database Structure
 
@@ -108,7 +115,7 @@ The application can be deployed using Docker in production environments:
 This will start the following containers:
 
 - Web application (Laravel)
-- PostgreSQL database with PgBouncer
+- PostgreSQL database
 - Redis for caching
 
 ## Discord Bot Integration
@@ -138,6 +145,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Testing
 
+### Backend Tests (PHPUnit)
+
 Run the test suite with the testing environment (served at https://fvn-li-testing.ddev.site):
 
 ```bash
@@ -159,11 +168,41 @@ Reset the testing DB when needed:
 ddev composer migrate:test
 ```
 
+### Frontend E2E Tests (Playwright)
+
+```bash
+# Run all E2E tests
+ddev pnpm test:e2e
+
+# Run in UI mode (interactive)
+ddev pnpm test:e2e:ui
+
+# Run accessibility tests
+ddev pnpm test:a11y
+
+# View test report
+ddev pnpm test:a11y:report
+```
+
+### Code Quality
+
+```bash
+# TypeScript type checking
+ddev pnpm types
+
+# ESLint
+ddev pnpm lint
+
+# Prettier formatting
+ddev pnpm format
+ddev pnpm format:check
+```
+
 ## DDEV Conventions
 
-- Run Composer and npm inside DDEV: `ddev composer <cmd>`, `ddev npm <cmd>`.
-- Linting: `ddev composer lint` (PHP/Duster), `ddev npm run lint` (ESLint/Prettier).
-- Formatting: `ddev composer lint:fix`.
+- Run Composer and pnpm inside DDEV: `ddev composer <cmd>`, `ddev pnpm <cmd>`.
+- PHP Linting: `ddev composer lint` (PHP/Duster), `ddev composer lint:fix`.
+- Frontend Linting: `ddev pnpm lint`, `ddev pnpm format`.
 - Git hooks run linters and tests via DDEV. Enable with `composer hooks:install` and ensure hooks are executable.
 - Testing URL: `fvn-li-testing.ddev.site` is configured via DDEV `additional_fqdns`. Run `ddev restart` after pulling
   config changes.
@@ -180,10 +219,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgements
 
-- [Laravel](https://laravel.com) - The web framework used
-- [itch.io](https://itch.io) - The game distribution platform this project tracks
-- [DDEV](https://ddev.com) - Local development environment
-  Legacy Livewire removed; React/Inertia is the primary frontend.
+- [Laravel](https://laravel.com) - PHP web framework
+- [React](https://react.dev) - UI library
+- [Inertia.js](https://inertiajs.com) - Modern monolith framework
+- [Vite](https://vitejs.dev) - Frontend build tool
+- [TypeScript](https://www.typescriptlang.org) - Typed JavaScript
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
 - [Chart.js](https://www.chartjs.org) - Charting library
-- [Discord](https://discord.com) - Platform for bot integration
+- [Playwright](https://playwright.dev) - E2E testing framework
+- [itch.io](https://itch.io) - Game distribution platform
+- [Discord](https://discord.com) - Bot integration platform
+- [DDEV](https://ddev.com) - Local development environment

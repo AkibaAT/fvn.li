@@ -6,6 +6,8 @@
                  name="FVN.li Documentation" start-page="README.md">
 
     <toc-element topic="README.md"/>
+    <toc-element topic="frontend-architecture.md"/>
+    <toc-element topic="development-guide.md"/>
     <toc-element toc-title="Commands">
         <toc-element topic="commands-overview.md" toc-title="Overview"/>
         <toc-element toc-title="Fix Commands">
@@ -25,6 +27,7 @@
         </toc-element>
         <toc-element toc-title="Games Commands">
             <toc-element topic="games-commands-overview.md"/>
+            <toc-element topic="games-check-suspended.md" toc-title="Check Suspended"/>
             <toc-element topic="games-cleanup-downloads.md" toc-title="Cleanup Downloads"/>
             <toc-element topic="games-import-stats.md" toc-title="Import Stats"/>
             <toc-element topic="games-process-screenshots.md" toc-title="Process Screenshots"/>
@@ -47,6 +50,13 @@
             <toc-element topic="ratings-commands-overview.md"/>
             <toc-element topic="ratings-backfill.md" toc-title="Backfill Ratings"/>
             <toc-element topic="ratings-import.md" toc-title="Import Ratings"/>
+            <toc-element topic="ratings-recalculate.md" toc-title="Recalculate Ratings"/>
+        </toc-element>
+        <toc-element toc-title="Meilisearch Commands">
+            <toc-element topic="meilisearch-commands-overview.md"/>
+            <toc-element topic="meilisearch-setup.md" toc-title="Setup"/>
+            <toc-element topic="meilisearch-reindex.md" toc-title="Reindex"/>
+            <toc-element topic="scout-sync-index-settings.md" toc-title="Sync Index Settings"/>
         </toc-element>
         <toc-element toc-title="Sitemap Commands">
             <toc-element topic="sitemap-commands-overview.md"/>
