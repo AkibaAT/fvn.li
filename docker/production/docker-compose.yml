@@ -3,7 +3,7 @@ x-fvnli: &fvnli
 x-db: &db
   image: postgres:17.6
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.22
+  image: getmeili/meilisearch:v1.23
 x-redis: &redis
   image: redis:8
 
