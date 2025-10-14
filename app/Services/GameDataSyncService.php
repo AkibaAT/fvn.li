@@ -219,7 +219,8 @@ class GameDataSyncService
                     ->where('version', $newVersion)
                     ->first();
 
-                if (! $existingVersion || $force) {
+                if (! $existingVersion) {
+                    // Only create a new version if one doesn't exist with this version number
                     $existingUnknownVersion = $game->gameVersions()
                         ->where('version', 'Unknown')
                         ->first();
@@ -243,10 +244,8 @@ class GameDataSyncService
                     }
 
                     // Set is_latest separately since it's not fillable
-                    if (! $existingVersion) {
-                        $gameVersion->is_latest = true;
-                        $gameVersion->save();
-                    }
+                    $gameVersion->is_latest = true;
+                    $gameVersion->save();
 
                     if (! $existingUnknownVersion) {
                         // Find previous version that has any unavailable languages
@@ -263,8 +262,7 @@ class GameDataSyncService
                             VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
                         }
                     }
-
-                    // Process statistics if it's a Ren'Py game
+                    // Process statistics if it's a Ren'Py game (only for new versions)
                     if (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown') {
                         try {
                             $archiveService = app(GameArchiveService::class);
@@ -313,6 +311,31 @@ class GameDataSyncService
                         // For non-Ren'Py games, copy language support from previous version
                         $this->copyLanguageSupport($game, $gameVersion);
                     }
+                } elseif ($force) {
+                    // Version already exists, but force=true (e.g., devlog update)
+                    // Update metadata only, don't reprocess stats
+                    $gameVersion = $existingVersion;
+                    $gameVersion->devlog = $this->getDevlogLink($game);
+                    $gameVersion->is_windows = $isWindows;
+                    $gameVersion->is_linux = $isLinux;
+                    $gameVersion->is_mac = $isMac;
+                    $gameVersion->is_android = $isAndroid;
+                    $gameVersion->is_web = $isWeb;
+                    $gameVersion->save();
+
+                    Log::info('Version already exists, updating metadata only', [
+                        'game_id' => $game->id,
+                        'version' => $newVersion,
+                        'existing_version_id' => $existingVersion->id,
+                    ]);
+                } else {
+                    // Version already exists and no force - this shouldn't happen
+                    // because we check $hasChanges earlier, but log it just in case
+                    Log::warning('Version already exists and no changes detected', [
+                        'game_id' => $game->id,
+                        'version' => $newVersion,
+                        'existing_version_id' => $existingVersion->id,
+                    ]);
                 }
             }
 
