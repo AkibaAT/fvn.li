@@ -17,7 +17,8 @@ class RatingCalculationService
     {
         $ratingData = $this->calculateGameRating($game->id);
 
-        $game->update([
+        // Use updateQuietly to avoid triggering observers (prevents infinite loop)
+        $game->updateQuietly([
             'rating_score' => $ratingData['average_rating'],
             'rating_count' => $ratingData['total_count'],
         ]);
@@ -49,28 +50,30 @@ class RatingCalculationService
     }
 
     /**
-     * Recalculate ratings for all games
+     * Recalculate ratings for all visible games
      */
     public function recalculateAllGameRatings(): int
     {
         $updatedCount = 0;
         $resetCount = 0;
 
-        // Iterate over all games
-        Game::chunk(500, function ($games) use (&$updatedCount, &$resetCount) {
+        // Only iterate over visible games since we only care about those
+        Game::where('is_visible', true)->chunk(100, function ($games) use (&$updatedCount, &$resetCount) {
             foreach ($games as $game) {
                 $ratingData = $this->calculateGameRating($game->id);
 
                 if ($ratingData['total_count'] > 0) {
                     // Game has ratings - update with calculated values
-                    $game->update([
+                    // Use updateQuietly to avoid triggering observers during bulk recalculation
+                    $game->updateQuietly([
                         'rating_score' => $ratingData['average_rating'],
                         'rating_count' => $ratingData['total_count'],
                     ]);
                     $updatedCount++;
                 } else {
                     // Game has no ratings - reset to null/0
-                    $game->update([
+                    // Use updateQuietly to avoid triggering observers during bulk recalculation
+                    $game->updateQuietly([
                         'rating_score' => null,
                         'rating_count' => 0,
                     ]);
@@ -79,7 +82,7 @@ class RatingCalculationService
             }
         });
 
-        Log::info('Recalculated all game ratings', [
+        Log::info('Recalculated ratings for visible games', [
             'games_updated' => $updatedCount,
             'games_reset' => $resetCount,
             'total_processed' => $updatedCount + $resetCount,
