@@ -222,6 +222,7 @@ return [
 
                     // Tags and categorization
                     'tags',
+                    'game_jams',
 
                     // Dates
                     'created_at',

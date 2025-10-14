@@ -40,7 +40,7 @@ class GamesSearchController extends Controller
         $perPage = min(32, max(8, (int) $request->get('perPage', 8)));
 
         // Build filters
-        $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedLanguages, $selectedTags);
+        $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedLanguages, $selectedGameJams, $selectedTags);
 
         // Use Meilisearch for search and filtering
         try {
@@ -230,11 +230,33 @@ class GamesSearchController extends Controller
             'game_engine.*' => 'string',
             'tags' => 'nullable|array',
             'tags.*' => 'string',
+            'game_jams' => 'nullable|array',
+            'game_jams.*' => 'string',
             'supported_languages' => 'nullable|array',
             'supported_languages.*' => 'string',
             'perPage' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
         ]);
+
+        // Convert tag IDs to tag names if tags are provided
+        $tags = $request->input('tags');
+        if ($tags) {
+            $tagIds = is_array($tags) ? $tags : explode(',', $tags);
+            $tagNames = \App\Models\Tag::whereIn('id', $tagIds)
+                ->pluck('name')
+                ->toArray();
+            $tags = !empty($tagNames) ? $tagNames : null;
+        }
+
+        // Convert game jam IDs to game jam names if game jams are provided
+        $gameJams = $request->input('game_jams');
+        if ($gameJams) {
+            $gameJamIds = is_array($gameJams) ? $gameJams : explode(',', $gameJams);
+            $gameJamNames = \App\Models\GameJam::whereIn('id', $gameJamIds)
+                ->pluck('name')
+                ->toArray();
+            $gameJams = !empty($gameJamNames) ? $gameJamNames : null;
+        }
 
         $filters = array_filter([
             'status' => $request->input('status'),
@@ -242,7 +264,8 @@ class GamesSearchController extends Controller
             'is_paid' => $request->boolean('is_paid', null),
             'has_demo' => $request->boolean('has_demo', null),
             'game_engine' => $request->input('game_engine'),
-            'tags' => $request->input('tags'),
+            'tags' => $tags,
+            'game_jams' => $gameJams,
             'supported_languages' => $request->input('supported_languages'),
         ], fn ($value) => $value !== null);
 
@@ -284,7 +307,7 @@ class GamesSearchController extends Controller
     /**
      * Build search filters from request parameters
      */
-    private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedLanguages, $selectedTags): array
+    private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedLanguages, $selectedGameJams, $selectedTags): array
     {
         $filters = [];
 
@@ -317,10 +340,28 @@ class GamesSearchController extends Controller
             $filters['supported_languages'] = $languages;
         }
 
-        // Tags filter
+        // Tags filter - convert tag IDs to tag names for search
         if ($selectedTags) {
-            $tags = is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags);
-            $filters['tags'] = $tags;
+            $tagIds = is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags);
+            // Convert tag IDs to tag names since search index stores names, not IDs
+            $tagNames = \App\Models\Tag::whereIn('id', $tagIds)
+                ->pluck('name')
+                ->toArray();
+            if (!empty($tagNames)) {
+                $filters['tags'] = $tagNames;
+            }
+        }
+
+        // Game jams filter - convert game jam IDs to game jam names for search
+        if ($selectedGameJams) {
+            $gameJamIds = is_array($selectedGameJams) ? $selectedGameJams : explode(',', $selectedGameJams);
+            // Convert game jam IDs to game jam names since search index stores names, not IDs
+            $gameJamNames = \App\Models\GameJam::whereIn('id', $gameJamIds)
+                ->pluck('name')
+                ->toArray();
+            if (!empty($gameJamNames)) {
+                $filters['game_jams'] = $gameJamNames;
+            }
         }
 
         // NSFW/SFW filters

@@ -292,6 +292,12 @@ class MeilisearchService
             }
         }
 
+        if (! empty($filters['game_jams'])) {
+            foreach ((array) $filters['game_jams'] as $gameJam) {
+                $search->where('game_jams', $gameJam);
+            }
+        }
+
         if (! empty($filters['supported_languages'])) {
             foreach ((array) $filters['supported_languages'] as $language) {
                 $search->where('supported_languages', $language);

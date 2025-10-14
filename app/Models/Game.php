@@ -434,6 +434,9 @@ class Game extends Model
         if (! $this->relationLoaded('tags')) {
             $this->load('tags');
         }
+        if (! $this->relationLoaded('gameJams')) {
+            $this->load('gameJams');
+        }
 
         // Get latest version data for platforms and supported languages
         $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
@@ -469,6 +472,9 @@ class Game extends Model
 
             // Tags for search and filtering
             'tags' => $this->tags->pluck('name')->toArray(),
+
+            // Game jams for search and filtering
+            'game_jams' => $this->gameJams->pluck('name')->toArray(),
 
             // Status and visibility
             'status' => $this->status,
