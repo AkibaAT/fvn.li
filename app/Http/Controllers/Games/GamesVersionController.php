@@ -55,6 +55,15 @@ class GamesVersionController extends Controller
             ->orderBy('published_at', 'desc')
             ->paginate($request->integer('perPage', 10));
 
+        // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors
+        $versions->getCollection()->transform(function ($version) {
+            $version->supportedLanguages = $version->supportedLanguages
+                ->filter(fn ($sl) => $sl->language !== null && !str_starts_with($sl->iso_code, 'q'));
+            $version->languageStats = $version->languageStats
+                ->filter(fn ($ls) => $ls->language !== null && !str_starts_with($ls->iso_code, 'q'));
+            return $version;
+        });
+
         return response()->json([
             'success' => true,
             'versions' => $versions,
@@ -73,7 +82,8 @@ class GamesVersionController extends Controller
         $characterStats = $version->characterStats()
             ->with(['character', 'language'])
             ->orderBy('words', 'desc')
-            ->get();
+            ->get()
+            ->filter(fn ($stat) => $stat->language !== null && !str_starts_with($stat->iso_code, 'q'));
 
         // Group by language
         $groupedByLanguage = $characterStats->groupBy('iso_code');
@@ -100,12 +110,16 @@ class GamesVersionController extends Controller
         // Extract languages and sort (English first, then alphabetically by ISO code)
         $languages = $groupedByLanguage->map(function ($stats, $isoCode) {
             $language = $stats->first()->language;
+            // Skip if language relationship is null
+            if ($language === null) {
+                return null;
+            }
             return [
                 'id' => $isoCode,
                 'flag' => $language->flag_code,
                 'name' => $language->ref_name,
             ];
-        })->sortBy(function ($language) {
+        })->filter()->sortBy(function ($language) {
             // English first, then sort alphabetically by ISO code
             return $language['id'] === 'eng' ? '0' : '1' . $language['id'];
         })->values()->toArray();
@@ -235,6 +249,10 @@ class GamesVersionController extends Controller
             ->where('iso_code', 'not like', 'q%')
             ->with(['character', 'language'])
             ->get();
+
+        // Filter out placeholder 'q' codes and stats with null language relationships before processing
+        $fromStats = $fromStats->filter(fn ($stat) => $stat->language !== null && !str_starts_with($stat->iso_code, 'q'));
+        $toStats = $toStats->filter(fn ($stat) => $stat->language !== null && !str_starts_with($stat->iso_code, 'q'));
 
         $fromLanguages = $fromStats->pluck('language.id')->unique();
         $toLanguages = $toStats->pluck('language.id')->unique();

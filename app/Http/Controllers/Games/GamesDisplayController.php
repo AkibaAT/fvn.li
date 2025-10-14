@@ -62,7 +62,9 @@ class GamesDisplayController extends Controller
 
         $gameVersions->getCollection()->transform(function ($version) {
             $version->supportedLanguages = $version->supportedLanguages
-                ->filter(fn ($sl) => $sl->is_available)
+                ->filter(fn ($sl) => $sl->is_available
+                    && $sl->language !== null
+                    && !str_starts_with($sl->iso_code, 'q'))
                 ->map(fn ($sl) => [
                     'iso_code' => $sl->iso_code,
                     'language' => [
@@ -76,7 +78,10 @@ class GamesDisplayController extends Controller
                 ->values();
 
             // Transform languageStats to include language data
+            // Filter out placeholder 'q' codes and null language relationships
             $version->languageStats = $version->languageStats
+                ->filter(fn ($ls) => $ls->language !== null
+                    && !str_starts_with($ls->iso_code, 'q'))
                 ->map(fn ($ls) => [
                     'words' => $ls->words,
                     'language' => [
@@ -98,7 +103,7 @@ class GamesDisplayController extends Controller
                 ->where('iso_code', 'eng')
                 ->first();
 
-            if ($englishLanguageStats) {
+            if ($englishLanguageStats && $englishLanguageStats->language !== null) {
                 $englishStats = [
                     'words' => $englishLanguageStats->words,
                     'language' => [
