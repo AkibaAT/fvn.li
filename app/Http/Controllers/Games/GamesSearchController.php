@@ -393,7 +393,7 @@ class GamesSearchController extends Controller
     /**
      * Fallback database search when Meilisearch fails
      */
-    private function fallbackSearch(string $search, int $perPage, int $page)
+    private function fallbackSearch(?string $search, int $perPage, int $page)
     {
         $query = Game::query()
             ->where('is_visible', true)
@@ -474,7 +474,7 @@ class GamesSearchController extends Controller
      */
     private function buildMetaTags(
         Request $request,
-        string $search,
+        ?string $search,
         $selectedStatuses,
         $selectedEngines,
         $selectedPlatforms,
