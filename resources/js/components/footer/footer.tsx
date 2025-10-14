@@ -22,9 +22,6 @@ export default function Footer() {
                                 <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">
                                     FVN.li
                                 </h2>
-                                <p className="-mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    React Edition
-                                </p>
                             </div>
                         </div>
                         <div className="mt-5 flex space-x-4">

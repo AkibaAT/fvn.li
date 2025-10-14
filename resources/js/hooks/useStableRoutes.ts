@@ -12,6 +12,21 @@ interface Routes {
     ratings: RouteInfo;
 }
 
+// Helper function to extract pathname from a URL or return as-is if already a path
+function getPathname(urlOrPath: string): string {
+    try {
+        // If it's a full URL, extract the pathname
+        if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+            return new URL(urlOrPath).pathname;
+        }
+        // Otherwise, it's already a path
+        return urlOrPath;
+    } catch {
+        // If URL parsing fails, return as-is
+        return urlOrPath;
+    }
+}
+
 export function useStableRoutes() {
     const [routes, setRoutes] = useState<Routes>(() => {
         // SSR-safe: only call route() in browser environment
@@ -22,22 +37,38 @@ export function useStableRoutes() {
                 ratings: { path: '/ratings', isActive: false },
             };
         }
+
+        // Calculate initial active state based on current path
+        const currentPath = window.location.pathname;
+        const gamesPath = getPathname(route('games.index'));
+        const listsPath = getPathname(route('lists.public'));
+        const ratingsPath = getPathname(route('ratings.index'));
+
         return {
-            games: { path: route('games.index'), isActive: false },
-            lists: { path: route('lists.public'), isActive: false },
-            ratings: { path: route('ratings.index'), isActive: false },
+            games: {
+                path: gamesPath,
+                isActive: currentPath === gamesPath || currentPath.startsWith(gamesPath + '/')
+            },
+            lists: {
+                path: listsPath,
+                isActive: currentPath === listsPath || currentPath.startsWith(listsPath + '/')
+            },
+            ratings: {
+                path: ratingsPath,
+                isActive: currentPath === ratingsPath || currentPath.startsWith(ratingsPath + '/')
+            },
         };
     });
 
     const updateRoutes = useCallback(() => {
         if (typeof window === 'undefined') return;
-        
+
         const currentPath = window.location.pathname;
-        
+
         setRoutes(prevRoutes => {
-            const gamesPath = route('games.index');
-            const listsPath = route('lists.public');
-            const ratingsPath = route('ratings.index');
+            const gamesPath = getPathname(route('games.index'));
+            const listsPath = getPathname(route('lists.public'));
+            const ratingsPath = getPathname(route('ratings.index'));
 
             const newGamesActive = currentPath === gamesPath || currentPath.startsWith(gamesPath + '/');
             const newListsActive = currentPath === listsPath || currentPath.startsWith(listsPath + '/');

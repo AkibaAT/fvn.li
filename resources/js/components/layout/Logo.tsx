@@ -18,9 +18,6 @@ export default function Logo() {
                 <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
                     FVN.li
                 </div>
-                <p className="-mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    React Edition
-                </p>
             </div>
         </Link>
     );
