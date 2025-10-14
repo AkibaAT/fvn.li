@@ -662,7 +662,7 @@ export default function GameShow({
 
         try {
             const response = await window.axios.get(
-                route('api.games.compare-versions', game.slug),
+                route('api.games.compare-versions', game.id),
                 {
                     params: {
                         fromVersionId: compareFromVersionId,

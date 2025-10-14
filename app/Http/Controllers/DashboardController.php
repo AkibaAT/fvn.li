@@ -818,27 +818,23 @@ class DashboardController extends Controller
         }
 
         $request->validate([
-            'game_id' => ['required', 'exists:games,id'],
-            'from_version_id' => ['required', 'exists:game_versions,id'],
-            'to_version_id' => ['required', 'exists:game_versions,id'],
+            'gameId' => ['required', 'exists:games,id'],
+            'fromVersionId' => ['required', 'exists:game_versions,id'],
+            'toVersionId' => ['required', 'exists:game_versions,id'],
         ]);
 
-        $gameId = $request->game_id;
-        $fromVersionId = $request->from_version_id;
-        $toVersionId = $request->to_version_id;
-
         // Get the game and verify user has access to it
-        $game = Game::findOrFail($gameId);
+        $game = Game::findOrFail($request->gameId);
 
         // Check if user has this game in their lists or has rated it
         $user = User::findOrFail($authId);
         $hasAccess = $user->vnLists()
-            ->whereHas('entries', function ($query) use ($gameId) {
-                $query->where('game_id', $gameId);
+            ->whereHas('entries', function ($query) use ($game) {
+                $query->where('game_id', $game->id);
             })
             ->exists() ||
             $user->ratings()
-                ->where('game_id', $gameId)
+                ->where('game_id', $game->id)
                 ->where('is_visible', true)
                 ->exists();
 
@@ -846,9 +842,9 @@ class DashboardController extends Controller
             return response()->json(['success' => false, 'message' => 'You do not have access to this game'], 403);
         }
 
-        // Use the existing GamesController method to get the comparison data
-        $gamesController = new GamesController;
-        $comparisonData = $gamesController->compareGameVersions($request, $game);
+        // Use the existing GamesVersionController method to get the comparison data
+        $versionController = app(\App\Http\Controllers\Games\GamesVersionController::class);
+        $comparisonData = $versionController->compareVersions($request, $game);
 
         return $comparisonData;
     }

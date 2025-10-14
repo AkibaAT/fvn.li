@@ -101,9 +101,9 @@ export default function VersionComparison() {
             const response = await axios.post(
                 route('dashboard.version-comparison'),
                 {
-                    game_id: selectedGame,
-                    from_version_id: fromVersionId,
-                    to_version_id: toVersionId,
+                    gameId: selectedGame,
+                    fromVersionId: fromVersionId,
+                    toVersionId: toVersionId,
                 },
             );
 
