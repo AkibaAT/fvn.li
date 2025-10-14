@@ -6,6 +6,7 @@ import {FormError} from '@/components/form-elements';
 import {authenticatedFetch} from '@/utils/csrf';
 import {Head, Link, useForm} from '@inertiajs/react';
 import React, {useMemo, useState} from 'react';
+import {formatLocalDateTime} from '@/utils/date-formatting';
 
 interface GameLink {
     id?: string;
@@ -102,10 +103,9 @@ const LinkRow = React.memo(function LinkRow({
     disabled?: boolean;
     dragHandleProps?: DragHandleProps;
 }) {
-    // Convert UTC to local time for display
-    const localReleaseAt = link.release_at
-        ? new Date(link.release_at).toISOString().slice(0, 16)
-        : '';
+    // State always contains local datetime format (YYYY-MM-DDTHH:mm)
+    // Conversion from UTC happens on initial load in useState
+    const localReleaseAt = link.release_at || '';
 
     return (
         <div
@@ -199,10 +199,9 @@ const LinkRow = React.memo(function LinkRow({
                     type="datetime-local"
                     value={localReleaseAt}
                     onChange={(e) => {
-                        // Convert local time to UTC for storage
-                        const localDate = e.target.value ? new Date(e.target.value) : null;
-                        const utcDate = localDate ? localDate.toISOString() : null;
-                        onChange(index, {...link, release_at: utcDate});
+                        // Store the local datetime string as-is
+                        // Backend will handle conversion to UTC using timezone_offset
+                        onChange(index, {...link, release_at: e.target.value || null});
                     }}
                     className={`w-auto rounded-lg border bg-white px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-white ${
                         errors?.release_at
@@ -222,7 +221,7 @@ const LinkRow = React.memo(function LinkRow({
             {/* Last edited timestamp */}
             {link.last_edited_at && (
                 <div className="col-span-12 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Last edited: {new Date(link.last_edited_at).toLocaleString()}
+                    Last edited: {formatLocalDateTime(link.last_edited_at)}
                 </div>
             )}
         </div>
@@ -236,9 +235,26 @@ export default function MyGamesEdit({
                                         dailyStats,
                                         metaTags,
                                     }: Props) {
-    const [links, setLinks] = useState<GameLink[]>(
-        Array.isArray(game.additional_links) ? [...game.additional_links] : [],
-    );
+    // Convert UTC datetimes to local format on initial load
+    const [links, setLinks] = useState<GameLink[]>(() => {
+        const initialLinks = Array.isArray(game.additional_links) ? [...game.additional_links] : [];
+        return initialLinks.map(link => {
+            if (!link.release_at) return link;
+
+            // Convert UTC to local format for datetime-local input
+            const utcDate = new Date(link.release_at);
+            const year = utcDate.getFullYear();
+            const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+            const day = String(utcDate.getDate()).padStart(2, '0');
+            const hours = String(utcDate.getHours()).padStart(2, '0');
+            const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+
+            return {
+                ...link,
+                release_at: `${year}-${month}-${day}T${hours}:${minutes}`
+            };
+        });
+    });
 
     const form = useForm({});
     const {processing, errors, clearErrors} = form;
@@ -366,8 +382,8 @@ export default function MyGamesEdit({
                 notify(data?.message || 'Failed to save changes', 'error');
                 return;
             }
-            // Replace local state with saved (canonical) order/payload
-            setLinks(data.links || []);
+            // Don't replace state with backend data - keep local datetime values as-is
+            // The backend returns UTC datetimes, but we want to keep the local format in state
             notify('Changes saved successfully', 'success');
         } catch (e: unknown) {
             const errorMessage =

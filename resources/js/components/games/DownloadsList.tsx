@@ -1,4 +1,5 @@
 import React from 'react';
+import {formatLocalDate} from '@/utils/date-formatting';
 
 export interface AdditionalLink {
   id: number | string;
@@ -46,12 +47,7 @@ export default function DownloadsList({ gameId, links, getPlatformIcon }: Downlo
                   <>
                     {link.platform && <span>•</span>}
                     <span>
-                      Updated{' '}
-                      {new Date(link.last_edited_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      Updated {formatLocalDate(link.last_edited_at)}
                     </span>
                   </>
                 )}

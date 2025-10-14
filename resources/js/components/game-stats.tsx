@@ -1,5 +1,6 @@
 import Chart from '@/components/charts/chart';
 import React, {useMemo, useState} from 'react';
+import {formatDateTimeWithTimezone, getUserTimezone} from '@/utils/date-formatting';
 
 interface DailyStats {
     date: string;
@@ -220,6 +221,7 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                 const avgDailyViews = recentDays.reduce((sum, day) => sum + day.page_views_unique, 0) / recentDays.length;
                                 const totalViews = dailyStats.reduce((sum, day) => sum + day.page_views_unique, 0);
                                 const totalDownloads = dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
+                                const userTimezone = getUserTimezone();
 
                                 return (
                                     <>
@@ -234,9 +236,12 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                         )}
                                         {clickStats.last_page_view && (
                                             <div>• Last page
-                                                view: <strong>{new Date(clickStats.last_page_view).toLocaleString()}</strong>
+                                                view: <strong>{formatDateTimeWithTimezone(clickStats.last_page_view, false) || clickStats.last_page_view}</strong>
                                             </div>
                                         )}
+                                        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-500">
+                                            All times shown in your local timezone ({userTimezone})
+                                        </div>
                                     </>
                                 );
                             })()}

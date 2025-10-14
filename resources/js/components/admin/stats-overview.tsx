@@ -1,5 +1,6 @@
 import Stars from '@/components/ui/stars';
 import React from 'react';
+import {formatRelativeDateTime, getUserTimezone} from '@/utils/date-formatting';
 
 interface GameStats {
     total: number;
@@ -37,39 +38,9 @@ const StatsOverview: React.FC<StatsOverviewProps> = ({
         return new Intl.NumberFormat().format(num);
     };
 
-    const formatDate = (dateString: string | null) => {
-        if (!dateString) return null;
-
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffInMs = now.getTime() - date.getTime();
-        const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-        const diffInDays = Math.floor(diffInHours / 24);
-
-        let timeAgo = '';
-        if (diffInDays > 0) {
-            timeAgo = `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-        } else if (diffInHours > 0) {
-            timeAgo = `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-        } else {
-            timeAgo = 'Less than an hour ago';
-        }
-
-        const formattedDate = date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-        });
-
-        return {timeAgo, formattedDate};
-    };
-
-    const gameLatestUpdate = formatDate(gameStats.latest_update);
-    const ratingLatest = formatDate(ratingStats.latest);
+    const gameLatestUpdate = formatRelativeDateTime(gameStats.latest_update);
+    const ratingLatest = formatRelativeDateTime(ratingStats.latest);
+    const userTimezone = getUserTimezone();
 
     return (
         <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -112,7 +83,7 @@ const StatsOverview: React.FC<StatsOverviewProps> = ({
                             {gameLatestUpdate.timeAgo}
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {' '}
-                                ({gameLatestUpdate.formattedDate})
+                                ({gameLatestUpdate.formattedDate} {userTimezone})
                             </span>
                         </span>
                     </div>
@@ -266,7 +237,7 @@ const StatsOverview: React.FC<StatsOverviewProps> = ({
                             {ratingLatest.timeAgo}
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {' '}
-                                ({ratingLatest.formattedDate})
+                                ({ratingLatest.formattedDate} {userTimezone})
                             </span>
                         </span>
                     </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { formatLocalDateTime } from '@/utils/date-formatting';
 
 interface NotificationItem {
   id: string;
@@ -79,7 +80,7 @@ export default function NotificationsDropdown() {
                 {items.map((n) => (
                   <li key={n.id} className="p-3">
                     <div className="text-sm text-gray-900 dark:text-gray-100">{n.message}</div>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{new Date(n.created_at).toLocaleString()}</div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatLocalDateTime(n.created_at)}</div>
                     <div className="mt-2 text-right">
                       <button className="text-xs text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300" onClick={() => markAsRead(n.id)}>Dismiss</button>
                     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import {formatFutureDateTime, getUserTimezone} from '@/utils/date-formatting';
 
 interface MonitoredTask {
     name: string;
@@ -25,45 +26,7 @@ interface TasksListProps {
 }
 
 const TasksList: React.FC<TasksListProps> = ({monitoredTasks}) => {
-    const formatDate = (dateString: string | null) => {
-        if (!dateString) return null;
-
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffInMs = date.getTime() - now.getTime(); // future-positive
-        const absMs = Math.abs(diffInMs);
-        const absHours = Math.floor(absMs / (1000 * 60 * 60));
-        const absDays = Math.floor(absHours / 24);
-
-        let relative = '';
-        const isFuture = diffInMs > 0;
-        if (absDays > 0) {
-            relative = `${isFuture ? 'in ' : ''}${absDays} day${absDays > 1 ? 's' : ''}${
-                isFuture ? '' : ' ago'
-            }`;
-        } else if (absHours > 0) {
-            relative = `${isFuture ? 'in ' : ''}${absHours} hour${absHours > 1 ? 's' : ''}${
-                isFuture ? '' : ' ago'
-            }`;
-        } else {
-            const absMinutes = Math.max(1, Math.floor(absMs / (1000 * 60)));
-            relative = `${isFuture ? 'in ' : ''}${absMinutes} minute${
-                absMinutes > 1 ? 's' : ''
-            }${isFuture ? '' : ' ago'}`;
-        }
-
-        const formattedDate = date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-        });
-
-        return {timeAgo: relative, formattedDate};
-    };
+    const userTimezone = getUserTimezone();
 
     const getTaskStatus = (task: MonitoredTask) => {
         // Prefer backend-provided status if available

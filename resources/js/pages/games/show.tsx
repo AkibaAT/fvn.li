@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { type OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
 import SeoHead, {type MetaTags, createGameMetaTags} from '@/components/seo/SeoHead';
+import {formatLocalDate} from '@/utils/date-formatting';
 
 // Use global axios from window (configured with CSRF)
 import type {AxiosInstance} from 'axios';
@@ -1174,27 +1175,11 @@ export default function GameShow({
                                     },
                                     {
                                         label: 'Initial Release',
-                                        value: game.initially_published_at
-                                            ? new Date(
-                                                game.initially_published_at,
-                                            ).toLocaleDateString('en-US', {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                year: 'numeric',
-                                            })
-                                            : '-',
+                                        value: formatLocalDate(game.initially_published_at) || '-',
                                     },
                                     {
                                         label: 'Latest Update',
-                                        value: game.latest_version?.published_at
-                                            ? new Date(
-                                                game.latest_version.published_at,
-                                            ).toLocaleDateString('en-US', {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                year: 'numeric',
-                                            })
-                                            : '-',
+                                        value: formatLocalDate(game.latest_version?.published_at) || '-',
                                     },
                                     {
                                         label: 'Current Version',
@@ -1329,21 +1314,7 @@ export default function GameShow({
                                         </h3>
                                         {jam.start_date && jam.end_date && (
                                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                {new Date(
-                                                    jam.start_date,
-                                                ).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                })}{' '}
-                                                -{' '}
-                                                {new Date(
-                                                    jam.end_date,
-                                                ).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                })}
+                                                {formatLocalDate(jam.start_date)} - {formatLocalDate(jam.end_date)}
                                             </p>
                                         )}
                                         {jam.theme && (

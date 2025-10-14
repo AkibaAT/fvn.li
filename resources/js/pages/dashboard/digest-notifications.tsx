@@ -99,7 +99,8 @@ export default function DigestNotifications({
     };
 
     const formatNotificationTime = (timestamp: string) => {
-        return new Date(timestamp).toLocaleTimeString([], {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
         });
