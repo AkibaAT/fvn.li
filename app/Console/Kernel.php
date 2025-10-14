@@ -8,14 +8,12 @@ use App\Console\Commands\AnonymizeClickStatIPs;
 use App\Console\Commands\BackfillRatings;
 use App\Console\Commands\CheckSuspendedGames;
 use App\Console\Commands\CleanupGameDownloads;
-use App\Console\Commands\CleanupSocialImages;
 use App\Console\Commands\FetchGameJamDetails;
 use App\Console\Commands\FixCharacters;
 use App\Console\Commands\FixIncrementalPlatformSupport;
 use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportGameVersionStats;
 use App\Console\Commands\ImportRatings;
-use App\Console\Commands\PreGenerateSocialImages;
 use App\Console\Commands\ProcessFeed;
 use App\Console\Commands\ProcessGameScreenshots;
 use App\Console\Commands\ProcessGameThumbnails;
@@ -36,8 +34,6 @@ class Kernel extends ConsoleKernel
         BackfillRatings::class,
         CheckSuspendedGames::class,
         CleanupGameDownloads::class,
-        CleanupSocialImages::class,
-        PreGenerateSocialImages::class,
         FetchGameJamDetails::class,
         FixCharacters::class,
         FixIncrementalPlatformSupport::class,
@@ -76,7 +72,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('notifications:process-push')->everyFiveMinutes()->withoutOverlapping();
 
         // Cleanup commands
-        $schedule->command('app:cleanup-social-images')->daily()->withoutOverlapping();
         $schedule->command('games:cleanup-downloads',
             ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
         $schedule->command('model:prune', ['--model' => MonitoredScheduledTaskLogItem::class])->daily();

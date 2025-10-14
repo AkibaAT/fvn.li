@@ -105,6 +105,21 @@ services:
       - fvnli
     volumes:
       - redis:/data
+  social-image-generator:
+    image: ${DOCKER_IMAGE_SOCIAL_IMAGES}
+    restart: "no"
+    profiles:
+      - tools
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - fvnli
+    environment:
+      - BASE_URL=https://${APP_DOMAIN}
+      - OUTPUT_DIR=/app/storage/app/public/social-images
+    volumes:
+      - app_storage:/app/storage
 
 volumes:
   app_storage:

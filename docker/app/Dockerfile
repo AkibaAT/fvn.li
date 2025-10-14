@@ -59,12 +59,12 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY storage /app/storage
 
 # Copy configuration files
-COPY docker/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
-COPY docker/supervisor /etc/supervisor/conf.d/
-COPY docker/Caddyfile /etc/caddy/Caddyfile
+COPY docker/app/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
+COPY docker/app/supervisor /etc/supervisor/conf.d/
+COPY docker/app/Caddyfile /etc/caddy/Caddyfile
 
 # Copy entrypoint script
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY docker/app/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Set permissions and clean up

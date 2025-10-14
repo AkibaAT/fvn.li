@@ -7,6 +7,7 @@
 /public/hot
 /public/storage
 /public/sitemap.xml
+/storage/app/public/social-images
 /storage/*.key
 /storage/logs
 /storage/pail

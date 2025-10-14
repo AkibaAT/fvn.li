@@ -36,7 +36,7 @@ class HomeController extends Controller
                 $stats['totalGames'],
                 $stats['totalRatings']
             ),
-            'image' => asset('images/social-fallback.jpg'),
+            'image' => asset(config('social.images.home', config('social.images.default'))),
         ];
 
         return Inertia::render('home', [

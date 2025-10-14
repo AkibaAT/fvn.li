@@ -1,0 +1,2 @@
+# Generate social media images daily at 3:00 AM
+0 3 * * * cd /opt/li.fvn.beta && /usr/bin/docker compose --profile tools run --rm social-image-generator >> /var/log/fvn/betafvnli/social-images-generator.log 2>&1

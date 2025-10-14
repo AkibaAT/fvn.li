@@ -151,6 +151,15 @@ class GamesSearchController extends Controller
             }
         }
 
+        // Build a more descriptive meta description based on filters
+        $metaDescription = 'Browse and discover visual novels on FVN.LI';
+        if ($search) {
+            $metaDescription = "Search results for '{$search}' - Browse and discover visual novels on FVN.LI";
+        }
+        if ($games->total() > 0) {
+            $metaDescription .= sprintf(' - %d games found', $games->total());
+        }
+
         return Inertia::render('games/index', [
             'games' => $games,
             'currentFilters' => [
@@ -174,8 +183,8 @@ class GamesSearchController extends Controller
             'filters' => GameFilterService::getOptions(),
             'metaTags' => [
                 'title' => 'Games - FVN.LI',
-                'description' => 'Browse and discover visual novels on FVN.LI',
-                'image' => asset('images/social-fallback.jpg'),
+                'description' => $metaDescription,
+                'image' => asset(config('social.images.games_list', config('social.images.default'))),
                 'url' => $request->url(),
             ],
         ]);

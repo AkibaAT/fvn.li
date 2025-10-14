@@ -11,23 +11,40 @@ if [ -f .env.deploy ]; then
   export $(grep -v '^#' .env.deploy | xargs)
 fi
 
-# Check if DOCKER_IMAGE is set (indicating a Docker build)
-if [ -n "${DOCKER_IMAGE:-}" ]; then
-  echo "Docker image was updated to ${DOCKER_IMAGE}, performing full restart..."
-
-  # Update .env file with the new Docker image
-  if grep -q "^DOCKER_IMAGE=" .env; then
-    sudo sed -i "s|^DOCKER_IMAGE=.*|DOCKER_IMAGE=${DOCKER_IMAGE}|g" .env
-  else
-    echo "DOCKER_IMAGE=${DOCKER_IMAGE}" >> .env
+# Check if DOCKER_IMAGE or DOCKER_IMAGE_SOCIAL_IMAGES is set (indicating a Docker build)
+if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
+  if [ -n "${DOCKER_IMAGE:-}" ]; then
+    echo "Docker image was updated to ${DOCKER_IMAGE}"
+    # Update .env file with the new Docker image
+    if grep -q "^DOCKER_IMAGE=" .env; then
+      sudo sed -i "s|^DOCKER_IMAGE=.*|DOCKER_IMAGE=${DOCKER_IMAGE}|g" .env
+    else
+      echo "DOCKER_IMAGE=${DOCKER_IMAGE}" >> .env
+    fi
   fi
 
-  # Pull the latest image
+  if [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
+    echo "Social images Docker image was updated to ${DOCKER_IMAGE_SOCIAL_IMAGES}"
+    # Update .env file with the new social images Docker image
+    if grep -q "^DOCKER_IMAGE_SOCIAL_IMAGES=" .env; then
+      sudo sed -i "s|^DOCKER_IMAGE_SOCIAL_IMAGES=.*|DOCKER_IMAGE_SOCIAL_IMAGES=${DOCKER_IMAGE_SOCIAL_IMAGES}|g" .env
+    else
+      echo "DOCKER_IMAGE_SOCIAL_IMAGES=${DOCKER_IMAGE_SOCIAL_IMAGES}" >> .env
+    fi
+  fi
+
+  echo "Performing full restart..."
+
+  # Pull the latest images
   docker compose pull
 
   # Full restart
   docker compose down --remove-orphans
   docker compose up -d
+
+  # Ensure social images directory exists with proper permissions
+  docker compose exec app mkdir -p /app/storage/app/public/social-images
+  docker compose exec app chown -R www-data:www-data /app/storage/app/public/social-images
 
   # Run Laravel commands
   docker compose exec app php artisan storage:link

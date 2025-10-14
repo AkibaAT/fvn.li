@@ -163,6 +163,7 @@ class DashboardController extends Controller
             'metaTags' => [
                 'title' => 'Dashboard - FVN.li',
                 'description' => 'Manage your FVN.li account, track visual novel progress, organize reading lists, and control notification preferences.',
+                'image' => asset(config('social.images.default')),
                 'structuredData' => [
                     '@type' => 'WebPage',
                     'name' => 'Dashboard - FVN.li',

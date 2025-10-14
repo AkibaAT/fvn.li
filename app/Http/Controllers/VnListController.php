@@ -189,7 +189,7 @@ class VnListController extends Controller
             'title' => $vnList->name . ' - Visual Novel List',
             'description' => $vnList->description ?:
                 "A visual novel list by {$vnList->user->name} containing {$vnList->entries->count()} games.",
-            'image' => $vnList->entries->first()?->game?->getThumbnailUrl('default') ?? asset('images/social-fallback.jpg'),
+            'image' => asset(config('social.images.list_detail', config('social.images.default'))),
             'structuredData' => [
                 '@type' => 'ItemList',
                 'name' => $vnList->name,
@@ -337,18 +337,6 @@ class VnListController extends Controller
         ")->paginate($perPage);
 
         // Get first list for meta tag image using optimized thumbnail helper
-        $firstGameThumbUrl = '';
-        if ($lists->isNotEmpty()) {
-            $firstList = $lists->first();
-            if ($firstList && $firstList->entries->isNotEmpty()) {
-                $firstEntry = $firstList->entries->first();
-                if ($firstEntry && $firstEntry->game) {
-                    // Prefer optimized thumbnails with built-in fallback
-                    $firstGameThumbUrl = $firstEntry->game->getThumbnailUrl('default') ?? '';
-                }
-            }
-        }
-
         // Normalize game thumbnails to optimized URLs for client/preload
         $lists->getCollection()->each(function ($list) {
             $list->entries->each(function ($entry) {
@@ -368,7 +356,7 @@ class VnListController extends Controller
                 ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
                     return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
-            'image' => $firstGameThumbUrl ?: asset('images/social-fallback.jpg'),
+            'image' => asset(config('social.images.public_lists', config('social.images.default'))),
             'structuredData' => [
                 '@type' => 'CollectionPage',
                 'name' => 'Public Visual Novel Lists',
@@ -511,8 +499,8 @@ class VnListController extends Controller
                     return "{$list->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
             'image' => ($lists->isNotEmpty() && $lists->first()->entries->isNotEmpty())
-                ? ($lists->first()->entries->first()->game?->getThumbnailUrl('default') ?? asset('images/social-fallback.jpg'))
-                : asset('images/social-fallback.jpg'),
+                ? ($lists->first()->entries->first()->game?->getThumbnailUrl('default') ?? asset(config('social.images.default')))
+                : asset(config('social.images.default')),
             'structuredData' => [
                 '@type' => 'ProfilePage',
                 'name' => "{$user->name}'s Visual Novel Lists",

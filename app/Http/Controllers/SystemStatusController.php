@@ -239,7 +239,7 @@ class SystemStatusController extends Controller
                 $healthSummary['total'],
                 $healthSummary['monitored_on_oh_dear']
             ),
-            'image' => asset('images/social-fallback.jpg'),
+            'image' => asset(config('social.images.default')),
         ];
 
         return Inertia::render('system-status', [

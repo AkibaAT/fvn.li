@@ -43,18 +43,23 @@ jobs:
 
           # Check if Dockerfile or related files have changed
           DOCKERFILE_CHANGED=false
-          git diff --name-only HEAD^ HEAD | grep -q -E '^(Dockerfile|docker/.*|docker-compose\.yml)$' && DOCKERFILE_CHANGED=true
+          git diff --name-only HEAD^ HEAD | grep -q -E '^docker/(app/.*|production/docker-compose\.yml)$' && DOCKERFILE_CHANGED=true
           echo "dockerfile_changed=$DOCKERFILE_CHANGED" >> $GITHUB_OUTPUT
 
-      # Build and push Docker image if Dockerfile or related files changed
+          # Check if social image generator Dockerfile or script changed
+          SOCIAL_IMAGES_CHANGED=false
+          git diff --name-only HEAD^ HEAD | grep -q -E '^docker/social-images/.*$' && SOCIAL_IMAGES_CHANGED=true
+          echo "social_images_changed=$SOCIAL_IMAGES_CHANGED" >> $GITHUB_OUTPUT
+
+      # Build and push Docker images if Dockerfile or related files changed
       - name: Set up Docker Buildx
-        if: steps.vars.outputs.dockerfile_changed == 'true'
+        if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: image=moby/buildkit:latest
 
       - name: Log in to GitHub Container Registry
-        if: steps.vars.outputs.dockerfile_changed == 'true'
+        if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -75,7 +80,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: docker/app/Dockerfile
           push: true
           provenance: false
           platforms: linux/amd64
@@ -88,6 +93,24 @@ jobs:
             type=gha,mode=max,scope=docker-cache-amd64
             type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-amd64,mode=max
           outputs: type=image,name=ghcr.io/${{ env.REPO_LOWER }}:${{ steps.meta.outputs.TAG }},push-by-digest=false,push=true,name-canonical=false
+
+      - name: Build and push social images generator Docker image
+        if: steps.vars.outputs.social_images_changed == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: docker/social-images
+          file: docker/social-images/Dockerfile
+          push: true
+          provenance: false
+          platforms: linux/amd64
+          tags: ghcr.io/${{ env.REPO_LOWER }}:${{ env.REF_NAME }}-social-images
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=gha,scope=social-images-cache-amd64
+            type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-social-images-amd64
+          cache-to: |
+            type=gha,mode=max,scope=social-images-cache-amd64
+            type=registry,ref=ghcr.io/${{ env.REPO_LOWER }}:buildcache-social-images-amd64,mode=max
 
       # Always run these steps for code deployment
       - name: Setup PHP
@@ -130,10 +153,10 @@ jobs:
         run: pnpm run build:ssr
 
       - name: Create or update .env file with deployment configuration
-        run: ./scripts/create-env-deploy.sh "${{ steps.meta.outputs.tags }}" "${{ steps.vars.outputs.dockerfile_changed }}"
+        run: ./scripts/create-env-deploy.sh "${{ steps.meta.outputs.tags }}" "${{ steps.vars.outputs.dockerfile_changed }}" "${{ steps.vars.outputs.social_images_changed }}"
 
       - name: move docker-compose.yml
-        run: mv docker/docker-compose.yml docker-compose.yml
+        run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
         uses: burnett01/rsync-deployments@7.0.2
