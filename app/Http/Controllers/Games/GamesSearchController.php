@@ -151,14 +151,20 @@ class GamesSearchController extends Controller
             }
         }
 
-        // Build a more descriptive meta description based on filters
-        $metaDescription = 'Browse and discover visual novels on FVN.LI';
-        if ($search) {
-            $metaDescription = "Search results for '{$search}' - Browse and discover visual novels on FVN.LI";
-        }
-        if ($games->total() > 0) {
-            $metaDescription .= sprintf(' - %d games found', $games->total());
-        }
+        // Build meta tags with filter information
+        $filterOptions = GameFilterService::getOptions();
+        $metaTags = $this->buildMetaTags(
+            $request,
+            $search,
+            $selectedStatuses,
+            $selectedEngines,
+            $selectedPlatforms,
+            $selectedLanguages,
+            $selectedTags,
+            $games->total(),
+            $filterOptions,
+            $games
+        );
 
         return Inertia::render('games/index', [
             'games' => $games,
@@ -180,13 +186,8 @@ class GamesSearchController extends Controller
                 'perPage' => $perPage,
                 'page' => (int) $request->get('page', 1),
             ],
-            'filters' => GameFilterService::getOptions(),
-            'metaTags' => [
-                'title' => 'Games - FVN.LI',
-                'description' => $metaDescription,
-                'image' => asset(config('social.images.games_list', config('social.images.default'))),
-                'url' => $request->url(),
-            ],
+            'filters' => $filterOptions,
+            'metaTags' => $metaTags,
         ]);
     }
 
@@ -356,8 +357,8 @@ class GamesSearchController extends Controller
         $query = Game::query()
             ->where('is_visible', true)
             ->with([
-                'tags', 
-                'latestVersion.supportedLanguages.language', 
+                'tags',
+                'latestVersion.supportedLanguages.language',
                 'latestVersion.languageStats'
             ])
             ->withCount('ratings');
@@ -425,5 +426,160 @@ class GamesSearchController extends Controller
         }
 
         return $games;
+    }
+
+    /**
+     * Build comprehensive meta tags with filter information for social media
+     */
+    private function buildMetaTags(
+        Request $request,
+        string $search,
+        $selectedStatuses,
+        $selectedEngines,
+        $selectedPlatforms,
+        $selectedLanguages,
+        $selectedTags,
+        int $totalGames,
+        array $filterOptions,
+        $games
+    ): array {
+        $titleParts = [];
+        $descriptionParts = [];
+
+        // Add search query if present
+        if (! empty($search)) {
+            $titleParts[] = "Search: {$search}";
+            $descriptionParts[] = "Search results for '{$search}'";
+        }
+
+        // Add platform filters
+        if ($selectedPlatforms) {
+            $platforms = is_array($selectedPlatforms) ? $selectedPlatforms : explode(',', $selectedPlatforms);
+            $platformLabels = array_map(function ($p) use ($filterOptions) {
+                return $filterOptions['platforms'][$p] ?? ucfirst($p);
+            }, $platforms);
+            if (count($platformLabels) > 0) {
+                $titleParts[] = implode(', ', $platformLabels);
+                $descriptionParts[] = 'Available on ' . implode(', ', $platformLabels);
+            }
+        }
+
+        // Add language filters
+        if ($selectedLanguages) {
+            $languages = is_array($selectedLanguages) ? $selectedLanguages : explode(',', $selectedLanguages);
+            $languageLabels = array_map(function ($l) use ($filterOptions) {
+                return $filterOptions['languages'][$l]['ref_name'] ?? $l;
+            }, $languages);
+            if (count($languageLabels) > 0 && count($languageLabels) <= 3) {
+                $titleParts[] = implode(', ', $languageLabels);
+                $descriptionParts[] = 'In ' . implode(', ', $languageLabels);
+            }
+        }
+
+        // Add status filters
+        if ($selectedStatuses) {
+            $statuses = is_array($selectedStatuses) ? $selectedStatuses : explode(',', $selectedStatuses);
+            if (count($statuses) === 1) {
+                $status = ucwords(str_replace('_', ' ', $statuses[0]));
+                $titleParts[] = $status;
+                $descriptionParts[] = "Status: {$status}";
+            }
+        }
+
+        // Add engine filters
+        if ($selectedEngines) {
+            $engines = is_array($selectedEngines) ? $selectedEngines : explode(',', $selectedEngines);
+            if (count($engines) === 1) {
+                $titleParts[] = $engines[0];
+                $descriptionParts[] = "Made with {$engines[0]}";
+            }
+        }
+
+        // Add tag filters (limit to 2 for brevity)
+        if ($selectedTags) {
+            $tags = is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags);
+            $tagIds = array_slice($tags, 0, 2);
+            $tagLabels = [];
+            foreach ($tagIds as $tagId) {
+                $tagLabel = $filterOptions['tags'][$tagId] ?? null;
+                if ($tagLabel) {
+                    // Remove count from tag label (e.g., "Romance (42)" -> "Romance")
+                    $tagLabels[] = preg_replace('/\s*\(\d+\)$/', '', $tagLabel);
+                }
+            }
+            if (count($tagLabels) > 0) {
+                $titleParts[] = implode(', ', $tagLabels);
+                $descriptionParts[] = 'Tagged: ' . implode(', ', $tagLabels);
+            }
+        }
+
+        // Add NSFW/SFW filter
+        $nsfw = $request->boolean('nsfw');
+        $sfw = $request->boolean('sfw');
+        if ($nsfw && ! $sfw) {
+            $titleParts[] = 'NSFW';
+            $descriptionParts[] = 'NSFW content';
+        } elseif ($sfw && ! $nsfw) {
+            $titleParts[] = 'SFW';
+            $descriptionParts[] = 'SFW content only';
+        }
+
+        // Add paid/free filter
+        $showPaid = $request->boolean('showPaid');
+        $showFree = $request->boolean('showFree');
+        if ($showPaid && ! $showFree) {
+            $titleParts[] = 'Paid';
+            $descriptionParts[] = 'Paid games';
+        } elseif ($showFree && ! $showPaid) {
+            $titleParts[] = 'Free';
+            $descriptionParts[] = 'Free games';
+        }
+
+        // Add demo filter
+        if ($request->boolean('showDemo')) {
+            $titleParts[] = 'Demos';
+            $descriptionParts[] = 'Games with demos available';
+        }
+
+        // Build social media title with detailed filter information
+        $socialTitle = count($titleParts) > 0
+            ? implode(' - ', array_slice($titleParts, 0, 3)) . ' Visual Novels'
+            : 'Visual Novels';
+
+        // Browser title is always simple and static
+        $browserTitle = 'Visual Novels';
+
+        // Build description
+        $description = count($descriptionParts) > 0
+            ? implode(' • ', $descriptionParts) . ' - Browse and discover visual novels on FVN.li'
+            : 'Browse and discover visual novels on FVN.li';
+
+        // Add total count to description
+        if ($totalGames > 0) {
+            $description .= sprintf(' - %d games found', $totalGames);
+        }
+
+        // Add first few game names to give users an idea of what to expect
+        if ($games && $games->count() > 0) {
+            $gameNames = collect($games->items())
+                ->take(3)
+                ->pluck('name')
+                ->toArray();
+
+            if (count($gameNames) > 0) {
+                $description .= '. Including: ' . implode(', ', $gameNames);
+                if ($totalGames > count($gameNames)) {
+                    $description .= ', and more';
+                }
+            }
+        }
+
+        return [
+            'browserTitle' => $browserTitle,
+            'socialTitle' => $socialTitle,
+            'description' => $description,
+            'image' => asset(config('social.images.games_list', config('social.images.default'))),
+            'url' => $request->url(),
+        ];
     }
 }

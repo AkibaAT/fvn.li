@@ -30,7 +30,7 @@ class HomeController extends Controller
         ];
 
         $metaTags = [
-            'title' => 'FVN.li - Furry Visual Novel Database',
+            'title' => 'Furry Visual Novel Database',
             'description' => sprintf(
                 'Discover and rate %d+ furry visual novels with %d+ ratings from our community. Find your next favorite VN with detailed reviews, ratings, and filters.',
                 $stats['totalGames'],

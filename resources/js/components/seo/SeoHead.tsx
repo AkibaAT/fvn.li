@@ -42,6 +42,8 @@ interface Game {
 
 export interface MetaTags {
     title?: string;
+    browserTitle?: string;
+    socialTitle?: string;
     description?: string;
     image?: string;
     url?: string;
@@ -73,6 +75,8 @@ interface SeoHeadProps {
 export default function SeoHead({metaTags = {}, title, children}: SeoHeadProps) {
     const {
         title: metaTitle,
+        browserTitle,
+        socialTitle,
         description,
         image,
         url,
@@ -91,8 +95,11 @@ export default function SeoHead({metaTags = {}, title, children}: SeoHeadProps) 
         tags,
     } = metaTags;
 
-    // Use provided title or metaTitle
-    const finalTitle = title || metaTitle;
+    // Browser title: use browserTitle if provided, otherwise fall back to title prop or metaTitle
+    const finalBrowserTitle = browserTitle || title || metaTitle;
+
+    // Social media title: use socialTitle if provided, otherwise fall back to browser title
+    const finalSocialTitle = socialTitle || finalBrowserTitle;
 
     // Generate structured data JSON-LD if provided
     const structuredDataScript = structuredData ? (
@@ -108,9 +115,8 @@ export default function SeoHead({metaTags = {}, title, children}: SeoHeadProps) 
     ) : null;
 
     return (
-        <Head>
+        <Head title={finalBrowserTitle}>
             {/* Basic Meta Tags */}
-            {finalTitle && <title>{finalTitle}</title>}
             {description && <meta name="description" content={description} />}
             {keywords && <meta name="keywords" content={keywords} />}
             {author && <meta name="author" content={author} />}
@@ -122,7 +128,7 @@ export default function SeoHead({metaTags = {}, title, children}: SeoHeadProps) 
             {canonical && <link rel="canonical" href={canonical} />}
 
             {/* Open Graph / Facebook */}
-            {finalTitle && <meta property="og:title" content={finalTitle} />}
+            {finalSocialTitle && <meta property="og:title" content={finalSocialTitle} />}
             {description && <meta property="og:description" content={description} />}
             {image && <meta property="og:image" content={image} />}
             {url && <meta property="og:url" content={url} />}
@@ -139,7 +145,7 @@ export default function SeoHead({metaTags = {}, title, children}: SeoHeadProps) 
 
             {/* Twitter Cards */}
             <meta name="twitter:card" content={twitterCard} />
-            {finalTitle && <meta name="twitter:title" content={finalTitle} />}
+            {finalSocialTitle && <meta name="twitter:title" content={finalSocialTitle} />}
             {description && <meta name="twitter:description" content={description} />}
             {image && <meta name="twitter:image" content={image} />}
             {url && <meta name="twitter:url" content={url} />}
@@ -179,7 +185,7 @@ export function createGameMetaTags(game: Game, options: Partial<MetaTags> = {}):
     const gameUrl = `${baseUrl}/games/${game.slug || game.id}`;
 
     return {
-        title: `${game.name} - FVN.li`,
+        title: game.name,
         description: game.description
             ? `${game.description.substring(0, 155)}...`
             : `Discover ${game.name}, a furry visual novel. Read reviews, ratings, and community discussions.`,
@@ -239,7 +245,7 @@ export function createListMetaTags(
     const currentUrl = typeof window !== 'undefined' ? window.location.href : baseUrl;
 
     return {
-        title: `${title} - FVN.li`,
+        title: title,
         description,
         image: `${baseUrl}/images/social-fallback.jpg`,
         url: currentUrl,
