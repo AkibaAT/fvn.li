@@ -44,6 +44,23 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
         };
     }, []);
 
+    // Helper function to get current filter parameters from URL
+    const getCurrentFilterParams = useCallback(() => {
+        if (typeof window === 'undefined') return {};
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const params: Record<string, string> = {};
+
+        // Copy all existing URL parameters except 'search'
+        for (const [key, value] of urlParams.entries()) {
+            if (key !== 'search') {
+                params[key] = value;
+            }
+        }
+
+        return params;
+    }, []);
+
     // Live search functionality - memoized to prevent re-renders
     const performLiveSearch = useMemo(() => {
         let timeoutId: NodeJS.Timeout | null = null;
@@ -69,9 +86,17 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
                         if (typeof window !== 'undefined') {
                             window.dispatchEvent(new CustomEvent('fvn:search:start'));
                         }
+
+                        // Preserve existing filter parameters
+                        const currentParams = getCurrentFilterParams();
+                        const params = {
+                            ...currentParams,
+                            search: searchQuery.trim(),
+                        };
+
                         router.get(
                             route('games.index'),
-                            {search: searchQuery.trim()},
+                            params,
                             {
                                 preserveState: true,
                                 preserveScroll: true,
@@ -86,7 +111,8 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
                             }
                         );
                     } else {
-                        // If not on games page, navigate to games page
+                        // If not on games page, navigate to games page with search only
+                        // (since we're coming from outside the games page, we don't preserve existing filters)
                         router.get(
                             route('games.index'),
                             {search: searchQuery.trim()},
@@ -102,9 +128,13 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
                 } else if (searchQuery.trim().length === 0 && isGamesPage) {
                     // Clear search if empty and we're on games page
                     setIsSearching(true);
+
+                    // Preserve existing filter parameters but remove search
+                    const currentParams = getCurrentFilterParams();
+
                     router.get(
                         route('games.index'),
-                        {},
+                        currentParams,
                         {
                             preserveState: true,
                             preserveScroll: true,
@@ -118,17 +148,25 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
                 }
             }, debounceMs);
         };
-    }, [isGamesPage, debounceMs]);
+    }, [isGamesPage, debounceMs, getCurrentFilterParams]);
 
     // Handle search form submission
     const handleSearchSubmit = useCallback((e: React.FormEvent) => {
         e.preventDefault();
+
+        // Preserve existing filter parameters
+        const currentParams = getCurrentFilterParams();
+        const params = {
+            ...currentParams,
+            search: searchTerm,
+        };
+
         router.get(
             route('games.index'),
-            {search: searchTerm},
+            params,
             {preserveState: false},
         );
-    }, [searchTerm]);
+    }, [searchTerm, getCurrentFilterParams]);
 
     // Handle search input change with live search
     const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,9 +198,13 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
         if (isGamesPage) {
             setIsSearching(true);
             isSearchingRef.current = true;
+
+            // Preserve existing filter parameters but remove search
+            const currentParams = getCurrentFilterParams();
+
             router.get(
                 route('games.index'),
-                {},
+                currentParams,
                 {
                     preserveState: true,
                     preserveScroll: true,
@@ -174,7 +216,7 @@ export function useSearch({isGamesPage = false, debounceMs = 500}: UseSearchProp
                 }
             );
         }
-    }, [isGamesPage]);
+    }, [isGamesPage, getCurrentFilterParams]);
 
     return {
         searchTerm,
