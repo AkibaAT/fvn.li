@@ -12,6 +12,7 @@ import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox';
 import DownloadsList from '@/components/games/DownloadsList';
 import {Link, usePage} from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { type OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
 import SeoHead, {type MetaTags, createGameMetaTags} from '@/components/seo/SeoHead';
 
@@ -1066,6 +1067,9 @@ export default function GameShow({
                                     </span>
                                 )}
                             </div>
+
+                            {/* Edit controls placeholder - will be filled by EditableGameContent */}
+                            <div id="edit-controls-container"></div>
                         </div>
 
                         {/* Authors */}
@@ -1086,6 +1090,14 @@ export default function GameShow({
                                 content={(game.has_custom_page && game.custom_description) ? game.custom_description : (game.full_description || game.description || '')}
                                 canEdit={editPermissions.canEdit}
                                 hasCustomPage={game.has_custom_page || false}
+                                renderEditControls={(controls) => {
+                                    // Render controls into the edit-controls-container
+                                    const container = document.getElementById('edit-controls-container');
+                                    if (container) {
+                                        return ReactDOM.createPortal(controls, container);
+                                    }
+                                    return null;
+                                }}
                             />
                         </div>
                     </div>

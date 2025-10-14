@@ -10,6 +10,7 @@ interface EditableGameContentProps {
     hasCustomPage: boolean;
     className?: string;
     onContentUpdate?: (newContent: string) => void;
+    renderEditControls?: (controls: React.ReactNode) => React.ReactNode;
 }
 
 export default function EditableGameContent({
@@ -19,6 +20,7 @@ export default function EditableGameContent({
                                                 hasCustomPage,
                                                 className = '',
                                                 onContentUpdate,
+                                                renderEditControls,
                                             }: EditableGameContentProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(content);
@@ -216,14 +218,110 @@ export default function EditableGameContent({
         }
     };
 
+    // Build edit controls
+    const editControls = canEdit && !isEditing && (
+        <div className="flex gap-2 items-center">
+            {hasCustomPage && !isLoadingViewMode && (
+                <div className="flex items-center gap-1 mr-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Visitors see:</span>
+                    <button
+                        onClick={() => handleViewModeChange('original')}
+                        className={`text-xs px-2 py-1 rounded transition-colors ${
+                            viewMode === 'original'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        title="Show visitors original itch.io content"
+                    >
+                        itch.io
+                    </button>
+                    <button
+                        onClick={() => handleViewModeChange('custom')}
+                        className={`text-xs px-2 py-1 rounded transition-colors ${
+                            viewMode === 'custom'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        title="Show visitors custom content"
+                    >
+                        Custom
+                    </button>
+                </div>
+            )}
+            {hasCustomPage && (
+                <div className="relative revert-menu-container">
+                    <button
+                        onClick={() => setShowRevertMenu(!showRevertMenu)}
+                        disabled={isReverting}
+                        className="text-xs bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-700 disabled:opacity-50 shadow-md"
+                        title="Revert to original itch.io content"
+                    >
+                        {isReverting ? 'Reverting...' : 'Revert'}
+                    </button>
+                    {showRevertMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50">
+                            <div className="py-1">
+                                <button
+                                    onClick={() => {
+                                        setShowRevertMenu(false);
+                                        handleRevert();
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    Revert Description Only
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowRevertMenu(false);
+                                        handleRevert({ screenshots: true });
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    Revert Screenshots
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowRevertMenu(false);
+                                        handleRevert({ thumbnail: true });
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    Revert Thumbnail
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowRevertMenu(false);
+                                        handleRevert({ screenshots: true, thumbnail: true });
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold border-t border-gray-200 dark:border-gray-600"
+                                >
+                                    Revert Everything
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+            <button
+                onClick={handleEdit}
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow-md"
+            >
+                Edit
+            </button>
+        </div>
+    );
+
     return (
-        <div className={`relative revert-menu-container ${className}`}>
+        <div className={`relative ${className}`}>
             {/* Status indicator when no edit permissions */}
             {hasCustomPage && !canEdit && !isEditing && (
                 <div className="mb-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
                     ✏️ Custom content (not synced from itch.io)
                 </div>
             )}
+
+            {/* Render edit controls via parent if provided */}
+            {renderEditControls && editControls && renderEditControls(editControls)}
 
             <div
                 className={`prose dark:prose-invert game_description max-w-none text-gray-600 dark:text-gray-300 ${
@@ -263,95 +361,10 @@ export default function EditableGameContent({
                 )}
             </div>
 
-            {canEdit && !isEditing && (
+            {/* Show edit controls inline if no custom renderer provided */}
+            {!renderEditControls && canEdit && !isEditing && (
                 <div className="absolute top-2 right-2 flex gap-2 transition-opacity">
-                    {hasCustomPage && !isLoadingViewMode && (
-                        <div className="flex items-center gap-1 mr-2">
-                            <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">Visitors see:</span>
-                            <button
-                                onClick={() => handleViewModeChange('original')}
-                                className={`text-xs px-2 py-1 rounded transition-colors ${
-                                    viewMode === 'original'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                                }`}
-                                title="Show visitors original itch.io content"
-                            >
-                                itch.io
-                            </button>
-                            <button
-                                onClick={() => handleViewModeChange('custom')}
-                                className={`text-xs px-2 py-1 rounded transition-colors ${
-                                    viewMode === 'custom'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                                }`}
-                                title="Show visitors custom content"
-                            >
-                                Custom
-                            </button>
-                        </div>
-                    )}
-                    {hasCustomPage && (
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowRevertMenu(!showRevertMenu)}
-                                disabled={isReverting}
-                                className="text-xs bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-700 disabled:opacity-50 shadow-md"
-                                title="Revert to original itch.io content"
-                            >
-                                {isReverting ? 'Reverting...' : 'Revert'}
-                            </button>
-                            {showRevertMenu && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50">
-                                    <div className="py-1">
-                                        <button
-                                            onClick={() => {
-                                                setShowRevertMenu(false);
-                                                handleRevert();
-                                            }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            Revert Description Only
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowRevertMenu(false);
-                                                handleRevert({ screenshots: true });
-                                            }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            Revert Screenshots
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowRevertMenu(false);
-                                                handleRevert({ thumbnail: true });
-                                            }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            Revert Thumbnail
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowRevertMenu(false);
-                                                handleRevert({ screenshots: true, thumbnail: true });
-                                            }}
-                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold border-t border-gray-200 dark:border-gray-600"
-                                        >
-                                            Revert Everything
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    <button
-                        onClick={handleEdit}
-                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow-md"
-                    >
-                        Edit
-                    </button>
+                    {editControls}
                 </div>
             )}
 
