@@ -181,6 +181,7 @@ class GamesSearchController extends Controller
                 'showPaid' => $request->boolean('showPaid'),
                 'showFree' => $request->boolean('showFree'),
                 'showDemo' => $request->boolean('showDemo'),
+                'showSale' => $request->boolean('showSale'),
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
@@ -385,6 +386,11 @@ class GamesSearchController extends Controller
         // Demo filter
         if ($request->boolean('showDemo')) {
             $filters['has_demo'] = true;
+        }
+
+        // Sale filter
+        if ($request->boolean('showSale')) {
+            $filters['is_on_sale'] = true;
         }
 
         return $filters;

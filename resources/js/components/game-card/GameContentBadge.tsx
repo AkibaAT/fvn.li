@@ -5,12 +5,14 @@ interface GameContentBadgeProps {
     nsfw?: boolean;
     showPaid?: boolean;
     showDemo?: boolean;
+    showSale?: boolean;
     onNsfwToggle?: () => void;
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
+    onSaleToggle?: () => void;
 }
 
-export default function GameContentBadge({game, nsfw, showPaid, showDemo, onNsfwToggle, onPaidToggle, onDemoToggle}: GameContentBadgeProps) {
+export default function GameContentBadge({game, nsfw, showPaid, showDemo, showSale, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameContentBadgeProps) {
     return (
         <>
             {game.is_nsfw && (
@@ -31,10 +33,19 @@ export default function GameContentBadge({game, nsfw, showPaid, showDemo, onNsfw
             {Boolean(
                 (game as unknown as Record<string, unknown>).is_on_sale,
             ) && (
-                <span
-                    className="rounded-full border border-rose-300 bg-rose-200 px-3 py-1.5 text-xs font-bold text-rose-800 dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-300">
+                <button
+                    type="button"
+                    onClick={onSaleToggle}
+                    className={`cursor-pointer rounded-full border border-rose-300 bg-rose-200 px-3 py-1.5 text-xs font-bold text-rose-800 dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-300 ${
+                        showSale
+                            ? 'border-2 ring-1 ring-rose-300 dark:ring-rose-300'
+                            : ''
+                    }`}
+                    aria-label="Filter by games on sale"
+                    title="Filter by games on sale"
+                >
                     🔖 Sale
-                </span>
+                </button>
             )}
             {game.is_paid && (
                 <button

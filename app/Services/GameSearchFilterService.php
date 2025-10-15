@@ -68,6 +68,11 @@ class GameSearchFilterService
             $filters['has_demo'] = true;
         }
 
+        // Sale filter
+        if ($request->boolean('showSale')) {
+            $filters['is_on_sale'] = true;
+        }
+
         return $filters;
     }
 

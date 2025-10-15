@@ -22,6 +22,7 @@ export default function GameCard(props: GameCardProps) {
         handleNsfwToggle,
         handlePaidToggle,
         handleDemoToggle,
+        handleSaleToggle,
         orderedTags,
         tagContainerRef,
         hiddenTagCount,
@@ -30,7 +31,7 @@ export default function GameCard(props: GameCardProps) {
         setTagsExpanded,
     } = useGameCard(props);
 
-    const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo} = props;
+    const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale} = props;
     const {getSupportedPlatforms, getPlatformIcon} = usePlatformIcons();
 
     const supportedPlatforms = getSupportedPlatforms(game);
@@ -115,9 +116,11 @@ export default function GameCard(props: GameCardProps) {
                                 nsfw={nsfw}
                                 showPaid={showPaid}
                                 showDemo={showDemo}
+                                showSale={showSale}
                                 onNsfwToggle={handleNsfwToggle}
                                 onPaidToggle={handlePaidToggle}
                                 onDemoToggle={handleDemoToggle}
+                                onSaleToggle={handleSaleToggle}
                             />
                         </div>
                     )}

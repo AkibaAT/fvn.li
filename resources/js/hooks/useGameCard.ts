@@ -68,6 +68,7 @@ export interface GameCardProps {
     nsfw?: boolean;
     showPaid?: boolean;
     showDemo?: boolean;
+    showSale?: boolean;
     // Optional filter handlers; if omitted, will navigate to games index with the respective filter
     onTagClick?: (tagId: string) => void;
     onPlatformClick?: (platform: GameCardPlatform) => void;
@@ -76,9 +77,10 @@ export interface GameCardProps {
     onNsfwToggle?: () => void;
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
+    onSaleToggle?: () => void;
 }
 
-export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onNsfwToggle, onPaidToggle, onDemoToggle}: GameCardProps) {
+export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameCardProps) {
     // Image handling
     const getOptimizedScreenshotUrl = (
         screenshot: NonNullable<GameCardGame['screenshots']>[number],
@@ -172,6 +174,11 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         navigateWith({showDemo: true});
     };
 
+    const handleSaleToggle = () => {
+        if (onSaleToggle) return onSaleToggle();
+        navigateWith({showSale: true});
+    };
+
     // Tag ordering and state
     const orderedTags = game.tags && game.tags.length > 0
         ? [...game.tags].sort((a, b) => {
@@ -205,7 +212,8 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         handleNsfwToggle,
         handlePaidToggle,
         handleDemoToggle,
-        
+        handleSaleToggle,
+
         // Tags
         orderedTags,
         tagContainerRef: containerRef,

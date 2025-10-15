@@ -52,6 +52,7 @@ interface GamesGridProps {
     onNsfwToggle: () => void;
     onPaidToggle: () => void;
     onDemoToggle: () => void;
+    onSaleToggle: () => void;
     updateFilters: (filters: Partial<CurrentFilters>) => void;
 }
 
@@ -65,6 +66,7 @@ export default function GamesGrid({
     onNsfwToggle,
     onPaidToggle,
     onDemoToggle,
+    onSaleToggle,
 }: GamesGridProps) {
     if (games.length === 0) {
         return (
@@ -92,6 +94,7 @@ export default function GamesGrid({
                     nsfw={currentFilters.nsfw || false}
                     showPaid={currentFilters.showPaid || false}
                     showDemo={currentFilters.showDemo || false}
+                    showSale={currentFilters.showSale || false}
                     onPlatformClick={onPlatformClick}
                     onLanguageClick={onLanguageClick}
                     onTagClick={onTagClick}
@@ -99,6 +102,7 @@ export default function GamesGrid({
                     onNsfwToggle={onNsfwToggle}
                     onPaidToggle={onPaidToggle}
                     onDemoToggle={onDemoToggle}
+                    onSaleToggle={onSaleToggle}
                 />
             ))}
         </div>

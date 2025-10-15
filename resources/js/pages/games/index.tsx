@@ -182,6 +182,8 @@ export default function GamesIndex({
                 return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
             case 'demo':
                 return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300';
+            case 'sale':
+                return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
             case 'suspended':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
             case 'hidden':
@@ -373,6 +375,7 @@ export default function GamesIndex({
                     onNsfwToggle={() => updateFilters({nsfw: !currentFilters.nsfw})}
                     onPaidToggle={() => updateFilters({showPaid: !currentFilters.showPaid})}
                     onDemoToggle={() => updateFilters({showDemo: !currentFilters.showDemo})}
+                    onSaleToggle={() => updateFilters({showSale: !currentFilters.showSale})}
                     updateFilters={updateFilters}
                 />
 

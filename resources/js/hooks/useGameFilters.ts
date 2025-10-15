@@ -76,6 +76,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             showPaid: false,
             showFree: false,
             showDemo: false,
+            showSale: false,
         });
     };
 
@@ -92,6 +93,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             showPaid,
             showFree,
             showDemo,
+            showSale,
         } = currentFilters;
 
         return Boolean(
@@ -105,7 +107,8 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             sfw ||
             showPaid ||
             showFree ||
-            showDemo,
+            showDemo ||
+            showSale,
         );
     };
 
@@ -221,6 +224,13 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
                 label: 'Has Demo',
                 onClear: () => updateFilters({showDemo: false}),
             });
+        if (currentFilters.showSale)
+            chips.push({
+                key: 'sale',
+                type: 'sale',
+                label: 'On Sale',
+                onClear: () => updateFilters({showSale: false}),
+            });
 
         return chips;
     };
@@ -255,6 +265,8 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
                 return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
             case 'demo':
                 return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+            case 'sale':
+                return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
             case 'suspended':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
             case 'hidden':

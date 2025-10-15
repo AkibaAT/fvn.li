@@ -278,6 +278,10 @@ class MeilisearchService
             $search->where('has_demo', $filters['has_demo']);
         }
 
+        if (isset($filters['is_on_sale'])) {
+            $search->where('is_on_sale', $filters['is_on_sale']);
+        }
+
         if (! empty($filters['game_engine'])) {
             if (is_array($filters['game_engine'])) {
                 $search->whereIn('game_engine', $filters['game_engine']);
