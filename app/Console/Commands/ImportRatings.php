@@ -18,6 +18,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -41,6 +42,9 @@ class ImportRatings extends Command
 
     public function handle(): int
     {
+        // Use sync mode for Scout indexing in CLI to avoid queueing ratings
+        Config::set('scout.queue', false);
+
         try {
             // Get authenticated client
             $this->client = $this->authService->getClient();

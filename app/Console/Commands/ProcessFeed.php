@@ -12,6 +12,7 @@ use Dom\HTMLDocument;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -44,6 +45,9 @@ class ProcessFeed extends Command
      */
     public function handle(): int
     {
+        // Use sync mode for Scout indexing in CLI to avoid queueing
+        Config::set('scout.queue', false);
+
         $this->info('Starting feed processing');
         $this->info('+ = processed event, . = skipped event');
 

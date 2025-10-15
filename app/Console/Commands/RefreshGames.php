@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -43,6 +44,9 @@ class RefreshGames extends Command
      */
     public function handle(): int
     {
+        // Use sync mode for Scout indexing in CLI to avoid queueing
+        Config::set('scout.queue', false);
+
         $force = $this->option('force');
         $refreshAll = $this->option('all');
 

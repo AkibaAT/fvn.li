@@ -10,6 +10,7 @@ use App\Models\GameVersion;
 use App\Services\GameVersionStatsImportService;
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
@@ -33,6 +34,9 @@ class ImportGameVersionStats extends Command
 
     public function handle(): int
     {
+        // Use sync mode for Scout indexing in CLI to avoid queueing thousands of dialogue lines
+        Config::set('scout.queue', false);
+
         $versionId = $this->option('version-id');
         $statsFile = $this->option('stats-file');
 

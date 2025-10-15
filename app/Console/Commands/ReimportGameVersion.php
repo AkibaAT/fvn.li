@@ -11,6 +11,7 @@ use App\Services\GameStatsService;
 use DateTime;
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -36,6 +37,9 @@ class ReimportGameVersion extends Command
 
     public function handle(): int
     {
+        // Use sync mode for Scout indexing in CLI to avoid queueing thousands of dialogue lines
+        Config::set('scout.queue', false);
+
         $versionString = $this->option('game-version');
         $timestamp = $this->option('timestamp');
 
