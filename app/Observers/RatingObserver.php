@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Jobs\UpdateGameRating;
 use App\Models\Rating;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class RatingObserver
@@ -16,6 +17,7 @@ class RatingObserver
     public function created(Rating $rating): void
     {
         $this->dispatchRatingUpdate($rating, 'created');
+        $this->clearRaterCache($rating);
     }
 
     /**
@@ -27,6 +29,11 @@ class RatingObserver
         if ($rating->wasChanged(['rating', 'is_visible'])) {
             $this->dispatchRatingUpdate($rating, 'updated');
         }
+
+        // Clear cache if review content or visibility changed
+        if ($rating->wasChanged(['review', 'is_reviewed', 'is_visible', 'rating'])) {
+            $this->clearRaterCache($rating);
+        }
     }
 
     /**
@@ -35,6 +42,7 @@ class RatingObserver
     public function deleted(Rating $rating): void
     {
         $this->dispatchRatingUpdate($rating, 'deleted');
+        $this->clearRaterCache($rating);
     }
 
     /**
@@ -56,6 +64,24 @@ class RatingObserver
             'rating_id' => $rating->id,
             'game_id' => $rating->game_id,
             'event' => $event,
+        ]);
+    }
+
+    /**
+     * Clear cached data for the rater when their ratings change.
+     */
+    private function clearRaterCache(Rating $rating): void
+    {
+        if (!$rating->rater_id) {
+            return;
+        }
+
+        // Clear the phrase analysis cache for this rater
+        Cache::forget("rater_phrases_{$rating->rater_id}");
+
+        Log::debug('Cleared rater cache', [
+            'rating_id' => $rating->id,
+            'rater_id' => $rating->rater_id,
         ]);
     }
 }

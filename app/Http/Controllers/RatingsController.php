@@ -595,162 +595,230 @@ class RatingsController extends Controller
 
     protected function getCommonPhrases(int $raterId): array
     {
-        $reviews = DB::table('ratings')
-            ->where('rater_id', $raterId)
-            ->where('ratings.is_visible', true)
-            ->whereNotNull('review')
-            ->select([
-                'ratings.review',
-                'ratings.rating',
-                'games.name as game_name',
-                'games.slug as game_slug',
-                'ratings.rating as game_rating',
-            ])
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->get();
+        // Cache the result for 1 hour since phrase analysis is expensive
+        return cache()->remember("rater_phrases_{$raterId}", now()->addHour(), function () use ($raterId) {
+            $reviews = DB::table('ratings')
+                ->where('rater_id', $raterId)
+                ->where('ratings.is_visible', true)
+                ->whereNotNull('review')
+                ->select([
+                    'ratings.review',
+                    'ratings.rating',
+                    'games.name as game_name',
+                    'games.slug as game_slug',
+                    'ratings.rating as game_rating',
+                ])
+                ->join('games', 'games.id', '=', 'ratings.game_id')
+                ->get();
 
-        if ($reviews->isEmpty()) {
-            return [];
-        }
-
-        $allPhrases = [];
-
-        foreach ($reviews as $review) {
-            // Preprocess the review text.
-            $rawReview = $review->review;
-            $cleanText = strtolower(strip_tags(html_entity_decode($rawReview, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-            $cleanText = preg_replace('/[^\w\s\']/', ' ', $cleanText);
-            $cleanText = preg_replace('/\s+/', ' ', $cleanText);
-            $words = explode(' ', trim($cleanText));
-            $wordsCount = count($words);
-            if ($wordsCount === 0) {
-                continue;
+            if ($reviews->isEmpty()) {
+                return [];
             }
-            $seenPhrases = [];
 
-            // Split the review into sentences and precompute their lowercase versions.
-            $sentences = preg_split('/(?<=[.!?])\s+/', strip_tags(html_entity_decode($rawReview, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-            $lowerSentences = array_map('strtolower', $sentences);
+            $allPhrases = [];
 
-            for ($length = 4; $length >= 2; $length--) {
-                if ($wordsCount < $length) {
+            // Use a unique boundary marker that cannot appear in user content
+            $boundaryMarker = '|||BOUNDARY_' . uniqid() . '|||';
+
+            foreach ($reviews as $review) {
+                // Preprocess the review text.
+                $rawReview = $review->review;
+
+                // Decode HTML entities first
+                $decodedReview = html_entity_decode($rawReview, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                // Replace line breaks and block-level tags with boundary markers to prevent cross-boundary phrase matching
+                $textWithDelimiters = preg_replace('/<br\s*\/?>/i', $boundaryMarker, $decodedReview);
+                $textWithDelimiters = preg_replace('/<\/(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)>/i', $boundaryMarker, $textWithDelimiters);
+                $textWithDelimiters = preg_replace('/<(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)[^>]*>/i', '', $textWithDelimiters);
+
+                // Strip remaining tags and split into blocks
+                $textStripped = strip_tags($textWithDelimiters);
+                $blocks = explode($boundaryMarker, $textStripped);
+
+                // Process each block separately to extract phrases
+                $allWords = [];
+                foreach ($blocks as $block) {
+                    $cleanBlock = strtolower($block);
+                    $cleanBlock = preg_replace('/[^\w\s\']/', ' ', $cleanBlock);
+                    $cleanBlock = preg_replace('/\s+/', ' ', $cleanBlock);
+                    $blockWords = explode(' ', trim($cleanBlock));
+                    $blockWords = array_filter($blockWords); // Remove empty strings
+
+                    if (count($blockWords) > 0) {
+                        // Add a marker to indicate block boundary
+                        $allWords = array_merge($allWords, $blockWords, [$boundaryMarker]);
+                    }
+                }
+
+                // Remove the trailing boundary marker
+                if (end($allWords) === $boundaryMarker) {
+                    array_pop($allWords);
+                }
+
+                // Count only actual words, not boundary markers
+                $actualWordCount = count(array_filter($allWords, function($word) use ($boundaryMarker) {
+                    return $word !== $boundaryMarker;
+                }));
+
+                if ($actualWordCount === 0) {
                     continue;
                 }
-                for ($i = 0; $i <= $wordsCount - $length; $i++) {
-                    $phrase = implode(' ', array_slice($words, $i, $length));
-                    if (strlen($phrase) < 5 || ! $this->isPhraseMeaningful($phrase)) {
+
+                $wordsCount = count($allWords); // Total count including markers for iteration
+                $seenPhrases = [];
+
+                // Split the review into sentences for context extraction
+                // Replace line breaks and block tags with periods for sentence splitting
+                $sentenceText = preg_replace('/<br\s*\/?>/i', '. ', $decodedReview);
+                $sentenceText = preg_replace('/<\/(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)>/i', '. ', $sentenceText);
+                $sentenceText = preg_replace('/<(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)[^>]*>/i', ' ', $sentenceText);
+                $sentences = preg_split('/(?<=[.!?])\s+/', strip_tags($sentenceText));
+                $lowerSentences = array_map('strtolower', $sentences);
+
+                for ($length = 4; $length >= 2; $length--) {
+                    if ($wordsCount < $length) {
                         continue;
                     }
-
-                    if (isset($seenPhrases[$phrase])) {
-                        continue;
-                    }
-                    $seenPhrases[$phrase] = true;
-
-                    $pattern = '/\b' . implode('[-\s]+', array_map(function ($word) {
-                        return preg_quote($word, '/');
-                    }, explode(' ', $phrase))) . '\b/';
-
-                    $matchingSentences = [];
-                    foreach ($lowerSentences as $index => $lowerSentence) {
-                        if (preg_match($pattern, $lowerSentence)) {
-                            // Highlight the matching text in the original sentence.
-                            $matchingSentences[] = $sentences[$index];
+                    for ($i = 0; $i <= $wordsCount - $length; $i++) {
+                        // Skip if this phrase would cross a block boundary
+                        $phraseWords = array_slice($allWords, $i, $length);
+                        if (in_array($boundaryMarker, $phraseWords)) {
+                            continue;
                         }
-                    }
 
-                    if (! isset($allPhrases[$phrase])) {
-                        $allPhrases[$phrase] = [
-                            'count' => 1,
-                            'length' => $length,
-                            'total_rating' => $review->rating,
-                            'contexts' => [
-                                $review->game_name => [
+                        $phrase = implode(' ', $phraseWords);
+                        if (strlen($phrase) < 5 || ! $this->isPhraseMeaningful($phrase)) {
+                            continue;
+                        }
+
+                        if (isset($seenPhrases[$phrase])) {
+                            continue;
+                        }
+                        $seenPhrases[$phrase] = true;
+
+                        $pattern = '/\b' . implode('[-\s]+', array_map(function ($word) {
+                            return preg_quote($word, '/');
+                        }, explode(' ', $phrase))) . '\b/';
+
+                        $matchingSentences = [];
+                        // Limit to first 3 matching sentences to reduce memory and processing
+                        $matchCount = 0;
+                        foreach ($lowerSentences as $index => $lowerSentence) {
+                            if ($matchCount >= 3) {
+                                break;
+                            }
+                            if (preg_match($pattern, $lowerSentence)) {
+                                $matchingSentences[] = $sentences[$index];
+                                $matchCount++;
+                            }
+                        }
+
+                        if (! isset($allPhrases[$phrase])) {
+                            $allPhrases[$phrase] = [
+                                'count' => 1,
+                                'length' => $length,
+                                'total_rating' => $review->rating,
+                                'contexts' => [
+                                    $review->game_name => [
+                                        'slug' => $review->game_slug,
+                                        'rating' => $review->game_rating,
+                                        'sentences' => $matchingSentences,
+                                    ],
+                                ],
+                            ];
+                        } else {
+                            $allPhrases[$phrase]['count']++;
+                            $allPhrases[$phrase]['total_rating'] += $review->rating;
+                            if (! isset($allPhrases[$phrase]['contexts'][$review->game_name])) {
+                                $allPhrases[$phrase]['contexts'][$review->game_name] = [
                                     'slug' => $review->game_slug,
                                     'rating' => $review->game_rating,
-                                    'sentences' => $matchingSentences,
-                                ],
-                            ],
-                        ];
-                    } else {
-                        $allPhrases[$phrase]['count']++;
-                        $allPhrases[$phrase]['total_rating'] += $review->rating;
-                        if (! isset($allPhrases[$phrase]['contexts'][$review->game_name])) {
-                            $allPhrases[$phrase]['contexts'][$review->game_name] = [
-                                'slug' => $review->game_slug,
-                                'rating' => $review->game_rating,
-                                'sentences' => [],
-                            ];
+                                    'sentences' => [],
+                                ];
+                            }
+                            // Limit sentences per game to 3
+                            $existingSentences = $allPhrases[$phrase]['contexts'][$review->game_name]['sentences'];
+                            if (count($existingSentences) < 3) {
+                                $allPhrases[$phrase]['contexts'][$review->game_name]['sentences'] = array_merge(
+                                    $existingSentences,
+                                    array_slice($matchingSentences, 0, 3 - count($existingSentences))
+                                );
+                            }
                         }
-                        $allPhrases[$phrase]['contexts'][$review->game_name]['sentences'] = array_merge(
-                            $allPhrases[$phrase]['contexts'][$review->game_name]['sentences'],
-                            $matchingSentences
-                        );
                     }
                 }
             }
-        }
 
-        // Remove phrases that appear only once.
-        $allPhrases = array_filter($allPhrases, fn ($data) => $data['count'] > 1);
+            // Remove phrases that appear only once.
+            $allPhrases = array_filter($allPhrases, fn ($data) => $data['count'] > 1);
 
-        foreach ($allPhrases as &$data) {
-            $data['avg_rating'] = $data['total_rating'] / $data['count'];
-            // Remove duplicate sentences in each game's context.
-            foreach ($data['contexts'] as &$gameData) {
-                $gameData['sentences'] = array_unique($gameData['sentences']);
+            foreach ($allPhrases as &$data) {
+                $data['avg_rating'] = $data['total_rating'] / $data['count'];
+                // Remove duplicate sentences in each game's context.
+                foreach ($data['contexts'] as &$gameData) {
+                    $gameData['sentences'] = array_values(array_unique($gameData['sentences']));
+                    // Limit to 3 sentences per game
+                    $gameData['sentences'] = array_slice($gameData['sentences'], 0, 3);
+                }
+                unset($data['total_rating']);
             }
-            unset($data['total_rating']);
-        }
-        unset($data);
+            unset($data);
 
-        uasort($allPhrases, function ($a, $b) {
-            if ($a['count'] !== $b['count']) {
-                return $b['count'] <=> $a['count'];
+            uasort($allPhrases, function ($a, $b) {
+                if ($a['count'] !== $b['count']) {
+                    return $b['count'] <=> $a['count'];
+                }
+
+                return $b['length'] <=> $a['length'];
+            });
+
+            // Optimized filtering: only process top phrases to reduce O(n²) comparisons
+            $topPhrases = array_slice($allPhrases, 0, 100, true);
+            $filteredPhrases = [];
+
+            foreach ($topPhrases as $phrase => $data) {
+                $isSubphrase = false;
+                $relations = [];
+
+                foreach ($topPhrases as $otherPhrase => $otherData) {
+                    if ($phrase === $otherPhrase) {
+                        continue;
+                    }
+
+                    // If this phrase is part of another phrase with similar count.
+                    if (stripos($otherPhrase, $phrase) !== false &&
+                        $otherData['count'] >= ($data['count'] * 0.8)) {
+                        $isSubphrase = true;
+                        break;
+                    } elseif (stripos($phrase, $otherPhrase) !== false &&
+                        $data['count'] >= ($otherData['count'] * 0.8)) {
+                        // Track related phrases (limit to 3).
+                        if (count($relations) < 3) {
+                            $relations[] = [
+                                'phrase' => $otherPhrase,
+                                'count' => $otherData['count'],
+                                'avg_rating' => $otherData['avg_rating'],
+                            ];
+                        }
+                    }
+
+                    // REMOVED: expensive similar_text() call that was O(n²) on string length
+                }
+
+                if (! $isSubphrase) {
+                    $filteredPhrases[$phrase] = $data;
+                    $filteredPhrases[$phrase]['related'] = $relations;
+                }
+
+                // Early termination: stop once we have 30 phrases
+                if (count($filteredPhrases) >= 30) {
+                    break;
+                }
             }
 
-            return $b['length'] <=> $a['length'];
+            return array_slice($filteredPhrases, 0, 30, true);
         });
-
-        $filteredPhrases = [];
-        foreach ($allPhrases as $phrase => $data) {
-            $isSubphrase = false;
-            $relations = [];
-
-            foreach ($allPhrases as $otherPhrase => $otherData) {
-                if ($phrase === $otherPhrase) {
-                    continue;
-                }
-
-                // If this phrase is part of another phrase with similar count.
-                if (stripos($otherPhrase, $phrase) !== false &&
-                    $otherData['count'] >= ($data['count'] * 0.8)) {
-                    $isSubphrase = true;
-                    break;
-                } elseif (stripos($phrase, $otherPhrase) !== false &&
-                    $data['count'] >= ($otherData['count'] * 0.8)) {
-                    // Track related phrases.
-                    $relations[] = [
-                        'phrase' => $otherPhrase,
-                        'count' => $otherData['count'],
-                        'avg_rating' => $otherData['avg_rating'],
-                    ];
-                }
-
-                similar_text($phrase, $otherPhrase, $percent);
-                if ($percent > 80 && $otherData['count'] >= $data['count']) {
-                    $isSubphrase = true;
-                    break;
-                }
-            }
-
-            if (! $isSubphrase) {
-                $filteredPhrases[$phrase] = $data;
-                $filteredPhrases[$phrase]['related'] = $relations;
-            }
-        }
-
-        return array_slice($filteredPhrases, 0, 30, true);
     }
 
     private function isPhraseMeaningful(string $phrase): bool
