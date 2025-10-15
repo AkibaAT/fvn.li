@@ -10,6 +10,7 @@ import ScreenshotsGallery from '@/components/games/ScreenshotsGallery';
 import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox';
 
 import DownloadsList from '@/components/games/DownloadsList';
+import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
 import {Link, usePage} from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
@@ -352,6 +353,9 @@ export default function GameShow({
     );
     const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
     const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+
+    // Use the review text styles hook
+    const reviewStyles = useReviewTextStyles();
 
     // Media editing state
     const [currentThumbnail, setCurrentThumbnail] = useState<string | null>(game.optimized_thumbnail_url || game.thumb_url || null);
@@ -1804,6 +1808,11 @@ export default function GameShow({
                 </div>
             )}
 
+            {/* Review Text Controls */}
+            <div className="mb-6">
+                <ReviewTextControls />
+            </div>
+
             {/* Reviews Section */}
             <div
                 id="reviews"
@@ -1927,7 +1936,8 @@ export default function GameShow({
                                         (!showAllRatings ||
                                             review.is_reviewed) && (
                                             <div
-                                                className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
+                                                className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                                                style={reviewStyles}>
                                                 <div
                                                     dangerouslySetInnerHTML={{
                                                         __html: review.review,

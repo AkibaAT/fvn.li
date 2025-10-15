@@ -3,6 +3,7 @@ import Stars from '@/components/ui/stars';
 import {Link, router} from '@inertiajs/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import SeoHead, {type MetaTags} from '@/components/seo/SeoHead';
+import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
 
 type RatingRow = {
     id: number;
@@ -88,6 +89,10 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
     const [isLoading, setIsLoading] = useState(false);
     const [stars, setStars] = useState<number | ''>(filters?.stars ?? '');
 
+    // Use the review text styles hook
+    const reviewStyles = useReviewTextStyles();
+
+    
     const ratingMeta = useMemo(
         () => ({
             current_page: ratings?.current_page ?? page,
@@ -245,6 +250,9 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                     </div>
                 </div>
 
+                {/* Review Text Controls */}
+                <ReviewTextControls />
+
                 {/* Filters and sorting */}
                 <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
                     <div className="flex flex-wrap items-center gap-4">
@@ -357,7 +365,8 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                     </div>
                                     {row.review ? (
                                         <div
-                                            className="prose dark:prose-invert mt-2 max-w-none text-gray-600 dark:text-gray-300">
+                                            className="prose dark:prose-invert mt-2 text-gray-600 dark:text-gray-300 mx-auto"
+                                            style={reviewStyles}>
                                             {/* review is trusted HTML from server */}
                                             <div dangerouslySetInnerHTML={{__html: row.review || ''}}/>
                                         </div>

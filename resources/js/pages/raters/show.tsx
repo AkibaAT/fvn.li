@@ -3,6 +3,7 @@ import Stars from '@/components/ui/stars';
 import {Link, router} from '@inertiajs/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import SeoHead, {type MetaTags} from '@/components/seo/SeoHead';
+import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
 
 type Rater = {
     id: number;
@@ -150,6 +151,9 @@ export default function RaterShow({
     const historyDialogRef = useRef<HTMLDialogElement>(null);
     const historyCloseBtnRef = useRef<HTMLButtonElement>(null);
     const historyOpenerRef = useRef<HTMLElement | null>(null);
+
+    // Use the review text styles hook
+    const reviewStyles = useReviewTextStyles();
 
     // Phrases dialog refs for focus management and control
     const phrasesDialogRef = useRef<HTMLDialogElement>(null);
@@ -309,6 +313,7 @@ export default function RaterShow({
         }
     }, [showContext]);
 
+  
     return (
         <>
             <SeoHead metaTags={metaTags} />
@@ -480,6 +485,10 @@ export default function RaterShow({
                         </div>
                     ) : null}
                 </div>
+
+                {/* Review Text Controls */}
+                <ReviewTextControls />
+
                 <div className="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
                         {!ratings || ratings.data.length === 0 ? (
@@ -542,7 +551,8 @@ export default function RaterShow({
                                     </div>
                                     {row.review ? (
                                         <div
-                                            className="prose dark:prose-invert mt-2 max-w-none text-gray-600 dark:text-gray-300">
+                                            className="prose dark:prose-invert mt-2 text-gray-600 dark:text-gray-300 mx-auto"
+                                            style={reviewStyles}>
                                             {/* review is trusted HTML from server */}
                                             <div dangerouslySetInnerHTML={{__html: row.review || ''}}/>
                                         </div>
@@ -705,7 +715,8 @@ export default function RaterShow({
                                     </div>
                                     {hr.review ? (
                                         <div
-                                            className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
+                                            className="prose dark:prose-invert text-gray-600 dark:text-gray-300 mx-auto"
+                                            style={reviewStyles}>
                                             <div dangerouslySetInnerHTML={{__html: hr.review || ''}}/>
                                         </div>
                                     ) : null}
