@@ -38,11 +38,11 @@ class DashboardController extends Controller
         if (! $authId) {
             return Inertia::render('auth/login', [
                 'metaTags' => [
-                    'title' => 'Log in - FVN.li',
+                    'title' => 'Log in',
                     'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
                     'structuredData' => [
                         '@type' => 'WebPage',
-                        'name' => 'Log in - FVN.li',
+                        'name' => 'Log in',
                         'description' => 'Log in to your FVN.li account to track your visual novel progress',
                         'url' => route('login'),
                     ],
@@ -161,12 +161,12 @@ class DashboardController extends Controller
             'recentRequests' => $recentRequests,
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
             'metaTags' => [
-                'title' => 'Dashboard - FVN.li',
+                'title' => 'Dashboard',
                 'description' => 'Manage your FVN.li account, track visual novel progress, organize reading lists, and control notification preferences.',
                 'image' => asset(config('social.images.default')),
                 'structuredData' => [
                     '@type' => 'WebPage',
-                    'name' => 'Dashboard - FVN.li',
+                    'name' => 'Dashboard',
                     'description' => 'Manage your FVN.li account and visual novel tracking',
                     'url' => route('dashboard'),
                 ],

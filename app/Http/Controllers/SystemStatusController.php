@@ -231,7 +231,7 @@ class SystemStatusController extends Controller
         $dateFormat = config('schedule-monitor.date_format');
 
         $metaTags = [
-            'title' => 'System Status - FVN.li',
+            'title' => 'System Status',
             'description' => sprintf(
                 'System health and performance metrics for FVN.li. Currently tracking %d games with %d visible listings, %d scheduled tasks, and %d health monitors.',
                 $gameStats['total'],

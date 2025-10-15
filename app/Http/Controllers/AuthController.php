@@ -24,11 +24,11 @@ class AuthController extends Controller
 
         return Inertia::render('auth/login', [
             'metaTags' => [
-                'title' => 'Log in - FVN.li',
+                'title' => 'Log in',
                 'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
                 'structuredData' => [
                     '@type' => 'WebPage',
-                    'name' => 'Log in - FVN.li',
+                    'name' => 'Log in',
                     'description' => 'Log in to your FVN.li account to track your visual novel progress',
                     'url' => route('login'),
                 ],

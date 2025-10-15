@@ -28,11 +28,11 @@ class MyGamesController extends Controller
         if (! $authId) {
             return Inertia::render('auth/login', [
                 'metaTags' => [
-                    'title' => 'Log in - FVN.li',
+                    'title' => 'Log in',
                     'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
                     'structuredData' => [
                         '@type' => 'WebPage',
-                        'name' => 'Log in - FVN.li',
+                        'name' => 'Log in',
                         'description' => 'Log in to your FVN.li account to track your visual novel progress',
                         'url' => route('login'),
                     ],
@@ -77,13 +77,13 @@ class MyGamesController extends Controller
             'games' => $games,
             'clickStats' => $clickStats,
             'metaTags' => [
-                'title' => 'Manage My Games - FVN.li',
+                'title' => 'Manage My Games',
                 'description' => $itchioUsername
                     ? "Manage your itch.io games linked to FVN.li. Currently tracking {$games->count()} games from your itch.io account."
                     : 'Connect your itch.io account to manage and track your visual novel games on FVN.li.',
                 'structuredData' => [
                     '@type' => 'WebPage',
-                    'name' => 'Manage My Games - FVN.li',
+                    'name' => 'Manage My Games',
                     'description' => $itchioUsername
                         ? 'Manage your itch.io games linked to FVN.li'
                         : 'Connect your itch.io account to manage your visual novel games',
@@ -99,11 +99,11 @@ class MyGamesController extends Controller
         if (! $authId) {
             return Inertia::render('auth/login', [
                 'metaTags' => [
-                    'title' => 'Log in - FVN.li',
+                    'title' => 'Log in',
                     'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
                     'structuredData' => [
                         '@type' => 'WebPage',
-                        'name' => 'Log in - FVN.li',
+                        'name' => 'Log in',
                         'description' => 'Log in to your FVN.li account to track your visual novel progress',
                         'url' => route('login'),
                     ],
@@ -152,12 +152,12 @@ class MyGamesController extends Controller
             'dailyStats' => $dailyStats,
             'linkStats' => $linkStats,
             'metaTags' => [
-                'title' => "Edit {$game->name} - FVN.li",
+                'title' => "Edit {$game->name}",
                 'description' => "Edit download links and platforms for {$game->name}. Manage additional download links for different platforms to help players find the right version.",
                 'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
                 'structuredData' => [
                     '@type' => 'WebPage',
-                    'name' => "Edit {$game->name} - FVN.li",
+                    'name' => "Edit {$game->name}",
                     'description' => "Edit download links and platforms for {$game->name}",
                     'url' => route('my-games.edit', $game),
                     'mainEntity' => [
