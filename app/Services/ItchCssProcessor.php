@@ -14,6 +14,7 @@ use Sabberworm\CSS\Rule\Rule;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
 use Sabberworm\CSS\RuleSet\RuleSet;
 use Sabberworm\CSS\Value\Color;
+use Sabberworm\CSS\Value\CSSString;
 use Sabberworm\CSS\Value\RuleValueList;
 use Sabberworm\CSS\Value\Size;
 
@@ -224,6 +225,9 @@ class ItchCssProcessor
                     $valueString = $value->render(OutputFormat::createCompact());
                 } elseif ($value instanceof Size) {
                     // Convert Size to string using render method with OutputFormat
+                    $valueString = $value->render(OutputFormat::createCompact());
+                } elseif ($value instanceof CSSString) {
+                    // Convert CSSString to string using render method with OutputFormat
                     $valueString = $value->render(OutputFormat::createCompact());
                 } else {
                     $valueString = (string) $value;
