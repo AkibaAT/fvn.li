@@ -462,7 +462,7 @@ class Game extends Model
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
-            'authors' => strip_tags($this->authors),
+            'authors' => $this->authors ? strip_tags($this->authors) : null,
 
             // Descriptions for search (with URLs removed)
             'description' => $this->stripUrlsFromText($this->description),
