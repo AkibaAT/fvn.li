@@ -47,6 +47,13 @@ class ProcessAuditLog implements ShouldQueue
             // First attempt as-is
             ChangeLog::create($this->auditData);
         } catch (Throwable $e) {
+            // Log the actual error BEFORE attempting fallback
+            Log::warning('Audit log creation failed on attempt ' . $this->attempts(), [
+                'audit_data' => $this->auditData,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'exception_class' => get_class($e),
+            ]);
             // If we hit a FK violation on user_id, retry once with system user id
             $isFkViolation = ($e instanceof QueryException) && (string) $e->getCode() === '23503';
             $message = $e->getMessage();

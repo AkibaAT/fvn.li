@@ -29,77 +29,90 @@ class UniqueDialogueText extends Model
 
     /**
      * Get the indexable data array for the model.
+     * Optimized to use raw queries instead of loading full Eloquent relationships.
      */
     public function toSearchableArray(): array
     {
-        // Load relationships if not already loaded
-        if (! $this->relationLoaded('dialogueLines')) {
-            $this->load(['dialogueLines.character', 'dialogueLines.gameVersion.game']);
-        }
+        // Use a single optimized query to get all related data
+        // This is much more memory efficient than loading nested Eloquent models
+        $relatedData = DB::table('version_dialogue_lines as dl')
+            ->select(
+                'c.display_names as character_names',
+                'c.character_id',
+                'g.name as game_name',
+                'g.id as game_id',
+                'g.slug as game_slug',
+                'dl.game_version_id',
+                'dl.iso_code',
+                'dl.context',
+                'dl.file_path'
+            )
+            ->leftJoin('characters as c', 'dl.character_id', '=', 'c.id')
+            ->leftJoin('game_versions as gv', 'dl.game_version_id', '=', 'gv.id')
+            ->leftJoin('games as g', 'gv.game_id', '=', 'g.id')
+            ->where('dl.text_id', $this->id)
+            ->get();
 
-        // Extract character data
-        $characterNames = $this->dialogueLines
-            ->pluck('character.display_names')
+        // Extract and deduplicate data
+        $characterNames = $relatedData
+            ->pluck('character_names')
             ->filter()
+            ->map(fn($names) => is_array($names) ? $names : json_decode($names, true))
             ->flatten()
             ->unique()
             ->values()
             ->toArray();
 
-        $characterIds = $this->dialogueLines
-            ->pluck('character.character_id')
+        $characterIds = $relatedData
+            ->pluck('character_id')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        // Extract game data
-        $gameNames = $this->dialogueLines
-            ->pluck('gameVersion.game.name')
+        $gameNames = $relatedData
+            ->pluck('game_name')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        $gameIds = $this->dialogueLines
-            ->pluck('gameVersion.game.id')
+        $gameIds = $relatedData
+            ->pluck('game_id')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        $gameSlugs = $this->dialogueLines
-            ->pluck('gameVersion.game.slug')
+        $gameSlugs = $relatedData
+            ->pluck('game_slug')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        // Extract version data
-        $versionIds = $this->dialogueLines
+        $versionIds = $relatedData
             ->pluck('game_version_id')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        // Extract language data
-        $languages = $this->dialogueLines
+        $languages = $relatedData
             ->pluck('iso_code')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        // Extract context data
-        $contexts = $this->dialogueLines
+        $contexts = $relatedData
             ->pluck('context')
             ->filter()
             ->unique()
             ->values()
             ->toArray();
 
-        $filePaths = $this->dialogueLines
+        $filePaths = $relatedData
             ->pluck('file_path')
             ->filter()
             ->unique()
