@@ -37,6 +37,15 @@ class GameVersion extends Model
         'is_latest' => 'boolean',
     ];
 
+    /**
+     * The relationships to touch when this model is saved.
+     *
+     * This ensures that when a GameVersion is updated, the parent Game
+     * model's updated_at timestamp is also updated, which triggers
+     * Laravel Scout to re-index the Game in Meilisearch.
+     */
+    protected $touches = ['game'];
+
     protected static function booted(): void
     {
         static::saving(function (GameVersion $version) {
