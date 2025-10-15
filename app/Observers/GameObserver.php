@@ -31,6 +31,19 @@ class GameObserver
     {
         GameFilterService::clearCache();
 
+        // Set first_visible_at for new games that are created as visible
+        // This handles the case where a game is imported with is_visible = true from the start
+        if ($game->is_visible && ! $game->first_visible_at) {
+            $game->first_visible_at = now();
+            $game->saveQuietly(); // Prevent infinite recursion
+
+            Log::info('Set first_visible_at for newly created visible game', [
+                'game_id' => $game->id,
+                'game_name' => $game->name,
+                'first_visible_at' => $game->first_visible_at,
+            ]);
+        }
+
         // Process any pending associations
         $game->processPendingGameJams();
         $game->processPendingTags();
