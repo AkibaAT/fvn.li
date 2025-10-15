@@ -1,5 +1,5 @@
 import React from 'react';
-import {formatFutureDateTime, getUserTimezone} from '@/utils/date-formatting';
+import {formatFutureDateTime, formatRelativeDateTime, getUserTimezone} from '@/utils/date-formatting';
 
 interface MonitoredTask {
     name: string;
@@ -104,8 +104,8 @@ const TasksList: React.FC<TasksListProps> = ({monitoredTasks}) => {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
                     {monitoredTasks.map((task, index) => {
-                        const lastStarted = formatDate(task.last_started);
-                        const nextRun = formatDate(task.next_run);
+                        const lastStarted = formatRelativeDateTime(task.last_started);
+                        const nextRun = formatFutureDateTime(task.next_run);
                         const {
                             statusColor,
                             statusText,
@@ -174,7 +174,7 @@ const TasksList: React.FC<TasksListProps> = ({monitoredTasks}) => {
                                     <div className="text-gray-500 dark:text-gray-400">
                                         {nextRun ? (
                                             <>
-                                                <div>{nextRun.timeAgo}</div>
+                                                <div>{nextRun.timeUntil}</div>
                                                 <div className="text-xs text-gray-400 dark:text-gray-500">
                                                     {nextRun.formattedDate}
                                                 </div>
@@ -206,7 +206,7 @@ const TasksList: React.FC<TasksListProps> = ({monitoredTasks}) => {
                                                 lastFailed && (
                                                     <span className="text-xs text-gray-400 dark:text-gray-500">
                                                             {
-                                                                formatDate(
+                                                                formatRelativeDateTime(
                                                                     task.last_failed!,
                                                                 )?.timeAgo
                                                             }
