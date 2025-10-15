@@ -97,7 +97,7 @@ class RatingsController extends Controller
                     'score' => (int) $row->rating,
                     'created_at' => optional($row->published_at) ? (string) $row->published_at : null,
                     'is_reviewed' => (bool) $row->is_reviewed,
-                    'review' => $row->review,
+                    'review' => $this->sanitizeReview($row->review),
                     'game' => [
                         'id' => (int) $row->game_id,
                         'name' => $row->game_name,
@@ -266,7 +266,7 @@ class RatingsController extends Controller
                     'rating' => (int) $row->rating,
                     'published_at' => optional($row->published_at) ? (string) $row->published_at : null,
                     'is_reviewed' => (bool) $row->is_reviewed,
-                    'review' => $row->review,
+                    'review' => $this->sanitizeReview($row->review),
                     'event_id' => $row->event_id,
                     'is_visible' => (bool) $row->rating_is_visible,
                     'game' => [
@@ -395,7 +395,7 @@ class RatingsController extends Controller
                     'rating' => (int) $row->rating,
                     'published_at' => optional($row->published_at) ? (string) $row->published_at : null,
                     'is_visible' => (bool) $row->is_visible,
-                    'review' => $row->review,
+                    'review' => $this->sanitizeReview($row->review),
                     'event_id' => $row->event_id,
                 ];
             })
@@ -408,6 +408,23 @@ class RatingsController extends Controller
             ],
             'ratings' => $ratings,
         ]);
+    }
+
+    /**
+     * Sanitize review content by replacing non-breaking spaces with regular spaces
+     */
+    private function sanitizeReview(?string $review): ?string
+    {
+        if (!$review) return $review;
+
+        // Replace all variants of non-breaking spaces with regular spaces
+        return preg_replace([
+            '/&nbsp;/',
+            '/\s+/'  // Replace multiple spaces with single space
+        ], [
+            ' ',
+            ' '
+        ], str_replace("\u{00A0}", ' ', trim($review)));
     }
 
     // ratingsTrends removed
@@ -811,13 +828,13 @@ class RatingsController extends Controller
                     $filteredPhrases[$phrase]['related'] = $relations;
                 }
 
-                // Early termination: stop once we have 30 phrases
-                if (count($filteredPhrases) >= 30) {
+                // Early termination: stop once we have 10 phrases
+                if (count($filteredPhrases) >= 10) {
                     break;
                 }
             }
 
-            return array_slice($filteredPhrases, 0, 30, true);
+            return array_slice($filteredPhrases, 0, 10, true);
         });
     }
 

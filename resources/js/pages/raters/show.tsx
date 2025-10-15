@@ -544,7 +544,7 @@ export default function RaterShow({
                                         <div
                                             className="prose dark:prose-invert mt-2 max-w-none text-gray-600 dark:text-gray-300">
                                             {/* review is trusted HTML from server */}
-                                            <div dangerouslySetInnerHTML={{__html: row.review}}/>
+                                            <div dangerouslySetInnerHTML={{__html: row.review || ''}}/>
                                         </div>
                                     ) : null}
                                 </div>
