@@ -59,6 +59,10 @@
     }
 }
 
+.rating_blurb p {
+    margin: 1rem 0;
+}
+
 /* TinyMCE Editor Improvements */
 .tox-tinymce {
     min-height: 600px !important;
