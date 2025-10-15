@@ -254,8 +254,10 @@ class ItchGameMetadataExtractor
             return;
         }
         $gameJam = GameJam::findOrCreateFromUrl($jamUrl, $jamName);
-        if (! in_array($gameJam->id, $game->pendingGameJamId ?? [])) {
-            $game->pendingGameJamId[] = $gameJam->id;
+        $pendingJams = $game->pendingGameJamId ?? [];
+        if (! in_array($gameJam->id, $pendingJams)) {
+            $pendingJams[] = $gameJam->id;
+            $game->pendingGameJamId = $pendingJams;
         }
         Log::info('Found game jam for game', [
             'game_id' => $game->id,
