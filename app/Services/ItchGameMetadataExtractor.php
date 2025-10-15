@@ -13,24 +13,50 @@ use Illuminate\Support\Facades\Storage;
 
 class ItchGameMetadataExtractor
 {
-    public function extractPriceInformation(Game $game, HTMLDocument $doc): void
+    /**
+     * Extract price information from the game's HTML page
+     *
+     * @param Game $game The game to extract price information for
+     * @param HTMLDocument $doc The parsed HTML document
+     * @param bool $preserveApiPrice If true, don't overwrite price if it was already set from API data
+     */
+    public function extractPriceInformation(Game $game, HTMLDocument $doc, bool $preserveApiPrice = false): void
     {
         $originalIsPaid = $game->is_paid;
         $originalMinPrice = $game->min_price;
         $originalIsOnSale = $game->is_on_sale;
 
+        // If we should preserve API price and the game is marked as paid with a price > 0,
+        // skip HTML price extraction as API data is more reliable
+        if ($preserveApiPrice && $game->is_paid && $game->min_price > 0) {
+            Log::info('Preserving price from API data (skipping HTML extraction)', [
+                'game_id' => $game->id,
+                'game_name' => $game->name,
+                'min_price' => $game->min_price,
+                'is_on_sale' => $game->is_on_sale,
+                'sale_discount_percent' => $game->sale_discount_percent,
+            ]);
+
+            return;
+        }
+
         $buySection = $doc->querySelector('.buy_game_section');
         if (! $buySection) {
-            $game->min_price = 0;
-            $game->is_on_sale = false;
-            if (! $originalIsPaid) {
-                $game->is_paid = false;
+            // Only update price to 0 if we're not preserving API price
+            if (! $preserveApiPrice) {
+                $game->min_price = 0;
+                $game->is_on_sale = false;
+                if (! $originalIsPaid) {
+                    $game->is_paid = false;
+                }
             }
+
             Log::info('Game appears free (no buy section)', [
                 'game_id' => $game->id,
                 'game_name' => $game->name,
                 'original_is_paid' => $originalIsPaid,
                 'new_is_paid' => $game->is_paid,
+                'preserve_api_price' => $preserveApiPrice,
             ]);
 
             return;
@@ -63,6 +89,7 @@ class ItchGameMetadataExtractor
             'new_is_paid' => $game->is_paid,
             'price_element_found' => $minPriceElement !== null,
             'price_text' => $minPriceElement ? trim($minPriceElement->textContent) : null,
+            'preserve_api_price' => $preserveApiPrice,
         ]);
     }
 

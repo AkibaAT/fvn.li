@@ -402,8 +402,11 @@ class GameDataSyncService
 
             $extractor = app(ItchGameMetadataExtractor::class);
 
+            // Check if price was already set from API data (more reliable than HTML scraping)
+            $preserveApiPrice = isset($game->priceSetFromApi) && $game->priceSetFromApi === true;
+
             // Extract price information
-            $extractor->extractPriceInformation($game, $doc);
+            $extractor->extractPriceInformation($game, $doc, $preserveApiPrice);
 
             // Check for demo availability
             $extractor->checkForDemo($game, $doc);
@@ -421,9 +424,6 @@ class GameDataSyncService
                     }
                 }
             }
-
-            // Get price information (again – matches original logic)
-            $extractor->extractPriceInformation($game, $doc);
 
             // Only sync description and screenshots if custom page is not enabled
             if (! $game->has_custom_page) {

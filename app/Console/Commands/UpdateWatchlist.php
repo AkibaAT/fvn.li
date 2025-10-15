@@ -219,6 +219,9 @@ class UpdateWatchlist extends Command
                         isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
                     $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
 
+                    // Mark that price was set from API data (temporary flag for this request)
+                    $game->priceSetFromApi = true;
+
                     $saleInfo = '';
                     if ($game->is_on_sale) {
                         $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
@@ -249,6 +252,9 @@ class UpdateWatchlist extends Command
                     $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
                         isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
                     $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
+
+                    // Mark that price was set from API data (temporary flag for this request)
+                    $game->priceSetFromApi = true;
 
                     $saleInfo = '';
                     if ($game->is_on_sale) {
