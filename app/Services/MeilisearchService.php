@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\Rating;
 use App\Models\Tag;
-use App\Models\UniqueDialogueText;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class MeilisearchService
@@ -28,7 +28,7 @@ class MeilisearchService
     }
 
     /**
-     * Search for dialogue texts with filters and pagination.
+     * Search for dialogue lines with filters and pagination.
      */
     public function searchDialogue(
         string $query,
@@ -37,21 +37,21 @@ class MeilisearchService
         int $page = 1
     ): LengthAwarePaginator {
         $processedQuery = $this->processSearchQuery($query);
-        $search = UniqueDialogueText::search($processedQuery);
+        $search = DialogueLine::search($processedQuery);
 
         // Apply language filter
         if (! empty($filters['language'])) {
-            $search->where('languages', $filters['language']);
+            $search->where('language', $filters['language']);
         }
 
         // Apply game filter
         if (! empty($filters['game_names'])) {
             if (is_array($filters['game_names'])) {
                 foreach ($filters['game_names'] as $gameName) {
-                    $search->where('game_names', $gameName);
+                    $search->where('game_name', $gameName);
                 }
             } else {
-                $search->where('game_names', $filters['game_names']);
+                $search->where('game_name', $filters['game_names']);
             }
         }
 
@@ -59,10 +59,10 @@ class MeilisearchService
         if (! empty($filters['character_names'])) {
             if (is_array($filters['character_names'])) {
                 foreach ($filters['character_names'] as $characterName) {
-                    $search->where('character_names', $characterName);
+                    $search->where('character_name', $characterName);
                 }
             } else {
-                $search->where('character_names', $filters['character_names']);
+                $search->where('character_name', $filters['character_names']);
             }
         }
 

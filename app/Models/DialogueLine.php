@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Laravel\Scout\Searchable;
 
 class DialogueLine extends Model
 {
-    use HasFactory;
+    use HasFactory, Searchable;
 
     protected $table = 'version_dialogue_lines';
 
@@ -152,5 +153,57 @@ class DialogueLine extends Model
 
         // Default to English
         return 'search_vector';
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     * This is what gets sent to Meilisearch for search indexing.
+     */
+    public function toSearchableArray(): array
+    {
+        // Load the text content from the unique_dialogue_texts table
+        $textContent = $this->text?->text_content ?? '';
+
+        // Get character name (use display_names if available, fallback to character_id)
+        $characterName = null;
+        if ($this->character) {
+            $displayNames = $this->character->display_names;
+            if (is_array($displayNames) && !empty($displayNames)) {
+                // Use the first available display name
+                $characterName = reset($displayNames);
+            } else {
+                $characterName = $this->character->character_id;
+            }
+        }
+
+        // Get game name
+        $gameName = $this->gameVersion?->game?->name ?? null;
+
+        return [
+            'id' => $this->id,
+            'text_content' => $textContent,
+            'character_name' => $characterName,
+            'game_name' => $gameName,
+            'language' => $this->iso_code,
+            'game_version_id' => $this->game_version_id,
+            'character_id' => $this->character_id,
+        ];
+    }
+
+    /**
+     * Get the name of the index associated with the model.
+     */
+    public function searchableAs(): string
+    {
+        return 'dialogue_lines';
+    }
+
+    /**
+     * Determine if the model should be searchable.
+     */
+    public function shouldBeSearchable(): bool
+    {
+        // Only index lines that have actual text content
+        return !empty(trim($this->text?->text_content ?? ''));
     }
 }

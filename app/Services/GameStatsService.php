@@ -348,7 +348,7 @@ readonly class GameStatsService
                     ];
                 }
 
-                // Create unique texts using Eloquent (automatic search indexing)
+                // Create unique texts (no search indexing needed - UniqueDialogueText is not searchable)
                 $textIdMapping = [];
                 foreach ($uniqueTexts as $textHash => $textData) {
                     $dialogueText = UniqueDialogueText::firstOrCreate(
@@ -424,55 +424,19 @@ readonly class GameStatsService
                 if (!empty($dialogueBatch)) {
                     DB::table('version_dialogue_lines')->insert($dialogueBatch);
                 }
-
-                // Log progress for large datasets
-                Log::info("Processed {$processedLines}/{$totalLines} dialogue lines for language {$isoCode} ({$chunkIndex} of " .
-                    ceil($totalLines / $batchSize) . ' chunks)');
             }
         }
 
-        // Log completion
-        Log::info("Finished saving dialogue lines for game version {$version->id}");
+        // Index all dialogue lines for this version to Meilisearch
+        // This is done after bulk insert since DB::table()->insert() bypasses Eloquent/Scout
+        DialogueLine::where('game_version_id', $version->id)
+            ->with(['text', 'character', 'gameVersion.game'])
+            ->chunk(1000, function ($lines) {
+                $lines->searchable();
+            });
 
-        // Update search index for all unique dialogue texts used in this version
-        // This is much more efficient than updating per-line via observers
-        $this->updateDialogueSearchIndex($version);
-    }
-
-    /**
-     * Update Meilisearch index for all unique dialogue texts in this version.
-     * This is called once after bulk importing dialogue lines.
-     */
-    protected function updateDialogueSearchIndex(GameVersion $version): void
-    {
-        try {
-            // Get all unique text IDs used in this version's dialogue lines
-            $textIds = DB::table('version_dialogue_lines')
-                ->where('game_version_id', $version->id)
-                ->distinct()
-                ->pluck('text_id')
-                ->filter();
-
-            if ($textIds->isEmpty()) {
-                return;
-            }
-
-            Log::info("Updating search index for {$textIds->count()} unique dialogue texts");
-
-            // Update search index in chunks with eager loading to avoid N+1 queries
-            UniqueDialogueText::whereIn('id', $textIds)
-                ->with(['dialogueLines.character', 'dialogueLines.gameVersion.game'])
-                ->chunk(500, function ($texts) {
-                    $texts->searchable();
-                });
-
-            Log::info("Search index updated successfully");
-        } catch (Exception $e) {
-            Log::warning('Failed to update dialogue search index', [
-                'version_id' => $version->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        // Note: Search indexing happens automatically via Scout when UniqueDialogueText records are created
+        // No need to manually update the search index here
     }
 
     /**

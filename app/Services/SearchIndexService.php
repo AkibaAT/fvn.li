@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\Rating;
 use App\Models\Tag;
-use App\Models\UniqueDialogueText;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -21,7 +21,7 @@ class SearchIndexService
     {
         $stats = [
             'games' => 0,
-            'dialogue_texts' => 0,
+            'dialogue_lines' => 0,
             'reviews' => 0,
             'tags' => 0,
             'errors' => [],
@@ -34,13 +34,12 @@ class SearchIndexService
                 $stats['games'] += $games->count();
             });
 
-            // Reindex dialogue texts
+            // Reindex dialogue lines
             // Eager load relationships to avoid N+1 queries during indexing
-            UniqueDialogueText::whereRaw("trim(text_content) != ''")
-                ->with(['dialogueLines.character', 'dialogueLines.gameVersion.game'])
-                ->chunk(500, function ($texts) use (&$stats) {
-                    $texts->searchable();
-                    $stats['dialogue_texts'] += $texts->count();
+            DialogueLine::with(['text', 'character', 'gameVersion.game'])
+                ->chunk(1000, function ($lines) use (&$stats) {
+                    $lines->searchable();
+                    $stats['dialogue_lines'] += $lines->count();
                 });
 
             // Reindex reviews

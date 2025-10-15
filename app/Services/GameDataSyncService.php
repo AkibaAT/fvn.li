@@ -113,6 +113,7 @@ class GameDataSyncService
             $url = "https://api.itch.io/games/{$game->game_id}/uploads";
 
             $response = $itchClient->get($url);
+
             if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
                 $game->is_visible = false;
                 $game->save();

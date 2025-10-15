@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\Character;
-use App\Models\UniqueDialogueText;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -16,9 +15,9 @@ class CharacterObserver
      */
     public function updated(Character $character): void
     {
-        // If display names changed, update related dialogue texts
+        // If display names changed, update related dialogue lines in search index
         if ($character->isDirty('display_names') || $character->isDirty('display_name_corrections')) {
-            $this->updateRelatedDialogueTexts($character);
+            $this->updateRelatedDialogueLines($character);
         }
     }
 
@@ -27,37 +26,28 @@ class CharacterObserver
      */
     public function deleted(Character $character): void
     {
-        $this->updateRelatedDialogueTexts($character);
+        $this->updateRelatedDialogueLines($character);
     }
 
     /**
-     * Update all dialogue texts that reference this character.
+     * Update all dialogue lines that reference this character.
      */
-    private function updateRelatedDialogueTexts(Character $character): void
+    private function updateRelatedDialogueLines(Character $character): void
     {
         try {
-            // Get all unique dialogue texts that have dialogue lines with this character
-            $dialogueTextIds = $character->dialogueLines()
-                ->distinct()
-                ->pluck('text_id')
-                ->filter();
+            // Get all dialogue lines with this character and update their search index
+            // Eager load relationships to avoid N+1 queries during indexing
+            $character->dialogueLines()
+                ->with(['text', 'gameVersion.game'])
+                ->chunk(500, function ($dialogueLines) {
+                    $dialogueLines->searchable();
+                });
 
-            if ($dialogueTextIds->isNotEmpty()) {
-                // Update search index for all related dialogue texts
-                // Eager load relationships to avoid N+1 queries during indexing
-                UniqueDialogueText::whereIn('id', $dialogueTextIds)
-                    ->with(['dialogueLines.character', 'dialogueLines.gameVersion.game'])
-                    ->chunk(100, function ($dialogueTexts) {
-                        $dialogueTexts->searchable();
-                    });
-
-                Log::info('Updated dialogue text search indexes for character change', [
-                    'character_id' => $character->id,
-                    'dialogue_texts_updated' => $dialogueTextIds->count(),
-                ]);
-            }
+            Log::info('Updated dialogue line search indexes for character change', [
+                'character_id' => $character->id,
+            ]);
         } catch (Exception $e) {
-            Log::warning('Failed to update dialogue text search indexes for character change', [
+            Log::warning('Failed to update dialogue line search indexes for character change', [
                 'character_id' => $character->id,
                 'error' => $e->getMessage(),
             ]);

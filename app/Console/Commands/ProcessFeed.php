@@ -245,6 +245,8 @@ class ProcessFeed extends Command
      */
     private function processGameUpdate(int $eventId, int $gameId): void
     {
+        $gameStartTime = microtime(true);
+
         DB::beginTransaction();
 
         // Get or create game
@@ -260,10 +262,14 @@ class ProcessFeed extends Command
                 return;
             }
 
-            $this->info("Processing update for game {$gameId}: {$game->name}");
+            $this->info("\n[TIMING] Processing update for game {$gameId}: {$game->name}");
 
             // Refresh game version info
+            $versionStartTime = microtime(true);
             $game->refreshVersion(true); // Force refresh
+            $versionElapsed = round(microtime(true) - $versionStartTime, 2);
+            $this->info("[TIMING] refreshVersion took {$versionElapsed}s");
+
             $game->error = null;
             $game->save();
 
@@ -274,6 +280,9 @@ class ProcessFeed extends Command
             ]);
 
             DB::commit();
+
+            $gameElapsed = round(microtime(true) - $gameStartTime, 2);
+            $this->info("[TIMING] Total game update took {$gameElapsed}s");
 
             sleep(10); // Rate limiting between games
         } catch (Exception $e) {

@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Character;
-use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\Rating;
 use App\Models\Tag;
 use App\Observers\CharacterObserver;
-use App\Observers\DialogueLineObserver;
 use App\Observers\GameObserver;
 use App\Observers\RatingObserver;
 use App\Observers\TagObserver;
@@ -54,7 +52,6 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register specific model observers for search index updates
         Game::observe(GameObserver::class);
-        DialogueLine::observe(DialogueLineObserver::class);
         Character::observe(CharacterObserver::class);
         Tag::observe(TagObserver::class);
         Rating::observe(RatingObserver::class);
