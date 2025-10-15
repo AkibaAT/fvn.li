@@ -326,8 +326,7 @@ export default function EditableGameContent({
             <div
                 className={`prose dark:prose-invert game_description max-w-none text-gray-600 dark:text-gray-300 ${
                     isEditing ? 'border-2 border-blue-300 rounded' : ''
-                } ${canEdit && !isEditing ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : ''}`}
-                onClick={!isEditing ? handleEdit : undefined}
+                }`}
             >
                 {isEditing ? (
                     <Suspense
@@ -363,7 +362,7 @@ export default function EditableGameContent({
 
             {/* Show edit controls inline if no custom renderer provided */}
             {!renderEditControls && canEdit && !isEditing && (
-                <div className="absolute top-2 right-2 flex gap-2 transition-opacity">
+                <div className="absolute top-2 right-2 flex gap-2">
                     {editControls}
                 </div>
             )}
