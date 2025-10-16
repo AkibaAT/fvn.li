@@ -87,20 +87,7 @@ class GameObserver
 
             // Process new thumbnail if it exists, or if we have screenshots as fallback
             if ($game->thumb_url || ! empty($game->screenshots)) {
-                // Process in background to avoid blocking the main operation
-                dispatch(function () use ($game) {
-                    try {
-                        Artisan::call('games:process-thumbnails', [
-                            '--game-id' => $game->id,
-                            '--force' => true,
-                        ]);
-                    } catch (Exception $e) {
-                        Log::error('Failed to process game thumbnail after update', [
-                            'game_id' => $game->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                })->afterResponse();
+                $this->dispatchThumbnailProcessing($game);
             }
         }
 
@@ -112,19 +99,7 @@ class GameObserver
             }
 
             // Process first screenshot as thumbnail in background
-            dispatch(function () use ($game) {
-                try {
-                    Artisan::call('games:process-thumbnails', [
-                        '--game-id' => $game->id,
-                        '--force' => true,
-                    ]);
-                } catch (Exception $e) {
-                    Log::error('Failed to process screenshot as thumbnail fallback', [
-                        'game_id' => $game->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            })->afterResponse();
+            $this->dispatchThumbnailProcessing($game);
         }
 
         // Process any pending associations
@@ -167,5 +142,34 @@ class GameObserver
         }
 
         $game->slug = $slug;
+    }
+
+    /**
+     * Dispatch thumbnail processing job.
+     * Uses different dispatch methods for CLI vs HTTP contexts.
+     */
+    protected function dispatchThumbnailProcessing(Game $game): void
+    {
+        $job = function () use ($game) {
+            try {
+                Artisan::call('games:process-thumbnails', [
+                    '--game-id' => $game->id,
+                    '--force' => true,
+                ]);
+            } catch (Exception $e) {
+                Log::error('Failed to process game thumbnail after update', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        };
+
+        // In CLI context, dispatch to queue immediately
+        // In HTTP context, dispatch after response
+        if (app()->runningInConsole()) {
+            dispatch($job);
+        } else {
+            dispatch($job)->afterResponse();
+        }
     }
 }
