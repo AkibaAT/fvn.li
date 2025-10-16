@@ -1,5 +1,6 @@
-import {Head, Link} from '@inertiajs/react';
+import {Link} from '@inertiajs/react';
 import React from 'react';
+import SeoHead, {MetaTags} from '@/components/seo/SeoHead';
 
 interface Author {
     id: number;
@@ -22,11 +23,7 @@ interface NewsItem {
 
 interface NewsShowProps {
     newsItem: NewsItem;
-    metaTags?: {
-        title?: string;
-        description?: string;
-        image?: string;
-    };
+    metaTags?: MetaTags;
 }
 
 export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
@@ -73,7 +70,7 @@ export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
 
     return (
         <>
-            <Head title={metaTags?.title || newsItem.title}/>
+            <SeoHead metaTags={metaTags} title={newsItem.title} />
 
             {/* Back Link */}
             <div className="mb-8">

@@ -27,9 +27,12 @@ class NewsController extends Controller
         });
 
         $metaTags = [
-            'title' => 'News & Announcements',
+            'title' => 'News & Announcements - FVN.li',
             'description' => 'Stay updated with the latest news, announcements, and updates from FVN.li. Get information about new features, maintenance schedules, and important site updates.',
-            'image' => asset(config('social.images.default')),
+            'image' => asset(config('social.images.news', config('social.images.default'))),
+            'url' => url('/news'),
+            'type' => 'website',
+            'twitterCard' => 'summary_large_image',
         ];
 
         return Inertia::render('news/index', [
@@ -79,16 +82,35 @@ class NewsController extends Controller
     public function show(News $news): Response
     {
         // Only show published news to non-admin users
-        if (!$news->is_published && (!auth()->check() || !auth()->user()->is_admin)) {
+        if (!$news->is_published && (!auth()->check() || !auth()->user()?->is_admin)) {
             abort(404);
         }
 
         $news->load('author');
 
+        // Generate clean excerpt for description
+        $excerpt = $this->generateExcerpt($news->content, 200);
+
+        // Determine article type based on news type
+        $articleType = match ($news->type) {
+            'announcement' => 'Announcement',
+            'update' => 'Update',
+            'maintenance' => 'Maintenance',
+            'incident' => 'Incident',
+            default => 'News',
+        };
+
         $metaTags = [
             'title' => $news->title,
-            'description' => strip_tags(substr($news->content, 0, 200)) . '...',
-            'image' => asset(config('social.images.default')),
+            'description' => $excerpt,
+            'image' => asset(config('social.images.news', config('social.images.default'))),
+            'url' => url("/news/{$news->slug}"),
+            'type' => 'article',
+            'twitterCard' => 'summary_large_image',
+            'author' => $news->author->name,
+            'publishedTime' => $news->published_at?->toIso8601String(),
+            'modifiedTime' => $news->updated_at->toIso8601String(),
+            'section' => $articleType,
         ];
 
         return Inertia::render('news/show', [

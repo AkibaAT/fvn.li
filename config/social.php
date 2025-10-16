@@ -27,5 +27,8 @@ return [
 
         // Ratings page
         'ratings' => 'storage/social-images/social-ratings.jpg',
+
+        // News & announcements page
+        'news' => 'storage/social-images/social-fallback.jpg',
     ],
 ];

@@ -1,5 +1,6 @@
-import {Head, Link} from '@inertiajs/react';
+import {Link} from '@inertiajs/react';
 import React from 'react';
+import SeoHead, {MetaTags} from '@/components/seo/SeoHead';
 
 interface Author {
     id: number;
@@ -38,11 +39,7 @@ interface PaginatedNews {
 
 interface NewsIndexProps {
     news: PaginatedNews;
-    metaTags?: {
-        title?: string;
-        description?: string;
-        image?: string;
-    };
+    metaTags?: MetaTags;
 }
 
 export default function NewsIndex({news, metaTags}: NewsIndexProps) {
@@ -87,7 +84,7 @@ export default function NewsIndex({news, metaTags}: NewsIndexProps) {
 
     return (
         <>
-            <Head title={metaTags?.title || 'News & Announcements'}/>
+            <SeoHead metaTags={metaTags} title="News & Announcements" />
 
             {/* Header */}
             <div className="mb-10">
