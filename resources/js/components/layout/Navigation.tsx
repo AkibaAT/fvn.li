@@ -60,6 +60,23 @@ export default function Navigation() {
                 <span className="mr-2" aria-hidden="true">⭐</span>
                 Ratings
             </a>
+
+            <a
+                href={routes.news.path}
+                onClick={(e) => {
+                    e.preventDefault();
+                    router.visit(routes.news.path);
+                }}
+                className={`rounded-lg px-4 py-2 font-medium transition-all duration-200 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    routes.news.isActive
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        : 'text-gray-700'
+                }`}
+                aria-current={routes.news.isActive ? 'page' : undefined}
+            >
+                <span className="mr-2" aria-hidden="true">📰</span>
+                News
+            </a>
         </nav>
     );
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Models\News;
 use Illuminate\Console\Command;
 use Spatie\Sitemap\Sitemap;
 use Spatie\Sitemap\Tags\Url;
@@ -63,6 +64,28 @@ class GenerateSitemap extends Command
                     ->setPriority(0.9)
                     ->setChangeFrequency(Url::CHANGE_FREQUENCY_WEEKLY)
                     ->setLastModificationDate($game->updated_at)
+            );
+        }
+
+        // Add news index page
+        $sitemap->add(
+            Url::create(route('news.index'))
+                ->setPriority(0.7)
+                ->setChangeFrequency(Url::CHANGE_FREQUENCY_DAILY)
+                ->setLastModificationDate(now())
+        );
+
+        // Add individual news pages
+        $newsItems = News::published()
+            ->select(['slug', 'updated_at'])
+            ->get();
+
+        foreach ($newsItems as $newsItem) {
+            $sitemap->add(
+                Url::create(route('news.show', $newsItem))
+                    ->setPriority(0.6)
+                    ->setChangeFrequency(Url::CHANGE_FREQUENCY_MONTHLY)
+                    ->setLastModificationDate($newsItem->updated_at)
             );
         }
 
