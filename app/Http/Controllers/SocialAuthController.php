@@ -55,7 +55,7 @@ class SocialAuthController extends Controller
             case 'itchio':
                 // For itch.io, we need to handle the implicit flow
                 return Socialite::driver($provider)
-                    ->setScopes(['profile:me', 'profile:games'])
+                    ->setScopes(['profile:me'])
                     ->redirect();
 
             default:
