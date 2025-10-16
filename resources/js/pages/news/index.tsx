@@ -90,36 +90,36 @@ export default function NewsIndex({news, metaTags}: NewsIndexProps) {
             <Head title={metaTags?.title || 'News & Announcements'}/>
 
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
+            <div className="mb-10">
+                <h1 className="text-4xl font-bold text-gray-900 dark:text-white sm:text-5xl">
                     News & Announcements
                 </h1>
-                <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
+                <p className="mt-3 text-lg text-gray-600 dark:text-gray-400">
                     Stay updated with the latest news and updates from FVN.li
                 </p>
             </div>
 
                 {/* News List */}
                 {news.data.length === 0 ? (
-                    <div className="rounded-lg bg-white p-8 text-center shadow-sm dark:bg-gray-800">
-                        <p className="text-gray-600 dark:text-gray-400">
+                    <div className="rounded-lg bg-white p-12 text-center shadow-sm dark:bg-gray-800">
+                        <p className="text-lg text-gray-600 dark:text-gray-400">
                             No news items available at this time.
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                         {news.data.map((item) => (
                             <article
                                 key={item.id}
                                 className="overflow-hidden rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md dark:bg-gray-800"
                             >
-                                <div className="p-6">
+                                <div className="p-8">
                                     {/* Type Badge */}
-                                    <div className="mb-3 flex items-center gap-2">
+                                    <div className="mb-4 flex items-center gap-3">
                                         <span
-                                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${getTypeColor(item.type)}`}
+                                            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium ${getTypeColor(item.type)}`}
                                         >
-                                            <span aria-hidden="true">
+                                            <span aria-hidden="true" className="text-base">
                                                 {getTypeIcon(item.type)}
                                             </span>
                                             {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
@@ -130,24 +130,24 @@ export default function NewsIndex({news, metaTags}: NewsIndexProps) {
                                     </div>
 
                                     {/* Title */}
-                                    <h2 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+                                    <h2 className="mb-4 text-3xl font-bold leading-tight text-gray-900 dark:text-white">
                                         <Link
                                             href={`/news/${item.slug}`}
-                                            className="hover:text-blue-600 dark:hover:text-blue-400"
+                                            className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                                         >
                                             {item.title}
                                         </Link>
                                     </h2>
 
                                     {/* Excerpt */}
-                                    <div className="mb-4 text-gray-600 dark:text-gray-300">
+                                    <div className="mb-6 text-base leading-relaxed text-gray-600 dark:text-gray-300">
                                         {item.excerpt || ''}
                                     </div>
 
                                     {/* Read More Link */}
                                     <Link
                                         href={`/news/${item.slug}`}
-                                        className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                        className="inline-flex items-center font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                                     >
                                         Read more
                                         <svg
@@ -166,16 +166,16 @@ export default function NewsIndex({news, metaTags}: NewsIndexProps) {
                                     </Link>
 
                                     {/* Author */}
-                                    <div className="mt-4 flex items-center gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                    <div className="mt-6 flex items-center gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
                                         {item.author.avatar ? (
                                             <img
                                                 src={item.author.avatar}
                                                 alt={item.author.name}
-                                                className="h-8 w-8 rounded-full"
+                                                className="h-10 w-10 rounded-full"
                                                 referrerPolicy="no-referrer"
                                             />
                                         ) : (
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
                                                 {item.author.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}

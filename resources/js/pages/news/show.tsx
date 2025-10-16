@@ -76,10 +76,10 @@ export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
             <Head title={metaTags?.title || newsItem.title}/>
 
             {/* Back Link */}
-            <div className="mb-6">
+            <div className="mb-8">
                 <Link
                     href="/news"
-                    className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                 >
                     <svg
                         className="mr-2 h-4 w-4"
@@ -100,13 +100,13 @@ export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
 
                 {/* Article */}
                 <article className="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
-                    <div className="p-8">
+                    <div className="p-8 sm:p-10 lg:p-12">
                         {/* Type Badge */}
-                        <div className="mb-4 flex items-center gap-2">
+                        <div className="mb-6 flex items-center gap-2">
                             <span
-                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${getTypeColor(newsItem.type)}`}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium ${getTypeColor(newsItem.type)}`}
                             >
-                                <span aria-hidden="true">
+                                <span aria-hidden="true" className="text-base">
                                     {getTypeIcon(newsItem.type)}
                                 </span>
                                 {newsItem.type.charAt(0).toUpperCase() + newsItem.type.slice(1)}
@@ -114,27 +114,27 @@ export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
                         </div>
 
                         {/* Title */}
-                        <h1 className="mb-4 text-4xl font-bold text-gray-900 dark:text-white">
+                        <h1 className="mb-6 text-4xl font-bold leading-tight text-gray-900 dark:text-white sm:text-5xl">
                             {newsItem.title}
                         </h1>
 
                         {/* Meta Information */}
-                        <div className="mb-6 flex items-center gap-4 border-b border-gray-200 pb-6 dark:border-gray-700">
-                            <div className="flex items-center gap-2">
+                        <div className="mb-10 flex items-center gap-4 border-b border-gray-200 pb-8 dark:border-gray-700">
+                            <div className="flex items-center gap-3">
                                 {newsItem.author.avatar ? (
                                     <img
                                         src={newsItem.author.avatar}
                                         alt={newsItem.author.name}
-                                        className="h-10 w-10 rounded-full"
+                                        className="h-12 w-12 rounded-full"
                                         referrerPolicy="no-referrer"
                                     />
                                 ) : (
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-base font-medium text-white">
                                         {newsItem.author.name.charAt(0).toUpperCase()}
                                     </div>
                                 )}
                                 <div>
-                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <div className="text-base font-medium text-gray-900 dark:text-white">
                                         {newsItem.author.name}
                                     </div>
                                     <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -146,13 +146,13 @@ export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
 
                         {/* Content */}
                         <div
-                            className="prose prose-lg max-w-none dark:prose-invert text-gray-700 dark:text-gray-300"
+                            className="news-content prose prose-lg max-w-none dark:prose-invert text-gray-700 dark:text-gray-300"
                             dangerouslySetInnerHTML={{__html: newsItem.content}}
                         />
 
                         {/* Updated At (if different from published) */}
                         {newsItem.updated_at !== newsItem.created_at && (
-                            <div className="mt-8 border-t border-gray-200 pt-4 dark:border-gray-700">
+                            <div className="mt-12 border-t border-gray-200 pt-6 dark:border-gray-700">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
                                     Last updated: {formatDate(newsItem.updated_at)}
                                 </p>
@@ -162,10 +162,10 @@ export default function NewsShow({newsItem, metaTags}: NewsShowProps) {
                 </article>
 
             {/* Back Link (Bottom) */}
-            <div className="mt-6">
+            <div className="mt-8">
                 <Link
                     href="/news"
-                    className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                 >
                     <svg
                         className="mr-2 h-4 w-4"

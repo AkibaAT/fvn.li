@@ -143,3 +143,137 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .mce-content-body li {
     margin-bottom: 0.4em !important;
 }
+
+/* News content styling - matches Filament RichEditor appearance */
+.news-content {
+    line-height: 1.8;
+    font-size: 16px;
+}
+
+.news-content p {
+    margin-bottom: 1.2em;
+}
+
+.news-content h1 {
+    font-size: 2em;
+    line-height: 1.4;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 700;
+}
+
+.news-content h2 {
+    font-size: 1.5em;
+    line-height: 1.4;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 700;
+}
+
+.news-content h3 {
+    font-size: 1.25em;
+    line-height: 1.4;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 600;
+}
+
+.news-content h4,
+.news-content h5,
+.news-content h6 {
+    line-height: 1.4;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 600;
+}
+
+.news-content ul,
+.news-content ol {
+    line-height: 1.8;
+    margin-bottom: 1.2em;
+    padding-left: 2em;
+    list-style-position: outside;
+}
+
+.news-content ul {
+    list-style-type: disc;
+}
+
+.news-content ol {
+    list-style-type: decimal;
+}
+
+.news-content li {
+    margin-bottom: 0.4em;
+    display: list-item;
+}
+
+.news-content blockquote {
+    margin-top: 1.2em;
+    margin-bottom: 1.2em;
+    padding-left: 1.5em;
+    border-left: 4px solid;
+    font-style: italic;
+}
+
+.dark .news-content blockquote {
+    border-color: rgba(156, 163, 175, 0.5);
+}
+
+.news-content blockquote {
+    border-color: rgba(209, 213, 219, 1);
+}
+
+.news-content pre {
+    margin-top: 1.2em;
+    margin-bottom: 1.2em;
+    padding: 1em;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    background-color: rgba(243, 244, 246, 1);
+}
+
+.dark .news-content pre {
+    background-color: rgba(31, 41, 55, 1);
+}
+
+.news-content code {
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    background-color: rgba(243, 244, 246, 1);
+}
+
+.dark .news-content code {
+    background-color: rgba(31, 41, 55, 1);
+}
+
+.news-content pre code {
+    padding: 0;
+    background-color: transparent;
+}
+
+.news-content strong {
+    font-weight: 600;
+}
+
+.news-content em {
+    font-style: italic;
+}
+
+.news-content a {
+    color: rgb(59, 130, 246);
+    text-decoration: underline;
+}
+
+.dark .news-content a {
+    color: rgb(96, 165, 250);
+}
+
+.news-content a:hover {
+    color: rgb(37, 99, 235);
+}
+
+.dark .news-content a:hover {
+    color: rgb(147, 197, 253);
+}
