@@ -111,6 +111,26 @@ class NewsController extends Controller
             'publishedTime' => $news->published_at?->toIso8601String(),
             'modifiedTime' => $news->updated_at->toIso8601String(),
             'section' => $articleType,
+            'structuredData' => [
+                '@type' => 'NewsArticle',
+                'headline' => $news->title,
+                'description' => $excerpt,
+                'image' => asset(config('social.images.news', config('social.images.default'))),
+                'datePublished' => $news->published_at?->toIso8601String(),
+                'dateModified' => $news->updated_at->toIso8601String(),
+                'author' => [
+                    '@type' => 'Person',
+                    'name' => $news->author->name,
+                ],
+                'publisher' => [
+                    '@type' => 'Organization',
+                    'name' => 'FVN.li',
+                ],
+                'mainEntityOfPage' => [
+                    '@type' => 'WebPage',
+                    '@id' => url("/news/{$news->slug}"),
+                ],
+            ],
         ];
 
         return Inertia::render('news/show', [
