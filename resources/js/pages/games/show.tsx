@@ -1096,7 +1096,8 @@ export default function GameShow({
                                 canEdit={editPermissions.canEdit}
                                 hasCustomPage={game.has_custom_page || false}
                                 renderEditControls={(controls) => {
-                                    // Render controls into the edit-controls-container
+                                    // Render controls into the edit-controls-container (only on client-side)
+                                    if (typeof document === 'undefined') return null;
                                     const container = document.getElementById('edit-controls-container');
                                     if (container) {
                                         return ReactDOM.createPortal(controls, container);

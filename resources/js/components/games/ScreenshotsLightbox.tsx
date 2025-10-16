@@ -14,7 +14,8 @@ function getOptimizedScreenshotUrl(
   fallbackToOriginal: boolean = true
 ): string {
   const path = screenshot.optimized?.[variant]?.path;
-  if (path) return `${window.location.origin}/storage/${path}`;
+  // SSR-safe: use relative path instead of window.location.origin
+  if (path) return `/storage/${path}`;
   if (!fallbackToOriginal) return '';
   if (variant === SCREENSHOT_VARIANTS.SMALL || variant === SCREENSHOT_VARIANTS.DEFAULT) {
     return screenshot.thumbnail_url || screenshot.url;

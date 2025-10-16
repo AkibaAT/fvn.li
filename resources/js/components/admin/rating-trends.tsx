@@ -19,12 +19,53 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
             : false,
     );
 
+    // Store computed styles in state to avoid SSR issues
+    const [colors, setColors] = useState({
+        axisTextColor: '',
+        gridColor: '',
+        tooltipBg: '',
+        tooltipBorder: '',
+        tooltipTitle: '',
+        tooltipBody: '',
+        warningColor: '',
+        warningBgColor: '',
+        successColor: '',
+        successBgColor: '',
+        hoverLineColor: '',
+    });
+
     useEffect(() => {
+        if (typeof document === 'undefined') return;
+
         const el = document.documentElement;
+
+        // Update colors when component mounts or dark mode changes
+        const updateColors = () => {
+            const isDarkMode = el.classList.contains('dark');
+            setIsDark(isDarkMode);
+            setColors({
+                axisTextColor: getComputedStyle(el).getPropertyValue(isDarkMode ? '--color-chart-axis-line-dark' : '--color-chart-axis-line-light').trim(),
+                gridColor: getComputedStyle(el).getPropertyValue('--color-chart-grid-split-line').trim(),
+                tooltipBg: getComputedStyle(el).getPropertyValue('--color-tooltip-background').trim(),
+                tooltipBorder: getComputedStyle(el).getPropertyValue('--color-tooltip-border').trim(),
+                tooltipTitle: getComputedStyle(el).getPropertyValue('--color-tooltip-title').trim(),
+                tooltipBody: getComputedStyle(el).getPropertyValue('--color-tooltip-body').trim(),
+                warningColor: getComputedStyle(el).getPropertyValue('--color-chart-warning').trim(),
+                warningBgColor: getComputedStyle(el).getPropertyValue('--color-chart-warning-bg').trim(),
+                successColor: getComputedStyle(el).getPropertyValue('--color-chart-success').trim(),
+                successBgColor: getComputedStyle(el).getPropertyValue('--color-chart-success-bg').trim(),
+                hoverLineColor: getComputedStyle(el).getPropertyValue(isDarkMode ? '--color-chart-grid-line-light' : '--color-chart-axis-line-light').trim(),
+            });
+        };
+
+        // Initial update
+        updateColors();
+
+        // Watch for dark mode changes
         const observer = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 if (m.attributeName === 'class') {
-                    setIsDark(el.classList.contains('dark'));
+                    updateColors();
                 }
             }
         });
@@ -32,12 +73,7 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
         return () => observer.disconnect();
     }, []);
 
-    const axisTextColor = getComputedStyle(document.documentElement).getPropertyValue(isDark ? '--color-chart-axis-line-dark' : '--color-chart-axis-line-light').trim();
-    const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-split-line').trim();
-    const tooltipBg = getComputedStyle(document.documentElement).getPropertyValue('--color-tooltip-background').trim();
-    const tooltipBorder = getComputedStyle(document.documentElement).getPropertyValue('--color-tooltip-border').trim();
-    const tooltipTitle = getComputedStyle(document.documentElement).getPropertyValue('--color-tooltip-title').trim();
-    const tooltipBody = getComputedStyle(document.documentElement).getPropertyValue('--color-tooltip-body').trim();
+    const {axisTextColor, gridColor, tooltipBg, tooltipBorder, tooltipTitle, tooltipBody, warningColor, warningBgColor, successColor, successBgColor, hoverLineColor} = colors;
 
     const allRatingsData = useMemo(() => {
         if (!ratingStats.monthly_trend) {
@@ -57,8 +93,8 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
                 {
                     label: 'All Ratings',
                     data,
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-warning').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-warning-bg').trim(),
+                    borderColor: warningColor,
+                    backgroundColor: warningBgColor,
                     fill: true,
                     borderWidth: 2,
                     pointRadius: 3,
@@ -66,7 +102,7 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
                 },
             ],
         };
-    }, [ratingStats.monthly_trend]);
+    }, [ratingStats.monthly_trend, warningColor, warningBgColor]);
 
     const listedGamesData = useMemo(() => {
         if (!ratingStats.visible_games_monthly_trend) {
@@ -88,8 +124,8 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
                 {
                     label: 'Listed Games Ratings',
                     data,
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success-bg').trim(),
+                    borderColor: successColor,
+                    backgroundColor: successBgColor,
                     fill: true,
                     borderWidth: 2,
                     pointRadius: 3,
@@ -97,7 +133,7 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
                 },
             ],
         };
-    }, [ratingStats.visible_games_monthly_trend]);
+    }, [ratingStats.visible_games_monthly_trend, successColor, successBgColor]);
 
     const chartOptions = {
         responsive: true,
@@ -162,7 +198,7 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
     };
 
     // Plugin to draw a vertical hover line intersecting the chart
-    const hoverLinePlugin: Plugin<'line'> = {
+    const hoverLinePlugin: Plugin<'line'> = useMemo(() => ({
         id: 'hoverLine',
         afterDatasetsDraw: (chart) => {
             const {ctx, tooltip, chartArea} = chart;
@@ -178,11 +214,11 @@ const RatingTrends: React.FC<RatingTrendsProps> = ({ratingStats}) => {
             ctx.moveTo(x, chartArea.top);
             ctx.lineTo(x, chartArea.bottom);
             ctx.lineWidth = 1;
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(isDark ? '--color-chart-grid-line-light' : '--color-chart-axis-line-light').trim();
+            ctx.strokeStyle = hoverLineColor;
             ctx.stroke();
             ctx.restore();
         },
-    };
+    }), [hoverLineColor]);
 
     // Register plugin globally to avoid passing it via props
     ChartJS.register(hoverLinePlugin);

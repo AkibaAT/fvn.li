@@ -309,7 +309,8 @@ const GameEntry = React.memo(function GameEntry({
     const getOptimizedThumbnail = (game: Game) => {
         // Prefer optimized default thumbnail variant when available
         if (game.optimized_thumbnails?.default?.path) {
-            return `${window.location.origin}/storage/${game.optimized_thumbnails.default.path}`;
+            // SSR-safe: use relative path instead of window.location.origin
+            return `/storage/${game.optimized_thumbnails.default.path}`;
         }
         // Fallback to original thumb_url
         return game.thumb_url || '';
