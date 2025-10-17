@@ -105,6 +105,22 @@ services:
       - fvnli
     volumes:
       - redis:/data
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=UTC
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8191/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - fvnli
   social-image-generator:
     image: ${DOCKER_IMAGE_SOCIAL_IMAGES}
     restart: "no"

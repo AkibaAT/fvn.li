@@ -88,4 +88,10 @@ return [
         'key_password' => env('ANDROID_KEY_PASSWORD', 'fvnli'),
     ],
 
+    'flaresolverr' => [
+        'url' => env('FLARESOLVERR_URL', 'http://flaresolverr:8191'),
+        'max_timeout' => env('FLARESOLVERR_MAX_TIMEOUT', 60000),
+        'enabled' => env('FLARESOLVERR_ENABLED', true),
+    ],
+
 ];

@@ -8,6 +8,7 @@ use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\ResponseInterface;
 
@@ -16,6 +17,10 @@ class ItchHttpClientService
     private ?Client $authenticatedClient = null;
 
     private Client $anonymousClient;
+
+    private ?FlareSolverrClient $flareSolverr = null;
+
+    private ?FlareSolverrSessionManager $sessionManager = null;
 
     /**
      * Create a new ItchHttpClientService instance.
@@ -26,6 +31,13 @@ class ItchHttpClientService
         private int $baseCooldown = 30
     ) {
         $this->anonymousClient = $this->clientFactory->createClient();
+
+        // Always use FlareSolverr for HTML requests (Cloudflare-protected)
+        // API requests are automatically skipped (not Cloudflare-protected)
+        if (config('services.flaresolverr.enabled', true)) {
+            $this->flareSolverr = app(FlareSolverrClient::class);
+            $this->sessionManager = app(FlareSolverrSessionManager::class);
+        }
     }
 
     /**
@@ -41,6 +53,12 @@ class ItchHttpClientService
      */
     public function get(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
+        // Route HTML requests through FlareSolverr (Cloudflare-protected)
+        // Skip API requests - they're not Cloudflare-protected
+        if ($this->shouldUseFlareSolverr($url)) {
+            return $this->sendRequestViaFlareSolverr('GET', $url, $options);
+        }
+
         return $this->sendRequest('GET', $url, $options, $anonymous);
     }
 
@@ -70,11 +88,30 @@ class ItchHttpClientService
 
         $retryCount = 0;
         $lastException = null;
+        $cloudflareRetried = false;
 
         while ($retryCount <= $this->maxRetries) {
             try {
                 $response = $client->request($method, $url, $options);
                 $statusCode = $response->getStatusCode();
+
+                // Check for Cloudflare challenge (403 or specific response patterns)
+                if (! $anonymous && ! $cloudflareRetried && $this->isCloudflareChallenge($response)) {
+                    Log::warning('Cloudflare challenge detected, refreshing authentication', [
+                        'url' => $url,
+                        'status_code' => $statusCode,
+                    ]);
+
+                    // Invalidate cached cookies and force re-authentication
+                    $this->invalidateAuthentication();
+                    $cloudflareRetried = true;
+
+                    // Get fresh authenticated client (will trigger FlareSolverr)
+                    $client = $this->getAuthenticatedClient();
+
+                    // Retry the request with fresh cookies
+                    continue;
+                }
 
                 // If we got a 429 status code, retry
                 if ($statusCode === 429) {
@@ -136,6 +173,12 @@ class ItchHttpClientService
      */
     public function post(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
+        // Route HTML requests through FlareSolverr (Cloudflare-protected)
+        // Skip API requests - they're not Cloudflare-protected
+        if ($this->shouldUseFlareSolverr($url)) {
+            return $this->sendRequestViaFlareSolverr('POST', $url, $options);
+        }
+
         return $this->sendRequest('POST', $url, $options, $anonymous);
     }
 
@@ -249,6 +292,185 @@ class ItchHttpClientService
         }
 
         return $this->authenticatedClient;
+    }
+
+    /**
+     * Check if the response indicates a Cloudflare challenge
+     *
+     * @param  ResponseInterface  $response  The response to check
+     * @return bool True if the response appears to be a Cloudflare challenge
+     */
+    private function isCloudflareChallenge(ResponseInterface $response): bool
+    {
+        $statusCode = $response->getStatusCode();
+        $body = $response->getBody()->getContents();
+
+        // Reset body stream so it can be read again
+        $response->getBody()->rewind();
+
+        // Check for common Cloudflare challenge indicators
+        $cloudflareIndicators = [
+            'cf-challenge',
+            'cf-captcha-container',
+            'Checking your browser',
+            'Just a moment',
+            'Enable JavaScript and cookies to continue',
+            'cf-error-details',
+            'cloudflare',
+        ];
+
+        // 403 with Cloudflare indicators
+        if ($statusCode === 403) {
+            foreach ($cloudflareIndicators as $indicator) {
+                if (stripos($body, $indicator) !== false) {
+                    Log::info('Cloudflare challenge detected', [
+                        'status_code' => $statusCode,
+                        'indicator' => $indicator,
+                    ]);
+
+                    return true;
+                }
+            }
+        }
+
+        // Check for redirect to Cloudflare challenge page
+        if ($statusCode === 302 || $statusCode === 301) {
+            $location = $response->getHeaderLine('Location');
+            if (stripos($location, 'cdn-cgi/challenge') !== false) {
+                Log::info('Cloudflare challenge redirect detected', [
+                    'status_code' => $statusCode,
+                    'location' => $location,
+                ]);
+
+                return true;
+            }
+        }
+
+        // Check for Cloudflare server header with challenge response
+        $server = $response->getHeaderLine('Server');
+        if (stripos($server, 'cloudflare') !== false && $statusCode === 403) {
+            Log::info('Cloudflare 403 detected', [
+                'status_code' => $statusCode,
+                'server' => $server,
+            ]);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Invalidate the current authentication and clear cached cookies
+     */
+    private function invalidateAuthentication(): void
+    {
+        // Clear the authenticated client so it will be re-initialized
+        $this->authenticatedClient = null;
+
+        // Clear cached cookies
+        Cache::forget('itch_cookies');
+
+        Log::info('Authentication invalidated, cookies cleared');
+    }
+
+    /**
+     * Check if a URL should be routed through FlareSolverr
+     *
+     * @param string $url The URL to check
+     * @return bool True if should use FlareSolverr
+     */
+    private function shouldUseFlareSolverr(string $url): bool
+    {
+        // Only use FlareSolverr if it's enabled
+        if ($this->flareSolverr === null) {
+            return false;
+        }
+
+        // Skip API requests - they're not Cloudflare-protected
+        if ($this->isApiRequest($url)) {
+            return false;
+        }
+
+        // All other requests (HTML) should use FlareSolverr
+        return true;
+    }
+
+    /**
+     * Check if a URL is an API request that doesn't need Cloudflare bypass
+     *
+     * @param string $url The URL to check
+     * @return bool True if this is an API request
+     */
+    private function isApiRequest(string $url): bool
+    {
+        // API requests don't need Cloudflare bypass
+        return str_contains($url, 'api.itch.io');
+    }
+
+    /**
+     * Send a request through FlareSolverr session
+     *
+     * @param  string  $method  The HTTP method
+     * @param  string  $url  The URL to request
+     * @param  array  $options  Request options
+     * @return ResponseInterface The response
+     *
+     * @throws Exception If the request fails
+     */
+    private function sendRequestViaFlareSolverr(string $method, string $url, array $options): ResponseInterface
+    {
+        if ($this->flareSolverr === null) {
+            throw new Exception('FlareSolverr is not initialized');
+        }
+
+        try {
+            // Check if there's an active session from a command
+            $useSession = false;
+            if ($this->sessionManager !== null && $this->sessionManager->isSessionActive()) {
+                $useSession = true;
+                Log::debug('Using active FlareSolverr session', [
+                    'session_id' => $this->sessionManager->getActiveSessionId(),
+                    'url' => $url,
+                ]);
+            } else {
+                // Ensure we have a session (will create one if needed)
+                $this->flareSolverr->ensureSession();
+                $useSession = true;
+            }
+
+            // Extract POST data if present
+            $postData = [];
+            if ($method === 'POST' && isset($options['form_params'])) {
+                $postData = $options['form_params'];
+            } elseif ($method === 'POST' && isset($options['json'])) {
+                $postData = $options['json'];
+            }
+
+            // Make request through FlareSolverr with session
+            $result = $this->flareSolverr->request(
+                $url,
+                $method,
+                $postData,
+                null,
+                $useSession
+            );
+
+            // Convert FlareSolverr response to PSR-7 ResponseInterface
+            return new \GuzzleHttp\Psr7\Response(
+                $result['status'],
+                $result['headers'] ?? [],
+                $result['response'] ?? ''
+            );
+        } catch (Exception $e) {
+            Log::error('FlareSolverr request failed', [
+                'url' => $url,
+                'method' => $method,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /**

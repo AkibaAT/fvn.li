@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\ManagesFlareSolverrSession;
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use Exception;
@@ -14,6 +15,7 @@ use Throwable;
 
 class RefreshFeedlessGames extends Command
 {
+    use ManagesFlareSolverrSession;
     use SelectsGames;
 
     protected $signature = 'games:refresh-feedless
@@ -28,6 +30,19 @@ class RefreshFeedlessGames extends Command
      * @throws Throwable
      */
     public function handle(): int
+    {
+        return $this->executeWithFlareSolverrSession(function () {
+            return $this->executeRefresh();
+        });
+    }
+
+    /**
+     * Execute the refresh logic
+     *
+     * @throws GuzzleException
+     * @throws Throwable
+     */
+    private function executeRefresh(): int
     {
         // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {

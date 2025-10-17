@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\ManagesFlareSolverrSession;
 use App\Console\Traits\SelectsGameJams;
 use App\Models\GameJam;
 use App\Services\ItchHttpClientService;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 
 class FetchGameJamDetails extends Command
 {
+    use ManagesFlareSolverrSession;
     use SelectsGameJams;
 
     protected $signature = 'game-jams:fetch-details
@@ -28,6 +30,16 @@ class FetchGameJamDetails extends Command
     protected $description = 'Fetch additional details for game jams. By default, fetches details for game jams with needs_details_fetch=true';
 
     public function handle(): int
+    {
+        return $this->executeWithFlareSolverrSession(function () {
+            return $this->executeFetch();
+        });
+    }
+
+    /**
+     * Execute the fetch logic
+     */
+    private function executeFetch(): int
     {
         $query = GameJam::query();
         $forceResults = $this->option('results');

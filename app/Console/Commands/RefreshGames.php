@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\ManagesFlareSolverrSession;
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\GameArchiveService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 
 class RefreshGames extends Command
 {
+    use ManagesFlareSolverrSession;
     use SelectsGames;
 
     protected $signature = 'games:refresh
@@ -43,6 +45,18 @@ class RefreshGames extends Command
      * @throws BindingResolutionException
      */
     public function handle(): int
+    {
+        return $this->executeWithFlareSolverrSession(function () {
+            return $this->executeRefresh();
+        });
+    }
+
+    /**
+     * Execute the refresh logic
+     *
+     * @throws BindingResolutionException
+     */
+    private function executeRefresh(): int
     {
         // Use sync mode for Scout indexing in CLI to avoid queueing
         Config::set('scout.queue', false);

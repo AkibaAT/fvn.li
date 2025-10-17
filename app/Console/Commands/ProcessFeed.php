@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\ManagesFlareSolverrSession;
 use App\Models\Game;
 use App\Models\ImportState;
 use App\Models\ProcessedEvent;
@@ -19,6 +20,8 @@ use Throwable;
 
 class ProcessFeed extends Command
 {
+    use ManagesFlareSolverrSession;
+
     private const string IMPORT_STATE_TYPE = 'feed';
 
     protected $signature = 'feed:process';
@@ -44,6 +47,19 @@ class ProcessFeed extends Command
      * @throws Throwable
      */
     public function handle(): int
+    {
+        return $this->executeWithFlareSolverrSession(function () {
+            return $this->executeFeedProcessing();
+        });
+    }
+
+    /**
+     * Execute the feed processing logic
+     *
+     * @throws GuzzleException
+     * @throws Throwable
+     */
+    private function executeFeedProcessing(): int
     {
         // Use sync mode for Scout indexing in CLI to avoid queueing
         Config::set('scout.queue', false);
