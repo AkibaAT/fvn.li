@@ -397,15 +397,38 @@ class ItchHttpClientService
     }
 
     /**
-     * Check if a URL is an API request that doesn't need Cloudflare bypass
+     * Check if a URL is an API/AJAX request that doesn't need Cloudflare bypass
+     *
+     * These endpoints return JSON, not HTML, and are not Cloudflare-protected
      *
      * @param string $url The URL to check
-     * @return bool True if this is an API request
+     * @return bool True if this is an API/AJAX request
      */
     private function isApiRequest(string $url): bool
     {
-        // API requests don't need Cloudflare bypass
-        return str_contains($url, 'api.itch.io');
+        // Official API requests
+        if (str_contains($url, 'api.itch.io')) {
+            return true;
+        }
+
+        // AJAX endpoints that return JSON (not HTML)
+
+        // Pattern: {game_url}/file/{upload_id} - returns download URL as JSON
+        if (preg_match('#/file/\d+#', $url)) {
+            return true;
+        }
+
+        // Feed endpoints that return JSON
+        if (str_contains($url, '/feed?') && str_contains($url, 'format=json')) {
+            return true;
+        }
+
+        // Follow/unfollow endpoints - AJAX actions
+        if (str_contains($url, '/-/follow')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

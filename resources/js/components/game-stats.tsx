@@ -36,6 +36,12 @@ interface GameStatsProps {
 export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
     const [activeTab, setActiveTab] = useState<'overview' | 'pageviews' | 'external' | 'downloads'>('overview');
 
+    // Helper function to safely get CSS variable (SSR-safe)
+    const getCSSVariable = (varName: string, fallback: string = '#000000'): string => {
+        if (typeof document === 'undefined') return fallback;
+        return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || fallback;
+    };
+
     // Chart data preparation
     const chartData = useMemo(() => {
         if (!dailyStats || dailyStats.length === 0) return null;
@@ -51,22 +57,22 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                 {
                     label: 'Page Views (Unique)',
                     data: dailyStats.map(d => d.page_views_unique),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-primary').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-primary-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-primary', '#3b82f6'),
+                    backgroundColor: getCSSVariable('--color-chart-primary-bg', 'rgba(59, 130, 246, 0.1)'),
                     tension: 0.4,
                 },
                 {
                     label: 'itch.io Visits (Unique)',
                     data: dailyStats.map(d => d.external_project_unique),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-secondary').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-secondary-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-secondary', '#8b5cf6'),
+                    backgroundColor: getCSSVariable('--color-chart-secondary-bg', 'rgba(139, 92, 246, 0.1)'),
                     tension: 0.4,
                 },
                 {
                     label: 'Downloads (Unique)',
                     data: dailyStats.map(d => d.custom_links_unique),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-success', '#10b981'),
+                    backgroundColor: getCSSVariable('--color-chart-success-bg', 'rgba(16, 185, 129, 0.1)'),
                     tension: 0.4,
                 },
             ],
@@ -78,15 +84,15 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                 {
                     label: 'Unique Views',
                     data: dailyStats.map(d => d.page_views_unique),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-primary').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-primary-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-primary', '#3b82f6'),
+                    backgroundColor: getCSSVariable('--color-chart-primary-bg', 'rgba(59, 130, 246, 0.1)'),
                     tension: 0.4,
                 },
                 {
                     label: 'Total Views',
                     data: dailyStats.map(d => d.page_views_total),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-primary-light').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-primary-light-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-primary-light', '#93c5fd'),
+                    backgroundColor: getCSSVariable('--color-chart-primary-light-bg', 'rgba(147, 197, 253, 0.1)'),
                     tension: 0.4,
                 },
             ],
@@ -98,15 +104,15 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                 {
                     label: 'Unique Visits',
                     data: dailyStats.map(d => d.external_project_unique),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-secondary').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-secondary-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-secondary', '#8b5cf6'),
+                    backgroundColor: getCSSVariable('--color-chart-secondary-bg', 'rgba(139, 92, 246, 0.1)'),
                     tension: 0.4,
                 },
                 {
                     label: 'Total Visits',
                     data: dailyStats.map(d => d.external_project_total),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-secondary-light').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-secondary-light-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-secondary-light', '#c4b5fd'),
+                    backgroundColor: getCSSVariable('--color-chart-secondary-light-bg', 'rgba(196, 181, 253, 0.1)'),
                     tension: 0.4,
                 },
             ],
@@ -129,15 +135,15 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                 {
                     label: 'Unique Downloads',
                     data: dailyStats.map(d => d.custom_links_unique),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-success', '#10b981'),
+                    backgroundColor: getCSSVariable('--color-chart-success-bg', 'rgba(16, 185, 129, 0.1)'),
                     tension: 0.4,
                 },
                 {
                     label: 'Total Downloads',
                     data: dailyStats.map(d => d.custom_links_total),
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success-light').trim(),
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-success-light-bg').trim(),
+                    borderColor: getCSSVariable('--color-chart-success-light', '#6ee7b7'),
+                    backgroundColor: getCSSVariable('--color-chart-success-light-bg', 'rgba(110, 231, 183, 0.1)'),
                     tension: 0.4,
                 },
             ],
@@ -286,7 +292,7 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                         legend: {
                                             position: 'top' as const,
                                             labels: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         title: {display: false},
@@ -294,20 +300,20 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                     scales: {
                                         x: {
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         y: {
                                             beginAtZero: true,
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
                                                 stepSize: 1,
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                                 callback: function (value) {
                                                     if (Number.isInteger(value)) {
                                                         return value;
@@ -333,7 +339,7 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                         legend: {
                                             position: 'top' as const,
                                             labels: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         title: {display: false},
@@ -341,20 +347,20 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                     scales: {
                                         x: {
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         y: {
                                             beginAtZero: true,
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
                                                 stepSize: 1,
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                                 callback: function (value) {
                                                     if (Number.isInteger(value)) {
                                                         return value;
@@ -380,7 +386,7 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                         legend: {
                                             position: 'top' as const,
                                             labels: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         title: {display: false},
@@ -388,20 +394,20 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                     scales: {
                                         x: {
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         y: {
                                             beginAtZero: true,
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
                                                 stepSize: 1,
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                                 callback: function (value) {
                                                     if (Number.isInteger(value)) {
                                                         return value;
@@ -427,7 +433,7 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                         legend: {
                                             position: 'top' as const,
                                             labels: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         title: {display: false},
@@ -435,20 +441,20 @@ export default function GameStats({clickStats, dailyStats}: GameStatsProps) {
                                     scales: {
                                         x: {
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                             }
                                         },
                                         y: {
                                             beginAtZero: true,
                                             grid: {
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-line-dark').trim(),
+                                                color: getCSSVariable('--color-chart-grid-line-dark', '#374151'),
                                             },
                                             ticks: {
                                                 stepSize: 1,
-                                                color: getComputedStyle(document.documentElement).getPropertyValue('--color-chart-grid-axis-label').trim(),
+                                                color: getCSSVariable('--color-chart-grid-axis-label', '#9ca3af'),
                                                 callback: function (value) {
                                                     if (Number.isInteger(value)) {
                                                         return value;

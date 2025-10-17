@@ -74,9 +74,9 @@ class FlareSolverrClient
             }
         }
 
-        // Add POST data if provided
-        if ($method === 'POST' && ! empty($postData)) {
-            $payload['postData'] = http_build_query($postData);
+        // Add POST data for POST requests (required by FlareSolverr even if empty)
+        if ($method === 'POST') {
+            $payload['postData'] = ! empty($postData) ? http_build_query($postData) : '';
         }
 
         Log::info('FlareSolverr request', [
