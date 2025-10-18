@@ -168,6 +168,18 @@ class GamesDisplayController extends Controller
             );
         }
 
+        // Check if file stats exist for each version (to show/hide file stats button)
+        $versionHasFileStats = [];
+        if ($latestVersion) {
+            $versionHasFileStats[$latestVersion->id] = $latestVersion->fileCategories()->exists();
+        }
+        foreach ($gameVersions as $version) {
+            if ($latestVersion && $version->id === $latestVersion->id) {
+                continue;
+            }
+            $versionHasFileStats[$version->id] = $version->fileCategories()->exists();
+        }
+
         // Determine edit permissions
         $user = Auth::user();
         $isOwner = $user && $user->ownsGame($game);
@@ -232,6 +244,7 @@ class GamesDisplayController extends Controller
             'gameVersions' => $gameVersions,
             'englishStats' => $englishStats,
             'versionCharacterCounts' => $versionCharacterCounts,
+            'versionHasFileStats' => $versionHasFileStats,
             'userVnLists' => $userVnLists,
             'gameListMembership' => $gameListMembership,
             'editPermissions' => [

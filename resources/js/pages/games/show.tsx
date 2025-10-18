@@ -231,6 +231,7 @@ interface GameShowProps {
     supportedLanguages?: SupportedLanguage[];
     englishStats?: LanguageStats;
     versionCharacterCounts?: Record<number, number>;
+    versionHasFileStats?: Record<number, boolean>;
     availableRatings?: number[];
     platforms?: {
         windows: boolean;
@@ -253,6 +254,7 @@ export default function GameShow({
                                      supportedLanguages,
                                      englishStats,
                                      versionCharacterCounts = {},
+                                     versionHasFileStats = {},
                                      availableRatings = [],
                                      platforms = {
                                          windows: false,
@@ -1752,26 +1754,28 @@ export default function GameShow({
                                             )}
                                         </button>
                                     )}
-                                    <button
-                                        onClick={() =>
-                                            fetchFileStats(version.id)
-                                        }
-                                        disabled={
-                                            characterStatsLoading ===
-                                            version.id ||
-                                            fileStatsLoading === version.id
-                                        }
-                                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
-                                    >
-                                        {fileStatsLoading === version.id ? (
-                                            <>
-                                                <LoadingSpinner size="sm"/>
-                                                Loading...
-                                            </>
-                                        ) : (
-                                            'View File Stats'
-                                        )}
-                                    </button>
+                                    {versionHasFileStats[version.id] && (
+                                        <button
+                                            onClick={() =>
+                                                fetchFileStats(version.id)
+                                            }
+                                            disabled={
+                                                characterStatsLoading ===
+                                                version.id ||
+                                                fileStatsLoading === version.id
+                                            }
+                                            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
+                                        >
+                                            {fileStatsLoading === version.id ? (
+                                                <>
+                                                    <LoadingSpinner size="sm"/>
+                                                    Loading...
+                                                </>
+                                            ) : (
+                                                'View File Stats'
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Character Stats Dialog */}
