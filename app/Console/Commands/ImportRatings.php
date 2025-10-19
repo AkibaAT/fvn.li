@@ -226,7 +226,7 @@ class ImportRatings extends Command
         string $reviewText
     ): void {
         // Get or create rater
-        $rater = Rater::firstOrNew(['user_id' => $userId]);
+        $rater = Rater::firstOrNew(['itch_id' => $userId]);
         if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername) {
             $rater->name = $userName;
             $rater->username = $userUsername;

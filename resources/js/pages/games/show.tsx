@@ -8,6 +8,8 @@ import EditableGameContent from '@/components/editor/EditableGameContent';
 import GameCardUserSection from '@/components/game-card-user-section';
 import ScreenshotsGallery from '@/components/games/ScreenshotsGallery';
 import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox';
+import PlatformLink from '@/components/game-card/PlatformLink';
+import PlatformIcon from '@/components/ui/platform-icon';
 
 import DownloadsList from '@/components/games/DownloadsList';
 import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
@@ -115,6 +117,7 @@ interface AdditionalLink {
 interface Rater {
     id: number;
     name: string;
+    external_platform?: string;
 }
 
 interface Review {
@@ -155,6 +158,7 @@ interface Game {
     sale_discount_percent?: number;
     discount_percentage?: number;
     url?: string;
+    platform?: 'itch_io' | 'steam' | 'other';
     custom_css?: string;
     custom_tags?: string;
     is_visible?: boolean;
@@ -947,7 +951,7 @@ export default function GameShow({
                             <img
                                 src={currentThumbnail}
                                 alt={game.name}
-                                className="max-h-52 max-w-64 rounded-lg object-cover"
+                                className={`max-h-52 max-w-64 rounded-lg ${game.platform === 'steam' ? 'object-contain' : 'object-cover'}`}
                             />
                             {editPermissions.canEdit && (
                                 <label className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-2 hover:bg-blue-700 transition-colors shadow-lg cursor-pointer">
@@ -1002,18 +1006,13 @@ export default function GameShow({
                                 {game.name}
                             </h1>
                             <div className="flex flex-col gap-2 sm:flex-row">
-                                {game.url && (
-                                    <a
-                                        href={route('track.external-project', {
-                                            game_id: game.id,
-                                            url: game.url,
-                                        })}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline dark:text-blue-400"
-                                    >
-                                        Visit Game Page
-                                    </a>
+                                {game.primary_url && (
+                                    <PlatformLink
+                                        url={game.primary_url}
+                                        platform={game.platform}
+                                        gameId={game.id}
+                                        className="inline-flex items-center gap-2 font-medium transition-colors text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                    />
                                 )}
                             </div>
                         </div>
@@ -1895,6 +1894,9 @@ export default function GameShow({
                                                     {review.rater.name}
                                                 </Link>
                                             </span>
+                                            {review.rater.external_platform && (
+                                                <PlatformIcon platform={review.rater.external_platform} />
+                                            )}
                                             <span className="text-sm text-gray-500 dark:text-gray-400">
                                                 {new Date(
                                                     review.published_at,

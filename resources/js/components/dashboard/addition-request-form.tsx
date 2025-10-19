@@ -23,7 +23,7 @@ export function AdditionRequestForm() {
         setErrors({});
 
         if (!urls.trim()) {
-            setErrors({urls: 'Please enter at least one itch.io URL.'});
+            setErrors({urls: 'Please enter at least one game URL.'});
             setLoading(false);
             return;
         }
@@ -117,7 +117,7 @@ export function AdditionRequestForm() {
                 </h2>
 
                 <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                    Submit itch.io URLs of visual novels you'd like to see added
+                    Submit game URLs (itch.io, Steam, or other platforms) of visual novels you'd like to see added
                     to the database. You can submit multiple URLs, one per line.
                 </p>
 
@@ -184,7 +184,7 @@ export function AdditionRequestForm() {
                             htmlFor="urls"
                             className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
-                            itch.io URLs
+                            Game URLs
                         </label>
                         <textarea
                             id="urls"
@@ -196,7 +196,7 @@ export function AdditionRequestForm() {
                                     ? 'border-red-300 dark:border-red-600'
                                     : 'border-gray-300 dark:border-gray-600'
                             }`}
-                            placeholder="https://developer.itch.io/game-name&#10;https://another-dev.itch.io/another-game&#10;..."
+                            placeholder="https://developer.itch.io/game-name&#10;https://store.steampowered.com/app/123456/Game_Name/&#10;https://example.com/game&#10;..."
                         />
                         {errors.urls && (
                             <p className="mt-1 text-sm text-red-600 dark:text-red-400">

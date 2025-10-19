@@ -308,7 +308,16 @@ class MeilisearchService
             }
         }
 
-        // Platform filters
+        // Store platform filter (where game is hosted: itch_io, steam, other)
+        if (! empty($filters['platform'])) {
+            if (is_array($filters['platform'])) {
+                $search->whereIn('platform', $filters['platform']);
+            } else {
+                $search->where('platform', $filters['platform']);
+            }
+        }
+
+        // Game platform filters (where game runs: windows, linux, mac, android, web)
         if (isset($filters['is_windows'])) {
             $search->where('is_windows', $filters['is_windows']);
         }

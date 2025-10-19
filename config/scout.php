@@ -197,12 +197,15 @@ return [
                     'game_engine',
                     'supported_languages',
 
-                    // Platform support
+                    // Platform support (where game runs)
                     'is_windows',
                     'is_linux',
                     'is_mac',
                     'is_android',
                     'is_web',
+
+                    // Store platform (where game is hosted)
+                    'platform',
 
                     // Ratings and popularity
                     'rating_score',

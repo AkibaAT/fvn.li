@@ -10,14 +10,20 @@ use App\Filament\Resources\Games\Pages\ListGames;
 use App\Filament\Resources\Games\Pages\ViewGame;
 use App\Filament\Resources\Games\RelationManagers\GameVersionsRelationManager;
 use App\Models\Game;
+use App\Services\GameDataSyncService;
+use App\Services\SteamReviewImportService;
 use BackedEnum;
 use Exception;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\KeyValue;
+use Filament\Notifications\Notification;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -56,9 +62,24 @@ class GameResource extends Resource
                         TextInput::make('slug')
                             ->required()
                             ->maxLength(255),
-                        TextInput::make('game_id')
+                        Select::make('platform')
+                            ->options([
+                                'itch_io' => 'itch.io',
+                                'steam' => 'Steam',
+                                'other' => 'Other',
+                            ])
                             ->required()
-                            ->numeric(),
+                            ->default('itch_io'),
+                        TextInput::make('itch_id')
+                            ->label('itch.io Game ID')
+                            ->numeric()
+                            ->nullable()
+                            ->visible(fn (callable $get) => $get('platform') === 'itch_io'),
+                        TextInput::make('steam_app_id')
+                            ->label('Steam App ID')
+                            ->numeric()
+                            ->nullable()
+                            ->visible(fn (callable $get) => $get('platform') === 'steam'),
                         TextInput::make('status')
                             ->required()
                             ->default('In development')
@@ -73,10 +94,14 @@ class GameResource extends Resource
 
                 Section::make('URLs & Media')
                     ->schema([
-                        TextInput::make('url')
-                            ->required()
-                            ->maxLength(255),
+                        KeyValue::make('url')
+                            ->label('Platform URLs')
+                            ->helperText('URLs for different platforms (itch_io, steam, other)')
+                            ->keyLabel('Platform')
+                            ->valueLabel('URL')
+                            ->columnSpanFull(),
                         TextInput::make('thumb_url')
+                            ->label('Thumbnail URL')
                             ->maxLength(255),
                         TextInput::make('game_engine')
                             ->required()
@@ -152,6 +177,33 @@ class GameResource extends Resource
                     ->searchable(),
                 TextColumn::make('name')
                     ->searchable(),
+                TextColumn::make('platform')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'itch_io' => 'info',
+                        'steam' => 'success',
+                        'other' => 'gray',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'itch_io' => 'itch.io',
+                        'steam' => 'Steam',
+                        'other' => 'Other',
+                        default => 'Unknown',
+                    })
+                    ->sortable(),
+                TextColumn::make('itch_id')
+                    ->label('itch.io ID')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('—'),
+                TextColumn::make('steam_app_id')
+                    ->label('Steam App ID')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('—'),
                 TextColumn::make('status')
                     ->sortable(),
                 IconColumn::make('is_visible')
@@ -192,6 +244,12 @@ class GameResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('platform')
+                    ->options([
+                        'itch_io' => 'itch.io',
+                        'steam' => 'Steam',
+                        'other' => 'Other',
+                    ]),
                 SelectFilter::make('status')
                     ->options([
                         'In development' => 'In development',
@@ -209,6 +267,67 @@ class GameResource extends Resource
                     ->label('Has Demo'),
             ])
             ->recordActions([
+                Action::make('sync')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sync Game Data')
+                    ->modalDescription(fn (Game $record): string =>
+                        "This will fetch the latest data from {$record->getPlatformName()} for \"{$record->name}\". This may take a few minutes."
+                    )
+                    ->modalSubmitActionLabel('Sync Now')
+                    ->visible(fn (Game $record): bool =>
+                        $record->platform === 'itch_io' || $record->platform === 'steam'
+                    )
+                    ->action(function (Game $record): void {
+                        try {
+                            $syncService = app(GameDataSyncService::class);
+                            $syncService->loadFullDetails($record);
+                            $record->save();
+
+                            Notification::make()
+                                ->title('Game synced successfully')
+                                ->body("Data for \"{$record->name}\" has been updated from {$record->getPlatformName()}.")
+                                ->success()
+                                ->send();
+                        } catch (Exception $e) {
+                            Notification::make()
+                                ->title('Sync failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                Action::make('importSteamReviews')
+                    ->label('Import Reviews')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Import Steam Reviews')
+                    ->modalDescription(fn (Game $record): string =>
+                        "This will import English reviews from Steam for \"{$record->name}\". This may take several minutes."
+                    )
+                    ->modalSubmitActionLabel('Import Reviews')
+                    ->visible(fn (Game $record): bool => $record->platform === 'steam')
+                    ->action(function (Game $record): void {
+                        try {
+                            $importService = app(SteamReviewImportService::class);
+                            $stats = $importService->importReviews($record, 100);
+                            $importService->updateGameRatingStats($record);
+
+                            Notification::make()
+                                ->title('Reviews imported successfully')
+                                ->body("Imported {$stats['imported']} reviews, skipped {$stats['skipped']}, errors: {$stats['errors']}")
+                                ->success()
+                                ->send();
+                        } catch (Exception $e) {
+                            Notification::make()
+                                ->title('Import failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 ViewAction::make(),
                 EditAction::make(),
             ])

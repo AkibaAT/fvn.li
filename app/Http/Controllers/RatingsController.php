@@ -85,6 +85,7 @@ class RatingsController extends Controller
                 'games.is_visible as game_is_visible',
                 'raters.id as rater_id',
                 'raters.name as rater_name',
+                'raters.external_platform as rater_platform',
             ])
             ->orderBy($sortField === 'rating' ? 'ratings.rating' : 'ratings.published_at', $sortDirection)
             ->forPage($page, $perPage)
@@ -108,6 +109,7 @@ class RatingsController extends Controller
                     'rater' => [
                         'id' => (int) $row->rater_id,
                         'name' => $row->rater_name,
+                        'platform' => $row->rater_platform ?? 'itch_io',
                     ],
                 ];
             })->toArray(),

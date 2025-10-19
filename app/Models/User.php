@@ -106,7 +106,12 @@ class User extends Authenticatable
         }
 
         // Check if the game URL belongs to this user's itch.io namespace
-        $gameUrl = parse_url($game->url);
+        $gameUrlString = $game->getUrlForPlatform('itch_io');
+        if (! $gameUrlString) {
+            return false;
+        }
+
+        $gameUrl = parse_url($gameUrlString);
         if (! $gameUrl || ! isset($gameUrl['host'])) {
             return false;
         }
@@ -148,6 +153,7 @@ class User extends Authenticatable
         if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
             // Get games by their itch.io game IDs
             return Game::whereIn('game_id', $itchioAccount->itchio_game_ids)
+                ->fromItchio()
                 ->where('is_visible', true)
                 ->orderBy('name')
                 ->get();

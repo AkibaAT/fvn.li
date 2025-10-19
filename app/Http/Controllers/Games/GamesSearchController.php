@@ -28,6 +28,7 @@ class GamesSearchController extends Controller
         $selectedStatuses = $request->get('selectedStatuses');
         $selectedEngines = $request->get('selectedEngines');
         $selectedPlatforms = $request->get('selectedPlatforms');
+        $selectedStorePlatforms = $request->get('selectedStorePlatforms');
         $selectedLanguages = $request->get('selectedLanguages');
         $selectedGameJams = $request->get('selectedGameJams');
         $selectedTags = $request->get('selectedTags');
@@ -40,7 +41,7 @@ class GamesSearchController extends Controller
         $perPage = min(32, max(8, (int) $request->get('perPage', 8)));
 
         // Build filters
-        $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedLanguages, $selectedGameJams, $selectedTags);
+        $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags);
 
         // Use Meilisearch for search and filtering
         try {
@@ -170,12 +171,13 @@ class GamesSearchController extends Controller
             'games' => $games,
             'currentFilters' => [
                 'search' => $search,
-                'selectedStatuses' => $selectedStatuses,
-                'selectedEngines' => $selectedEngines,
-                'selectedPlatforms' => $selectedPlatforms,
-                'selectedLanguages' => $selectedLanguages,
-                'selectedGameJams' => $selectedGameJams,
-                'selectedTags' => $selectedTags,
+                'selectedStatuses' => is_array($selectedStatuses) ? $selectedStatuses : [],
+                'selectedEngines' => is_array($selectedEngines) ? $selectedEngines : [],
+                'selectedPlatforms' => is_array($selectedPlatforms) ? $selectedPlatforms : [],
+                'selectedStorePlatforms' => is_array($selectedStorePlatforms) ? $selectedStorePlatforms : [],
+                'selectedLanguages' => is_array($selectedLanguages) ? $selectedLanguages : [],
+                'selectedGameJams' => is_array($selectedGameJams) ? $selectedGameJams : [],
+                'selectedTags' => is_array($selectedTags) ? $selectedTags : [],
                 'nsfw' => $request->boolean('nsfw'),
                 'sfw' => $request->boolean('sfw'),
                 'showPaid' => $request->boolean('showPaid'),
@@ -199,6 +201,7 @@ class GamesSearchController extends Controller
     {
         $query = Game::query()
             ->select(['games.*'])
+            ->fromItchio()
             ->where('is_visible', true);
 
         if ($search = $request->get('q')) {
@@ -308,7 +311,7 @@ class GamesSearchController extends Controller
     /**
      * Build search filters from request parameters
      */
-    private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedLanguages, $selectedGameJams, $selectedTags): array
+    private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags): array
     {
         $filters = [];
 
@@ -327,12 +330,18 @@ class GamesSearchController extends Controller
             $filters['game_engine'] = $engines;
         }
 
-        // Platform filters
+        // Platform filters (game OS support)
         if ($selectedPlatforms) {
             $platforms = is_array($selectedPlatforms) ? $selectedPlatforms : explode(',', $selectedPlatforms);
             foreach ($platforms as $platform) {
                 $filters["is_{$platform}"] = true;
             }
+        }
+
+        // Store platform filters (where the game is hosted)
+        if ($selectedStorePlatforms) {
+            $storePlatforms = is_array($selectedStorePlatforms) ? $selectedStorePlatforms : explode(',', $selectedStorePlatforms);
+            $filters['platform'] = $storePlatforms;
         }
 
         // Language filter
@@ -402,6 +411,7 @@ class GamesSearchController extends Controller
     private function fallbackSearch(?string $search, int $perPage, int $page)
     {
         $query = Game::query()
+            ->fromItchio()
             ->where('is_visible', true)
             ->with([
                 'tags',

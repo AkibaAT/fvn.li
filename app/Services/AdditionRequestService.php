@@ -36,22 +36,29 @@ class AdditionRequestService
                 continue;
             }
 
-            if (! $this->isValidItchUrl($url)) {
+            // Validate URL format
+            $validation = $this->validateUrl($url);
+            if (!$validation['valid']) {
                 $results['invalid_count']++;
-                $results['errors'][] = "Invalid itch.io URL: {$url}";
-
+                $results['errors'][] = $validation['error'];
                 continue;
             }
+
+            // Normalize URL (strip query parameters, fragments, etc.)
+            $normalizedUrl = $this->normalizeUrl($url);
+
+            // Detect platform
+            $platform = $this->detectPlatform($normalizedUrl);
 
             try {
                 DB::beginTransaction();
 
-                $result = AdditionRequest::findOrCreateForUrl($url);
+                $result = AdditionRequest::findOrCreateForUrl($normalizedUrl, $platform);
 
                 // If null is returned, the game already exists and is visible
                 if ($result === null) {
                     $results['already_exists_count']++;
-                    $results['errors'][] = "Game already exists on the site: {$url}";
+                    $results['errors'][] = "Game already exists on the site: {$normalizedUrl}";
                     DB::commit();
 
                     continue;
@@ -72,7 +79,8 @@ class AdditionRequestService
                     Log::info('Addition request submitted', [
                         'user_id' => $user->id,
                         'request_id' => $request->id,
-                        'url' => $url,
+                        'url' => $normalizedUrl,
+                        'platform' => $platform,
                         'is_new_request' => $isNew,
                     ]);
                 } else {
@@ -82,10 +90,10 @@ class AdditionRequestService
                 DB::commit();
             } catch (Exception $e) {
                 DB::rollBack();
-                $results['errors'][] = "Error processing {$url}: " . $e->getMessage();
+                $results['errors'][] = "Error processing {$normalizedUrl}: " . $e->getMessage();
                 Log::error('Error submitting addition request', [
                     'user_id' => $user->id,
-                    'url' => $url,
+                    'url' => $normalizedUrl,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -95,14 +103,94 @@ class AdditionRequestService
     }
 
     /**
-     * Validate if a URL is a valid itch.io URL.
+     * Validate if a URL is valid and supported.
+     * Returns array with 'valid' boolean and 'error' message if invalid.
      */
-    public function isValidItchUrl(string $url): bool
+    public function validateUrl(string $url): array
     {
-        // Basic validation for itch.io URLs
-        $pattern = '/^https?:\/\/(www\.)?[a-zA-Z0-9\-]+\.itch\.io\/[a-zA-Z0-9\-]+\/?$/';
+        // Check if it's a valid URL format
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            return [
+                'valid' => false,
+                'error' => "Invalid URL format: {$url}",
+            ];
+        }
 
-        return preg_match($pattern, $url) === 1;
+        // Parse URL to check components
+        $parsed = parse_url($url);
+        if (!isset($parsed['scheme']) || !isset($parsed['host'])) {
+            return [
+                'valid' => false,
+                'error' => "Invalid URL structure: {$url}",
+            ];
+        }
+
+        // Only allow http and https
+        if (!in_array($parsed['scheme'], ['http', 'https'])) {
+            return [
+                'valid' => false,
+                'error' => "Only HTTP/HTTPS URLs are supported: {$url}",
+            ];
+        }
+
+        return ['valid' => true];
+    }
+
+    /**
+     * Normalize a URL by removing query parameters, fragments, www, and trailing slashes.
+     */
+    public function normalizeUrl(string $url): string
+    {
+        // Parse the URL
+        $parsed = parse_url($url);
+
+        // Rebuild without query string and fragment
+        $normalized = $parsed['scheme'] . '://';
+
+        // Remove www. from host
+        $host = $parsed['host'] ?? '';
+        $host = preg_replace('/^www\./', '', $host);
+        $normalized .= $host;
+
+        // Add port if present and not default
+        if (isset($parsed['port']) &&
+            !(($parsed['scheme'] === 'http' && $parsed['port'] === 80) ||
+              ($parsed['scheme'] === 'https' && $parsed['port'] === 443))) {
+            $normalized .= ':' . $parsed['port'];
+        }
+
+        // Add path, removing trailing slashes
+        $path = $parsed['path'] ?? '/';
+        $normalized .= rtrim($path, '/');
+
+        return $normalized;
+    }
+
+    /**
+     * Detect the platform from a URL.
+     */
+    public function detectPlatform(string $url): string
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (!$host) {
+            return 'other';
+        }
+
+        // Remove www. prefix for matching
+        $host = preg_replace('/^www\./', '', $host);
+
+        // Check for itch.io
+        if (str_ends_with($host, '.itch.io') || $host === 'itch.io') {
+            return 'itch_io';
+        }
+
+        // Check for Steam
+        if (str_contains($host, 'steampowered.com') || str_contains($host, 'store.steampowered.com')) {
+            return 'steam';
+        }
+
+        return 'other';
     }
 
     /**

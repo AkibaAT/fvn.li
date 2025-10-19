@@ -206,6 +206,36 @@ class FlareSolverrClient
     }
 
     /**
+     * List all active FlareSolverr sessions
+     *
+     * @return array Array of session IDs
+     */
+    public function listSessions(): array
+    {
+        try {
+            $response = $this->client->post($this->baseUrl.'/v1', [
+                'json' => [
+                    'cmd' => 'sessions.list',
+                ],
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            if (isset($data['status']) && $data['status'] === 'ok') {
+                return $data['sessions'] ?? [];
+            }
+
+            return [];
+        } catch (Exception $e) {
+            Log::warning('Failed to list FlareSolverr sessions', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
      * Destroy a session in FlareSolverr
      *
      * @param  string  $sessionId  Session ID to destroy
@@ -214,6 +244,15 @@ class FlareSolverrClient
      */
     public function destroySession(string $sessionId): void
     {
+        // Check if session exists before trying to destroy it
+        $sessions = $this->listSessions();
+        if (! in_array($sessionId, $sessions)) {
+            Log::debug('FlareSolverr session already destroyed or expired', [
+                'session_id' => $sessionId,
+            ]);
+            return;
+        }
+
         try {
             $this->client->post($this->baseUrl.'/v1', [
                 'json' => [
@@ -222,7 +261,8 @@ class FlareSolverrClient
                 ],
             ]);
         } catch (Exception $e) {
-            Log::error('Failed to destroy FlareSolverr session', [
+            // Log as warning since session cleanup is not critical
+            Log::warning('Failed to destroy FlareSolverr session', [
                 'session_id' => $sessionId,
                 'error' => $e->getMessage(),
             ]);

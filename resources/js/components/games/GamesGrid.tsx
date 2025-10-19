@@ -49,6 +49,7 @@ interface GamesGridProps {
     onLanguageClick: (language: string) => void;
     onTagClick: (tag: string) => void;
     onStatusClick: (status: string) => void;
+    onStorePlatformClick: (platform: string) => void;
     onNsfwToggle: () => void;
     onPaidToggle: () => void;
     onDemoToggle: () => void;
@@ -63,6 +64,7 @@ export default function GamesGrid({
     onLanguageClick,
     onTagClick,
     onStatusClick,
+    onStorePlatformClick,
     onNsfwToggle,
     onPaidToggle,
     onDemoToggle,
@@ -91,6 +93,7 @@ export default function GamesGrid({
                     selectedLanguages={currentFilters.selectedLanguages || []}
                     selectedTags={currentFilters.selectedTags || []}
                     selectedStatuses={currentFilters.selectedStatuses || []}
+                    selectedStorePlatforms={currentFilters.selectedStorePlatforms || []}
                     nsfw={currentFilters.nsfw || false}
                     showPaid={currentFilters.showPaid || false}
                     showDemo={currentFilters.showDemo || false}
@@ -99,6 +102,7 @@ export default function GamesGrid({
                     onLanguageClick={onLanguageClick}
                     onTagClick={onTagClick}
                     onStatusClick={onStatusClick}
+                    onStorePlatformClick={onStorePlatformClick}
                     onNsfwToggle={onNsfwToggle}
                     onPaidToggle={onPaidToggle}
                     onDemoToggle={onDemoToggle}

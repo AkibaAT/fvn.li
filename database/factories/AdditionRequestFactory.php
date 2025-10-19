@@ -22,8 +22,9 @@ class AdditionRequestFactory extends Factory
         $url = 'https://' . $this->faker->userName() . '.itch.io/' . $this->faker->slug();
 
         return [
-            'itch_url' => $url,
+            'game_url' => $url,
             'normalized_url' => AdditionRequest::normalizeUrl($url),
+            'platform' => 'itch_io',
             'status' => AdditionRequest::STATUS_PENDING,
             'rejection_reason' => null,
             'game_id' => null,

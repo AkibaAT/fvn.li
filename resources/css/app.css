@@ -248,6 +248,34 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     background-color: rgba(31, 41, 55, 1);
 }
 
+/* Steam/Discord-style spoiler tags */
+.spoiler {
+    background-color: #1a1a1a;
+    color: transparent;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    user-select: none;
+}
+
+.spoiler:hover {
+    background-color: #2a2a2a;
+}
+
+.spoiler.revealed,
+.spoiler:active {
+    color: inherit;
+    background-color: rgba(0, 0, 0, 0.1);
+    cursor: default;
+    user-select: text;
+}
+
+.dark .spoiler.revealed,
+.dark .spoiler:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 .news-content pre code {
     padding: 0;
     background-color: transparent;
