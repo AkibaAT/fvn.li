@@ -25,7 +25,7 @@ class GameDataSyncService
     private static array $httpCache = [];
 
     /**
-     * Load full game details from itch.io
+     * Load full game details - delegates to platform-specific service
      *
      * @throws BindingResolutionException
      * @throws DateMalformedStringException
@@ -33,6 +33,32 @@ class GameDataSyncService
      * @throws Throwable
      */
     public function loadFullDetails(Game $game): void
+    {
+        // Delegate to platform-specific service
+        if ($game->isSteamGame()) {
+            $steamService = App::make(SteamDataSyncService::class);
+            $steamService->loadFullDetails($game);
+            $game->save();
+            return;
+        }
+
+        if ($game->isItchioGame()) {
+            $this->loadFullDetailsItchio($game);
+            return;
+        }
+
+        throw new Exception("Unsupported platform for game: {$game->name} (platform: {$game->platform})");
+    }
+
+    /**
+     * Load full game details from itch.io
+     *
+     * @throws BindingResolutionException
+     * @throws DateMalformedStringException
+     * @throws GuzzleException
+     * @throws Throwable
+     */
+    private function loadFullDetailsItchio(Game $game): void
     {
         try {
             $this->refreshBaseInfo($game);
@@ -55,13 +81,19 @@ class GameDataSyncService
      * @throws DateMalformedStringException
      * @throws BindingResolutionException
      * @throws GuzzleException
+     * @throws Exception
      */
     public function refreshBaseInfo(Game $game): void
     {
+        // Only itch.io games can be refreshed from itch.io API
+        if (!$game->isItchioGame()) {
+            throw new Exception("Cannot refresh base info for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
+        }
+
         // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
 
-        $url = "https://api.itch.io/games/{$game->game_id}";
+        $url = "https://api.itch.io/games/{$game->itch_id}";
 
         $response = $itchClient->get($url);
         $gameData = json_decode($response->getBody()->getContents(), true);
@@ -81,6 +113,11 @@ class GameDataSyncService
      */
     public function refreshVersion(Game $game, bool $force = false): void
     {
+        // Only itch.io games can be refreshed from itch.io API
+        if (!$game->isItchioGame()) {
+            throw new Exception("Cannot refresh versions for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
+        }
+
         DB::beginTransaction();
 
         try {
@@ -271,7 +308,7 @@ class GameDataSyncService
 
                             // Download and process
                             $result = $archiveService->downloadAndProcess(
-                                $game->url,
+                                $game->getPrimaryUrl(),
                                 $bestUpload->filename,
                                 $bestUpload->id,
                                 $game->id,
@@ -396,7 +433,7 @@ class GameDataSyncService
         DB::beginTransaction();
 
         try {
-            $response = $this->getCachedResponse($game, $game->url, [], true);
+            $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
@@ -560,7 +597,7 @@ class GameDataSyncService
     {
         try {
             // Use cached HTML to avoid duplicate requests
-            $response = $this->getCachedResponse($game, $game->url, [], true);
+            $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 

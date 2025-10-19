@@ -13,8 +13,10 @@ class Rater extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'itch_id',
         'name',
+        'steam_id',
+        'external_platform',
     ];
 
     public function ratings(): HasMany

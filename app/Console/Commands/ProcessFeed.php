@@ -269,6 +269,11 @@ class ProcessFeed extends Command
         $game = Game::firstOrNew(['game_id' => $gameId]);
 
         try {
+            // Set platform to itch_io for all feed-processed games
+            if (! $game->exists) {
+                $game->platform = 'itch_io';
+            }
+
             // Skip if game isn't visible or is suspended
             if (! $game->exists || ! $game->is_visible || $game->is_suspended) {
                 DB::commit();

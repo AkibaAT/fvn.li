@@ -28,7 +28,9 @@ export interface GameCardGame {
     is_paid?: boolean;
     has_demo?: boolean;
     is_on_sale?: boolean;
-    // platforms
+    // store platform (itch.io, steam, other)
+    platform?: 'itch_io' | 'steam' | 'other';
+    // game platforms (OS support)
     is_windows?: boolean;
     is_linux?: boolean;
     is_mac?: boolean;
@@ -65,6 +67,7 @@ export interface GameCardProps {
     selectedPlatforms?: string[];
     selectedLanguages?: string[];
     selectedStatuses?: string[];
+    selectedStorePlatforms?: string[];
     nsfw?: boolean;
     showPaid?: boolean;
     showDemo?: boolean;
@@ -74,13 +77,14 @@ export interface GameCardProps {
     onPlatformClick?: (platform: GameCardPlatform) => void;
     onLanguageClick?: (iso: string) => void;
     onStatusClick?: (status: string) => void;
+    onStorePlatformClick?: (platform: string) => void;
     onNsfwToggle?: () => void;
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
 }
 
-export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameCardProps) {
+export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onStorePlatformClick, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameCardProps) {
     // Image handling
     const getOptimizedScreenshotUrl = (
         screenshot: NonNullable<GameCardGame['screenshots']>[number],
@@ -159,6 +163,11 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         navigateWith({selectedStatuses: [status]});
     };
 
+    const handleStorePlatform = (platform: string) => {
+        if (onStorePlatformClick) return onStorePlatformClick(platform);
+        navigateWith({selectedStorePlatforms: [platform]});
+    };
+
     const handleNsfwToggle = () => {
         if (onNsfwToggle) return onNsfwToggle();
         navigateWith({nsfw: true});
@@ -200,15 +209,16 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         // Image handling
         thumbnailUrl: getThumbnailUrl(),
         getOptimizedScreenshotUrl,
-        
+
         // Content
         authorsInlineHtml,
-        
+
         // Navigation handlers
         handleTag,
         handlePlatform,
         handleLanguage,
         handleStatus,
+        handleStorePlatform,
         handleNsfwToggle,
         handlePaidToggle,
         handleDemoToggle,

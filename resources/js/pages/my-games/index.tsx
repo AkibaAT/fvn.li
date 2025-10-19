@@ -6,6 +6,7 @@ interface GameSummary {
     slug: string;
     thumb_url?: string | null;
     has_additional_links?: boolean;
+    platform?: 'itch_io' | 'steam' | 'other';
 }
 
 interface GameClickStats {
@@ -125,7 +126,7 @@ export default function MyGamesIndex({
                                         <img
                                             src={thumbnailUrl}
                                             alt={g.name}
-                                            className="aspect-[4/3] w-full object-cover transition-opacity hover:opacity-90"
+                                            className={`aspect-[4/3] w-full ${g.platform === 'steam' ? 'object-contain' : 'object-cover'} transition-opacity hover:opacity-90`}
                                         />
                                     ) : (
                                         <div

@@ -52,8 +52,9 @@ class RefreshFeedlessGames extends Command
         $this->info('Starting version refresh for feedless games');
 
         try {
-            // Build query for games
+            // Build query for games - only itch.io games for now
             $query = Game::query()
+                ->fromItchio()
                 ->where('is_visible', true)
                 ->where('is_suspended', false)
                 ->where('is_feedless', true)

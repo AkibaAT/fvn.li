@@ -22,6 +22,9 @@ class Rating extends Model
         'review',
         'is_visible',
         'is_reviewed',
+        'external_id',
+        'source_platform',
+        'external_metadata',
     ];
 
     protected $casts = [
@@ -29,6 +32,7 @@ class Rating extends Model
         'rating' => 'float',
         'is_visible' => 'boolean',
         'is_reviewed' => 'boolean',
+        'external_metadata' => 'array',
     ];
 
     public function game(): BelongsTo

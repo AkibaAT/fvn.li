@@ -153,6 +153,7 @@ export interface FilterOptions {
     statuses: Record<string, string>;
     gameEngines: Record<string, string>;
     platforms: Record<string, string>;
+    storePlatforms: Record<string, string>;
     languages: Record<string, { ref_name: string; flag_code: string }>;
     gameJams: Record<string, string>;
     tags: Record<string, string>;
@@ -164,6 +165,7 @@ export interface CurrentFilters {
     selectedStatuses?: string[];
     selectedEngines?: string[];
     selectedPlatforms?: string[];
+    selectedStorePlatforms?: string[];
     selectedLanguages?: string[];
     selectedGameJams?: string[];
     selectedTags?: string[];

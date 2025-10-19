@@ -235,7 +235,8 @@ class DiscordNotificationsController extends Controller
             $notifications = $requests->map(function ($request) {
                 return [
                     'id' => $request->id,
-                    'url' => $request->itch_url,
+                    'url' => $request->game_url,
+                    'platform' => $request->platform,
                     'created_at' => $request->created_at->toISOString(),
                     'user_count' => $request->users->count(),
                     'users' => $request->users->map(function ($user) {

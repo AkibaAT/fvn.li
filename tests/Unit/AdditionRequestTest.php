@@ -33,7 +33,7 @@ test('find or create for url creates new request', function () {
     [$request, $isNew] = AdditionRequest::findOrCreateForUrl($url);
 
     expect($isNew)->toBeTrue();
-    expect($request->itch_url)->toBe($url);
+    expect($request->game_url)->toBe($url);
     expect($request->normalized_url)->toBe('developer.itch.io/game-name');
     expect($request->status)->toBe(AdditionRequest::STATUS_PENDING);
 });
@@ -78,7 +78,7 @@ test('find or create for url works for invisible games', function () {
     expect($result)->not->toBeNull();
     [$request, $isNew] = $result;
     expect($isNew)->toBeTrue();
-    expect($request->itch_url)->toBe($url);
+    expect($request->game_url)->toBe($url);
 });
 
 test('add user to request', function () {

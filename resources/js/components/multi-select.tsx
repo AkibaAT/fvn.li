@@ -66,9 +66,9 @@ export default function MultiSelect({
                 aria-haspopup="listbox"
                 aria-controls={`${title}-options`}
             >
-                <div className="flex-1 min-w-0">
+                <span className="flex-1 min-w-0">
                     {selectedItems.length > 0 ? (
-                        <div className="flex flex-wrap gap-1" role="list" aria-label={`Selected ${title.toLowerCase()}`}>
+                        <span className="flex flex-wrap gap-1" role="list" aria-label={`Selected ${title.toLowerCase()}`}>
                             {selectedItems.map((value) => {
                                 const item = items[value];
                                 const label = getDisplayLabel(value, item);
@@ -93,13 +93,13 @@ export default function MultiSelect({
                                     </span>
                                 );
                             })}
-                        </div>
+                        </span>
                     ) : (
                         <span className="text-gray-500 dark:text-gray-400">
                             {placeholder || `Select ${title.toLowerCase()}...`}
                         </span>
                     )}
-                </div>
+                </span>
                 <svg
                     className={`h-4 w-4 flex-shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                     fill="none"

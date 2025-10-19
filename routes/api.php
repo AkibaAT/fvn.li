@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\DiscordBotController;
 use App\Http\Controllers\Api\DiscordNotificationsController;
+use App\Http\Controllers\Api\DiscordNotificationHistoryController;
+use App\Http\Controllers\Api\DiscordServerController;
+use App\Http\Controllers\Api\DiscordSubscriptionController;
 use App\Http\Controllers\Api\GameReviewsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +48,41 @@ Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
 });
 
 // Push notification subscription routes moved to react-api (session-based)
+
+// Multi-server Discord management routes
+Route::middleware('auth:sanctum')->prefix('discord-servers')->group(function () {
+    // Server management
+    Route::post('register', [DiscordServerController::class, 'register']);
+    Route::get('', [DiscordServerController::class, 'index']);
+    Route::get('{server}', [DiscordServerController::class, 'show']);
+    Route::post('{server}/config', [DiscordServerController::class, 'updateConfig']);
+    Route::delete('{server}', [DiscordServerController::class, 'destroy']);
+    Route::get('{server}/stats', [DiscordServerController::class, 'stats']);
+
+    // Game subscriptions
+    Route::post('{server}/subscribe', [DiscordSubscriptionController::class, 'subscribeGame']);
+    Route::delete('{server}/games/{game}', [DiscordSubscriptionController::class, 'unsubscribeGame']);
+    Route::get('{server}/subscriptions', [DiscordSubscriptionController::class, 'listSubscriptions']);
+    Route::post('{server}/bulk-subscribe', [DiscordSubscriptionController::class, 'bulkSubscribe']);
+
+    // Game metadata management (per-server)
+    Route::get('{server}/games/{game}/metadata', [DiscordSubscriptionController::class, 'getGameMetadata']);
+    Route::post('{server}/games/{game}/metadata', [DiscordSubscriptionController::class, 'updateGameMetadata']);
+    Route::post('{server}/games/{game}/rating', [DiscordSubscriptionController::class, 'updateGameRating']);
+
+    // Tag subscriptions
+    Route::post('{server}/subscribe-tag', [DiscordSubscriptionController::class, 'subscribeTag']);
+    Route::delete('{server}/tags/{tagName}', [DiscordSubscriptionController::class, 'unsubscribeTag']);
+    Route::get('{server}/tags', [DiscordSubscriptionController::class, 'listTags']);
+
+    // Notification history
+    Route::get('{server}/notifications', [DiscordNotificationHistoryController::class, 'index']);
+    Route::get('{server}/notifications/{notification}', [DiscordNotificationHistoryController::class, 'show']);
+    Route::get('{server}/notifications-stats', [DiscordNotificationHistoryController::class, 'stats']);
+    Route::post('{server}/notifications/{notification}/resend', [DiscordNotificationHistoryController::class, 'resend']);
+    Route::post('{server}/test-notification', [DiscordNotificationHistoryController::class, 'sendTest']);
+    Route::delete('{server}/notifications/clear', [DiscordNotificationHistoryController::class, 'clear']);
+});
 
 // Game reviews API for desktop client
 Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);

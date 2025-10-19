@@ -94,8 +94,9 @@ class RefreshGames extends Command
         $this->info('- Max retries: ' . $this->option('max-retries'));
         $this->info('- Base cooldown: ' . $this->option('retry-cooldown') . ' seconds');
 
-        // Build query for games
+        // Build query for games - only itch.io games for now
         $query = Game::query()
+            ->fromItchio()
             ->where('is_visible', true)
             ->where('is_suspended', false);
 

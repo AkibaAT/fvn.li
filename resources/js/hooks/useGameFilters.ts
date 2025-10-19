@@ -46,6 +46,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             status: 'selectedStatuses',
             engine: 'selectedEngines',
             platform: 'selectedPlatforms',
+            storePlatform: 'selectedStorePlatforms',
             language: 'selectedLanguages',
             gameJam: 'selectedGameJams',
             tag: 'selectedTags',
@@ -68,6 +69,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             selectedStatuses: [],
             selectedEngines: [],
             selectedPlatforms: [],
+            selectedStorePlatforms: [],
             selectedLanguages: [],
             selectedGameJams: [],
             selectedTags: [],
@@ -85,6 +87,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             selectedStatuses,
             selectedEngines,
             selectedPlatforms,
+            selectedStorePlatforms,
             selectedLanguages,
             selectedGameJams,
             selectedTags,
@@ -100,6 +103,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             (selectedStatuses && selectedStatuses.length > 0) ||
             (selectedEngines && selectedEngines.length > 0) ||
             (selectedPlatforms && selectedPlatforms.length > 0) ||
+            (selectedStorePlatforms && selectedStorePlatforms.length > 0) ||
             (selectedLanguages && selectedLanguages.length > 0) ||
             (selectedGameJams && selectedGameJams.length > 0) ||
             (selectedTags && selectedTags.length > 0) ||
@@ -171,6 +175,12 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             filters.platforms,
             'platform',
             (v) => toggleFilter('platform', v),
+        );
+        pushArrayChips(
+            currentFilters.selectedStorePlatforms,
+            filters.storePlatforms,
+            'storePlatform',
+            (v) => toggleFilter('storePlatform', v),
         );
         pushArrayChips(
             currentFilters.selectedLanguages,

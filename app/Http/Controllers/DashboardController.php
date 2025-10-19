@@ -118,7 +118,8 @@ class DashboardController extends Controller
                 ->map(function ($request) {
                     return [
                         'id' => $request->id,
-                        'itch_url' => $request->itch_url,
+                        'game_url' => $request->game_url,
+                        'platform' => $request->platform,
                         'status' => $request->status,
                         'status_label' => $request->status_label,
                         'status_color' => $request->status_color,
@@ -255,7 +256,7 @@ class DashboardController extends Controller
                 'success' => false,
                 'message' => 'No valid URLs provided',
                 'errors' => [
-                    'urls' => 'Please enter at least one valid itch.io URL.',
+                    'urls' => 'Please enter at least one valid game URL.',
                 ],
             ], 422);
         }
@@ -323,13 +324,17 @@ class DashboardController extends Controller
             'requests' => $requests->map(function ($request) {
                 return [
                     'id' => $request->id,
-                    'itch_url' => $request->itch_url,
+                    'game_url' => $request->game_url,
+                    'platform' => $request->platform,
                     'status' => $request->status,
                     'status_label' => $request->status_label,
                     'status_color' => $request->status_color,
+                    'submitted_at' => $request->created_at->toISOString(),
                     'created_at' => $request->created_at->toISOString(),
                     'reviewed_at' => $request->reviewed_at?->toISOString(),
+                    'processed_at' => $request->reviewed_at?->toISOString(),
                     'rejection_reason' => $request->rejection_reason,
+                    'admin_notes' => $request->rejection_reason,
                     'game' => $request->game ? [
                         'id' => $request->game->id,
                         'name' => $request->game->name,

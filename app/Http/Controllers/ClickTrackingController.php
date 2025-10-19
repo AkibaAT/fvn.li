@@ -29,7 +29,8 @@ class ClickTrackingController extends Controller
             // Get the game to verify it exists
             $game = Game::findOrFail($validated['game_id']);
 
-            if (! $game->url) {
+            $primaryUrl = $game->getPrimaryUrl();
+            if (! $primaryUrl) {
                 // If no URL, redirect to game page on our site
                 return redirect()->route('games.show', $game->slug);
             }
@@ -57,8 +58,8 @@ class ClickTrackingController extends Controller
                 referrer: $referrer
             );
 
-            // Redirect to the itch.io project URL
-            return redirect()->away($game->url);
+            // Redirect to the project URL
+            return redirect()->away($primaryUrl);
 
         } catch (ValidationException $e) {
             // On validation error, redirect back
@@ -238,7 +239,8 @@ class ClickTrackingController extends Controller
 
             // Check if user owns this game (based on itch.io username)
             $itchioUsername = $user->getItchioUsername();
-            if (! $itchioUsername || ! $game->url || ! str_contains($game->url, $itchioUsername . '.itch.io')) {
+            $itchioUrl = $game->getUrlForPlatform('itch_io');
+            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername . '.itch.io')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view stats for this game',
@@ -287,7 +289,8 @@ class ClickTrackingController extends Controller
 
             // Check if user owns this game
             $itchioUsername = $user->getItchioUsername();
-            if (! $itchioUsername || ! $game->url || ! str_contains($game->url, $itchioUsername . '.itch.io')) {
+            $itchioUrl = $game->getUrlForPlatform('itch_io');
+            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername . '.itch.io')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view analytics for this game',

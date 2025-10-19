@@ -359,26 +359,78 @@ class GamesDisplayController extends Controller
         // Add platform information
         $platforms = [];
         if ($game->latestVersion) {
-            if ($game->latestVersion->is_windows) $platforms[] = 'Windows';
-            if ($game->latestVersion->is_mac) $platforms[] = 'macOS';
-            if ($game->latestVersion->is_linux) $platforms[] = 'Linux';
-            if ($game->latestVersion->is_android) $platforms[] = 'Android';
-            if ($game->latestVersion->is_web) $platforms[] = 'Web';
+            if ($game->latestVersion->is_windows) {
+                $platforms[] = 'Windows';
+            }
+            if ($game->latestVersion->is_mac) {
+                $platforms[] = 'macOS';
+            }
+            if ($game->latestVersion->is_linux) {
+                $platforms[] = 'Linux';
+            }
+            if ($game->latestVersion->is_android) {
+                $platforms[] = 'Android';
+            }
+            if ($game->latestVersion->is_web) {
+                $platforms[] = 'Web';
+            }
         }
-        if (!empty($platforms)) {
-            $metaDescription .= " - Available on: " . implode(', ', $platforms);
+        if (! empty($platforms)) {
+            $metaDescription .= ' - Available on: '.implode(', ', $platforms);
         }
 
         if ($reviews->total() > 0) {
             $metaDescription .= " - {$reviews->total()} reviews";
         }
 
+        // Prepare tags for Open Graph
+        $tags = $game->tags->pluck('name')->toArray();
+
         $this->setMetaTags([
             'title' => $title,
+            'browserTitle' => "{$title} - FVN.li",
+            'socialTitle' => $title,
             'description' => $metaDescription,
             'image' => $image,
             'url' => route('games.show', $game),
             'type' => 'article',
+            'siteName' => 'FVN.li',
+            'locale' => 'en_US',
+            'twitterCard' => 'summary_large_image',
+            'author' => $game->authors ? strip_tags($game->authors) : null,
+            'publishedTime' => $game->initially_published_at?->toIso8601String(),
+            'modifiedTime' => $game->latest_version_published_at?->toIso8601String() ?? $game->updated_at->toIso8601String(),
+            'section' => 'Visual Novels',
+            'tags' => $tags,
+            'noindex' => ! $game->is_visible,
+            'structuredData' => [
+                '@context' => 'https://schema.org',
+                '@type' => 'VideoGame',
+                'name' => $game->name,
+                'description' => $game->description,
+                'image' => $image,
+                'author' => $game->authors ? [
+                    '@type' => 'Organization',
+                    'name' => strip_tags($game->authors),
+                ] : null,
+                'datePublished' => $game->initially_published_at?->toIso8601String(),
+                'dateModified' => $game->latest_version_published_at?->toIso8601String() ?? $game->updated_at->toIso8601String(),
+                'genre' => $tags,
+                'gamePlatform' => $platforms,
+                'offers' => $game->is_paid ? [
+                    '@type' => 'Offer',
+                    'price' => $game->current_price ?? $game->min_price,
+                    'priceCurrency' => 'USD',
+                    'availability' => 'https://schema.org/InStock',
+                ] : null,
+                'aggregateRating' => $game->average_rating ? [
+                    '@type' => 'AggregateRating',
+                    'ratingValue' => $game->average_rating,
+                    'ratingCount' => $game->ratings_count,
+                    'bestRating' => 5,
+                    'worstRating' => 1,
+                ] : null,
+            ],
         ]);
     }
 }
