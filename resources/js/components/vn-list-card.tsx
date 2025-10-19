@@ -13,6 +13,7 @@ export interface Game {
     has_demo: boolean;
     is_on_sale: boolean;
     min_price?: number;
+    platform?: 'itch_io' | 'steam' | 'other';
 }
 
 export interface VnListEntry {
@@ -260,7 +261,7 @@ export default function VnListCard({
                                         src={getThumb(currentGame)!}
                                         alt={currentGame.effective_name}
                                         title={currentGame.effective_name}
-                                        className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
+                                        className={`h-full w-full ${currentGame.platform === 'steam' ? 'object-contain' : 'object-cover'} transition-opacity group-hover:opacity-90`}
                                     />
                                 ) : (
                                     <div

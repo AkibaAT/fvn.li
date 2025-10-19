@@ -4,7 +4,8 @@ import {useCallback, useEffect, useState} from 'react';
 
 interface AdditionRequest {
     id: number;
-    itch_url: string;
+    game_url: string;
+    platform?: string;
     status: string;
     status_label: string;
     submitted_at: string;
@@ -116,7 +117,7 @@ export function UserAdditionRequests() {
     const filteredRequests = requests.filter((request) => {
         const matchesSearch =
             search === '' ||
-            request.itch_url.toLowerCase().includes(search.toLowerCase()) ||
+            request.game_url.toLowerCase().includes(search.toLowerCase()) ||
             request.status_label.toLowerCase().includes(search.toLowerCase());
         return matchesSearch;
     });
@@ -191,12 +192,12 @@ export function UserAdditionRequests() {
                                         </div>
 
                                         <a
-                                            href={request.itch_url}
+                                            href={request.game_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block truncate text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                                         >
-                                            {request.itch_url}
+                                            {request.game_url}
                                         </a>
 
                                         {request.admin_notes && (

@@ -9,7 +9,10 @@ use App\Filament\Resources\AdditionRequests\Pages\ListAdditionRequests;
 use App\Models\AdditionRequest;
 use App\Models\Game;
 use App\Models\User;
+use App\Services\GameDataSyncService;
+use App\Services\SteamReviewImportService;
 use BackedEnum;
+use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -31,6 +34,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use UnitEnum;
 
 class AdditionRequestResource extends Resource
@@ -41,18 +45,35 @@ class AdditionRequestResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Content Management';
 
-    protected static ?string $recordTitleAttribute = 'itch_url';
+    protected static ?string $recordTitleAttribute = 'game_url';
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('itch_url')
-                    ->label('Itch.io URL')
+                TextColumn::make('game_url')
+                    ->label('Game URL')
                     ->searchable()
                     ->sortable()
                     ->limit(50)
-                    ->tooltip(fn (AdditionRequest $record): string => $record->itch_url),
+                    ->tooltip(fn (AdditionRequest $record): string => $record->game_url),
+
+                TextColumn::make('platform')
+                    ->label('Platform')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'itch_io' => 'info',
+                        'steam' => 'success',
+                        'other' => 'gray',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'itch_io' => 'itch.io',
+                        'steam' => 'Steam',
+                        'other' => 'Other',
+                        default => 'Unknown',
+                    })
+                    ->sortable(),
 
                 TextColumn::make('status')
                     ->badge()
@@ -81,7 +102,9 @@ class AdditionRequestResource extends Resource
                             return 'Not linked';
                         }
 
-                        return $state . ' (' . self::extractItchSubdomain($record->game->url) . ')';
+                        $platformUrl = $record->game->getPrimaryUrl();
+                        $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
+                        return $state . ' (' . $urlDisplay . ')';
                     })
                     ->searchable()
                     ->sortable()
@@ -139,6 +162,81 @@ class AdditionRequestResource extends Resource
                         }
                     }),
 
+                Action::make('approve_and_create')
+                    ->label('Approve & Create Game')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Approve & Create Game')
+                    ->modalDescription(fn (AdditionRequest $record): string =>
+                        "This will approve the request and create a new game entry, then sync data from {$record->platform}. This may take a few minutes."
+                    )
+                    ->modalSubmitActionLabel('Approve & Create')
+                    ->visible(fn (AdditionRequest $record): bool =>
+                        $record->isPending() &&
+                        !$record->game &&
+                        ($record->platform === 'itch_io' || $record->platform === 'steam')
+                    )
+                    ->action(function (AdditionRequest $record): void {
+                        $user = Auth::user();
+                        if (!($user instanceof User)) {
+                            return;
+                        }
+
+                        try {
+                            // Create the game
+                            $game = new Game();
+                            $game->platform = $record->platform;
+                            $game->setUrlForPlatform($record->platform, $record->game_url);
+                            $game->name = 'Syncing...'; // Temporary name
+                            $game->is_visible = false; // Start as hidden
+                            $game->save();
+
+                            // Link to the request
+                            $record->game_id = $game->id;
+                            $record->approve($user);
+
+                            // Sync data
+                            $syncService = app(GameDataSyncService::class);
+                            $syncService->loadFullDetails($game);
+                            $game->save();
+
+                            // Import reviews for Steam games
+                            $reviewStats = null;
+                            if ($game->platform === 'steam') {
+                                try {
+                                    $importService = app(SteamReviewImportService::class);
+                                    $reviewStats = $importService->importReviews($game, 100);
+                                    $importService->updateGameRatingStats($game);
+                                } catch (Exception $reviewException) {
+                                    Log::error('Failed to import Steam reviews during game creation', [
+                                        'game_id' => $game->id,
+                                        'error' => $reviewException->getMessage(),
+                                    ]);
+                                }
+                            }
+
+                            $body = "Created \"{$game->name}\" and synced data from {$game->getPlatformName()}.";
+                            if ($reviewStats) {
+                                $body .= " Imported {$reviewStats['imported']} reviews.";
+                            }
+
+                            Notification::make()
+                                ->title('Game created and synced successfully')
+                                ->body($body)
+                                ->success()
+                                ->duration(10000)
+                                ->send();
+                        } catch (Exception $e) {
+                            Notification::make()
+                                ->title('Failed to create and sync game')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->duration(10000)
+                                ->send();
+                        }
+                    }),
+
                 Action::make('reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
@@ -157,6 +255,51 @@ class AdditionRequestResource extends Resource
                             Notification::make()
                                 ->title('Request rejected successfully')
                                 ->success()
+                                ->send();
+                        }
+                    }),
+
+                Action::make('sync_game')
+                    ->label('Sync Game Data')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sync Game Data')
+                    ->modalDescription(fn (AdditionRequest $record): string =>
+                        $record->game
+                            ? "This will fetch the latest data from {$record->game->getPlatformName()} for \"{$record->game->name}\". This may take a few minutes."
+                            : "No game linked to this request."
+                    )
+                    ->modalSubmitActionLabel('Sync Now')
+                    ->visible(fn (AdditionRequest $record): bool =>
+                        $record->game &&
+                        ($record->game->platform === 'itch_io' || $record->game->platform === 'steam')
+                    )
+                    ->action(function (AdditionRequest $record): void {
+                        if (!$record->game) {
+                            Notification::make()
+                                ->title('No game linked')
+                                ->body('This request does not have a linked game.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        try {
+                            $syncService = app(GameDataSyncService::class);
+                            $syncService->loadFullDetails($record->game);
+                            $record->game->save();
+
+                            Notification::make()
+                                ->title('Game synced successfully')
+                                ->body("Data for \"{$record->game->name}\" has been updated from {$record->game->getPlatformName()}.")
+                                ->success()
+                                ->send();
+                        } catch (Exception $e) {
+                            Notification::make()
+                                ->title('Sync failed')
+                                ->body($e->getMessage())
+                                ->danger()
                                 ->send();
                         }
                     }),
@@ -199,12 +342,21 @@ class AdditionRequestResource extends Resource
             ->components([
                 Section::make('Request Information')
                     ->schema(components: [
-                        TextInput::make('itch_url')
-                            ->label('Itch.io URL')
+                        TextInput::make('game_url')
+                            ->label('Game URL')
                             ->required()
                             ->url()
                             ->maxLength(255)
                             ->columnSpanFull(),
+
+                        Select::make('platform')
+                            ->options([
+                                'itch_io' => 'itch.io',
+                                'steam' => 'Steam',
+                                'other' => 'Other',
+                            ])
+                            ->nullable()
+                            ->label('Platform'),
 
                         Select::make('status')
                             ->options([
@@ -222,9 +374,11 @@ class AdditionRequestResource extends Resource
                                 titleAttribute: 'name',
                                 modifyQueryUsing: fn ($query) => $query->orderBy('name')
                             )
-                            ->getOptionLabelFromRecordUsing(fn (Game $record
-                            ): string => $record->name . ' (' . self::extractItchSubdomain($record->url) . ')'
-                            )
+                            ->getOptionLabelFromRecordUsing(function (Game $record): string {
+                                $platformUrl = $record->getPrimaryUrl();
+                                $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
+                                return $record->name . ' (' . $urlDisplay . ')';
+                            })
                             ->searchable(['name'])
                             ->preload()
                             ->nullable()
@@ -287,9 +441,10 @@ class AdditionRequestResource extends Resource
     }
 
     /**
-     * Extract the itch.io subdomain and game slug from a URL for display purposes.
+     * Extract a readable identifier from a game URL for display purposes.
+     * Works with itch.io, Steam, and other platforms.
      */
-    private static function extractItchSubdomain(string $url): string
+    private static function extractUrlIdentifier(string $url): string
     {
         // Parse the URL to extract subdomain and path
         $parsed = parse_url($url);
@@ -313,7 +468,14 @@ class AdditionRequestResource extends Resource
             return $subdomain . '.itch.io';
         }
 
-        // For non-itch.io URLs, return the full host
+        // Extract Steam App ID from Steam URLs
+        if (str_contains($host, 'steampowered.com') || str_contains($host, 'store.steampowered.com')) {
+            if (preg_match('/\/app\/(\d+)/', $path, $matches)) {
+                return 'Steam App ' . $matches[1];
+            }
+        }
+
+        // For other URLs, return the host and path
         return $host . $path;
     }
 }

@@ -135,6 +135,11 @@ class GameFilterService
                     'android' => 'Android',
                     'web' => 'Web',
                 ],
+                'storePlatforms' => [
+                    'itch_io' => 'itch.io',
+                    'steam' => 'Steam',
+                    'other' => 'Other',
+                ],
                 'languages' => $languages->all(),
                 'gameJams' => $gameJams->all(),
                 'tags' => $tags->all(),

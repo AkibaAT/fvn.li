@@ -28,8 +28,9 @@ class AdditionRequest extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'itch_url',
+        'game_url',
         'normalized_url',
+        'platform',
         'status',
         'rejection_reason',
         'game_id',
@@ -65,7 +66,7 @@ class AdditionRequest extends Model
      * Returns the request and whether it was newly created.
      * Returns null if the game already exists and is visible.
      */
-    public static function findOrCreateForUrl(string $url): ?array
+    public static function findOrCreateForUrl(string $url, ?string $platform = null): ?array
     {
         // Don't create requests for games that already exist and are visible
         if (self::gameAlreadyExists($url)) {
@@ -81,8 +82,9 @@ class AdditionRequest extends Model
         }
 
         $request = self::create([
-            'itch_url' => $url,
+            'game_url' => $url,
             'normalized_url' => $normalizedUrl,
+            'platform' => $platform,
             'status' => self::STATUS_PENDING,
         ]);
 
@@ -109,14 +111,20 @@ class AdditionRequest extends Model
     }
 
     /**
-     * Normalize an itch.io URL for deduplication.
+     * Normalize a URL for deduplication.
+     * Removes protocol, www, trailing slashes, and query parameters.
      */
     public static function normalizeUrl(string $url): string
     {
-        // Remove protocol, www, trailing slashes, and query parameters
+        // Remove protocol and www
         $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
+
+        // Remove trailing slashes
         $normalized = rtrim($normalized, '/');
-        $normalized = strtok($normalized, '?'); // Remove query parameters
+
+        // Remove query parameters and fragments
+        $normalized = strtok($normalized, '?');
+        $normalized = strtok($normalized, '#');
 
         return strtolower($normalized);
     }

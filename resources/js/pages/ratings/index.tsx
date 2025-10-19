@@ -1,5 +1,6 @@
 import AdvancedPagination from '@/components/advanced-pagination';
 import Stars from '@/components/ui/stars';
+import PlatformIcon from '@/components/ui/platform-icon';
 import {Link, router} from '@inertiajs/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import SeoHead, {type MetaTags} from '@/components/seo/SeoHead';
@@ -8,7 +9,7 @@ import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-
 type RatingRow = {
     id: number;
     game: { id: number; name: string; slug: string };
-    rater: { id: number; name: string };
+    rater: { id: number; name: string; external_platform?: string };
     score: number;
     created_at: string;
     is_reviewed?: boolean;
@@ -338,8 +339,8 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                             >
                                                 {row.game.name}
                                             </Link>
-                                            <div className="text-sm text-gray-600 dark:text-gray-300">
-                                                by{' '}
+                                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                                <span>by{' '}
                                                 <Link
                                                     href={route(
                                                         'raters.show',
@@ -348,10 +349,12 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                                     className="text-gray-800 hover:underline dark:text-gray-100"
                                                 >
                                                     {row.rater.name}
-                                                </Link>
-                                                {' • '}
+                                                </Link></span>
+                                                {row.rater.external_platform && (
+                                                    <PlatformIcon platform={row.rater.external_platform} />
+                                                )}
                                                 <span className="text-gray-500 dark:text-gray-400">
-                                                    {new Date(
+                                                    • {new Date(
                                                         row.created_at,
                                                     ).toLocaleString()}
                                                 </span>

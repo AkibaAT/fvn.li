@@ -9,6 +9,12 @@ interface GameImageProps {
 export default function GameImage({game, thumbnailUrl}: GameImageProps) {
     const gameName = game.effective_name;
 
+    // Steam thumbnails have a different aspect ratio (460x215 = 2.14:1)
+    // vs itch.io (315x250 = 1.26:1), so we use object-contain for Steam
+    // to show the full image with letterboxing instead of cropping
+    const isSteamGame = game.platform === 'steam';
+    const objectFitClass = isSteamGame ? 'object-contain' : 'object-cover';
+
     return (
         <Link
             href={route('games.show', game.slug)}
@@ -19,7 +25,7 @@ export default function GameImage({game, thumbnailUrl}: GameImageProps) {
                     <img
                         src={thumbnailUrl}
                         alt={gameName}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        className={`h-full w-full ${objectFitClass} transition-transform duration-500 group-hover:scale-110`}
                     />
                 ) : (
                     <div className="flex h-full w-full items-center justify-center text-gray-400">

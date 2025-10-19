@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {FilterModal} from '@/components/filter-modal';
 import {useGameFilters} from '@/hooks/useGameFilters';
 import {usePlatformIcons, type GameCardPlatform} from '@/hooks/usePlatformIcons';
+import {useStorePlatformIcons, type StorePlatform} from '@/hooks/useStorePlatformIcons';
 import ActiveFilterChips from '@/components/games/ActiveFilterChips';
 import SortControls from '@/components/games/SortControls';
 import GamesGrid from '@/components/games/GamesGrid';
@@ -42,6 +43,7 @@ interface GamesIndexGame {
     is_mac?: boolean;
     is_android?: boolean;
     is_web?: boolean;
+    platform?: 'itch_io' | 'steam' | 'other';
     english_word_count?: number;
     trending_score?: number;
     initially_published_at?: string;
@@ -107,10 +109,18 @@ export default function GamesIndex({
 
     // Use the platform icons hook
     const {getPlatformIcon: getTypedPlatformIcon} = usePlatformIcons();
-    
+
     // Wrapper function to match the expected interface
     const getPlatformIcon = (platform: string) => {
         return getTypedPlatformIcon(platform as GameCardPlatform);
+    };
+
+    // Use the store platform icons hook
+    const {getStorePlatformIcon: getTypedStorePlatformIcon} = useStorePlatformIcons();
+
+    // Wrapper function for store platform icons
+    const getStorePlatformIcon = (platform: string) => {
+        return getTypedStorePlatformIcon(platform as StorePlatform);
     };
 
     // Normalize pagination meta in case backend shape varies or meta is missing
@@ -194,30 +204,31 @@ export default function GamesIndex({
     };
 
     return (
-        <div className="space-y-8">
+        <>
             <SeoHead metaTags={metaTags} />
 
-            {/* Page Heading - visually hidden but accessible to screen readers */}
-            <h1 style={{
-                position: 'absolute',
-                width: '1px',
-                height: '1px',
-                padding: 0,
-                margin: '-1px',
-                overflow: 'hidden',
-                clip: 'rect(0, 0, 0, 0)',
-                whiteSpace: 'nowrap',
-                borderWidth: 0
-            }}>Browse Visual Novels</h1>
+            {/* Filter Modal - rendered outside main content flow */}
+            <FilterModal
+                isOpen={showFilters}
+                onClose={() => setShowFilters(false)}
+                filters={filters}
+                currentFilters={currentFilters}
+                onGamesPage={true}
+            />
 
-                {/* Filter Modal */}
-                <FilterModal
-                    isOpen={showFilters}
-                    onClose={() => setShowFilters(false)}
-                    filters={filters}
-                    currentFilters={currentFilters}
-                    onGamesPage={true}
-                />
+            <div className="space-y-8">
+                {/* Page Heading - visually hidden but accessible to screen readers */}
+                <h1 style={{
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px',
+                    padding: 0,
+                    margin: '-1px',
+                    overflow: 'hidden',
+                    clip: 'rect(0, 0, 0, 0)',
+                    whiteSpace: 'nowrap',
+                    borderWidth: 0
+                }}>Browse Visual Novels</h1>
 
                 {/* Info Bar: Active Filters + Sorting + Filters */}
                 <div
@@ -230,6 +241,7 @@ export default function GamesIndex({
                                 onClearAll={clearFilters}
                                 getChipColorClass={getChipColorClass}
                                 getPlatformIcon={getPlatformIcon}
+                                getStorePlatformIcon={getStorePlatformIcon}
                             />
                         </div>
 
@@ -253,7 +265,7 @@ export default function GamesIndex({
                         <div className="flex items-center">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                className="cursor-pointer inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                 aria-expanded={showFilters}
                                 aria-controls="filter-modal"
                             >
@@ -372,6 +384,7 @@ export default function GamesIndex({
                     onLanguageClick={(iso) => toggleFilter('language', iso)}
                     onTagClick={(tagId) => toggleFilter('tag', tagId)}
                     onStatusClick={(status) => toggleFilter('status', status)}
+                    onStorePlatformClick={(platform) => toggleFilter('storePlatform', platform)}
                     onNsfwToggle={() => updateFilters({nsfw: !currentFilters.nsfw})}
                     onPaidToggle={() => updateFilters({showPaid: !currentFilters.showPaid})}
                     onDemoToggle={() => updateFilters({showDemo: !currentFilters.showDemo})}
@@ -386,5 +399,6 @@ export default function GamesIndex({
                     updateFilters={updateFilters}
                 />
             </div>
+        </>
     );
 }

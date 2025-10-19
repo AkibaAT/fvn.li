@@ -227,10 +227,11 @@ class UpdateWatchlist extends Command
                 // Create new game
                 $game->fill([
                     'initially_published_at' => $gameData['published_at'] ?? null,
-                    'game_id' => $gameId,
+                    'itch_id' => $gameId,
                     'name' => $gameData['title'],
                     'description' => $gameData['short_text'] ?? null,
                     'url' => $gameData['url'],
+                    'platform' => 'itch_io',  // ← Explicitly set platform for itch.io games
                     'thumb_url' => $gameData['cover_url'] ?? null,
                     'source_language_id' => 'eng',
                     'is_paid' => $isPaid,

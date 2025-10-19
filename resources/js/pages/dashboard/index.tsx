@@ -29,7 +29,8 @@ interface NotificationPreferences {
 
 interface AdditionRequest {
     id: number;
-    itch_url: string;
+    game_url: string;
+    platform?: string;
     status: string;
     status_label: string;
     status_color: string;

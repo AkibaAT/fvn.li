@@ -24,6 +24,7 @@ class DiscordBotController extends Controller
         }
 
         $games = Game::query()
+            ->fromItchio()
             ->with('latestVersion')
             ->where('is_visible', true)
             ->where('name', 'ilike', "%{$request->input('name')}%")

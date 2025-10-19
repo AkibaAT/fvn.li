@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Rater;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,7 +22,7 @@ class RaterFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
+            'itch_id' => fake()->randomNumber(6),
             'name' => fake()->userName(),
         ];
     }

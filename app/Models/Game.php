@@ -39,7 +39,7 @@ class Game extends Model
     use HasGameTags;
 
     protected $fillable = [
-        'game_id',
+        'itch_id',
         'slug',
         'name',
         'status',
@@ -49,9 +49,15 @@ class Game extends Model
         'full_description',
         'custom_css',
         'url',
+        'platform',
+        'steam_app_id',
         'thumb_url',
         'game_engine',
         'authors',
+        'developer',
+        'steam_genres',
+        'steam_languages',
+        'steam_user_tags',
         'custom_tags',
         'source_language_id',
         'min_price',
@@ -76,12 +82,21 @@ class Game extends Model
         'rating_count',
         'english_word_count',
         'trending_score',
+        // Discord integration fields
+        'discord_channel_id',
+        'discord_message_id',
+        'discord_likes',
+        'discord_dislikes',
+        'abbreviations',
+        'discord_tags',
+        'content_type',
+        'discord_updated_at',
     ];
 
     // Removed automatic eager loading of tags to prevent N+1 queries
     // Tags should be explicitly loaded only where needed (game detail, games list)
 
-    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'optimized_thumbnail_url', 'effective_name'];
+    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'optimized_thumbnail_url', 'primary_url', 'effective_name'];
 
     protected $casts = [
         'initially_published_at' => 'datetime',
@@ -113,7 +128,48 @@ class Game extends Model
         'view_mode' => 'string',
         'rating_score' => 'float',
         'rating_count' => 'integer',
+        // Platform support casts
+        'platform' => 'string',
+        'content_type' => 'string',
+        'url' => 'array', // JSONB field storing URLs by platform: { "itch_io": "...", "steam": "...", "other": "..." }
+        // Steam-specific casts
+        'steam_genres' => 'array',
+        'steam_user_tags' => 'array',
+        // Discord integration casts
+        'discord_likes' => 'array',
+        'discord_dislikes' => 'array',
+        'abbreviations' => 'array',
+        'discord_tags' => 'array',
+        'discord_updated_at' => 'datetime',
     ];
+
+    /**
+     * Boot the model - add validation for platform field
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Validate that platform is set before saving
+        static::saving(function (self $game) {
+            if ($game->isDirty('platform') && $game->platform === null) {
+                throw new \InvalidArgumentException(
+                    "Game platform must be explicitly set. Cannot save game without a platform. " .
+                    "Use one of: 'itch_io', 'steam', 'other'"
+                );
+            }
+
+            // If platform is being set for the first time (new game), ensure it's valid
+            if ($game->wasRecentlyCreated && $game->platform === null) {
+                throw new \InvalidArgumentException(
+                    "Game platform must be explicitly set when creating a new game. " .
+                    "Use one of: 'itch_io', 'steam', 'other'"
+                );
+            }
+
+            return true;
+        });
+    }
 
     /**
      * Get the attributes that should be converted to arrays for database storage.
@@ -146,6 +202,32 @@ class Game extends Model
     }
 
     /**
+     * Get all Discord server subscriptions for this game.
+     */
+    public function discordSubscriptions(): HasMany
+    {
+        return $this->hasMany(GameDiscordSubscription::class);
+    }
+
+    /**
+     * Get all Discord servers subscribed to this game.
+     */
+    public function discordServers()
+    {
+        return $this->belongsToMany(DiscordServer::class, 'game_discord_subscriptions')
+            ->withPivot('subscribed_at', 'is_active')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get notification history for this game.
+     */
+    public function discordNotificationHistory(): HasMany
+    {
+        return $this->hasMany(DiscordNotificationHistory::class);
+    }
+
+    /**
      * Get all user progress records for this game.
      */
     public function userProgress(): HasMany
@@ -164,6 +246,266 @@ class Game extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+
+    // ========== Platform Support Scopes ==========
+
+    /**
+     * Scope to find games by URL (searches across all platform URLs in JSONB)
+     */
+    public function scopeByUrl($query, string $url)
+    {
+        return $query->where(function ($q) use ($url) {
+            // Search for the URL in any platform key within the JSONB
+            $q->whereRaw("url->>'itch_io' = ?", [$url])
+                ->orWhereRaw("url->>'steam' = ?", [$url])
+                ->orWhereRaw("url->>'other' = ?", [$url]);
+        });
+    }
+
+    /**
+     * Scope to OR find games by URL (for use in complex where clauses)
+     */
+    public function scopeOrByUrl($query, string $url)
+    {
+        return $query->orWhere(function ($q) use ($url) {
+            // Search for the URL in any platform key within the JSONB
+            $q->whereRaw("url->>'itch_io' = ?", [$url])
+                ->orWhereRaw("url->>'steam' = ?", [$url])
+                ->orWhereRaw("url->>'other' = ?", [$url]);
+        });
+    }
+
+    /**
+     * Scope to find games by URL for a specific platform
+     */
+    public function scopeByUrlForPlatform($query, string $url, string $platform)
+    {
+        return $query->whereRaw("url->>'$platform' = ?", [$url]);
+    }
+
+    /**
+     * Scope to filter games by platform
+     */
+    public function scopeFromPlatform($query, string $platform)
+    {
+        return $query->where('platform', $platform);
+    }
+
+    /**
+     * Scope to filter itch.io games only
+     */
+    public function scopeFromItchio($query)
+    {
+        return $query->where('platform', 'itch_io');
+    }
+
+    /**
+     * Scope to filter Steam games only
+     */
+    public function scopeFromSteam($query)
+    {
+        return $query->where('platform', 'steam');
+    }
+
+    /**
+     * Scope to filter games from other platforms
+     */
+    public function scopeFromOther($query)
+    {
+        return $query->where('platform', 'other');
+    }
+
+    // ========== Platform Support Helper Methods ==========
+
+    /**
+     * Check if this is an itch.io game
+     */
+    public function isItchioGame(): bool
+    {
+        return $this->platform === 'itch_io';
+    }
+
+    /**
+     * Check if this is a Steam game
+     */
+    public function isSteamGame(): bool
+    {
+        return $this->platform === 'steam';
+    }
+
+    /**
+     * Check if this is a game from another platform
+     */
+    public function isOtherGame(): bool
+    {
+        return $this->platform === 'other';
+    }
+
+    /**
+     * Get the human-readable platform name
+     */
+    public function getPlatformName(): string
+    {
+        return match ($this->platform) {
+            'itch_io' => 'itch.io',
+            'steam' => 'Steam',
+            'other' => 'Other',
+            default => 'Unknown',
+        };
+    }
+
+    // ========== Multi-Platform URL Methods ==========
+
+    /**
+     * Get URL for a specific platform
+     */
+    public function getUrlForPlatform(string $platform): ?string
+    {
+        $urls = $this->url ?? [];
+        return $urls[$platform] ?? null;
+    }
+
+    /**
+     * Get the primary URL (based on the game's platform)
+     */
+    public function getPrimaryUrl(): ?string
+    {
+        return $this->getUrlForPlatform($this->platform);
+    }
+
+    /**
+     * Accessor for primary_url attribute (for frontend serialization)
+     */
+    protected function primaryUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->getPrimaryUrl()
+        );
+    }
+
+    /**
+     * Get all available URLs for this game
+     */
+    public function getAllUrls(): array
+    {
+        return $this->url ?? [];
+    }
+
+    /**
+     * Set URL for a specific platform
+     */
+    public function setUrlForPlatform(string $platform, string $url): void
+    {
+        $urls = $this->url ?? [];
+        $urls[$platform] = $url;
+        $this->url = $urls;
+    }
+
+    /**
+     * Check if game has URL for a specific platform
+     */
+    public function hasUrlForPlatform(string $platform): bool
+    {
+        $urls = $this->url ?? [];
+        return isset($urls[$platform]) && !empty($urls[$platform]);
+    }
+
+    // ========== Content Type Scopes ==========
+
+    /**
+     * Scope to filter visual novels (listed on fvn.li)
+     */
+    public function scopeVisualNovels($query)
+    {
+        return $query->where('content_type', 'visual_novel');
+    }
+
+    /**
+     * Scope to filter adjacent games (related but not VNs)
+     */
+    public function scopeAdjacentGames($query)
+    {
+        return $query->where('content_type', 'adjacent');
+    }
+
+    /**
+     * Scope to filter other content (non-FVN)
+     */
+    public function scopeOtherContent($query)
+    {
+        return $query->where('content_type', 'other');
+    }
+
+    /**
+     * Scope to filter content that should be listed on fvn.li
+     */
+    public function scopePublicContent($query)
+    {
+        return $query->where('content_type', 'visual_novel');
+    }
+
+    /**
+     * Scope to filter content tracked by bot but not listed on fvn.li
+     */
+    public function scopeBotOnlyContent($query)
+    {
+        return $query->whereIn('content_type', ['adjacent', 'other']);
+    }
+
+    // ========== Content Type Helper Methods ==========
+
+    /**
+     * Check if this is a visual novel (listed on fvn.li)
+     */
+    public function isVisualNovel(): bool
+    {
+        return $this->content_type === 'visual_novel';
+    }
+
+    /**
+     * Check if this is an adjacent game (related but not VN)
+     */
+    public function isAdjacentGame(): bool
+    {
+        return $this->content_type === 'adjacent';
+    }
+
+    /**
+     * Check if this is other content (non-FVN)
+     */
+    public function isOtherContent(): bool
+    {
+        return $this->content_type === 'other';
+    }
+
+    /**
+     * Check if this content should be listed on fvn.li
+     */
+    public function isPublicContent(): bool
+    {
+        return $this->content_type === 'visual_novel';
+    }
+
+    /**
+     * Check if this content is bot-only (not listed on fvn.li)
+     */
+    public function isBotOnlyContent(): bool
+    {
+        return in_array($this->content_type, ['adjacent', 'other'], true);
+    }
+
+    /**
+     * Get the human-readable content type name
+     */
+    public function getContentTypeName(): string
+    {
+        return match ($this->content_type) {
+            'visual_novel' => 'Visual Novel',
+            'adjacent' => 'Adjacent Game',
+            'other' => 'Other Content',
+            default => 'Unknown',
+        };
     }
 
     /**
@@ -517,7 +859,10 @@ class Game extends Model
             'supported_languages' => $supportedLanguages,
             'english_word_count' => $englishWordCount,
 
-            // Platform support (from latest version)
+            // Store platform (where game is hosted)
+            'platform' => $this->platform,
+
+            // Platform support (from latest version - where game runs)
             'latest_version_id' => $latestVersion ? $latestVersion->id : null,
             'is_windows' => $latestVersion ? $latestVersion->is_windows : false,
             'is_linux' => $latestVersion ? $latestVersion->is_linux : false,
@@ -610,7 +955,7 @@ class Game extends Model
     {
         try {
             // Use cached HTML to avoid duplicate requests
-            $response = $this->getCachedResponse($this->url, [], true);
+            $response = $this->getCachedResponse($this->getPrimaryUrl(), [], true);
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 

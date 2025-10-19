@@ -44,6 +44,7 @@ interface Game {
     latest_version?: GameVersion;
     game_versions?: GameVersion[];
     user_progress?: UserGameProgress[];
+    platform?: 'itch_io' | 'steam' | 'other';
 }
 
 interface UserGameProgress {
@@ -653,7 +654,7 @@ const GameEntry = React.memo(function GameEntry({
                         <img
                             src={getOptimizedThumbnail(game)}
                             alt={game.effective_name}
-                            className="h-32 w-32 rounded object-cover"
+                            className={`h-32 w-32 rounded ${game.platform === 'steam' ? 'object-contain' : 'object-cover'}`}
                             loading="lazy"
                         />
                     </Link>

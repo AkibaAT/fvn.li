@@ -49,8 +49,9 @@ class CheckSuspendedGames extends Command
         $this->info('Starting suspension check for games');
 
         try {
-            // Build query for games
+            // Build query for games - only itch.io games for now
             $query = Game::query()
+                ->fromItchio()
                 ->where('is_visible', true)
                 ->orderBy($this->option('sort'));
 
@@ -137,11 +138,17 @@ class CheckSuspendedGames extends Command
     private function checkGameSuspension(Game $game, ItchHttpClientService $itchClient): ?bool
     {
         try {
+            $gameUrl = $game->getPrimaryUrl();
+            if (!$gameUrl) {
+                $this->warn("  → No URL found for game {$game->name}");
+                return null;
+            }
+
             // Fetch the game's project page using anonymous client to avoid authentication issues
-            $response = $itchClient->get($game->url, [], true);
+            $response = $itchClient->get($gameUrl, [], true);
 
             if ($response->getStatusCode() !== 200) {
-                $this->warn("  → Received HTTP {$response->getStatusCode()} for {$game->url}");
+                $this->warn("  → Received HTTP {$response->getStatusCode()} for {$gameUrl}");
 
                 return null;
             }
