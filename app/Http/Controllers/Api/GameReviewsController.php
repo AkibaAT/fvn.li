@@ -201,6 +201,7 @@ class GameReviewsController extends Controller
         // Try by internal game ID first (most direct)
         if ($request->filled('game_id')) {
             $game = Game::where('id', $request->input('game_id'))
+                ->fromItchio()
                 ->first();
             if ($game) {
                 return $game;
@@ -209,7 +210,8 @@ class GameReviewsController extends Controller
 
         // Try by itch.io game ID
         if ($request->filled('itch_game_id')) {
-            $game = Game::where('game_id', $request->input('itch_game_id'))
+            $game = Game::where('itch_id', $request->input('itch_game_id'))
+                ->fromItchio()
                 ->first();
             if ($game) {
                 return $game;
@@ -221,7 +223,8 @@ class GameReviewsController extends Controller
             $url = $request->input('url');
 
             // First try direct URL match
-            $game = Game::where('url', $url)
+            $game = Game::byUrl($url)
+                ->fromItchio()
                 ->first();
             if ($game) {
                 return $game;
@@ -230,7 +233,8 @@ class GameReviewsController extends Controller
             // Try to extract itch.io game ID from URL and find by that
             try {
                 $itchGameId = $this->itchAuthService->getGameId($url);
-                $game = Game::where('game_id', $itchGameId)
+                $game = Game::where('itch_id', $itchGameId)
+                    ->fromItchio()
                     ->first();
                 if ($game) {
                     return $game;
@@ -245,12 +249,13 @@ class GameReviewsController extends Controller
             // Try normalized URL matching (similar to AdditionRequest logic)
             $normalizedUrl = $this->normalizeUrl($url);
             $game = Game::where(function ($query) use ($url, $normalizedUrl) {
-                $query->where('url', $url)
-                    ->orWhere('url', 'https://' . $normalizedUrl)
-                    ->orWhere('url', 'http://' . $normalizedUrl)
-                    ->orWhere('url', 'https://www.' . $normalizedUrl)
-                    ->orWhere('url', 'http://www.' . $normalizedUrl);
+                $query->byUrl($url)
+                    ->orByUrl('https://' . $normalizedUrl)
+                    ->orByUrl('http://' . $normalizedUrl)
+                    ->orByUrl('https://www.' . $normalizedUrl)
+                    ->orByUrl('http://www.' . $normalizedUrl);
             })
+                ->fromItchio()
                 ->first();
             if ($game) {
                 return $game;

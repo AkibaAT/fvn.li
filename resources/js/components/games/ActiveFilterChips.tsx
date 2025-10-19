@@ -1,4 +1,6 @@
 import React from 'react';
+import ItchioIcon from '@/components/icons/itchio';
+import SteamIcon from '@/components/icons/steam';
 
 interface ActiveChip {
     key: string;
@@ -14,6 +16,7 @@ interface ActiveFilterChipsProps {
     onClearAll: () => void;
     getChipColorClass: (type?: string) => string;
     getPlatformIcon: (platform: string) => { icon: string; color: string } | undefined;
+    getStorePlatformIcon?: (platform: string) => { color: string; title: string; label: string } | undefined;
 }
 
 export default function ActiveFilterChips({
@@ -21,6 +24,7 @@ export default function ActiveFilterChips({
     onClearAll,
     getChipColorClass,
     getPlatformIcon,
+    getStorePlatformIcon,
 }: ActiveFilterChipsProps) {
     if (chips.length === 0) {
         return (
@@ -49,6 +53,38 @@ export default function ActiveFilterChips({
                         <i
                             className={`${getPlatformIcon(chip.value)?.icon} ${getPlatformIcon(chip.value)?.color} mr-0.5`}
                         />
+                    ) : null}
+                    {chip.type === 'storePlatform' && chip.value && getStorePlatformIcon?.(chip.value) ? (
+                        (() => {
+                            const iconMeta = getStorePlatformIcon(chip.value);
+                            const renderIcon = () => {
+                                switch (chip.value) {
+                                    case 'itch_io':
+                                        return <ItchioIcon className={`h-4 w-4 ${iconMeta?.color} mr-0.5`} />;
+                                    case 'steam':
+                                        return <SteamIcon className={`h-4 w-4 ${iconMeta?.color} mr-0.5`} />;
+                                    case 'other':
+                                        return (
+                                            <svg
+                                                className={`h-4 w-4 ${iconMeta?.color} mr-0.5`}
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                aria-hidden="true"
+                                            >
+                                                <circle cx="12" cy="12" r="10" />
+                                                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                            </svg>
+                                        );
+                                    default:
+                                        return null;
+                                }
+                            };
+                            return renderIcon();
+                        })()
                     ) : null}
                     {chip.label}
                     {chip.onClear && (

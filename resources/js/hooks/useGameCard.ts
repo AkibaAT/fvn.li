@@ -28,7 +28,9 @@ export interface GameCardGame {
     is_paid?: boolean;
     has_demo?: boolean;
     is_on_sale?: boolean;
-    // platforms
+    // store platform (itch.io, steam, other)
+    platform?: 'itch_io' | 'steam' | 'other';
+    // game platforms (OS support)
     is_windows?: boolean;
     is_linux?: boolean;
     is_mac?: boolean;

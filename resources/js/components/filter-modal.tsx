@@ -1,6 +1,8 @@
 import React, {useEffect, useRef} from 'react';
 import {router} from '@inertiajs/react';
 import MultiSelect from '@/components/multi-select';
+import ItchioIcon from '@/components/icons/itchio';
+import SteamIcon from '@/components/icons/steam';
 import type {CurrentFilters, FilterOptions} from '@/types';
 
 interface FilterModalProps {
@@ -98,6 +100,7 @@ export function FilterModal({
             status: 'selectedStatuses',
             engine: 'selectedEngines',
             platform: 'selectedPlatforms',
+            storePlatform: 'selectedStorePlatforms',
             language: 'selectedLanguages',
             gameJam: 'selectedGameJams',
             tag: 'selectedTags',
@@ -375,6 +378,66 @@ export function FilterModal({
                                         className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
                                     >
                                         Clear all platforms
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Store Platforms */}
+                        <div>
+                            <h3 className="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
+                                <span className="mr-2 h-2 w-2 rounded-full bg-orange-500"></span>
+                                Store Platforms
+                            </h3>
+                            <div className="space-y-2">
+                                <MultiSelect
+                                    title="Store Platforms"
+                                    items={filters.storePlatforms}
+                                    selectedItems={currentFilters.selectedStorePlatforms || []}
+                                    onToggle={(value) => toggleFilter('storePlatform', value)}
+                                    placeholder="Select store platforms..."
+                                    renderItem={(value, label) => {
+                                        const renderIcon = () => {
+                                            switch (value) {
+                                                case 'itch_io':
+                                                    return <ItchioIcon className="h-4 w-4 text-orange-600 dark:text-orange-400 mr-2" />;
+                                                case 'steam':
+                                                    return <SteamIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 mr-2" />;
+                                                case 'other':
+                                                    return (
+                                                        <svg
+                                                            className="h-4 w-4 text-gray-600 dark:text-gray-400 mr-2"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <circle cx="12" cy="12" r="10" />
+                                                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                                        </svg>
+                                                    );
+                                                default:
+                                                    return null;
+                                            }
+                                        };
+                                        return (
+                                            <div className="flex items-center">
+                                                {renderIcon()}
+                                                <span>{typeof label === 'string' ? label : label.name || label.ref_name || value}</span>
+                                            </div>
+                                        );
+                                    }}
+                                />
+                                {currentFilters.selectedStorePlatforms && currentFilters.selectedStorePlatforms.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateFilters({selectedStorePlatforms: []})}
+                                        className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                                    >
+                                        Clear all store platforms
                                     </button>
                                 )}
                             </div>

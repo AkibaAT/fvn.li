@@ -8,6 +8,7 @@ import EditableGameContent from '@/components/editor/EditableGameContent';
 import GameCardUserSection from '@/components/game-card-user-section';
 import ScreenshotsGallery from '@/components/games/ScreenshotsGallery';
 import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox';
+import PlatformLink from '@/components/game-card/PlatformLink';
 
 import DownloadsList from '@/components/games/DownloadsList';
 import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
@@ -155,6 +156,7 @@ interface Game {
     sale_discount_percent?: number;
     discount_percentage?: number;
     url?: string;
+    platform?: 'itch_io' | 'steam' | 'other';
     custom_css?: string;
     custom_tags?: string;
     is_visible?: boolean;
@@ -1003,17 +1005,12 @@ export default function GameShow({
                             </h1>
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 {game.url && (
-                                    <a
-                                        href={route('track.external-project', {
-                                            game_id: game.id,
-                                            url: game.url,
-                                        })}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline dark:text-blue-400"
-                                    >
-                                        Visit Game Page
-                                    </a>
+                                    <PlatformLink
+                                        url={game.url}
+                                        platform={game.platform}
+                                        gameId={game.id}
+                                        className="inline-flex items-center gap-2 font-medium transition-colors text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                    />
                                 )}
                             </div>
                         </div>

@@ -55,13 +55,19 @@ class GameDataSyncService
      * @throws DateMalformedStringException
      * @throws BindingResolutionException
      * @throws GuzzleException
+     * @throws Exception
      */
     public function refreshBaseInfo(Game $game): void
     {
+        // Only itch.io games can be refreshed from itch.io API
+        if (!$game->isItchioGame()) {
+            throw new Exception("Cannot refresh base info for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
+        }
+
         // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
 
-        $url = "https://api.itch.io/games/{$game->game_id}";
+        $url = "https://api.itch.io/games/{$game->itch_id}";
 
         $response = $itchClient->get($url);
         $gameData = json_decode($response->getBody()->getContents(), true);
@@ -81,6 +87,11 @@ class GameDataSyncService
      */
     public function refreshVersion(Game $game, bool $force = false): void
     {
+        // Only itch.io games can be refreshed from itch.io API
+        if (!$game->isItchioGame()) {
+            throw new Exception("Cannot refresh versions for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
+        }
+
         DB::beginTransaction();
 
         try {
@@ -396,7 +407,7 @@ class GameDataSyncService
         DB::beginTransaction();
 
         try {
-            $response = $this->getCachedResponse($game, $game->url, [], true);
+            $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
@@ -560,7 +571,7 @@ class GameDataSyncService
     {
         try {
             // Use cached HTML to avoid duplicate requests
-            $response = $this->getCachedResponse($game, $game->url, [], true);
+            $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 

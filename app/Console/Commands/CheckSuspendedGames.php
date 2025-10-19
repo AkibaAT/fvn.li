@@ -49,8 +49,9 @@ class CheckSuspendedGames extends Command
         $this->info('Starting suspension check for games');
 
         try {
-            // Build query for games
+            // Build query for games - only itch.io games for now
             $query = Game::query()
+                ->fromItchio()
                 ->where('is_visible', true)
                 ->orderBy($this->option('sort'));
 

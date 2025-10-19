@@ -7,8 +7,10 @@ import GameLanguagePill from './game-card/GameLanguagePill';
 import GameTagSection from './game-card/GameTagSection';
 import GameStatusBadge from './game-card/GameStatusBadge';
 import GameContentBadge from './game-card/GameContentBadge';
+import StorePlatformBadge from './game-card/StorePlatformBadge';
 import {useGameCard, type GameCardProps} from '@/hooks/useGameCard';
 import {usePlatformIcons} from '@/hooks/usePlatformIcons';
+import {useStorePlatformIcons} from '@/hooks/useStorePlatformIcons';
 import type {Game} from '@/types';
 
 export default function GameCard(props: GameCardProps) {
@@ -33,8 +35,10 @@ export default function GameCard(props: GameCardProps) {
 
     const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale} = props;
     const {getSupportedPlatforms, getPlatformIcon} = usePlatformIcons();
+    const {getStorePlatformIcon, getStorePlatformFromString} = useStorePlatformIcons();
 
     const supportedPlatforms = getSupportedPlatforms(game);
+    const storePlatform = game.platform ? getStorePlatformFromString(game.platform) : 'itch_io';
 
     return (
         <div
@@ -50,6 +54,16 @@ export default function GameCard(props: GameCardProps) {
 
                     {/* Metadata */}
                     <GameMetadata game={game} />
+
+                    {/* Store Platform Badge */}
+                    {storePlatform && (
+                        <div className="flex items-center gap-2">
+                            <StorePlatformBadge
+                                platform={storePlatform}
+                                iconMeta={getStorePlatformIcon(storePlatform)}
+                            />
+                        </div>
+                    )}
 
                     {/* Platforms */}
                     <div className="h-8 border-t border-gray-100 pt-2 dark:border-gray-700/50">

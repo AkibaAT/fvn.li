@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {FilterModal} from '@/components/filter-modal';
 import {useGameFilters} from '@/hooks/useGameFilters';
 import {usePlatformIcons, type GameCardPlatform} from '@/hooks/usePlatformIcons';
+import {useStorePlatformIcons, type StorePlatform} from '@/hooks/useStorePlatformIcons';
 import ActiveFilterChips from '@/components/games/ActiveFilterChips';
 import SortControls from '@/components/games/SortControls';
 import GamesGrid from '@/components/games/GamesGrid';
@@ -42,6 +43,7 @@ interface GamesIndexGame {
     is_mac?: boolean;
     is_android?: boolean;
     is_web?: boolean;
+    platform?: 'itch_io' | 'steam' | 'other';
     english_word_count?: number;
     trending_score?: number;
     initially_published_at?: string;
@@ -107,10 +109,18 @@ export default function GamesIndex({
 
     // Use the platform icons hook
     const {getPlatformIcon: getTypedPlatformIcon} = usePlatformIcons();
-    
+
     // Wrapper function to match the expected interface
     const getPlatformIcon = (platform: string) => {
         return getTypedPlatformIcon(platform as GameCardPlatform);
+    };
+
+    // Use the store platform icons hook
+    const {getStorePlatformIcon: getTypedStorePlatformIcon} = useStorePlatformIcons();
+
+    // Wrapper function for store platform icons
+    const getStorePlatformIcon = (platform: string) => {
+        return getTypedStorePlatformIcon(platform as StorePlatform);
     };
 
     // Normalize pagination meta in case backend shape varies or meta is missing
@@ -230,6 +240,7 @@ export default function GamesIndex({
                                 onClearAll={clearFilters}
                                 getChipColorClass={getChipColorClass}
                                 getPlatformIcon={getPlatformIcon}
+                                getStorePlatformIcon={getStorePlatformIcon}
                             />
                         </div>
 
