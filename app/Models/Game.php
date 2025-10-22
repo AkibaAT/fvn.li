@@ -114,6 +114,20 @@ class Game extends Model
     ];
 
     /**
+     * Get the attributes that should be converted to arrays for database storage.
+     * Excludes temporary in-memory properties that are not database columns.
+     */
+    protected function getArrayableAttributes(): array
+    {
+        $attributes = parent::getArrayableAttributes();
+
+        // Remove temporary properties that should not be persisted to database
+        unset($attributes['pendingGameJamId'], $attributes['pendingTagIds']);
+
+        return $attributes;
+    }
+
+    /**
      * Get the latest version of the game.
      */
     public function latestVersion(): HasOne

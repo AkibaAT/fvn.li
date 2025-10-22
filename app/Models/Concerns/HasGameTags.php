@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Log;
 
 trait HasGameTags
 {
-    protected array $pendingGameJamId = [];
-
-    protected array $pendingTagIds = [];
+    /**
+     * Temporary in-memory storage for pending associations (not persisted to database)
+     */
+    public array $pendingGameJamId = [];
+    public array $pendingTagIds = [];
 
     /**
      * Get all tags associated with this game
