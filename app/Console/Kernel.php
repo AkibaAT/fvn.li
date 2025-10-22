@@ -64,6 +64,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:refresh-feedless', ['--all'])->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
         $schedule->command('games:process-screenshots', ['--all'])->dailyAt('03:00')->withoutOverlapping();
+        $schedule->command('games:process-thumbnails', ['--all'])->dailyAt('04:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details')->hourly()->withoutOverlapping();
         $schedule->command('fix:characters')->weekly()->sundays()->at('03:00')->withoutOverlapping();
 
