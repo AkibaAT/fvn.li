@@ -198,11 +198,15 @@ class MeilisearchSetup extends Command
 
             $this->info('    ✅ Games imported');
 
-            // Import dialogue lines
+            // Import dialogue lines (only from latest versions)
             $dialogueCount = DialogueLine::whereHas('text', function ($query) {
                 $query->whereRaw("trim(text_content) != ''");
-            })->count();
-            $this->line("  - Importing {$dialogueCount} dialogue lines...");
+            })
+                ->whereHas('gameVersion', function ($query) {
+                    $query->where('is_latest', true);
+                })
+                ->count();
+            $this->line("  - Importing {$dialogueCount} dialogue lines from latest versions...");
 
             $bar = $this->output->createProgressBar($dialogueCount);
             $bar->start();
@@ -212,6 +216,9 @@ class MeilisearchSetup extends Command
             DialogueLine::whereHas('text', function ($query) {
                 $query->whereRaw("trim(text_content) != ''");
             })
+                ->whereHas('gameVersion', function ($query) {
+                    $query->where('is_latest', true);
+                })
                 ->with(['text', 'character', 'gameVersion.game'])
                 ->chunk(500, function ($dialogueLines) use ($bar, &$errors) {
                     try {

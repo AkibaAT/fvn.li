@@ -200,10 +200,16 @@ class DialogueLine extends Model
 
     /**
      * Determine if the model should be searchable.
+     * Only index dialogue lines from the latest version of each game.
      */
     public function shouldBeSearchable(): bool
     {
         // Only index lines that have actual text content
-        return !empty(trim($this->text?->text_content ?? ''));
+        if (empty(trim($this->text?->text_content ?? ''))) {
+            return false;
+        }
+
+        // Only index lines from the latest version
+        return $this->gameVersion?->is_latest ?? false;
     }
 }

@@ -333,7 +333,8 @@ class DialogueController extends Controller
     }
 
     /**
-     * Search dialogue lines similar to production behavior.
+     * Search dialogue texts using Meilisearch, then fetch actual dialogue lines.
+     * Returns dialogue lines with full context information.
      */
     public function searchDialogue(Request $request, DialogueSearchService $service): JsonResponse
     {
@@ -361,9 +362,41 @@ class DialogueController extends Controller
 
         $paginator = $service->search($request->input('q'), $filters, $perPage, $page);
 
+        // Transform DialogueLine results to include full context information
+        $transformedData = collect($paginator->items())->map(function ($line) use ($filters) {
+            // Get character display name
+            $characterName = null;
+            if ($line->character) {
+                $language = $filters['language'] ?? 'eng';
+                $displayNames = $line->character->display_names ?? [];
+                $characterName = $displayNames[$language] ?? ($displayNames['eng'] ?? $line->character->character_id);
+            }
+
+            return [
+                'id' => $line->id,
+                'text_content' => $line->text_content,
+                'highlighted_text' => $line->highlighted_text ?? $line->text_content,
+                'context' => $line->context,
+                'file_path' => $line->file_path,
+                'line_number' => $line->line_number,
+                'character_id' => $line->character?->character_id,
+                'character_name' => $characterName,
+                'iso_code' => $line->iso_code,
+                'game_version_id' => $line->game_version_id,
+                'game' => $line->gameVersion?->game ? [
+                    'id' => $line->gameVersion->game->id,
+                    'name' => $line->gameVersion->game->name,
+                ] : null,
+                'version' => $line->gameVersion ? [
+                    'id' => $line->gameVersion->id,
+                    'version' => $line->gameVersion->version,
+                ] : null,
+            ];
+        })->toArray();
+
         return response()->json([
             'success' => true,
-            'data' => $paginator->items(),
+            'data' => $transformedData,
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),

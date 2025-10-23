@@ -34,9 +34,12 @@ class SearchIndexService
                 $stats['games'] += $games->count();
             });
 
-            // Reindex dialogue lines
+            // Reindex dialogue lines (only from latest versions)
             // Eager load relationships to avoid N+1 queries during indexing
-            DialogueLine::with(['text', 'character', 'gameVersion.game'])
+            DialogueLine::whereHas('gameVersion', function ($query) {
+                $query->where('is_latest', true);
+            })
+                ->with(['text', 'character', 'gameVersion.game'])
                 ->chunk(1000, function ($lines) use (&$stats) {
                     $lines->searchable();
                     $stats['dialogue_lines'] += $lines->count();

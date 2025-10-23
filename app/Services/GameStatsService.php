@@ -427,16 +427,14 @@ readonly class GameStatsService
             }
         }
 
-        // Index all dialogue lines for this version to Meilisearch
+        // Index dialogue lines for this version to Meilisearch (if it's the latest version)
         // This is done after bulk insert since DB::table()->insert() bypasses Eloquent/Scout
+        // Note: Only lines from the latest version will be indexed (see DialogueLine::shouldBeSearchable())
         DialogueLine::where('game_version_id', $version->id)
             ->with(['text', 'character', 'gameVersion.game'])
             ->chunk(1000, function ($lines) {
                 $lines->searchable();
             });
-
-        // Note: Search indexing happens automatically via Scout when UniqueDialogueText records are created
-        // No need to manually update the search index here
     }
 
     /**
