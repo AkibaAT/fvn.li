@@ -510,16 +510,7 @@ class GameDataSyncService
 
             // Check NSFW status
             $nsfw = $doc->querySelector('div.content_warning_inner');
-
-            // Store the current blur_screenshots value before updating is_nsfw
-            $currentBlurScreenshots = $game->blur_screenshots;
-
             $game->is_nsfw = $nsfw !== null;
-
-            // Restore the blur_screenshots value if it was explicitly set before
-            if ($game->exists && $game->isDirty('blur_screenshots')) {
-                $game->blur_screenshots = $currentBlurScreenshots;
-            }
 
             // Save all metadata changes within the transaction
             Log::info('About to save game metadata', [

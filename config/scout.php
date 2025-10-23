@@ -184,7 +184,6 @@ return [
 
                     // Content flags
                     'is_nsfw',
-                    'blur_screenshots',
 
                     // Pricing and availability
                     'is_paid',
@@ -257,7 +256,6 @@ return [
                     'is_visible',
                     'is_suspended',
                     'is_nsfw',
-                    'blur_screenshots',
                     'is_paid',
                     'has_demo',
                     'min_price',

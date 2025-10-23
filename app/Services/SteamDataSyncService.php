@@ -229,8 +229,11 @@ class SteamDataSyncService
         // Extract content descriptors (NSFW check)
         if (isset($appData['content_descriptors']['ids']) && is_array($appData['content_descriptors']['ids'])) {
             // Steam content descriptor IDs: 3 = Nudity or Sexual Content, 4 = Adult Only Sexual Content
-            $game->is_nsfw = in_array(3, $appData['content_descriptors']['ids']) || 
+            $game->is_nsfw = in_array(3, $appData['content_descriptors']['ids']) ||
                             in_array(4, $appData['content_descriptors']['ids']);
+        } else {
+            // No content descriptors means SFW game
+            $game->is_nsfw = false;
         }
 
         // Determine status based on release date

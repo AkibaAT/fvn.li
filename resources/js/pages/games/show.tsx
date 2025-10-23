@@ -166,7 +166,6 @@ interface Game {
     custom_tags?: string;
     is_visible?: boolean;
     is_suspended?: boolean;
-    blur_screenshots?: boolean;
     hasAdditionalLinks?: () => boolean;
     created_at: string;
     updated_at: string;
@@ -1460,7 +1459,7 @@ export default function GameShow({
             {((currentScreenshots && currentScreenshots.length > 0) || editPermissions.canEdit) && (
                 <ScreenshotsGallery
                     screenshots={currentScreenshots}
-                    blur={!!game.blur_screenshots}
+                    blur={!!game.is_nsfw}
                     onOpenLightbox={openLightbox}
                     canEdit={editPermissions.canEdit}
                     gameSlug={game.slug}
