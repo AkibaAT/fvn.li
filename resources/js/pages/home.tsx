@@ -60,9 +60,10 @@ interface HomeProps {
         mostPopular: Game[];
     };
     metaTags?: MetaTags;
+    ignoredGameIds?: number[];
 }
 
-export default function Home({stats, teasers, metaTags}: HomeProps) {
+export default function Home({stats, teasers, metaTags, ignoredGameIds = []}: HomeProps) {
     return (
         <>
             <SeoHead metaTags={metaTags} />
@@ -149,7 +150,7 @@ export default function Home({stats, teasers, metaTags}: HomeProps) {
                             </div>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                                 {teasers.recentlyAdded.map((game) => (
-                                    <GameCard key={game.id} game={game}/>
+                                    <GameCard key={game.id} game={game} ignoredGameIds={ignoredGameIds}/>
                                 ))}
                             </div>
                         </div>
@@ -173,7 +174,7 @@ export default function Home({stats, teasers, metaTags}: HomeProps) {
                             </div>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                                 {teasers.recentlyUpdated.map((game) => (
-                                    <GameCard key={game.id} game={game}/>
+                                    <GameCard key={game.id} game={game} ignoredGameIds={ignoredGameIds}/>
                                 ))}
                             </div>
                         </div>
@@ -197,7 +198,7 @@ export default function Home({stats, teasers, metaTags}: HomeProps) {
                             </div>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                                 {teasers.mostPopular.map((game) => (
-                                    <GameCard key={game.id} game={game}/>
+                                    <GameCard key={game.id} game={game} ignoredGameIds={ignoredGameIds}/>
                                 ))}
                             </div>
                         </div>

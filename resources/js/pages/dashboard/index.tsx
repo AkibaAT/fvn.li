@@ -47,6 +47,17 @@ interface AdditionRequest {
     };
 }
 
+interface IgnoredGame {
+    id: number;
+    name: string;
+    slug: string;
+    thumb_url?: string;
+    optimized_thumbnails?: {
+        default?: { path: string; width: number; height: number };
+    };
+    platform?: 'itch_io' | 'steam' | 'other';
+}
+
 interface DashboardProps {
     user: User;
     connectedProviders: string[];
@@ -58,6 +69,8 @@ interface DashboardProps {
     };
     notificationPreferences: NotificationPreferences;
     recentRequests: AdditionRequest[];
+    ignoredGames: IgnoredGame[];
+    ignoredGamesCount: number;
     metaTags?: {
         title?: string;
     };
@@ -73,6 +86,8 @@ export default function Dashboard({
                                       itchioData: itchioDataInitial,
                                       notificationPreferences: notificationPreferencesInitial,
                                       recentRequests: recentRequestsInitial,
+                                      ignoredGames: ignoredGamesInitial,
+                                      ignoredGamesCount: ignoredGamesCountInitial,
                                       metaTags,
                                   }: DashboardProps) {
     // Local interactive state hydrated from server props
@@ -82,6 +97,8 @@ export default function Dashboard({
     const [savingPrefs, setSavingPrefs] = useState(false);
 
     const [itchioData] = useState(itchioDataInitial);
+    const [ignoredGames, setIgnoredGames] = useState<IgnoredGame[]>(ignoredGamesInitial || []);
+    const [ignoredGamesCount, setIgnoredGamesCount] = useState(ignoredGamesCountInitial || 0);
 
     const [requestText, setRequestText] = useState('');
     type SubmissionResult = {
@@ -416,6 +433,29 @@ export default function Dashboard({
     const handleExportData = () => {
         if (typeof window === 'undefined') return;
         window.location.href = route('react-api.user.export');
+    };
+
+    const handleUnignoreGame = async (gameId: number) => {
+        try {
+            const response = await authenticatedFetch(route('user.ignored-games.destroy'), {
+                method: 'DELETE',
+                body: JSON.stringify({ game_id: gameId }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove from local state
+                setIgnoredGames(prev => prev.filter(g => g.id !== gameId));
+                setIgnoredGamesCount(prev => prev - 1);
+                toast.success('Game removed from ignore list');
+            } else {
+                toast.error(data.message || 'Failed to remove game from ignore list');
+            }
+        } catch (error) {
+            console.error('Failed to unignore game:', error);
+            toast.error('Failed to remove game from ignore list');
+        }
     };
 
     return (<>
@@ -1319,6 +1359,116 @@ export default function Dashboard({
                             >
                         }
                     />
+
+                    {/* Ignored Games Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Ignored Games
+                                </h2>
+                                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                    {ignoredGamesCount} {ignoredGamesCount === 1 ? 'game' : 'games'}
+                                </span>
+                            </div>
+
+                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                                Games you've ignored won't appear in search results by default. You can manage your ignored games here.
+                            </p>
+
+                            {ignoredGames.length > 0 ? (
+                                <>
+                                    <div className="space-y-3">
+                                        {ignoredGames.map((game) => {
+                                            const thumbnailUrl = game.optimized_thumbnails?.default?.path || game.thumb_url;
+
+                                            return (
+                                                <div
+                                                    key={game.id}
+                                                    className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:bg-gray-800"
+                                                >
+                                                    <Link
+                                                        href={route('games.show', game.slug)}
+                                                        className="flex-shrink-0"
+                                                    >
+                                                        {thumbnailUrl ? (
+                                                            <img
+                                                                src={thumbnailUrl}
+                                                                alt={game.name}
+                                                                className="h-16 w-16 rounded object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex h-16 w-16 items-center justify-center rounded bg-gray-200 text-2xl dark:bg-gray-700">
+                                                                🎮
+                                                            </div>
+                                                        )}
+                                                    </Link>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <Link
+                                                            href={route('games.show', game.slug)}
+                                                            className="block font-medium text-gray-900 hover:text-blue-600 dark:text-white dark:hover:text-blue-400"
+                                                        >
+                                                            <div className="truncate">{game.name}</div>
+                                                        </Link>
+                                                        {game.platform && (
+                                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                                {game.platform === 'itch_io' ? 'itch.io' : game.platform === 'steam' ? 'Steam' : 'Other'}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <button
+                                                        onClick={() => handleUnignoreGame(game.id)}
+                                                        className="flex-shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                                                        title="Remove from ignore list"
+                                                    >
+                                                        Unignore
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {ignoredGamesCount > 10 && (
+                                        <div className="mt-4 text-center">
+                                            <Link
+                                                href={route('games.index', { showIgnored: true })}
+                                                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                            >
+                                                View all {ignoredGamesCount} ignored games
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </Link>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="py-8 text-center">
+                                    <svg
+                                        className="mx-auto h-12 w-12 text-gray-400"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                                        />
+                                    </svg>
+                                    <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                                        No ignored games
+                                    </h3>
+                                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        You haven't ignored any games yet. Click the ignore button on any game card to hide it from search results.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
                     {/* Danger Zone */}
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">

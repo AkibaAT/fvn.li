@@ -110,6 +110,16 @@ Route::middleware(['auth'])->group(function () {
         ->name('users.dashboard.version-comparison');
     Route::put('user-progress/{game:id}', [UserGameProgressController::class, 'update'])
         ->name('user-progress.update');
+
+    // User Preferences - Ignored Games
+    Route::get('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'getIgnoredGames'])
+        ->name('user.ignored-games.index');
+    Route::post('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'ignoreGame'])
+        ->name('user.ignored-games.store');
+    Route::delete('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'unignoreGame'])
+        ->name('user.ignored-games.destroy');
+    Route::post('user/ignored-games/toggle', [\App\Http\Controllers\UserPreferencesController::class, 'toggleIgnoreGame'])
+        ->name('user.ignored-games.toggle');
 });
 
 // VN Lists routes

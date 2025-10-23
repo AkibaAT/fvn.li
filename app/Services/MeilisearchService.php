@@ -21,10 +21,11 @@ class MeilisearchService
         int $perPage = 20,
         int $page = 1,
         string $sortField = 'first_visible_at',
-        string $sortDirection = 'desc'
+        string $sortDirection = 'desc',
+        array $ignoredGameIds = []
     ): LengthAwarePaginator {
         // Try exact search first, then fuzzy search if needed
-        return $this->performTieredSearch($query, $filters, $perPage, $page, $sortField, $sortDirection);
+        return $this->performTieredSearch($query, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
     }
 
     /**
@@ -226,11 +227,12 @@ class MeilisearchService
         int $perPage,
         int $page,
         string $sortField,
-        string $sortDirection
+        string $sortDirection,
+        array $ignoredGameIds = []
     ): LengthAwarePaginator {
         // First try: Exact matching with quotes for precise results
         $exactQuery = $this->processSearchQuery($query, true); // true = exact mode
-        $exactResults = $this->executeSearch($exactQuery, $filters, $perPage, $page, $sortField, $sortDirection);
+        $exactResults = $this->executeSearch($exactQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
 
         // If we have good results from exact search, use them
         // Consider "good results" as having at least 3 results or being on page 1 with any results
@@ -241,7 +243,7 @@ class MeilisearchService
         // Second try: Fuzzy matching for typo tolerance
         $fuzzyQuery = $this->processSearchQuery($query, false); // false = fuzzy mode
 
-        return $this->executeSearch($fuzzyQuery, $filters, $perPage, $page, $sortField, $sortDirection);
+        return $this->executeSearch($fuzzyQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
     }
 
     /**
@@ -253,9 +255,15 @@ class MeilisearchService
         int $perPage,
         int $page,
         string $sortField,
-        string $sortDirection
+        string $sortDirection,
+        array $ignoredGameIds = []
     ): LengthAwarePaginator {
         $search = Game::search($processedQuery);
+
+        // Exclude ignored games
+        if (! empty($ignoredGameIds)) {
+            $search->whereNotIn('id', $ignoredGameIds);
+        }
 
         // Apply filters
         if (! empty($filters['status'])) {

@@ -152,7 +152,7 @@ class User extends Authenticatable
         // First, check if we have API data with game IDs
         if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
             // Get games by their itch.io game IDs
-            return Game::whereIn('game_id', $itchioAccount->itchio_game_ids)
+            return Game::whereIn('itch_id', $itchioAccount->itchio_game_ids)
                 ->fromItchio()
                 ->where('is_visible', true)
                 ->orderBy('name')
@@ -258,5 +258,14 @@ class User extends Authenticatable
     public function vnLists(): HasMany
     {
         return $this->hasMany(VnList::class)->latest();
+    }
+
+    /**
+     * Get the games that this user has ignored.
+     */
+    public function ignoredGames(): BelongsToMany
+    {
+        return $this->belongsToMany(Game::class, 'user_ignored_games', 'user_id', 'game_id')
+            ->withTimestamps();
     }
 }

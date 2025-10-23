@@ -145,6 +145,25 @@ class DashboardController extends Controller
             'notification_digest' => 'asap',
         ]);
 
+        // Get ignored games with basic info
+        $ignoredGames = $user->ignoredGames()
+            ->select('games.id', 'games.name', 'games.slug', 'games.thumb_url', 'games.optimized_thumbnails', 'games.platform')
+            ->orderBy('user_ignored_games.created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($game) {
+                return [
+                    'id' => $game->id,
+                    'name' => $game->name,
+                    'slug' => $game->slug,
+                    'thumb_url' => $game->thumb_url,
+                    'optimized_thumbnails' => $game->optimized_thumbnails,
+                    'platform' => $game->platform,
+                ];
+            });
+
+        $ignoredGamesCount = $user->ignoredGames()->count();
+
         return Inertia::render('dashboard/index', [
             'user' => $user,
             'connectedProviders' => $connectedProviders,
@@ -160,6 +179,8 @@ class DashboardController extends Controller
                 'notification_digest' => $notificationPreferences->notification_digest,
             ],
             'recentRequests' => $recentRequests,
+            'ignoredGames' => $ignoredGames,
+            'ignoredGamesCount' => $ignoredGamesCount,
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
             'metaTags' => [
                 'title' => 'Dashboard',
@@ -547,6 +568,20 @@ class DashboardController extends Controller
                 ];
             })->values();
 
+        // Ignored games
+        $ignoredGames = $user->ignoredGames()
+            ->orderByDesc('user_ignored_games.created_at')
+            ->get()
+            ->map(function ($game) {
+                return [
+                    'id' => $game->id,
+                    'name' => $game->name,
+                    'slug' => $game->slug,
+                    'platform' => $game->platform,
+                    'ignored_at' => $game->pivot->created_at?->toISOString(),
+                ];
+            })->values();
+
         $filename = 'user-data-' . ($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
             strtolower($user->name)) : 'export') . '-' . now()->format('Ymd-His') . '.zip';
 
@@ -556,7 +591,8 @@ class DashboardController extends Controller
             $lists,
             $gameProgress,
             $notificationPreferences,
-            $notificationHistory
+            $notificationHistory,
+            $ignoredGames
         ) {
             $tmp = fopen('php://temp', 'w+');
             $zip = new ZipArchive;
@@ -575,7 +611,8 @@ class DashboardController extends Controller
                     $lists,
                     $gameProgress,
                     $notificationPreferences,
-                    $notificationHistory
+                    $notificationHistory,
+                    $ignoredGames
                 );
                 $zip->close();
 
@@ -594,7 +631,8 @@ class DashboardController extends Controller
                 $lists,
                 $gameProgress,
                 $notificationPreferences,
-                $notificationHistory
+                $notificationHistory,
+                $ignoredGames
             );
             $zip->close();
             rewind($tmp);
@@ -671,6 +709,7 @@ class DashboardController extends Controller
             });
             $user->gameProgress()->delete();
             $user->notificationHistory()->delete();
+            $user->ignoredGames()->detach(); // Remove all ignored games relationships
 
             // Finally delete the user account
             $user->delete();
@@ -861,7 +900,8 @@ class DashboardController extends Controller
         Collection $lists,
         Collection $gameProgress,
         Collection $notificationPreferences,
-        Collection $notificationHistory
+        Collection $notificationHistory,
+        Collection $ignoredGames
     ): void {
         $zip->addFromString('profile.json', json_encode($profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $zip->addFromString('social_accounts.json',
@@ -1011,5 +1051,24 @@ class DashboardController extends Controller
         rewind($notificationHistoryCsv);
         $zip->addFromString('notification_history.csv', stream_get_contents($notificationHistoryCsv));
         fclose($notificationHistoryCsv);
+
+        // Ignored games JSON and CSV
+        $zip->addFromString('ignored_games.json',
+            json_encode($ignoredGames, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $ignoredGamesCsv = fopen('php://temp', 'w+');
+        fputcsv($ignoredGamesCsv, ['id', 'name', 'slug', 'platform', 'ignored_at'], ',', '"', '\\');
+        foreach ($ignoredGames as $ig) {
+            fputcsv($ignoredGamesCsv, [
+                $ig['id'],
+                $ig['name'],
+                $ig['slug'],
+                $ig['platform'],
+                $ig['ignored_at'],
+            ], ',', '"', '\\');
+        }
+        rewind($ignoredGamesCsv);
+        $zip->addFromString('ignored_games.csv', stream_get_contents($ignoredGamesCsv));
+        fclose($ignoredGamesCsv);
     }
 }
