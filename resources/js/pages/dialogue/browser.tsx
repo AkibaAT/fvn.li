@@ -41,17 +41,22 @@ type CharacterOption = { id: number; character_id: string; name: string };
 
 type SearchResult = {
     id: number;
+    text_content: string;
+    highlighted_text: string;
+    context: string | null;
+    file_path: string | null;
+    line_number: number | null;
+    character_id: string | null;
+    character_name: string | null;
+    iso_code: string | null;
     game_version_id: number;
-    iso_code: string;
-    context?: string | null;
-    file_path?: string | null;
-    line_number?: number | null;
-    highlighted_text?: string;
-    text_content?: string;
-    character?: {
+    game: {
         id: number;
-        character_id?: string;
-        display_names?: Record<string, string>;
+        name: string;
+    } | null;
+    version: {
+        id: number;
+        version: string;
     } | null;
 };
 
@@ -82,16 +87,16 @@ export default function DialogueBrowser({initial}: InitialProps) {
     const gameSlug = initial.gameSlug;
     const preselectedVersionId = initial?.versionId ?? null;
 
-    // Parse initial state from URL if present (SSR-safe using Ziggy location)
+    // Parse initial state from URL if present
+    // Always use window.location.href on client side to get current URL with query params
     const initialLocation =
-        (
-            inertiaPage?.props as {
-                ziggy?: { location?: string };
-            }
-        )?.ziggy?.location ||
-        (typeof window !== 'undefined'
+        typeof window !== 'undefined'
             ? window.location.href
-            : 'http://localhost/');
+            : (
+                inertiaPage?.props as {
+                    ziggy?: { location?: string };
+                }
+            )?.ziggy?.location || 'http://localhost/';
     const url = useMemo(
         () =>
             new URL(
@@ -167,7 +172,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
     // Results
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [duplicates, setDuplicates] = useState<DuplicateItem[]>([]);
-    const [groupByContext, setGroupByContext] = useState<boolean>(true);
 
     const fetchData = async (opts?: { page?: number; perPage?: number }) => {
         setLoading(true);
@@ -394,6 +398,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
         selectedCharacterId,
         selectedContext,
         showDuplicates,
+        canSearch,
     ]);
 
     // When toggling duplicates on, clear search and fetch duplicates automatically
@@ -486,18 +491,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
             await fetchData({page: 1, perPage: newPerPage});
         }
     };
-
-    // Memoize grouping to avoid recomputing on each render
-    const groupedSearch = useMemo(() => {
-        if (!q.trim() || showDuplicates) return null;
-        if (!groupByContext) return null; // no grouping needed
-        const groups: Record<string, SearchResult[]> = {};
-        for (const row of searchResults) {
-            const key = row.context || '(No context)';
-            (groups[key] ||= []).push(row);
-        }
-        return groups;
-    }, [searchResults, q, showDuplicates, groupByContext]);
 
     return (
         <>
@@ -667,17 +660,6 @@ export default function DialogueBrowser({initial}: InitialProps) {
                         {/* Controls */}
                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center space-x-4">
-                                <label className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                                    <input
-                                        type="checkbox"
-                                        checked={groupByContext}
-                                        onChange={(e) =>
-                                            setGroupByContext(e.target.checked)
-                                        }
-                                        className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    Group by context
-                                </label>
 
                                 <button
                                     type="button"
@@ -997,245 +979,42 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                 </p>
                                             </div>
                                         ) : (
-                                            /* Group by context view */
-                                            groupByContext &&
-                                            groupedSearch ? (
-                                                    Object.entries(
-                                                        groupedSearch,
-                                                    ).map(([ctx, rows]) => (
+                                            <div className="space-y-3">
+                                                {searchResults.map((line) => (
+                                                    <div
+                                                        key={line.id}
+                                                        className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                                                    >
                                                         <div
-                                                            key={ctx}
-                                                            className="mb-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50"
-                                                        >
-                                                            <h4 className="text-md mb-3 font-medium text-gray-900 dark:text-gray-100">
-                                                                {ctx ||
-                                                                    'No Context'}
-                                                            </h4>
+                                                            className="mb-3 text-gray-900 dark:text-gray-100"
+                                                            dangerouslySetInnerHTML={{ __html: line.highlighted_text }}
+                                                        />
 
-                                                            <div className="space-y-3">
-                                                                {rows.map(
-                                                                    (row) => (
-                                                                        <div
-                                                                            key={
-                                                                                row.id
-                                                                            }
-                                                                            className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                                                                        >
-                                                                            <div className="flex items-start">
-                                                                                {row
-                                                                                        .character
-                                                                                        ?.character_id &&
-                                                                                    row
-                                                                                        .character
-                                                                                        .character_id !==
-                                                                                    'narrator' &&
-                                                                                    row
-                                                                                        .character
-                                                                                        .character_id !==
-                                                                                    'menu_choice' && (
-                                                                                        <div
-                                                                                            className="mr-3 flex-shrink-0">
-                                                                                            <div
-                                                                                                className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                                                                                                <span
-                                                                                                    className="font-medium text-blue-800 dark:text-blue-200">
-                                                                                                    {row.character.character_id.substring(
-                                                                                                        0,
-                                                                                                        1,
-                                                                                                    )}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    )}
+                                                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                            {line.character_name && (
+                                                                <span className="rounded-full bg-green-100 px-2 py-1 text-green-800 dark:bg-green-900/50 dark:text-green-200">
+                                                                    {line.character_name}
+                                                                </span>
+                                                            )}
 
-                                                                                <div className="min-w-0 flex-1">
-                                                                                    <p
-                                                                                        className={`text-sm font-medium ${
-                                                                                            row
-                                                                                                .character
-                                                                                                ?.character_id ===
-                                                                                            'narrator'
-                                                                                                ? 'text-gray-600 italic dark:text-gray-400'
-                                                                                                : row
-                                                                                                    .character
-                                                                                                    ?.character_id ===
-                                                                                                'menu_choice'
-                                                                                                    ? 'text-green-600 dark:text-green-400'
-                                                                                                    : 'text-blue-600 dark:text-blue-400'
-                                                                                        }`}
-                                                                                    >
-                                                                                        {row
-                                                                                            .character
-                                                                                            ?.character_id ===
-                                                                                        'menu_choice'
-                                                                                            ? 'Choice'
-                                                                                            : row
-                                                                                                .character
-                                                                                                ?.character_id ||
-                                                                                            'Unknown'}
-                                                                                    </p>
-
-                                                                                    <div
-                                                                                        className="mt-1 text-gray-900 dark:text-gray-100"
-                                                                                        dangerouslySetInnerHTML={{
-                                                                                            __html:
-                                                                                                row.highlighted_text ||
-                                                                                                row.text_content ||
-                                                                                                '',
-                                                                                        }}
-                                                                                    />
-
-                                                                                    <div
-                                                                                        className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                                                        <span className="font-medium">
-                                                                                            {gameName}
-                                                                                        </span>
-
-                                                                                        (
-                                                                                        {versions.find(
-                                                                                                (
-                                                                                                    v,
-                                                                                                ) =>
-                                                                                                    v.id ===
-                                                                                                    row.game_version_id,
-                                                                                            )
-                                                                                                ?.version ||
-                                                                                            'Unknown Version'}
-
-                                                                                        )
-                                                                                        -
-                                                                                        {
-                                                                                            row.file_path
-                                                                                        }
-                                                                                        {row.line_number
-                                                                                            ? `:${row.line_number}`
-                                                                                            : ''}
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    ),
-                                                                )}
-                                                            </div>
+                                                            {line.context && (
+                                                                <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                                                    {line.context}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                    ))
-                                                ) : (
-                                                    /* Flat view */
-                                                    <div className="space-y-3">
-                                                        {searchResults.map(
-                                                            (row) => (
-                                                                <div
-                                                                    key={row.id}
-                                                                    className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                                                                >
-                                                                    <div className="flex items-start">
-                                                                        {row
-                                                                                .character
-                                                                                ?.character_id &&
-                                                                            row
-                                                                                .character
-                                                                                .character_id !==
-                                                                            'narrator' &&
-                                                                            row
-                                                                                .character
-                                                                                .character_id !==
-                                                                            'menu_choice' && (
-                                                                                <div className="mr-3 flex-shrink-0">
-                                                                                    <div
-                                                                                        className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                                                                                        <span
-                                                                                            className="font-medium text-blue-800 dark:text-blue-200">
-                                                                                            {row.character.character_id.substring(
-                                                                                                0,
-                                                                                                1,
-                                                                                            )}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
 
-                                                                        <div className="min-w-0 flex-1">
-                                                                            <div
-                                                                                className="flex items-start justify-between">
-                                                                                <p
-                                                                                    className={`text-sm font-medium ${
-                                                                                        row
-                                                                                            .character
-                                                                                            ?.character_id ===
-                                                                                        'narrator'
-                                                                                            ? 'text-gray-600 italic dark:text-gray-400'
-                                                                                            : row
-                                                                                                .character
-                                                                                                ?.character_id ===
-                                                                                            'menu_choice'
-                                                                                                ? 'text-green-600 dark:text-green-400'
-                                                                                                : 'text-blue-600 dark:text-blue-400'
-                                                                                    }`}
-                                                                                >
-                                                                                    {row
-                                                                                        .character
-                                                                                        ?.character_id ===
-                                                                                    'menu_choice'
-                                                                                        ? 'Choice'
-                                                                                        : row
-                                                                                            .character
-                                                                                            ?.character_id ||
-                                                                                        'Unknown'}
-                                                                                </p>
-
-                                                                                {row.context && (
-                                                                                    <span
-                                                                                        className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                                                                                        {
-                                                                                            row.context
-                                                                                        }
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-
-                                                                            <div
-                                                                                className="mt-1 text-gray-900 dark:text-gray-100"
-                                                                                dangerouslySetInnerHTML={{
-                                                                                    __html:
-                                                                                        row.highlighted_text ||
-                                                                                        row.text_content ||
-                                                                                        '',
-                                                                                }}
-                                                                            />
-
-                                                                            <div
-                                                                                className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                                                <span className="font-medium">
-                                                                                    {gameName}
-                                                                                </span>
-
-                                                                                (
-                                                                                {versions.find(
-                                                                                        (
-                                                                                            v,
-                                                                                        ) =>
-                                                                                            v.id ===
-                                                                                            row.game_version_id,
-                                                                                    )
-                                                                                        ?.version ||
-                                                                                    'Unknown Version'}
-
-                                                                                )
-                                                                                -
-                                                                                {
-                                                                                    row.file_path
-                                                                                }
-                                                                                {row.line_number
-                                                                                    ? `:${row.line_number}`
-                                                                                    : ''}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            ),
+                                                        {line.file_path && (
+                                                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                                <span className="font-medium">
+                                                                    {line.game?.name}({line.version?.version}) -{line.file_path}
+                                                                    {line.line_number && `:${line.line_number}`}
+                                                                </span>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                )
+                                                ))}
+                                            </div>
                                         )}
 
                                         {/* Pagination - show if there are total results, even if current page is empty */}

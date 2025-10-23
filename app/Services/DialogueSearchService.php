@@ -9,12 +9,13 @@ use App\Models\GameVersion;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Meilisearch\Client;
 
 class DialogueSearchService
 {
     /**
-     * Search for dialogue lines matching a search term with various filters.
-     * Completely revised to handle parameter binding correctly
+     * Search for dialogue texts using Meilisearch, then fetch actual dialogue lines from PostgreSQL.
+     * Returns dialogue lines with full context information (file path, line number, context, etc.)
      */
     public function search(
         string $searchTerm,
@@ -22,55 +23,103 @@ class DialogueSearchService
         int $perPage = 20,
         int $page = 1
     ): LengthAwarePaginator {
-        $language = $filters['language'] ?? 'eng';
+        $language = $filters['language'] ?? null;
 
-        // Start with a base query to fix the bindings
-        $query = DialogueLine::query()
-            ->select('version_dialogue_lines.*')
-            ->join('unique_dialogue_texts', 'version_dialogue_lines.text_id', '=', 'unique_dialogue_texts.id');
+        // Get raw Meilisearch results with all metadata
+        $client = app(Client::class);
+        $index = $client->index('dialogue_texts');
 
-        // Add the text search using proper parameter binding
-        $langConfig = $this->getLanguageConfig($language);
-        $tsvectorColumn = $this->getTsvectorColumnForLanguage($language);
+        // Build filter array (Meilisearch filter syntax)
+        $filterParts = [];
+        if (!empty($language)) {
+            $filterParts[] = "languages = '{$language}'";
+        }
+        if (!empty($filters['game_id'])) {
+            $filterParts[] = "game_ids = " . (int) $filters['game_id'];
+        }
+        if (!empty($filters['version_id'])) {
+            $filterParts[] = "version_ids = " . (int) $filters['version_id'];
+        }
+        if (!empty($filters['character_id'])) {
+            $filterParts[] = "character_names = '{$filters['character_id']}'";
+        }
 
-        $query->whereRaw("unique_dialogue_texts.{$tsvectorColumn} @@ plainto_tsquery(?, ?)", [
-            $langConfig,
-            $searchTerm,
-        ]);
+        // Execute search with highlighting
+        $searchParams = [
+            'limit' => $perPage,
+            'offset' => ($page - 1) * $perPage,
+            'attributesToHighlight' => ['text_content'],
+            'highlightPreTag' => '<mark>',
+            'highlightPostTag' => '</mark>',
+        ];
+        if (!empty($filterParts)) {
+            $searchParams['filter'] = implode(' AND ', $filterParts);
+        }
 
-        // Add the highlighted text with separate bindings
-        $query->addSelect([
-            DB::raw("ts_headline(?, unique_dialogue_texts.text_content, plainto_tsquery(?, ?), 'StartSel=<mark>, StopSel=</mark>, MaxFragments=3, MaxWords=50, MinWords=20') as highlighted_text"),
-            'unique_dialogue_texts.text_content',
-        ])->addBinding([$langConfig, $langConfig, $searchTerm], 'select');
+        $results = $index->search($searchTerm, $searchParams);
+        $hits = $results->getHits();
+        $total = $results->getEstimatedTotalHits();
 
-        // Apply filters one by one with explicit parameter binding
-        if (! empty($filters['game_id'])) {
-            $query->whereExists(function ($subQuery) use ($filters) {
-                $subQuery->selectRaw('1')
-                    ->from('game_versions')
-                    ->whereColumn('version_dialogue_lines.game_version_id', 'game_versions.id')
-                    ->where('game_versions.game_id', '=', $filters['game_id']);
+        // Get the unique text IDs and highlighted text from search results
+        $uniqueTextIds = collect($hits)->pluck('id')->toArray();
+        $highlightedTexts = collect($hits)->mapWithKeys(function ($hit) {
+            return [$hit['id'] => $hit['_formatted']['text_content'] ?? $hit['text_content']];
+        });
+
+        if (empty($uniqueTextIds)) {
+            return new LengthAwarePaginator(
+                [],
+                0,
+                $perPage,
+                $page,
+                [
+                    'path' => request()->url(),
+                    'pageName' => 'page',
+                ]
+            );
+        }
+
+        // Fetch actual dialogue lines from PostgreSQL with full context
+        $query = DialogueLine::whereIn('text_id', $uniqueTextIds)
+            ->with(['gameVersion.game', 'gameVersion', 'text', 'character']);
+
+        // Apply additional filters to dialogue lines
+        if (!empty($filters['version_id'])) {
+            $query->where('game_version_id', $filters['version_id']);
+        }
+        if (!empty($filters['context'])) {
+            $query->where('context', $filters['context']);
+        }
+
+        // Get all matching dialogue lines
+        $dialogueLines = $query->get();
+
+        // Group by text_id to maintain search result order
+        $linesByTextId = $dialogueLines->groupBy('text_id');
+
+        // Build final results in the order returned by Meilisearch
+        // Attach highlighted text from Meilisearch to each line
+        $items = collect($uniqueTextIds)->flatMap(function ($textId) use ($linesByTextId, $highlightedTexts) {
+            $lines = $linesByTextId->get($textId, collect());
+            $highlightedText = $highlightedTexts->get($textId);
+
+            // Add highlighted text to each line
+            return $lines->map(function ($line) use ($highlightedText) {
+                $line->highlighted_text = $highlightedText;
+                return $line;
             });
-        }
+        });
 
-        if (! empty($filters['version_id'])) {
-            $query->where('version_dialogue_lines.game_version_id', '=', $filters['version_id']);
-        }
-
-        if (! empty($filters['character_id'])) {
-            $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-                ->where('characters.character_id', '=', $filters['character_id']);
-        }
-
-        if (! empty($filters['context'])) {
-            $query->where('version_dialogue_lines.context', '=', $filters['context']);
-        }
-
-        // Always eager load these relationships
-        $query->with(['gameVersion.game', 'character', 'language']);
-
-        return $query->paginate($perPage, ['*'], 'page', $page);
+        return new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'pageName' => 'page',
+            ]
+        );
     }
 
     /**

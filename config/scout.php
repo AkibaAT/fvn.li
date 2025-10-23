@@ -71,8 +71,8 @@ return [
     */
 
     'chunk' => [
-        'searchable' => 50,
-        'unsearchable' => 50,
+        'searchable' => 5000,
+        'unsearchable' => 5000,
     ],
 
     /*
@@ -142,30 +142,37 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
-            'dialogue_lines' => [
+            'dialogue_texts' => [
                 'filterableAttributes' => [
-                    'character_name',
-                    'game_name',
-                    'language',
-                    'game_version_id',
-                    'character_id',
+                    'game_ids',
+                    'game_names',
+                    'version_ids',
+                    'character_ids',
+                    'character_names',
+                    'languages',
+                    'usage_count',
+                    'games_count',
                 ],
                 'sortableAttributes' => [
-                    // No sorting needed for dialogue search
+                    'usage_count',
+                    'games_count',
                 ],
                 'searchableAttributes' => [
                     'text_content',
-                    'character_name',
-                    'game_name',
+                    // Only search in text_content, not character_names or game_names
+                    // Otherwise searching for "night" returns all dialogue from games/characters with "night" in the name
                 ],
                 'displayedAttributes' => [
                     'id',
                     'text_content',
-                    'character_name',
-                    'game_name',
-                    'language',
-                    'game_version_id',
-                    'character_id',
+                    'game_ids',
+                    'game_names',
+                    'version_ids',
+                    'character_ids',
+                    'character_names',
+                    'languages',
+                    'usage_count',
+                    'games_count',
                 ],
                 'typoTolerance' => [
                     'enabled' => true,
