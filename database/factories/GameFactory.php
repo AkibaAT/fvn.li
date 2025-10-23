@@ -33,7 +33,6 @@ class GameFactory extends Factory
             'authors' => fake()->name(),
             'is_paid' => fake()->boolean(30),
             'has_demo' => fake()->boolean(40),
-            'blur_screenshots' => fake()->boolean(20),
         ];
     }
 }

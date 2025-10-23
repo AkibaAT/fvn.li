@@ -17,7 +17,6 @@ beforeEach(function () {
         'min_price' => 10.0,
         'is_paid' => true,
         'is_on_sale' => false,
-        'blur_screenshots' => false,
     ]);
 });
 
@@ -95,12 +94,11 @@ test('hasAdditionalLinks returns true for non-empty array', function () {
     expect($game->hasAdditionalLinks())->toBeTrue();
 });
 
-test('nsfw toggles blur_screenshots on new model', function () {
+test('nsfw flag can be set', function () {
     $game = new Game;
 
     $game->is_nsfw = true;
-    expect($game->is_nsfw)->toBeTrue()
-        ->and($game->blur_screenshots)->toBeTrue();
+    expect($game->is_nsfw)->toBeTrue();
 
     $game->is_nsfw = false;
     expect($game->is_nsfw)->toBeFalse();

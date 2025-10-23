@@ -38,18 +38,6 @@ trait HasGameAttributes
     }
 
     /**
-     * Set is_nsfw attribute and sync blur_screenshots
-     */
-    public function setIsNsfwAttribute($value): void
-    {
-        if (! $this->exists || ($value && ! $this->getOriginal('is_nsfw'))) {
-            $this->attributes['blur_screenshots'] = $value;
-        }
-
-        $this->attributes['is_nsfw'] = $value;
-    }
-
-    /**
      * Get additional links sorted by sort_order
      */
     public function getAdditionalLinksAttribute($value): array

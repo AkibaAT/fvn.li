@@ -171,7 +171,6 @@ test('nsfw games show blur overlay by default', function () {
     $nsfwGame = Game::factory()->create([
         'name' => 'NSFW Visual Novel',
         'is_nsfw' => true,
-        'blur_screenshots' => true,
         'is_visible' => true,
     ]);
 
