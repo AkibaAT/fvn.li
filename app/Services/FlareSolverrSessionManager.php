@@ -25,6 +25,23 @@ class FlareSolverrSessionManager
     }
 
     /**
+     * Destructor - ensure session is cleaned up when object is destroyed
+     */
+    public function __destruct()
+    {
+        if ($this->sessionActive && $this->activeSessionId !== null) {
+            try {
+                Log::warning('FlareSolverr session not properly closed, cleaning up in destructor', [
+                    'session_id' => $this->activeSessionId,
+                ]);
+                $this->flareSolverr->destroySession($this->activeSessionId);
+            } catch (Exception $e) {
+                // Silently fail in destructor
+            }
+        }
+    }
+
+    /**
      * Start a new FlareSolverr session for a command
      *
      * Uses the command name as the session ID to prevent cross-talk between

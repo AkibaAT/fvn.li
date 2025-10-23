@@ -14,6 +14,7 @@ use App\Observers\RatingObserver;
 use App\Observers\TagObserver;
 use App\Observers\UniversalAuditObserver;
 use App\Services\FlareSolverrClient;
+use App\Services\FlareSolverrSessionManager;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\ItchIoProvider;
@@ -40,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(FlareSolverrClient::class, function () {
             return new FlareSolverrClient;
+        });
+
+        $this->app->singleton(FlareSolverrSessionManager::class, function ($app) {
+            return new FlareSolverrSessionManager(
+                $app->make(FlareSolverrClient::class)
+            );
         });
 
         $this->app->singleton(ItchHttpClientService::class, function () {
