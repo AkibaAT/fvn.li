@@ -8,6 +8,7 @@ use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\Rating;
 use App\Models\Tag;
+use App\Models\UniqueDialogueText;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class MeilisearchService
@@ -29,7 +30,8 @@ class MeilisearchService
     }
 
     /**
-     * Search for dialogue lines with filters and pagination.
+     * Search for unique dialogue texts with filters and pagination.
+     * Now searches UniqueDialogueText instead of individual DialogueLine instances.
      */
     public function searchDialogue(
         string $query,
@@ -38,32 +40,41 @@ class MeilisearchService
         int $page = 1
     ): LengthAwarePaginator {
         $processedQuery = $this->processSearchQuery($query);
-        $search = DialogueLine::search($processedQuery);
+        $search = UniqueDialogueText::search($processedQuery);
 
-        // Apply language filter
+        // Apply language filter (searches in languages array)
         if (! empty($filters['language'])) {
-            $search->where('language', $filters['language']);
+            $search->where('languages', $filters['language']);
         }
 
-        // Apply game filter
+        // Apply game filter (searches in game_ids or game_names arrays)
+        if (! empty($filters['game_id'])) {
+            $search->where('game_ids', (int) $filters['game_id']);
+        }
+
         if (! empty($filters['game_names'])) {
             if (is_array($filters['game_names'])) {
                 foreach ($filters['game_names'] as $gameName) {
-                    $search->where('game_name', $gameName);
+                    $search->where('game_names', $gameName);
                 }
             } else {
-                $search->where('game_name', $filters['game_names']);
+                $search->where('game_names', $filters['game_names']);
             }
         }
 
-        // Apply character filter
+        // Apply version filter (searches in version_ids array)
+        if (! empty($filters['version_id'])) {
+            $search->where('version_ids', (int) $filters['version_id']);
+        }
+
+        // Apply character filter (searches in character_names array)
         if (! empty($filters['character_names'])) {
             if (is_array($filters['character_names'])) {
                 foreach ($filters['character_names'] as $characterName) {
-                    $search->where('character_name', $characterName);
+                    $search->where('character_names', $characterName);
                 }
             } else {
-                $search->where('character_name', $filters['character_names']);
+                $search->where('character_names', $filters['character_names']);
             }
         }
 
