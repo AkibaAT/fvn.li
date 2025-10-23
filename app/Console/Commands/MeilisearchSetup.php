@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\Rating;
 use App\Models\Tag;
-use App\Models\UniqueDialogueText;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -78,7 +78,7 @@ class MeilisearchSetup extends Command
         $this->info('🎉 Meilisearch setup completed successfully!');
         $this->newLine();
         $this->info('✨ Search indexing is now automatic!');
-        $this->line('  • New games and dialogue texts are indexed automatically');
+        $this->line('  • New games and dialogue lines are indexed automatically');
         $this->line('  • Updates to existing content trigger re-indexing');
         $this->line('  • No manual intervention needed for normal operations');
         $this->newLine();
@@ -198,24 +198,28 @@ class MeilisearchSetup extends Command
 
             $this->info('    ✅ Games imported');
 
-            // Import dialogue texts
-            $dialogueCount = UniqueDialogueText::whereRaw("trim(text_content) != ''")->count();
-            $this->line("  - Importing {$dialogueCount} dialogue texts...");
+            // Import dialogue lines
+            $dialogueCount = DialogueLine::whereHas('text', function ($query) {
+                $query->whereRaw("trim(text_content) != ''");
+            })->count();
+            $this->line("  - Importing {$dialogueCount} dialogue lines...");
 
             $bar = $this->output->createProgressBar($dialogueCount);
             $bar->start();
 
             $errors = [];
             // Eager load relationships to avoid N+1 queries during indexing
-            UniqueDialogueText::whereRaw("trim(text_content) != ''")
-                ->with(['dialogueLines.character', 'dialogueLines.gameVersion.game'])
-                ->chunk(500, function ($texts) use ($bar, &$errors) {
+            DialogueLine::whereHas('text', function ($query) {
+                $query->whereRaw("trim(text_content) != ''");
+            })
+                ->with(['text', 'character', 'gameVersion.game'])
+                ->chunk(500, function ($dialogueLines) use ($bar, &$errors) {
                     try {
-                        $texts->searchable();
-                        $bar->advance($texts->count());
+                        $dialogueLines->searchable();
+                        $bar->advance($dialogueLines->count());
                     } catch (Exception $e) {
-                        $errors[] = "Dialogue texts chunk error: {$e->getMessage()}";
-                        $bar->advance($texts->count());
+                        $errors[] = "Dialogue lines chunk error: {$e->getMessage()}";
+                        $bar->advance($dialogueLines->count());
                     }
                 });
 
@@ -223,7 +227,7 @@ class MeilisearchSetup extends Command
             $this->newLine();
 
             if (! empty($errors)) {
-                $this->error('    ❌ Errors importing dialogue texts:');
+                $this->error('    ❌ Errors importing dialogue lines:');
                 foreach ($errors as $error) {
                     $this->line("      • {$error}");
                 }
@@ -231,7 +235,7 @@ class MeilisearchSetup extends Command
                 return false;
             }
 
-            $this->info('    ✅ Dialogue texts imported');
+            $this->info('    ✅ Dialogue lines imported');
 
             // Import reviews
             $reviewCount = Rating::where('is_visible', true)
