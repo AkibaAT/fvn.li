@@ -43,10 +43,26 @@ class GamesSearchController extends Controller
         // Build filters
         $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags);
 
+        // Get ignored game IDs for authenticated users (unless they want to show ignored)
+        $allIgnoredGameIds = [];
+        $ignoredGameIds = [];
+        $ignoredCount = 0;
+        if (Auth::check()) {
+            $allIgnoredGameIds = Auth::user()->ignoredGames()->pluck('games.id')->toArray();
+
+            // Only filter out ignored games if showIgnored is false
+            if (! $request->boolean('showIgnored')) {
+                // Count how many ignored games match the current filters
+                // This will be shown in the info bar
+                $ignoredCount = count($allIgnoredGameIds);
+                $ignoredGameIds = $allIgnoredGameIds;
+            }
+        }
+
         // Use Meilisearch for search and filtering
         try {
             $searchQuery = trim($search ?? '') ?: '*';
-            $games = $service->searchGames($searchQuery, $filters, $perPage, (int) $request->get('page', 1), $sortField, $sortDirection);
+            $games = $service->searchGames($searchQuery, $filters, $perPage, (int) $request->get('page', 1), $sortField, $sortDirection, $ignoredGameIds);
 
             Log::info('Meilisearch success', [
                 'query' => $searchQuery,
@@ -60,7 +76,7 @@ class GamesSearchController extends Controller
             ]);
 
             // Fallback to basic database search
-            $games = $this->fallbackSearch($search, $perPage, (int) $request->get('page', 1));
+            $games = $this->fallbackSearch($search, $perPage, (int) $request->get('page', 1), $ignoredGameIds);
         }
 
         // Load essential relationships for the frontend
@@ -184,6 +200,7 @@ class GamesSearchController extends Controller
                 'showFree' => $request->boolean('showFree'),
                 'showDemo' => $request->boolean('showDemo'),
                 'showSale' => $request->boolean('showSale'),
+                'showIgnored' => $request->boolean('showIgnored'),
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
@@ -191,6 +208,8 @@ class GamesSearchController extends Controller
             ],
             'filters' => $filterOptions,
             'metaTags' => $metaTags,
+            'ignoredCount' => $ignoredCount,
+            'ignoredGameIds' => $allIgnoredGameIds,
         ]);
     }
 
@@ -408,7 +427,7 @@ class GamesSearchController extends Controller
     /**
      * Fallback database search when Meilisearch fails
      */
-    private function fallbackSearch(?string $search, int $perPage, int $page)
+    private function fallbackSearch(?string $search, int $perPage, int $page, array $ignoredGameIds = [])
     {
         $query = Game::query()
             ->fromItchio()
@@ -419,6 +438,11 @@ class GamesSearchController extends Controller
                 'latestVersion.languageStats'
             ])
             ->withCount('ratings');
+
+        // Exclude ignored games
+        if (! empty($ignoredGameIds)) {
+            $query->whereNotIn('games.id', $ignoredGameIds);
+        }
 
         if (! empty(trim($search))) {
             $searchTerm = "%{$search}%";

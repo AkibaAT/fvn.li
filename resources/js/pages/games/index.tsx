@@ -83,6 +83,8 @@ interface GamesIndexProps {
     filters: FilterOptions;
     currentFilters: CurrentFilters;
     metaTags: SeoMetaTags;
+    ignoredCount?: number;
+    ignoredGameIds?: number[];
 }
 
 export default function GamesIndex({
@@ -90,9 +92,12 @@ export default function GamesIndex({
     filters,
     currentFilters,
     metaTags,
+    ignoredCount = 0,
+    ignoredGameIds = [],
 }: GamesIndexProps) {
     const [showFilters, setShowFilters] = useState(false);
     const [showSort] = useState(false);
+    const [localIgnoredGameIds, setLocalIgnoredGameIds] = useState<number[]>(ignoredGameIds);
 
     // Use the custom hook for filter logic
     const {
@@ -121,6 +126,11 @@ export default function GamesIndex({
     // Wrapper function for store platform icons
     const getStorePlatformIcon = (platform: string) => {
         return getTypedStorePlatformIcon(platform as StorePlatform);
+    };
+
+    // Handle ignore toggle callback
+    const handleIgnoreToggle = (gameId: number, isIgnored: boolean, newIgnoredGameIds: number[]) => {
+        setLocalIgnoredGameIds(newIgnoredGameIds);
     };
 
     // Normalize pagination meta in case backend shape varies or meta is missing
@@ -376,10 +386,51 @@ export default function GamesIndex({
                     </div>
                 )}
 
+                {/* Ignored Items Info Bar */}
+                {ignoredCount > 0 && !currentFilters.showIgnored && (
+                    <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <svg className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                            </svg>
+                            <span>
+                                <strong>{ignoredCount}</strong> {ignoredCount === 1 ? 'game' : 'games'} hidden from results
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => updateFilters({showIgnored: true})}
+                            className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                        >
+                            Show Ignored
+                        </button>
+                    </div>
+                )}
+
+                {/* Show Ignored Toggle (when showing ignored) */}
+                {currentFilters.showIgnored && (
+                    <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 p-3 dark:border-blue-600 dark:bg-blue-900/30">
+                        <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            <span>
+                                Showing ignored games
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => updateFilters({showIgnored: false})}
+                            className="rounded-md bg-gray-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600"
+                        >
+                            Hide Ignored
+                        </button>
+                    </div>
+                )}
+
                 {/* Games Grid */}
                 <GamesGrid
                     games={games.data as GamesIndexGame[]}
                     currentFilters={currentFilters}
+                    ignoredGameIds={localIgnoredGameIds}
                     onPlatformClick={(p) => toggleFilter('platform', p)}
                     onLanguageClick={(iso) => toggleFilter('language', iso)}
                     onTagClick={(tagId) => toggleFilter('tag', tagId)}
@@ -390,6 +441,7 @@ export default function GamesIndex({
                     onDemoToggle={() => updateFilters({showDemo: !currentFilters.showDemo})}
                     onSaleToggle={() => updateFilters({showSale: !currentFilters.showSale})}
                     updateFilters={updateFilters}
+                    onIgnoreToggle={handleIgnoreToggle}
                 />
 
                 {/* Pagination Controls */}

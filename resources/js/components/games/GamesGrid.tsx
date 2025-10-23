@@ -1,4 +1,3 @@
-import React from 'react';
 import GameCard from '@/components/game-card';
 import type {CurrentFilters} from '@/types';
 
@@ -45,6 +44,7 @@ interface Game {
 interface GamesGridProps {
     games: Game[];
     currentFilters: CurrentFilters;
+    ignoredGameIds?: number[];
     onPlatformClick: (platform: string) => void;
     onLanguageClick: (language: string) => void;
     onTagClick: (tag: string) => void;
@@ -55,11 +55,13 @@ interface GamesGridProps {
     onDemoToggle: () => void;
     onSaleToggle: () => void;
     updateFilters: (filters: Partial<CurrentFilters>) => void;
+    onIgnoreToggle?: (gameId: number, isIgnored: boolean, ignoredGameIds: number[]) => void;
 }
 
 export default function GamesGrid({
     games,
     currentFilters,
+    ignoredGameIds,
     onPlatformClick,
     onLanguageClick,
     onTagClick,
@@ -69,6 +71,7 @@ export default function GamesGrid({
     onPaidToggle,
     onDemoToggle,
     onSaleToggle,
+    onIgnoreToggle,
 }: GamesGridProps) {
     if (games.length === 0) {
         return (
@@ -98,6 +101,7 @@ export default function GamesGrid({
                     showPaid={currentFilters.showPaid || false}
                     showDemo={currentFilters.showDemo || false}
                     showSale={currentFilters.showSale || false}
+                    ignoredGameIds={ignoredGameIds}
                     onPlatformClick={onPlatformClick}
                     onLanguageClick={onLanguageClick}
                     onTagClick={onTagClick}
@@ -107,6 +111,7 @@ export default function GamesGrid({
                     onPaidToggle={onPaidToggle}
                     onDemoToggle={onDemoToggle}
                     onSaleToggle={onSaleToggle}
+                    onIgnoreToggle={onIgnoreToggle}
                 />
             ))}
         </div>

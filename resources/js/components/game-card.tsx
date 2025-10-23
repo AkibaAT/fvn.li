@@ -12,6 +12,9 @@ import {useGameCard, type GameCardProps} from '@/hooks/useGameCard';
 import {usePlatformIcons} from '@/hooks/usePlatformIcons';
 import {useStorePlatformIcons} from '@/hooks/useStorePlatformIcons';
 import type {Game} from '@/types';
+import {usePage} from '@inertiajs/react';
+import {useState, useEffect} from 'react';
+import axios from 'axios';
 
 export default function GameCard(props: GameCardProps) {
     const {
@@ -34,16 +37,72 @@ export default function GameCard(props: GameCardProps) {
         setTagsExpanded,
     } = useGameCard(props);
 
-    const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale} = props;
+    const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale, ignoredGameIds, onIgnoreToggle} = props;
     const {getSupportedPlatforms, getPlatformIcon} = usePlatformIcons();
     const {getStorePlatformIcon, getStorePlatformFromString} = useStorePlatformIcons();
+    const {auth} = usePage().props as any;
+
+    const [isIgnored, setIsIgnored] = useState(ignoredGameIds?.includes(game.id) || false);
+    const [isTogglingIgnore, setIsTogglingIgnore] = useState(false);
+
+    // Sync isIgnored state when ignoredGameIds prop changes
+    useEffect(() => {
+        setIsIgnored(ignoredGameIds?.includes(game.id) || false);
+    }, [ignoredGameIds, game.id]);
 
     const supportedPlatforms = getSupportedPlatforms(game);
     const storePlatform = game.platform ? getStorePlatformFromString(game.platform) : 'itch_io';
 
+    const handleIgnoreToggle = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!auth?.user || isTogglingIgnore) return;
+
+        setIsTogglingIgnore(true);
+        try {
+            const response = await axios.post(route('user.ignored-games.toggle'), {
+                game_id: game.id,
+            });
+
+            if (response.data.success) {
+                setIsIgnored(response.data.is_ignored);
+                // Call parent callback if provided
+                if (onIgnoreToggle) {
+                    onIgnoreToggle(game.id, response.data.is_ignored, response.data.ignored_game_ids);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to toggle ignore status:', error);
+        } finally {
+            setIsTogglingIgnore(false);
+        }
+    };
+
     return (
         <div
             className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl dark:border-gray-700/50 dark:bg-gray-800/70">
+            {/* Ignore Button - Only show for authenticated users */}
+            {auth?.user && (
+                <button
+                    onClick={handleIgnoreToggle}
+                    disabled={isTogglingIgnore}
+                    className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white hover:scale-110 dark:bg-gray-800/90 dark:hover:bg-gray-800"
+                    title={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
+                    aria-label={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
+                >
+                    {isIgnored ? (
+                        <svg className="h-5 w-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                        </svg>
+                    ) : (
+                        <svg className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                    )}
+                </button>
+            )}
+
             {/* Cover Image */}
             <GameImage game={game} thumbnailUrl={thumbnailUrl} />
 
