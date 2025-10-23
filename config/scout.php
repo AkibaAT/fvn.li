@@ -177,6 +177,9 @@ return [
             ],
             'games' => [
                 'filterableAttributes' => [
+                    // Identifiers
+                    'id',
+
                     // Status and visibility
                     'status',
                     'is_visible',

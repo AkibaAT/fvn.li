@@ -73,6 +73,7 @@ export interface GameCardProps {
     showPaid?: boolean;
     showDemo?: boolean;
     showSale?: boolean;
+    ignoredGameIds?: number[];
     // Optional filter handlers; if omitted, will navigate to games index with the respective filter
     onTagClick?: (tagId: string) => void;
     onPlatformClick?: (platform: GameCardPlatform) => void;
@@ -83,6 +84,7 @@ export interface GameCardProps {
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
+    onIgnoreToggle?: (gameId: number, isIgnored: boolean, ignoredGameIds: number[]) => void;
 }
 
 export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onStorePlatformClick, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameCardProps) {
