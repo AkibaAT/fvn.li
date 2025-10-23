@@ -68,7 +68,6 @@ class Game extends Model
         'is_suspended',
         'additional_links',
         'screenshots',
-        'blur_screenshots',
         'optimized_thumbnails',
         'has_custom_page',
         'custom_description',
@@ -113,7 +112,6 @@ class Game extends Model
         'sale_discount_percent' => 'integer',
         'is_paid' => 'boolean',
         'has_demo' => 'boolean',
-        'blur_screenshots' => 'boolean',
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
@@ -840,7 +838,6 @@ class Game extends Model
 
             // Content flags
             'is_nsfw' => $this->is_nsfw,
-            'blur_screenshots' => $this->blur_screenshots,
 
             // Pricing and availability
             'is_paid' => $this->is_paid,

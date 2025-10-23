@@ -79,7 +79,6 @@ trait HasGameSearch
 
             // Content flags
             'is_nsfw' => $this->is_nsfw,
-            'blur_screenshots' => $this->blur_screenshots,
 
             // Pricing and availability
             'is_paid' => $this->is_paid,
