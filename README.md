@@ -51,7 +51,7 @@ For detailed architecture information, see the [Frontend Architecture](https://a
 1. Clone the repository:
    ```bash
    git clone https://github.com/AkibaAT/fvn.li.git
-   cd fvn-li
+   cd fvn.li
    ```
 
 2. Start the DDEV environment:
