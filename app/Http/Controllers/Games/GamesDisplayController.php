@@ -119,6 +119,7 @@ class GamesDisplayController extends Controller
         // Get user's current VN lists to show list membership status
         $userVnLists = [];
         $gameListMembership = [];
+        $userProgress = null;
         if (Auth::check()) {
             $userVnLists = VnList::where('user_id', Auth::id())
                 ->where('type', 'custom')
@@ -131,6 +132,27 @@ class GamesDisplayController extends Controller
                 ->whereIn('vn_list_id', $userVnLists->pluck('id'))
                 ->pluck('vn_list_id')
                 ->toArray();
+
+            // Load user progress for this game
+            $userProgress = DB::table('user_game_progress')
+                ->where('user_id', Auth::id())
+                ->where('game_id', $game->id)
+                ->select('game_id', 'receive_updates')
+                ->first();
+
+            // Attach user data to game object (wrap in array to match Eloquent relationship format)
+            $game->user_progress = $userProgress ? [$userProgress] : [];
+
+            // Also load list memberships in the format expected by the frontend
+            $userListMemberships = DB::table('vn_list_entries')
+                ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
+                ->where('vn_lists.user_id', Auth::id())
+                ->where('vn_list_entries.game_id', $game->id)
+                ->select('vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
+                ->get()
+                ->toArray();
+
+            $game->user_list_memberships = $userListMemberships;
         }
 
         // Prepare social meta tags

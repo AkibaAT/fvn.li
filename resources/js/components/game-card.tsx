@@ -130,7 +130,7 @@ export default function GameCard(props: GameCardProps) {
                         gameId={game.id}
                         gameName={game.name}
                         isPaid={game.is_paid}
-                        userProgress={game.user_progress?.[0] || null}
+                        userProgress={game.user_progress?.[0] ?? null}
                         userListMemberships={game.user_list_memberships || []}
                     />
                 </div>

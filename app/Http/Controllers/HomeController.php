@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -113,6 +114,38 @@ class HomeController extends Controller
 
         foreach ($games as $game) {
             $game->supported_languages = collect($game->supported_languages);
+        }
+
+        // Load user-specific data if authenticated
+        if (Auth::check() && $games->count() > 0) {
+            $gameIds = $games->pluck('id')->toArray();
+
+            if (! empty($gameIds)) {
+                // Load user progress
+                $userProgress = DB::table('user_game_progress')
+                    ->where('user_id', Auth::id())
+                    ->whereIn('game_id', $gameIds)
+                    ->select('game_id', 'receive_updates')
+                    ->get()
+                    ->keyBy('game_id');
+
+                // Load list memberships
+                $userListMemberships = DB::table('vn_list_entries')
+                    ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
+                    ->where('vn_lists.user_id', Auth::id())
+                    ->whereIn('vn_list_entries.game_id', $gameIds)
+                    ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
+                    ->get()
+                    ->groupBy('game_id');
+
+                // Attach user data to each game object
+                foreach ($games as $game) {
+                    // Wrap user_progress in array to match Eloquent relationship format
+                    $progress = $userProgress->get($game->id);
+                    $game->user_progress = $progress ? [$progress] : [];
+                    $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
+                }
+            }
         }
 
         return $games->toArray();

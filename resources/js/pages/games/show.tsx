@@ -1119,8 +1119,8 @@ export default function GameShow({
                             gameId={game.id}
                             gameName={game.name}
                             isPaid={game.is_paid}
-                            userProgress={null}
-                            userListMemberships={[]}
+                            userProgress={(game as any).user_progress?.[0] ?? null}
+                            userListMemberships={(game as any).user_list_memberships ?? []}
                         />
                     ) : (
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

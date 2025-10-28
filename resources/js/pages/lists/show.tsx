@@ -1343,7 +1343,7 @@ export default function ListShow({
     const allFreeGamesReceiveUpdates =
         freeGames.length > 0 &&
         freeGames.every(
-            (entry) => entry.game.user_progress?.[0]?.receive_updates || false,
+            (entry) => entry.game.user_progress?.[0]?.receive_updates ?? false,
         );
 
     const handleToggleAllNotifications = async () => {

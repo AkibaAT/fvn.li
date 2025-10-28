@@ -74,7 +74,7 @@ export default function GameCardUserSection({
     const [showUserLists, setShowUserLists] = useState(false);
     const [isTogglingNotifications, setIsTogglingNotifications] = useState(false);
     const [notificationStatus, setNotificationStatus] = useState(
-        userProgress?.receive_updates || false,
+        userProgress?.receive_updates ?? false,
     );
     const [message, setMessage] = useState<{
         type: 'success' | 'error';
@@ -96,7 +96,7 @@ export default function GameCardUserSection({
     useEffect(() => {
         if (!isAuthenticated) return;
 
-        const notificationStatus = userProgress?.receive_updates || false;
+        const notificationStatus = userProgress?.receive_updates ?? false;
         setNotificationStatus(notificationStatus);
     }, [isAuthenticated, userProgress]);
 

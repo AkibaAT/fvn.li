@@ -145,7 +145,9 @@ class GamesSearchController extends Controller
 
                 // Attach user data to each game object
                 foreach ($games->items() as $game) {
-                    $game->user_progress = $userProgress->get($game->id);
+                    // Wrap user_progress in array to match Eloquent relationship format
+                    $progress = $userProgress->get($game->id);
+                    $game->user_progress = $progress ? [$progress] : [];
                     $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
                 }
             }
