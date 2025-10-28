@@ -32,6 +32,7 @@ interface GameVersion {
 interface Game {
     id: number;
     name: string;
+    effective_name: string;
     slug: string;
     thumb_url?: string;
     optimized_thumbnails?: { default?: { path: string } } | null;
@@ -152,7 +153,7 @@ const NotificationToggle = React.memo(function NotificationToggle({
 
                 notify(
                     data.message ||
-                    `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.name}"`,
+                    `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`,
                     'success',
                 );
             } else {
@@ -441,7 +442,7 @@ const GameEntry = React.memo(function GameEntry({
                     <Link href={route('games.show', game.slug)}>
                         <img
                             src={getOptimizedThumbnail(game)}
-                            alt={game.name}
+                            alt={game.effective_name}
                             className="h-16 w-16 rounded object-cover"
                             loading="lazy"
                         />
@@ -454,7 +455,7 @@ const GameEntry = React.memo(function GameEntry({
                         href={route('games.show', game.slug)}
                         className="font-medium text-blue-600 hover:underline dark:text-blue-400"
                     >
-                        {game.name}
+                        {game.effective_name}
                     </Link>
 
                     {/* Notes Display */}
@@ -651,7 +652,7 @@ const GameEntry = React.memo(function GameEntry({
                     <Link href={route('games.show', game.slug)}>
                         <img
                             src={getOptimizedThumbnail(game)}
-                            alt={game.name}
+                            alt={game.effective_name}
                             className="h-32 w-32 rounded object-cover"
                             loading="lazy"
                         />
@@ -663,7 +664,7 @@ const GameEntry = React.memo(function GameEntry({
                             href={route('games.show', game.slug)}
                             className="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
                         >
-                            {game.name}
+                            {game.effective_name}
                         </Link>
 
                         <div className="mt-2 flex items-center gap-2">

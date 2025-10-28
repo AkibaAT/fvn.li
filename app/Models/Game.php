@@ -18,6 +18,7 @@ use DateMalformedStringException;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -64,6 +65,7 @@ class Game extends Model
         'blur_screenshots',
         'optimized_thumbnails',
         'has_custom_page',
+        'custom_name',
         'custom_description',
         'custom_screenshots',
         'custom_assets',
@@ -79,7 +81,7 @@ class Game extends Model
     // Removed automatic eager loading of tags to prevent N+1 queries
     // Tags should be explicitly loaded only where needed (game detail, games list)
 
-    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'optimized_thumbnail_url'];
+    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'optimized_thumbnail_url', 'effective_name'];
 
     protected $casts = [
         'initially_published_at' => 'datetime',
@@ -314,6 +316,10 @@ class Game extends Model
             'custom_page_updated_at' => now(),
             'custom_page_updated_by' => $user->id,
         ];
+
+        if (isset($data['name'])) {
+            $updateData['custom_name'] = $data['name'];
+        }
 
         if (isset($data['description'])) {
             $updateData['custom_description'] = $data['description'];
@@ -551,6 +557,13 @@ class Game extends Model
     {
         // Only index visible games with names
         return $this->is_visible && ! empty(trim($this->name));
+    }
+
+    protected function effectiveName(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->getEffectiveName()
+        );
     }
 
     protected function devlog(): Attribute

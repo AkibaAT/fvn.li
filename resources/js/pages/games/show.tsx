@@ -5,6 +5,7 @@ import GameVersionComparisonModal from '@/components/game-version-comparison-mod
 import LoadingSpinner from '@/components/loading-spinner';
 import AdvancedPagination from '@/components/advanced-pagination';
 import EditableGameContent from '@/components/editor/EditableGameContent';
+import EditableGameName from '@/components/editor/EditableGameName';
 import GameCardUserSection from '@/components/game-card-user-section';
 import ScreenshotsGallery from '@/components/games/ScreenshotsGallery';
 import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox';
@@ -132,8 +133,10 @@ interface Game {
     id: number;
     name: string;
     slug: string;
+    effective_name: string;
     description?: string;
     full_description?: string;
+    custom_name?: string;
     custom_description?: string;
     has_custom_page?: boolean;
     thumb_url?: string;
@@ -998,9 +1001,18 @@ export default function GameShow({
 
                     <div className="flex-1">
                         <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                {game.name}
-                            </h1>
+                            <div className="group">
+                                <EditableGameName
+                                    gameId={game.id}
+                                    name={game.effective_name}
+                                    canEdit={editPermissions.canEdit}
+                                    hasCustomPage={game.has_custom_page || false}
+                                    onNameUpdate={(newName) => {
+                                        // Update the effective name in the local state
+                                        game.effective_name = newName;
+                                    }}
+                                />
+                            </div>
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 {game.url && (
                                     <a

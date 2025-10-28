@@ -4,6 +4,7 @@ import React, {useState} from 'react';
 export interface Game {
     id: number;
     name: string;
+    effective_name: string;
     slug: string;
     thumb_url?: string;
     optimized_thumbnails?: { default?: { path: string } } | null;
@@ -246,7 +247,7 @@ export default function VnListCard({
                         }}
                     >
                         <span className="sr-only" aria-live="polite">
-                            {currentGame?.name} – slide {index + 1} of {total}
+                            {currentGame?.effective_name} – slide {index + 1} of {total}
                         </span>
                         <Link
                             href={route('games.show', currentGame.slug)}
@@ -257,8 +258,8 @@ export default function VnListCard({
                                 {getThumb(currentGame) ? (
                                     <img
                                         src={getThumb(currentGame)!}
-                                        alt={currentGame.name}
-                                        title={currentGame.name}
+                                        alt={currentGame.effective_name}
+                                        title={currentGame.effective_name}
                                         className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
                                     />
                                 ) : (
@@ -319,9 +320,9 @@ export default function VnListCard({
                             <Link
                                 href={route('games.show', currentGame.slug)}
                                 className="block truncate text-sm text-gray-900 hover:underline dark:text-gray-100"
-                                title={currentGame.name}
+                                title={currentGame.effective_name}
                             >
-                                {currentGame.name}
+                                {currentGame.effective_name}
                             </Link>
                         </div>
                     </div>
@@ -339,9 +340,9 @@ export default function VnListCard({
                                     href={route('games.show', entry.game.slug)}
                                     className="rounded-md bg-gray-100/80 px-2 py-1 text-xs text-gray-800 transition-colors hover:bg-gray-200 dark:bg-gray-700/80 dark:text-gray-200 dark:hover:bg-gray-600"
                                 >
-                                    {entry.game.name.length > 25
-                                        ? entry.game.name.substring(0, 25) + '...'
-                                        : entry.game.name}
+                                    {entry.game.effective_name.length > 25
+                                        ? entry.game.effective_name.substring(0, 25) + '...'
+                                        : entry.game.effective_name}
                                 </Link>
                             ))}
                             {list.entries.length > 3 && (

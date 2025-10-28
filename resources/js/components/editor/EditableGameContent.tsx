@@ -141,18 +141,20 @@ export default function EditableGameContent({
         }
     };
 
-    const handleRevert = async (options?: { screenshots?: boolean; thumbnail?: boolean }) => {
+    const handleRevert = async (options?: { name?: boolean; screenshots?: boolean; thumbnail?: boolean }) => {
         if (!canEdit) return;
 
-        const { screenshots = false, thumbnail = false } = options || {};
+        const { name = false, screenshots = false, thumbnail = false } = options || {};
 
         let confirmMessage = "Are you sure you want to revert to the original itch.io content?";
-        if (screenshots && !thumbnail) {
+        if (name && !screenshots && !thumbnail) {
+            confirmMessage += " This will replace your custom name with the current one from itch.io.";
+        } else if (screenshots && !name && !thumbnail) {
             confirmMessage += " This will replace your custom screenshots with the current ones from itch.io.";
-        } else if (thumbnail && !screenshots) {
+        } else if (thumbnail && !name && !screenshots) {
             confirmMessage += " This will replace your custom thumbnail with the current one from itch.io.";
-        } else if (screenshots && thumbnail) {
-            confirmMessage += " This will replace all your custom content (description, screenshots, and thumbnail) with the current versions from itch.io.";
+        } else if (name && screenshots && thumbnail) {
+            confirmMessage += " This will replace all your custom content (name, description, screenshots, and thumbnail) with the current versions from itch.io.";
         } else {
             confirmMessage += " This will replace your custom description with the current version from itch.io.";
         }
@@ -166,6 +168,7 @@ export default function EditableGameContent({
 
         try {
             const response = await window.axios.post(route('react-api.games.content.revert', {game: gameId}), {
+                revert_name: name,
                 revert_screenshots: screenshots,
                 revert_thumbnail: thumbnail,
             });
@@ -182,6 +185,15 @@ export default function EditableGameContent({
                 // Notify parent component of the update
                 if (onContentUpdate) {
                     onContentUpdate(revertedContent);
+                }
+
+                // Handle name revert
+                if (name && response.data.data.effective_name) {
+                    // Dispatch event for name components to update
+                    const event = new CustomEvent('name-reverted', {
+                        detail: { effectiveName: response.data.data.effective_name }
+                    });
+                    window.dispatchEvent(event);
                 }
 
                 // Handle screenshot revert
@@ -264,6 +276,15 @@ export default function EditableGameContent({
                                 <button
                                     onClick={() => {
                                         setShowRevertMenu(false);
+                                        handleRevert({ name: true });
+                                    }}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    Revert Name
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowRevertMenu(false);
                                         handleRevert();
                                     }}
                                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -291,7 +312,7 @@ export default function EditableGameContent({
                                 <button
                                     onClick={() => {
                                         setShowRevertMenu(false);
-                                        handleRevert({ screenshots: true, thumbnail: true });
+                                        handleRevert({ name: true, screenshots: true, thumbnail: true });
                                     }}
                                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold border-t border-gray-200 dark:border-gray-600"
                                 >
@@ -386,7 +407,7 @@ export default function EditableGameContent({
                     </button>
 
                     <button
-                        onClick={() => handleRevert({ screenshots: true, thumbnail: true })}
+                        onClick={() => handleRevert({ name: true, screenshots: true, thumbnail: true })}
                         disabled={isSaving || isReverting}
                         className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
                         title="Revert everything to original itch.io content"

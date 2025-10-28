@@ -7,6 +7,8 @@ interface GameImageProps {
 }
 
 export default function GameImage({game, thumbnailUrl}: GameImageProps) {
+    const gameName = game.effective_name;
+
     return (
         <Link
             href={route('games.show', game.slug)}
@@ -16,7 +18,7 @@ export default function GameImage({game, thumbnailUrl}: GameImageProps) {
                 {thumbnailUrl ? (
                     <img
                         src={thumbnailUrl}
-                        alt={game.name}
+                        alt={gameName}
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                 ) : (

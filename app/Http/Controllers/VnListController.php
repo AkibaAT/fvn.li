@@ -49,9 +49,9 @@ class VnListController extends Controller
                     $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
                         ->with([
                             'game' => function ($q) {
-                                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails',
-                                    'is_paid',
-                                    'has_demo', 'is_on_sale', 'min_price');
+                                $q->select('id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url',
+                                    'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale',
+                                    'min_price');
                                 // Explicitly prevent tags from being loaded
                                 $q->without(['tags']);
                                 // Only load latestVersion if we actually need it for display
@@ -157,8 +157,8 @@ class VnListController extends Controller
                 $query->with([
                     'game' => function ($q) {
                         $q->select([
-                            'id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo',
-                            'is_on_sale', 'min_price',
+                            'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw', 'slug',
+                            'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
                         ]);
                         $q->with(['latestVersion', 'gameVersions']);
                         if (Auth::check()) {
@@ -302,8 +302,8 @@ class VnListController extends Controller
                             'game' => function ($q) {
                                 // Only select essential fields for the game
                                 $q->select([
-                                    'id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid',
-                                    'has_demo', 'is_on_sale', 'min_price',
+                                    'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw',
+                                    'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
                                 ]);
                                 // Explicitly prevent tags from being loaded
                                 $q->without(['tags']);
@@ -424,9 +424,9 @@ class VnListController extends Controller
                     $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
                         ->with([
                             'game' => function ($q) {
-                                $q->select('id', 'name', 'thumb_url', 'is_nsfw', 'slug', 'optimized_thumbnails',
-                                    'is_paid',
-                                    'has_demo', 'is_on_sale', 'min_price');
+                                $q->select('id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url',
+                                    'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale',
+                                    'min_price');
                                 // Explicitly prevent tags from being loaded
                                 $q->without(['tags']);
                                 $q->with([

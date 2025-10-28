@@ -9,6 +9,27 @@ use App\Models\User;
 trait HasCustomGameContent
 {
     /**
+     * Get the effective name for display (custom or synced)
+     */
+    public function getEffectiveName(bool $forceOriginal = false): ?string
+    {
+        // If forcing original view, always return itch.io content
+        if ($forceOriginal) {
+            return $this->name;
+        }
+
+        // If this game has custom page enabled and view_mode is set to original, show itch.io content
+        if ($this->has_custom_page && $this->view_mode === 'original') {
+            return $this->name;
+        }
+
+        // Show custom content if available
+        return $this->has_custom_page && $this->custom_name
+            ? $this->custom_name
+            : $this->name;
+    }
+
+    /**
      * Get the effective description for display (custom or synced)
      */
     public function getEffectiveDescription(bool $forceOriginal = false): ?string
@@ -83,6 +104,7 @@ trait HasCustomGameContent
     {
         $this->update([
             'has_custom_page' => true,
+            'custom_name' => $this->name,
             'custom_description' => $this->full_description,
             'custom_screenshots' => $this->screenshots ?: [],
             'custom_assets' => [],
@@ -98,37 +120,13 @@ trait HasCustomGameContent
     {
         $this->update([
             'has_custom_page' => false,
+            'custom_name' => null,
             'custom_description' => null,
             'custom_screenshots' => null,
             'custom_assets' => null,
             'custom_page_updated_at' => null,
             'custom_page_updated_by' => null,
         ]);
-    }
-
-    /**
-     * Update custom page content
-     */
-    public function updateCustomPage(array $data, User $user): void
-    {
-        $updateData = [
-            'custom_page_updated_at' => now(),
-            'custom_page_updated_by' => $user->id,
-        ];
-
-        if (isset($data['description'])) {
-            $updateData['custom_description'] = $data['description'];
-        }
-
-        if (isset($data['screenshots'])) {
-            $updateData['custom_screenshots'] = $data['screenshots'];
-        }
-
-        if (isset($data['assets'])) {
-            $updateData['custom_assets'] = $data['assets'];
-        }
-
-        $this->update($updateData);
     }
 
     /**

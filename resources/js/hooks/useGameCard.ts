@@ -8,6 +8,7 @@ import type {OptimizedScreenshotVariants, ScreenshotVariant} from '@/constants/s
 export interface GameCardGame {
     id: number;
     name: string;
+    effective_name: string;
     slug: string;
     status?: string | null;
     authors?: string;

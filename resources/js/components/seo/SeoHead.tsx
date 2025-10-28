@@ -17,6 +17,7 @@ interface Game {
     id: number | string;
     slug?: string;
     name: string;
+    effective_name: string;
     description?: string;
     thumb_url?: string;
     optimized_thumbnails?: {
@@ -183,12 +184,13 @@ function getBaseUrl(): string {
 export function createGameMetaTags(game: Game, options: Partial<MetaTags> = {}): MetaTags {
     const baseUrl = getBaseUrl();
     const gameUrl = `${baseUrl}/games/${game.slug || game.id}`;
+    const gameName = game.effective_name;
 
     return {
-        title: game.name,
+        title: gameName,
         description: game.description
             ? `${game.description.substring(0, 155)}...`
-            : `Discover ${game.name}, a furry visual novel. Read reviews, ratings, and community discussions.`,
+            : `Discover ${gameName}, a furry visual novel. Read reviews, ratings, and community discussions.`,
         image: game.thumb_url || game.optimized_thumbnails?.default?.path
             ? `${baseUrl}/storage/${game.optimized_thumbnails?.default?.path}`
             : `${baseUrl}/images/social-fallback.jpg`,
@@ -202,7 +204,7 @@ export function createGameMetaTags(game: Game, options: Partial<MetaTags> = {}):
         tags: game.tags?.map((tag: GameTag) => tag.name) || [],
         structuredData: {
             '@type': 'VideoGame',
-            name: game.name,
+            name: gameName,
             description: game.description,
             image: game.thumb_url,
             url: gameUrl,
