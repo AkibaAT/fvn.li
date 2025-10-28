@@ -334,8 +334,8 @@ class GamesDisplayController extends Controller
      */
     private function prepareSocialMetaTags(Game $game, $reviews, ?array $englishStats = null): void
     {
-        $title = $game->name;
-        $description = $game->description ?: "Discover {$game->name} on fvn.li - Visual Novel Database and Analytics";
+        $title = $game->effective_name;
+        $description = $game->description ?: "Discover {$game->effective_name} on fvn.li - Visual Novel Database and Analytics";
 
         // Use game thumbnail or first screenshot as image
         $image = $game->thumb_url ?: ($game->screenshots[0]['url'] ?? null);

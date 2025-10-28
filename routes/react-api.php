@@ -128,6 +128,8 @@ Route::middleware(['web'])->group(function () {
 
         // Game content editing
         Route::middleware(CanEditGame::class)->group(function () {
+            Route::put('games/{game:id}/name', [GameContentController::class, 'updateName'])
+                ->name('react-api.games.name.update');
             Route::put('games/{game:id}/content', [GameContentController::class, 'updateContent'])
                 ->name('react-api.games.content.update');
             Route::post('games/{game:id}/content/revert', [GameContentController::class, 'revertContent'])

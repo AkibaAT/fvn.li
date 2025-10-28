@@ -55,6 +55,48 @@ class GameContentController extends Controller
     }
 
     /**
+     * Update game custom name
+     */
+    public function updateName(Game $game, Request $request): JsonResponse
+    {
+        if (! $this->canEdit($game)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to edit this game.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $user = Auth::user();
+
+        // Enable custom page if not already enabled
+        if (! $game->has_custom_page) {
+            $game->enableCustomPage($user);
+        }
+
+        // Update custom name
+        $game->updateCustomPage([
+            'name' => $validated['name'],
+        ], $user);
+
+        // Refresh the model to get the updated effective_name
+        $game->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Name updated successfully.',
+            'data' => [
+                'name' => $validated['name'],
+                'effective_name' => $game->effective_name,
+                'has_custom_page' => true,
+            ],
+        ]);
+    }
+
+    /**
      * Get both custom and original content for view switching
      */
     public function getContentForView(Game $game): JsonResponse
@@ -65,14 +107,17 @@ class GameContentController extends Controller
                 'has_custom_page' => $game->has_custom_page,
                 'current_view_mode' => $game->view_mode,
                 'custom_content' => [
+                    'name' => $game->custom_name,
                     'description' => $game->custom_description,
                     'screenshots' => $game->custom_screenshots,
                 ],
                 'original_content' => [
+                    'name' => $game->name,
                     'description' => $game->full_description,
                     'screenshots' => $game->screenshots,
                 ],
                 'effective_content' => [
+                    'name' => $game->getEffectiveName(),
                     'description' => $game->getEffectiveDescription(),
                     'screenshots' => $game->getEffectiveScreenshots(),
                 ],
@@ -113,6 +158,7 @@ class GameContentController extends Controller
             'message' => 'View mode updated successfully.',
             'data' => [
                 'view_mode' => $game->view_mode,
+                'effective_name' => $game->getEffectiveName(),
                 'effective_description' => $game->getEffectiveDescription(),
                 'effective_screenshots' => $game->getEffectiveScreenshots(),
             ],
@@ -132,6 +178,7 @@ class GameContentController extends Controller
         }
 
         $user = Auth::user();
+        $revertName = $request->boolean('revert_name', false);
         $revertScreenshots = $request->boolean('revert_screenshots', false);
         $revertThumbnail = $request->boolean('revert_thumbnail', false);
 
@@ -158,11 +205,19 @@ class GameContentController extends Controller
         // Reset custom content to current itch.io synced content
         $game->updateCustomPage($updateData, $user);
 
+        // Revert name if requested (must be done after updateCustomPage to clear custom_name)
+        if ($revertName) {
+            $game->update(['custom_name' => null]);
+        }
+
         // Handle thumbnail revert if requested (special case since there's no custom thumbnail system)
         $thumbnailUrl = null;
         if ($revertThumbnail) {
             $thumbnailUrl = $this->revertThumbnail($game);
         }
+
+        // Refresh the model to get updated effective values
+        $game->refresh();
 
         return response()->json([
             'success' => true,
@@ -170,6 +225,8 @@ class GameContentController extends Controller
                 ? 'Content and screenshots reverted to itch.io version successfully.'
                 : 'Content reverted to itch.io version successfully.',
             'data' => [
+                'name' => $revertName ? $game->name : null,
+                'effective_name' => $revertName ? $game->effective_name : null,
                 'content' => $game->full_description,
                 'screenshots' => $revertScreenshots ? $game->screenshots : null,
                 'thumbnail_url' => $thumbnailUrl,
