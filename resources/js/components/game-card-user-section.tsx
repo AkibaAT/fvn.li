@@ -105,9 +105,11 @@ export default function GameCardUserSection({
         if (!isAuthenticated) return;
 
         try {
-            const url = '/react-api/user/lists';
-
-            const listsResponse = await window.axios.get(url);
+            // Fetch both lists and current game memberships in parallel
+            const [listsResponse, membershipsResponse] = await Promise.all([
+                window.axios.get('/react-api/user/lists'),
+                window.axios.get(`/react-api/games/${gameId}/lists`)
+            ]);
 
             if (listsResponse.data?.success) {
                 const lists = listsResponse.data.lists || [];
@@ -120,14 +122,11 @@ export default function GameCardUserSection({
 
                 setUserLists(userOwnedLists);
 
-                // Initialize list states based on pre-loaded membership data
+                // Initialize list states based on current membership data from API
+                const currentListIds = membershipsResponse.data?.list_ids || [];
                 const initialStates: Record<number, boolean> = {};
                 lists.forEach((list: VnList) => {
-                    // Check if this game is in this list based on pre-loaded data
-                    const isInList = userListMemberships.some(membership =>
-                        membership.list_id === list.id
-                    );
-                    initialStates[list.id] = isInList;
+                    initialStates[list.id] = currentListIds.includes(list.id);
                 });
                 setListStates(initialStates);
             }
@@ -135,7 +134,7 @@ export default function GameCardUserSection({
             console.error('Failed to load user lists:', error);
             showMessage('Failed to load user lists', 'error');
         }
-    }, [isAuthenticated, auth?.user?.id, userListMemberships, showMessage]);
+    }, [isAuthenticated, auth?.user?.id, gameId, showMessage]);
 
     // Handle dialog open/close
     useEffect(() => {
