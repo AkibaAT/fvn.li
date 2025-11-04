@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console;
 
 use App\Console\Commands\AnonymizeClickStatIPs;
+use App\Console\Commands\BackfillFeed;
 use App\Console\Commands\BackfillRatings;
 use App\Console\Commands\CheckSuspendedGames;
 use App\Console\Commands\CleanupGameDownloads;
@@ -31,6 +32,7 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         AnonymizeClickStatIPs::class,
+        BackfillFeed::class,
         BackfillRatings::class,
         CheckSuspendedGames::class,
         CleanupGameDownloads::class,
