@@ -400,9 +400,6 @@ class GameDataSyncService
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-            // Check if we're following the creator and follow if not
-            $this->checkAndFollowCreator($game, $html);
-
             $extractor = app(ItchGameMetadataExtractor::class);
 
             // Check if price was already set from API data (more reliable than HTML scraping)
@@ -514,60 +511,6 @@ class GameDataSyncService
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
-        }
-    }
-
-    /**
-     * Check if we're following the creator and follow if not
-     */
-    private function checkAndFollowCreator(Game $game, string $html): void
-    {
-        try {
-            // Check if we're following the creator
-            // When following, the button has class "is_following follow_user_btn"
-            // When not following, it only has "follow_user_btn"
-            $isFollowing = str_contains($html, 'is_following follow_user_btn') ||
-                          str_contains($html, 'follow_user_btn is_following');
-
-            if (! $isFollowing && str_contains($html, 'follow_user_btn')) {
-                // We're not following and there's a follow button, so follow the creator
-                Log::info('Not following creator, attempting to follow', [
-                    'game_id' => $game->id,
-                    'game_url' => $game->url,
-                ]);
-
-                $followService = app(\App\Services\ItchFollowService::class);
-                $success = $followService->followCreatorFromGameUrl($game->url);
-
-                if ($success) {
-                    Log::info('Successfully followed creator', [
-                        'game_id' => $game->id,
-                        'game_url' => $game->url,
-                    ]);
-                } else {
-                    Log::warning('Failed to follow creator', [
-                        'game_id' => $game->id,
-                        'game_url' => $game->url,
-                    ]);
-                }
-            } elseif ($isFollowing) {
-                Log::debug('Already following creator', [
-                    'game_id' => $game->id,
-                    'game_url' => $game->url,
-                ]);
-            } else {
-                Log::debug('No follow button found on page', [
-                    'game_id' => $game->id,
-                    'game_url' => $game->url,
-                ]);
-            }
-        } catch (\Exception $e) {
-            // Don't fail the metadata refresh if following fails
-            Log::error('Error checking/following creator', [
-                'game_id' => $game->id,
-                'game_url' => $game->url,
-                'error' => $e->getMessage(),
-            ]);
         }
     }
 
