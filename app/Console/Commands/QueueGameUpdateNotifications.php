@@ -60,6 +60,21 @@ class QueueGameUpdateNotifications extends Command
             // Find games that have been updated in the specified period
             $latestDate = Carbon::now()->subDays($days);
 
+            // Quick check if there's any work to do (performance optimization)
+            $hasRecentUpdates = Game::whereHas('gameVersions', function ($query) use ($latestDate) {
+                $query->where('published_at', '>=', $latestDate)
+                    ->where('is_latest', true);
+            })
+                ->where('is_paid', false)
+                ->where('is_suspended', false)
+                ->exists();
+
+            if (! $hasRecentUpdates) {
+                $this->info('No recently updated games found, skipping notification processing');
+
+                return 0;
+            }
+
             $recentlyUpdatedGames = Game::whereHas('gameVersions', function ($query) use ($latestDate) {
                 $query->where('published_at', '>=', $latestDate)
                     ->where('is_latest', true);
@@ -100,16 +115,8 @@ class QueueGameUpdateNotifications extends Command
                     }
 
                     // Only add discord channel if user has discord notifications enabled AND has a Discord account
-                    if ((bool) $user->discord_notifications_enabled) {
-                        // Check if user actually has a Discord social account
-                        $hasDiscordAccount = DB::table('social_accounts')
-                            ->where('user_id', $user->user_id)
-                            ->where('provider_name', 'discord')
-                            ->exists();
-
-                        if ($hasDiscordAccount) {
-                            $channelsToNotify[] = 'discord';
-                        }
+                    if ((bool) $user->discord_notifications_enabled && (bool) $user->has_discord_account) {
+                        $channelsToNotify[] = 'discord';
                     }
 
                     // Add more channels here as needed
@@ -174,6 +181,8 @@ class QueueGameUpdateNotifications extends Command
                 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled',
                 'user_notification_preferences.notification_digest',
+                // Check if user has Discord account in a single query (performance optimization)
+                DB::raw('EXISTS(SELECT 1 FROM social_accounts WHERE social_accounts.user_id = users.id AND social_accounts.provider_name = \'discord\') as has_discord_account'),
             ])
             ->join('users', 'user_game_progress.user_id', '=', 'users.id')
             ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
