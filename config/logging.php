@@ -132,7 +132,7 @@ return [
         'performance' => [
             'driver' => 'daily',
             'path' => storage_path('logs/performance.log'),
-            'level' => env('LOG_LEVEL', 'info'),
+            'level' => 'info', // Always log info level for performance metrics
             'days' => 7,
             'replace_placeholders' => true,
         ],
