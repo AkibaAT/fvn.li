@@ -51,6 +51,14 @@ class QueueGameUpdateNotifications extends Command
      */
     public function handle(): int
     {
+        // Performance tracking
+        $startTime = microtime(true);
+        $startMemory = memory_get_usage(true);
+        $queryCount = 0;
+
+        // Enable query logging for performance tracking
+        DB::enableQueryLog();
+
         $days = (int) $this->option('days');
         $limit = (int) $this->option('limit');
 
@@ -72,6 +80,16 @@ class QueueGameUpdateNotifications extends Command
             if (! $hasRecentUpdates) {
                 $this->info('No recently updated games found, skipping notification processing');
 
+                // Log performance metrics for early exit
+                $this->logPerformanceMetrics(
+                    startTime: $startTime,
+                    startMemory: $startMemory,
+                    gamesProcessed: 0,
+                    usersNotified: 0,
+                    notificationsQueued: 0,
+                    earlyExit: true
+                );
+
                 return 0;
             }
 
@@ -88,6 +106,7 @@ class QueueGameUpdateNotifications extends Command
             $this->info('Found ' . count($recentlyUpdatedGames) . ' recently updated games');
 
             $notificationCount = 0;
+            $totalUsersNotified = 0;
 
             foreach ($recentlyUpdatedGames as $game) {
                 $this->info("Processing notifications for game: {$game->name}");
@@ -103,6 +122,7 @@ class QueueGameUpdateNotifications extends Command
                 $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
 
                 $this->info('Found ' . count($usersToNotify) . " users to notify for {$game->name}");
+                $totalUsersNotified += count($usersToNotify);
 
                 // Queue notifications for these users
                 foreach ($usersToNotify as $user) {
@@ -149,6 +169,16 @@ class QueueGameUpdateNotifications extends Command
             }
 
             $this->info("Successfully queued {$notificationCount} notifications");
+
+            // Log performance metrics for successful run
+            $this->logPerformanceMetrics(
+                startTime: $startTime,
+                startMemory: $startMemory,
+                gamesProcessed: count($recentlyUpdatedGames),
+                usersNotified: $totalUsersNotified,
+                notificationsQueued: $notificationCount,
+                earlyExit: false
+            );
 
             return 0;
         } catch (Exception $e) {
@@ -274,5 +304,47 @@ class QueueGameUpdateNotifications extends Command
                 // Default to immediate
                 return $now;
         }
+    }
+
+    /**
+     * Log performance metrics for the command execution.
+     */
+    protected function logPerformanceMetrics(
+        float $startTime,
+        int $startMemory,
+        int $gamesProcessed,
+        int $usersNotified,
+        int $notificationsQueued,
+        bool $earlyExit
+    ): void {
+        $executionTime = round((microtime(true) - $startTime) * 1000, 2); // milliseconds
+        $peakMemory = memory_get_peak_usage(true);
+        $memoryUsed = $peakMemory - $startMemory;
+        $queryCount = count(DB::getQueryLog());
+
+        $metrics = [
+            'execution_time_ms' => $executionTime,
+            'memory_used_mb' => round($memoryUsed / 1024 / 1024, 2),
+            'peak_memory_mb' => round($peakMemory / 1024 / 1024, 2),
+            'query_count' => $queryCount,
+            'games_processed' => $gamesProcessed,
+            'users_notified' => $usersNotified,
+            'notifications_queued' => $notificationsQueued,
+            'early_exit' => $earlyExit,
+        ];
+
+        // Log to Laravel log
+        Log::info('QueueGameUpdateNotifications performance', $metrics);
+
+        // Output summary to console
+        $this->newLine();
+        $this->info('Performance Metrics:');
+        $this->line("  Execution Time: {$executionTime}ms");
+        $this->line("  Memory Used: {$metrics['memory_used_mb']}MB (Peak: {$metrics['peak_memory_mb']}MB)");
+        $this->line("  Database Queries: {$queryCount}");
+        $this->line("  Games Processed: {$gamesProcessed}");
+        $this->line("  Users Notified: {$usersNotified}");
+        $this->line("  Notifications Queued: {$notificationsQueued}");
+        $this->line("  Early Exit: " . ($earlyExit ? 'Yes' : 'No'));
     }
 }

@@ -21,8 +21,10 @@ use App\Services\ItchIoProvider;
 use App\Services\LanguageMappingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use ReflectionClass;
 use SocialiteProviders\Discord\Provider;
@@ -93,6 +95,9 @@ class AppServiceProvider extends ServiceProvider
         $this->loadViewsFrom(resource_path('views/users'), 'users');
         $this->loadViewsFrom(resource_path('views/admin'), 'admin');
         $this->loadViewsFrom(resource_path('views/dialogue'), 'dialogue');
+
+        // Log slow database queries
+        $this->registerSlowQueryLogging();
     }
 
     /**
@@ -136,5 +141,25 @@ class AppServiceProvider extends ServiceProvider
             // Register the observer
             $modelClass::observe(UniversalAuditObserver::class);
         }
+    }
+
+    /**
+     * Register slow query logging.
+     */
+    private function registerSlowQueryLogging(): void
+    {
+        // Slow query threshold in milliseconds
+        $slowQueryThreshold = config('database.slow_query_threshold', 1000);
+
+        DB::listen(function ($query) use ($slowQueryThreshold) {
+            if ($query->time > $slowQueryThreshold) {
+                Log::warning('Slow query detected', [
+                    'sql' => $query->sql,
+                    'bindings' => $query->bindings,
+                    'time_ms' => $query->time,
+                    'connection' => $query->connectionName,
+                ]);
+            }
+        });
     }
 }

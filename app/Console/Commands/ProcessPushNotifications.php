@@ -51,6 +51,11 @@ class ProcessPushNotifications extends Command
      */
     public function handle(): int
     {
+        // Performance tracking
+        $startTime = microtime(true);
+        $startMemory = memory_get_usage(true);
+        DB::enableQueryLog();
+
         $limit = (int) $this->option('limit');
         $batchSize = (int) $this->option('batch');
 
@@ -69,6 +74,15 @@ class ProcessPushNotifications extends Command
 
             if ($notifications->isEmpty()) {
                 $this->info('No notifications to process');
+
+                // Log performance metrics for early exit
+                $this->logPerformanceMetrics(
+                    startTime: $startTime,
+                    startMemory: $startMemory,
+                    notificationsProcessed: 0,
+                    successCount: 0,
+                    failedCount: 0
+                );
 
                 return 0;
             }
@@ -126,6 +140,15 @@ class ProcessPushNotifications extends Command
 
                 $this->info("Successfully processed {$processedCount} notifications");
                 $this->info("Success: {$successCount}, Failed: {$failedCount}");
+
+                // Log performance metrics
+                $this->logPerformanceMetrics(
+                    startTime: $startTime,
+                    startMemory: $startMemory,
+                    notificationsProcessed: $processedCount,
+                    successCount: $successCount,
+                    failedCount: $failedCount
+                );
 
                 return 0;
             } catch (Exception $e) {
@@ -264,5 +287,43 @@ class ProcessPushNotifications extends Command
 
             return false;
         }
+    }
+
+    /**
+     * Log performance metrics for the command execution.
+     */
+    protected function logPerformanceMetrics(
+        float $startTime,
+        int $startMemory,
+        int $notificationsProcessed,
+        int $successCount,
+        int $failedCount
+    ): void {
+        $executionTime = round((microtime(true) - $startTime) * 1000, 2); // milliseconds
+        $peakMemory = memory_get_peak_usage(true);
+        $memoryUsed = $peakMemory - $startMemory;
+        $queryCount = count(DB::getQueryLog());
+
+        $metrics = [
+            'execution_time_ms' => $executionTime,
+            'memory_used_mb' => round($memoryUsed / 1024 / 1024, 2),
+            'peak_memory_mb' => round($peakMemory / 1024 / 1024, 2),
+            'query_count' => $queryCount,
+            'notifications_processed' => $notificationsProcessed,
+            'success_count' => $successCount,
+            'failed_count' => $failedCount,
+        ];
+
+        // Log to Laravel log
+        Log::info('ProcessPushNotifications performance', $metrics);
+
+        // Output summary to console
+        $this->newLine();
+        $this->info('Performance Metrics:');
+        $this->line("  Execution Time: {$executionTime}ms");
+        $this->line("  Memory Used: {$metrics['memory_used_mb']}MB (Peak: {$metrics['peak_memory_mb']}MB)");
+        $this->line("  Database Queries: {$queryCount}");
+        $this->line("  Notifications Processed: {$notificationsProcessed}");
+        $this->line("  Success: {$successCount}, Failed: {$failedCount}");
     }
 }
