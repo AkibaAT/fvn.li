@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 
 class AdditionRequest extends Model
 {
@@ -97,15 +98,31 @@ class AdditionRequest extends Model
     public static function gameAlreadyExists(string $url): bool
     {
         $normalizedUrl = self::normalizeUrl($url);
+        $possibleUrls = self::buildUrlVariants($url, $normalizedUrl);
+
+        if (empty($possibleUrls)) {
+            return false;
+        }
+
+        $platformKeys = ['itch_io', 'steam', 'other'];
 
         // Check if a visible game exists with this URL
         return Game::where('is_visible', true)
-            ->where(function ($query) use ($url, $normalizedUrl) {
-                $query->where('url', $url)
-                    ->orWhere('url', 'https://' . $normalizedUrl)
-                    ->orWhere('url', 'http://' . $normalizedUrl)
-                    ->orWhere('url', 'https://www.' . $normalizedUrl)
-                    ->orWhere('url', 'http://www.' . $normalizedUrl);
+            ->where(function ($query) use ($platformKeys, $possibleUrls) {
+                $isFirstCondition = true;
+
+                foreach ($platformKeys as $platformKey) {
+                    $column = DB::raw("url->>'{$platformKey}'");
+
+                    if ($isFirstCondition) {
+                        $query->whereIn($column, $possibleUrls);
+                        $isFirstCondition = false;
+
+                        continue;
+                    }
+
+                    $query->orWhereIn($column, $possibleUrls);
+                }
             })
             ->exists();
     }
@@ -127,6 +144,24 @@ class AdditionRequest extends Model
         $normalized = strtok($normalized, '#');
 
         return strtolower($normalized);
+    }
+
+    /**
+     * Build the set of URL variants we use for deduplication lookups.
+     *
+     * @return array<int, string>
+     */
+    private static function buildUrlVariants(string $originalUrl, string $normalizedUrl): array
+    {
+        $variants = array_filter([
+            $originalUrl,
+            $normalizedUrl ? "https://{$normalizedUrl}" : null,
+            $normalizedUrl ? "http://{$normalizedUrl}" : null,
+            $normalizedUrl ? "https://www.{$normalizedUrl}" : null,
+            $normalizedUrl ? "http://www.{$normalizedUrl}" : null,
+        ]);
+
+        return array_values(array_unique($variants));
     }
 
     /**

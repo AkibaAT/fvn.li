@@ -147,7 +147,7 @@ class GameDataSyncService
             // Get the ItchHttpClientService
             $itchClient = App::make(ItchHttpClientService::class);
 
-            $url = "https://api.itch.io/games/{$game->game_id}/uploads";
+            $url = "https://api.itch.io/games/{$game->itch_id}/uploads";
 
             $response = $itchClient->get($url);
 

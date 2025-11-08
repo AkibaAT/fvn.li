@@ -265,8 +265,8 @@ class ProcessFeed extends Command
 
         DB::beginTransaction();
 
-        // Get or create game
-        $game = Game::firstOrNew(['game_id' => $gameId]);
+        // Get or create game - itch_id now stores the itch.io identifier
+        $game = Game::firstOrNew(['itch_id' => $gameId]);
 
         try {
             // Set platform to itch_io for all feed-processed games

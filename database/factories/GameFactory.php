@@ -20,14 +20,16 @@ class GameFactory extends Factory
     public function definition(): array
     {
         return [
-            'game_id' => fake()->unique()->randomNumber(6),
+            'itch_id' => fake()->unique()->randomNumber(6),
             'slug' => fake()->slug(),
             'name' => fake()->words(3, true),
             'status' => fake()->randomElement(['Released', 'In Development', 'Abandoned', 'Canceled']),
             'is_visible' => true,
             'is_nsfw' => fake()->boolean(20),
             'description' => fake()->paragraph(),
-            'url' => fake()->url(),
+            'url' => [
+                'itch_io' => fake()->url(),
+            ],
             'thumb_url' => 'https://via.placeholder.com/630x500',
             'game_engine' => "Ren'Py",
             'authors' => fake()->name(),

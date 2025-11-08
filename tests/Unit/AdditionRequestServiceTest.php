@@ -11,16 +11,16 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 // Ensure a clean database state per test so user IDs are always dynamic and sequences are in sync
 uses(RefreshDatabase::class);
 
-test('is valid itch url validates correctly', function () {
+test('validate url accepts any supported http url', function () {
     $service = new AdditionRequestService;
 
-    expect($service->isValidItchUrl('https://developer.itch.io/game-name'))->toBeTrue();
-    expect($service->isValidItchUrl('https://www.developer.itch.io/game-name'))->toBeTrue();
-    expect($service->isValidItchUrl('http://developer.itch.io/game-name'))->toBeTrue();
+    expect($service->validateUrl('https://developer.itch.io/game-name')['valid'])->toBeTrue();
+    expect($service->validateUrl('https://store.steampowered.com/app/123456/game')['valid'])->toBeTrue();
+    expect($service->validateUrl('https://example.com/my-game')['valid'])->toBeTrue();
 
-    expect($service->isValidItchUrl('https://example.com/game'))->toBeFalse();
-    expect($service->isValidItchUrl('not-a-url'))->toBeFalse();
-    expect($service->isValidItchUrl('https://itch.io/game'))->toBeFalse();
+    expect($service->validateUrl('ftp://example.com/game')['valid'])->toBeFalse();
+    expect($service->validateUrl('not-a-url')['valid'])->toBeFalse();
+    expect($service->validateUrl('https://')['valid'])->toBeFalse();
 });
 
 test('parse urls splits input correctly', function () {
@@ -57,17 +57,18 @@ test('submit requests handles invalid urls', function () {
     $service = new AdditionRequestService;
     $urls = [
         'https://dev1.itch.io/game1',
-        'https://example.com/invalid',
+        'https://example.com/new-game',
+        'ftp://unsupported.dev/game',
         'not-a-url',
     ];
 
     $results = $service->submitRequests($user, $urls);
 
-    expect($results['success_count'])->toBe(1);
+    expect($results['success_count'])->toBe(2);
     expect($results['duplicate_count'])->toBe(0);
     expect($results['invalid_count'])->toBe(2);
     expect($results['errors'])->toHaveCount(2);
-    expect($results['requests'])->toHaveCount(1);
+    expect($results['requests'])->toHaveCount(2);
 });
 
 test('submit requests handles duplicates', function () {
@@ -93,7 +94,7 @@ test('submit requests filters out existing visible games', function () {
     // Create a visible game with a specific URL
     $existingUrl = 'https://existing-dev.itch.io/existing-game';
     Game::factory()->create([
-        'url' => $existingUrl,
+        'url' => ['itch_io' => $existingUrl],
         'is_visible' => true,
     ]);
 
@@ -113,7 +114,7 @@ test('submit requests filters out existing visible games', function () {
 test('game already exists checks various URL formats', function () {
     // Create a game with a specific URL
     Game::factory()->create([
-        'url' => 'https://developer.itch.io/game-name',
+        'url' => ['itch_io' => 'https://developer.itch.io/game-name'],
         'is_visible' => true,
     ]);
 
@@ -130,7 +131,7 @@ test('game already exists checks various URL formats', function () {
 test('game already exists only checks visible games', function () {
     // Create an invisible game
     Game::factory()->create([
-        'url' => 'https://developer.itch.io/hidden-game',
+        'url' => ['itch_io' => 'https://developer.itch.io/hidden-game'],
         'is_visible' => false,
     ]);
 
