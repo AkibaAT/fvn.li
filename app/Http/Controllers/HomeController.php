@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Game;
 use App\Services\MeilisearchService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,15 +20,18 @@ class HomeController extends Controller
 
     public function home(): Response
     {
-        $stats = [
-            'totalGames' => Game::where('is_visible', true)->count(),
-            'totalRatings' => DB::table('ratings')
-                ->join('games', 'ratings.game_id', '=', 'games.id')
-                ->where('games.is_visible', true)
-                ->where('ratings.is_visible', true)
-                ->count(),
-            'totalUsers' => DB::table('users')->count(),
-        ];
+        // Cache stats indefinitely - cleared by observers when data changes
+        $stats = Cache::rememberForever('home.stats', function () {
+            return [
+                'totalGames' => Game::where('is_visible', true)->count(),
+                'totalRatings' => DB::table('ratings')
+                    ->join('games', 'ratings.game_id', '=', 'games.id')
+                    ->where('games.is_visible', true)
+                    ->where('ratings.is_visible', true)
+                    ->count(),
+                'totalUsers' => DB::table('users')->count(),
+            ];
+        });
 
         // Get ignored game IDs for authenticated users
         $ignoredGameIds = [];
@@ -35,11 +39,18 @@ class HomeController extends Controller
             $ignoredGameIds = Auth::user()->ignoredGames()->pluck('games.id')->toArray();
         }
 
-        $teasers = [
-            'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),
-            'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', 4, $ignoredGameIds),
-            'mostPopular' => $this->getGameTeasers('trending_score', 'desc', 4, $ignoredGameIds),
-        ];
+        // Use versioning for cache invalidation instead of time-based expiry
+        // This ensures cache stays fresh indefinitely until games actually change
+        $teaserVersion = \App\Services\HomePageCacheService::getTeaserVersion();
+        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
+        
+        $teasers = Cache::rememberForever($cacheKey, function () use ($ignoredGameIds) {
+            return [
+                'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),
+                'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', 4, $ignoredGameIds),
+                'mostPopular' => $this->getGameTeasers('trending_score', 'desc', 4, $ignoredGameIds),
+            ];
+        });
 
         $metaTags = [
             'title' => 'Furry Visual Novel Database',

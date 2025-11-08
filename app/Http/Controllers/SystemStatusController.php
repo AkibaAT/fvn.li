@@ -19,16 +19,21 @@ class SystemStatusController extends Controller
 {
     public function systemStatus(): Response
     {
-        $gameStats = [
-            'total' => Game::count(),
-            'visible' => Game::where('is_visible', true)->count(),
-            'latest_update' => Game::where('is_visible', true)
-                ->orderByDesc('updated_at')
-                ->value('updated_at'),
-        ];
-        $gameStats['listing_rate'] = $gameStats['total'] > 0
-            ? ($gameStats['visible'] / $gameStats['total'] * 100)
-            : 0;
+        // Cache game stats until end of day
+        $gameStats = Cache::remember('system_status.game_stats', now()->endOfDay(), function () {
+            $stats = [
+                'total' => Game::count(),
+                'visible' => Game::where('is_visible', true)->count(),
+                'latest_update' => Game::where('is_visible', true)
+                    ->orderByDesc('updated_at')
+                    ->value('updated_at'),
+            ];
+            $stats['listing_rate'] = $stats['total'] > 0
+                ? ($stats['visible'] / $stats['total'] * 100)
+                : 0;
+            
+            return $stats;
+        });
 
         // Bump cache key version when the payload shape changes
         $ratingStats = Cache::remember('system_status.rating_stats.v2', now()->endOfDay(), function () {
@@ -116,7 +121,7 @@ class SystemStatusController extends Controller
             return $payload;
         });
 
-        // Build monitored scheduled tasks and health summary (match old Livewire logic and limits)
+        // Build monitored scheduled tasks and health summary (no cache - lightweight queries, real-time is better)
         $monitoredTasksModels = MonitoredScheduledTask::query()
             ->orderBy('name')
             ->get();

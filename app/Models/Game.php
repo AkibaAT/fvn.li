@@ -369,7 +369,7 @@ class Game extends Model
      */
     public function getPrimaryUrl(): ?string
     {
-        return $this->getUrlForPlatform($this->platform);
+        return $this->platform ? $this->getUrlForPlatform($this->platform) : null;
     }
 
     /**

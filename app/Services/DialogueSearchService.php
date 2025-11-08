@@ -8,6 +8,7 @@ use App\Models\DialogueLine;
 use App\Models\GameVersion;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Meilisearch\Client;
 
@@ -219,66 +220,69 @@ class DialogueSearchService
      */
     public function getVersionStatistics(GameVersion $version): array
     {
-        $totalLines = $version->dialogueLines()->count();
+        // Cache version statistics for 1 hour since game versions rarely change
+        return Cache::remember("dialogue.version_stats.{$version->id}", 3600, function () use ($version) {
+            $totalLines = $version->dialogueLines()->count();
 
-        // Count unique texts used in this version
-        $uniqueTextsCount = DB::table('version_dialogue_lines')
-            ->where('game_version_id', $version->id)
-            ->distinct('text_id')
-            ->count('text_id');
+            // Count unique texts used in this version
+            $uniqueTextsCount = DB::table('version_dialogue_lines')
+                ->where('game_version_id', $version->id)
+                ->distinct('text_id')
+                ->count('text_id');
 
-        // Calculate character counts
-        $characterStats = DB::table('version_dialogue_lines')
-            ->where('game_version_id', $version->id)
-            ->leftJoin('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-            ->select([
-                'characters.character_id',
-                DB::raw('COUNT(*) as line_count'),
-            ])
-            ->groupBy('characters.character_id')
-            ->orderByDesc('line_count')
-            ->get();
+            // Calculate character counts
+            $characterStats = DB::table('version_dialogue_lines')
+                ->where('game_version_id', $version->id)
+                ->leftJoin('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
+                ->select([
+                    'characters.character_id',
+                    DB::raw('COUNT(*) as line_count'),
+                ])
+                ->groupBy('characters.character_id')
+                ->orderByDesc('line_count')
+                ->get();
 
-        // Language breakdown
-        $languageStats = DB::table('version_dialogue_lines')
-            ->where('game_version_id', $version->id)
-            ->select([
-                'iso_code',
-                DB::raw('COUNT(*) as line_count'),
-            ])
-            ->groupBy('iso_code')
-            ->orderByDesc('line_count')
-            ->get();
+            // Language breakdown
+            $languageStats = DB::table('version_dialogue_lines')
+                ->where('game_version_id', $version->id)
+                ->select([
+                    'iso_code',
+                    DB::raw('COUNT(*) as line_count'),
+                ])
+                ->groupBy('iso_code')
+                ->orderByDesc('line_count')
+                ->get();
 
-        // Calculate storage efficiency
-        $uniqueTextsSize = DB::table('unique_dialogue_texts')
-            ->whereIn('id', function ($query) use ($version) {
-                $query->select('text_id')
-                    ->from('version_dialogue_lines')
-                    ->where('game_version_id', $version->id);
-            })
-            ->sum(DB::raw('LENGTH(text_content)'));
+            // Calculate storage efficiency
+            $uniqueTextsSize = DB::table('unique_dialogue_texts')
+                ->whereIn('id', function ($query) use ($version) {
+                    $query->select('text_id')
+                        ->from('version_dialogue_lines')
+                        ->where('game_version_id', $version->id);
+                })
+                ->sum(DB::raw('LENGTH(text_content)'));
 
-        $duplicationRatio = $totalLines > 0 && $uniqueTextsCount > 0
-            ? ($totalLines / $uniqueTextsCount)
-            : 0;
+            $duplicationRatio = $totalLines > 0 && $uniqueTextsCount > 0
+                ? ($totalLines / $uniqueTextsCount)
+                : 0;
 
-        $spaceEfficiency = $duplicationRatio > 1
-            ? (1 - (1 / $duplicationRatio)) * 100
-            : 0;
+            $spaceEfficiency = $duplicationRatio > 1
+                ? (1 - (1 / $duplicationRatio)) * 100
+                : 0;
 
-        return [
-            'total_lines' => $totalLines,
-            'unique_texts' => $uniqueTextsCount,
-            'duplication_ratio' => $duplicationRatio,
-            'space_efficiency' => $spaceEfficiency,
-            'estimated_raw_size_kb' => $uniqueTextsSize ? round($uniqueTextsSize / 1024, 2) : 0,
-            'estimated_saved_kb' => $spaceEfficiency > 0
-                ? round(($uniqueTextsSize * ($duplicationRatio - 1) / $duplicationRatio) / 1024, 2)
-                : 0,
-            'characters' => $characterStats,
-            'languages' => $languageStats,
-        ];
+            return [
+                'total_lines' => $totalLines,
+                'unique_texts' => $uniqueTextsCount,
+                'duplication_ratio' => $duplicationRatio,
+                'space_efficiency' => $spaceEfficiency,
+                'estimated_raw_size_kb' => $uniqueTextsSize ? round($uniqueTextsSize / 1024, 2) : 0,
+                'estimated_saved_kb' => $spaceEfficiency > 0
+                    ? round(($uniqueTextsSize * ($duplicationRatio - 1) / $duplicationRatio) / 1024, 2)
+                    : 0,
+                'characters' => $characterStats,
+                'languages' => $languageStats,
+            ];
+        });
     }
 
     /**

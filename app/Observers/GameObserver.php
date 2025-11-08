@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\Game;
 use App\Services\GameFilterService;
+use App\Services\HomePageCacheService;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +31,7 @@ class GameObserver
     public function created(Game $game): void
     {
         GameFilterService::clearCache();
+        HomePageCacheService::clearAll(); // Clear home page cache for new game
 
         // Set first_visible_at for new games that are created as visible
         // This handles the case where a game is imported with is_visible = true from the start
@@ -71,11 +73,19 @@ class GameObserver
                     'first_visible_at' => $game->first_visible_at,
                 ]);
             }
+
+            // Clear home page cache when visibility changes
+            HomePageCacheService::clearAll();
         }
 
         // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
             GameFilterService::clearCache();
+        }
+
+        // Clear home page teasers if fields that affect sorting/display changed
+        if ($game->wasChanged(['first_visible_at', 'latest_version_published_at', 'trending_score', 'name', 'thumb_url'])) {
+            HomePageCacheService::clearTeasers();
         }
 
         // Handle thumbnail updates
@@ -113,6 +123,7 @@ class GameObserver
     public function deleted(Game $game): void
     {
         GameFilterService::clearCache();
+        HomePageCacheService::clearAll(); // Clear home page cache when game deleted
 
         // Clean up optimized thumbnails if they exist
         if ($game->optimized_thumbnails) {

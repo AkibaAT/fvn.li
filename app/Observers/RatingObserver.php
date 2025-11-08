@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Jobs\UpdateGameRating;
 use App\Models\Rating;
+use App\Services\HomePageCacheService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +19,7 @@ class RatingObserver
     {
         $this->dispatchRatingUpdate($rating, 'created');
         $this->clearRaterCache($rating);
+        HomePageCacheService::clearStats(); // Clear home page stats for new rating
     }
 
     /**
@@ -34,6 +36,11 @@ class RatingObserver
         if ($rating->wasChanged(['review', 'is_reviewed', 'is_visible', 'rating'])) {
             $this->clearRaterCache($rating);
         }
+
+        // Clear home page stats if visibility changed (affects total rating count)
+        if ($rating->wasChanged('is_visible')) {
+            HomePageCacheService::clearStats();
+        }
     }
 
     /**
@@ -43,6 +50,7 @@ class RatingObserver
     {
         $this->dispatchRatingUpdate($rating, 'deleted');
         $this->clearRaterCache($rating);
+        HomePageCacheService::clearStats(); // Clear home page stats for deleted rating
     }
 
     /**

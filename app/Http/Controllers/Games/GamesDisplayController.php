@@ -170,36 +170,55 @@ class GamesDisplayController extends Controller
         );
 
         // Calculate character counts for each version (for dialogue browser links)
+        // Optimized: Use batch query instead of N+1
         $latestVersion = $game->latestVersion;
         $versionCharacterCounts = [];
+
+        // Collect all version IDs to query
+        $versionIds = [];
         if ($latestVersion) {
-            $versionCharacterCounts[$latestVersion->id] = Character::countUniqueCharactersInLanguage(
-                $game->id,
-                $game->source_language_id,
-                $latestVersion->id
-            );
+            $versionIds[] = $latestVersion->id;
         }
         foreach ($gameVersions as $version) {
-            if ($latestVersion && $version->id === $latestVersion->id) {
-                continue;
+            if (!$latestVersion || $version->id !== $latestVersion->id) {
+                $versionIds[] = $version->id;
             }
-            $versionCharacterCounts[$version->id] = Character::countUniqueCharactersInLanguage(
-                $game->id,
-                $game->source_language_id,
-                $version->id
-            );
+        }
+
+        // Batch query for character counts for all versions at once
+        if (!empty($versionIds)) {
+            $characterCounts = DB::table('version_character_stats')
+                ->join('characters', 'characters.id', '=', 'version_character_stats.character_id')
+                ->whereIn('version_character_stats.game_version_id', $versionIds)
+                ->where('characters.game_id', $game->id)
+                ->where('characters.character_id', '!=', 'narrator')
+                ->where('characters.character_id', '!=', 'menu_choice')
+                ->when($game->source_language_id, function ($query) use ($game) {
+                    $query->where('version_character_stats.iso_code', $game->source_language_id);
+                })
+                ->select('version_character_stats.game_version_id')
+                ->selectRaw('COUNT(DISTINCT characters.character_id) as count')
+                ->groupBy('version_character_stats.game_version_id')
+                ->get()
+                ->pluck('count', 'game_version_id')
+                ->toArray();
+
+            $versionCharacterCounts = $characterCounts;
         }
 
         // Check if file stats exist for each version (to show/hide file stats button)
+        // Optimized: Use batch query instead of N+1
         $versionHasFileStats = [];
-        if ($latestVersion) {
-            $versionHasFileStats[$latestVersion->id] = $latestVersion->fileCategories()->exists();
-        }
-        foreach ($gameVersions as $version) {
-            if ($latestVersion && $version->id === $latestVersion->id) {
-                continue;
+        if (!empty($versionIds)) {
+            $versionsWithFileStats = DB::table('version_file_categories')
+                ->whereIn('game_version_id', $versionIds)
+                ->distinct()
+                ->pluck('game_version_id')
+                ->toArray();
+
+            foreach ($versionIds as $versionId) {
+                $versionHasFileStats[$versionId] = in_array($versionId, $versionsWithFileStats);
             }
-            $versionHasFileStats[$version->id] = $version->fileCategories()->exists();
         }
 
         // Determine edit permissions

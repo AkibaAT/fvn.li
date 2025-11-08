@@ -133,7 +133,7 @@ class PerformanceMonitoring
      */
     protected function shouldLogRequest(Request $request): bool
     {
-        // Skip static assets
+        // Skip static assets and health checks
         $path = $request->path();
         $skipPatterns = [
             'build/',
@@ -141,6 +141,8 @@ class PerformanceMonitoring
             'storage/',
             'favicon.ico',
             'robots.txt',
+            'health',
+            '_ignition/health-check',
             '.css',
             '.js',
             '.map',
