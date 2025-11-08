@@ -8,7 +8,7 @@ interface SelectItem {
 
 interface MultiSelectProps {
     title: string;
-    items: Record<string, string | SelectItem>;
+    items?: Record<string, string | SelectItem>;
     selectedItems: string[];
     onToggle: (value: string) => void;
     renderItem?: (value: string, item: string | SelectItem) => React.ReactNode;
@@ -28,7 +28,7 @@ export default function MultiSelect({
     const containerRef = useRef<HTMLDivElement>(null);
 
 
-    const itemEntries = Object.entries(items);
+    const itemEntries = Object.entries(items || {});
     const filteredItems = search
         ? itemEntries.filter(([value, item]) => {
             const label = typeof item === 'string' ? item : item.name || item.ref_name || value;
@@ -51,7 +51,8 @@ export default function MultiSelect({
         }
     }, [isOpen]);
 
-    const getDisplayLabel = (value: string, item: string | SelectItem) => {
+    const getDisplayLabel = (value: string, item: string | SelectItem | undefined) => {
+        if (!item) return value;
         if (typeof item === 'string') return item;
         return item.name || item.ref_name || value;
     };
@@ -70,7 +71,7 @@ export default function MultiSelect({
                     {selectedItems.length > 0 ? (
                         <span className="flex flex-wrap gap-1" role="list" aria-label={`Selected ${title.toLowerCase()}`}>
                             {selectedItems.map((value) => {
-                                const item = items[value];
+                                const item = items?.[value];
                                 const label = getDisplayLabel(value, item);
                                 return (
                                     <span
@@ -78,7 +79,7 @@ export default function MultiSelect({
                                         className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                                         role="listitem"
                                     >
-                                        {renderItem ? renderItem(value, item) : label}
+                                        {renderItem && item ? renderItem(value, item) : label}
                                         <button
                                             type="button"
                                             onClick={(e) => {
@@ -154,7 +155,7 @@ export default function MultiSelect({
                                         aria-label={`Select ${getDisplayLabel(value, item)}`}
                                     />
                                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                                        {renderItem ? renderItem(value, item) : getDisplayLabel(value, item)}
+                                        {renderItem && item ? renderItem(value, item) : getDisplayLabel(value, item)}
                                     </span>
                                 </label>
                             ))
