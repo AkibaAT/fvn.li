@@ -47,23 +47,22 @@ trait HasGameMedia
      */
     public function clearOptimizedScreenshots(): void
     {
-        if (empty($this->screenshots)) {
+        if (empty($this->optimized_screenshots)) {
             return;
         }
 
-        foreach ($this->screenshots as $index => $screenshot) {
-            if (isset($screenshot['optimized'])) {
-                foreach ($screenshot['optimized'] as $variant) {
+        foreach ($this->optimized_screenshots as $optimizedScreenshot) {
+            if (isset($optimizedScreenshot['optimized'])) {
+                foreach ($optimizedScreenshot['optimized'] as $variant) {
                     if (isset($variant['path'])) {
                         Storage::disk('public')->delete($variant['path']);
                     }
                 }
-
-                // Remove optimized data but keep original URL
-                $this->screenshots[$index]['optimized'] = null;
             }
         }
 
+        // Clear the optimized screenshots data
+        $this->optimized_screenshots = null;
         $this->save();
     }
 
@@ -107,8 +106,8 @@ trait HasGameMedia
         $firstScreenshot = $this->screenshots[0];
 
         // If we have optimized screenshots, use them
-        if (isset($firstScreenshot['optimized'][$variant]['path'])) {
-            return asset('storage/' . $firstScreenshot['optimized'][$variant]['path']);
+        if (isset($this->optimized_screenshots[0]['optimized'][$variant]['path'])) {
+            return asset('storage/' . $this->optimized_screenshots[0]['optimized'][$variant]['path']);
         }
 
         // Fallback to original screenshot URL
@@ -148,11 +147,11 @@ trait HasGameMedia
             return null;
         }
 
-        if (! isset($this->screenshots[$index]['optimized'][$variant])) {
+        if (! isset($this->optimized_screenshots[$index]['optimized'][$variant])) {
             return $this->screenshots[$index]['url'] ?? null;
         }
 
-        $path = $this->screenshots[$index]['optimized'][$variant]['path'];
+        $path = $this->optimized_screenshots[$index]['optimized'][$variant]['path'];
 
         return asset('storage/' . $path);
     }

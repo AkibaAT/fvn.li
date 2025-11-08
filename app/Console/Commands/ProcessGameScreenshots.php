@@ -147,6 +147,7 @@ class ProcessGameScreenshots extends Command
         $this->info('Processing ' . count($game->screenshots) . ' screenshots');
 
         $updatedScreenshots = [];
+        $updatedOptimizedScreenshots = [];
 
         foreach ($game->screenshots as $index => $screenshot) {
             $this->info("Processing screenshot {$index}...");
@@ -168,9 +169,11 @@ class ProcessGameScreenshots extends Command
                 file_put_contents($tempFile, $content);
 
                 // Skip if already optimized and not forcing
-                if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
+                $existingOptimized = $game->optimized_screenshots[$index] ?? null;
+                if (! $force && isset($existingOptimized['optimized']) && ! empty($existingOptimized['optimized'])) {
                     $this->info('Screenshot already optimized, skipping (use --force to override)');
                     $updatedScreenshots[] = $screenshot;
+                    $updatedOptimizedScreenshots[] = $existingOptimized;
 
                     // Clean up temp file
                     if (file_exists($tempFile)) {
@@ -236,10 +239,13 @@ class ProcessGameScreenshots extends Command
                     ];
                 }
 
-                // Update screenshot with optimized variants
-                $updatedScreenshot = $screenshot;
-                $updatedScreenshot['optimized'] = $optimizedVariants;
-                $updatedScreenshots[] = $updatedScreenshot;
+                // Keep the original screenshot (without optimized data)
+                $updatedScreenshots[] = $screenshot;
+
+                // Store optimized variants separately
+                $updatedOptimizedScreenshots[] = [
+                    'optimized' => $optimizedVariants,
+                ];
 
                 // Clean up temp file
                 if (file_exists($tempFile)) {
@@ -249,11 +255,16 @@ class ProcessGameScreenshots extends Command
                 $this->error("Error processing screenshot {$index}: {$e->getMessage()}");
                 // Keep the original screenshot data
                 $updatedScreenshots[] = $screenshot;
+                // Keep existing optimized data if available
+                if (isset($game->optimized_screenshots[$index])) {
+                    $updatedOptimizedScreenshots[] = $game->optimized_screenshots[$index];
+                }
             }
         }
 
         // Update the game with processed screenshots
         $game->screenshots = $updatedScreenshots;
+        $game->optimized_screenshots = $updatedOptimizedScreenshots;
         $game->save();
     }
 
