@@ -35,7 +35,7 @@
         "@headlessui/react": "^2.2.9",
         "@heroicons/react": "^2.2.0",
         "@inertiajs/react": "^2.2.15",
-        "@tailwindcss/vite": "^4.1.16",
+        "@tailwindcss/vite": "^4.1.17",
         "@tinymce/tinymce-react": "^6.3.0",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
@@ -55,15 +55,15 @@
         "react-dom": "^19.2.0",
         "rollup-plugin-visualizer": "^6.0.5",
         "tailwind-merge": "^3.3.1",
-        "tailwindcss": "^4.1.16",
+        "tailwindcss": "^4.1.17",
         "tailwindcss-animate": "^1.0.7",
-        "tinymce": "^8.2.0",
+        "tinymce": "^8.2.1",
         "typescript": "^5.9.3",
-        "vite": "^7.1.12"
+        "vite": "^7.2.2"
     },
     "optionalDependencies": {
-        "@rollup/rollup-linux-x64-gnu": "^4.52.5",
-        "@tailwindcss/oxide-linux-x64-gnu": "^4.1.16",
+        "@rollup/rollup-linux-x64-gnu": "^4.53.1",
+        "@tailwindcss/oxide-linux-x64-gnu": "^4.1.17",
         "lightningcss-linux-x64-gnu": "^1.30.2"
     }
 }
