@@ -1,7 +1,7 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:17.6
+  image: postgres:18.0
 x-meilisearch: &meilisearch
   image: getmeili/meilisearch:v1.23
 x-redis: &redis
@@ -95,7 +95,7 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - db:/var/lib/postgresql/data
+      - db:/var/lib/postgresql
     deploy:
       resources:
         limits:
@@ -148,7 +148,7 @@ services:
     volumes:
       - redis:/data
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
+    image: flaresolverr/flaresolverr:latest
     restart: unless-stopped
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
