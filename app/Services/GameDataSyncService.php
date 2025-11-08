@@ -312,7 +312,8 @@ class GameDataSyncService
                                 $bestUpload->filename,
                                 $bestUpload->id,
                                 $game->id,
-                                $gameVersion->id
+                                $gameVersion->id,
+                                deleteAfterProcessing: true
                             );
 
                             // Check if we have valid stats

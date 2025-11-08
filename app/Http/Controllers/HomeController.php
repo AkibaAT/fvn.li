@@ -72,10 +72,70 @@ class HomeController extends Controller
             ignoredGameIds: $ignoredGameIds
         );
 
-        // Return items as array - Scout already loads the models
+        $games = $paginator->items();
+
+        // Load essential relationships for the frontend
+        if ($paginator->count() > 0) {
+            // Load relationships to prevent N+1 queries
+            $paginator->load([
+                'tags',
+                'latestVersion.supportedLanguages.language',
+                'latestVersion.languageStats',
+            ]);
+
+            // Enhance models with data from loaded relationships only (no additional queries)
+            foreach ($games as $game) {
+                // Set platform flags from the latest version relationship
+                if ($game->latestVersion) {
+                    $game->is_windows = $game->latestVersion->is_windows ?? false;
+                    $game->is_linux = $game->latestVersion->is_linux ?? false;
+                    $game->is_mac = $game->latestVersion->is_mac ?? false;
+                    $game->is_android = $game->latestVersion->is_android ?? false;
+                    $game->is_web = $game->latestVersion->is_web ?? false;
+                    $game->latest_version_id = $game->latestVersion->id;
+                    $game->latest_version_published_at = $game->latestVersion->published_at;
+                } else {
+                    $game->is_windows = false;
+                    $game->is_linux = false;
+                    $game->is_mac = false;
+                    $game->is_android = false;
+                    $game->is_web = false;
+                    $game->latest_version_id = null;
+                    $game->latest_version_published_at = null;
+                }
+
+                // Set supported languages using the relationship data (with underscore for frontend)
+                if ($game->latestVersion && $game->latestVersion->supportedLanguages) {
+                    $game->supported_languages = $game->latestVersion->supportedLanguages
+                        ->where('is_available', true)
+                        ->map(function ($supportedLanguage) {
+                            return [
+                                'iso_code' => $supportedLanguage->iso_code,
+                                'is_available' => $supportedLanguage->is_available,
+                                'ref_name' => $supportedLanguage->language?->ref_name,
+                                'flag_code' => $supportedLanguage->language?->flag_code,
+                            ];
+                        })
+                        ->values();
+                } else {
+                    $game->supported_languages = collect();
+                }
+
+                // Set english_word_count from the latest version (same pattern as supported_languages)
+                if ($game->latestVersion) {
+                    $englishStats = $game->latestVersion->languageStats
+                        ->where('iso_code', 'eng')
+                        ->first();
+                    $game->english_word_count = $englishStats?->words;
+                } else {
+                    $game->english_word_count = null;
+                }
+            }
+        }
+
         // Load user-specific data if authenticated
-        if (Auth::check() && $games->count() > 0) {
-            $gameIds = $games->pluck('id')->toArray();
+        if (Auth::check() && $paginator->count() > 0) {
+            $gameIds = collect($games)->pluck('id')->toArray();
 
             if (! empty($gameIds)) {
                 // Load user progress
@@ -105,6 +165,6 @@ class HomeController extends Controller
             }
         }
 
-        return $paginator->items();
+        return $games;
     }
 }

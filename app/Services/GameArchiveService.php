@@ -52,7 +52,8 @@ readonly class GameArchiveService
         int $uploadId,
         int $gameId,
         int $versionId,
-        bool $force = false
+        bool $force = false,
+        bool $deleteAfterProcessing = false
     ): array {
         // Download and store the archive (force parameter is now passed through)
         $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
@@ -61,9 +62,25 @@ readonly class GameArchiveService
         $this->cleanupOldVersionDownloads($gameId, $versionId);
 
         // Process the archive - stats may be null if extraction failed but shouldn't be treated as an error
+        $stats = $this->processArchive($archivePath);
+
+        // Delete the archive after processing if requested
+        if ($deleteAfterProcessing && File::exists($archivePath)) {
+            try {
+                File::delete($archivePath);
+                $archivePath = null;
+            } catch (\Exception $e) {
+                // Log the error but don't fail - stats are already processed
+                Log::warning('Failed to delete archive after processing', [
+                    'archive_path' => $archivePath,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         return [
             'archive' => $archivePath,
-            'stats' => $this->processArchive($archivePath),
+            'stats' => $stats,
         ];
     }
 

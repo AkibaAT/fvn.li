@@ -6,6 +6,7 @@ import SeoHead, {type MetaTags} from '@/components/seo/SeoHead';
 interface Game {
     id: number;
     name: string;
+    effective_name: string;
     slug: string;
     status: string;
     rating?: string;
@@ -40,11 +41,16 @@ interface Game {
         ref_name: string;
         flag_code: string;
     }>;
+    platform?: 'itch_io' | 'steam' | 'other';
     is_windows?: boolean;
     is_linux?: boolean;
     is_mac?: boolean;
     is_android?: boolean;
     is_web?: boolean;
+    is_nsfw?: boolean;
+    is_paid?: boolean;
+    has_demo?: boolean;
+    is_on_sale?: boolean;
     [key: string]: unknown;
 }
 
