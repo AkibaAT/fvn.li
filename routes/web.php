@@ -48,22 +48,22 @@ Route::get('health', function () {
 */
 
 Route::get('by-url/{url}', function (Request $request, $url) {
-    $game = Game::firstWhere('url', $url);
+    $game = Game::byUrl($url)->first();
 
     if (! $game) {
         $decodedUrl = urldecode($url);
-        $game = Game::firstWhere('url', $decodedUrl);
+        $game = Game::byUrl($decodedUrl)->first();
     }
 
     if (! $game && str_starts_with($url, 'https:/') && ! str_starts_with($url, 'https://')) {
         $fixedUrl = str_replace('https:/', 'https://', $url);
-        $game = Game::firstWhere('url', $fixedUrl);
+        $game = Game::byUrl($fixedUrl)->first();
     }
 
     if (! $game) {
         $fullPath = $request->getPathInfo();
         $urlPart = substr($fullPath, strlen('/by-url/'));
-        $game = Game::firstWhere('url', $urlPart);
+        $game = Game::byUrl($urlPart)->first();
     }
 
     if (! $game) {
