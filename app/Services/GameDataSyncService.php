@@ -61,17 +61,37 @@ class GameDataSyncService
     private function loadFullDetailsItchio(Game $game): void
     {
         try {
+            Log::info('GameDataSync: Refreshing base info', ['game_id' => $game->id]);
+            echo "    [Sync] Refreshing base info...\n";
             $this->refreshBaseInfo($game);
+            Log::info('GameDataSync: Base info refreshed', ['game_id' => $game->id]);
+            echo "    [Sync] Base info refreshed\n";
+
             sleep(10);
+
+            Log::info('GameDataSync: Refreshing version', ['game_id' => $game->id]);
+            echo "    [Sync] Refreshing version...\n";
             $this->refreshVersion($game);
+            Log::info('GameDataSync: Version refreshed', ['game_id' => $game->id]);
+            echo "    [Sync] Version refreshed\n";
+
             sleep(10);
+
+            Log::info('GameDataSync: Refreshing metadata', ['game_id' => $game->id]);
+            echo "    [Sync] Refreshing metadata...\n";
             $this->refreshMetadata($game);
+            Log::info('GameDataSync: Metadata refreshed', ['game_id' => $game->id]);
+            echo "    [Sync] Metadata refreshed\n";
+
             $game->error = null;
         } catch (Exception $exception) {
             $game->error = $exception->getMessage();
+            echo "    [Sync] ERROR: {$exception->getMessage()}\n";
             throw $exception;
         } finally {
+            echo "    [Sync] Clearing HTTP cache...\n";
             $this->clearHttpCache($game);
+            echo "    [Sync] Done\n";
         }
     }
 
@@ -318,12 +338,16 @@ class GameDataSyncService
 
                             // Check if we have valid stats
                             if (isset($result['stats']) && $result['stats']) {
+                                echo "    [Version] Saving game engine\n";
                                 $game->game_engine = "Ren'Py";
                                 $game->save();
+                                echo "    [Version] Game engine saved\n";
 
                                 // Save the stats - pass $game as the game object for game-specific language mappings
+                                echo "    [Version] Saving version stats...\n";
                                 $statsService->saveVersionStats($gameVersion, $result['stats'],
                                     $game->source_language_id, $game);
+                                echo "    [Version] Version stats saved\n";
                             } else {
                                 // Log that we couldn't extract stats but don't treat it as an error
                                 Log::info('No stats extracted for game, copying language support from previous version',
@@ -380,6 +404,7 @@ class GameDataSyncService
 
             // Always update platform flags of the latest version if they've changed
             // This ensures that newly detected platforms are updated even when no new version is created
+            echo "    [Version] Checking platform flags for latest version\n";
             $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
             if ($latestVersion) {
                 $platformsChanged = false;
@@ -411,11 +436,15 @@ class GameDataSyncService
 
                 // Save the changes if any platform flags were updated
                 if ($platformsChanged) {
+                    echo "    [Version] Platform flags changed, saving latest version\n";
                     $latestVersion->save();
+                    echo "    [Version] Latest version saved\n";
                 }
             }
 
+            echo "    [Version] Committing transaction...\n";
             DB::commit();
+            echo "    [Version] Transaction committed\n";
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;

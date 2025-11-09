@@ -319,6 +319,7 @@ class UpdateWatchlist extends Command
             if ($needsFullRefresh) {
                 $this->info('  - Loading full details');
                 $game->loadFullDetails();
+                $this->info('  - Full details loaded successfully');
 
                 // Make sure the is_paid flag is still set correctly after loading details
                 if ($isPaid && ! $game->is_paid) {

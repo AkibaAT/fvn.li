@@ -55,14 +55,28 @@ readonly class GameArchiveService
         bool $force = false,
         bool $deleteAfterProcessing = false
     ): array {
+        Log::info('GameArchive: Starting download and process', [
+            'game_id' => $gameId,
+            'version_id' => $versionId,
+        ]);
+
         // Download and store the archive (force parameter is now passed through)
         $archivePath = $this->downloadAndStore($gameUrl, $filename, $uploadId, $gameId, $versionId, $force);
 
         // Clean up old version downloads for this game
+        Log::info('GameArchive: Cleaning up old downloads', ['game_id' => $gameId]);
         $this->cleanupOldVersionDownloads($gameId, $versionId);
 
         // Process the archive - stats may be null if extraction failed but shouldn't be treated as an error
+        Log::info('GameArchive: Starting archive processing', [
+            'game_id' => $gameId,
+            'archive_path' => $archivePath,
+        ]);
         $stats = $this->processArchive($archivePath);
+        Log::info('GameArchive: Archive processing completed', [
+            'game_id' => $gameId,
+            'has_stats' => $stats !== null,
+        ]);
 
         // Delete the archive after processing if requested
         if ($deleteAfterProcessing && File::exists($archivePath)) {
@@ -99,6 +113,13 @@ readonly class GameArchiveService
         int $versionId,
         bool $force = false
     ): string {
+        Log::info('GameArchive: Getting download URL', [
+            'game_id' => $gameId,
+            'version_id' => $versionId,
+            'upload_id' => $uploadId,
+            'filename' => $filename,
+        ]);
+
         // Get the ItchHttpClientService for itch.io requests
         $itchClient = $this->getItchClient();
 
@@ -110,6 +131,11 @@ readonly class GameArchiveService
             throw new RuntimeException('Could not get download URL');
         }
 
+        Log::info('GameArchive: Download URL obtained', [
+            'game_id' => $gameId,
+            'cdn_url' => parse_url($downloadInfo['url'], PHP_URL_HOST),
+        ]);
+
         // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'game_');
         if ($tempFile === false) {
@@ -117,11 +143,26 @@ readonly class GameArchiveService
         }
 
         try {
+            Log::info('GameArchive: Starting download', [
+                'game_id' => $gameId,
+                'temp_file' => $tempFile,
+            ]);
+
             // Create a new client for downloading the file
             // The download URL is typically from a CDN, not itch.io directly
-            $downloadClient = new Client;
+            // Use longer timeouts for potentially large game downloads (10 minutes)
+            $downloadClient = new Client([
+                'timeout' => 600,  // 10 minutes for the full download
+                'connect_timeout' => 30,  // 30 seconds to establish connection
+            ]);
             $downloadClient->get($downloadInfo['url'], [
                 'sink' => $tempFile,
+            ]);
+
+            $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
+            Log::info('GameArchive: Download completed', [
+                'game_id' => $gameId,
+                'file_size_mb' => round($fileSize / 1024 / 1024, 2),
             ]);
 
             // Get storage path and prepare directory
@@ -138,10 +179,21 @@ readonly class GameArchiveService
             }
 
             // Ensure directory exists and store file
+            Log::info('GameArchive: Storing file', [
+                'game_id' => $gameId,
+                'storage_path' => $storagePath,
+            ]);
+
             Storage::makeDirectory($storagePath);
             Storage::putFileAs($storagePath, $tempFile, $filename);
 
-            return Storage::path("{$storagePath}/{$filename}");
+            $finalPath = Storage::path("{$storagePath}/{$filename}");
+            Log::info('GameArchive: File stored successfully', [
+                'game_id' => $gameId,
+                'final_path' => $finalPath,
+            ]);
+
+            return $finalPath;
 
         } finally {
             // Clean up temp file

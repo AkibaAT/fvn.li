@@ -72,15 +72,24 @@ readonly class GameStatsService
      */
     public function extractGameStats(string $archivePath): ?array
     {
+        Log::info('GameStats: Starting extraction', [
+            'archive_path' => basename($archivePath),
+        ]);
+
         // Create temporary directory for extraction
         $extractPath = storage_path('app/temp/' . uniqid('game_', true));
         File::makeDirectory($extractPath, 0755, true);
 
         try {
             // Extract archive
+            Log::info('GameStats: Extracting archive', [
+                'extract_path' => $extractPath,
+            ]);
             $this->extractArchive($archivePath, $extractPath);
+            Log::info('GameStats: Archive extracted successfully');
 
             // Find the game directory (it might be in a subdirectory)
+            Log::info('GameStats: Finding game directory');
             $gameDir = $this->findGameDirectory($extractPath);
             if (! $gameDir) {
                 Log::warning('Could not find valid game directory', [
@@ -91,7 +100,12 @@ readonly class GameStatsService
                 return null;
             }
 
+            Log::info('GameStats: Game directory found', [
+                'game_dir' => basename($gameDir),
+            ]);
+
             // First try to find and run a native Linux executable
+            Log::info('GameStats: Looking for Linux executable');
             $linuxExecutable = $this->findLinuxExecutable($gameDir);
             if ($linuxExecutable) {
                 Log::info('Found Linux executable, attempting to run it', [
@@ -109,6 +123,7 @@ readonly class GameStatsService
             }
 
             // Fall back to Ren'Py SDK
+            Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
             if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
                 Log::error('Ren\'Py SDK path not configured or invalid', [
@@ -119,7 +134,15 @@ readonly class GameStatsService
             }
 
             // Use the Ren'Py SDK to analyze the game
-            return $this->extractStatsWithSdk($gameDir, $sdkPath);
+            Log::info('GameStats: Running Ren\'Py SDK analysis', [
+                'game_dir' => basename($gameDir),
+            ]);
+            $stats = $this->extractStatsWithSdk($gameDir, $sdkPath);
+            Log::info('GameStats: SDK analysis completed', [
+                'has_stats' => $stats !== null,
+            ]);
+
+            return $stats;
         } catch (Exception $e) {
             // Log the exception but don't treat it as an error
             Log::warning('Error during game stats extraction', [
@@ -153,13 +176,16 @@ readonly class GameStatsService
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {
+        echo "    [Stats] Starting saveVersionStats\n";
         // If game is not explicitly provided, get it from the version
         $game = $game ?? $version->game;
 
+        echo "    [Stats] Beginning nested transaction\n";
         DB::beginTransaction();
 
         try {
             // Track all languages found in the stats to update supported languages
+            echo "    [Stats] Processing language stats\n";
             $foundLanguages = [];
 
             foreach ($stats['languages'] as $langKey => $langData) {
@@ -206,16 +232,19 @@ readonly class GameStatsService
                         $character->save();
 
                         // Update version tracking
+                        echo "    [Stats] Checking first_seen for {$charId}\n";
                         if (! $character->first_seen_in_version_id ||
                             $version->published_at < $character->firstSeenVersion->published_at) {
                             $character->first_seen_in_version_id = $version->id;
                             $character->save();
                         }
+                        echo "    [Stats] Checking last_seen for {$charId}\n";
                         if (! $character->last_seen_in_version_id ||
                             $version->published_at > $character->lastSeenVersion->published_at) {
                             $character->last_seen_in_version_id = $version->id;
                             $character->save();
                         }
+                        echo "    [Stats] Character {$charId} processed\n";
 
                         // Store JSON stats for later comparison with calculated stats
                         // We'll use our centralized calculation after dialogue import
@@ -225,19 +254,23 @@ readonly class GameStatsService
             }
 
             // Create essential characters with all found languages before processing dialogue lines
+            echo "    [Stats] Creating essential characters\n";
             $this->essentialCharacterService->createEssentialCharactersWithLanguages(
                 $version->game_id,
                 $foundLanguages,
                 $defaultLanguage
             );
+            echo "    [Stats] Essential characters created\n";
 
             // Update supported languages for this version
             // First, add all languages found in the stats
+            echo "    [Stats] Adding supported languages\n";
             foreach ($foundLanguages as $isoCode) {
                 if (! str_starts_with($isoCode, 'q')) {
                     $version->addSupportedLanguage($isoCode);
                 }
             }
+            echo "    [Stats] Supported languages added\n";
 
             // Find the previous version to copy language availability settings from
             $previousVersion = GameVersion::where('game_id', $version->game_id)
@@ -255,21 +288,31 @@ readonly class GameStatsService
 
             // Save file statistics
             if (isset($stats['file_statistics'])) {
+                echo "    [Stats] Saving file statistics\n";
                 $version->saveFileStats($stats['file_statistics']);
+                echo "    [Stats] File statistics saved\n";
             }
 
             // Process dialogue lines
             if (isset($stats['dialogue_lines'])) {
+                echo "    [Stats] Saving dialogue lines\n";
                 $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game, $foundLanguages);
+                echo "    [Stats] Dialogue lines saved\n";
 
                 // Apply special character assignment fixes after importing dialogue lines
+                echo "    [Stats] Applying character assignment fixes\n";
                 $this->applySpecialCharacterAssignments($version);
+                echo "    [Stats] Character assignments fixed\n";
 
                 // Calculate character stats from the imported dialogue lines and compare with JSON
+                echo "    [Stats] Calculating stats and checking discrepancies\n";
                 $this->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
+                echo "    [Stats] Stats calculated\n";
             }
 
+            echo "    [Stats] Committing nested transaction\n";
             DB::commit();
+            echo "    [Stats] Nested transaction committed\n";
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -287,8 +330,10 @@ readonly class GameStatsService
         ?Game $game = null,
         array $foundLanguages = []
     ): void {
+        echo "    [Dialogue] Deleting existing dialogue lines\n";
         // First, delete any existing dialogue lines for this version
         DialogueLine::where('game_version_id', $version->id)->delete();
+        echo "    [Dialogue] Existing lines deleted\n";
 
         // Get the essential characters that were already created with all languages
         $menuChoiceCharacter = $this->essentialCharacterService->getOrCreateMenuChoiceCharacter($version->game_id);
@@ -319,11 +364,14 @@ readonly class GameStatsService
             $totalLines = count($lines);
 
             // Process in chunks to avoid hitting PostgreSQL's parameter limit
+            echo "    [Dialogue] Processing {$totalLines} lines for language {$isoCode}\n";
             foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
+                echo "    [Dialogue] Processing chunk " . ($chunkIndex + 1) . "\n";
                 // First, collect unique texts for this chunk
                 $uniqueTexts = [];
 
                 // Normalize text to remove diacritical marks
+                echo "    [Dialogue] Normalizing text...\n";
                 foreach ($chunk as $id => $line) {
                     $text = $line['text'] ?? '';
                     if (empty($text)) {
@@ -332,7 +380,9 @@ readonly class GameStatsService
 
                     $chunk[$id]['text'] = $this->processText($text);
                 }
+                echo "    [Dialogue] Text normalized\n";
 
+                echo "    [Dialogue] Collecting unique texts...\n";
                 foreach ($chunk as $line) {
                     $text = $line['text'] ?? '';
                     if (empty($text)) {
@@ -347,18 +397,33 @@ readonly class GameStatsService
                         'updated_at' => $now,
                     ];
                 }
+                echo "    [Dialogue] Collected " . count($uniqueTexts) . " unique texts\n";
 
                 // Create unique texts (no search indexing needed - UniqueDialogueText is not searchable)
-                $textIdMapping = [];
-                foreach ($uniqueTexts as $textHash => $textData) {
-                    $dialogueText = UniqueDialogueText::firstOrCreate(
-                        ['text_hash' => $textHash],
-                        ['text_content' => $textData['text_content']]
-                    );
-                    $textIdMapping[$textHash] = $dialogueText->id;
+                // Use bulk upsert for performance instead of individual firstOrCreate() calls
+                echo "    [Dialogue] Bulk inserting unique dialogue texts...\n";
+
+                // PostgreSQL upsert - insert all at once, ignore conflicts
+                if (!empty($uniqueTexts)) {
+                    DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
                 }
+                echo "    [Dialogue] Bulk insert completed\n";
+
+                // Now fetch all the IDs in a single query
+                echo "    [Dialogue] Fetching text IDs...\n";
+                $textIdMapping = [];
+                $hashes = array_keys($uniqueTexts);
+                $texts = DB::table('unique_dialogue_texts')
+                    ->whereIn('text_hash', $hashes)
+                    ->get(['id', 'text_hash']);
+
+                foreach ($texts as $text) {
+                    $textIdMapping[$text->text_hash] = $text->id;
+                }
+                echo "    [Dialogue] Mapped " . count($textIdMapping) . " text IDs\n";
 
                 // Now process dialogue lines for this chunk
+                echo "    [Dialogue] Building dialogue batch...\n";
                 $dialogueBatch = [];
 
                 foreach ($chunk as $line) {
@@ -419,22 +484,37 @@ readonly class GameStatsService
                     $processedLines++;
                 }
 
+                echo "    [Dialogue] Dialogue batch built (" . count($dialogueBatch) . " lines)\n";
+
                 // Bulk insert dialogue lines for performance (skip observers during import)
                 // We'll update the search index once at the end instead of per-line
                 if (!empty($dialogueBatch)) {
+                    echo "    [Dialogue] Inserting batch into database...\n";
                     DB::table('version_dialogue_lines')->insert($dialogueBatch);
+                    echo "    [Dialogue] Batch inserted\n";
                 }
             }
         }
 
+        echo "    [Dialogue] All dialogue lines inserted\n";
+
         // Index dialogue lines for this version to Meilisearch (if it's the latest version)
         // This is done after bulk insert since DB::table()->insert() bypasses Eloquent/Scout
         // Note: Only lines from the latest version will be indexed (see DialogueLine::shouldBeSearchable())
-        DialogueLine::where('game_version_id', $version->id)
-            ->with(['text', 'character', 'gameVersion.game'])
-            ->chunk(1000, function ($lines) {
-                $lines->searchable();
-            });
+        // IMPORTANT: Defer indexing until after transaction commits to avoid holding locks
+        echo "    [Dialogue] Dispatching indexing job\n";
+        $versionId = $version->id;
+        dispatch(function () use ($versionId) {
+            echo "    [Dialogue] Starting indexing for version {$versionId}\n";
+            DialogueLine::where('game_version_id', $versionId)
+                ->with(['text', 'character', 'gameVersion.game'])
+                ->chunk(1000, function ($lines) {
+                    $lines->searchable();
+                });
+            echo "    [Dialogue] Indexing completed for version {$versionId}\n";
+            Log::info('Dialogue lines indexed', ['version_id' => $versionId]);
+        })->afterCommit();
+        echo "    [Dialogue] Indexing job dispatched\n";
     }
 
     /**

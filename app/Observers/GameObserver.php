@@ -56,6 +56,8 @@ class GameObserver
      */
     public function updated(Game $game): void
     {
+        echo "    [Observer] Game updated event triggered\n";
+
         // Track when a game first becomes visible and log the visibility change
         if ($game->wasChanged('is_visible')) {
             $wasVisible = $game->getOriginal('is_visible');
@@ -80,16 +82,20 @@ class GameObserver
 
         // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
+            echo "    [Observer] Clearing filter cache\n";
             GameFilterService::clearCache();
         }
 
         // Clear home page teasers if fields that affect sorting/display changed
         if ($game->wasChanged(['first_visible_at', 'latest_version_published_at', 'trending_score', 'name', 'thumb_url'])) {
+            echo "    [Observer] Clearing home page teasers\n";
             HomePageCacheService::clearTeasers();
         }
 
         // Handle thumbnail updates
+        echo "    [Observer] Checking thumbnail updates\n";
         if ($game->wasChanged('thumb_url')) {
+            echo "    [Observer] Thumb URL changed, processing thumbnails\n";
             // Clear old thumbnails if they exist
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
@@ -102,7 +108,9 @@ class GameObserver
         }
 
         // Handle screenshot updates - if no thumbnail exists, process screenshots as thumbnail fallback
+        echo "    [Observer] Checking screenshot updates\n";
         if ($game->wasChanged('screenshots') && ! $game->thumb_url && ! empty($game->screenshots)) {
+            echo "    [Observer] Screenshots changed, processing as thumbnail\n";
             // Clear old thumbnails if they exist
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
@@ -113,8 +121,11 @@ class GameObserver
         }
 
         // Process any pending associations
+        echo "    [Observer] Processing pending game jams\n";
         $game->processPendingGameJams();
+        echo "    [Observer] Processing pending tags\n";
         $game->processPendingTags();
+        echo "    [Observer] Game updated event complete\n";
     }
 
     /**
@@ -161,6 +172,8 @@ class GameObserver
      */
     protected function dispatchThumbnailProcessing(Game $game): void
     {
+        echo "    [Observer] Dispatching thumbnail processing job\n";
+
         $job = function () use ($game) {
             try {
                 Artisan::call('games:process-thumbnails', [
@@ -175,12 +188,11 @@ class GameObserver
             }
         };
 
-        // In CLI context, dispatch to queue immediately
-        // In HTTP context, dispatch after response
-        if (app()->runningInConsole()) {
-            dispatch($job);
-        } else {
-            dispatch($job)->afterResponse();
-        }
+        // IMPORTANT: Always dispatch afterCommit to avoid deadlocks when called from within a transaction
+        // The observer might fire during a transaction that has locked the game row, and the thumbnail
+        // job needs to read that same row, which would cause a deadlock if run synchronously
+        echo "    [Observer] Dispatching to queue after database commit\n";
+        dispatch($job)->afterCommit();
+        echo "    [Observer] Thumbnail job dispatched\n";
     }
 }
