@@ -51,9 +51,6 @@ class GameObserver
         $game->processPendingTags();
     }
 
-    /**
-     * Handle the Game "updated" event.
-     */
     public function updated(Game $game): void
     {
         echo "    [Observer] Game updated event triggered\n";
@@ -73,6 +70,25 @@ class GameObserver
                     'game_id' => $game->id,
                     'game_name' => $game->name,
                     'first_visible_at' => $game->first_visible_at,
+                ]);
+            }
+
+            // Update search index when visibility changes
+            if ($isVisible && !empty(trim($game->name))) {
+                // Game is now visible - add to search index
+                echo "    [Observer] Adding game to search index\n";
+                $game->searchable();
+                Log::info('Added game to search index', [
+                    'game_id' => $game->id,
+                    'game_name' => $game->name,
+                ]);
+            } elseif (!$isVisible) {
+                // Game is now hidden - remove from search index
+                echo "    [Observer] Removing game from search index\n";
+                $game->unsearchable();
+                Log::info('Removed game from search index', [
+                    'game_id' => $game->id,
+                    'game_name' => $game->name,
                 ]);
             }
 

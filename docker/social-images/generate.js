@@ -17,31 +17,31 @@ const pages = [
     name: 'home',
     url: '/',
     output: 'social-home.jpg',
-    waitFor: 'networkidle' // Wait for network to be idle
+    waitFor: 'load' // Wait for page load event
   },
   {
     name: 'games_list',
     url: '/games',
     output: 'social-games.jpg',
-    waitFor: 'networkidle'
+    waitFor: 'load'
   },
   {
     name: 'public_lists',
     url: '/lists/public',
     output: 'social-lists.jpg',
-    waitFor: 'networkidle'
+    waitFor: 'load'
   },
   {
     name: 'ratings',
     url: '/ratings',
     output: 'social-ratings.jpg',
-    waitFor: 'networkidle'
+    waitFor: 'load'
   },
   {
     name: 'default',
     url: '/',
     output: 'social-fallback.jpg',
-    waitFor: 'networkidle'
+    waitFor: 'load'
   }
 ];
 
