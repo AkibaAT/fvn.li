@@ -21,7 +21,7 @@ return [
     /**
      * Process audit logs asynchronously via queue jobs
      */
-    'async' => env('AUDIT_ASYNC', true),
+    'async' => env('AUDIT_ASYNC', false),
 
     /**
      * Always fallback to synchronous processing if async fails

@@ -6,10 +6,12 @@ namespace App\Providers;
 
 use App\Models\Character;
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
 use App\Observers\CharacterObserver;
 use App\Observers\GameObserver;
+use App\Observers\GameVersionObserver;
 use App\Observers\RatingObserver;
 use App\Observers\TagObserver;
 use App\Observers\UniversalAuditObserver;
@@ -67,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register specific model observers for search index updates
         Game::observe(GameObserver::class);
+        GameVersion::observe(GameVersionObserver::class);
         Character::observe(CharacterObserver::class);
         Tag::observe(TagObserver::class);
         Rating::observe(RatingObserver::class);

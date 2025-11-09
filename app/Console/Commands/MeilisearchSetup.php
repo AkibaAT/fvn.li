@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\DialogueLine;
 use App\Models\Game;
+use App\Models\GameDialogueText;
 use App\Models\Rating;
 use App\Models\Tag;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 class MeilisearchSetup extends Command
 {
@@ -198,51 +199,55 @@ class MeilisearchSetup extends Command
 
             $this->info('    ✅ Games imported');
 
-            // Import dialogue lines (only from latest versions)
-            $dialogueCount = DialogueLine::whereHas('text', function ($query) {
-                $query->whereRaw("trim(text_content) != ''");
-            })
-                ->whereHas('gameVersion', function ($query) {
-                    $query->where('is_latest', true);
-                })
-                ->count();
-            $this->line("  - Importing {$dialogueCount} dialogue lines from latest versions...");
+            // Import dialogue texts (deduplicated per game)
+            // Get all games that have dialogue
+            $gameIds = DB::table('version_dialogue_lines as vdl')
+                ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
+                ->distinct()
+                ->pluck('gv.game_id');
 
-            $bar = $this->output->createProgressBar($dialogueCount);
+            $totalGames = $gameIds->count();
+            $this->line("  - Importing dialogue texts from {$totalGames} games (per-game deduplication)...");
+
+            $bar = $this->output->createProgressBar($totalGames);
             $bar->start();
 
+            $totalIndexed = 0;
             $errors = [];
-            // Eager load relationships to avoid N+1 queries during indexing
-            DialogueLine::whereHas('text', function ($query) {
-                $query->whereRaw("trim(text_content) != ''");
-            })
-                ->whereHas('gameVersion', function ($query) {
-                    $query->where('is_latest', true);
-                })
-                ->with(['text', 'character', 'gameVersion.game'])
-                ->chunk(500, function ($dialogueLines) use ($bar, &$errors) {
-                    try {
-                        $dialogueLines->searchable();
-                        $bar->advance($dialogueLines->count());
-                    } catch (Exception $e) {
-                        $errors[] = "Dialogue lines chunk error: {$e->getMessage()}";
-                        $bar->advance($dialogueLines->count());
+
+            foreach ($gameIds as $gameId) {
+                try {
+                    $dialogueTexts = GameDialogueText::getForGame($gameId);
+
+                    if ($dialogueTexts->isNotEmpty()) {
+                        // Push to Meilisearch in chunks
+                        $dialogueTexts->chunk(500)->each(function ($chunk) {
+                            $chunk->searchable();
+                        });
+
+                        $totalIndexed += $dialogueTexts->count();
                     }
-                });
+                } catch (Exception $e) {
+                    $errors[] = "Game {$gameId}: {$e->getMessage()}";
+                }
+
+                $bar->advance();
+            }
 
             $bar->finish();
             $this->newLine();
 
-            if (! empty($errors)) {
-                $this->error('    ❌ Errors importing dialogue lines:');
-                foreach ($errors as $error) {
+            if (!empty($errors)) {
+                $this->warn('    ⚠️  Some errors occurred:');
+                foreach (array_slice($errors, 0, 5) as $error) {
                     $this->line("      • {$error}");
                 }
-
-                return false;
+                if (count($errors) > 5) {
+                    $this->line("      • ... and " . (count($errors) - 5) . " more");
+                }
             }
 
-            $this->info('    ✅ Dialogue lines imported');
+            $this->info("    ✅ Dialogue texts imported ({$totalIndexed} entries)");
 
             // Import reviews
             $reviewCount = Rating::where('is_visible', true)

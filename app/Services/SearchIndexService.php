@@ -13,15 +13,11 @@ use Illuminate\Support\Facades\Log;
 
 class SearchIndexService
 {
-    /**
-     * Full reindex of all searchable content.
-     * Note: This is mainly for maintenance - normal operations use automatic indexing via Eloquent observers.
-     */
     public function fullReindex(): array
     {
         $stats = [
             'games' => 0,
-            'dialogue_lines' => 0,
+            'dialogue_texts' => 0,
             'reviews' => 0,
             'tags' => 0,
             'errors' => [],
@@ -34,16 +30,26 @@ class SearchIndexService
                 $stats['games'] += $games->count();
             });
 
-            // Reindex dialogue lines (only from latest versions)
-            // Eager load relationships to avoid N+1 queries during indexing
-            DialogueLine::whereHas('gameVersion', function ($query) {
-                $query->where('is_latest', true);
-            })
-                ->with(['text', 'character', 'gameVersion.game'])
-                ->chunk(1000, function ($lines) use (&$stats) {
-                    $lines->searchable();
-                    $stats['dialogue_lines'] += $lines->count();
-                });
+            // Reindex dialogue texts (per-game deduplication)
+            // Get all games that have dialogue
+            $gameIds = \DB::table('version_dialogue_lines as vdl')
+                ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
+                ->distinct()
+                ->pluck('gv.game_id');
+
+            foreach ($gameIds as $gameId) {
+                try {
+                    $dialogueTexts = \App\Models\GameDialogueText::getForGame($gameId);
+                    if ($dialogueTexts->isNotEmpty()) {
+                        $dialogueTexts->chunk(500)->each(function ($chunk) {
+                            $chunk->searchable();
+                        });
+                        $stats['dialogue_texts'] += $dialogueTexts->count();
+                    }
+                } catch (Exception $e) {
+                    $stats['errors'][] = "Game {$gameId}: {$e->getMessage()}";
+                }
+            }
 
             // Reindex reviews
             Rating::where('is_visible', true)
@@ -106,16 +112,13 @@ class SearchIndexService
         }
     }
 
-    /**
-     * Get search index statistics.
-     */
     public function getIndexStats(): array
     {
         try {
             $client = app(\Meilisearch\Client::class);
 
             $stats = [];
-            $indexes = ['games', 'dialogue_texts', 'reviews', 'tags'];
+            $indexes = ['games', 'game_dialogue_texts', 'reviews', 'tags'];
 
             foreach ($indexes as $indexName) {
                 try {

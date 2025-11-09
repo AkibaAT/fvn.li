@@ -51,35 +51,16 @@ class GameVersion extends Model
         static::saving(function (GameVersion $version) {
             // When setting a version as latest, ensure no other versions are marked as latest
             if ($version->is_latest) {
-                // Get the old latest version(s) before updating
-                $oldLatestVersions = $version->game->gameVersions()
-                    ->where('id', '!=', $version->id)
-                    ->where('is_latest', true)
-                    ->get();
-
                 // Mark other versions as not latest
                 $version->game->gameVersions()
                     ->where('id', '!=', $version->id)
                     ->update(['is_latest' => false]);
-
-                // Remove old version dialogue lines from search index
-                foreach ($oldLatestVersions as $oldVersion) {
-                    DialogueLine::where('game_version_id', $oldVersion->id)
-                        ->unsearchable();
-                }
             }
         });
 
-        static::saved(function (GameVersion $version) {
-            // When a version becomes latest, index its dialogue lines
-            if ($version->is_latest) {
-                DialogueLine::where('game_version_id', $version->id)
-                    ->with(['text', 'character', 'gameVersion.game'])
-                    ->chunk(1000, function ($lines) {
-                        $lines->searchable();
-                    });
-            }
-        });
+        // Note: Dialogue text indexing is now handled by GameVersionObserver
+        // which reindexes all dialogue texts for the entire game when a version
+        // becomes latest, using the GameDialogueText model for per-game deduplication
     }
 
     public function game(): BelongsTo

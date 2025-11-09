@@ -53,7 +53,7 @@ class MeilisearchReindex extends Command
             ['Content Type', 'Items Indexed'],
             [
                 ['Games', $stats['games']],
-                ['Dialogue Lines', $stats['dialogue_lines']],
+                ['Dialogue Texts', $stats['dialogue_texts']],
                 ['Reviews', $stats['reviews']],
                 ['Tags', $stats['tags']],
             ]

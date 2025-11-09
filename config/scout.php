@@ -142,37 +142,32 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
-            'dialogue_texts' => [
+            'game_dialogue_texts' => [
                 'filterableAttributes' => [
-                    'game_ids',
-                    'game_names',
+                    'game_id',
+                    'text_id',
+                    'language',
                     'version_ids',
                     'character_ids',
-                    'character_names',
-                    'languages',
-                    'usage_count',
-                    'games_count',
                 ],
                 'sortableAttributes' => [
-                    'usage_count',
-                    'games_count',
+                    'game_name',
                 ],
                 'searchableAttributes' => [
                     'text_content',
-                    // Only search in text_content, not character_names or game_names
-                    // Otherwise searching for "night" returns all dialogue from games/characters with "night" in the name
+                    'character_names',
+                    'game_name',
                 ],
                 'displayedAttributes' => [
                     'id',
+                    'text_id',
+                    'game_id',
                     'text_content',
-                    'game_ids',
-                    'game_names',
+                    'language',
+                    'game_name',
                     'version_ids',
                     'character_ids',
                     'character_names',
-                    'languages',
-                    'usage_count',
-                    'games_count',
                 ],
                 'typoTolerance' => [
                     'enabled' => true,

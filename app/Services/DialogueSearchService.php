@@ -28,21 +28,23 @@ class DialogueSearchService
 
         // Get raw Meilisearch results with all metadata
         $client = app(Client::class);
-        $index = $client->index('dialogue_texts');
+        $index = $client->index('game_dialogue_texts');
 
         // Build filter array (Meilisearch filter syntax)
         $filterParts = [];
         if (!empty($language)) {
-            $filterParts[] = "languages = '{$language}'";
+            $filterParts[] = "language = '{$language}'";
         }
         if (!empty($filters['game_id'])) {
-            $filterParts[] = "game_ids = " . (int) $filters['game_id'];
+            $filterParts[] = "game_id = " . (int) $filters['game_id'];
         }
         if (!empty($filters['version_id'])) {
+            // Filter by version_ids array
             $filterParts[] = "version_ids = " . (int) $filters['version_id'];
         }
         if (!empty($filters['character_id'])) {
-            $filterParts[] = "character_names = '{$filters['character_id']}'";
+            // Filter by character_ids array
+            $filterParts[] = "character_ids = " . (int) $filters['character_id'];
         }
 
         // Execute search with highlighting
@@ -61,13 +63,13 @@ class DialogueSearchService
         $hits = $results->getHits();
         $total = $results->getEstimatedTotalHits();
 
-        // Get the unique text IDs and highlighted text from search results
-        $uniqueTextIds = collect($hits)->pluck('id')->toArray();
+        // Get the text IDs and highlighted text from search results
+        $textIds = collect($hits)->pluck('text_id')->toArray();
         $highlightedTexts = collect($hits)->mapWithKeys(function ($hit) {
-            return [$hit['id'] => $hit['_formatted']['text_content'] ?? $hit['text_content']];
+            return [$hit['text_id'] => $hit['_formatted']['text_content'] ?? $hit['text_content']];
         });
 
-        if (empty($uniqueTextIds)) {
+        if (empty($textIds)) {
             return new LengthAwarePaginator(
                 [],
                 0,
@@ -81,12 +83,20 @@ class DialogueSearchService
         }
 
         // Fetch actual dialogue lines from PostgreSQL with full context
-        $query = DialogueLine::whereIn('text_id', $uniqueTextIds)
+        $query = DialogueLine::whereIn('text_id', $textIds)
             ->with(['gameVersion.game', 'gameVersion', 'text', 'character']);
 
         // Apply additional filters to dialogue lines
+        if (!empty($filters['game_id'])) {
+            $query->whereHas('gameVersion', function ($q) use ($filters) {
+                $q->where('game_id', $filters['game_id']);
+            });
+        }
         if (!empty($filters['version_id'])) {
             $query->where('game_version_id', $filters['version_id']);
+        }
+        if (!empty($filters['language'])) {
+            $query->where('iso_code', $filters['language']);
         }
         if (!empty($filters['context'])) {
             $query->where('context', $filters['context']);
@@ -100,7 +110,7 @@ class DialogueSearchService
 
         // Build final results in the order returned by Meilisearch
         // Attach highlighted text from Meilisearch to each line
-        $items = collect($uniqueTextIds)->flatMap(function ($textId) use ($linesByTextId, $highlightedTexts) {
+        $items = collect($textIds)->flatMap(function ($textId) use ($linesByTextId, $highlightedTexts) {
             $lines = $linesByTextId->get($textId, collect());
             $highlightedText = $highlightedTexts->get($textId);
 
