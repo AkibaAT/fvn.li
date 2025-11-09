@@ -124,79 +124,58 @@ class GameDataSyncService
         }
     }
 
-    /**
-     * Refresh version information for the game
-     *
-     * @throws GuzzleException|DateMalformedStringException
-     * @throws Exception
-     * @throws Throwable
-     */
     public function refreshVersion(Game $game, bool $force = false): void
     {
-        // Only itch.io games can be refreshed from itch.io API
-        if (!$game->isItchioGame()) {
-            throw new Exception("Cannot refresh versions for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
+        echo "  [Version] Starting version refresh for game: {$game->name}\n";
+
+        // Track if game had no versions at start
+        $hadNoVersions = ! $game->gameVersions()->exists();
+
+        // ========================================
+        // PHASE 1: Fetch all external data (NO TRANSACTION - no locks held)
+        // ========================================
+        echo "    [Version] Fetching uploads data from itch.io\n";
+        
+        // Get the ItchHttpClientService
+        $itchClient = App::make(ItchHttpClientService::class);
+
+        $url = "https://api.itch.io/games/{$game->itch_id}/uploads";
+
+        $response = $itchClient->get($url);
+
+        // Handle game not found - mark as invisible
+        if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
+            $game->is_visible = false;
+            $game->save();
+            return;
         }
 
-        DB::beginTransaction();
-
-        try {
-            // Check if game has any existing versions - if not, create fallback immediately
-            if (! $game->gameVersions()->exists()) {
-                // Create fallback version and commit it immediately to ensure it persists
-                $fallbackVersion = $game->gameVersions()->create([
-                    'version' => 'Unknown',
-                    'devlog' => $this->getDevlogLink($game),
-                    'is_windows' => false,
-                    'is_linux' => false,
-                    'is_mac' => false,
-                    'is_android' => false,
-                    'is_web' => false,
-                    'published_at' => $game->initially_published_at ?? now(),
-                ]);
-
-                // Set is_latest separately since it's not fillable
-                $fallbackVersion->is_latest = true;
-                $fallbackVersion->save();
-
-                DB::commit();
-                DB::beginTransaction();
-                $force = true;
-            }
-
-            // Get the ItchHttpClientService
-            $itchClient = App::make(ItchHttpClientService::class);
-
-            $url = "https://api.itch.io/games/{$game->itch_id}/uploads";
-
-            $response = $itchClient->get($url);
-
-            if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
-                $game->is_visible = false;
-                $game->save();
-                DB::commit();
-
+        $uploadsData = json_decode($response->getBody()->getContents(), true);
+        if (! isset($uploadsData['uploads'])) {
+            // No uploads data - if game has no versions, we need to create a fallback in the transaction
+            if ($hadNoVersions) {
+                echo "    [Version] No uploads found, but game has no versions - will create fallback\n";
+                // Don't return yet - we'll create fallback in Phase 3
+            } else {
+                echo "    [Version] No uploads found\n";
                 return;
             }
+        }
 
-            $uploadsData = json_decode($response->getBody()->getContents(), true);
-            if (! isset($uploadsData['uploads'])) {
-                DB::rollBack();
+        $seenUploads = $game->uploads ?: [];
+        $hasChanges = false;
+        $candidateUploads = [];
 
-                return;
-            }
+        // Platform flags for the latest version
+        $isWindows = false;
+        $isLinux = false;
+        $isMac = false;
+        $isAndroid = false;
+        $isWeb = false;
 
-            $seenUploads = $game->uploads ?: [];
-            $hasChanges = false;
-            $candidateUploads = [];
-
-            // Platform flags for the latest version
-            $isWindows = false;
-            $isLinux = false;
-            $isMac = false;
-            $isAndroid = false;
-            $isWeb = false;
-
+        // Process uploads data to detect changes
+        if (isset($uploadsData['uploads'])) {
+            echo "    [Version] Processing " . count($uploadsData['uploads']) . " uploads\n";
             foreach ($uploadsData['uploads'] as $upload) {
                 $fileId = (int) $upload['id'];
                 $currentFilename = $upload['filename'];
@@ -257,28 +236,119 @@ class GameDataSyncService
                     $isWeb = true;
                 }
             }
+        }
 
-            if (! $hasChanges && ! $force) {
-                DB::rollBack();
+        // Select best upload from candidates using Upload model's sorting logic
+        $bestUpload = Upload::getBest(collect($candidateUploads));
+        if ($bestUpload) {
+            echo "    [Version] Selected best upload: {$bestUpload->filename}\n";
+        } else {
+            echo "    [Version] No processable uploads found\n";
+        }
 
-                return;
+        // Exit early if no changes detected and game already has versions
+        if (! $hasChanges && ! $force && ! $hadNoVersions) {
+            echo "    [Version] No changes detected\n";
+            return;
+        }
+
+        // Prepare version data
+        $newVersion = null;
+        $uploadTimestamp = null;
+        $shouldCreateVersion = false;
+
+        if ($bestUpload) {
+            $versionParserService = app(GameVersionParser::class);
+            $newVersion = $versionParserService->extractVersion($seenUploads[$bestUpload->id], true);
+            $uploadTimestamp = $bestUpload->updatedAt;
+
+            echo "    [Version] Extracted version: " . ($newVersion ?: '(empty)') . "\n";
+
+            // Check if this is a new version
+            $existingVersion = $game->gameVersions()
+                ->where('version', $newVersion)
+                ->first();
+
+            $shouldCreateVersion = !$existingVersion || $force;
+            echo "    [Version] Should create version: " . ($shouldCreateVersion ? 'yes' : 'no') . " (existing: " . ($existingVersion ? 'yes' : 'no') . ", force: " . ($force ? 'yes' : 'no') . ")\n";
+        }
+
+        // ========================================
+        // PHASE 2: Download and process archive to TEMP (NO TRANSACTION - no locks held)
+        // This can take 10+ seconds, so we do it BEFORE the transaction
+        // Wrapped in try-finally to ensure temp directory cleanup
+        // ========================================
+        $archiveResult = null;
+        $versionStats = null;
+        $tempDirPath = null;
+        $shouldProcessRenPy = $bestUpload &&
+            $shouldCreateVersion &&
+            (!$game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
+
+        echo "    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
+             " (bestUpload: " . ($bestUpload ? 'yes' : 'no') .
+             ", shouldCreate: " . ($shouldCreateVersion ? 'yes' : 'no') .
+             ", engine: " . ($game->game_engine ?: 'null') . ")\n";
+
+        if ($shouldProcessRenPy) {
+            try {
+                echo "    [Version] Downloading and processing game archive to temp location...\n";
+                $archiveService = app(GameArchiveService::class);
+
+                // Download and process to TEMP - no version ID needed yet
+                $archiveResult = $archiveService->downloadAndProcessToTemp(
+                    $game->getPrimaryUrl(),
+                    $bestUpload->filename,
+                    $bestUpload->id,
+                    $game->id
+                );
+
+                // Store temp directory path for cleanup
+                $tempDirPath = $archiveResult['temp_dir'] ?? null;
+
+                // Extract stats if available
+                if (isset($archiveResult['stats']) && $archiveResult['stats']) {
+                    $versionStats = $archiveResult['stats'];
+                    echo "    [Version] Stats extracted successfully from temp archive\n";
+                } else {
+                    echo "    [Version] No stats extracted from archive\n";
+                }
+            } catch (Exception $e) {
+                Log::error('Failed to download/process game archive to temp', [
+                    'game_id' => $game->id,
+                    'version' => $newVersion,
+                    'error' => $e->getMessage(),
+                ]);
+                echo "    [Version] Error processing archive: {$e->getMessage()}\n";
+                // Continue without stats - cleanup will happen in finally block
             }
+        }
 
-            $game->uploads = $seenUploads;
+        // ========================================
+        // PHASE 3: Save EVERYTHING in ONE atomic transaction
+        // All database writes happen here - all or nothing
+        // Wrapped in try-finally to ensure temp file cleanup
+        // ========================================
+        try {
+            echo "    [Version] Starting atomic transaction to save all data\n";
+            
+            DB::transaction(function () use (
+                $game, $seenUploads, $bestUpload, $newVersion, $uploadTimestamp,
+                $isWindows, $isLinux, $isMac, $isAndroid, $isWeb,
+                $shouldCreateVersion, $versionStats, $archiveResult, $force, $hadNoVersions,
+                &$tempDirPath  // Pass by reference so we can null it after successful move
+            ) {
+                // Update game uploads
+                $game->uploads = $seenUploads;
+                $game->save();
+                echo "    [Version] Game uploads saved\n";
 
-            $bestUpload = Upload::getBest(collect($candidateUploads));
-            if ($bestUpload) {
-                $versionParserService = app(GameVersionParser::class);
-                $newVersion = $versionParserService->extractVersion($seenUploads[$bestUpload->id], true);
-                $uploadTimestamp = $bestUpload->updatedAt;
+                // Determine what version to create
+                $gameVersion = null;
 
-                // Get existing version if any
-                $existingVersion = $game->gameVersions()
-                    ->where('version', $newVersion)
-                    ->first();
-
-                if (! $existingVersion) {
-                    // Only create a new version if one doesn't exist with this version number
+                // Case 1: Creating a new version with actual data
+                if ($shouldCreateVersion && $newVersion) {
+                    // Check if we have an "Unknown" version to replace
                     $existingUnknownVersion = $game->gameVersions()
                         ->where('version', 'Unknown')
                         ->first();
@@ -297,16 +367,14 @@ class GameDataSyncService
                     if ($existingUnknownVersion) {
                         $existingUnknownVersion->update($versionValues);
                         $gameVersion = $existingUnknownVersion;
+                        echo "    [Version] Updated existing Unknown version\n";
                     } else {
                         $gameVersion = $game->gameVersions()->create($versionValues);
+                        echo "    [Version] Created new version record with ID: {$gameVersion->id}\n";
                     }
 
-                    // Set is_latest separately since it's not fillable
-                    $gameVersion->is_latest = true;
-                    $gameVersion->save();
-
+                    // Copy language availability from previous version if needed
                     if (! $existingUnknownVersion) {
-                        // Find previous version that has any unavailable languages
                         $previousVersion = $game->gameVersions()
                             ->where('id', '!=', $gameVersion->id)
                             ->whereHas('supportedLanguages', function ($query) {
@@ -315,139 +383,123 @@ class GameDataSyncService
                             ->latest('published_at')
                             ->first();
 
-                        // Copy language availability settings from previous version
                         if ($previousVersion) {
                             VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
                         }
                     }
-                    // Process statistics if it's a Ren'Py game (only for new versions)
-                    if (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown') {
-                        try {
-                            $archiveService = app(GameArchiveService::class);
-                            $statsService = app(GameStatsService::class);
 
-                            // Download and process
-                            $result = $archiveService->downloadAndProcess(
-                                $game->getPrimaryUrl(),
-                                $bestUpload->filename,
-                                $bestUpload->id,
-                                $game->id,
-                                $gameVersion->id,
-                                deleteAfterProcessing: true
-                            );
+                    // Note: We no longer store archives permanently - they're processed and deleted
 
-                            // Check if we have valid stats
-                            if (isset($result['stats']) && $result['stats']) {
-                                echo "    [Version] Saving game engine\n";
-                                $game->game_engine = "Ren'Py";
-                                $game->save();
-                                echo "    [Version] Game engine saved\n";
+                    // Save stats if we have them
+                    if ($versionStats) {
+                        echo "    [Version] Saving game engine\n";
+                        $game->game_engine = "Ren'Py";
+                        $game->save();
+                        echo "    [Version] Game engine saved\n";
 
-                                // Save the stats - pass $game as the game object for game-specific language mappings
-                                echo "    [Version] Saving version stats...\n";
-                                $statsService->saveVersionStats($gameVersion, $result['stats'],
-                                    $game->source_language_id, $game);
-                                echo "    [Version] Version stats saved\n";
-                            } else {
-                                // Log that we couldn't extract stats but don't treat it as an error
-                                Log::info('No stats extracted for game, copying language support from previous version',
-                                    [
-                                        'game_id' => $game->id,
-                                        'version' => $newVersion,
-                                    ]);
-
-                                // Copy language support from previous version
-                                $this->copyLanguageSupport($game, $gameVersion);
-                            }
-                        } catch (Exception $e) {
-                            // Only log as an error if it's not related to stats extraction
-                            Log::error('Failed to process game archive', [
-                                'game_id' => $game->id,
-                                'version' => $newVersion,
-                                'error' => $e->getMessage(),
-                            ]);
-
-                            // Copy language support from previous version on error
-                            $this->copyLanguageSupport($game, $gameVersion);
-                        }
+                        echo "    [Version] Saving version stats...\n";
+                        $statsService = app(GameStatsService::class);
+                        $statsService->saveVersionStats($gameVersion, $versionStats,
+                            $game->source_language_id, $game);
+                        echo "    [Version] Version stats saved\n";
                     } else {
-                        // For non-Ren'Py games, copy language support from previous version
+                        // No stats - copy language support from previous version
+                        echo "    [Version] No stats, copying language support\n";
                         $this->copyLanguageSupport($game, $gameVersion);
                     }
-                } elseif ($force) {
-                    // Version already exists, but force=true (e.g., devlog update)
-                    // Update metadata only, don't reprocess stats
-                    $gameVersion = $existingVersion;
-                    $gameVersion->devlog = $this->getDevlogLink($game);
-                    $gameVersion->is_windows = $isWindows;
-                    $gameVersion->is_linux = $isLinux;
-                    $gameVersion->is_mac = $isMac;
-                    $gameVersion->is_android = $isAndroid;
-                    $gameVersion->is_web = $isWeb;
+
+                    // Now set is_latest = true AFTER dialogue lines exist
+                    // This triggers the GameVersion observer to index the dialogue lines
+                    echo "    [Version] Setting version as latest\n";
+                    $gameVersion->is_latest = true;
                     $gameVersion->save();
-
-                    Log::info('Version already exists, updating metadata only', [
-                        'game_id' => $game->id,
-                        'version' => $newVersion,
-                        'existing_version_id' => $existingVersion->id,
+                    echo "    [Version] Version marked as latest\n";
+                }
+                // Case 2: Game had no versions at start and we couldn't create a real version
+                // Create a fallback "Unknown" version so the game has at least one version
+                elseif ($hadNoVersions) {
+                    echo "    [Version] Creating fallback Unknown version\n";
+                    $gameVersion = $game->gameVersions()->create([
+                        'version' => 'Unknown',
+                        'devlog' => $this->getDevlogLink($game),
+                        'is_windows' => $isWindows,
+                        'is_linux' => $isLinux,
+                        'is_mac' => $isMac,
+                        'is_android' => $isAndroid,
+                        'is_web' => $isWeb,
+                        'published_at' => $game->initially_published_at ?? now(),
                     ]);
-                } else {
-                    // Version already exists and no force - this shouldn't happen
-                    // because we check $hasChanges earlier, but log it just in case
-                    Log::warning('Version already exists and no changes detected', [
-                        'game_id' => $game->id,
-                        'version' => $newVersion,
-                        'existing_version_id' => $existingVersion->id,
+
+                    // Set is_latest separately since it's not fillable
+                    $gameVersion->is_latest = true;
+                    $gameVersion->save();
+                    echo "    [Version] Fallback version created with ID: {$gameVersion->id}\n";
+                }
+
+                // Update platform flags on existing latest version if needed (force mode or no new version)
+                if ($force || (!$shouldCreateVersion && !$hadNoVersions)) {
+                    $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
+                    if ($latestVersion) {
+                        $platformsChanged = false;
+
+                        if ($latestVersion->is_windows !== $isWindows) {
+                            $latestVersion->is_windows = $isWindows;
+                            $platformsChanged = true;
+                        }
+
+                        if ($latestVersion->is_linux !== $isLinux) {
+                            $latestVersion->is_linux = $isLinux;
+                            $platformsChanged = true;
+                        }
+
+                        if ($latestVersion->is_mac !== $isMac) {
+                            $latestVersion->is_mac = $isMac;
+                            $platformsChanged = true;
+                        }
+
+                        if ($latestVersion->is_android !== $isAndroid) {
+                            $latestVersion->is_android = $isAndroid;
+                            $platformsChanged = true;
+                        }
+
+                        if ($latestVersion->is_web !== $isWeb) {
+                            $latestVersion->is_web = $isWeb;
+                            $platformsChanged = true;
+                        }
+
+                        // Update devlog if in force mode
+                        if ($force) {
+                            $latestVersion->devlog = $this->getDevlogLink($game);
+                            $platformsChanged = true;
+                        }
+
+                        // Save the changes if any platform flags were updated
+                        if ($platformsChanged) {
+                            echo "    [Version] Platform flags changed, saving latest version\n";
+                            $latestVersion->save();
+                            echo "    [Version] Latest version saved\n";
+                        }
+                    }
+                }
+
+                echo "    [Version] Transaction complete - all data saved atomically\n";
+            });
+
+            echo "    [Version] All operations completed successfully\n";
+        } finally {
+            // Always clean up temp directory if it still exists
+            // (if moveFromTempToStorage succeeded, $tempDirPath will be null)
+            if ($tempDirPath && File::exists($tempDirPath)) {
+                try {
+                    File::deleteDirectory($tempDirPath);
+                    echo "    [Version] Cleaned up temp directory: {$tempDirPath}\n";
+                } catch (Exception $e) {
+                    Log::warning('Failed to clean up temp directory', [
+                        'temp_dir' => $tempDirPath,
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
-
-            // Always update platform flags of the latest version if they've changed
-            // This ensures that newly detected platforms are updated even when no new version is created
-            echo "    [Version] Checking platform flags for latest version\n";
-            $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
-            if ($latestVersion) {
-                $platformsChanged = false;
-
-                if ($latestVersion->is_windows !== $isWindows) {
-                    $latestVersion->is_windows = $isWindows;
-                    $platformsChanged = true;
-                }
-
-                if ($latestVersion->is_linux !== $isLinux) {
-                    $latestVersion->is_linux = $isLinux;
-                    $platformsChanged = true;
-                }
-
-                if ($latestVersion->is_mac !== $isMac) {
-                    $latestVersion->is_mac = $isMac;
-                    $platformsChanged = true;
-                }
-
-                if ($latestVersion->is_android !== $isAndroid) {
-                    $latestVersion->is_android = $isAndroid;
-                    $platformsChanged = true;
-                }
-
-                if ($latestVersion->is_web !== $isWeb) {
-                    $latestVersion->is_web = $isWeb;
-                    $platformsChanged = true;
-                }
-
-                // Save the changes if any platform flags were updated
-                if ($platformsChanged) {
-                    echo "    [Version] Platform flags changed, saving latest version\n";
-                    $latestVersion->save();
-                    echo "    [Version] Latest version saved\n";
-                }
-            }
-
-            echo "    [Version] Committing transaction...\n";
-            DB::commit();
-            echo "    [Version] Transaction committed\n";
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
         }
     }
 
@@ -459,90 +511,151 @@ class GameDataSyncService
      */
     public function refreshMetadata(Game $game): void
     {
-        // Start a database transaction to ensure data consistency
-        DB::beginTransaction();
+        // ========================================
+        // PHASE 1: Fetch metadata (NO TRANSACTION - no locks held)
+        // ========================================
+        $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
+        $html = $response['body'];
+        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-        try {
-            $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
-            $html = $response['body'];
-            $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $extractor = app(ItchGameMetadataExtractor::class);
 
-            $extractor = app(ItchGameMetadataExtractor::class);
+        // Store original values to detect changes
+        $originalThumbUrl = $game->thumb_url;
+        $originalScreenshots = $game->screenshots;
 
-            // Check if price was already set from API data (more reliable than HTML scraping)
-            $preserveApiPrice = isset($game->priceSetFromApi) && $game->priceSetFromApi === true;
+        // Check if price was already set from API data (more reliable than HTML scraping)
+        $preserveApiPrice = isset($game->priceSetFromApi) && $game->priceSetFromApi === true;
 
-            // Extract price information
-            $extractor->extractPriceInformation($game, $doc, $preserveApiPrice);
+        // Extract price information
+        $extractor->extractPriceInformation($game, $doc, $preserveApiPrice);
 
-            // Check for demo availability
-            $extractor->checkForDemo($game, $doc);
+        // Check for demo availability
+        $extractor->checkForDemo($game, $doc);
 
-            // Update status if not abandoned/canceled
-            if (! in_array($game->status, ['Abandoned', 'Canceled'])) {
-                $gameInfo = $doc->querySelector('div.game_info_panel_widget');
-                if ($gameInfo) {
-                    $statusLinks = $gameInfo->querySelectorAll('a');
-                    foreach ($statusLinks as $index => $link) {
-                        if ($index === 0) {
-                            $game->status = $link->textContent;
-                            break;
-                        }
+        // Update status if not abandoned/canceled
+        if (! in_array($game->status, ['Abandoned', 'Canceled'])) {
+            $gameInfo = $doc->querySelector('div.game_info_panel_widget');
+            if ($gameInfo) {
+                $statusLinks = $gameInfo->querySelectorAll('a');
+                foreach ($statusLinks as $index => $link) {
+                    if ($index === 0) {
+                        $game->status = $link->textContent;
+                        break;
                     }
                 }
             }
+        }
 
-            // Only sync description and screenshots if custom page is not enabled
-            if (! $game->has_custom_page) {
-                $extractor->extractFullDescription($game, $doc, app(ItchHtmlProcessor::class));
-                $extractor->extractScreenshots($game, $doc);
-            }
+        // Only sync description and screenshots if custom page is not enabled
+        if (! $game->has_custom_page) {
+            $extractor->extractFullDescription($game, $doc, app(ItchHtmlProcessor::class));
+            $extractor->extractScreenshots($game, $doc);
+        }
 
-            // Always sync custom CSS (styling should be updated regardless of custom page status)
-            $extractor->extractCustomCss($game, $html, app(ItchCssProcessor::class));
+        // Always sync custom CSS (styling should be updated regardless of custom page status)
+        $extractor->extractCustomCss($game, $html, app(ItchCssProcessor::class));
 
-            // Get game jam information
-            $extractor->extractGameJamInfo($game, $doc);
+        // Get game jam information
+        $extractor->extractGameJamInfo($game, $doc);
 
-            // Get game info table data
-            $infoTable = $doc->querySelector('div.game_info_panel_widget table');
-            if ($infoTable) {
-                foreach ($infoTable->querySelectorAll('tr') as $row) {
-                    $cells = $row->querySelectorAll('td');
-                    if (count($cells) < 2) {
-                        continue;
-                    }
+        // Get game info table data
+        $infoTable = $doc->querySelector('div.game_info_panel_widget table');
+        if ($infoTable) {
+            foreach ($infoTable->querySelectorAll('tr') as $row) {
+                $cells = $row->querySelectorAll('td');
+                if (count($cells) < 2) {
+                    continue;
+                }
 
-                    $label = trim($cells[0]->textContent);
-                    $value = trim($cells[1]->textContent);
+                $label = trim($cells[0]->textContent);
+                $value = trim($cells[1]->textContent);
 
-                    switch ($label) {
-                        case 'Tags':
-                            $this->syncTagsFromString($game, $value);
-                            break;
-                        case 'Author':
-                        case 'Authors':
-                            $game->authors = '';
-                            foreach ($cells[1]->querySelectorAll('a') as $author) {
-                                if ($game->authors !== '') {
-                                    $game->authors .= ',<br>';
-                                }
-                                $game->authors .= sprintf(
-                                    '<a href="%s" target="_blank">%s</a>',
-                                    $author->getAttribute('href'),
-                                    $author->textContent
-                                );
+                switch ($label) {
+                    case 'Tags':
+                        $this->syncTagsFromString($game, $value);
+                        break;
+                    case 'Author':
+                    case 'Authors':
+                        $game->authors = '';
+                        foreach ($cells[1]->querySelectorAll('a') as $author) {
+                            if ($game->authors !== '') {
+                                $game->authors .= ',<br>';
                             }
-                            break;
-                    }
+                            $game->authors .= sprintf(
+                                '<a href="%s" target="_blank">%s</a>',
+                                $author->getAttribute('href'),
+                                $author->textContent
+                            );
+                        }
+                        break;
                 }
             }
+        }
 
-            // Check NSFW status
-            $nsfw = $doc->querySelector('div.content_warning_inner');
-            $game->is_nsfw = $nsfw !== null;
+        // Check NSFW status
+        $nsfw = $doc->querySelector('div.content_warning_inner');
+        $game->is_nsfw = $nsfw !== null;
 
-            // Save all metadata changes within the transaction
+        // ========================================
+        // PHASE 2: Process images (NO TRANSACTION - downloads can take seconds!)
+        // ========================================
+        $imageService = app(ImageProcessingService::class);
+
+        // Process screenshots if they changed
+        if ($game->screenshots !== $originalScreenshots && !empty($game->screenshots)) {
+            try {
+                echo "    [Metadata] Screenshots changed, processing before save...\n";
+                $imageService->processGameScreenshots($game);
+                echo "    [Metadata] Screenshots processed successfully\n";
+            } catch (Exception $e) {
+                Log::error('Failed to process screenshots during metadata refresh', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue anyway - we'll save the URLs at least
+            }
+        }
+
+        // Process thumbnail if it changed
+        if ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) {
+            try {
+                echo "    [Metadata] Thumbnail changed, processing before save...\n";
+                // Clear old thumbnails first
+                if ($game->optimized_thumbnails) {
+                    $game->clearOptimizedThumbnails();
+                }
+                $imageService->processGameThumbnail($game);
+                echo "    [Metadata] Thumbnail processed successfully\n";
+            } catch (Exception $e) {
+                Log::error('Failed to process thumbnail during metadata refresh', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue anyway
+            }
+        } elseif (!$game->thumb_url && !empty($game->screenshots) && $game->screenshots !== $originalScreenshots) {
+            // No thumbnail but have screenshots - process first screenshot as thumbnail
+            try {
+                echo "    [Metadata] No thumbnail, processing first screenshot as fallback...\n";
+                if ($game->optimized_thumbnails) {
+                    $game->clearOptimizedThumbnails();
+                }
+                $imageService->processGameThumbnail($game);
+                echo "    [Metadata] Thumbnail fallback processed successfully\n";
+            } catch (Exception $e) {
+                Log::error('Failed to process thumbnail fallback during metadata refresh', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // ========================================
+        // PHASE 3: Save everything to database (IN TRANSACTION - quick!)
+        // ========================================
+        DB::transaction(function () use ($game) {
+            // Save all metadata changes
             Log::info('About to save game metadata', [
                 'game_id' => $game->id,
                 'game_name' => $game->name,
@@ -563,13 +676,7 @@ class GameDataSyncService
             // Process any pending associations now that the game is saved
             $this->processPendingGameJams($game);
             $this->processPendingTags($game);
-
-            // Commit the transaction
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        });
     }
 
     /**

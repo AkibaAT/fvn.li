@@ -230,13 +230,15 @@ class UpdateWatchlist extends Command
                     'itch_id' => $gameId,
                     'name' => $gameData['title'],
                     'description' => $gameData['short_text'] ?? null,
-                    'url' => $gameData['url'],
                     'platform' => 'itch_io',  // ← Explicitly set platform for itch.io games
                     'thumb_url' => $gameData['cover_url'] ?? null,
                     'source_language_id' => 'eng',
                     'is_paid' => $isPaid,
                     'is_visible' => true,
                 ]);
+
+                // Set URL properly for the platform (url is a JSONB field)
+                $game->setUrlForPlatform('itch_io', $gameData['url']);
 
                 // Set price information from collection data if available
                 if ($isPaid && isset($gameData['min_price'])) {

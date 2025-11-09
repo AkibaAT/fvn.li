@@ -202,6 +202,10 @@ class Game extends Model
                 );
             }
 
+            // Remove transient flags that should not be persisted to database
+            // priceSetFromApi is a temporary flag used to indicate price was set from API vs HTML scraping
+            unset($game->attributes['priceSetFromApi']);
+
             return true;
         });
     }

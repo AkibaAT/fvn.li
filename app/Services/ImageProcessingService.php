@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Game;
 use Exception;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
@@ -13,8 +17,45 @@ class ImageProcessingService
 {
     private readonly ImageManager $imageManager;
 
-    public function __construct()
-    {
+    private const SCREENSHOTS_PATH = 'screenshots';
+    private const THUMBNAIL_PATH = 'thumbnails';
+
+    private const SCREENSHOT_VARIANTS = [
+        'small' => [
+            'width' => 320,
+            'height' => 180,
+        ],
+        'default' => [
+            'width' => 320,
+            'height' => 20000,
+        ],
+        'large' => [
+            'width' => 1280,
+            'height' => 720,
+        ],
+    ];
+
+    private const THUMBNAIL_VARIANTS = [
+        'small' => [
+            'width' => 158,
+            'height' => 125,
+        ],
+        'default' => [
+            'width' => 315,
+            'height' => 250,
+        ],
+    ];
+
+    private const VALID_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+    ];
+
+    public function __construct(
+        private readonly Client $httpClient
+    ) {
         $this->imageManager = new ImageManager(new Driver);
     }
 
@@ -137,5 +178,312 @@ class ImageProcessingService
             'width' => (int) $width,
             'height' => (int) $height,
         ];
+    }
+
+    /**
+     * Process all screenshots for a game
+     * Downloads and creates optimized variants for all screenshots
+     *
+     * @param Game $game The game to process screenshots for
+     * @param int $quality WebP quality (0-100)
+     * @param bool $force Force reprocessing even if already optimized
+     * @return void
+     * @throws Exception|GuzzleException
+     */
+    public function processGameScreenshots(Game $game, int $quality = 80, bool $force = false): void
+    {
+        if (empty($game->screenshots)) {
+            Log::info('No screenshots to process', ['game_id' => $game->id]);
+            return;
+        }
+
+        echo "    [Images] Processing " . count($game->screenshots) . " screenshots\n";
+
+        $updatedScreenshots = [];
+        $updatedOptimizedScreenshots = [];
+
+        foreach ($game->screenshots as $index => $screenshot) {
+            echo "    [Images] Processing screenshot {$index}...\n";
+
+            try {
+                // Download the screenshot
+                echo "    [Images] Downloading screenshot...\n";
+                $response = $this->httpClient->get($screenshot['url'], [
+                    'timeout' => 30,
+                    'connect_timeout' => 10,
+                    'verify' => false,
+                ]);
+
+                $content = $response->getBody()->getContents();
+                $tempFile = tempnam(sys_get_temp_dir(), 'screenshot_');
+                file_put_contents($tempFile, $content);
+
+                // Skip if already optimized and not forcing
+                $existingOptimized = $game->optimized_screenshots[$index] ?? null;
+                if (!$force && isset($existingOptimized['optimized']) && !empty($existingOptimized['optimized'])) {
+                    echo "    [Images] Screenshot already optimized, skipping\n";
+                    $updatedScreenshots[] = $screenshot;
+                    $updatedOptimizedScreenshots[] = $existingOptimized;
+                    unlink($tempFile);
+                    continue;
+                }
+
+                // Clean up existing screenshots for this game and index
+                $this->cleanupExistingScreenshots($game->id, $index);
+
+                // Generate a unique filename with content checksum
+                $baseFilename = $this->generateScreenshotFilename($game, $index, $screenshot['url'], $content);
+
+                // Verify it's a valid image
+                $imageInfo = getimagesize($tempFile);
+                if ($imageInfo === false) {
+                    throw new Exception('Invalid image file');
+                }
+
+                $mimeType = $imageInfo['mime'];
+                if (!in_array($mimeType, self::VALID_MIME_TYPES)) {
+                    throw new Exception("Unsupported image type: {$mimeType}");
+                }
+
+                echo "    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n";
+
+                // Process variants
+                $optimizedVariants = [];
+                Storage::disk('public')->makeDirectory(self::SCREENSHOTS_PATH);
+
+                foreach (self::SCREENSHOT_VARIANTS as $variant => $config) {
+                    echo "    [Images] Processing {$variant} variant...\n";
+
+                    $variantFilename = $baseFilename . "_{$variant}.webp";
+                    $variantPath = $this->getStoragePath($variantFilename, self::SCREENSHOTS_PATH);
+
+                    $this->processImageVariant($tempFile, $variantPath, $config, $quality);
+
+                    if (!Storage::disk('public')->exists($variantPath)) {
+                        throw new Exception("Failed to create variant file: {$variantPath}");
+                    }
+
+                    $dimensions = $this->getImageDimensions($variantPath);
+
+                    $optimizedVariants[$variant] = [
+                        'path' => $variantPath,
+                        'width' => $dimensions['width'],
+                        'height' => $dimensions['height'],
+                        'mime_type' => 'image/webp',
+                    ];
+                }
+
+                // Keep the original screenshot
+                $updatedScreenshots[] = $screenshot;
+
+                // Store optimized variants separately
+                $updatedOptimizedScreenshots[] = [
+                    'optimized' => $optimizedVariants,
+                ];
+
+                unlink($tempFile);
+            } catch (Exception $e) {
+                echo "    [Images] Error processing screenshot {$index}: {$e->getMessage()}\n";
+                Log::error('Screenshot processing failed', [
+                    'game_id' => $game->id,
+                    'index' => $index,
+                    'error' => $e->getMessage(),
+                ]);
+                // Keep original data
+                $updatedScreenshots[] = $screenshot;
+                if (isset($game->optimized_screenshots[$index])) {
+                    $updatedOptimizedScreenshots[] = $game->optimized_screenshots[$index];
+                }
+            }
+        }
+
+        // Update the game with processed screenshots
+        $game->screenshots = $updatedScreenshots;
+        $game->optimized_screenshots = $updatedOptimizedScreenshots;
+    }
+
+    /**
+     * Process thumbnail for a game
+     * Downloads and creates optimized variants
+     *
+     * @param Game $game The game to process thumbnail for
+     * @param int $quality WebP quality (0-100)
+     * @param bool $force Force reprocessing even if already optimized
+     * @return void
+     * @throws Exception|GuzzleException
+     */
+    public function processGameThumbnail(Game $game, int $quality = 80, bool $force = false): void
+    {
+        // Determine the source URL for the thumbnail
+        $sourceUrl = $game->getEffectiveThumbnailUrl();
+
+        if (!$sourceUrl) {
+            throw new Exception('No thumbnail or screenshot available for processing');
+        }
+
+        $isUsingScreenshotFallback = !$game->thumb_url && !empty($game->screenshots);
+
+        if ($isUsingScreenshotFallback) {
+            echo "    [Images] No thumbnail found, using first screenshot as fallback...\n";
+        }
+
+        // Skip if files exist and not forcing
+        if (!$force && $game->optimized_thumbnails) {
+            echo "    [Images] Thumbnails already exist, skipping\n";
+            return;
+        }
+
+        // Download the thumbnail
+        echo "    [Images] Downloading thumbnail...\n";
+        $response = $this->httpClient->get($sourceUrl, [
+            'timeout' => 30,
+            'connect_timeout' => 10,
+            'verify' => false,
+        ]);
+
+        if ($response->getStatusCode() !== 200) {
+            throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
+        }
+
+        $content = $response->getBody()->getContents();
+        if (empty($content)) {
+            throw new Exception('Downloaded content is empty');
+        }
+
+        // Generate a unique filename with content checksum
+        $baseFilename = $this->generateThumbnailFilename($game, $content, $sourceUrl);
+
+        // Create temporary file
+        $tempFile = tempnam(sys_get_temp_dir(), 'thumb_');
+        file_put_contents($tempFile, $content);
+
+        if (!file_exists($tempFile) || filesize($tempFile) === 0) {
+            throw new Exception('Failed to save downloaded content');
+        }
+
+        try {
+            $imageInfo = getimagesize($tempFile);
+            if ($imageInfo === false) {
+                throw new Exception('Invalid image file');
+            }
+
+            $mimeType = $imageInfo['mime'];
+            if (!in_array($mimeType, self::VALID_MIME_TYPES)) {
+                throw new Exception("Invalid image mime type: {$mimeType}");
+            }
+
+            echo "    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n";
+
+            // Clear out any existing thumbnails for this game
+            $this->cleanupExistingThumbnails($game->id);
+
+            $thumbnails = [];
+            Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
+
+            // Clear existing thumbnails if any
+            if ($game->optimized_thumbnails) {
+                $game->clearOptimizedThumbnails();
+            }
+
+            // Process each variant
+            foreach (self::THUMBNAIL_VARIANTS as $variant => $config) {
+                echo "    [Images] Processing {$variant} variant...\n";
+
+                $variantFilename = $baseFilename . "_{$variant}.webp";
+                $variantPath = $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH);
+
+                $this->processImageVariant($tempFile, $variantPath, $config, $quality);
+
+                if (!Storage::disk('public')->exists($variantPath)) {
+                    throw new Exception("Failed to create variant file: {$variantPath}");
+                }
+
+                $dimensions = $this->getImageDimensions($variantPath);
+
+                $thumbnails[$variant] = [
+                    'path' => $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH),
+                    'width' => $dimensions['width'],
+                    'height' => $dimensions['height'],
+                    'mime_type' => 'image/webp',
+                    'animated' => false,
+                ];
+            }
+
+            // Update game record with all variants
+            $game->optimized_thumbnails = $thumbnails;
+        } finally {
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+        }
+    }
+
+    /**
+     * Generate a unique filename for a screenshot
+     */
+    private function generateScreenshotFilename(Game $game, int $index, string $url, string $fileContent): string
+    {
+        $contentChecksum = substr(md5($fileContent), 0, 8);
+        return sprintf(
+            '%d_screenshot_%d_%s_%s',
+            $game->id,
+            $index,
+            substr(md5($url), 0, 8),
+            $contentChecksum
+        );
+    }
+
+    /**
+     * Generate a unique filename for a game's thumbnail
+     */
+    private function generateThumbnailFilename(Game $game, string $fileContent, string $sourceUrl): string
+    {
+        $contentChecksum = substr(md5($fileContent), 0, 8);
+        return sprintf(
+            '%d_%s_%s',
+            $game->id,
+            substr(md5($sourceUrl), 0, 8),
+            $contentChecksum
+        );
+    }
+
+    /**
+     * Get the storage path for a file
+     */
+    private function getStoragePath(string $filename, string $basePath): string
+    {
+        return $basePath . '/' . $filename;
+    }
+
+    /**
+     * Clean up existing screenshot files for a game
+     */
+    private function cleanupExistingScreenshots(int $gameId, int $screenshotIndex): void
+    {
+        $files = Storage::disk('public')->files(self::SCREENSHOTS_PATH);
+        $pattern = "/^{$gameId}_screenshot_{$screenshotIndex}_[a-f0-9]{8}/";
+
+        foreach ($files as $file) {
+            $filename = basename($file);
+            if (preg_match($pattern, $filename)) {
+                Storage::disk('public')->delete($file);
+            }
+        }
+    }
+
+    /**
+     * Clean up any existing thumbnail files for a game
+     */
+    private function cleanupExistingThumbnails(int $gameId): void
+    {
+        $files = Storage::disk('public')->files(self::THUMBNAIL_PATH);
+        $pattern = "/^{$gameId}_[a-f0-9]{8}/";
+
+        foreach ($files as $file) {
+            $filename = basename($file);
+            if (preg_match($pattern, $filename)) {
+                Storage::disk('public')->delete($file);
+            }
+        }
     }
 }

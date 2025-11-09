@@ -92,34 +92,6 @@ class GameObserver
             HomePageCacheService::clearTeasers();
         }
 
-        // Handle thumbnail updates
-        echo "    [Observer] Checking thumbnail updates\n";
-        if ($game->wasChanged('thumb_url')) {
-            echo "    [Observer] Thumb URL changed, processing thumbnails\n";
-            // Clear old thumbnails if they exist
-            if ($game->optimized_thumbnails) {
-                $game->clearOptimizedThumbnails();
-            }
-
-            // Process new thumbnail if it exists, or if we have screenshots as fallback
-            if ($game->thumb_url || ! empty($game->screenshots)) {
-                $this->dispatchThumbnailProcessing($game);
-            }
-        }
-
-        // Handle screenshot updates - if no thumbnail exists, process screenshots as thumbnail fallback
-        echo "    [Observer] Checking screenshot updates\n";
-        if ($game->wasChanged('screenshots') && ! $game->thumb_url && ! empty($game->screenshots)) {
-            echo "    [Observer] Screenshots changed, processing as thumbnail\n";
-            // Clear old thumbnails if they exist
-            if ($game->optimized_thumbnails) {
-                $game->clearOptimizedThumbnails();
-            }
-
-            // Process first screenshot as thumbnail in background
-            $this->dispatchThumbnailProcessing($game);
-        }
-
         // Process any pending associations
         echo "    [Observer] Processing pending game jams\n";
         $game->processPendingGameJams();
@@ -164,35 +136,5 @@ class GameObserver
         }
 
         $game->slug = $slug;
-    }
-
-    /**
-     * Dispatch thumbnail processing job.
-     * Uses different dispatch methods for CLI vs HTTP contexts.
-     */
-    protected function dispatchThumbnailProcessing(Game $game): void
-    {
-        echo "    [Observer] Dispatching thumbnail processing job\n";
-
-        $job = function () use ($game) {
-            try {
-                Artisan::call('games:process-thumbnails', [
-                    '--game-id' => $game->id,
-                    '--force' => true,
-                ]);
-            } catch (Exception $e) {
-                Log::error('Failed to process game thumbnail after update', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        };
-
-        // IMPORTANT: Always dispatch afterCommit to avoid deadlocks when called from within a transaction
-        // The observer might fire during a transaction that has locked the game row, and the thumbnail
-        // job needs to read that same row, which would cause a deadlock if run synchronously
-        echo "    [Observer] Dispatching to queue after database commit\n";
-        dispatch($job)->afterCommit();
-        echo "    [Observer] Thumbnail job dispatched\n";
     }
 }

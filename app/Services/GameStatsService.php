@@ -180,17 +180,13 @@ readonly class GameStatsService
         // If game is not explicitly provided, get it from the version
         $game = $game ?? $version->game;
 
-        echo "    [Stats] Beginning nested transaction\n";
-        DB::beginTransaction();
+        // Track all languages found in the stats to update supported languages
+        echo "    [Stats] Processing language stats\n";
+        $foundLanguages = [];
 
-        try {
-            // Track all languages found in the stats to update supported languages
-            echo "    [Stats] Processing language stats\n";
-            $foundLanguages = [];
-
-            foreach ($stats['languages'] as $langKey => $langData) {
-                $isoCode = $langKey === 'default'
-                    ? $defaultLanguage
+        foreach ($stats['languages'] as $langKey => $langData) {
+            $isoCode = $langKey === 'default'
+                ? $defaultLanguage
                     : $this->languageMappingService->resolveLanguageCode($langKey, $game);
 
                 if (! $isoCode) {
@@ -310,13 +306,7 @@ readonly class GameStatsService
                 echo "    [Stats] Stats calculated\n";
             }
 
-            echo "    [Stats] Committing nested transaction\n";
-            DB::commit();
-            echo "    [Stats] Nested transaction committed\n";
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        echo "    [Stats] Version stats processing complete\n";
     }
 
     /**
@@ -497,24 +487,6 @@ readonly class GameStatsService
         }
 
         echo "    [Dialogue] All dialogue lines inserted\n";
-
-        // Index dialogue lines for this version to Meilisearch (if it's the latest version)
-        // This is done after bulk insert since DB::table()->insert() bypasses Eloquent/Scout
-        // Note: Only lines from the latest version will be indexed (see DialogueLine::shouldBeSearchable())
-        // IMPORTANT: Defer indexing until after transaction commits to avoid holding locks
-        echo "    [Dialogue] Dispatching indexing job\n";
-        $versionId = $version->id;
-        dispatch(function () use ($versionId) {
-            echo "    [Dialogue] Starting indexing for version {$versionId}\n";
-            DialogueLine::where('game_version_id', $versionId)
-                ->with(['text', 'character', 'gameVersion.game'])
-                ->chunk(1000, function ($lines) {
-                    $lines->searchable();
-                });
-            echo "    [Dialogue] Indexing completed for version {$versionId}\n";
-            Log::info('Dialogue lines indexed', ['version_id' => $versionId]);
-        })->afterCommit();
-        echo "    [Dialogue] Indexing job dispatched\n";
     }
 
     /**

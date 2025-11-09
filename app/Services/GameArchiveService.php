@@ -99,6 +99,139 @@ readonly class GameArchiveService
     }
 
     /**
+     * Download and process a game archive to a temporary location
+     * This is used when we need to get the stats before creating the version record
+     *
+     * @return array{temp_path: string, temp_dir: string, stats: array|null, filename: string, upload_id: int}
+     * @throws GuzzleException
+     * @throws RuntimeException
+     * @throws BindingResolutionException
+     */
+    public function downloadAndProcessToTemp(
+        string $gameUrl,
+        string $filename,
+        int $uploadId,
+        int $gameId
+    ): array {
+        Log::info('GameArchive: Starting download to temp', [
+            'game_id' => $gameId,
+            'upload_id' => $uploadId,
+            'filename' => $filename,
+        ]);
+
+        // Get the ItchHttpClientService for itch.io requests
+        $itchClient = $this->getItchClient();
+
+        // Get the download URL
+        $response = $itchClient->post($gameUrl . '/file/' . $uploadId);
+        $downloadInfo = json_decode($response->getBody()->getContents(), true);
+
+        if (! isset($downloadInfo['url'])) {
+            throw new RuntimeException('Could not get download URL');
+        }
+
+        Log::info('GameArchive: Download URL obtained', [
+            'game_id' => $gameId,
+            'cdn_url' => parse_url($downloadInfo['url'], PHP_URL_HOST),
+        ]);
+
+        // Create temporary directory and download with ORIGINAL filename
+        // This is critical - the extraction logic depends on the exact filename
+        $tempDir = sys_get_temp_dir() . '/game_' . uniqid();
+        if (!File::makeDirectory($tempDir, 0755, true)) {
+            throw new RuntimeException('Could not create temporary directory');
+        }
+
+        $tempFile = $tempDir . '/' . $filename;
+
+        Log::info('GameArchive: Starting download to temp', [
+            'game_id' => $gameId,
+            'temp_dir' => $tempDir,
+            'temp_file' => $tempFile,
+            'original_filename' => $filename,
+        ]);
+
+        // Download the file with its original name
+        $downloadClient = new Client([
+            'timeout' => 600,  // 10 minutes for the full download
+            'connect_timeout' => 30,  // 30 seconds to establish connection
+        ]);
+        $downloadClient->get($downloadInfo['url'], [
+            'sink' => $tempFile,
+        ]);
+
+        $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
+        Log::info('GameArchive: Download to temp completed', [
+            'game_id' => $gameId,
+            'file_size_mb' => round($fileSize / 1024 / 1024, 2),
+        ]);
+
+        // Process the archive to get stats
+        Log::info('GameArchive: Starting archive processing from temp', [
+            'game_id' => $gameId,
+            'archive_path' => $tempFile,
+        ]);
+        $stats = $this->processArchive($tempFile);
+        Log::info('GameArchive: Archive processing from temp completed', [
+            'game_id' => $gameId,
+            'has_stats' => $stats !== null,
+        ]);
+
+        return [
+            'temp_path' => $tempFile,
+            'temp_dir' => $tempDir,  // Return this so we can clean up the whole directory
+            'stats' => $stats,
+            'filename' => $filename,
+            'upload_id' => $uploadId,
+        ];
+    }
+
+    /**
+     * Move a downloaded archive from temp to final storage location
+     * This is called after the version record is created
+     *
+     * @throws RuntimeException
+     */
+    public function moveFromTempToStorage(
+        string $tempPath,
+        string $filename,
+        int $gameId,
+        int $versionId,
+        bool $deleteTemp = true
+    ): string {
+        if (! File::exists($tempPath)) {
+            throw new RuntimeException("Temp file not found: {$tempPath}");
+        }
+
+        // Get storage path and prepare directory
+        $storagePath = $this->getStoragePath($gameId, $versionId);
+
+        Log::info('GameArchive: Moving file from temp to storage', [
+            'game_id' => $gameId,
+            'version_id' => $versionId,
+            'storage_path' => $storagePath,
+        ]);
+
+        // Ensure directory exists and store file
+        Storage::makeDirectory($storagePath);
+        Storage::putFileAs($storagePath, $tempPath, $filename);
+
+        $finalPath = Storage::path("{$storagePath}/{$filename}");
+        Log::info('GameArchive: File moved successfully', [
+            'game_id' => $gameId,
+            'version_id' => $versionId,
+            'final_path' => $finalPath,
+        ]);
+
+        // Clean up temp file if requested
+        if ($deleteTemp && File::exists($tempPath)) {
+            File::delete($tempPath);
+        }
+
+        return $finalPath;
+    }
+
+    /**
      * Download and store a game archive
      *
      * @throws GuzzleException
