@@ -161,7 +161,7 @@ class UpdateWatchlist extends Command
         DB::beginTransaction();
 
         try {
-            $game = Game::firstOrNew(['game_id' => $gameId]);
+            $game = Game::firstOrNew(['itch_id' => $gameId]);
             $shouldRefreshVersion = false;
             $isNew = ! $game->exists;
             $wasInvisible = $game->exists && ! $game->is_visible;
