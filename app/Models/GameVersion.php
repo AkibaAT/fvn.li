@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class GameVersion extends Model
 {
@@ -187,6 +188,9 @@ class GameVersion extends Model
 
     public function saveFileStats(array $stats): void
     {
+        // PostgreSQL bigint maximum value
+        $maxBigInt = 9223372036854775807;
+
         // First, delete any existing file stats for this version
         $this->fileCategories()->delete();
 
@@ -198,8 +202,36 @@ class GameVersion extends Model
             $summary = $stats['summary'];
             $totalCount = $summary["total_{$category}"] ?? 0;
 
-            // Calculate total size for category
-            $totalSize = array_sum(array_column($categoryData, 'total_size'));
+            // Calculate total size for category, capped at bigint max
+            $totalSize = 0;
+            foreach ($categoryData as $extension => $data) {
+                $size = $data['total_size'] ?? 0;
+
+                // Check for corrupted/overflow values from Ren'Py
+                if ($size > $maxBigInt || $size < 0) {
+                    Log::warning('File size overflow detected in stats', [
+                        'game_version_id' => $this->id,
+                        'category' => $category,
+                        'extension' => $extension,
+                        'reported_size' => $size,
+                        'capped_to' => $maxBigInt,
+                    ]);
+                    $size = $maxBigInt;
+                }
+
+                $totalSize += $size;
+            }
+
+            // Cap total in case the sum overflowed
+            if ($totalSize > $maxBigInt || $totalSize < 0) {
+                Log::warning('Total size overflow detected in stats', [
+                    'game_version_id' => $this->id,
+                    'category' => $category,
+                    'calculated_size' => $totalSize,
+                    'capped_to' => $maxBigInt,
+                ]);
+                $totalSize = $maxBigInt;
+            }
 
             // Create category record
             $categoryModel = $this->fileCategories()->create([
@@ -210,10 +242,15 @@ class GameVersion extends Model
 
             // Create file type records
             foreach ($categoryData as $extension => $data) {
+                $size = $data['total_size'] ?? 0;
+                if ($size > $maxBigInt || $size < 0) {
+                    $size = $maxBigInt;
+                }
+
                 $categoryModel->fileTypes()->create([
                     'extension' => $extension,
                     'count' => $data['count'],
-                    'size' => $data['total_size'],
+                    'size' => $size,
                 ]);
             }
         }

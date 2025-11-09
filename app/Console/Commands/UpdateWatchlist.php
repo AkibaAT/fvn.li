@@ -224,7 +224,7 @@ class UpdateWatchlist extends Command
                     $this->info('  - Updated price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
                 }
             } else {
-                // Create new game
+                // Create new game - START AS INVISIBLE until all data is loaded
                 $game->fill([
                     'initially_published_at' => $gameData['published_at'] ?? null,
                     'itch_id' => $gameId,
@@ -234,7 +234,7 @@ class UpdateWatchlist extends Command
                     'thumb_url' => $gameData['cover_url'] ?? null,
                     'source_language_id' => 'eng',
                     'is_paid' => $isPaid,
-                    'is_visible' => true,
+                    'is_visible' => false,  // ← Keep invisible until fully loaded
                 ]);
 
                 // Set URL properly for the platform (url is a JSONB field)
@@ -303,17 +303,14 @@ class UpdateWatchlist extends Command
             // Always set is_paid flag
             $game->is_paid = $isPaid;
 
-            // Only set is_visible = true if it's not already true to avoid unnecessary observer triggers
-            if (! $game->is_visible) {
-                $game->is_visible = true;
-            }
-
             // Save the game first to ensure it has an ID before loading full details
             // This is necessary because loadFullDetails() -> refreshVersion() needs the game ID
             // to create GameVersion records
+            // For new games, we save them as invisible first WITHOUT triggering observers
+            // (to avoid premature Meilisearch indexing)
             if ($needsFullRefresh && !$game->exists) {
-                $this->info('  - Saving new game before loading full details');
-                $game->save();
+                $this->info('  - Saving new game (invisible, quietly) before loading full details');
+                $game->saveQuietly();
                 $game->refresh();
             }
 
@@ -321,6 +318,8 @@ class UpdateWatchlist extends Command
             if ($needsFullRefresh) {
                 $this->info('  - Loading full details');
                 $game->loadFullDetails();
+                // DO NOT refresh here - we want to keep the in-memory changes from loadFullDetails
+                // (like processed images) until we save at the end
                 $this->info('  - Full details loaded successfully');
 
                 // Make sure the is_paid flag is still set correctly after loading details
@@ -353,6 +352,17 @@ class UpdateWatchlist extends Command
                         $this->info('  - Game has demo');
                         $game->has_demo = true;
                     }
+                }
+
+                // NOW make the game visible after all data is loaded
+                if (!$game->is_visible) {
+                    $this->info('  - Making game visible now that all data is loaded');
+                    $game->is_visible = true;
+                }
+            } else {
+                // For existing games that don't need full refresh, just ensure visibility
+                if (!$game->is_visible) {
+                    $game->is_visible = true;
                 }
             }
 

@@ -326,167 +326,156 @@ class GameDataSyncService
         }
 
         // ========================================
-        // PHASE 3: Save EVERYTHING in ONE atomic transaction
-        // All database writes happen here - all or nothing
+        // PHASE 3: Save all data (NO TRANSACTION - caller will handle)
+        // All database writes happen here - caller must wrap in transaction
         // Wrapped in try-finally to ensure temp file cleanup
         // ========================================
         try {
-            echo "    [Version] Starting atomic transaction to save all data\n";
-            
-            DB::transaction(function () use (
-                $game, $seenUploads, $bestUpload, $newVersion, $uploadTimestamp,
-                $isWindows, $isLinux, $isMac, $isAndroid, $isWeb,
-                $shouldCreateVersion, $versionStats, $archiveResult, $force, $hadNoVersions,
-                &$tempDirPath  // Pass by reference so we can null it after successful move
-            ) {
-                // Update game uploads
-                $game->uploads = $seenUploads;
-                $game->save();
-                echo "    [Version] Game uploads saved\n";
+            echo "    [Version] Saving all data (caller's transaction)\n";
 
-                // Determine what version to create
-                $gameVersion = null;
+            // Update game uploads (in-memory only - caller will save)
+            $game->uploads = $seenUploads;
+            echo "    [Version] Game uploads updated in memory\n";
 
-                // Case 1: Creating a new version with actual data
-                if ($shouldCreateVersion && $newVersion) {
-                    // Check if we have an "Unknown" version to replace
-                    $existingUnknownVersion = $game->gameVersions()
-                        ->where('version', 'Unknown')
+            // Determine what version to create
+            $gameVersion = null;
+
+            // Case 1: Creating a new version with actual data
+            if ($shouldCreateVersion && $newVersion) {
+                // Check if we have an "Unknown" version to replace
+                $existingUnknownVersion = $game->gameVersions()
+                    ->where('version', 'Unknown')
+                    ->first();
+
+                $versionValues = [
+                    'version' => $newVersion,
+                    'devlog' => $this->getDevlogLink($game),
+                    'is_windows' => $isWindows,
+                    'is_linux' => $isLinux,
+                    'is_mac' => $isMac,
+                    'is_android' => $isAndroid,
+                    'is_web' => $isWeb,
+                    'published_at' => $uploadTimestamp,
+                ];
+
+                if ($existingUnknownVersion) {
+                    $existingUnknownVersion->update($versionValues);
+                    $gameVersion = $existingUnknownVersion;
+                    echo "    [Version] Updated existing Unknown version\n";
+                } else {
+                    $gameVersion = $game->gameVersions()->create($versionValues);
+                    echo "    [Version] Created new version record with ID: {$gameVersion->id}\n";
+                }
+
+                // Copy language availability from previous version if needed
+                if (! $existingUnknownVersion) {
+                    $previousVersion = $game->gameVersions()
+                        ->where('id', '!=', $gameVersion->id)
+                        ->whereHas('supportedLanguages', function ($query) {
+                            $query->where('is_available', false);
+                        })
+                        ->latest('published_at')
                         ->first();
 
-                    $versionValues = [
-                        'version' => $newVersion,
-                        'devlog' => $this->getDevlogLink($game),
-                        'is_windows' => $isWindows,
-                        'is_linux' => $isLinux,
-                        'is_mac' => $isMac,
-                        'is_android' => $isAndroid,
-                        'is_web' => $isWeb,
-                        'published_at' => $uploadTimestamp,
-                    ];
-
-                    if ($existingUnknownVersion) {
-                        $existingUnknownVersion->update($versionValues);
-                        $gameVersion = $existingUnknownVersion;
-                        echo "    [Version] Updated existing Unknown version\n";
-                    } else {
-                        $gameVersion = $game->gameVersions()->create($versionValues);
-                        echo "    [Version] Created new version record with ID: {$gameVersion->id}\n";
-                    }
-
-                    // Copy language availability from previous version if needed
-                    if (! $existingUnknownVersion) {
-                        $previousVersion = $game->gameVersions()
-                            ->where('id', '!=', $gameVersion->id)
-                            ->whereHas('supportedLanguages', function ($query) {
-                                $query->where('is_available', false);
-                            })
-                            ->latest('published_at')
-                            ->first();
-
-                        if ($previousVersion) {
-                            VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
-                        }
-                    }
-
-                    // Note: We no longer store archives permanently - they're processed and deleted
-
-                    // Save stats if we have them
-                    if ($versionStats) {
-                        echo "    [Version] Saving game engine\n";
-                        $game->game_engine = "Ren'Py";
-                        $game->save();
-                        echo "    [Version] Game engine saved\n";
-
-                        echo "    [Version] Saving version stats...\n";
-                        $statsService = app(GameStatsService::class);
-                        $statsService->saveVersionStats($gameVersion, $versionStats,
-                            $game->source_language_id, $game);
-                        echo "    [Version] Version stats saved\n";
-                    } else {
-                        // No stats - copy language support from previous version
-                        echo "    [Version] No stats, copying language support\n";
-                        $this->copyLanguageSupport($game, $gameVersion);
-                    }
-
-                    // Now set is_latest = true AFTER dialogue lines exist
-                    // This triggers the GameVersion observer to index the dialogue lines
-                    echo "    [Version] Setting version as latest\n";
-                    $gameVersion->is_latest = true;
-                    $gameVersion->save();
-                    echo "    [Version] Version marked as latest\n";
-                }
-                // Case 2: Game had no versions at start and we couldn't create a real version
-                // Create a fallback "Unknown" version so the game has at least one version
-                elseif ($hadNoVersions) {
-                    echo "    [Version] Creating fallback Unknown version\n";
-                    $gameVersion = $game->gameVersions()->create([
-                        'version' => 'Unknown',
-                        'devlog' => $this->getDevlogLink($game),
-                        'is_windows' => $isWindows,
-                        'is_linux' => $isLinux,
-                        'is_mac' => $isMac,
-                        'is_android' => $isAndroid,
-                        'is_web' => $isWeb,
-                        'published_at' => $game->initially_published_at ?? now(),
-                    ]);
-
-                    // Set is_latest separately since it's not fillable
-                    $gameVersion->is_latest = true;
-                    $gameVersion->save();
-                    echo "    [Version] Fallback version created with ID: {$gameVersion->id}\n";
-                }
-
-                // Update platform flags on existing latest version if needed (force mode or no new version)
-                if ($force || (!$shouldCreateVersion && !$hadNoVersions)) {
-                    $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
-                    if ($latestVersion) {
-                        $platformsChanged = false;
-
-                        if ($latestVersion->is_windows !== $isWindows) {
-                            $latestVersion->is_windows = $isWindows;
-                            $platformsChanged = true;
-                        }
-
-                        if ($latestVersion->is_linux !== $isLinux) {
-                            $latestVersion->is_linux = $isLinux;
-                            $platformsChanged = true;
-                        }
-
-                        if ($latestVersion->is_mac !== $isMac) {
-                            $latestVersion->is_mac = $isMac;
-                            $platformsChanged = true;
-                        }
-
-                        if ($latestVersion->is_android !== $isAndroid) {
-                            $latestVersion->is_android = $isAndroid;
-                            $platformsChanged = true;
-                        }
-
-                        if ($latestVersion->is_web !== $isWeb) {
-                            $latestVersion->is_web = $isWeb;
-                            $platformsChanged = true;
-                        }
-
-                        // Update devlog if in force mode
-                        if ($force) {
-                            $latestVersion->devlog = $this->getDevlogLink($game);
-                            $platformsChanged = true;
-                        }
-
-                        // Save the changes if any platform flags were updated
-                        if ($platformsChanged) {
-                            echo "    [Version] Platform flags changed, saving latest version\n";
-                            $latestVersion->save();
-                            echo "    [Version] Latest version saved\n";
-                        }
+                    if ($previousVersion) {
+                        VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
                     }
                 }
 
-                echo "    [Version] Transaction complete - all data saved atomically\n";
-            });
+                // Note: We no longer store archives permanently - they're processed and deleted
 
-            echo "    [Version] All operations completed successfully\n";
+                // Save stats if we have them
+                if ($versionStats) {
+                    echo "    [Version] Setting game engine in memory\n";
+                    $game->game_engine = "Ren'Py";
+                    echo "    [Version] Game engine set (will be saved by caller)\n";
+
+                    echo "    [Version] Saving version stats...\n";
+                    $statsService = app(GameStatsService::class);
+                    $statsService->saveVersionStats($gameVersion, $versionStats,
+                        $game->source_language_id, $game);
+                    echo "    [Version] Version stats saved\n";
+                } else {
+                    // No stats - copy language support from previous version
+                    echo "    [Version] No stats, copying language support\n";
+                    $this->copyLanguageSupport($game, $gameVersion);
+                }
+
+                // Now set is_latest = true AFTER dialogue lines exist
+                // This triggers the GameVersion observer to index the dialogue lines
+                echo "    [Version] Setting version as latest\n";
+                $gameVersion->is_latest = true;
+                $gameVersion->save();
+                echo "    [Version] Version marked as latest\n";
+            }
+            // Case 2: Game had no versions at start and we couldn't create a real version
+            // Create a fallback "Unknown" version so the game has at least one version
+            elseif ($hadNoVersions) {
+                echo "    [Version] Creating fallback Unknown version\n";
+                $gameVersion = $game->gameVersions()->create([
+                    'version' => 'Unknown',
+                    'devlog' => $this->getDevlogLink($game),
+                    'is_windows' => $isWindows,
+                    'is_linux' => $isLinux,
+                    'is_mac' => $isMac,
+                    'is_android' => $isAndroid,
+                    'is_web' => $isWeb,
+                    'published_at' => $game->initially_published_at ?? now(),
+                ]);
+
+                // Set is_latest separately since it's not fillable
+                $gameVersion->is_latest = true;
+                $gameVersion->save();
+                echo "    [Version] Fallback version created with ID: {$gameVersion->id}\n";
+            }
+
+            // Update platform flags on existing latest version if needed (force mode or no new version)
+            if ($force || (!$shouldCreateVersion && !$hadNoVersions)) {
+                $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
+                if ($latestVersion) {
+                    $platformsChanged = false;
+
+                    if ($latestVersion->is_windows !== $isWindows) {
+                        $latestVersion->is_windows = $isWindows;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_linux !== $isLinux) {
+                        $latestVersion->is_linux = $isLinux;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_mac !== $isMac) {
+                        $latestVersion->is_mac = $isMac;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_android !== $isAndroid) {
+                        $latestVersion->is_android = $isAndroid;
+                        $platformsChanged = true;
+                    }
+
+                    if ($latestVersion->is_web !== $isWeb) {
+                        $latestVersion->is_web = $isWeb;
+                        $platformsChanged = true;
+                    }
+
+                    // Update devlog if in force mode
+                    if ($force) {
+                        $latestVersion->devlog = $this->getDevlogLink($game);
+                        $platformsChanged = true;
+                    }
+
+                    // Save the changes if any platform flags were updated
+                    if ($platformsChanged) {
+                        echo "    [Version] Platform flags changed, saving latest version\n";
+                        $latestVersion->save();
+                        echo "    [Version] Latest version saved\n";
+                    }
+                }
+            }
+
+            echo "    [Version] All version data saved\n";
         } finally {
             // Always clean up temp directory if it still exists
             // (if moveFromTempToStorage succeeded, $tempDirPath will be null)
@@ -653,31 +642,20 @@ class GameDataSyncService
         }
 
         // ========================================
-        // PHASE 3: Save everything to database (IN TRANSACTION - quick!)
+        // PHASE 3: Prepare data for saving (NO TRANSACTION - caller will handle)
         // ========================================
-        DB::transaction(function () use ($game) {
-            // Save all metadata changes
-            Log::info('About to save game metadata', [
-                'game_id' => $game->id,
-                'game_name' => $game->name,
-                'has_custom_css' => isset($game->custom_css),
-                'custom_css_length' => strlen($game->custom_css ?? ''),
-                'dirty_attributes' => $game->getDirty(),
-            ]);
+        // NOTE: We do NOT save here - the caller will save in their transaction
+        // This keeps all DB writes in ONE transaction at the top level
+        Log::info('Game metadata prepared for saving', [
+            'game_id' => $game->id,
+            'game_name' => $game->name,
+            'has_custom_css' => isset($game->custom_css),
+            'custom_css_length' => strlen($game->custom_css ?? ''),
+            'dirty_attributes' => $game->getDirty(),
+        ]);
 
-            $game->save();
-
-            Log::info('Game metadata saved', [
-                'game_id' => $game->id,
-                'game_name' => $game->name,
-                'saved_custom_css_length' => strlen($game->custom_css ?? ''),
-                'saved_attributes' => $game->getAttributes(),
-            ]);
-
-            // Process any pending associations now that the game is saved
-            $this->processPendingGameJams($game);
-            $this->processPendingTags($game);
-        });
+        // Mark pending associations to be processed by caller
+        // (caller will call processPendingGameJams and processPendingTags after save)
     }
 
     /**
