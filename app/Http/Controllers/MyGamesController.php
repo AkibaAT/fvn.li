@@ -664,9 +664,9 @@ class MyGamesController extends Controller
     {
         $optimized = [];
         $sizes = [
-            'small' => [150, 150],
-            'default' => [300, 300],
-            'large' => [600, 600],
+            'small' => [189, 150],   // 315:250 aspect ratio
+            'default' => [315, 250], // 315:250 aspect ratio
+            'large' => [630, 500],   // 315:250 aspect ratio
         ];
 
         $manager = new ImageManager(new Driver);
