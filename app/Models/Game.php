@@ -38,6 +38,12 @@ class Game extends Model
     use HasGameSearch;
     use HasGameTags;
 
+    /**
+     * Temporary flags that should not be persisted to the database.
+     * These are stored as class properties, not in the $attributes array.
+     */
+    public bool $priceSetFromApi = false;
+
     protected $fillable = [
         'itch_id',
         'slug',
@@ -201,10 +207,6 @@ class Game extends Model
                     "Use one of: 'itch_io', 'steam', 'other'"
                 );
             }
-
-            // Remove transient flags that should not be persisted to database
-            // priceSetFromApi is a temporary flag used to indicate price was set from API vs HTML scraping
-            unset($game->attributes['priceSetFromApi']);
 
             return true;
         });

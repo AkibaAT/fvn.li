@@ -366,9 +366,6 @@ class UpdateWatchlist extends Command
                 }
             }
 
-            // Remove temporary flag before saving (not a database column)
-            unset($game->priceSetFromApi);
-
             $game->save();
 
             // Process any pending associations now that the game is saved
