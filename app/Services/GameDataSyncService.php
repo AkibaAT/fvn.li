@@ -607,10 +607,15 @@ class GameDataSyncService
             }
         }
 
-        // Process thumbnail if it changed
-        if ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) {
+        // Process thumbnail if it changed OR if we have a URL but no processed thumbnails
+        $needsThumbnailProcessing = (
+            ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) ||
+            ($game->thumb_url && empty($game->optimized_thumbnails))
+        );
+
+        if ($needsThumbnailProcessing) {
             try {
-                echo "    [Metadata] Thumbnail changed, processing before save...\n";
+                echo "    [Metadata] Thumbnail needs processing...\n";
                 // Clear old thumbnails first
                 if ($game->optimized_thumbnails) {
                     $game->clearOptimizedThumbnails();
