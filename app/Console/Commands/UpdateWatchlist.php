@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Services\HomePageCacheService;
 use App\Services\ItchAuthService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
@@ -373,6 +374,12 @@ class UpdateWatchlist extends Command
             $game->processPendingTags();
 
             DB::commit();
+
+            // Clear home page cache when games are added or made visible
+            if ($isNew || $wasInvisible) {
+                HomePageCacheService::clearAll();
+                $this->info('  - Cleared home page cache');
+            }
 
         } catch (Exception $e) {
             DB::rollBack();
