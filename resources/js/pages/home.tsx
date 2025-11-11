@@ -310,8 +310,8 @@ export default function Home({stats, teasers, metaTags, ignoredGameIds = []}: Ho
                             href={route('games.index')}
                             className="inline-flex items-center space-x-2 rounded-xl bg-blue-700 px-10 py-5 text-xl font-semibold text-white shadow-lg transition-all duration-200 hover:bg-blue-800 hover:shadow-xl"
                         >
-                            <span>🚀</span>
-                            <span>Explore Games Now</span>
+                            <span>📖</span>
+                            <span>Start Exploring</span>
                         </Link>
                     </div>
                 </div>
