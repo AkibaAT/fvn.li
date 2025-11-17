@@ -285,9 +285,9 @@ class ProcessFeed extends Command
 
             $this->info("\n[TIMING] Processing update for game {$gameId}: {$game->name}");
 
-            // Refresh game version info
+            // Refresh game version info (only create NEW versions, don't update existing)
             $versionStartTime = microtime(true);
-            $game->refreshVersion(true); // Force refresh
+            $game->refreshVersion();
             $versionElapsed = round(microtime(true) - $versionStartTime, 2);
             $this->info("[TIMING] refreshVersion took {$versionElapsed}s");
 

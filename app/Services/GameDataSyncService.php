@@ -136,7 +136,7 @@ class GameDataSyncService
         // PHASE 1: Fetch all external data (NO TRANSACTION - no locks held)
         // ========================================
         echo "    [Version] Fetching uploads data from itch.io\n";
-        
+
         // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
 
@@ -270,7 +270,8 @@ class GameDataSyncService
                 ->where('version', $newVersion)
                 ->first();
 
-            $shouldCreateVersion = !$existingVersion || $force;
+            // Only create version if it doesn't exist
+            $shouldCreateVersion = !$existingVersion;
             echo "    [Version] Should create version: " . ($shouldCreateVersion ? 'yes' : 'no') . " (existing: " . ($existingVersion ? 'yes' : 'no') . ", force: " . ($force ? 'yes' : 'no') . ")\n";
         }
 
@@ -341,12 +342,8 @@ class GameDataSyncService
             $gameVersion = null;
 
             // Case 1: Creating a new version with actual data
+            // We never update existing versions, only create new ones
             if ($shouldCreateVersion && $newVersion) {
-                // Check if we have an "Unknown" version to replace
-                $existingUnknownVersion = $game->gameVersions()
-                    ->where('version', 'Unknown')
-                    ->first();
-
                 $versionValues = [
                     'version' => $newVersion,
                     'devlog' => $this->getDevlogLink($game),
@@ -358,28 +355,20 @@ class GameDataSyncService
                     'published_at' => $uploadTimestamp,
                 ];
 
-                if ($existingUnknownVersion) {
-                    $existingUnknownVersion->update($versionValues);
-                    $gameVersion = $existingUnknownVersion;
-                    echo "    [Version] Updated existing Unknown version\n";
-                } else {
-                    $gameVersion = $game->gameVersions()->create($versionValues);
-                    echo "    [Version] Created new version record with ID: {$gameVersion->id}\n";
-                }
+                $gameVersion = $game->gameVersions()->create($versionValues);
+                echo "    [Version] Created new version record with ID: {$gameVersion->id}\n";
 
                 // Copy language availability from previous version if needed
-                if (! $existingUnknownVersion) {
-                    $previousVersion = $game->gameVersions()
-                        ->where('id', '!=', $gameVersion->id)
-                        ->whereHas('supportedLanguages', function ($query) {
-                            $query->where('is_available', false);
-                        })
-                        ->latest('published_at')
-                        ->first();
+                $previousVersion = $game->gameVersions()
+                    ->where('id', '!=', $gameVersion->id)
+                    ->whereHas('supportedLanguages', function ($query) {
+                        $query->where('is_available', false);
+                    })
+                    ->latest('published_at')
+                    ->first();
 
-                    if ($previousVersion) {
-                        VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
-                    }
+                if ($previousVersion) {
+                    VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
                 }
 
                 // Note: We no longer store archives permanently - they're processed and deleted
@@ -429,8 +418,10 @@ class GameDataSyncService
                 echo "    [Version] Fallback version created with ID: {$gameVersion->id}\n";
             }
 
-            // Update platform flags on existing latest version if needed (force mode or no new version)
-            if ($force || (!$shouldCreateVersion && !$hadNoVersions)) {
+            // Update platform flags on latest version if no new version was created
+            // Platform flags can change over time (e.g., Android build added later)
+            // But we only update if we DIDN'T just create a new version
+            if (!$shouldCreateVersion && !$hadNoVersions) {
                 $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
                 if ($latestVersion) {
                     $platformsChanged = false;
@@ -460,17 +451,11 @@ class GameDataSyncService
                         $platformsChanged = true;
                     }
 
-                    // Update devlog if in force mode
-                    if ($force) {
-                        $latestVersion->devlog = $this->getDevlogLink($game);
-                        $platformsChanged = true;
-                    }
-
                     // Save the changes if any platform flags were updated
                     if ($platformsChanged) {
-                        echo "    [Version] Platform flags changed, saving latest version\n";
+                        echo "    [Version] Platform flags changed on existing version, saving\n";
                         $latestVersion->save();
-                        echo "    [Version] Latest version saved\n";
+                        echo "    [Version] Platform flags updated\n";
                     }
                 }
             }
