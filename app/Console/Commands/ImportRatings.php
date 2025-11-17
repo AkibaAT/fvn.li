@@ -57,12 +57,13 @@ class ImportRatings extends Command
 
             $successCount = 0;
             $errorCount = 0;
+            $individualRatingErrors = 0;
             $newRatingsCount = 0;
             $newRatingsInBatch = 0;
 
             do {
                 try {
-                    $startEventId = $this->importRatingsPage($startEventId, $newRatingsInBatch);
+                    $startEventId = $this->importRatingsPage($startEventId, $newRatingsInBatch, $individualRatingErrors);
                     $newRatingsCount += $newRatingsInBatch;
 
                     if ($startEventId) {
@@ -86,10 +87,16 @@ class ImportRatings extends Command
                 }
             } while ($startEventId !== null);
 
-            $this->info("Successfully processed {$successCount} pages with {$newRatingsCount} new ratings and {$errorCount} errors");
+            $this->info("Successfully processed {$successCount} pages with {$newRatingsCount} new ratings");
+
+            if ($errorCount > 0 || $individualRatingErrors > 0) {
+                $this->warn("Encountered {$errorCount} page errors and {$individualRatingErrors} individual rating errors");
+            }
+
             Cache::forget('system_status.rating_stats');
 
-            return 0;
+            // Return error code if there were any errors
+            return ($errorCount > 0 || $individualRatingErrors > 0) ? 1 : 0;
         } catch (Exception $e) {
             $this->error('Error importing ratings: ' . $e->getMessage());
             Log::error('Ratings import failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -102,7 +109,7 @@ class ImportRatings extends Command
      * @throws DateMalformedStringException
      * @throws GuzzleException
      */
-    private function importRatingsPage(?int $fromEventId, int &$newRatingsCount = 0): ?int
+    private function importRatingsPage(?int $fromEventId, int &$newRatingsCount = 0, int &$errorCount = 0): ?int
     {
         $url = 'https://itch.io/feed?filter=ratings&format=json';
         if ($fromEventId) {
@@ -195,6 +202,7 @@ class ImportRatings extends Command
                 DB::commit();
             } catch (Exception $e) {
                 DB::rollBack();
+                $errorCount++;
                 Log::error('Error processing individual rating', [
                     'exception' => $e,
                     'event_id' => $eventId ?? null,
@@ -234,17 +242,18 @@ class ImportRatings extends Command
         }
 
         // Get or create game
-        $game = Game::firstOrNew(['game_id' => $gameId]);
+        $game = Game::firstOrNew(['itch_id' => $gameId]);
         if (! $game->exists) {
             $game->fill([
-                'game_id' => $gameId,
+                'itch_id' => $gameId,
                 'name' => $gameName,
-                'url' => $gameUrl,
+                'platform' => 'itch_io',
             ]);
+            $game->setUrlForPlatform('itch_io', $gameUrl);
             $game->save();
-        } elseif ($game->name !== $gameName || $game->url !== $gameUrl) {
+        } elseif ($game->name !== $gameName || $game->getUrlForPlatform('itch_io') !== $gameUrl) {
             $game->name = $gameName;
-            $game->url = $gameUrl;
+            $game->setUrlForPlatform('itch_io', $gameUrl);
             $game->save();
         }
 
