@@ -191,8 +191,14 @@ class Game extends Model
     {
         parent::boot();
 
-        // Validate that platform is set before saving
+        // Generate slug automatically if not set
         static::saving(function (self $game) {
+            // Generate slug if it's null or empty
+            if (empty($game->slug) && !empty($game->name)) {
+                $game->slug = $game->generateUniqueSlug($game->name);
+            }
+
+            // Validate that platform is set before saving
             if ($game->isDirty('platform') && $game->platform === null) {
                 throw new \InvalidArgumentException(
                     "Game platform must be explicitly set. Cannot save game without a platform. " .
@@ -210,6 +216,29 @@ class Game extends Model
 
             return true;
         });
+    }
+
+    /**
+     * Generate a unique slug from a name
+     */
+    private function generateUniqueSlug(string $name): string
+    {
+        // Create base slug from name
+        $baseSlug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));
+        // Remove leading/trailing hyphens
+        $baseSlug = trim($baseSlug, '-');
+
+        // Start with base slug
+        $slug = $baseSlug;
+        $counter = 1;
+
+        // Keep trying with incrementing numbers until we find a unique slug
+        while (static::where('slug', $slug)->where('id', '!=', $this->id ?? 0)->exists()) {
+            $slug = $baseSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
     }
 
     /**
