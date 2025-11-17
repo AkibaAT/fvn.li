@@ -221,7 +221,7 @@ class Game extends Model
     /**
      * Generate a unique slug from a name
      */
-    private function generateUniqueSlug(string $name): string
+    public function generateUniqueSlug(string $name): string
     {
         // Create base slug from name
         $baseSlug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));

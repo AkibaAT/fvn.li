@@ -311,6 +311,12 @@ class UpdateWatchlist extends Command
             // (to avoid premature Meilisearch indexing)
             if ($needsFullRefresh && !$game->exists) {
                 $this->info('  - Saving new game (invisible, quietly) before loading full details');
+
+                // Generate slug before saveQuietly() since quiet mode skips model events
+                if (empty($game->slug) && !empty($game->name)) {
+                    $game->slug = $game->generateUniqueSlug($game->name);
+                }
+
                 $game->saveQuietly();
                 $game->refresh();
             }
