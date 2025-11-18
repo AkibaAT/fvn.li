@@ -37,6 +37,7 @@ class AdditionRequest extends Model
         'game_id',
         'reviewed_at',
         'reviewed_by',
+        'discord_notified_at',
     ];
 
     /**
@@ -46,6 +47,7 @@ class AdditionRequest extends Model
      */
     protected $casts = [
         'reviewed_at' => 'datetime',
+        'discord_notified_at' => 'datetime',
     ];
 
     /**

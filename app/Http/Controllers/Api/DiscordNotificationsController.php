@@ -109,7 +109,7 @@ class DiscordNotificationsController extends Controller
                         'id' => $game->id,
                         'name' => $game->name,
                         'version' => $game->latestVersion->version,
-                        'url' => route('games.show', $game->slug),
+                        'url' => $game->url, // Multi-platform URLs as JSONB object
                         'thumbnail_url' => $game->getThumbnailUrl('small'),
                         'devlog_url' => $game->latestVersion->devlog,
                         'published_at' => $game->latestVersion->published_at?->timestamp ?? $game->latestVersion->created_at->timestamp,
@@ -224,13 +224,33 @@ class DiscordNotificationsController extends Controller
         $since = $request->input('since', now()->subHour()); // Default to last hour
 
         try {
-            // Get pending addition requests created since the specified time
+            // Start a transaction to prevent race conditions
+            DB::beginTransaction();
+
+            // Get pending addition requests that haven't been notified yet and lock them
             $requests = AdditionRequest::with(['users'])
                 ->where('status', AdditionRequest::STATUS_PENDING)
-                ->where('created_at', '>=', $since)
+                ->whereNull('discord_notified_at')
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)
+                ->lockForUpdate()
                 ->get();
+
+            if ($requests->isEmpty()) {
+                DB::commit();
+                return response()->json([
+                    'notifications' => [],
+                    'count' => 0,
+                    'since' => $since,
+                    'admin_panel_url' => config('app.url') . '/admin/addition-requests',
+                ]);
+            }
+
+            // Mark them as notified immediately to prevent duplicate processing
+            AdditionRequest::whereIn('id', $requests->pluck('id'))
+                ->update(['discord_notified_at' => now()]);
+
+            DB::commit();
 
             $notifications = $requests->map(function ($request) {
                 return [
@@ -257,6 +277,7 @@ class DiscordNotificationsController extends Controller
             ]);
 
         } catch (Exception $e) {
+            DB::rollBack();
             Log::error('Error fetching pending addition requests for Discord', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

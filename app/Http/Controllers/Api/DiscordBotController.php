@@ -36,7 +36,7 @@ class DiscordBotController extends Controller
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
                 'published_at' => $game->latestVersion?->published_at ? $game->latestVersion->published_at->timestamp : null,
-                'url' => $game->url,
+                'url' => $game->url, // Multi-platform URLs as JSONB object
             ]),
         ]);
     }
@@ -72,7 +72,7 @@ class DiscordBotController extends Controller
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
                 'published_at' => $game->latestVersion?->published_at ? $game->latestVersion->published_at->timestamp : null,
-                'url' => $game->url,
+                'url' => $game->url, // Multi-platform URLs as JSONB object
                 'devlog' => $game->latestVersion?->devlog,
             ]),
         ]);
