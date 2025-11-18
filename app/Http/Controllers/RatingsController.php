@@ -21,6 +21,7 @@ class RatingsController extends Controller
         // Filters and sorting (similar to rater page)
         $showOnlyReviews = filter_var($request->input('showOnlyReviews', true), FILTER_VALIDATE_BOOLEAN);
         $showOnlyVisibleGames = filter_var($request->input('showOnlyVisibleGames', true), FILTER_VALIDATE_BOOLEAN);
+        $platform = $request->input('platform');
         $stars = $request->has('stars') ? (int) $request->input('stars') : null;
         if ($stars !== null && ($stars < 1 || $stars > 5)) {
             $stars = null;
@@ -51,12 +52,18 @@ class RatingsController extends Controller
             $countQuery->join('games', 'games.id', '=', 'ratings.game_id')
                 ->where('games.is_visible', true);
         }
+        
+        // Join raters if we need to filter by platform
+        if ($platform) {
+            $countQuery->join('raters', 'raters.id', '=', 'ratings.rater_id')
+                ->where('raters.external_platform', $platform);
+        }
 
         // Count strategy: when filtering by a specific star rating, use cached COUNT with partial index support.
         // Otherwise, separate COUNT remains fine.
         if ($stars !== null) {
-            $cacheKey = sprintf('ratings_count_vis:%d_rev:%d_star:%d_listed:%d', 1, (int) $showOnlyReviews,
-                (int) $stars, (int) $showOnlyVisibleGames);
+            $cacheKey = sprintf('ratings_count_vis:%d_rev:%d_star:%d_listed:%d_plat:%s', 1, (int) $showOnlyReviews,
+                (int) $stars, (int) $showOnlyVisibleGames, $platform ?? 'all');
             $total = cache()->remember($cacheKey, now()->addMinutes(5), function () use ($countQuery) {
                 return (int) ($countQuery->selectRaw('COUNT(*) as aggregate')->value('aggregate') ?? 0);
             });
@@ -70,6 +77,9 @@ class RatingsController extends Controller
             ->join('raters', 'raters.id', '=', 'ratings.rater_id')
             ->when($showOnlyVisibleGames, function ($query) {
                 $query->where('games.is_visible', true);
+            })
+            ->when($platform, function ($query, $platform) {
+                $query->where('raters.external_platform', $platform);
             })
             ->select([
                 'ratings.id',
@@ -109,7 +119,7 @@ class RatingsController extends Controller
                     'rater' => [
                         'id' => (int) $row->rater_id,
                         'name' => $row->rater_name,
-                        'platform' => $row->rater_platform ?? 'itch_io',
+                        'external_platform' => $row->rater_platform ?? 'itch_io',
                     ],
                 ];
             })->toArray(),
@@ -131,6 +141,7 @@ class RatingsController extends Controller
             'filters' => [
                 'showOnlyReviews' => $showOnlyReviews,
                 'showOnlyVisibleGames' => $showOnlyVisibleGames,
+                'platform' => $platform,
                 'stars' => $stars,
                 'sortField' => $sortField,
                 'sortDirection' => $sortDirection,

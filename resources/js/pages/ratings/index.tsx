@@ -1,10 +1,10 @@
 import AdvancedPagination from '@/components/advanced-pagination';
 import Stars from '@/components/ui/stars';
 import PlatformIcon from '@/components/ui/platform-icon';
-import {Link, router} from '@inertiajs/react';
-import {useEffect, useMemo, useRef, useState} from 'react';
-import SeoHead, {type MetaTags} from '@/components/seo/SeoHead';
-import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
+import { Link, router } from '@inertiajs/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import SeoHead, { type MetaTags } from '@/components/seo/SeoHead';
+import ReviewTextControls, { useReviewTextStyles } from '@/components/review-text-controls';
 
 type RatingRow = {
     id: number;
@@ -45,6 +45,7 @@ type RatingsIndexProps = {
     filters?: {
         showOnlyReviews: boolean;
         showOnlyVisibleGames: boolean;
+        platform?: string | null;
         stars?: number | null;
         sortField: 'published_at' | 'rating';
         sortDirection: 'asc' | 'desc';
@@ -54,7 +55,7 @@ type RatingsIndexProps = {
     metaTags?: MetaTags;
 };
 
-export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, filters, metaTags}: RatingsIndexProps) {
+export default function RatingsIndex({ pageTitle = 'Ratings', stats, ratings, filters, metaTags }: RatingsIndexProps) {
     const defaultStats: GlobalStats = useMemo(
         () => ({
             first_rating: null,
@@ -65,7 +66,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                 review_percentage: 0,
                 average_rating: 0,
                 unique_games: 0,
-                rating_distribution: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+                rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
             },
             visible_games: {
                 total_ratings: 0,
@@ -73,7 +74,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                 review_percentage: 0,
                 average_rating: 0,
                 unique_games: 0,
-                rating_distribution: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+                rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
             },
         }),
         [],
@@ -85,6 +86,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
     const [perPage, setPerPage] = useState(initialPerPage);
     const [showOnlyReviews, setShowOnlyReviews] = useState(filters?.showOnlyReviews ?? true);
     const [showOnlyVisibleGames, setShowOnlyVisibleGames] = useState(filters?.showOnlyVisibleGames ?? true);
+    const [platform, setPlatform] = useState<string | ''>(filters?.platform ?? '');
     const [sortField, setSortField] = useState<'published_at' | 'rating'>(filters?.sortField ?? 'published_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(filters?.sortDirection ?? 'desc');
     const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +95,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
     // Use the review text styles hook
     const reviewStyles = useReviewTextStyles();
 
-    
+
     const ratingMeta = useMemo(
         () => ({
             current_page: ratings?.current_page ?? page,
@@ -120,7 +122,8 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
             showOnlyVisibleGames: String(showOnlyVisibleGames),
             sortField,
             sortDirection,
-            ...(stars !== '' ? {stars: String(stars)} : {}),
+            ...(platform !== '' ? { platform } : {}),
+            ...(stars !== '' ? { stars: String(stars) } : {}),
         } as Record<string, string>);
         const current = new URLSearchParams(window.location.search);
         if (desired.toString() === current.toString()) return;
@@ -137,7 +140,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                 onFinish: () => setIsLoading(false),
             },
         );
-    }, [page, perPage, showOnlyReviews, showOnlyVisibleGames, sortField, sortDirection, stars]);
+    }, [page, perPage, showOnlyReviews, showOnlyVisibleGames, platform, sortField, sortDirection, stars]);
 
     // Build SSR-friendly URLs for pagination
     const buildPageUrl = (pageNum: number): string => {
@@ -146,6 +149,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
         params.set('perPage', perPage.toString());
         params.set('showOnlyReviews', String(showOnlyReviews));
         params.set('showOnlyVisibleGames', String(showOnlyVisibleGames));
+        if (platform) params.set('platform', platform);
         params.set('sortField', sortField);
         params.set('sortDirection', sortDirection);
         if (stars !== '') params.set('stars', String(stars));
@@ -160,7 +164,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                     <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                         {pageTitle}
                     </h1>
-                    <div className="flex items-center gap-2 text-sm"/>
+                    <div className="flex items-center gap-2 text-sm" />
                 </div>
 
                 {/* Stats header (listed games only) */}
@@ -231,7 +235,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                                 <div
                                                     className="h-4 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                                                     <div className="h-full bg-yellow-400 dark:bg-yellow-500"
-                                                         style={{width: `${percentage}%`}}/>
+                                                        style={{ width: `${percentage}%` }} />
                                                 </div>
                                             </div>
                                             <div
@@ -281,6 +285,21 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                             />
                             Listed games only
                         </label>
+                        <div className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span>Platform:</span>
+                            <select
+                                value={platform}
+                                onChange={(e) => {
+                                    setPlatform(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            >
+                                <option value="">Any</option>
+                                <option value="itch_io">itch.io</option>
+                                <option value="steam">Steam</option>
+                            </select>
+                        </div>
                         <div className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                             <span>Stars:</span>
                             <select
@@ -341,15 +360,15 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                             </Link>
                                             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                                                 <span>by{' '}
-                                                <Link
-                                                    href={route(
-                                                        'raters.show',
-                                                        row.rater.id,
-                                                    )}
-                                                    className="text-gray-800 hover:underline dark:text-gray-100"
-                                                >
-                                                    {row.rater.name}
-                                                </Link></span>
+                                                    <Link
+                                                        href={route(
+                                                            'raters.show',
+                                                            row.rater.id,
+                                                        )}
+                                                        className="text-gray-800 hover:underline dark:text-gray-100"
+                                                    >
+                                                        {row.rater.name}
+                                                    </Link></span>
                                                 {row.rater.external_platform && (
                                                     <PlatformIcon platform={row.rater.external_platform} />
                                                 )}
@@ -361,7 +380,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <Stars rating={row.score}/>
+                                            <Stars rating={row.score} />
                                             <div
                                                 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{row.score.toFixed(1)}</div>
                                         </div>
@@ -371,7 +390,7 @@ export default function RatingsIndex({pageTitle = 'Ratings', stats, ratings, fil
                                             className="prose dark:prose-invert mt-2 text-gray-600 dark:text-gray-300 mx-auto"
                                             style={reviewStyles}>
                                             {/* review is trusted HTML from server */}
-                                            <div dangerouslySetInnerHTML={{__html: row.review || ''}}/>
+                                            <div dangerouslySetInnerHTML={{ __html: row.review || '' }} />
                                         </div>
                                     ) : null}
                                 </div>
