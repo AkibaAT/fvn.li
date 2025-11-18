@@ -31,8 +31,28 @@ class SystemStatusController extends Controller
             $stats['listing_rate'] = $stats['total'] > 0
                 ? ($stats['visible'] / $stats['total'] * 100)
                 : 0;
-            
+
             return $stats;
+        });
+
+        // Cache release year distribution until end of day
+        $releaseYearStats = Cache::remember('system_status.release_year_stats', now()->endOfDay(), function () {
+            $yearDistribution = Game::query()
+                ->where('is_visible', true)
+                ->whereNotNull('initially_published_at')
+                ->selectRaw('EXTRACT(YEAR FROM initially_published_at)::integer as year, COUNT(*) as count')
+                ->groupBy('year')
+                ->orderBy('year')
+                ->get()
+                ->map(fn ($row) => [
+                    'year' => (int) $row->year,
+                    'count' => (int) $row->count,
+                ])
+                ->all();
+
+            return [
+                'year_distribution' => $yearDistribution,
+            ];
         });
 
         // Bump cache key version when the payload shape changes
@@ -250,6 +270,7 @@ class SystemStatusController extends Controller
         return Inertia::render('system-status', [
             'gameStats' => $gameStats,
             'ratingStats' => $ratingStats,
+            'releaseYearStats' => $releaseYearStats,
             'monitoredTasks' => $monitoredTasks,
             'healthSummary' => $healthSummary,
             'dateFormat' => $dateFormat,

@@ -1,4 +1,5 @@
 import RatingTrends from '@/components/admin/rating-trends';
+import ReleaseYearDistribution from '@/components/admin/release-year-distribution';
 import StatsOverview from '@/components/admin/stats-overview';
 import TasksList from '@/components/admin/tasks-list';
 import TasksSummary from '@/components/admin/tasks-summary';
@@ -65,9 +66,14 @@ interface MonitoredTask {
     } | null;
 }
 
+interface ReleaseYearStats {
+    year_distribution: Array<{ year: number; count: number }>;
+}
+
 interface SystemStatusProps {
     gameStats: GameStats;
     ratingStats: RatingStats;
+    releaseYearStats: ReleaseYearStats;
     healthSummary: HealthSummary;
     monitoredTasks: MonitoredTask[];
     metaTags?: MetaTags;
@@ -76,6 +82,7 @@ interface SystemStatusProps {
 export default function SystemStatus({
                                          gameStats,
                                          ratingStats,
+                                         releaseYearStats,
                                          healthSummary,
                                          monitoredTasks,
                                          metaTags,
@@ -121,6 +128,8 @@ export default function SystemStatus({
                 />
 
                 <RatingTrends ratingStats={ratingStats}/>
+
+                <ReleaseYearDistribution releaseYearStats={releaseYearStats}/>
 
                 <TasksSummary healthSummary={healthSummary}/>
 
