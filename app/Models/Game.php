@@ -68,6 +68,7 @@ class Game extends Model
         'custom_tags',
         'source_language_id',
         'min_price',
+        'currency',
         'is_on_sale',
         'sale_discount_percent',
         'is_paid',
@@ -103,7 +104,7 @@ class Game extends Model
     // Removed automatic eager loading of tags to prevent N+1 queries
     // Tags should be explicitly loaded only where needed (game detail, games list)
 
-    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'optimized_thumbnail_url', 'primary_url', 'effective_name'];
+    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'formatted_current_price', 'formatted_original_price', 'optimized_thumbnail_url', 'primary_url', 'effective_name'];
 
     protected $casts = [
         'initially_published_at' => 'datetime',
@@ -899,6 +900,7 @@ class Game extends Model
             'is_paid' => $this->is_paid,
             'has_demo' => $this->has_demo,
             'min_price' => $this->min_price,
+            'currency' => $this->currency,
             'is_on_sale' => $this->is_on_sale,
             'sale_discount_percent' => $this->sale_discount_percent,
 

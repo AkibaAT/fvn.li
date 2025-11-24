@@ -334,13 +334,6 @@ export default function EditableGameContent({
 
     return (
         <div className={`relative ${className}`}>
-            {/* Status indicator when no edit permissions */}
-            {hasCustomPage && !canEdit && !isEditing && (
-                <div className="mb-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
-                    ✏️ Custom content (not synced from itch.io)
-                </div>
-            )}
-
             {/* Render edit controls via parent if provided */}
             {renderEditControls && editControls && renderEditControls(editControls)}
 

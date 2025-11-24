@@ -238,6 +238,7 @@ class SteamDataSyncService
         if (isset($appData['is_free'])) {
             $game->is_paid = ! $appData['is_free'];
             $game->min_price = 0;
+            $game->currency = 'USD'; // Default for free games
         }
 
         if (isset($appData['price_overview'])) {
@@ -245,6 +246,8 @@ class SteamDataSyncService
             // Steam prices are in cents
             $game->min_price = $appData['price_overview']['initial'] / 100;
             $game->is_on_sale = $appData['price_overview']['discount_percent'] > 0;
+            // Extract currency from Steam API (ISO 4217 codes like USD, EUR, JPY)
+            $game->currency = strtoupper($appData['price_overview']['currency'] ?? 'USD');
         }
 
         // Extract release date

@@ -84,6 +84,7 @@ trait HasGameSearch
             'is_paid' => $this->is_paid,
             'has_demo' => $this->has_demo,
             'min_price' => $this->min_price,
+            'currency' => $this->currency,
             'is_on_sale' => $this->is_on_sale,
             'sale_discount_percent' => $this->sale_discount_percent,
 

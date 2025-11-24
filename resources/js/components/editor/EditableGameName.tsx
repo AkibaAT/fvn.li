@@ -166,11 +166,6 @@ export default function EditableGameName({
                             Edit
                         </button>
                     )}
-                    {hasCustomPage && !canEdit && (
-                        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium" title="This is a custom name, not synced from itch.io">
-                            ✏️
-                        </span>
-                    )}
                 </>
             )}
         </div>

@@ -155,8 +155,11 @@ interface Game {
     is_paid?: boolean;
     has_demo?: boolean;
     min_price?: number;
+    currency?: string;
     current_price?: number;
     original_price?: number;
+    formatted_current_price?: string;
+    formatted_original_price?: string;
     is_on_sale?: boolean;
     sale_discount_percent?: number;
     discount_percentage?: number;
@@ -1064,16 +1067,14 @@ export default function GameShow({
                                 {game.is_paid && (
                                     <span
                                         className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                        {game.is_on_sale && game.current_price && game.original_price ? (
+                                        {game.is_on_sale && game.formatted_current_price && game.formatted_original_price ? (
                                             <>
                                                 <span
-                                                    className="line-through text-blue-500 dark:text-blue-400 mr-1">${Number(game.original_price).toFixed(2)}</span>
-                                                ${Number(game.current_price).toFixed(2)}
+                                                    className="line-through text-blue-500 dark:text-blue-400 mr-1">{game.formatted_original_price}</span>
+                                                {game.formatted_current_price}
                                             </>
                                         ) : (
-                                            game.current_price && Number(game.current_price) > 0
-                                                ? `$${Number(game.current_price).toFixed(2)}`
-                                                : 'Paid'
+                                            game.formatted_current_price || 'Paid'
                                         )}
                                     </span>
                                 )}
@@ -1214,12 +1215,7 @@ export default function GameShow({
                                         label: 'Price',
                                         value: (() => {
                                             if (!game.is_paid) return 'Free';
-                                            const cp = typeof game.current_price === 'number' ? Number(game.current_price) : undefined;
-                                            const op = typeof game.original_price === 'number' ? Number(game.original_price) : undefined;
-                                            if (game.is_on_sale && cp && op) {
-                                                return `$${cp.toFixed(2)}`;
-                                            }
-                                            if (cp && cp > 0) return `$${cp.toFixed(2)}`;
+                                            if (game.formatted_current_price) return game.formatted_current_price;
                                             return 'Paid';
                                         })(),
                                     },

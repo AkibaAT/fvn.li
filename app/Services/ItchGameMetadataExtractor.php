@@ -66,6 +66,7 @@ class ItchGameMetadataExtractor
         $game->is_on_sale = $saleTag !== null;
 
         $minPriceElement = $buySection->querySelector('.base_price');
+        $game->currency = 'USD';
         if ($minPriceElement) {
             $priceText = trim($minPriceElement->textContent);
             preg_match('/\$?(\d+\.?\d*)/', $priceText, $matches);

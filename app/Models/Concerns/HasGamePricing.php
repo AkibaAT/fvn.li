@@ -42,4 +42,44 @@ trait HasGamePricing
     {
         return $this->sale_discount_percent;
     }
+
+    /**
+     * Format a price with the game's currency
+     */
+    public function formatPrice(?float $price): ?string
+    {
+        if ($price === null) {
+            return null;
+        }
+
+        $currency = $this->currency ?? 'USD';
+
+        // Common currency symbols
+        $symbols = [
+            'USD' => '$',
+            'EUR' => '€',
+            'JPY' => '¥',
+        ];
+
+        $symbol = $symbols[$currency] ?? $currency . ' ';
+        $decimals = $currency === 'JPY' ? 0 : 2;
+
+        return $symbol . number_format($price, $decimals);
+    }
+
+    /**
+     * Get the current price formatted with currency
+     */
+    public function getFormattedCurrentPriceAttribute(): ?string
+    {
+        return $this->formatPrice($this->current_price);
+    }
+
+    /**
+     * Get the original price formatted with currency
+     */
+    public function getFormattedOriginalPriceAttribute(): ?string
+    {
+        return $this->formatPrice($this->original_price);
+    }
 }

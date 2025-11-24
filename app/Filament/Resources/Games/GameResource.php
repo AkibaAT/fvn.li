@@ -129,10 +129,20 @@ class GameResource extends Resource
                         TextInput::make('min_price')
                             ->label('Base Price')
                             ->helperText('The original price before any discounts')
-                            ->prefix('$')
                             ->numeric()
                             ->step(0.01)
                             ->minValue(0)
+                            ->visible(fn (callable $get) => $get('is_paid')),
+                        Select::make('currency')
+                            ->label('Currency')
+                            ->helperText('Currency for the game price')
+                            ->options([
+                                'USD' => 'USD ($)',
+                                'EUR' => 'EUR (€)',
+                                'JPY' => 'JPY (¥)',
+                            ])
+                            ->default('USD')
+                            ->searchable()
                             ->visible(fn (callable $get) => $get('is_paid')),
                         Toggle::make('is_on_sale')
                             ->label('Currently On Sale')
@@ -217,7 +227,8 @@ class GameResource extends Resource
                     ->label('Demo')
                     ->sortable(),
                 TextColumn::make('min_price')
-                    ->money('usd')
+                    ->label('Price')
+                    ->formatStateUsing(fn ($record) => $record->formatPrice($record->min_price) ?? 'Free')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('game_engine')
