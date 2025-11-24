@@ -13,8 +13,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->service = new MeilisearchService();
-    
+    $this->service = new MeilisearchService;
+
     // Skip if Meilisearch is not available
     if (! config('scout.meilisearch.host')) {
         $this->markTestSkipped('Meilisearch is not configured');
@@ -34,17 +34,17 @@ describe('Game Search', function () {
         $results = $this->service->searchGames('Doki');
 
         expect($results->total())->toBeGreaterThan(0);
-        
+
         $resultNames = $results->pluck('name')->toArray();
         expect($resultNames)->toContain('Doki Doki Literature Club');
     })->skip('Requires Meilisearch server');
 
     test('searches games with tag filters', function () {
         $tag = Tag::factory()->create(['name' => 'Romance']);
-        
+
         $game1 = Game::factory()->create(['name' => 'Romance Game']);
         $game1->tags()->attach($tag);
-        
+
         $game2 = Game::factory()->create(['name' => 'Action Game']);
 
         sleep(1);
@@ -62,7 +62,7 @@ describe('Game Search', function () {
             'name' => 'Windows Game',
             'platforms' => ['windows'],
         ]);
-        
+
         $game2 = Game::factory()->create([
             'name' => 'Linux Game',
             'platforms' => ['linux'],
@@ -83,7 +83,7 @@ describe('Game Search', function () {
             'name' => 'English Game',
             'supported_languages' => ['en'],
         ]);
-        
+
         $game2 = Game::factory()->create([
             'name' => 'Japanese Game',
             'supported_languages' => ['ja'],
@@ -132,7 +132,7 @@ describe('Game Search', function () {
             'name' => 'Game A',
             'first_visible_at' => now()->subDays(10),
         ]);
-        
+
         $game2 = Game::factory()->create([
             'name' => 'Game B',
             'first_visible_at' => now()->subDays(5),
@@ -151,7 +151,7 @@ describe('Dialogue Search', function () {
         $text1 = UniqueDialogueText::factory()->create([
             'text' => 'Hello, how are you?',
         ]);
-        
+
         $text2 = UniqueDialogueText::factory()->create([
             'text' => 'Goodbye, see you later!',
         ]);
@@ -169,7 +169,7 @@ describe('Dialogue Search', function () {
             'text' => 'Hello',
             'languages' => ['en'],
         ]);
-        
+
         $text2 = UniqueDialogueText::factory()->create([
             'text' => 'こんにちは',
             'languages' => ['ja'],
@@ -193,7 +193,7 @@ describe('Dialogue Search', function () {
             'text' => 'Dialogue from game 1',
             'game_names' => ['Game 1'],
         ]);
-        
+
         $text2 = UniqueDialogueText::factory()->create([
             'text' => 'Dialogue from game 2',
             'game_names' => ['Game 2'],
@@ -214,7 +214,7 @@ describe('Dialogue Search', function () {
             'text' => 'Hello from Alice',
             'character_names' => ['Alice'],
         ]);
-        
+
         $text2 = UniqueDialogueText::factory()->create([
             'text' => 'Hello from Bob',
             'character_names' => ['Bob'],
@@ -241,7 +241,7 @@ describe('Review Search', function () {
             'game_id' => $game->id,
             'review' => 'This is an amazing game!',
         ]);
-        
+
         $rating2 = Rating::factory()->create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -266,7 +266,7 @@ describe('Review Search', function () {
             'rating' => 5,
             'review' => 'Great game',
         ]);
-        
+
         $rating2 = Rating::factory()->create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -284,4 +284,3 @@ describe('Review Search', function () {
         expect($results->first()->rating)->toBe(5);
     })->skip('Requires Meilisearch server');
 });
-

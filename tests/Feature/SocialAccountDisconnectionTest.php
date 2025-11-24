@@ -184,4 +184,3 @@ describe('Social Account Disconnection', function () {
         $response->assertRedirect(route('login'));
     });
 });
-

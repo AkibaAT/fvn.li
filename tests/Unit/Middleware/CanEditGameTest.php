@@ -8,12 +8,13 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Auth;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->middleware = new CanEditGame();
+    $this->middleware = new CanEditGame;
 });
 
 describe('can edit game middleware', function () {
@@ -30,9 +31,10 @@ describe('can edit game middleware', function () {
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game);
+
             return $route;
         });
 
@@ -62,9 +64,10 @@ describe('can edit game middleware', function () {
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game);
+
             return $route;
         });
 
@@ -93,9 +96,10 @@ describe('can edit game middleware', function () {
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game);
+
             return $route;
         });
 
@@ -116,9 +120,10 @@ describe('can edit game middleware', function () {
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game);
+
             return $route;
         });
 
@@ -139,9 +144,10 @@ describe('can edit game middleware', function () {
 
         // Set route parameters manually with null game
         $request->setRouteResolver(function () {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', null);
+
             return $route;
         });
 
@@ -175,9 +181,10 @@ describe('ownership verification', function () {
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game);
+
             return $route;
         });
 
@@ -197,9 +204,10 @@ describe('ownership verification', function () {
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game);
+
             return $route;
         });
 
@@ -225,9 +233,10 @@ describe('ownership verification', function () {
         // Test game1
         $request1 = Request::create('/api/games/' . $game1->slug, 'POST');
         $request1->setRouteResolver(function () use ($game1) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game1);
+
             return $route;
         });
 
@@ -236,9 +245,10 @@ describe('ownership verification', function () {
         // Test game2
         $request2 = Request::create('/api/games/' . $game2->slug, 'POST');
         $request2->setRouteResolver(function () use ($game2) {
-            $route = new \Illuminate\Routing\Route('POST', '/api/games/{game}', []);
+            $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
             $route->setParameter('game', $game2);
+
             return $route;
         });
 
@@ -248,4 +258,3 @@ describe('ownership verification', function () {
             ->and($response2->getStatusCode())->toBe(200);
     });
 });
-

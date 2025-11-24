@@ -139,8 +139,9 @@ class CheckSuspendedGames extends Command
     {
         try {
             $gameUrl = $game->getPrimaryUrl();
-            if (!$gameUrl) {
+            if (! $gameUrl) {
                 $this->warn("  → No URL found for game {$game->name}");
+
                 return null;
             }
 

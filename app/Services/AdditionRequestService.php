@@ -38,9 +38,10 @@ class AdditionRequestService
 
             // Validate URL format
             $validation = $this->validateUrl($url);
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 $results['invalid_count']++;
                 $results['errors'][] = $validation['error'];
+
                 continue;
             }
 
@@ -109,7 +110,7 @@ class AdditionRequestService
     public function validateUrl(string $url): array
     {
         // Check if it's a valid URL format
-        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
             return [
                 'valid' => false,
                 'error' => "Invalid URL format: {$url}",
@@ -118,7 +119,7 @@ class AdditionRequestService
 
         // Parse URL to check components
         $parsed = parse_url($url);
-        if (!isset($parsed['scheme']) || !isset($parsed['host'])) {
+        if (! isset($parsed['scheme']) || ! isset($parsed['host'])) {
             return [
                 'valid' => false,
                 'error' => "Invalid URL structure: {$url}",
@@ -126,7 +127,7 @@ class AdditionRequestService
         }
 
         // Only allow http and https
-        if (!in_array($parsed['scheme'], ['http', 'https'])) {
+        if (! in_array($parsed['scheme'], ['http', 'https'])) {
             return [
                 'valid' => false,
                 'error' => "Only HTTP/HTTPS URLs are supported: {$url}",
@@ -154,7 +155,7 @@ class AdditionRequestService
 
         // Add port if present and not default
         if (isset($parsed['port']) &&
-            !(($parsed['scheme'] === 'http' && $parsed['port'] === 80) ||
+            ! (($parsed['scheme'] === 'http' && $parsed['port'] === 80) ||
               ($parsed['scheme'] === 'https' && $parsed['port'] === 443))) {
             $normalized .= ':' . $parsed['port'];
         }
@@ -173,7 +174,7 @@ class AdditionRequestService
     {
         $host = parse_url($url, PHP_URL_HOST);
 
-        if (!$host) {
+        if (! $host) {
             return 'other';
         }
 

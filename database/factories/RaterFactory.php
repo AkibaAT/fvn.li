@@ -27,4 +27,3 @@ class RaterFactory extends Factory
         ];
     }
 }
-

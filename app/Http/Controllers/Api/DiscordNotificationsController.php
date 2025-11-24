@@ -238,6 +238,7 @@ class DiscordNotificationsController extends Controller
 
             if ($requests->isEmpty()) {
                 DB::commit();
+
                 return response()->json([
                     'notifications' => [],
                     'count' => 0,

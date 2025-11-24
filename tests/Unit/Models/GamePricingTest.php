@@ -266,4 +266,3 @@ describe('sale discount validation', function () {
         expect($game->sale_discount_percent)->toBeNull();
     });
 });
-

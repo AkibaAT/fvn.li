@@ -309,11 +309,11 @@ class UpdateWatchlist extends Command
             // to create GameVersion records
             // For new games, we save them as invisible first WITHOUT triggering observers
             // (to avoid premature Meilisearch indexing)
-            if ($needsFullRefresh && !$game->exists) {
+            if ($needsFullRefresh && ! $game->exists) {
                 $this->info('  - Saving new game (invisible, quietly) before loading full details');
 
                 // Generate slug before saveQuietly() since quiet mode skips model events
-                if (empty($game->slug) && !empty($game->name)) {
+                if (empty($game->slug) && ! empty($game->name)) {
                     $game->slug = $game->generateUniqueSlug($game->name);
                 }
 
@@ -362,13 +362,13 @@ class UpdateWatchlist extends Command
                 }
 
                 // NOW make the game visible after all data is loaded
-                if (!$game->is_visible) {
+                if (! $game->is_visible) {
                     $this->info('  - Making game visible now that all data is loaded');
                     $game->is_visible = true;
                 }
             } else {
                 // For existing games that don't need full refresh, just ensure visibility
-                if (!$game->is_visible) {
+                if (! $game->is_visible) {
                     $game->is_visible = true;
                 }
             }
@@ -397,5 +397,4 @@ class UpdateWatchlist extends Command
             ]);
         }
     }
-
 }

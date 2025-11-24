@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use App\Services\PlatformDetectionService;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -21,13 +22,14 @@ class ImportDiscordGames extends Command
         $vnsPath = $this->option('path');
         $dryRun = $this->option('dry-run');
 
-        if (!File::isDirectory($vnsPath)) {
-            $this->error("Directory not found: $vnsPath");
+        if (! File::isDirectory($vnsPath)) {
+            $this->error("Directory not found: {$vnsPath}");
+
             return 1;
         }
 
         $this->info('Starting Discord games import...');
-        $this->info("Source: $vnsPath");
+        $this->info("Source: {$vnsPath}");
         if ($dryRun) {
             $this->warn('DRY RUN MODE - No changes will be saved');
         }
@@ -45,9 +47,10 @@ class ImportDiscordGames extends Command
 
             try {
                 $data = json_decode(File::get($file->getPathname()), true);
-                if (!$data || !isset($data['Page_url'])) {
+                if (! $data || ! isset($data['Page_url'])) {
                     $this->warn("Skipping {$file->getFilename()}: Invalid structure");
                     $skipped++;
+
                     continue;
                 }
 
@@ -65,15 +68,15 @@ class ImportDiscordGames extends Command
                 }
 
                 $this->line("✓ Processed: {$data['Name']}");
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->error("Error processing {$file->getFilename()}: {$e->getMessage()}");
                 $errors++;
             }
         }
 
         $this->newLine();
-        $this->info("Import complete!");
-        $this->info("Created: $created | Updated: $updated | Skipped: $skipped | Errors: $errors");
+        $this->info('Import complete!');
+        $this->info("Created: {$created} | Updated: {$updated} | Skipped: {$skipped} | Errors: {$errors}");
 
         if ($dryRun) {
             $this->warn('DRY RUN - No changes were saved');
@@ -92,21 +95,21 @@ class ImportDiscordGames extends Command
         ];
 
         // Update description if Discord has one and fvn.li doesn't
-        if (!empty($data['Description']) && empty($game->description)) {
+        if (! empty($data['Description']) && empty($game->description)) {
             $updates['description'] = $data['Description'];
         }
 
         // Update author if Discord has one and fvn.li doesn't
-        if (!empty($data['Author_Name']) && empty($game->authors)) {
+        if (! empty($data['Author_Name']) && empty($game->authors)) {
             $updates['authors'] = $data['Author_Name'];
         }
 
         // Update status if different
-        if (!empty($data['Project_Status']) && $game->status !== $data['Project_Status']) {
+        if (! empty($data['Project_Status']) && $game->status !== $data['Project_Status']) {
             $updates['status'] = $data['Project_Status'];
         }
 
-        if (!$dryRun) {
+        if (! $dryRun) {
             $game->update($updates);
             Log::info('Updated game with Discord data', [
                 'game_id' => $game->id,
@@ -151,7 +154,7 @@ class ImportDiscordGames extends Command
             $gameData['external_url'] = $data['Page_url'];
         }
 
-        if (!$dryRun) {
+        if (! $dryRun) {
             Game::create($gameData);
             Log::info('Created game from Discord data', [
                 'game_name' => $gameData['name'],
@@ -180,4 +183,3 @@ class ImportDiscordGames extends Command
         return 'visual_novel';
     }
 }
-

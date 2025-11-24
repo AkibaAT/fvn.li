@@ -270,4 +270,3 @@ describe('GameObserver edge cases', function () {
             ->and(count(array_unique($slugs)))->toBe(5); // All slugs should be unique
     });
 });
-

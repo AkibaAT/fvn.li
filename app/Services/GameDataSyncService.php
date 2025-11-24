@@ -40,60 +40,17 @@ class GameDataSyncService
             $steamService = App::make(SteamDataSyncService::class);
             $steamService->loadFullDetails($game);
             $game->save();
+
             return;
         }
 
         if ($game->isItchioGame()) {
             $this->loadFullDetailsItchio($game);
+
             return;
         }
 
         throw new Exception("Unsupported platform for game: {$game->name} (platform: {$game->platform})");
-    }
-
-    /**
-     * Load full game details from itch.io
-     *
-     * @throws BindingResolutionException
-     * @throws DateMalformedStringException
-     * @throws GuzzleException
-     * @throws Throwable
-     */
-    private function loadFullDetailsItchio(Game $game): void
-    {
-        try {
-            Log::info('GameDataSync: Refreshing base info', ['game_id' => $game->id]);
-            echo "    [Sync] Refreshing base info...\n";
-            $this->refreshBaseInfo($game);
-            Log::info('GameDataSync: Base info refreshed', ['game_id' => $game->id]);
-            echo "    [Sync] Base info refreshed\n";
-
-            sleep(10);
-
-            Log::info('GameDataSync: Refreshing version', ['game_id' => $game->id]);
-            echo "    [Sync] Refreshing version...\n";
-            $this->refreshVersion($game);
-            Log::info('GameDataSync: Version refreshed', ['game_id' => $game->id]);
-            echo "    [Sync] Version refreshed\n";
-
-            sleep(10);
-
-            Log::info('GameDataSync: Refreshing metadata', ['game_id' => $game->id]);
-            echo "    [Sync] Refreshing metadata...\n";
-            $this->refreshMetadata($game);
-            Log::info('GameDataSync: Metadata refreshed', ['game_id' => $game->id]);
-            echo "    [Sync] Metadata refreshed\n";
-
-            $game->error = null;
-        } catch (Exception $exception) {
-            $game->error = $exception->getMessage();
-            echo "    [Sync] ERROR: {$exception->getMessage()}\n";
-            throw $exception;
-        } finally {
-            echo "    [Sync] Clearing HTTP cache...\n";
-            $this->clearHttpCache($game);
-            echo "    [Sync] Done\n";
-        }
     }
 
     /**
@@ -107,7 +64,7 @@ class GameDataSyncService
     public function refreshBaseInfo(Game $game): void
     {
         // Only itch.io games can be refreshed from itch.io API
-        if (!$game->isItchioGame()) {
+        if (! $game->isItchioGame()) {
             throw new Exception("Cannot refresh base info for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
         }
 
@@ -148,6 +105,7 @@ class GameDataSyncService
         if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
             $game->is_visible = false;
             $game->save();
+
             return;
         }
 
@@ -159,6 +117,7 @@ class GameDataSyncService
                 // Don't return yet - we'll create fallback in Phase 3
             } else {
                 echo "    [Version] No uploads found\n";
+
                 return;
             }
         }
@@ -176,7 +135,7 @@ class GameDataSyncService
 
         // Process uploads data to detect changes
         if (isset($uploadsData['uploads'])) {
-            echo "    [Version] Processing " . count($uploadsData['uploads']) . " uploads\n";
+            echo '    [Version] Processing ' . count($uploadsData['uploads']) . " uploads\n";
             foreach ($uploadsData['uploads'] as $upload) {
                 $fileId = (int) $upload['id'];
                 $currentFilename = $upload['filename'];
@@ -250,6 +209,7 @@ class GameDataSyncService
         // Exit early if no changes detected and game already has versions
         if (! $hasChanges && ! $force && ! $hadNoVersions) {
             echo "    [Version] No changes detected\n";
+
             return;
         }
 
@@ -263,7 +223,7 @@ class GameDataSyncService
             $newVersion = $versionParserService->extractVersion($seenUploads[$bestUpload->id], true);
             $uploadTimestamp = $bestUpload->updatedAt;
 
-            echo "    [Version] Extracted version: " . ($newVersion ?: '(empty)') . "\n";
+            echo '    [Version] Extracted version: ' . ($newVersion ?: '(empty)') . "\n";
 
             // Check if this is a new version
             $existingVersion = $game->gameVersions()
@@ -271,8 +231,8 @@ class GameDataSyncService
                 ->first();
 
             // Only create version if it doesn't exist
-            $shouldCreateVersion = !$existingVersion;
-            echo "    [Version] Should create version: " . ($shouldCreateVersion ? 'yes' : 'no') . " (existing: " . ($existingVersion ? 'yes' : 'no') . ", force: " . ($force ? 'yes' : 'no') . ")\n";
+            $shouldCreateVersion = ! $existingVersion;
+            echo '    [Version] Should create version: ' . ($shouldCreateVersion ? 'yes' : 'no') . ' (existing: ' . ($existingVersion ? 'yes' : 'no') . ', force: ' . ($force ? 'yes' : 'no') . ")\n";
         }
 
         // ========================================
@@ -285,12 +245,12 @@ class GameDataSyncService
         $tempDirPath = null;
         $shouldProcessRenPy = $bestUpload &&
             $shouldCreateVersion &&
-            (!$game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
+            (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
 
         echo "    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
-             " (bestUpload: " . ($bestUpload ? 'yes' : 'no') .
-             ", shouldCreate: " . ($shouldCreateVersion ? 'yes' : 'no') .
-             ", engine: " . ($game->game_engine ?: 'null') . ")\n";
+             ' (bestUpload: ' . ($bestUpload ? 'yes' : 'no') .
+             ', shouldCreate: ' . ($shouldCreateVersion ? 'yes' : 'no') .
+             ', engine: ' . ($game->game_engine ?: 'null') . ")\n";
 
         if ($shouldProcessRenPy) {
             try {
@@ -421,7 +381,7 @@ class GameDataSyncService
             // Update platform flags on latest version if no new version was created
             // Platform flags can change over time (e.g., Android build added later)
             // But we only update if we DIDN'T just create a new version
-            if (!$shouldCreateVersion && !$hadNoVersions) {
+            if (! $shouldCreateVersion && ! $hadNoVersions) {
                 $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
                 if ($latestVersion) {
                     $platformsChanged = false;
@@ -578,7 +538,7 @@ class GameDataSyncService
         $imageService = app(ImageProcessingService::class);
 
         // Process screenshots if they changed
-        if ($game->screenshots !== $originalScreenshots && !empty($game->screenshots)) {
+        if ($game->screenshots !== $originalScreenshots && ! empty($game->screenshots)) {
             try {
                 echo "    [Metadata] Screenshots changed, processing before save...\n";
                 $imageService->processGameScreenshots($game);
@@ -614,7 +574,7 @@ class GameDataSyncService
                 ]);
                 // Continue anyway
             }
-        } elseif (!$game->thumb_url && !empty($game->screenshots) && $game->screenshots !== $originalScreenshots) {
+        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $game->screenshots !== $originalScreenshots) {
             // No thumbnail but have screenshots - process first screenshot as thumbnail
             try {
                 echo "    [Metadata] No thumbnail, processing first screenshot as fallback...\n";
@@ -685,6 +645,51 @@ class GameDataSyncService
     public function clearHttpCache(Game $game): void
     {
         unset(self::$httpCache[$game->id]);
+    }
+
+    /**
+     * Load full game details from itch.io
+     *
+     * @throws BindingResolutionException
+     * @throws DateMalformedStringException
+     * @throws GuzzleException
+     * @throws Throwable
+     */
+    private function loadFullDetailsItchio(Game $game): void
+    {
+        try {
+            Log::info('GameDataSync: Refreshing base info', ['game_id' => $game->id]);
+            echo "    [Sync] Refreshing base info...\n";
+            $this->refreshBaseInfo($game);
+            Log::info('GameDataSync: Base info refreshed', ['game_id' => $game->id]);
+            echo "    [Sync] Base info refreshed\n";
+
+            sleep(10);
+
+            Log::info('GameDataSync: Refreshing version', ['game_id' => $game->id]);
+            echo "    [Sync] Refreshing version...\n";
+            $this->refreshVersion($game);
+            Log::info('GameDataSync: Version refreshed', ['game_id' => $game->id]);
+            echo "    [Sync] Version refreshed\n";
+
+            sleep(10);
+
+            Log::info('GameDataSync: Refreshing metadata', ['game_id' => $game->id]);
+            echo "    [Sync] Refreshing metadata...\n";
+            $this->refreshMetadata($game);
+            Log::info('GameDataSync: Metadata refreshed', ['game_id' => $game->id]);
+            echo "    [Sync] Metadata refreshed\n";
+
+            $game->error = null;
+        } catch (Exception $exception) {
+            $game->error = $exception->getMessage();
+            echo "    [Sync] ERROR: {$exception->getMessage()}\n";
+            throw $exception;
+        } finally {
+            echo "    [Sync] Clearing HTTP cache...\n";
+            $this->clearHttpCache($game);
+            echo "    [Sync] Done\n";
+        }
     }
 
     /**

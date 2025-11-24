@@ -28,45 +28,48 @@ class SteamReviewImportService
     }
 
     /**
-     * Import reviews for a Steam game
+     * Completely sync all reviews for a Steam game
+     * Fetches all reviews, updates existing ones, and removes reviews no longer present on Steam
      *
-     * @param Game $game The game to import reviews for
-     * @param int $maxReviews Maximum number of reviews to import (default: 100)
-     * @return array Statistics about the import
+     * @param  Game  $game  The game to sync reviews for
+     * @return array Statistics about the sync
+     *
      * @throws GuzzleException
      */
-    public function importReviews(Game $game, int $maxReviews = 100): array
+    public function syncAllReviews(Game $game): array
     {
         if ($game->platform !== 'steam') {
-            throw new Exception("Game is not a Steam game");
+            throw new Exception('Game is not a Steam game');
         }
 
-        if (!$game->steam_app_id) {
-            throw new Exception("Game does not have a Steam App ID");
+        if (! $game->steam_app_id) {
+            throw new Exception('Game does not have a Steam App ID');
         }
 
         $stats = [
             'fetched' => 0,
             'imported' => 0,
+            'updated' => 0,
+            'deleted' => 0,
             'skipped' => 0,
             'errors' => 0,
         ];
 
         $cursor = '*';
-        $imported = 0;
+        $steamReviewIds = []; // Track all review IDs found on Steam
 
-        Log::info('Starting Steam review import', [
+        Log::info('Starting complete Steam review sync', [
             'game_id' => $game->id,
             'game_name' => $game->name,
             'steam_app_id' => $game->steam_app_id,
-            'max_reviews' => $maxReviews,
         ]);
 
-        while ($imported < $maxReviews) {
+        // Fetch all reviews from Steam
+        while (true) {
             try {
                 $response = $this->fetchReviews($game->steam_app_id, $cursor);
 
-                if (!$response['success']) {
+                if (! $response['success']) {
                     Log::error('Steam API returned unsuccessful response', [
                         'game_id' => $game->id,
                         'response' => $response,
@@ -77,54 +80,36 @@ class SteamReviewImportService
                 $reviews = $response['reviews'] ?? [];
                 $stats['fetched'] += count($reviews);
 
-                Log::debug('Fetched reviews batch', [
+                Log::debug('Fetched reviews batch for sync', [
                     'game_id' => $game->id,
                     'cursor' => $cursor,
                     'reviews_count' => count($reviews),
-                    'imported_so_far' => $imported,
+                    'total_fetched' => $stats['fetched'],
                 ]);
 
                 if (empty($reviews)) {
-                    Log::info('No more reviews to fetch', ['game_id' => $game->id]);
+                    Log::info('No more reviews to fetch for sync', ['game_id' => $game->id]);
                     break;
                 }
 
                 foreach ($reviews as $reviewData) {
-                    if ($imported >= $maxReviews) {
-                        break 2;
-                    }
-
                     try {
-                        $result = $this->importSingleReview($game, $reviewData);
+                        $recommendationId = $reviewData['recommendationid'] ?? null;
+                        if ($recommendationId) {
+                            $steamReviewIds[] = (string) $recommendationId;
+                        }
+
+                        $result = $this->syncSingleReview($game, $reviewData);
                         if ($result === 'imported') {
                             $stats['imported']++;
-                            $imported++;
-                            Log::debug('Imported review', [
-                                'game_id' => $game->id,
-                                'recommendation_id' => $reviewData['recommendationid'] ?? null,
-                                'total_imported' => $imported,
-                            ]);
-                        } elseif ($result === 'skipped:duplicate') {
-                            // We've hit a review we already have - since we're sorted by recent,
-                            // all older reviews are already imported, so we can stop here
-                            $stats['skipped']++;
-                            Log::info('Encountered existing review - stopping import', [
-                                'game_id' => $game->id,
-                                'recommendation_id' => $reviewData['recommendationid'] ?? null,
-                                'total_imported' => $imported,
-                            ]);
-                            break 2; // Break out of both foreach and while loops
+                        } elseif ($result === 'updated') {
+                            $stats['updated']++;
                         } elseif (str_starts_with($result, 'skipped:')) {
                             $stats['skipped']++;
-                            Log::debug('Skipped review', [
-                                'game_id' => $game->id,
-                                'recommendation_id' => $reviewData['recommendationid'] ?? null,
-                                'reason' => $result,
-                            ]);
                         }
                     } catch (Exception $e) {
                         $stats['errors']++;
-                        Log::error('Failed to import single review', [
+                        Log::error('Failed to sync single review', [
                             'game_id' => $game->id,
                             'recommendation_id' => $reviewData['recommendationid'] ?? null,
                             'error' => $e->getMessage(),
@@ -135,15 +120,8 @@ class SteamReviewImportService
                 // Get next cursor for pagination
                 $nextCursor = $response['cursor'] ?? null;
 
-                Log::debug('Pagination info', [
-                    'game_id' => $game->id,
-                    'current_cursor' => $cursor,
-                    'next_cursor' => $nextCursor,
-                    'has_next' => !empty($nextCursor),
-                ]);
-
-                if (!$nextCursor) {
-                    Log::info('No more pages to fetch', ['game_id' => $game->id]);
+                if (! $nextCursor) {
+                    Log::info('No more pages to fetch for sync', ['game_id' => $game->id]);
                     break;
                 }
 
@@ -154,7 +132,7 @@ class SteamReviewImportService
 
             } catch (Exception $e) {
                 $stats['errors']++;
-                Log::error('Failed to fetch reviews batch', [
+                Log::error('Failed to fetch reviews batch for sync', [
                     'game_id' => $game->id,
                     'cursor' => $cursor,
                     'error' => $e->getMessage(),
@@ -164,9 +142,45 @@ class SteamReviewImportService
             }
         }
 
-        Log::info('Completed Steam review import', array_merge(['game_id' => $game->id], $stats));
+        // Remove reviews that are no longer present on Steam
+        if (! empty($steamReviewIds)) {
+            $deletedCount = Rating::where('game_id', $game->id)
+                ->where('source_platform', 'steam')
+                ->whereNotIn('external_id', $steamReviewIds)
+                ->delete();
+
+            $stats['deleted'] = $deletedCount;
+
+            Log::info('Deleted reviews no longer on Steam', [
+                'game_id' => $game->id,
+                'deleted_count' => $deletedCount,
+            ]);
+        }
+
+        Log::info('Completed complete Steam review sync', array_merge(['game_id' => $game->id], $stats));
 
         return $stats;
+    }
+
+    /**
+     * Update game rating statistics after import
+     */
+    public function updateGameRatingStats(Game $game): void
+    {
+        $stats = Rating::where('game_id', $game->id)
+            ->where('is_visible', true)
+            ->selectRaw('AVG(rating) as avg_rating, COUNT(*) as count')
+            ->first();
+
+        $game->rating_score = $stats->avg_rating ? round((float) $stats->avg_rating, 2) : null;
+        $game->rating_count = (int) ($stats->count ?? 0);
+        $game->save();
+
+        Log::info('Updated game rating stats', [
+            'game_id' => $game->id,
+            'rating_score' => $game->rating_score,
+            'rating_count' => $game->rating_count,
+        ]);
     }
 
     /**
@@ -194,27 +208,18 @@ class SteamReviewImportService
     }
 
     /**
-     * Import a single review
+     * Sync a single review (create or update)
      *
-     * @return string 'imported' or 'skipped:reason'
+     * @return string 'imported', 'updated', or 'skipped:reason'
      */
-    private function importSingleReview(Game $game, array $reviewData): string
+    private function syncSingleReview(Game $game, array $reviewData): string
     {
         $recommendationId = $reviewData['recommendationid'] ?? null;
-        if (!$recommendationId) {
+        if (! $recommendationId) {
             return 'skipped:no_id';
         }
 
-        // Check if we've already imported this review
-        $existing = Rating::where('source_platform', 'steam')
-            ->where('external_id', (string)$recommendationId)
-            ->first();
-
-        if ($existing) {
-            return 'skipped:duplicate';
-        }
-
-        // Only import reviews with text content
+        // Only sync reviews with text content
         $reviewText = $reviewData['review'] ?? '';
         if (empty(trim($reviewText))) {
             return 'skipped:no_text';
@@ -223,24 +228,76 @@ class SteamReviewImportService
         // Process review text: normalize line breaks, convert BBCode to HTML
         $reviewText = $this->processReviewText($reviewText);
 
-        // Only import English reviews (double-check even though we filter in API)
+        // Only sync English reviews
         $language = $reviewData['language'] ?? '';
         if ($language !== 'english') {
             return 'skipped:non_english';
         }
 
-        DB::transaction(function () use ($game, $reviewData, $recommendationId, $reviewText) {
+        // Check if we've already imported this review
+        $existing = Rating::where('source_platform', 'steam')
+            ->where('external_id', (string) $recommendationId)
+            ->first();
+
+        // Convert Steam's binary rating to our 1-5 scale
+        $rating = $reviewData['voted_up'] ? 5 : 1;
+
+        $metadata = [
+            'voted_up' => $reviewData['voted_up'],
+            'votes_up' => $reviewData['votes_up'] ?? 0,
+            'votes_funny' => $reviewData['votes_funny'] ?? 0,
+            'weighted_vote_score' => $reviewData['weighted_vote_score'] ?? 0,
+            'comment_count' => $reviewData['comment_count'] ?? 0,
+            'steam_purchase' => $reviewData['steam_purchase'] ?? false,
+            'received_for_free' => $reviewData['received_for_free'] ?? false,
+            'written_during_early_access' => $reviewData['written_during_early_access'] ?? false,
+            'playtime_forever' => $reviewData['author']['playtime_forever'] ?? 0,
+            'playtime_at_review' => $reviewData['author']['playtime_at_review'] ?? 0,
+            'timestamp_updated' => $reviewData['timestamp_updated'] ?? null,
+        ];
+
+        if ($existing) {
+            // Update existing review if content has changed
+            $needsUpdate = false;
+
+            if ($existing->rating !== $rating) {
+                $existing->rating = $rating;
+                $needsUpdate = true;
+            }
+
+            if ($existing->review !== $reviewText) {
+                $existing->review = $reviewText;
+                $needsUpdate = true;
+            }
+
+            if ($existing->external_metadata !== $metadata) {
+                $existing->external_metadata = $metadata;
+                $needsUpdate = true;
+            }
+
+            if ($needsUpdate) {
+                $existing->save();
+
+                Log::debug('Updated existing Steam review', [
+                    'game_id' => $game->id,
+                    'recommendation_id' => $recommendationId,
+                    'rating_id' => $existing->id,
+                ]);
+
+                return 'updated';
+            }
+
+            return 'skipped:no_changes';
+        }
+
+        // Create new review
+        DB::transaction(function () use ($game, $reviewData, $recommendationId, $reviewText, $rating, $metadata) {
             // Find or create rater
             $rater = $this->findOrCreateRater($reviewData['author']);
 
-            // Convert Steam's binary rating to our 1-5 scale
-            // voted_up = true -> 5 stars (positive)
-            // voted_up = false -> 1 star (negative)
-            $rating = $reviewData['voted_up'] ? 5 : 1;
-
             // Create the rating
             Rating::create([
-                'external_id' => (string)$recommendationId,
+                'external_id' => (string) $recommendationId,
                 'source_platform' => 'steam',
                 'game_id' => $game->id,
                 'rater_id' => $rater->id,
@@ -250,21 +307,14 @@ class SteamReviewImportService
                 'event_id' => null, // No event for Steam reviews
                 'is_visible' => true, // Auto-approve Steam reviews
                 'is_reviewed' => true, // Mark as reviewed since it's from Steam
-                'external_metadata' => [
-                    'voted_up' => $reviewData['voted_up'],
-                    'votes_up' => $reviewData['votes_up'] ?? 0,
-                    'votes_funny' => $reviewData['votes_funny'] ?? 0,
-                    'weighted_vote_score' => $reviewData['weighted_vote_score'] ?? 0,
-                    'comment_count' => $reviewData['comment_count'] ?? 0,
-                    'steam_purchase' => $reviewData['steam_purchase'] ?? false,
-                    'received_for_free' => $reviewData['received_for_free'] ?? false,
-                    'written_during_early_access' => $reviewData['written_during_early_access'] ?? false,
-                    'playtime_forever' => $reviewData['author']['playtime_forever'] ?? 0,
-                    'playtime_at_review' => $reviewData['author']['playtime_at_review'] ?? 0,
-                    'timestamp_updated' => $reviewData['timestamp_updated'] ?? null,
-                ],
+                'external_metadata' => $metadata,
             ]);
         });
+
+        Log::debug('Imported new Steam review', [
+            'game_id' => $game->id,
+            'recommendation_id' => $recommendationId,
+        ]);
 
         return 'imported';
     }
@@ -275,8 +325,8 @@ class SteamReviewImportService
     private function findOrCreateRater(array $authorData): Rater
     {
         $steamId = $authorData['steamid'] ?? null;
-        if (!$steamId) {
-            throw new Exception("Steam author data missing steamid");
+        if (! $steamId) {
+            throw new Exception('Steam author data missing steamid');
         }
 
         // Try to find existing rater by Steam ID
@@ -316,7 +366,7 @@ class SteamReviewImportService
             // Parse XML to extract steamID (username)
             if (preg_match('/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/', $xml, $matches)) {
                 $username = trim($matches[1]);
-                if (!empty($username)) {
+                if (! empty($username)) {
                     return $username;
                 }
             }
@@ -334,27 +384,6 @@ class SteamReviewImportService
 
             return null;
         }
-    }
-
-    /**
-     * Update game rating statistics after import
-     */
-    public function updateGameRatingStats(Game $game): void
-    {
-        $stats = Rating::where('game_id', $game->id)
-            ->where('is_visible', true)
-            ->selectRaw('AVG(rating) as avg_rating, COUNT(*) as count')
-            ->first();
-
-        $game->rating_score = $stats->avg_rating ? round((float)$stats->avg_rating, 2) : null;
-        $game->rating_count = (int)($stats->count ?? 0);
-        $game->save();
-
-        Log::info('Updated game rating stats', [
-            'game_id' => $game->id,
-            'rating_score' => $game->rating_score,
-            'rating_count' => $game->rating_count,
-        ]);
     }
 
     /**
@@ -416,7 +445,7 @@ class SteamReviewImportService
 
         // Convert remaining newlines to <br> tags
         // But preserve newlines inside <pre> tags
-        $text = preg_replace_callback('/<pre>.*?<\/pre>/s', function($matches) {
+        $text = preg_replace_callback('/<pre>.*?<\/pre>/s', function ($matches) {
             return str_replace("\n", '___NEWLINE___', $matches[0]);
         }, $text);
 
@@ -428,4 +457,3 @@ class SteamReviewImportService
         return $text;
     }
 }
-

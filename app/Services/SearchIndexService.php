@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\DialogueLine;
 use App\Models\Game;
+use App\Models\GameDialogueText;
 use App\Models\Rating;
 use App\Models\Tag;
 use Exception;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SearchIndexService
@@ -32,14 +33,14 @@ class SearchIndexService
 
             // Reindex dialogue texts (per-game deduplication)
             // Get all games that have dialogue
-            $gameIds = \DB::table('version_dialogue_lines as vdl')
+            $gameIds = DB::table('version_dialogue_lines as vdl')
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->distinct()
                 ->pluck('gv.game_id');
 
             foreach ($gameIds as $gameId) {
                 try {
-                    $dialogueTexts = \App\Models\GameDialogueText::getForGame($gameId);
+                    $dialogueTexts = GameDialogueText::getForGame($gameId);
                     if ($dialogueTexts->isNotEmpty()) {
                         $dialogueTexts->chunk(500)->each(function ($chunk) {
                             $chunk->searchable();

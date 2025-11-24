@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\GameDialogueText;
 use App\Models\GameVersion;
+use Exception;
 use Illuminate\Support\Facades\Log;
 
 class GameVersionObserver
@@ -20,7 +21,7 @@ class GameVersionObserver
         $wasLatest = $gameVersion->getOriginal('is_latest');
         $isLatest = $gameVersion->is_latest;
 
-        if ($isLatest && !$wasLatest) {
+        if ($isLatest && ! $wasLatest) {
             echo "    [Observer] GameVersion became latest, reindexing dialogue texts for game {$gameVersion->game_id}\n";
 
             // Reindex all dialogue texts for this game
@@ -39,6 +40,7 @@ class GameVersionObserver
 
             if ($dialogueTexts->isEmpty()) {
                 echo "    [Observer] No dialogue texts found for game {$gameId}\n";
+
                 return;
             }
 
@@ -50,7 +52,7 @@ class GameVersionObserver
             });
 
             echo "    [Observer] Successfully reindexed dialogue texts for game {$gameId}\n";
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to reindex dialogue texts for game', [
                 'game_id' => $gameId,
                 'error' => $e->getMessage(),

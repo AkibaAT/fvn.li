@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\GameDialogueText;
+use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 class IndexGameDialogueTexts extends Command
@@ -29,9 +31,9 @@ class IndexGameDialogueTexts extends Command
     {
         if ($this->option('fresh')) {
             $this->info('Deleting existing index...');
-            \Artisan::call('scout:delete-index', ['name' => 'game_dialogue_texts']);
+            Artisan::call('scout:delete-index', ['name' => 'game_dialogue_texts']);
             $this->info('Syncing index settings...');
-            \Artisan::call('scout:sync-index-settings');
+            Artisan::call('scout:sync-index-settings');
         }
 
         if ($gameId = $this->option('game')) {
@@ -52,6 +54,7 @@ class IndexGameDialogueTexts extends Command
 
         if ($dialogueTexts->isEmpty()) {
             $this->warn("No dialogue texts found for game {$gameId}");
+
             return 0;
         }
 
@@ -102,7 +105,7 @@ class IndexGameDialogueTexts extends Command
 
                     $totalIndexed += $dialogueTexts->count();
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $errors++;
                 $this->newLine();
                 $this->error("Failed to index game {$gameId}: {$e->getMessage()}");
@@ -114,11 +117,12 @@ class IndexGameDialogueTexts extends Command
         $bar->finish();
         $this->newLine(2);
 
-        $this->info("✓ Indexing complete!");
+        $this->info('✓ Indexing complete!');
         $this->info("  Total entries indexed: {$totalIndexed}");
 
         if ($errors > 0) {
             $this->warn("  Errors: {$errors} games failed to index");
+
             return 1;
         }
 

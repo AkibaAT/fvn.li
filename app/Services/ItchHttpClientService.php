@@ -8,6 +8,7 @@ use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\ResponseInterface;
@@ -377,7 +378,7 @@ class ItchHttpClientService
     /**
      * Check if a URL should be routed through FlareSolverr
      *
-     * @param string $url The URL to check
+     * @param  string  $url  The URL to check
      * @return bool True if should use FlareSolverr
      */
     private function shouldUseFlareSolverr(string $url): bool
@@ -401,7 +402,7 @@ class ItchHttpClientService
      *
      * These endpoints return JSON, not HTML, and are not Cloudflare-protected
      *
-     * @param string $url The URL to check
+     * @param  string  $url  The URL to check
      * @return bool True if this is an API/AJAX request
      */
     private function isApiRequest(string $url): bool
@@ -480,7 +481,7 @@ class ItchHttpClientService
             );
 
             // Convert FlareSolverr response to PSR-7 ResponseInterface
-            return new \GuzzleHttp\Psr7\Response(
+            return new Response(
                 $result['status'],
                 $result['headers'] ?? [],
                 $result['response'] ?? ''

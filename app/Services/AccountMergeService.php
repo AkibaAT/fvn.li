@@ -16,7 +16,6 @@ class AccountMergeService
      *
      * @param  User  $mergingUser  The user to keep (target)
      * @param  User  $otherUser  The user to merge and delete (source)
-     * @return void
      */
     public function mergeAccounts(User $mergingUser, User $otherUser): void
     {
@@ -151,4 +150,3 @@ class AccountMergeService
         }
     }
 }
-

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Manages FlareSolverr sessions for command execution
- * 
+ *
  * This service creates a persistent FlareSolverr session at the start of a command
  * and destroys it when the command completes, following FlareSolverr best practices.
  */
@@ -21,8 +21,7 @@ class FlareSolverrSessionManager
 
     public function __construct(
         private readonly FlareSolverrClient $flareSolverr
-    ) {
-    }
+    ) {}
 
     /**
      * Destructor - ensure session is cleaned up when object is destroyed
@@ -48,7 +47,7 @@ class FlareSolverrSessionManager
      * concurrent commands. Since commands use withoutOverlapping(), this ensures
      * each command has its own isolated session.
      *
-     * @param string $commandName Name of the command (used as session ID)
+     * @param  string  $commandName  Name of the command (used as session ID)
      * @return bool True if session was created successfully
      */
     public function startSession(string $commandName): bool
@@ -58,6 +57,7 @@ class FlareSolverrSessionManager
                 'command' => $commandName,
                 'session_id' => $this->activeSessionId,
             ]);
+
             return true;
         }
 
@@ -89,12 +89,12 @@ class FlareSolverrSessionManager
 
     /**
      * End the active FlareSolverr session
-     * 
-     * @param string $commandName Name of the command (for logging)
+     *
+     * @param  string  $commandName  Name of the command (for logging)
      */
     public function endSession(string $commandName): void
     {
-        if (!$this->sessionActive || $this->activeSessionId === null) {
+        if (! $this->sessionActive || $this->activeSessionId === null) {
             return;
         }
 
@@ -124,7 +124,7 @@ class FlareSolverrSessionManager
 
     /**
      * Get the active session ID
-     * 
+     *
      * @return string|null The session ID if active, null otherwise
      */
     public function getActiveSessionId(): ?string
@@ -134,7 +134,7 @@ class FlareSolverrSessionManager
 
     /**
      * Check if a session is currently active
-     * 
+     *
      * @return bool True if a session is active
      */
     public function isSessionActive(): bool
@@ -148,9 +148,10 @@ class FlareSolverrSessionManager
      * Creates a session, executes the callback, and destroys the session
      * even if the callback throws an exception.
      *
-     * @param string $commandName Name of the command (used as session ID)
-     * @param callable $callback The command logic to execute
+     * @param  string  $commandName  Name of the command (used as session ID)
+     * @param  callable  $callback  The command logic to execute
      * @return mixed The return value of the callback
+     *
      * @throws Exception If the callback throws an exception
      */
     public function executeWithSession(string $commandName, callable $callback): mixed
@@ -172,7 +173,7 @@ class FlareSolverrSessionManager
      * FlareSolverr session IDs should be alphanumeric with underscores/hyphens.
      * Convert command names like "games:refresh" to "games_refresh".
      *
-     * @param string $commandName The command name
+     * @param  string  $commandName  The command name
      * @return string The normalized session ID
      */
     private function normalizeSessionId(string $commandName): string
@@ -181,4 +182,3 @@ class FlareSolverrSessionManager
         return preg_replace('/[^a-zA-Z0-9_-]/', '_', $commandName);
     }
 }
-

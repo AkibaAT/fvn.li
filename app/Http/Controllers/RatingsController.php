@@ -52,7 +52,7 @@ class RatingsController extends Controller
             $countQuery->join('games', 'games.id', '=', 'ratings.game_id')
                 ->where('games.is_visible', true);
         }
-        
+
         // Join raters if we need to filter by platform
         if ($platform) {
             $countQuery->join('raters', 'raters.id', '=', 'ratings.rater_id')
@@ -423,23 +423,6 @@ class RatingsController extends Controller
         ]);
     }
 
-    /**
-     * Sanitize review content by replacing non-breaking spaces with regular spaces
-     */
-    private function sanitizeReview(?string $review): ?string
-    {
-        if (!$review) return $review;
-
-        // Replace all variants of non-breaking spaces with regular spaces
-        return preg_replace([
-            '/&nbsp;/',
-            '/\s+/'  // Replace multiple spaces with single space
-        ], [
-            ' ',
-            ' '
-        ], str_replace("\u{00A0}", ' ', trim($review)));
-    }
-
     // ratingsTrends removed
 
     protected function getGlobalRatingStats(): array
@@ -687,7 +670,7 @@ class RatingsController extends Controller
                 }
 
                 // Count only actual words, not boundary markers
-                $actualWordCount = count(array_filter($allWords, function($word) use ($boundaryMarker) {
+                $actualWordCount = count(array_filter($allWords, function ($word) use ($boundaryMarker) {
                     return $word !== $boundaryMarker;
                 }));
 
@@ -849,6 +832,25 @@ class RatingsController extends Controller
 
             return array_slice($filteredPhrases, 0, 10, true);
         });
+    }
+
+    /**
+     * Sanitize review content by replacing non-breaking spaces with regular spaces
+     */
+    private function sanitizeReview(?string $review): ?string
+    {
+        if (! $review) {
+            return $review;
+        }
+
+        // Replace all variants of non-breaking spaces with regular spaces
+        return preg_replace([
+            '/&nbsp;/',
+            '/\s+/',  // Replace multiple spaces with single space
+        ], [
+            ' ',
+            ' ',
+        ], str_replace("\u{00A0}", ' ', trim($review)));
     }
 
     private function isPhraseMeaningful(string $phrase): bool

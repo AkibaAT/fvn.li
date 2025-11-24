@@ -7,7 +7,6 @@ use App\Models\GameVersion;
 use App\Models\NotificationHistory;
 use App\Models\Rater;
 use App\Models\Rating;
-use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\UserNotificationPreferences;
@@ -47,7 +46,7 @@ describe('user data export endpoint', function () {
         $response = $this->actingAs($this->user)->get(route('react-api.user.export'));
 
         $contentDisposition = $response->headers->get('Content-Disposition');
-        
+
         expect($contentDisposition)->toContain('user-data-test-user')
             ->and($contentDisposition)->toContain('.zip');
     });
@@ -62,7 +61,7 @@ describe('user data export endpoint', function () {
         $response = $this->actingAs($this->user)->get(route('react-api.user.export'));
 
         $response->assertStatus(200);
-        
+
         // The response is a streamed ZIP, so we can't easily inspect contents
         // but we can verify it's a valid response
         expect($response->headers->get('Content-Type'))->toBe('application/zip');
@@ -75,7 +74,7 @@ describe('exported data completeness', function () {
         $list = VnList::factory()->for($this->user)->create([
             'name' => 'My Favorites',
         ]);
-        
+
         VnListEntry::create([
             'vn_list_id' => $list->id,
             'game_id' => $game->id,
@@ -181,7 +180,7 @@ describe('exported data completeness', function () {
 describe('export data privacy', function () {
     test('user can only export their own data', function () {
         $otherUser = User::factory()->create();
-        
+
         VnList::factory()->for($otherUser)->create([
             'name' => 'Other User List',
         ]);
@@ -195,7 +194,7 @@ describe('export data privacy', function () {
     test('export includes private notes', function () {
         $game = Game::factory()->create();
         $list = VnList::factory()->for($this->user)->create();
-        
+
         VnListEntry::create([
             'vn_list_id' => $list->id,
             'game_id' => $game->id,
@@ -272,12 +271,12 @@ describe('export cache control', function () {
 describe('export with complex data', function () {
     test('export handles user with multiple lists and entries', function () {
         $games = Game::factory()->count(10)->create();
-        
+
         for ($i = 0; $i < 3; $i++) {
             $list = VnList::factory()->for($this->user)->create([
                 'name' => "List {$i}",
             ]);
-            
+
             foreach ($games as $index => $game) {
                 VnListEntry::create([
                     'vn_list_id' => $list->id,
@@ -314,4 +313,3 @@ describe('export with complex data', function () {
         $response->assertStatus(200);
     });
 });
-

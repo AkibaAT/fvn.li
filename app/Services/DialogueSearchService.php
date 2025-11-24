@@ -32,19 +32,19 @@ class DialogueSearchService
 
         // Build filter array (Meilisearch filter syntax)
         $filterParts = [];
-        if (!empty($language)) {
+        if (! empty($language)) {
             $filterParts[] = "language = '{$language}'";
         }
-        if (!empty($filters['game_id'])) {
-            $filterParts[] = "game_id = " . (int) $filters['game_id'];
+        if (! empty($filters['game_id'])) {
+            $filterParts[] = 'game_id = ' . (int) $filters['game_id'];
         }
-        if (!empty($filters['version_id'])) {
+        if (! empty($filters['version_id'])) {
             // Filter by version_ids array
-            $filterParts[] = "version_ids = " . (int) $filters['version_id'];
+            $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
         }
-        if (!empty($filters['character_id'])) {
+        if (! empty($filters['character_id'])) {
             // Filter by character_ids array
-            $filterParts[] = "character_ids = " . (int) $filters['character_id'];
+            $filterParts[] = 'character_ids = ' . (int) $filters['character_id'];
         }
 
         // Execute search with highlighting
@@ -55,7 +55,7 @@ class DialogueSearchService
             'highlightPreTag' => '<mark>',
             'highlightPostTag' => '</mark>',
         ];
-        if (!empty($filterParts)) {
+        if (! empty($filterParts)) {
             $searchParams['filter'] = implode(' AND ', $filterParts);
         }
 
@@ -87,18 +87,18 @@ class DialogueSearchService
             ->with(['gameVersion.game', 'gameVersion', 'text', 'character']);
 
         // Apply additional filters to dialogue lines
-        if (!empty($filters['game_id'])) {
+        if (! empty($filters['game_id'])) {
             $query->whereHas('gameVersion', function ($q) use ($filters) {
                 $q->where('game_id', $filters['game_id']);
             });
         }
-        if (!empty($filters['version_id'])) {
+        if (! empty($filters['version_id'])) {
             $query->where('game_version_id', $filters['version_id']);
         }
-        if (!empty($filters['language'])) {
+        if (! empty($filters['language'])) {
             $query->where('iso_code', $filters['language']);
         }
-        if (!empty($filters['context'])) {
+        if (! empty($filters['context'])) {
             $query->where('context', $filters['context']);
         }
 
@@ -117,6 +117,7 @@ class DialogueSearchService
             // Add highlighted text to each line
             return $lines->map(function ($line) use ($highlightedText) {
                 $line->highlighted_text = $highlightedText;
+
                 return $line;
             });
         });

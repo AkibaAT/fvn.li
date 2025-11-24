@@ -193,4 +193,3 @@ class NewsResource extends Resource
         ];
     }
 }
-

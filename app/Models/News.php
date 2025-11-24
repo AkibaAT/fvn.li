@@ -62,7 +62,7 @@ class News extends Model
 
         // Set published_at when is_published is set to true
         static::saving(function ($news) {
-            if ($news->is_published && !$news->published_at) {
+            if ($news->is_published && ! $news->published_at) {
                 $news->published_at = now();
             }
         });
@@ -131,4 +131,3 @@ class News extends Model
         };
     }
 }
-

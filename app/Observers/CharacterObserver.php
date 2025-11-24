@@ -38,7 +38,7 @@ class CharacterObserver
                         return;
                     }
 
-                    echo "    [CharObserver] Re-indexing dialogue texts for " . $gameIds->count() . " games\n";
+                    echo '    [CharObserver] Re-indexing dialogue texts for ' . $gameIds->count() . " games\n";
 
                     // Re-index dialogue texts for each affected game
                     foreach ($gameIds as $gameId) {
@@ -91,10 +91,11 @@ class CharacterObserver
 
             if ($gameIds->isEmpty()) {
                 echo "    [CharObserver] No games found with dialogue from this character\n";
+
                 return;
             }
 
-            echo "    [CharObserver] Re-indexing dialogue texts for " . $gameIds->count() . " games\n";
+            echo '    [CharObserver] Re-indexing dialogue texts for ' . $gameIds->count() . " games\n";
 
             // Re-index dialogue texts for each affected game
             $totalIndexed = 0;

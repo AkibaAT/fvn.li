@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
@@ -83,7 +84,7 @@ readonly class GameArchiveService
             try {
                 File::delete($archivePath);
                 $archivePath = null;
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Log the error but don't fail - stats are already processed
                 Log::warning('Failed to delete archive after processing', [
                     'archive_path' => $archivePath,
@@ -103,6 +104,7 @@ readonly class GameArchiveService
      * This is used when we need to get the stats before creating the version record
      *
      * @return array{temp_path: string, temp_dir: string, stats: array|null, filename: string, upload_id: int}
+     *
      * @throws GuzzleException
      * @throws RuntimeException
      * @throws BindingResolutionException
@@ -138,7 +140,7 @@ readonly class GameArchiveService
         // Create temporary directory and download with ORIGINAL filename
         // This is critical - the extraction logic depends on the exact filename
         $tempDir = sys_get_temp_dir() . '/game_' . uniqid();
-        if (!File::makeDirectory($tempDir, 0755, true)) {
+        if (! File::makeDirectory($tempDir, 0755, true)) {
             throw new RuntimeException('Could not create temporary directory');
         }
 

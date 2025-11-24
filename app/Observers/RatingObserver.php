@@ -58,11 +58,12 @@ class RatingObserver
      */
     private function dispatchRatingUpdate(Rating $rating, string $event): void
     {
-        if (!$rating->game_id) {
+        if (! $rating->game_id) {
             Log::warning('Rating has no game_id, skipping rating update', [
                 'rating_id' => $rating->id,
                 'event' => $event,
             ]);
+
             return;
         }
 
@@ -80,7 +81,7 @@ class RatingObserver
      */
     private function clearRaterCache(Rating $rating): void
     {
-        if (!$rating->rater_id) {
+        if (! $rating->rater_id) {
             return;
         }
 
@@ -93,4 +94,3 @@ class RatingObserver
         ]);
     }
 }
-

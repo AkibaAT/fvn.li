@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Games;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game;
+use App\Models\GameJam;
+use App\Models\Tag;
 use App\Services\GameFilterService;
 use App\Services\MeilisearchService;
 use Exception;
@@ -267,20 +269,20 @@ class GamesSearchController extends Controller
         $tags = $request->input('tags');
         if ($tags) {
             $tagIds = is_array($tags) ? $tags : explode(',', $tags);
-            $tagNames = \App\Models\Tag::whereIn('id', $tagIds)
+            $tagNames = Tag::whereIn('id', $tagIds)
                 ->pluck('name')
                 ->toArray();
-            $tags = !empty($tagNames) ? $tagNames : null;
+            $tags = ! empty($tagNames) ? $tagNames : null;
         }
 
         // Convert game jam IDs to game jam names if game jams are provided
         $gameJams = $request->input('game_jams');
         if ($gameJams) {
             $gameJamIds = is_array($gameJams) ? $gameJams : explode(',', $gameJams);
-            $gameJamNames = \App\Models\GameJam::whereIn('id', $gameJamIds)
+            $gameJamNames = GameJam::whereIn('id', $gameJamIds)
                 ->pluck('name')
                 ->toArray();
-            $gameJams = !empty($gameJamNames) ? $gameJamNames : null;
+            $gameJams = ! empty($gameJamNames) ? $gameJamNames : null;
         }
 
         $filters = array_filter([
@@ -375,10 +377,10 @@ class GamesSearchController extends Controller
         if ($selectedTags) {
             $tagIds = is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags);
             // Convert tag IDs to tag names since search index stores names, not IDs
-            $tagNames = \App\Models\Tag::whereIn('id', $tagIds)
+            $tagNames = Tag::whereIn('id', $tagIds)
                 ->pluck('name')
                 ->toArray();
-            if (!empty($tagNames)) {
+            if (! empty($tagNames)) {
                 $filters['tags'] = $tagNames;
             }
         }
@@ -387,10 +389,10 @@ class GamesSearchController extends Controller
         if ($selectedGameJams) {
             $gameJamIds = is_array($selectedGameJams) ? $selectedGameJams : explode(',', $selectedGameJams);
             // Convert game jam IDs to game jam names since search index stores names, not IDs
-            $gameJamNames = \App\Models\GameJam::whereIn('id', $gameJamIds)
+            $gameJamNames = GameJam::whereIn('id', $gameJamIds)
                 ->pluck('name')
                 ->toArray();
-            if (!empty($gameJamNames)) {
+            if (! empty($gameJamNames)) {
                 $filters['game_jams'] = $gameJamNames;
             }
         }
@@ -437,7 +439,7 @@ class GamesSearchController extends Controller
             ->with([
                 'tags',
                 'latestVersion.supportedLanguages.language',
-                'latestVersion.languageStats'
+                'latestVersion.languageStats',
             ])
             ->withCount('ratings');
 

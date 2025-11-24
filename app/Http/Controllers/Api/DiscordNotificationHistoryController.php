@@ -123,7 +123,7 @@ class DiscordNotificationHistoryController
     {
         $this->authorize('update', $server);
 
-        if (!$server->isConfigured()) {
+        if (! $server->isConfigured()) {
             return response()->json([
                 'message' => 'Server is not configured with a notification channel',
             ], 400);
@@ -165,4 +165,3 @@ class DiscordNotificationHistoryController
         ]);
     }
 }
-

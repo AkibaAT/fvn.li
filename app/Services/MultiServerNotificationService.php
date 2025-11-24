@@ -8,6 +8,7 @@ use App\Models\DiscordNotificationHistory;
 use App\Models\DiscordServer;
 use App\Models\Game;
 use App\Models\GameVersion;
+use Exception;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -38,12 +39,12 @@ class MultiServerNotificationService
             // Also check for tag-based subscriptions
             $this->queueTagBasedNotifications($game, 'update');
 
-            Log::info("Queued game update notifications", [
+            Log::info('Queued game update notifications', [
                 'game_id' => $game->id,
                 'servers_count' => $servers->count(),
             ]);
-        } catch (\Exception $e) {
-            Log::error("Error queuing game update notifications", [
+        } catch (Exception $e) {
+            Log::error('Error queuing game update notifications', [
                 'game_id' => $game->id,
                 'error' => $e->getMessage(),
             ]);
@@ -60,10 +61,11 @@ class MultiServerNotificationService
         string $description = ''
     ): void {
         try {
-            if (!$server->isConfigured()) {
-                Log::warning("Server not configured for notifications", [
+            if (! $server->isConfigured()) {
+                Log::warning('Server not configured for notifications', [
                     'server_id' => $server->id,
                 ]);
+
                 return;
             }
 
@@ -78,13 +80,13 @@ class MultiServerNotificationService
                 'delivery_status' => 'pending',
             ]);
 
-            Log::info("Queued server notification", [
+            Log::info('Queued server notification', [
                 'notification_id' => $notification->id,
                 'server_id' => $server->id,
                 'game_id' => $game->id,
             ]);
-        } catch (\Exception $e) {
-            Log::error("Error queuing server notification", [
+        } catch (Exception $e) {
+            Log::error('Error queuing server notification', [
                 'server_id' => $server->id,
                 'game_id' => $game->id,
                 'error' => $e->getMessage(),
@@ -115,18 +117,18 @@ class MultiServerNotificationService
 
             foreach ($servers as $server) {
                 // Check if not already subscribed directly
-                if (!$server->games()->where('game_id', $game->id)->exists()) {
+                if (! $server->games()->where('game_id', $game->id)->exists()) {
                     $this->queueServerNotification($server, $game, $type);
                 }
             }
 
-            Log::info("Queued tag-based notifications", [
+            Log::info('Queued tag-based notifications', [
                 'game_id' => $game->id,
                 'tags' => $gameTags,
                 'servers_count' => $servers->count(),
             ]);
-        } catch (\Exception $e) {
-            Log::error("Error queuing tag-based notifications", [
+        } catch (Exception $e) {
+            Log::error('Error queuing tag-based notifications', [
                 'game_id' => $game->id,
                 'error' => $e->getMessage(),
             ]);
@@ -161,11 +163,11 @@ class MultiServerNotificationService
     /**
      * Mark notification as sent.
      */
-    public function markAsSent(DiscordNotificationHistory $notification, string $messageId = null): void
+    public function markAsSent(DiscordNotificationHistory $notification, ?string $messageId = null): void
     {
         $notification->markAsSent($messageId);
 
-        Log::info("Notification marked as sent", [
+        Log::info('Notification marked as sent', [
             'notification_id' => $notification->id,
             'message_id' => $messageId,
         ]);
@@ -174,11 +176,11 @@ class MultiServerNotificationService
     /**
      * Mark notification as failed.
      */
-    public function markAsFailed(DiscordNotificationHistory $notification, string $errorMessage = null): void
+    public function markAsFailed(DiscordNotificationHistory $notification, ?string $errorMessage = null): void
     {
         $notification->markAsFailed($errorMessage);
 
-        Log::warning("Notification marked as failed", [
+        Log::warning('Notification marked as failed', [
             'notification_id' => $notification->id,
             'error' => $errorMessage,
         ]);
@@ -191,7 +193,7 @@ class MultiServerNotificationService
     {
         $config = $server->config;
 
-        if (!$config) {
+        if (! $config) {
             return "{$game->name} has been updated!";
         }
 
@@ -201,7 +203,7 @@ class MultiServerNotificationService
     /**
      * Record manual update from Discord bot.
      */
-    public function recordManualUpdate(DiscordServer $server, Game $game, string $messageId = null): void
+    public function recordManualUpdate(DiscordServer $server, Game $game, ?string $messageId = null): void
     {
         try {
             $notification = DiscordNotificationHistory::create([
@@ -214,13 +216,13 @@ class MultiServerNotificationService
                 'sent_at' => now(),
             ]);
 
-            Log::info("Recorded manual update", [
+            Log::info('Recorded manual update', [
                 'notification_id' => $notification->id,
                 'server_id' => $server->id,
                 'game_id' => $game->id,
             ]);
-        } catch (\Exception $e) {
-            Log::error("Error recording manual update", [
+        } catch (Exception $e) {
+            Log::error('Error recording manual update', [
                 'server_id' => $server->id,
                 'game_id' => $game->id,
                 'error' => $e->getMessage(),
@@ -228,4 +230,3 @@ class MultiServerNotificationService
         }
     }
 }
-

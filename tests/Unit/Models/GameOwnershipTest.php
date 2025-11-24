@@ -250,4 +250,3 @@ describe('getOwnedGames method', function () {
         expect($ownedGames)->toBeEmpty();
     });
 });
-

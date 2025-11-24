@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\Language;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
@@ -613,5 +612,3 @@ describe('regression prevention', function () {
         expect($data['file_categories'][0]['category'])->toBe('image');
     });
 });
-
-

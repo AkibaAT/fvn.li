@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\UniqueDialogueText;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Meilisearch\Client;
@@ -47,7 +48,7 @@ class IndexDialogueTexts extends Command
                     $documents = [];
                     foreach ($texts as $text) {
                         $meta = $metadata[$text->id] ?? null;
-                        if (!$meta) {
+                        if (! $meta) {
                             continue; // Skip texts with no dialogue lines
                         }
 
@@ -66,13 +67,13 @@ class IndexDialogueTexts extends Command
                     }
 
                     // Send to Meilisearch
-                    if (!empty($documents)) {
+                    if (! empty($documents)) {
                         $index->addDocuments($documents);
                     }
 
                     $processed += $texts->count();
                     $bar->advance($texts->count());
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $errors[] = "Batch error: {$e->getMessage()}";
                     $bar->advance($texts->count());
                 }
@@ -81,7 +82,7 @@ class IndexDialogueTexts extends Command
         $bar->finish();
         $this->newLine();
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             $this->error('❌ Errors occurred during indexing:');
             foreach ($errors as $error) {
                 $this->line("  • {$error}");
@@ -101,7 +102,7 @@ class IndexDialogueTexts extends Command
     private function aggregateMetadata(array $textIds): array
     {
         // Get aggregated data for games, versions, languages
-        $aggregated = DB::select("
+        $aggregated = DB::select('
             SELECT
                 vdl.text_id,
                 COUNT(DISTINCT gv.game_id) as games_count,
@@ -116,7 +117,7 @@ class IndexDialogueTexts extends Command
             JOIN games g ON gv.game_id = g.id
             WHERE vdl.text_id = ANY(?)
             GROUP BY vdl.text_id
-        ", ['{' . implode(',', $textIds) . '}']);
+        ', ['{' . implode(',', $textIds) . '}']);
 
         // Get character names for all texts in batch
         $characterNamesByText = DB::table('version_dialogue_lines as vdl')
@@ -131,9 +132,10 @@ class IndexDialogueTexts extends Command
                         if (is_string($displayNames)) {
                             $displayNames = json_decode($displayNames, true);
                         }
-                        if (is_array($displayNames) && !empty($displayNames)) {
+                        if (is_array($displayNames) && ! empty($displayNames)) {
                             return [reset($displayNames)];
                         }
+
                         return [];
                     })
                     ->unique()
@@ -172,6 +174,7 @@ class IndexDialogueTexts extends Command
         if (empty($cleaned)) {
             return [];
         }
+
         return array_values(array_unique(array_map('intval', explode(',', $cleaned))));
     }
 
@@ -196,8 +199,8 @@ class IndexDialogueTexts extends Command
             $char = $cleaned[$i];
 
             if ($char === '"') {
-                $inQuotes = !$inQuotes;
-            } elseif ($char === ',' && !$inQuotes) {
+                $inQuotes = ! $inQuotes;
+            } elseif ($char === ',' && ! $inQuotes) {
                 if ($current !== '') {
                     $parts[] = $current;
                     $current = '';
@@ -214,4 +217,3 @@ class IndexDialogueTexts extends Command
         return array_values(array_unique($parts));
     }
 }
-

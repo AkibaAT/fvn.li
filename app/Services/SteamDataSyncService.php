@@ -6,14 +6,17 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\Tag;
 use DateTime;
 use Dom\HTMLDocument;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 class SteamDataSyncService
@@ -45,13 +48,13 @@ class SteamDataSyncService
         try {
             // Get the Steam URL from the JSONB url field
             $steamUrl = $game->getPrimaryUrl();
-            if (!$steamUrl) {
-                throw new Exception("Game does not have a Steam URL");
+            if (! $steamUrl) {
+                throw new Exception('Game does not have a Steam URL');
             }
 
             // Extract Steam App ID from URL
             $appId = $this->extractSteamAppId($steamUrl);
-            if (!$appId) {
+            if (! $appId) {
                 throw new Exception("Could not extract Steam App ID from URL: {$steamUrl}");
             }
 
@@ -86,6 +89,111 @@ class SteamDataSyncService
     }
 
     /**
+     * Create or update game version from Steam data
+     *
+     * @throws Throwable
+     */
+    public function syncGameVersion(Game $game): void
+    {
+        if (! $game->steam_app_id) {
+            throw new Exception('Game does not have a Steam App ID');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // For Steam games, we don't have detailed version history like itch.io
+            // Create a single "current" version
+            $version = GameVersion::firstOrCreate(
+                [
+                    'game_id' => $game->id,
+                    'version' => 'current',
+                ],
+                [
+                    'published_at' => $game->initially_published_at ?? now(),
+                    'is_windows' => $this->parsedPlatforms['windows'] ?? true,
+                    'is_linux' => $this->parsedPlatforms['linux'] ?? false,
+                    'is_mac' => $this->parsedPlatforms['mac'] ?? false,
+                    'is_android' => false, // Steam doesn't support Android
+                    'is_web' => false, // Steam doesn't support web
+                ]
+            );
+
+            // Update platform support if version already exists
+            if (! $version->wasRecentlyCreated) {
+                $version->is_windows = $this->parsedPlatforms['windows'] ?? $version->is_windows;
+                $version->is_linux = $this->parsedPlatforms['linux'] ?? $version->is_linux;
+                $version->is_mac = $this->parsedPlatforms['mac'] ?? $version->is_mac;
+                $version->save();
+            }
+
+            // Mark as latest
+            GameVersion::where('game_id', $game->id)
+                ->where('id', '!=', $version->id)
+                ->update(['is_latest' => false]);
+
+            $version->is_latest = true;
+            $version->save();
+
+            // Refresh the game to get the latest version relationship
+            $game->load('latestVersion');
+
+            // Add languages to the version if they were parsed from Steam API
+            $this->addLanguagesToVersion($game, $this->parsedLanguageIsoCodes);
+
+            // Clear the parsed data after use
+            $this->parsedLanguageIsoCodes = [];
+            $this->parsedPlatforms = [];
+
+            DB::commit();
+
+            Log::info('Steam game version synced', [
+                'game_id' => $game->id,
+                'version_id' => $version->id,
+                'platforms' => [
+                    'windows' => $version->is_windows,
+                    'linux' => $version->is_linux,
+                    'mac' => $version->is_mac,
+                ],
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Add Steam languages to the game version
+     */
+    public function addLanguagesToVersion(Game $game, array $isoCodes): void
+    {
+        if (empty($isoCodes)) {
+            return;
+        }
+
+        $version = $game->latestVersion;
+        if (! $version) {
+            Log::warning('No game version found to add languages', [
+                'game_id' => $game->id,
+            ]);
+
+            return;
+        }
+
+        // Add supported languages to the version
+        foreach ($isoCodes as $isoCode) {
+            $version->addSupportedLanguage($isoCode, true);
+        }
+
+        Log::info('Added Steam languages to version', [
+            'game_id' => $game->id,
+            'version_id' => $version->id,
+            'language_count' => count($isoCodes),
+            'languages' => $isoCodes,
+        ]);
+    }
+
+    /**
      * Extract Steam App ID from URL
      */
     private function extractSteamAppId(string $url): ?string
@@ -94,6 +202,7 @@ class SteamDataSyncService
         if (preg_match('/\/app\/(\d+)/', $url, $matches)) {
             return $matches[1];
         }
+
         return null;
     }
 
@@ -105,7 +214,7 @@ class SteamDataSyncService
     private function refreshFromSteamApi(Game $game, string $appId): void
     {
         $url = "https://store.steampowered.com/api/appdetails?appids={$appId}&l=english";
-        
+
         Log::info('Fetching Steam API data', [
             'app_id' => $appId,
             'url' => $url,
@@ -114,7 +223,7 @@ class SteamDataSyncService
         $response = $this->httpClient->get($url);
         $data = json_decode($response->getBody()->getContents(), true);
 
-        if (!isset($data[$appId]['success']) || !$data[$appId]['success']) {
+        if (! isset($data[$appId]['success']) || ! $data[$appId]['success']) {
             throw new Exception("Steam API returned unsuccessful response for app ID: {$appId}");
         }
 
@@ -124,13 +233,13 @@ class SteamDataSyncService
         $game->name = $appData['name'] ?? $game->name;
         $game->description = $appData['short_description'] ?? null;
         $game->full_description = $appData['detailed_description'] ?? null;
-        
+
         // Extract pricing information
         if (isset($appData['is_free'])) {
-            $game->is_paid = !$appData['is_free'];
+            $game->is_paid = ! $appData['is_free'];
             $game->min_price = 0;
         }
-        
+
         if (isset($appData['price_overview'])) {
             $game->is_paid = true;
             // Steam prices are in cents
@@ -164,13 +273,13 @@ class SteamDataSyncService
                     'thumbnail_url' => $screenshot['path_thumbnail'] ?? null,
                 ];
             }
-            if (!empty($screenshots)) {
+            if (! empty($screenshots)) {
                 $game->screenshots = $screenshots;
             }
         }
 
         // Extract demo availability
-        if (isset($appData['demos']) && is_array($appData['demos']) && !empty($appData['demos'])) {
+        if (isset($appData['demos']) && is_array($appData['demos']) && ! empty($appData['demos'])) {
             $game->has_demo = true;
             Log::debug('Steam game has demo', [
                 'app_id' => $appId,
@@ -212,7 +321,7 @@ class SteamDataSyncService
 
         // Extract genres/tags
         if (isset($appData['genres']) && is_array($appData['genres'])) {
-            $genres = array_map(fn($g) => $g['description'] ?? '', $appData['genres']);
+            $genres = array_map(fn ($g) => $g['description'] ?? '', $appData['genres']);
             // Store in a custom field or handle separately
             $game->steam_genres = $genres;
         }
@@ -266,7 +375,7 @@ class SteamDataSyncService
         try {
             // Create a cookie jar with mature content cookies
             $cookieJar = CookieJar::fromArray([
-                'birthtime' => (string)strtotime('-30 years'),
+                'birthtime' => (string) strtotime('-30 years'),
                 'mature_content' => '1',
             ], 'steampowered.com');
 
@@ -279,17 +388,17 @@ class SteamDataSyncService
 
             // Extract additional metadata that might not be in the API
             // For example, user tags, reviews, etc.
-            
+
             // Extract user-defined tags
             $tags = [];
             $tagElements = $doc->querySelectorAll('.app_tag');
             foreach ($tagElements as $tagElement) {
                 $tagText = trim($tagElement->textContent);
-                if (!empty($tagText) && $tagText !== '+') {
+                if (! empty($tagText) && $tagText !== '+') {
                     $tags[] = $tagText;
                 }
             }
-            if (!empty($tags)) {
+            if (! empty($tags)) {
                 $game->steam_user_tags = array_slice($tags, 0, 20); // Limit to 20 tags
             }
 
@@ -303,80 +412,6 @@ class SteamDataSyncService
                 'error' => $e->getMessage(),
             ]);
             // Don't throw - API data is more important
-        }
-    }
-
-    /**
-     * Create or update game version from Steam data
-     *
-     * @throws Throwable
-     */
-    public function syncGameVersion(Game $game): void
-    {
-        if (!$game->steam_app_id) {
-            throw new Exception("Game does not have a Steam App ID");
-        }
-
-        DB::beginTransaction();
-
-        try {
-            // For Steam games, we don't have detailed version history like itch.io
-            // Create a single "current" version
-            $version = GameVersion::firstOrCreate(
-                [
-                    'game_id' => $game->id,
-                    'version' => 'current',
-                ],
-                [
-                    'published_at' => $game->initially_published_at ?? now(),
-                    'is_windows' => $this->parsedPlatforms['windows'] ?? true,
-                    'is_linux' => $this->parsedPlatforms['linux'] ?? false,
-                    'is_mac' => $this->parsedPlatforms['mac'] ?? false,
-                    'is_android' => false, // Steam doesn't support Android
-                    'is_web' => false, // Steam doesn't support web
-                ]
-            );
-
-            // Update platform support if version already exists
-            if (!$version->wasRecentlyCreated) {
-                $version->is_windows = $this->parsedPlatforms['windows'] ?? $version->is_windows;
-                $version->is_linux = $this->parsedPlatforms['linux'] ?? $version->is_linux;
-                $version->is_mac = $this->parsedPlatforms['mac'] ?? $version->is_mac;
-                $version->save();
-            }
-
-            // Mark as latest
-            GameVersion::where('game_id', $game->id)
-                ->where('id', '!=', $version->id)
-                ->update(['is_latest' => false]);
-
-            $version->is_latest = true;
-            $version->save();
-
-            // Refresh the game to get the latest version relationship
-            $game->load('latestVersion');
-
-            // Add languages to the version if they were parsed from Steam API
-            $this->addLanguagesToVersion($game, $this->parsedLanguageIsoCodes);
-
-            // Clear the parsed data after use
-            $this->parsedLanguageIsoCodes = [];
-            $this->parsedPlatforms = [];
-
-            DB::commit();
-
-            Log::info('Steam game version synced', [
-                'game_id' => $game->id,
-                'version_id' => $version->id,
-                'platforms' => [
-                    'windows' => $version->is_windows,
-                    'linux' => $version->is_linux,
-                    'mac' => $version->is_mac,
-                ],
-            ]);
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
         }
     }
 
@@ -395,13 +430,14 @@ class SteamDataSyncService
 
         // Split by comma and clean up
         $languageNames = array_map('trim', explode(',', $languagesText));
-        $languageNames = array_filter($languageNames, fn($name) => !empty($name));
+        $languageNames = array_filter($languageNames, fn ($name) => ! empty($name));
 
         if (empty($languageNames)) {
             Log::warning('No languages found in Steam data', [
                 'game_id' => $game->id,
                 'raw_html' => $steamLanguagesHtml,
             ]);
+
             return [];
         }
 
@@ -413,6 +449,7 @@ class SteamDataSyncService
                 'game_id' => $game->id,
                 'language_names' => $languageNames,
             ]);
+
             return [];
         }
 
@@ -423,36 +460,6 @@ class SteamDataSyncService
         ]);
 
         return $isoCodes;
-    }
-
-    /**
-     * Add Steam languages to the game version
-     */
-    public function addLanguagesToVersion(Game $game, array $isoCodes): void
-    {
-        if (empty($isoCodes)) {
-            return;
-        }
-
-        $version = $game->latestVersion;
-        if (!$version) {
-            Log::warning('No game version found to add languages', [
-                'game_id' => $game->id,
-            ]);
-            return;
-        }
-
-        // Add supported languages to the version
-        foreach ($isoCodes as $isoCode) {
-            $version->addSupportedLanguage($isoCode, true);
-        }
-
-        Log::info('Added Steam languages to version', [
-            'game_id' => $game->id,
-            'version_id' => $version->id,
-            'language_count' => count($isoCodes),
-            'languages' => $isoCodes,
-        ]);
     }
 
     /**
@@ -568,18 +575,18 @@ class SteamDataSyncService
         $tagNames = [];
 
         // Add Steam genres (official categories)
-        if (!empty($game->steam_genres)) {
+        if (! empty($game->steam_genres)) {
             foreach ($game->steam_genres as $genre) {
-                if (!empty($genre)) {
+                if (! empty($genre)) {
                     $tagNames[] = $genre;
                 }
             }
         }
 
         // Add Steam user tags (community-defined tags)
-        if (!empty($game->steam_user_tags)) {
+        if (! empty($game->steam_user_tags)) {
             foreach ($game->steam_user_tags as $userTag) {
-                if (!empty($userTag)) {
+                if (! empty($userTag)) {
                     $tagNames[] = $userTag;
                 }
             }
@@ -589,6 +596,7 @@ class SteamDataSyncService
             Log::debug('No Steam tags to sync', [
                 'game_id' => $game->id,
             ]);
+
             return;
         }
 
@@ -600,23 +608,24 @@ class SteamDataSyncService
         $tagIds = [];
         foreach ($tagNames as $tagName) {
             // Try to find by name first (case-insensitive)
-            $tag = \App\Models\Tag::whereRaw('LOWER(name) = ?', [strtolower($tagName)])->first();
+            $tag = Tag::whereRaw('LOWER(name) = ?', [strtolower($tagName)])->first();
 
-            if (!$tag) {
+            if (! $tag) {
                 // Try to create, but handle slug collisions
                 try {
-                    $tag = \App\Models\Tag::firstOrCreate(['name' => $tagName]);
-                } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                    $tag = Tag::firstOrCreate(['name' => $tagName]);
+                } catch (UniqueConstraintViolationException $e) {
                     // Slug collision - find the existing tag by slug
-                    $slug = \Illuminate\Support\Str::slug($tagName);
-                    $tag = \App\Models\Tag::where('slug', $slug)->first();
+                    $slug = Str::slug($tagName);
+                    $tag = Tag::where('slug', $slug)->first();
 
-                    if (!$tag) {
+                    if (! $tag) {
                         // Still couldn't find it, skip this tag
                         Log::warning('Could not create or find tag', [
                             'tag_name' => $tagName,
                             'error' => $e->getMessage(),
                         ]);
+
                         continue;
                     }
                 }
@@ -635,4 +644,3 @@ class SteamDataSyncService
         ]);
     }
 }
-

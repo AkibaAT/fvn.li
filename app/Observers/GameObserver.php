@@ -7,8 +7,6 @@ namespace App\Observers;
 use App\Models\Game;
 use App\Services\GameFilterService;
 use App\Services\HomePageCacheService;
-use Exception;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -74,7 +72,7 @@ class GameObserver
             }
 
             // Update search index when visibility changes
-            if ($isVisible && !empty(trim($game->name))) {
+            if ($isVisible && ! empty(trim($game->name))) {
                 // Game is now visible - add to search index
                 echo "    [Observer] Adding game to search index\n";
                 $game->searchable();
@@ -82,7 +80,7 @@ class GameObserver
                     'game_id' => $game->id,
                     'game_name' => $game->name,
                 ]);
-            } elseif (!$isVisible) {
+            } elseif (! $isVisible) {
                 // Game is now hidden - remove from search index
                 echo "    [Observer] Removing game from search index\n";
                 $game->unsearchable();

@@ -29,8 +29,8 @@ describe('price extraction from HTML', function () {
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
-        
+        $extractor = new ItchGameMetadataExtractor;
+
         $extractor->extractPriceInformation($game, $doc, false);
 
         expect($game->min_price)->toBe(14.99)
@@ -61,8 +61,8 @@ HTML;
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
-        
+        $extractor = new ItchGameMetadataExtractor;
+
         $extractor->extractPriceInformation($game, $doc, true);
 
         // Price should be preserved from API
@@ -92,8 +92,8 @@ HTML;
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
-        
+        $extractor = new ItchGameMetadataExtractor;
+
         $extractor->extractPriceInformation($game, $doc, false);
 
         // Price should be updated from HTML
@@ -120,8 +120,8 @@ HTML;
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
-        
+        $extractor = new ItchGameMetadataExtractor;
+
         $extractor->extractPriceInformation($game, $doc, false);
 
         expect($game->is_on_sale)->toBeTrue()
@@ -147,7 +147,7 @@ HTML;
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
+        $extractor = new ItchGameMetadataExtractor;
 
         $extractor->extractPriceInformation($game, $doc, false);
 
@@ -178,8 +178,8 @@ HTML;
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
-        
+        $extractor = new ItchGameMetadataExtractor;
+
         $extractor->extractPriceInformation($game, $doc, true);
 
         // Price should be preserved even though buy section is missing
@@ -206,7 +206,7 @@ HTML;
 HTML;
 
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-        $extractor = new ItchGameMetadataExtractor();
+        $extractor = new ItchGameMetadataExtractor;
 
         $extractor->extractPriceInformation($game, $doc, false);
 
@@ -239,12 +239,11 @@ HTML;
 HTML;
 
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-            $extractor = new ItchGameMetadataExtractor();
-            
+            $extractor = new ItchGameMetadataExtractor;
+
             $extractor->extractPriceInformation($game, $doc, false);
 
             expect($game->min_price)->toBe($testCase['expected']);
         }
     });
 });
-

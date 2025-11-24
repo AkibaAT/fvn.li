@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationQueue;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -44,80 +43,6 @@ class UnifiedNotificationService
         if ($options['notify_discord']) {
             $this->queueDiscordNotification($game, $gameVersion, $options);
         }
-    }
-
-    /**
-     * Queue a notification for fvn.li push subscribers
-     */
-    private function queueFvnLiNotification(Game $game, GameVersion $gameVersion): void
-    {
-        // Get all users following this game
-        $followers = $game->followers()->get();
-
-        foreach ($followers as $user) {
-            // Check user notification preferences
-            if (!$user->notifications_enabled || !$user->game_update_notifications) {
-                continue;
-            }
-
-            // Create notification queue entry
-            NotificationQueue::create([
-                'user_id' => $user->id,
-                'game_id' => $game->id,
-                'game_version_id' => $gameVersion->id,
-                'type' => 'game_update',
-                'channel' => 'push',
-                'payload' => [
-                    'title' => $game->name . ' - New Update Available',
-                    'body' => 'Version ' . $gameVersion->version . ' is now available.',
-                    'data' => [
-                        'url' => route('games.show', $game->slug),
-                        'game_id' => $game->id,
-                        'game_version_id' => $gameVersion->id,
-                        'version' => $gameVersion->version,
-                    ],
-                    'icon' => $game->getThumbnailUrl('small'),
-                ],
-                'scheduled_at' => now(),
-                'status' => 'pending',
-            ]);
-        }
-
-        Log::info('Queued fvn.li push notifications', [
-            'game_id' => $game->id,
-            'follower_count' => $followers->count(),
-        ]);
-    }
-
-    /**
-     * Queue a notification for Discord bot
-     */
-    private function queueDiscordNotification(Game $game, GameVersion $gameVersion, array $options): void
-    {
-        // Create notification queue entry for Discord bot
-        NotificationQueue::create([
-            'game_id' => $game->id,
-            'game_version_id' => $gameVersion->id,
-            'type' => 'game_update',
-            'channel' => 'discord',
-            'payload' => [
-                'game_name' => $game->name,
-                'version' => $gameVersion->version,
-                'published_at' => $gameVersion->published_at->timestamp,
-                'url' => $game->url,
-                'devlog' => $gameVersion->devlog,
-                'manual_update' => $options['manual_update'],
-                'update_url' => $options['update_url'],
-            ],
-            'scheduled_at' => now(),
-            'status' => 'pending',
-        ]);
-
-        Log::info('Queued Discord notification', [
-            'game_id' => $game->id,
-            'game_name' => $game->name,
-            'manual_update' => $options['manual_update'],
-        ]);
     }
 
     /**
@@ -180,5 +105,78 @@ class UnifiedNotificationService
             'sent_at' => now(),
         ]);
     }
-}
 
+    /**
+     * Queue a notification for fvn.li push subscribers
+     */
+    private function queueFvnLiNotification(Game $game, GameVersion $gameVersion): void
+    {
+        // Get all users following this game
+        $followers = $game->followers()->get();
+
+        foreach ($followers as $user) {
+            // Check user notification preferences
+            if (! $user->notifications_enabled || ! $user->game_update_notifications) {
+                continue;
+            }
+
+            // Create notification queue entry
+            NotificationQueue::create([
+                'user_id' => $user->id,
+                'game_id' => $game->id,
+                'game_version_id' => $gameVersion->id,
+                'type' => 'game_update',
+                'channel' => 'push',
+                'payload' => [
+                    'title' => $game->name . ' - New Update Available',
+                    'body' => 'Version ' . $gameVersion->version . ' is now available.',
+                    'data' => [
+                        'url' => route('games.show', $game->slug),
+                        'game_id' => $game->id,
+                        'game_version_id' => $gameVersion->id,
+                        'version' => $gameVersion->version,
+                    ],
+                    'icon' => $game->getThumbnailUrl('small'),
+                ],
+                'scheduled_at' => now(),
+                'status' => 'pending',
+            ]);
+        }
+
+        Log::info('Queued fvn.li push notifications', [
+            'game_id' => $game->id,
+            'follower_count' => $followers->count(),
+        ]);
+    }
+
+    /**
+     * Queue a notification for Discord bot
+     */
+    private function queueDiscordNotification(Game $game, GameVersion $gameVersion, array $options): void
+    {
+        // Create notification queue entry for Discord bot
+        NotificationQueue::create([
+            'game_id' => $game->id,
+            'game_version_id' => $gameVersion->id,
+            'type' => 'game_update',
+            'channel' => 'discord',
+            'payload' => [
+                'game_name' => $game->name,
+                'version' => $gameVersion->version,
+                'published_at' => $gameVersion->published_at->timestamp,
+                'url' => $game->url,
+                'devlog' => $gameVersion->devlog,
+                'manual_update' => $options['manual_update'],
+                'update_url' => $options['update_url'],
+            ],
+            'scheduled_at' => now(),
+            'status' => 'pending',
+        ]);
+
+        Log::info('Queued Discord notification', [
+            'game_id' => $game->id,
+            'game_name' => $game->name,
+            'manual_update' => $options['manual_update'],
+        ]);
+    }
+}

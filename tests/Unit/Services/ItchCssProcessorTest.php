@@ -130,4 +130,3 @@ test('process handles complex CSS with mixed value types', function () {
     expect($result)->not->toContain('background');
     expect($result)->not->toContain('border');
 });
-

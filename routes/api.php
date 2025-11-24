@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\DiscordBotController;
-use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\DiscordNotificationHistoryController;
+use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\DiscordServerController;
 use App\Http\Controllers\Api\DiscordSubscriptionController;
 use App\Http\Controllers\Api\GameReviewsController;

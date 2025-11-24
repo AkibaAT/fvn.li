@@ -16,9 +16,9 @@ class ItchGameMetadataExtractor
     /**
      * Extract price information from the game's HTML page
      *
-     * @param Game $game The game to extract price information for
-     * @param HTMLDocument $doc The parsed HTML document
-     * @param bool $preserveApiPrice If true, don't overwrite price if it was already set from API data
+     * @param  Game  $game  The game to extract price information for
+     * @param  HTMLDocument  $doc  The parsed HTML document
+     * @param  bool  $preserveApiPrice  If true, don't overwrite price if it was already set from API data
      */
     public function extractPriceInformation(Game $game, HTMLDocument $doc, bool $preserveApiPrice = false): void
     {

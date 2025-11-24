@@ -11,6 +11,7 @@ use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
 use App\Traits\HasSocialMetaTags;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -64,7 +65,7 @@ class GamesDisplayController extends Controller
             $version->supportedLanguages = $version->supportedLanguages
                 ->filter(fn ($sl) => $sl->is_available
                     && $sl->language !== null
-                    && !str_starts_with($sl->iso_code, 'q'))
+                    && ! str_starts_with($sl->iso_code, 'q'))
                 ->map(fn ($sl) => [
                     'iso_code' => $sl->iso_code,
                     'language' => [
@@ -81,7 +82,7 @@ class GamesDisplayController extends Controller
             // Filter out placeholder 'q' codes and null language relationships
             $version->languageStats = $version->languageStats
                 ->filter(fn ($ls) => $ls->language !== null
-                    && !str_starts_with($ls->iso_code, 'q'))
+                    && ! str_starts_with($ls->iso_code, 'q'))
                 ->map(fn ($ls) => [
                     'words' => $ls->words,
                     'language' => [
@@ -180,13 +181,13 @@ class GamesDisplayController extends Controller
             $versionIds[] = $latestVersion->id;
         }
         foreach ($gameVersions as $version) {
-            if (!$latestVersion || $version->id !== $latestVersion->id) {
+            if (! $latestVersion || $version->id !== $latestVersion->id) {
                 $versionIds[] = $version->id;
             }
         }
 
         // Batch query for character counts for all versions at once
-        if (!empty($versionIds)) {
+        if (! empty($versionIds)) {
             $characterCounts = DB::table('version_character_stats')
                 ->join('characters', 'characters.id', '=', 'version_character_stats.character_id')
                 ->whereIn('version_character_stats.game_version_id', $versionIds)
@@ -209,7 +210,7 @@ class GamesDisplayController extends Controller
         // Check if file stats exist for each version (to show/hide file stats button)
         // Optimized: Use batch query instead of N+1
         $versionHasFileStats = [];
-        if (!empty($versionIds)) {
+        if (! empty($versionIds)) {
             $versionsWithFileStats = DB::table('version_file_categories')
                 ->whereIn('game_version_id', $versionIds)
                 ->distinct()
@@ -271,7 +272,7 @@ class GamesDisplayController extends Controller
                     'last_external_project' => $rawClickStats['last_external_project'] ?? null,
                     'custom_links' => $customLinksArray,
                 ];
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // If analytics fail, just don't show them
                 $clickStats = null;
                 $dailyStats = null;
@@ -395,7 +396,7 @@ class GamesDisplayController extends Controller
             }
         }
         if (! empty($platforms)) {
-            $metaDescription .= ' - Available on: '.implode(', ', $platforms);
+            $metaDescription .= ' - Available on: ' . implode(', ', $platforms);
         }
 
         if ($reviews->total() > 0) {

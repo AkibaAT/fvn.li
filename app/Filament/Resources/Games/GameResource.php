@@ -22,11 +22,11 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\KeyValue;
-use Filament\Notifications\Notification;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -262,12 +262,10 @@ class GameResource extends Resource
                     ->color('info')
                     ->requiresConfirmation()
                     ->modalHeading('Sync Game Data')
-                    ->modalDescription(fn (Game $record): string =>
-                        "This will fetch the latest data from {$record->getPlatformName()} for \"{$record->name}\". This may take a few minutes."
+                    ->modalDescription(fn (Game $record): string => "This will fetch the latest data from {$record->getPlatformName()} for \"{$record->name}\". This may take a few minutes."
                     )
                     ->modalSubmitActionLabel('Sync Now')
-                    ->visible(fn (Game $record): bool =>
-                        $record->platform === 'itch_io' || $record->platform === 'steam'
+                    ->visible(fn (Game $record): bool => $record->platform === 'itch_io' || $record->platform === 'steam'
                     )
                     ->action(function (Game $record): void {
                         try {
@@ -294,8 +292,7 @@ class GameResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Import Steam Reviews')
-                    ->modalDescription(fn (Game $record): string =>
-                        "This will import English reviews from Steam for \"{$record->name}\". This may take several minutes."
+                    ->modalDescription(fn (Game $record): string => "This will import English reviews from Steam for \"{$record->name}\". This may take several minutes."
                     )
                     ->modalSubmitActionLabel('Import Reviews')
                     ->visible(fn (Game $record): bool => $record->platform === 'steam')

@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->markTestSkipped('Requires actual itch.io credentials - cannot test without external authentication');
 
     Cache::flush();
-    $this->factory = new ItchHttpClientFactory();
+    $this->factory = new ItchHttpClientFactory;
 });
 
 describe('ItchAuthService authentication', function () {
@@ -31,7 +31,7 @@ describe('ItchAuthService authentication', function () {
         ]);
 
         $handlerStack = HandlerStack::create($mockHandler);
-        $cookieJar = new CookieJar();
+        $cookieJar = new CookieJar;
         $client = new Client([
             'handler' => $handlerStack,
             'cookies' => $cookieJar,
@@ -55,7 +55,7 @@ describe('ItchAuthService authentication', function () {
         ]);
 
         $handlerStack = HandlerStack::create($mockHandler);
-        $cookieJar = new CookieJar();
+        $cookieJar = new CookieJar;
         $client = new Client([
             'handler' => $handlerStack,
             'cookies' => $cookieJar,
@@ -90,7 +90,7 @@ describe('ItchAuthService authentication', function () {
         ]);
 
         $handlerStack = HandlerStack::create($mockHandler);
-        $cookieJar = new CookieJar();
+        $cookieJar = new CookieJar;
         $client = new Client([
             'handler' => $handlerStack,
             'cookies' => $cookieJar,
@@ -130,7 +130,7 @@ describe('ItchAuthService authentication', function () {
         ]);
 
         $handlerStack = HandlerStack::create($mockHandler);
-        $cookieJar = new CookieJar();
+        $cookieJar = new CookieJar;
         $client = new Client([
             'handler' => $handlerStack,
             'cookies' => $cookieJar,
@@ -157,7 +157,7 @@ describe('ItchAuthService game ID extraction', function () {
         $client = new Client(['handler' => $handlerStack]);
 
         $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createCookieJar')->willReturn(new CookieJar());
+        $factory->method('createCookieJar')->willReturn(new CookieJar);
         $factory->method('createClient')->willReturn($client);
 
         $service = new ItchAuthService($factory);
@@ -174,7 +174,7 @@ describe('ItchAuthService game ID extraction', function () {
         $client = new Client(['handler' => $handlerStack]);
 
         $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createCookieJar')->willReturn(new CookieJar());
+        $factory->method('createCookieJar')->willReturn(new CookieJar);
         $factory->method('createClient')->willReturn($client);
 
         $service = new ItchAuthService($factory);
@@ -194,7 +194,7 @@ describe('ItchAuthService CSRF token extraction', function () {
         $client = new Client(['handler' => $handlerStack]);
 
         $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createCookieJar')->willReturn(new CookieJar());
+        $factory->method('createCookieJar')->willReturn(new CookieJar);
         $factory->method('createClient')->willReturn($client);
 
         $service = new ItchAuthService($factory);
@@ -211,7 +211,7 @@ describe('ItchAuthService CSRF token extraction', function () {
         $client = new Client(['handler' => $handlerStack]);
 
         $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createCookieJar')->willReturn(new CookieJar());
+        $factory->method('createCookieJar')->willReturn(new CookieJar);
         $factory->method('createClient')->willReturn($client);
 
         $service = new ItchAuthService($factory);
@@ -219,4 +219,3 @@ describe('ItchAuthService CSRF token extraction', function () {
         expect($service->getCsrfToken())->toBeNull();
     });
 });
-

@@ -17,7 +17,7 @@ beforeEach(function () {
     // Skip all tests in this file - they require actual itch.io credentials
     $this->markTestSkipped('Requires actual itch.io credentials - cannot test without external authentication');
 
-    $this->factory = new ItchHttpClientFactory();
+    $this->factory = new ItchHttpClientFactory;
 });
 
 describe('ItchHttpClientService request handling', function () {
@@ -208,11 +208,11 @@ describe('ItchHttpClientService error handling', function () {
         ]);
 
         $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack, 'cookies' => new CookieJar()]);
+        $client = new Client(['handler' => $handlerStack, 'cookies' => new CookieJar]);
 
         $factory = $this->createMock(ItchHttpClientFactory::class);
         $factory->method('createClient')->willReturn($client);
-        $factory->method('createCookieJar')->willReturn(new CookieJar());
+        $factory->method('createCookieJar')->willReturn(new CookieJar);
 
         $authService = $this->createMock(ItchAuthService::class);
         $authService->method('getClient')->willReturn($client);
@@ -251,4 +251,3 @@ describe('ItchHttpClientService exponential backoff', function () {
             ->and($endTime - $startTime)->toBeGreaterThan(0);
     });
 });
-

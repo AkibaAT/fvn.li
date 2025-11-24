@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use App\Models\VnList;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -111,4 +110,3 @@ describe('UserObserver edge cases', function () {
         expect(User::find($userId))->toBeNull();
     });
 });
-

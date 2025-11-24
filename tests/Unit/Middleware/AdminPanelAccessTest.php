@@ -11,7 +11,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->middleware = new AdminPanelAccess();
+    $this->middleware = new AdminPanelAccess;
     $this->adminUser = User::factory()->create(['is_admin' => true]);
     $this->regularUser = User::factory()->create(['is_admin' => false]);
 });
@@ -117,4 +117,3 @@ describe('edge cases', function () {
             ->toThrow(HttpException::class);
     });
 });
-

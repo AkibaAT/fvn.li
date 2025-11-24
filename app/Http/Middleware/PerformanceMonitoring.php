@@ -7,13 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class PerformanceMonitoring
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -83,7 +84,7 @@ class PerformanceMonitoring
                 'user_id' => $request->user()?->id,
                 'ip' => $request->ip(),
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Silently fail to prevent breaking the application
             Log::error('Failed to log slow request', [
                 'error' => $e->getMessage(),
@@ -117,7 +118,7 @@ class PerformanceMonitoring
                     'is_ajax' => $request->ajax(),
                     'user_id' => $request->user()?->id,
                 ]);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Silently fail to prevent breaking the application
                 // Log to default channel as fallback
                 Log::error('Failed to log performance metrics', [

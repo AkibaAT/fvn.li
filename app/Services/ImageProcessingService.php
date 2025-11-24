@@ -15,8 +15,6 @@ use Intervention\Image\ImageManager;
 
 class ImageProcessingService
 {
-    private readonly ImageManager $imageManager;
-
     private const SCREENSHOTS_PATH = 'screenshots';
     private const THUMBNAIL_PATH = 'thumbnails';
 
@@ -52,6 +50,8 @@ class ImageProcessingService
         'image/gif',
         'image/webp',
     ];
+
+    private readonly ImageManager $imageManager;
 
     public function __construct(
         private readonly Client $httpClient
@@ -184,20 +184,21 @@ class ImageProcessingService
      * Process all screenshots for a game
      * Downloads and creates optimized variants for all screenshots
      *
-     * @param Game $game The game to process screenshots for
-     * @param int $quality WebP quality (0-100)
-     * @param bool $force Force reprocessing even if already optimized
-     * @return void
+     * @param  Game  $game  The game to process screenshots for
+     * @param  int  $quality  WebP quality (0-100)
+     * @param  bool  $force  Force reprocessing even if already optimized
+     *
      * @throws Exception|GuzzleException
      */
     public function processGameScreenshots(Game $game, int $quality = 80, bool $force = false): void
     {
         if (empty($game->screenshots)) {
             Log::info('No screenshots to process', ['game_id' => $game->id]);
+
             return;
         }
 
-        echo "    [Images] Processing " . count($game->screenshots) . " screenshots\n";
+        echo '    [Images] Processing ' . count($game->screenshots) . " screenshots\n";
 
         $updatedScreenshots = [];
         $updatedOptimizedScreenshots = [];
@@ -220,11 +221,12 @@ class ImageProcessingService
 
                 // Skip if already optimized and not forcing
                 $existingOptimized = $game->optimized_screenshots[$index] ?? null;
-                if (!$force && isset($existingOptimized['optimized']) && !empty($existingOptimized['optimized'])) {
+                if (! $force && isset($existingOptimized['optimized']) && ! empty($existingOptimized['optimized'])) {
                     echo "    [Images] Screenshot already optimized, skipping\n";
                     $updatedScreenshots[] = $screenshot;
                     $updatedOptimizedScreenshots[] = $existingOptimized;
                     unlink($tempFile);
+
                     continue;
                 }
 
@@ -241,7 +243,7 @@ class ImageProcessingService
                 }
 
                 $mimeType = $imageInfo['mime'];
-                if (!in_array($mimeType, self::VALID_MIME_TYPES)) {
+                if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
                     throw new Exception("Unsupported image type: {$mimeType}");
                 }
 
@@ -259,7 +261,7 @@ class ImageProcessingService
 
                     $this->processImageVariant($tempFile, $variantPath, $config, $quality);
 
-                    if (!Storage::disk('public')->exists($variantPath)) {
+                    if (! Storage::disk('public')->exists($variantPath)) {
                         throw new Exception("Failed to create variant file: {$variantPath}");
                     }
 
@@ -306,10 +308,10 @@ class ImageProcessingService
      * Process thumbnail for a game
      * Downloads and creates optimized variants
      *
-     * @param Game $game The game to process thumbnail for
-     * @param int $quality WebP quality (0-100)
-     * @param bool $force Force reprocessing even if already optimized
-     * @return void
+     * @param  Game  $game  The game to process thumbnail for
+     * @param  int  $quality  WebP quality (0-100)
+     * @param  bool  $force  Force reprocessing even if already optimized
+     *
      * @throws Exception|GuzzleException
      */
     public function processGameThumbnail(Game $game, int $quality = 80, bool $force = false): void
@@ -317,19 +319,20 @@ class ImageProcessingService
         // Determine the source URL for the thumbnail
         $sourceUrl = $game->getEffectiveThumbnailUrl();
 
-        if (!$sourceUrl) {
+        if (! $sourceUrl) {
             throw new Exception('No thumbnail or screenshot available for processing');
         }
 
-        $isUsingScreenshotFallback = !$game->thumb_url && !empty($game->screenshots);
+        $isUsingScreenshotFallback = ! $game->thumb_url && ! empty($game->screenshots);
 
         if ($isUsingScreenshotFallback) {
             echo "    [Images] No thumbnail found, using first screenshot as fallback...\n";
         }
 
         // Skip if files exist and not forcing
-        if (!$force && $game->optimized_thumbnails) {
+        if (! $force && $game->optimized_thumbnails) {
             echo "    [Images] Thumbnails already exist, skipping\n";
+
             return;
         }
 
@@ -357,7 +360,7 @@ class ImageProcessingService
         $tempFile = tempnam(sys_get_temp_dir(), 'thumb_');
         file_put_contents($tempFile, $content);
 
-        if (!file_exists($tempFile) || filesize($tempFile) === 0) {
+        if (! file_exists($tempFile) || filesize($tempFile) === 0) {
             throw new Exception('Failed to save downloaded content');
         }
 
@@ -368,7 +371,7 @@ class ImageProcessingService
             }
 
             $mimeType = $imageInfo['mime'];
-            if (!in_array($mimeType, self::VALID_MIME_TYPES)) {
+            if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
                 throw new Exception("Invalid image mime type: {$mimeType}");
             }
 
@@ -394,7 +397,7 @@ class ImageProcessingService
 
                 $this->processImageVariant($tempFile, $variantPath, $config, $quality);
 
-                if (!Storage::disk('public')->exists($variantPath)) {
+                if (! Storage::disk('public')->exists($variantPath)) {
                     throw new Exception("Failed to create variant file: {$variantPath}");
                 }
 
@@ -424,6 +427,7 @@ class ImageProcessingService
     private function generateScreenshotFilename(Game $game, int $index, string $url, string $fileContent): string
     {
         $contentChecksum = substr(md5($fileContent), 0, 8);
+
         return sprintf(
             '%d_screenshot_%d_%s_%s',
             $game->id,
@@ -439,6 +443,7 @@ class ImageProcessingService
     private function generateThumbnailFilename(Game $game, string $fileContent, string $sourceUrl): string
     {
         $contentChecksum = substr(md5($fileContent), 0, 8);
+
         return sprintf(
             '%d_%s_%s',
             $game->id,

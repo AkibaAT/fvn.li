@@ -50,7 +50,7 @@ class FlareSolverrClient
         bool $useSession = true
     ): array {
         $payload = [
-            'cmd' => 'request.'.strtolower($method),
+            'cmd' => 'request.' . strtolower($method),
             'url' => $url,
             'maxTimeout' => $this->maxTimeout,
         ];
@@ -86,7 +86,7 @@ class FlareSolverrClient
         ]);
 
         try {
-            $response = $this->client->post($this->baseUrl.'/v1', [
+            $response = $this->client->post($this->baseUrl . '/v1', [
                 'json' => $payload,
                 'headers' => [
                     'Content-Type' => 'application/json',
@@ -168,7 +168,7 @@ class FlareSolverrClient
     /**
      * Create a new session in FlareSolverr
      *
-     * @param string|null $sessionId Optional session ID to use (prevents cross-talk between commands)
+     * @param  string|null  $sessionId  Optional session ID to use (prevents cross-talk between commands)
      * @return string Session ID
      *
      * @throws Exception
@@ -185,7 +185,7 @@ class FlareSolverrClient
                 $payload['session'] = $sessionId;
             }
 
-            $response = $this->client->post($this->baseUrl.'/v1', [
+            $response = $this->client->post($this->baseUrl . '/v1', [
                 'json' => $payload,
             ]);
 
@@ -213,7 +213,7 @@ class FlareSolverrClient
     public function listSessions(): array
     {
         try {
-            $response = $this->client->post($this->baseUrl.'/v1', [
+            $response = $this->client->post($this->baseUrl . '/v1', [
                 'json' => [
                     'cmd' => 'sessions.list',
                 ],
@@ -250,11 +250,12 @@ class FlareSolverrClient
             Log::debug('FlareSolverr session already destroyed or expired', [
                 'session_id' => $sessionId,
             ]);
+
             return;
         }
 
         try {
-            $this->client->post($this->baseUrl.'/v1', [
+            $this->client->post($this->baseUrl . '/v1', [
                 'json' => [
                     'cmd' => 'sessions.destroy',
                     'session' => $sessionId,
@@ -276,7 +277,7 @@ class FlareSolverrClient
     public function isAvailable(): bool
     {
         try {
-            $response = $this->client->get($this->baseUrl.'/health', [
+            $response = $this->client->get($this->baseUrl . '/health', [
                 'timeout' => 5,
             ]);
 
@@ -341,4 +342,3 @@ class FlareSolverrClient
         return false;
     }
 }
-

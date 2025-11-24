@@ -43,7 +43,7 @@ describe('subnet anonymization', function () {
 
     test('anonymizes IPv6 by zeroing last 64 bits', function () {
         $result = IpAnonymizationService::anonymizeBySubnet('2001:db8::1');
-        
+
         // The result should have the last 64 bits zeroed
         expect($result)->toContain('2001:db8');
     });
@@ -194,7 +194,7 @@ describe('edge cases and error handling', function () {
 
     test('handles invalid IP addresses gracefully', function () {
         $invalid = 'not-an-ip';
-        
+
         expect(IpAnonymizationService::anonymizeBySubnet($invalid))->toBe($invalid);
     });
 
@@ -210,7 +210,7 @@ describe('real-world IP addresses', function () {
     test('anonymizes common public IPs', function () {
         // Google DNS
         expect(IpAnonymizationService::anonymize('8.8.8.8', 'subnet'))->toBe('8.8.8.0');
-        
+
         // Cloudflare DNS
         expect(IpAnonymizationService::anonymize('1.1.1.1', 'subnet'))->toBe('1.1.1.0');
     });
@@ -223,4 +223,3 @@ describe('real-world IP addresses', function () {
             ->and($result)->toContain('2001:4860');
     });
 });
-

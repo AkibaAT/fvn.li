@@ -353,4 +353,3 @@ describe('edge cases and error handling', function () {
         expect($clickStat->ip_address)->toBe($firstHash);
     });
 });
-

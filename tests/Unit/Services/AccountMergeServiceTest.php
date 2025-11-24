@@ -16,8 +16,8 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     // Disable observers to have full control over test data
     User::unsetEventDispatcher();
-    
-    $this->service = new AccountMergeService();
+
+    $this->service = new AccountMergeService;
     $this->mergingUser = User::factory()->create(['name' => 'Merging User']);
     $this->otherUser = User::factory()->create(['name' => 'Other User']);
 });
@@ -257,7 +257,7 @@ describe('Account Merge Service', function () {
         // Create a scenario that will cause an error
         // Force a constraint violation by creating invalid data
         $game = Game::factory()->create();
-        
+
         $mergingList = $this->mergingUser->vnLists()->where('name', 'Currently Reading')->first();
         VnListEntry::factory()->create([
             'vn_list_id' => $mergingList->id,
@@ -328,4 +328,3 @@ describe('Account Merge Service', function () {
         expect($this->mergingUser->vnLists()->where('is_default', false)->count())->toBe(3);
     });
 });
-

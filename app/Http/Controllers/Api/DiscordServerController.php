@@ -6,10 +6,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\DiscordServer;
 use App\Models\DiscordServerConfig;
-use App\Models\GameDiscordSubscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class DiscordServerController
 {
@@ -133,4 +131,3 @@ class DiscordServerController
         ]);
     }
 }
-

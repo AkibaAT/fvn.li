@@ -39,4 +39,3 @@ class VnListEntryFactory extends Factory
         ]);
     }
 }
-

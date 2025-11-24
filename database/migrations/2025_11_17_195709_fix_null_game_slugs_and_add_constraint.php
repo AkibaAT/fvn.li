@@ -5,9 +5,6 @@ use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         // Create helper function for generating unique slugs
@@ -44,19 +41,16 @@ return new class extends Migration
         ");
 
         // Now fix all games with NULL slugs
-        DB::statement("
+        DB::statement('
             UPDATE games
             SET slug = generate_unique_slug(name, id)
             WHERE slug IS NULL AND name IS NOT NULL
-        ");
+        ');
 
         // Add the NOT NULL constraint now that all games have slugs
         DB::statement('ALTER TABLE games ALTER COLUMN slug SET NOT NULL');
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         // Remove the NOT NULL constraint

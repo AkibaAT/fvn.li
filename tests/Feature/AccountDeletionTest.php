@@ -96,7 +96,7 @@ describe('cascade deletion of user data', function () {
     test('deletes all VN lists and entries', function () {
         $game = Game::factory()->create();
         $list = VnList::factory()->for($this->user)->create();
-        
+
         VnListEntry::create([
             'vn_list_id' => $list->id,
             'game_id' => $game->id,
@@ -189,10 +189,10 @@ describe('cascade deletion of user data', function () {
 
     test('deletes multiple lists with all their entries', function () {
         $games = Game::factory()->count(5)->create();
-        
+
         for ($i = 0; $i < 3; $i++) {
             $list = VnList::factory()->for($this->user)->create();
-            
+
             foreach ($games as $index => $game) {
                 VnListEntry::create([
                     'vn_list_id' => $list->id,
@@ -346,7 +346,7 @@ describe('deletion transaction integrity', function () {
     test('deletion happens in transaction', function () {
         $game = Game::factory()->create();
         $list = VnList::factory()->for($this->user)->create();
-        
+
         VnListEntry::create([
             'vn_list_id' => $list->id,
             'game_id' => $game->id,
@@ -421,4 +421,3 @@ describe('edge cases', function () {
         $response->assertSessionHas('success');
     });
 });
-

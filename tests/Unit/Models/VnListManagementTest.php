@@ -302,4 +302,3 @@ describe('list relationships', function () {
         expect($this->user->vnLists)->toHaveCount(5);
     });
 });
-

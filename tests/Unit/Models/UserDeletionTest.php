@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 use App\Models\ChangeLog;
 use App\Models\ClickStat;
-use App\Models\Event;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationHistory;
 use App\Models\PushSubscription;
-use App\Models\Rater;
-use App\Models\Rating;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\UserGameProgress;
@@ -40,10 +37,10 @@ describe('user deletion', function () {
     test('cascades deletion to VN lists', function () {
         $user = User::factory()->create();
         $game = Game::factory()->create();
-        
+
         $list = VnList::factory()->for($user)->create(['name' => 'Test List']);
         $listId = $list->id;
-        
+
         VnListEntry::create([
             'vn_list_id' => $list->id,
             'game_id' => $game->id,
@@ -59,7 +56,7 @@ describe('user deletion', function () {
     test('cascades deletion to game progress', function () {
         $user = User::factory()->create();
         $game = Game::factory()->create();
-        
+
         $progress = UserGameProgress::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -74,7 +71,7 @@ describe('user deletion', function () {
 
     test('cascades deletion to social accounts', function () {
         $user = User::factory()->create();
-        
+
         $socialAccount = SocialAccount::create([
             'user_id' => $user->id,
             'provider_name' => 'itchio',
@@ -88,7 +85,7 @@ describe('user deletion', function () {
 
     test('cascades deletion to notification preferences', function () {
         $user = User::factory()->create();
-        
+
         $prefs = UserNotificationPreferences::create([
             'user_id' => $user->id,
             'discord_enabled' => true,
@@ -106,7 +103,7 @@ describe('user deletion', function () {
         $user = User::factory()->create();
         $game = Game::factory()->create();
         $version = GameVersion::factory()->for($game)->create();
-        
+
         $notification = NotificationHistory::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -122,7 +119,7 @@ describe('user deletion', function () {
 
     test('cascades deletion to push subscriptions', function () {
         $user = User::factory()->create();
-        
+
         $subscription = PushSubscription::create([
             'user_id' => $user->id,
             'endpoint' => 'https://example.com/push',
@@ -140,24 +137,24 @@ describe('user deletion', function () {
         $userId = $user->id;
         $game = Game::factory()->create();
         $version = GameVersion::factory()->for($game)->create();
-        
+
         // Create multiple types of related data
         VnList::factory()->for($user)->create(['name' => 'List 1']);
         VnList::factory()->for($user)->create(['name' => 'List 2']);
-        
+
         UserGameProgress::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
             'status' => 'reading',
             'receive_updates' => false,
         ]);
-        
+
         SocialAccount::create([
             'user_id' => $user->id,
             'provider_name' => 'itchio',
             'provider_id' => '12345',
         ]);
-        
+
         NotificationHistory::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -180,7 +177,7 @@ describe('GDPR-compliant deletion workflow', function () {
     test('anonymizes audit logs before deletion', function () {
         $user = User::factory()->create();
         $userId = $user->id;
-        
+
         // Create an audit log
         ChangeLog::create([
             'user_id' => $user->id,
@@ -204,7 +201,7 @@ describe('GDPR-compliant deletion workflow', function () {
         $user = User::factory()->create();
         $userId = $user->id;
         $game = Game::factory()->create();
-        
+
         // Create click statistics
         ClickStat::create([
             'user_id' => $user->id,
@@ -229,7 +226,7 @@ describe('GDPR-compliant deletion workflow', function () {
     test('handles foreign key constraints properly', function () {
         $user = User::factory()->create();
         $userId = $user->id;
-        
+
         // Create an addition request reviewed by this user
         DB::table('addition_requests')->insert([
             'game_id' => Game::factory()->create()->id,
@@ -240,7 +237,7 @@ describe('GDPR-compliant deletion workflow', function () {
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        
+
         // Create a game with custom page updated by this user
         DB::table('games')->where('id', Game::factory()->create()->id)->update([
             'custom_page_updated_by' => $user->id,
@@ -253,12 +250,12 @@ describe('GDPR-compliant deletion workflow', function () {
             DB::table('addition_requests')
                 ->where('reviewed_by', $user->id)
                 ->update(['reviewed_by' => 1]);
-            
+
             // Reset custom game pages
             DB::table('games')
                 ->where('custom_page_updated_by', $user->id)
                 ->update(['custom_page_updated_by' => null, 'has_custom_page' => false]);
-            
+
             $user->delete();
         });
 
@@ -268,4 +265,3 @@ describe('GDPR-compliant deletion workflow', function () {
             ->and(DB::table('games')->where('custom_page_updated_by', $userId)->exists())->toBeFalse();
     });
 });
-

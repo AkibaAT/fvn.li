@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use App\Services\HomePageCacheService;
 use App\Services\MeilisearchService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -41,9 +42,9 @@ class HomeController extends Controller
 
         // Use versioning for cache invalidation instead of time-based expiry
         // This ensures cache stays fresh indefinitely until games actually change
-        $teaserVersion = \App\Services\HomePageCacheService::getTeaserVersion();
+        $teaserVersion = HomePageCacheService::getTeaserVersion();
         $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
-        
+
         $teasers = Cache::rememberForever($cacheKey, function () use ($ignoredGameIds) {
             return [
                 'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),

@@ -17,14 +17,15 @@ class NewsSeeder extends Seeder
     {
         // Get the first admin user or create a system user
         $admin = User::where('is_admin', true)->first();
-        
-        if (!$admin) {
+
+        if (! $admin) {
             $admin = User::where('email', 'system+anonymized@fvn.li')->first();
         }
 
-        if (!$admin) {
+        if (! $admin) {
             // If no admin exists, skip seeding
             $this->command->warn('No admin user found. Skipping news seeding.');
+
             return;
         }
 
@@ -70,4 +71,3 @@ class NewsSeeder extends Seeder
         $this->command->info('News items seeded successfully!');
     }
 }
-

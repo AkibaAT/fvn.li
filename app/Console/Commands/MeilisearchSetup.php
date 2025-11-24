@@ -153,7 +153,7 @@ class MeilisearchSetup extends Command
 
             return true;
         } catch (Exception $e) {
-            $this->error('    ❌ Error setting up indexes: '.$e->getMessage());
+            $this->error('    ❌ Error setting up indexes: ' . $e->getMessage());
 
             return false;
         }
@@ -237,13 +237,13 @@ class MeilisearchSetup extends Command
             $bar->finish();
             $this->newLine();
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 $this->warn('    ⚠️  Some errors occurred:');
                 foreach (array_slice($errors, 0, 5) as $error) {
                     $this->line("      • {$error}");
                 }
                 if (count($errors) > 5) {
-                    $this->line("      • ... and " . (count($errors) - 5) . " more");
+                    $this->line('      • ... and ' . (count($errors) - 5) . ' more');
                 }
             }
 

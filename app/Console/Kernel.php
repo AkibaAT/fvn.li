@@ -23,6 +23,7 @@ use App\Console\Commands\QueueGameUpdateNotifications;
 use App\Console\Commands\RecalculateGameRatings;
 use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGames;
+use App\Console\Commands\RefreshSteamGames;
 use App\Console\Commands\UpdateWatchlist;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -50,6 +51,7 @@ class Kernel extends ConsoleKernel
         RecalculateGameRatings::class,
         RefreshFeedlessGames::class,
         RefreshGames::class,
+        RefreshSteamGames::class,
         UpdateWatchlist::class,
     ];
 
@@ -64,6 +66,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:refresh',
             ['--all', '--update-metadata', '--update-info'])->dailyAt('20:00')->withoutOverlapping();
         $schedule->command('games:refresh-feedless', ['--all'])->dailyAt('06:00')->withoutOverlapping();
+        $schedule->command('games:refresh-steam',
+            ['--all', '--update-data', '--update-reviews'])->dailyAt('22:00')->withoutOverlapping();
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details')->hourly()->withoutOverlapping();
         $schedule->command('fix:characters')->weekly()->sundays()->at('03:00')->withoutOverlapping();

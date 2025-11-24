@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\ChangeLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -307,4 +306,3 @@ describe('GDPR compliance edge cases', function () {
         expect($changes === null || $changes === [])->toBeTrue();
     });
 });
-

@@ -50,18 +50,6 @@ class DiscordServerConfig extends Model
     }
 
     /**
-     * Get default template for a format.
-     */
-    private function getDefaultTemplate(string $format): string
-    {
-        return match ($format) {
-            'compact' => "**{game_name}** has been updated!\n{game_url}",
-            'detailed' => "📢 **{game_name}** Update\n\n{game_description}\n\n⭐ Rating: {game_rating}\n🔗 {game_url}",
-            default => "**{game_name}** has been updated!\n{game_url}",
-        };
-    }
-
-    /**
      * Format a notification message.
      */
     public function formatNotification(Game $game, string $notificationType = 'update'): string
@@ -87,5 +75,16 @@ class DiscordServerConfig extends Model
     {
         return $this->notification_channel_id !== null;
     }
-}
 
+    /**
+     * Get default template for a format.
+     */
+    private function getDefaultTemplate(string $format): string
+    {
+        return match ($format) {
+            'compact' => "**{game_name}** has been updated!\n{game_url}",
+            'detailed' => "📢 **{game_name}** Update\n\n{game_description}\n\n⭐ Rating: {game_rating}\n🔗 {game_url}",
+            default => "**{game_name}** has been updated!\n{game_url}",
+        };
+    }
+}

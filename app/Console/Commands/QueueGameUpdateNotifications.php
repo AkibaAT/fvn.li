@@ -345,6 +345,6 @@ class QueueGameUpdateNotifications extends Command
         $this->line("  Games Processed: {$gamesProcessed}");
         $this->line("  Users Notified: {$usersNotified}");
         $this->line("  Notifications Queued: {$notificationsQueued}");
-        $this->line("  Early Exit: " . ($earlyExit ? 'Yes' : 'No'));
+        $this->line('  Early Exit: ' . ($earlyExit ? 'Yes' : 'No'));
     }
 }

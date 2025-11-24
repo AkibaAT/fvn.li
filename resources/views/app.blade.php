@@ -16,7 +16,7 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}">
 
     <!-- Robots meta tag for non-production environments -->
-    @if(!app()->environment('production'))
+    @if (!app()->environment('production'))
         <meta name="robots" content="noindex, nofollow">
     @endif
 

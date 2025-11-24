@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Laravel\Scout\Searchable;
 use Throwable;
 
@@ -150,6 +151,40 @@ class Game extends Model
     ];
 
     /**
+     * Boot the model - add validation for platform field
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Generate slug automatically if not set
+        static::saving(function (self $game) {
+            // Generate slug if it's null or empty
+            if (empty($game->slug) && ! empty($game->name)) {
+                $game->slug = $game->generateUniqueSlug($game->name);
+            }
+
+            // Validate that platform is set before saving
+            if ($game->isDirty('platform') && $game->platform === null) {
+                throw new InvalidArgumentException(
+                    'Game platform must be explicitly set. Cannot save game without a platform. ' .
+                    "Use one of: 'itch_io', 'steam', 'other'"
+                );
+            }
+
+            // If platform is being set for the first time (new game), ensure it's valid
+            if ($game->wasRecentlyCreated && $game->platform === null) {
+                throw new InvalidArgumentException(
+                    'Game platform must be explicitly set when creating a new game. ' .
+                    "Use one of: 'itch_io', 'steam', 'other'"
+                );
+            }
+
+            return true;
+        });
+    }
+
+    /**
      * Merge screenshots with optimized_screenshots for backwards compatibility
      *
      * This accessor ensures that when screenshots are accessed, they include the optimized
@@ -185,40 +220,6 @@ class Game extends Model
     }
 
     /**
-     * Boot the model - add validation for platform field
-     */
-    protected static function boot(): void
-    {
-        parent::boot();
-
-        // Generate slug automatically if not set
-        static::saving(function (self $game) {
-            // Generate slug if it's null or empty
-            if (empty($game->slug) && !empty($game->name)) {
-                $game->slug = $game->generateUniqueSlug($game->name);
-            }
-
-            // Validate that platform is set before saving
-            if ($game->isDirty('platform') && $game->platform === null) {
-                throw new \InvalidArgumentException(
-                    "Game platform must be explicitly set. Cannot save game without a platform. " .
-                    "Use one of: 'itch_io', 'steam', 'other'"
-                );
-            }
-
-            // If platform is being set for the first time (new game), ensure it's valid
-            if ($game->wasRecentlyCreated && $game->platform === null) {
-                throw new \InvalidArgumentException(
-                    "Game platform must be explicitly set when creating a new game. " .
-                    "Use one of: 'itch_io', 'steam', 'other'"
-                );
-            }
-
-            return true;
-        });
-    }
-
-    /**
      * Generate a unique slug from a name
      */
     public function generateUniqueSlug(string $name): string
@@ -239,20 +240,6 @@ class Game extends Model
         }
 
         return $slug;
-    }
-
-    /**
-     * Get the attributes that should be converted to arrays for database storage.
-     * Excludes temporary in-memory properties that are not database columns.
-     */
-    protected function getArrayableAttributes(): array
-    {
-        $attributes = parent::getArrayableAttributes();
-
-        // Remove temporary properties that should not be persisted to database
-        unset($attributes['pendingGameJamId'], $attributes['pendingTagIds']);
-
-        return $attributes;
     }
 
     /**
@@ -351,7 +338,7 @@ class Game extends Model
      */
     public function scopeByUrlForPlatform($query, string $url, string $platform)
     {
-        return $query->whereRaw("url->>'$platform' = ?", [$url]);
+        return $query->whereRaw("url->>'{$platform}' = ?", [$url]);
     }
 
     /**
@@ -433,6 +420,7 @@ class Game extends Model
     public function getUrlForPlatform(string $platform): ?string
     {
         $urls = $this->url ?? [];
+
         return $urls[$platform] ?? null;
     }
 
@@ -442,16 +430,6 @@ class Game extends Model
     public function getPrimaryUrl(): ?string
     {
         return $this->platform ? $this->getUrlForPlatform($this->platform) : null;
-    }
-
-    /**
-     * Accessor for primary_url attribute (for frontend serialization)
-     */
-    protected function primaryUrl(): Attribute
-    {
-        return Attribute::make(
-            get: fn () => $this->getPrimaryUrl()
-        );
     }
 
     /**
@@ -478,7 +456,8 @@ class Game extends Model
     public function hasUrlForPlatform(string $platform): bool
     {
         $urls = $this->url ?? [];
-        return isset($urls[$platform]) && !empty($urls[$platform]);
+
+        return isset($urls[$platform]) && ! empty($urls[$platform]);
     }
 
     // ========== Content Type Scopes ==========
@@ -971,6 +950,30 @@ class Game extends Model
     {
         // Only index visible games with names
         return $this->is_visible && ! empty(trim($this->name));
+    }
+
+    /**
+     * Get the attributes that should be converted to arrays for database storage.
+     * Excludes temporary in-memory properties that are not database columns.
+     */
+    protected function getArrayableAttributes(): array
+    {
+        $attributes = parent::getArrayableAttributes();
+
+        // Remove temporary properties that should not be persisted to database
+        unset($attributes['pendingGameJamId'], $attributes['pendingTagIds']);
+
+        return $attributes;
+    }
+
+    /**
+     * Accessor for primary_url attribute (for frontend serialization)
+     */
+    protected function primaryUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->getPrimaryUrl()
+        );
     }
 
     protected function effectiveName(): Attribute

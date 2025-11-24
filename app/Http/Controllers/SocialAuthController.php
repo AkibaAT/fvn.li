@@ -137,7 +137,7 @@ class SocialAuthController extends Controller
                         $otherUser = $existingSocialAccount->user;
 
                         // Use the AccountMergeService to handle the merge
-                        $mergeService = new AccountMergeService();
+                        $mergeService = new AccountMergeService;
                         $mergeService->mergeAccounts($mergingUser, $otherUser);
 
                         return redirect()->route('dashboard')

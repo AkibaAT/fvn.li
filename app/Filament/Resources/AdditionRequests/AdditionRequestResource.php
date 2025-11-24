@@ -104,6 +104,7 @@ class AdditionRequestResource extends Resource
 
                         $platformUrl = $record->game->getPrimaryUrl();
                         $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
+
                         return $state . ' (' . $urlDisplay . ')';
                     })
                     ->searchable()
@@ -168,24 +169,22 @@ class AdditionRequestResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Approve & Create Game')
-                    ->modalDescription(fn (AdditionRequest $record): string =>
-                        "This will approve the request and create a new game entry, then sync data from {$record->platform}. This may take a few minutes."
+                    ->modalDescription(fn (AdditionRequest $record): string => "This will approve the request and create a new game entry, then sync data from {$record->platform}. This may take a few minutes."
                     )
                     ->modalSubmitActionLabel('Approve & Create')
-                    ->visible(fn (AdditionRequest $record): bool =>
-                        $record->isPending() &&
-                        !$record->game &&
+                    ->visible(fn (AdditionRequest $record): bool => $record->isPending() &&
+                        ! $record->game &&
                         ($record->platform === 'itch_io' || $record->platform === 'steam')
                     )
                     ->action(function (AdditionRequest $record): void {
                         $user = Auth::user();
-                        if (!($user instanceof User)) {
+                        if (! ($user instanceof User)) {
                             return;
                         }
 
                         try {
                             // Create the game
-                            $game = new Game();
+                            $game = new Game;
                             $game->platform = $record->platform;
                             $game->setUrlForPlatform($record->platform, $record->game_url);
                             $game->name = 'Syncing...'; // Temporary name
@@ -265,23 +264,22 @@ class AdditionRequestResource extends Resource
                     ->color('info')
                     ->requiresConfirmation()
                     ->modalHeading('Sync Game Data')
-                    ->modalDescription(fn (AdditionRequest $record): string =>
-                        $record->game
+                    ->modalDescription(fn (AdditionRequest $record): string => $record->game
                             ? "This will fetch the latest data from {$record->game->getPlatformName()} for \"{$record->game->name}\". This may take a few minutes."
-                            : "No game linked to this request."
+                            : 'No game linked to this request.'
                     )
                     ->modalSubmitActionLabel('Sync Now')
-                    ->visible(fn (AdditionRequest $record): bool =>
-                        $record->game &&
+                    ->visible(fn (AdditionRequest $record): bool => $record->game &&
                         ($record->game->platform === 'itch_io' || $record->game->platform === 'steam')
                     )
                     ->action(function (AdditionRequest $record): void {
-                        if (!$record->game) {
+                        if (! $record->game) {
                             Notification::make()
                                 ->title('No game linked')
                                 ->body('This request does not have a linked game.')
                                 ->warning()
                                 ->send();
+
                             return;
                         }
 
@@ -377,6 +375,7 @@ class AdditionRequestResource extends Resource
                             ->getOptionLabelFromRecordUsing(function (Game $record): string {
                                 $platformUrl = $record->getPrimaryUrl();
                                 $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
+
                                 return $record->name . ' (' . $urlDisplay . ')';
                             })
                             ->searchable(['name'])

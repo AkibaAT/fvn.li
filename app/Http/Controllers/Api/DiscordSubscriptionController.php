@@ -35,9 +35,10 @@ class DiscordSubscriptionController extends Controller
 
         if ($existing) {
             // Reactivate if inactive
-            if (!$existing->is_active) {
+            if (! $existing->is_active) {
                 $existing->update(['is_active' => true]);
             }
+
             return response()->json([
                 'message' => 'Already subscribed to this game',
                 'subscription' => $existing,
@@ -170,6 +171,7 @@ class DiscordSubscriptionController extends Controller
 
             if ($existing) {
                 $skipped++;
+
                 continue;
             }
 
@@ -241,7 +243,7 @@ class DiscordSubscriptionController extends Controller
 
         $updates = array_filter($validated, fn ($value) => $value !== null);
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             // If content_type is being updated, update it on the game model too
             if (isset($updates['content_type'])) {
                 $game->update(['content_type' => $updates['content_type']]);
@@ -305,4 +307,3 @@ class DiscordSubscriptionController extends Controller
         ]);
     }
 }
-

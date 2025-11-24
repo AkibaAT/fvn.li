@@ -46,4 +46,3 @@ class DiscordServerTag extends Model
         return $query->where('is_subscribed', false);
     }
 }
-

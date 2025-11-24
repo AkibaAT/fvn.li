@@ -189,122 +189,122 @@ readonly class GameStatsService
                 ? $defaultLanguage
                     : $this->languageMappingService->resolveLanguageCode($langKey, $game);
 
-                if (! $isoCode) {
-                    Log::warning("Skipping language {$langKey} - could not determine ISO code");
+            if (! $isoCode) {
+                Log::warning("Skipping language {$langKey} - could not determine ISO code");
 
-                    continue;
-                }
-
-                // Add to the list of found languages
-                $foundLanguages[] = $isoCode;
-
-                // Upsert language stats record
-                VersionLanguageStats::updateOrCreate(
-                    [
-                        'game_version_id' => $version->id,
-                        'iso_code' => $isoCode,
-                    ],
-                    [
-                        'blocks' => $langData['blocks'] ?? null,
-                        'words' => $langData['words'] ?? null,
-                        'menus' => $langData['menus'] ?? null,
-                        'options' => $langData['options'] ?? null,
-                    ]
-                );
-
-                // Process character stats if available
-                if (isset($langData['characters'])) {
-                    foreach ($langData['characters'] as $charId => $charData) {
-                        // Get or create character record
-                        $character = Character::firstOrNew([
-                            'game_id' => $version->game_id,
-                            'character_id' => $charId,
-                        ]);
-
-                        // Update display names
-                        $displayNames = $character->exists ? $character->display_names : [];
-                        $displayNames[$isoCode] = $charData['display_name'] ?? $charId;
-                        $character->display_names = $displayNames;
-                        $character->save();
-
-                        // Update version tracking
-                        echo "    [Stats] Checking first_seen for {$charId}\n";
-                        if (! $character->first_seen_in_version_id ||
-                            $version->published_at < $character->firstSeenVersion->published_at) {
-                            $character->first_seen_in_version_id = $version->id;
-                            $character->save();
-                        }
-                        echo "    [Stats] Checking last_seen for {$charId}\n";
-                        if (! $character->last_seen_in_version_id ||
-                            $version->published_at > $character->lastSeenVersion->published_at) {
-                            $character->last_seen_in_version_id = $version->id;
-                            $character->save();
-                        }
-                        echo "    [Stats] Character {$charId} processed\n";
-
-                        // Store JSON stats for later comparison with calculated stats
-                        // We'll use our centralized calculation after dialogue import
-                        // but want to compare with JSON values for discrepancy reporting
-                    }
-                }
+                continue;
             }
 
-            // Create essential characters with all found languages before processing dialogue lines
-            echo "    [Stats] Creating essential characters\n";
-            $this->essentialCharacterService->createEssentialCharactersWithLanguages(
-                $version->game_id,
-                $foundLanguages,
-                $defaultLanguage
+            // Add to the list of found languages
+            $foundLanguages[] = $isoCode;
+
+            // Upsert language stats record
+            VersionLanguageStats::updateOrCreate(
+                [
+                    'game_version_id' => $version->id,
+                    'iso_code' => $isoCode,
+                ],
+                [
+                    'blocks' => $langData['blocks'] ?? null,
+                    'words' => $langData['words'] ?? null,
+                    'menus' => $langData['menus'] ?? null,
+                    'options' => $langData['options'] ?? null,
+                ]
             );
-            echo "    [Stats] Essential characters created\n";
 
-            // Update supported languages for this version
-            // First, add all languages found in the stats
-            echo "    [Stats] Adding supported languages\n";
-            foreach ($foundLanguages as $isoCode) {
-                if (! str_starts_with($isoCode, 'q')) {
-                    $version->addSupportedLanguage($isoCode);
+            // Process character stats if available
+            if (isset($langData['characters'])) {
+                foreach ($langData['characters'] as $charId => $charData) {
+                    // Get or create character record
+                    $character = Character::firstOrNew([
+                        'game_id' => $version->game_id,
+                        'character_id' => $charId,
+                    ]);
+
+                    // Update display names
+                    $displayNames = $character->exists ? $character->display_names : [];
+                    $displayNames[$isoCode] = $charData['display_name'] ?? $charId;
+                    $character->display_names = $displayNames;
+                    $character->save();
+
+                    // Update version tracking
+                    echo "    [Stats] Checking first_seen for {$charId}\n";
+                    if (! $character->first_seen_in_version_id ||
+                        $version->published_at < $character->firstSeenVersion->published_at) {
+                        $character->first_seen_in_version_id = $version->id;
+                        $character->save();
+                    }
+                    echo "    [Stats] Checking last_seen for {$charId}\n";
+                    if (! $character->last_seen_in_version_id ||
+                        $version->published_at > $character->lastSeenVersion->published_at) {
+                        $character->last_seen_in_version_id = $version->id;
+                        $character->save();
+                    }
+                    echo "    [Stats] Character {$charId} processed\n";
+
+                    // Store JSON stats for later comparison with calculated stats
+                    // We'll use our centralized calculation after dialogue import
+                    // but want to compare with JSON values for discrepancy reporting
                 }
             }
-            echo "    [Stats] Supported languages added\n";
+        }
 
-            // Find the previous version to copy language availability settings from
-            $previousVersion = GameVersion::where('game_id', $version->game_id)
-                ->where('id', '!=', $version->id)
-                ->whereHas('supportedLanguages', function ($query) {
-                    $query->where('is_available', false);
-                })
-                ->latest('published_at')
-                ->first();
+        // Create essential characters with all found languages before processing dialogue lines
+        echo "    [Stats] Creating essential characters\n";
+        $this->essentialCharacterService->createEssentialCharactersWithLanguages(
+            $version->game_id,
+            $foundLanguages,
+            $defaultLanguage
+        );
+        echo "    [Stats] Essential characters created\n";
 
-            // Copy language availability settings from previous version if it exists
-            if ($previousVersion) {
-                VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $version->id);
+        // Update supported languages for this version
+        // First, add all languages found in the stats
+        echo "    [Stats] Adding supported languages\n";
+        foreach ($foundLanguages as $isoCode) {
+            if (! str_starts_with($isoCode, 'q')) {
+                $version->addSupportedLanguage($isoCode);
             }
+        }
+        echo "    [Stats] Supported languages added\n";
 
-            // Save file statistics
-            if (isset($stats['file_statistics'])) {
-                echo "    [Stats] Saving file statistics\n";
-                $version->saveFileStats($stats['file_statistics']);
-                echo "    [Stats] File statistics saved\n";
-            }
+        // Find the previous version to copy language availability settings from
+        $previousVersion = GameVersion::where('game_id', $version->game_id)
+            ->where('id', '!=', $version->id)
+            ->whereHas('supportedLanguages', function ($query) {
+                $query->where('is_available', false);
+            })
+            ->latest('published_at')
+            ->first();
 
-            // Process dialogue lines
-            if (isset($stats['dialogue_lines'])) {
-                echo "    [Stats] Saving dialogue lines\n";
-                $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game, $foundLanguages);
-                echo "    [Stats] Dialogue lines saved\n";
+        // Copy language availability settings from previous version if it exists
+        if ($previousVersion) {
+            VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $version->id);
+        }
 
-                // Apply special character assignment fixes after importing dialogue lines
-                echo "    [Stats] Applying character assignment fixes\n";
-                $this->applySpecialCharacterAssignments($version);
-                echo "    [Stats] Character assignments fixed\n";
+        // Save file statistics
+        if (isset($stats['file_statistics'])) {
+            echo "    [Stats] Saving file statistics\n";
+            $version->saveFileStats($stats['file_statistics']);
+            echo "    [Stats] File statistics saved\n";
+        }
 
-                // Calculate character stats from the imported dialogue lines and compare with JSON
-                echo "    [Stats] Calculating stats and checking discrepancies\n";
-                $this->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
-                echo "    [Stats] Stats calculated\n";
-            }
+        // Process dialogue lines
+        if (isset($stats['dialogue_lines'])) {
+            echo "    [Stats] Saving dialogue lines\n";
+            $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game, $foundLanguages);
+            echo "    [Stats] Dialogue lines saved\n";
+
+            // Apply special character assignment fixes after importing dialogue lines
+            echo "    [Stats] Applying character assignment fixes\n";
+            $this->applySpecialCharacterAssignments($version);
+            echo "    [Stats] Character assignments fixed\n";
+
+            // Calculate character stats from the imported dialogue lines and compare with JSON
+            echo "    [Stats] Calculating stats and checking discrepancies\n";
+            $this->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
+            echo "    [Stats] Stats calculated\n";
+        }
 
         echo "    [Stats] Version stats processing complete\n";
     }
@@ -356,7 +356,7 @@ readonly class GameStatsService
             // Process in chunks to avoid hitting PostgreSQL's parameter limit
             echo "    [Dialogue] Processing {$totalLines} lines for language {$isoCode}\n";
             foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
-                echo "    [Dialogue] Processing chunk " . ($chunkIndex + 1) . "\n";
+                echo '    [Dialogue] Processing chunk ' . ($chunkIndex + 1) . "\n";
                 // First, collect unique texts for this chunk
                 $uniqueTexts = [];
 
@@ -387,14 +387,14 @@ readonly class GameStatsService
                         'updated_at' => $now,
                     ];
                 }
-                echo "    [Dialogue] Collected " . count($uniqueTexts) . " unique texts\n";
+                echo '    [Dialogue] Collected ' . count($uniqueTexts) . " unique texts\n";
 
                 // Create unique texts (no search indexing needed - UniqueDialogueText is not searchable)
                 // Use bulk upsert for performance instead of individual firstOrCreate() calls
                 echo "    [Dialogue] Bulk inserting unique dialogue texts...\n";
 
                 // PostgreSQL upsert - insert all at once, ignore conflicts
-                if (!empty($uniqueTexts)) {
+                if (! empty($uniqueTexts)) {
                     DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
                 }
                 echo "    [Dialogue] Bulk insert completed\n";
@@ -410,7 +410,7 @@ readonly class GameStatsService
                 foreach ($texts as $text) {
                     $textIdMapping[$text->text_hash] = $text->id;
                 }
-                echo "    [Dialogue] Mapped " . count($textIdMapping) . " text IDs\n";
+                echo '    [Dialogue] Mapped ' . count($textIdMapping) . " text IDs\n";
 
                 // Now process dialogue lines for this chunk
                 echo "    [Dialogue] Building dialogue batch...\n";
@@ -474,11 +474,11 @@ readonly class GameStatsService
                     $processedLines++;
                 }
 
-                echo "    [Dialogue] Dialogue batch built (" . count($dialogueBatch) . " lines)\n";
+                echo '    [Dialogue] Dialogue batch built (' . count($dialogueBatch) . " lines)\n";
 
                 // Bulk insert dialogue lines for performance (skip observers during import)
                 // We'll update the search index once at the end instead of per-line
-                if (!empty($dialogueBatch)) {
+                if (! empty($dialogueBatch)) {
                     echo "    [Dialogue] Inserting batch into database...\n";
                     DB::table('version_dialogue_lines')->insert($dialogueBatch);
                     echo "    [Dialogue] Batch inserted\n";

@@ -11,4 +11,3 @@ class CreateNews extends CreateRecord
 {
     protected static string $resource = NewsResource::class;
 }
-

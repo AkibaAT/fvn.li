@@ -74,4 +74,3 @@ class DiscordServerMember extends Model
         return $query->whereNull('user_id');
     }
 }
-

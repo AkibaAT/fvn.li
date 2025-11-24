@@ -147,4 +147,3 @@ class DiscordServer extends Model
         return $this->activeTagSubscriptions()->count();
     }
 }
-

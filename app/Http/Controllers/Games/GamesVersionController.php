@@ -58,9 +58,10 @@ class GamesVersionController extends Controller
         // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors
         $versions->getCollection()->transform(function ($version) {
             $version->supportedLanguages = $version->supportedLanguages
-                ->filter(fn ($sl) => $sl->language !== null && !str_starts_with($sl->iso_code, 'q'));
+                ->filter(fn ($sl) => $sl->language !== null && ! str_starts_with($sl->iso_code, 'q'));
             $version->languageStats = $version->languageStats
-                ->filter(fn ($ls) => $ls->language !== null && !str_starts_with($ls->iso_code, 'q'));
+                ->filter(fn ($ls) => $ls->language !== null && ! str_starts_with($ls->iso_code, 'q'));
+
             return $version;
         });
 
@@ -83,7 +84,7 @@ class GamesVersionController extends Controller
             ->with(['character', 'language'])
             ->orderBy('words', 'desc')
             ->get()
-            ->filter(fn ($stat) => $stat->language !== null && !str_starts_with($stat->iso_code, 'q'));
+            ->filter(fn ($stat) => $stat->language !== null && ! str_starts_with($stat->iso_code, 'q'));
 
         // Group by language
         $groupedByLanguage = $characterStats->groupBy('iso_code');
@@ -96,7 +97,7 @@ class GamesVersionController extends Controller
             $characterId = $stat->character_id;
 
             // Get the character's display name in English (or fallback to character_id)
-            if (!isset($characterIdToName[$characterId])) {
+            if (! isset($characterIdToName[$characterId])) {
                 $characterIdToName[$characterId] = $stat->character->getDisplayName('eng')
                     ?? $stat->character->character_id
                     ?? 'Unknown';
@@ -114,6 +115,7 @@ class GamesVersionController extends Controller
             if ($language === null) {
                 return null;
             }
+
             return [
                 'id' => $isoCode,
                 'flag' => $language->flag_code,
@@ -130,7 +132,7 @@ class GamesVersionController extends Controller
             $characterId = $stat->character_id;
             $characterName = $characterIdToName[$characterId];
             $isoCode = $stat->iso_code;
-            if (!isset($wordCounts[$characterName])) {
+            if (! isset($wordCounts[$characterName])) {
                 $wordCounts[$characterName] = [];
             }
             $wordCounts[$characterName][$isoCode] = $stat->words;
@@ -215,11 +217,11 @@ class GamesVersionController extends Controller
         $toVersion = GameVersion::find($toVersionId);
 
         if (! $fromVersion || ! $toVersion) {
-            throw new \Exception('Versions not found');
+            throw new Exception('Versions not found');
         }
 
         if ($fromVersion->game_id !== $game->id || $toVersion->game_id !== $game->id) {
-            throw new \Exception('Versions do not belong to the specified game');
+            throw new Exception('Versions do not belong to the specified game');
         }
 
         if ($fromVersion->published_at > $toVersion->published_at) {
@@ -251,8 +253,8 @@ class GamesVersionController extends Controller
             ->get();
 
         // Filter out placeholder 'q' codes and stats with null language relationships before processing
-        $fromStats = $fromStats->filter(fn ($stat) => $stat->language !== null && !str_starts_with($stat->iso_code, 'q'));
-        $toStats = $toStats->filter(fn ($stat) => $stat->language !== null && !str_starts_with($stat->iso_code, 'q'));
+        $fromStats = $fromStats->filter(fn ($stat) => $stat->language !== null && ! str_starts_with($stat->iso_code, 'q'));
+        $toStats = $toStats->filter(fn ($stat) => $stat->language !== null && ! str_starts_with($stat->iso_code, 'q'));
 
         $fromLanguages = $fromStats->pluck('language.id')->unique();
         $toLanguages = $toStats->pluck('language.id')->unique();

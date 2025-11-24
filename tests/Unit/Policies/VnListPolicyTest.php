@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->policy = new VnListPolicy();
+    $this->policy = new VnListPolicy;
     $this->owner = User::factory()->create();
     $this->otherUser = User::factory()->create();
 });
@@ -146,4 +146,3 @@ describe('edge cases', function () {
         expect($this->policy->delete($this->owner, $publicDefaultList))->toBeFalse();
     });
 });
-

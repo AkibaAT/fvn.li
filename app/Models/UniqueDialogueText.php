@@ -13,6 +13,11 @@ class UniqueDialogueText extends Model
 {
     use HasFactory;
 
+    /**
+     * Temporary storage for Meilisearch metadata.
+     */
+    public ?array $searchMetadata = null;
+
     protected $fillable = [
         'text_hash',
         'text_content',
@@ -23,11 +28,6 @@ class UniqueDialogueText extends Model
      * These are populated from Meilisearch metadata when available.
      */
     protected $appends = [];
-
-    /**
-     * Temporary storage for Meilisearch metadata.
-     */
-    public ?array $searchMetadata = null;
 
     /**
      * Get all dialogue lines using this text.
@@ -68,32 +68,6 @@ class UniqueDialogueText extends Model
         );
 
         return $highlighted->highlighted;
-    }
-
-    /**
-     * Get the tsvector column name for the given language.
-     */
-    protected function getTsvectorColumnForLanguage(?string $language = null): string
-    {
-        if ($language && in_array($language, ['japanese', 'spanish', 'french', 'german'])) {
-            return "search_vector_{$language}";
-        }
-
-        return 'search_vector';
-    }
-
-    /**
-     * Get the PostgreSQL language configuration name.
-     */
-    protected function getLanguageConfig(?string $language = null): string
-    {
-        return match ($language) {
-            'japanese' => 'japanese',
-            'spanish' => 'spanish',
-            'french' => 'french',
-            'german' => 'german',
-            default => 'english'
-        };
     }
 
     // Meilisearch indexing removed - we only index DialogueLine, not UniqueDialogueText
@@ -140,5 +114,31 @@ class UniqueDialogueText extends Model
     public function getLanguagesAttribute($value)
     {
         return $this->searchMetadata['languages'] ?? $value ?? null;
+    }
+
+    /**
+     * Get the tsvector column name for the given language.
+     */
+    protected function getTsvectorColumnForLanguage(?string $language = null): string
+    {
+        if ($language && in_array($language, ['japanese', 'spanish', 'french', 'german'])) {
+            return "search_vector_{$language}";
+        }
+
+        return 'search_vector';
+    }
+
+    /**
+     * Get the PostgreSQL language configuration name.
+     */
+    protected function getLanguageConfig(?string $language = null): string
+    {
+        return match ($language) {
+            'japanese' => 'japanese',
+            'spanish' => 'spanish',
+            'french' => 'french',
+            'german' => 'german',
+            default => 'english'
+        };
     }
 }

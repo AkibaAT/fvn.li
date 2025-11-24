@@ -142,4 +142,3 @@ class UserPreferencesController extends Controller
         ]);
     }
 }
-

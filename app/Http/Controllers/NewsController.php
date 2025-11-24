@@ -23,6 +23,7 @@ class NewsController extends Controller
         // Add excerpt to each news item
         $news->getCollection()->transform(function ($item) {
             $item->excerpt = $this->generateExcerpt($item->content, 200);
+
             return $item;
         });
 
@@ -42,47 +43,12 @@ class NewsController extends Controller
     }
 
     /**
-     * Generate a plain text excerpt from HTML content.
-     */
-    private function generateExcerpt(string $html, int $length = 200): string
-    {
-        // Add spacing after block-level elements before stripping tags
-        $html = preg_replace('/<\/(p|div|h[1-6]|li|blockquote|pre)>/i', '$0 ', $html);
-
-        // Add spacing after br tags
-        $html = preg_replace('/<br\s*\/?>/i', ' ', $html);
-
-        // Strip HTML tags
-        $text = strip_tags($html);
-
-        // Decode HTML entities
-        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        // Normalize whitespace (collapse multiple spaces into one)
-        $text = preg_replace('/\s+/', ' ', $text);
-        $text = trim($text);
-
-        // Truncate to length
-        if (mb_strlen($text) > $length) {
-            $text = mb_substr($text, 0, $length);
-            // Try to break at a word boundary
-            $lastSpace = mb_strrpos($text, ' ');
-            if ($lastSpace !== false && $lastSpace > $length * 0.8) {
-                $text = mb_substr($text, 0, $lastSpace);
-            }
-            $text .= '...';
-        }
-
-        return $text;
-    }
-
-    /**
      * Display a specific news item.
      */
     public function show(News $news): Response
     {
         // Only show published news to non-admin users
-        if (!$news->is_published && (!auth()->check() || !auth()->user()?->is_admin)) {
+        if (! $news->is_published && (! auth()->check() || ! auth()->user()?->is_admin)) {
             abort(404);
         }
 
@@ -138,5 +104,39 @@ class NewsController extends Controller
             'metaTags' => $metaTags,
         ]);
     }
-}
 
+    /**
+     * Generate a plain text excerpt from HTML content.
+     */
+    private function generateExcerpt(string $html, int $length = 200): string
+    {
+        // Add spacing after block-level elements before stripping tags
+        $html = preg_replace('/<\/(p|div|h[1-6]|li|blockquote|pre)>/i', '$0 ', $html);
+
+        // Add spacing after br tags
+        $html = preg_replace('/<br\s*\/?>/i', ' ', $html);
+
+        // Strip HTML tags
+        $text = strip_tags($html);
+
+        // Decode HTML entities
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Normalize whitespace (collapse multiple spaces into one)
+        $text = preg_replace('/\s+/', ' ', $text);
+        $text = trim($text);
+
+        // Truncate to length
+        if (mb_strlen($text) > $length) {
+            $text = mb_substr($text, 0, $length);
+            // Try to break at a word boundary
+            $lastSpace = mb_strrpos($text, ' ');
+            if ($lastSpace !== false && $lastSpace > $length * 0.8) {
+                $text = mb_substr($text, 0, $lastSpace);
+            }
+            $text .= '...';
+        }
+
+        return $text;
+    }
+}

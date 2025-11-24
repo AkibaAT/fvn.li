@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class GameContentController extends Controller
 {
@@ -259,12 +260,12 @@ class GameContentController extends Controller
             $editorPath = "editor/{$gameId}";
             $storage = Storage::disk('public');
 
-            if (!$storage->exists($editorPath)) {
+            if (! $storage->exists($editorPath)) {
                 return 0; // No images to clean up
             }
 
             $allFiles = $storage->allFiles($editorPath);
-            $imageFiles = array_filter($allFiles, function($file) {
+            $imageFiles = array_filter($allFiles, function ($file) {
                 return in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
             });
 
@@ -281,14 +282,14 @@ class GameContentController extends Controller
 
             // Delete unused files
             foreach ($imageFiles as $filePath) {
-                if (!in_array($filePath, $usedPaths)) {
+                if (! in_array($filePath, $usedPaths)) {
                     $storage->delete($filePath);
                     $deletedCount++;
 
                     Log::info('Deleted unused image', [
                         'game_id' => $gameId,
                         'file_path' => $filePath,
-                        'reason' => 'not in content'
+                        'reason' => 'not in content',
                     ]);
                 }
             }
@@ -300,15 +301,15 @@ class GameContentController extends Controller
                 Log::info('Cleaned up unused images', [
                     'game_id' => $gameId,
                     'deleted_count' => $deletedCount,
-                    'remaining_files' => count($usedPaths)
+                    'remaining_files' => count($usedPaths),
                 ]);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to cleanup unused images', [
                 'game_id' => $gameId,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
 
@@ -380,15 +381,15 @@ class GameContentController extends Controller
 
             // Get original screenshots to compare against
             $originalScreenshots = $game->screenshots ?: [];
-            $originalUrls = array_map(fn($s) => $s['url'], $originalScreenshots);
+            $originalUrls = array_map(fn ($s) => $s['url'], $originalScreenshots);
 
             // Get custom screenshots
             $customScreenshots = $game->custom_screenshots ?: [];
-            $customUrls = array_map(fn($s) => $s['url'], $customScreenshots);
+            $customUrls = array_map(fn ($s) => $s['url'], $customScreenshots);
 
             // Find and delete custom screenshot files that aren't in original
             foreach ($customUrls as $customUrl) {
-                if (!in_array($customUrl, $originalUrls)) {
+                if (! in_array($customUrl, $originalUrls)) {
                     // Convert URL to storage path
                     $path = str_replace('/storage/', '', $customUrl);
 
@@ -397,7 +398,7 @@ class GameContentController extends Controller
                         Log::info('Deleted custom screenshot file', [
                             'game_id' => $game->id,
                             'file_path' => $path,
-                            'reason' => 'revert to original'
+                            'reason' => 'revert to original',
                         ]);
                     }
                 }
@@ -416,11 +417,11 @@ class GameContentController extends Controller
                 }
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to cleanup custom screenshots', [
                 'game_id' => $game->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -444,16 +445,16 @@ class GameContentController extends Controller
 
             Log::info('Reverted thumbnail to itch.io version', [
                 'game_id' => $game->id,
-                'new_thumb_url' => $game->thumb_url
+                'new_thumb_url' => $game->thumb_url,
             ]);
 
             return $game->thumb_url;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to revert thumbnail', [
                 'game_id' => $game->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return null;

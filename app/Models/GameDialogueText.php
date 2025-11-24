@@ -53,11 +53,12 @@ class GameDialogueText extends Model
             ->distinct()
             ->pluck('gv.game_id');
 
-        echo "Found " . $gameIds->count() . " games with dialogue to index\n";
+        echo 'Found ' . $gameIds->count() . " games with dialogue to index\n";
 
         // Process each game's dialogue texts
         return $gameIds->map(function ($gameId) {
             echo "  Processing game ID: {$gameId}\n";
+
             return static::getForGame($gameId);
         })->flatten();
     }
@@ -69,7 +70,7 @@ class GameDialogueText extends Model
     public static function getAllGameDialogueTexts(): Collection
     {
         // Query to aggregate dialogue texts per game
-        $results = DB::select("
+        $results = DB::select('
             SELECT
                 udt.id as text_id,
                 gv.game_id,
@@ -83,7 +84,7 @@ class GameDialogueText extends Model
             INNER JOIN game_versions gv ON vdl.game_version_id = gv.id
             INNER JOIN games g ON gv.game_id = g.id
             GROUP BY udt.id, gv.game_id, udt.text_content, vdl.iso_code, g.name
-        ");
+        ');
 
         return collect($results)->map(function ($row) {
             // Get character names for the character IDs
@@ -93,11 +94,11 @@ class GameDialogueText extends Model
                     ? $row->character_ids
                     : static::parsePostgresArray($row->character_ids);
 
-                if (!empty($characterIds)) {
+                if (! empty($characterIds)) {
                     $characters = Character::whereIn('id', $characterIds)->get();
                     foreach ($characters as $character) {
                         $displayNames = $character->display_names;
-                        if (is_array($displayNames) && !empty($displayNames)) {
+                        if (is_array($displayNames) && ! empty($displayNames)) {
                             $characterNames[] = reset($displayNames);
                         } else {
                             $characterNames[] = $character->character_id;
@@ -106,7 +107,7 @@ class GameDialogueText extends Model
                 }
             }
 
-            $model = new static();
+            $model = new static;
             $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
             $model->text_id = $row->text_id;
             $model->game_id = $row->game_id;
@@ -136,7 +137,7 @@ class GameDialogueText extends Model
      */
     public static function getForGame(int $gameId): Collection
     {
-        $results = DB::select("
+        $results = DB::select('
             SELECT
                 udt.id as text_id,
                 gv.game_id,
@@ -151,7 +152,7 @@ class GameDialogueText extends Model
             INNER JOIN games g ON gv.game_id = g.id
             WHERE gv.game_id = ?
             GROUP BY udt.id, gv.game_id, udt.text_content, vdl.iso_code, g.name
-        ", [$gameId]);
+        ', [$gameId]);
 
         return collect($results)->map(function ($row) {
             // Parse PostgreSQL arrays first
@@ -165,11 +166,11 @@ class GameDialogueText extends Model
 
             // Get character names for the character IDs
             $characterNames = [];
-            if (!empty($characterIds)) {
+            if (! empty($characterIds)) {
                 $characters = Character::whereIn('id', $characterIds)->get();
                 foreach ($characters as $character) {
                     $displayNames = $character->display_names;
-                    if (is_array($displayNames) && !empty($displayNames)) {
+                    if (is_array($displayNames) && ! empty($displayNames)) {
                         $characterNames[] = reset($displayNames);
                     } else {
                         $characterNames[] = $character->character_id;
@@ -177,7 +178,7 @@ class GameDialogueText extends Model
                 }
             }
 
-            $model = new static();
+            $model = new static;
             $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
             $model->text_id = $row->text_id;
             $model->game_id = $row->game_id;
@@ -245,7 +246,7 @@ class GameDialogueText extends Model
     public function shouldBeSearchable(): bool
     {
         // Only index texts that have actual content
-        return !empty(trim($this->text_content ?? ''));
+        return ! empty(trim($this->text_content ?? ''));
     }
 
     /**

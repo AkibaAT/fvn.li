@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->policy = new UserGameProgressPolicy();
+    $this->policy = new UserGameProgressPolicy;
     $this->user = User::factory()->create();
     $this->otherUser = User::factory()->create();
     $this->game = Game::factory()->create();
@@ -103,4 +103,3 @@ describe('edge cases', function () {
         expect($this->policy->update($userWithDifferentId, $progress))->toBeFalse();
     });
 });
-

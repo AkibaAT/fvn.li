@@ -147,6 +147,7 @@ class BackfillFeed extends Command
      * Process a single feed page
      *
      * @return array|null Returns [nextPage, reachedCutoff] or null if no more pages
+     *
      * @throws GuzzleException
      * @throws Throwable
      */
@@ -190,6 +191,7 @@ class BackfillFeed extends Command
                 if ($eventDate->lt($this->cutoffDate)) {
                     $this->output->write('x');
                     $reachedCutoff = true;
+
                     continue;
                 }
             }
@@ -232,6 +234,7 @@ class BackfillFeed extends Command
             if (! $gameId || ! $gameUrl) {
                 $this->output->write('.');
                 $this->skippedCount++;
+
                 continue;
             }
 
@@ -249,6 +252,7 @@ class BackfillFeed extends Command
             if (! $gameTitle) {
                 $this->output->write('.');
                 $this->skippedCount++;
+
                 continue;
             }
 
@@ -256,6 +260,7 @@ class BackfillFeed extends Command
             if (isset($this->latestEventPerGame[$gameId]) && $eventId <= $this->latestEventPerGame[$gameId]) {
                 $this->output->write('.');
                 $this->skippedCount++;
+
                 continue;
             }
 
