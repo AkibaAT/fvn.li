@@ -408,7 +408,7 @@ class GamesDisplayController extends Controller
 
         $this->setMetaTags([
             'title' => $title,
-            'browserTitle' => "{$title} - FVN.li",
+            'browserTitle' => $title,
             'socialTitle' => $title,
             'description' => $metaDescription,
             'image' => $image,
