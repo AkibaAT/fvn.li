@@ -310,12 +310,12 @@ class GameResource extends Resource
                     ->action(function (Game $record): void {
                         try {
                             $importService = app(SteamReviewImportService::class);
-                            $stats = $importService->importReviews($record, 100);
+                            $stats = $importService->syncAllReviews($record);
                             $importService->updateGameRatingStats($record);
 
                             Notification::make()
-                                ->title('Reviews imported successfully')
-                                ->body("Imported {$stats['imported']} reviews, skipped {$stats['skipped']}, errors: {$stats['errors']}")
+                                ->title('Reviews synced successfully')
+                                ->body("Fetched {$stats['fetched']}, imported {$stats['imported']}, updated {$stats['updated']}, deleted {$stats['deleted']}, skipped {$stats['skipped']}, errors: {$stats['errors']}")
                                 ->success()
                                 ->send();
                         } catch (Exception $e) {
