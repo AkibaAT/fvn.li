@@ -1,4 +1,5 @@
 import Pagination from '@/components/pagination';
+import {WordCloud} from '@/components/word-cloud';
 import {Link, usePage} from '@inertiajs/react';
 import type {AxiosInstance} from 'axios';
 import {useEffect, useMemo, useState} from 'react';
@@ -76,6 +77,11 @@ type DuplicateItem = {
     text_content: string;
     usage_count: number;
     examples?: DuplicateExample[];
+};
+
+type WordFrequencyItem = {
+    text: string;
+    value: number;
 };
 
 export default function DialogueBrowser({initial}: InitialProps) {
@@ -172,6 +178,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
     // Results
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [duplicates, setDuplicates] = useState<DuplicateItem[]>([]);
+    const [wordFrequency, setWordFrequency] = useState<WordFrequencyItem[]>([]);
 
     const fetchData = async (opts?: { page?: number; perPage?: number }) => {
         setLoading(true);
@@ -350,11 +357,39 @@ export default function DialogueBrowser({initial}: InitialProps) {
         }
     };
 
+    const fetchWordFrequency = async () => {
+        if (!versionId) {
+            setWordFrequency([]);
+            return;
+        }
+        try {
+            const resp = await window.axios.get(
+                route('react-api.dialogue.word-frequency'),
+                {
+                    params: {
+                        versionId,
+                        language,
+                        limit: 100,
+                        includePhrases: true,
+                        minWordLength: 3,
+                    },
+                },
+            );
+            if (resp.data?.success) {
+                setWordFrequency(resp.data.data || []);
+            }
+        } catch (e) {
+            console.error('Failed to load word frequency', e);
+            setWordFrequency([]);
+        }
+    };
+
     useEffect(() => {
         // Initial load: fetch options once (gameId is always available)
         fetchOptions();
         if (versionId) {
             fetchVersionStats();
+            fetchWordFrequency();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -370,6 +405,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
         setSelectedCharacterId('');
         setSelectedContext('');
         fetchOptions();
+        fetchWordFrequency();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [versionId, language]);
 
@@ -832,6 +868,22 @@ export default function DialogueBrowser({initial}: InitialProps) {
                             </div>
                         </div>
                     </div>
+
+                    {/* Word Cloud Section */}
+                    {versionId && wordFrequency.length > 0 && (
+                        <div className="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+                            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+                                Common Words & Phrases
+                            </h3>
+                            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                                The most frequently used words and phrases in the
+                                dialogue. Larger bubbles indicate higher frequency.
+                            </p>
+                            <div className="flex justify-center">
+                                <WordCloud data={wordFrequency} width={900} height={450} />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Results Panel */}
                     <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">

@@ -38,6 +38,8 @@ Route::middleware(['web'])->group(function () {
         ->name('react-api.dialogue.duplicates');
     Route::get('dialogue/version-stats', [DialogueController::class, 'versionStats'])
         ->name('react-api.dialogue.version-stats');
+    Route::get('dialogue/word-frequency', [DialogueController::class, 'getWordFrequency'])
+        ->name('react-api.dialogue.word-frequency');
 
     // Game search/filter and details (keep legacy api.* names)
     Route::get('games/search', [GamesController::class, 'searchGames'])->name('api.games.search');

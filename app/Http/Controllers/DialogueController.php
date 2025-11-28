@@ -499,4 +499,183 @@ class DialogueController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get word frequency data for a word cloud visualization.
+     * Returns the most common words and phrases used in dialogue.
+     */
+    public function getWordFrequency(Request $request): JsonResponse
+    {
+        $request->validate([
+            'versionId' => 'required|integer|exists:game_versions,id',
+            'language' => 'nullable|string|size:3',
+            'limit' => 'nullable|integer|min:10|max:200',
+            'includePhrases' => 'nullable|in:true,false,1,0',
+            'minWordLength' => 'nullable|integer|min:1|max:10',
+        ]);
+
+        $versionId = $request->integer('versionId');
+        $language = $request->input('language', 'eng');
+        $limit = min(200, max(10, (int) $request->input('limit', 100)));
+        $includePhrases = $request->boolean('includePhrases', true);
+        $minWordLength = max(1, min(10, (int) $request->input('minWordLength', 3)));
+
+        // Fetch all dialogue texts for this version and language
+        $dialogueTexts = DB::table('version_dialogue_lines as vdl')
+            ->join('unique_dialogue_texts as udt', 'udt.id', '=', 'vdl.text_id')
+            ->where('vdl.game_version_id', '=', $versionId)
+            ->where('vdl.iso_code', '=', $language)
+            ->whereNotNull('udt.text_content')
+            ->select('udt.text_content')
+            ->pluck('text_content');
+
+        if ($dialogueTexts->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
+
+        // Common English stop words to filter out
+        $stopWords = [
+            // Articles, pronouns, possessives
+            'the', 'a', 'an', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'them',
+            'me', 'him', 'her', 'us', 'my', 'your', 'his', 'her', 'its', 'our', 'their',
+            'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'themselves',
+
+            // Common verbs and contractions
+            'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+            'do', 'does', 'did', 'will', 'would', 'shall', 'should', 'may', 'might', 'must',
+            'can', 'could', 'ought', 'i\'m', 'you\'re', 'he\'s', 'she\'s', 'it\'s', 'we\'re',
+            'they\'re', 'i\'ve', 'you\'ve', 'we\'ve', 'they\'ve', 'i\'d', 'you\'d', 'he\'d',
+            'she\'d', 'we\'d', 'they\'d', 'i\'ll', 'you\'ll', 'he\'ll', 'she\'ll', 'we\'ll',
+            'they\'ll', 'isn\'t', 'aren\'t', 'wasn\'t', 'weren\'t', 'hasn\'t', 'haven\'t',
+            'hadn\'t', 'doesn\'t', 'don\'t', 'didn\'t', 'won\'t', 'wouldn\'t', 'shan\'t',
+            'shouldn\'t', 'can\'t', 'cannot', 'couldn\'t', 'mustn\'t', 'let\'s', 'that\'s',
+            'who\'s', 'what\'s', 'here\'s', 'there\'s', 'when\'s', 'where\'s', 'why\'s', 'how\'s',
+
+            // Prepositions and conjunctions
+            'in', 'on', 'at', 'to', 'for', 'of', 'with', 'from', 'by', 'about', 'as',
+            'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between',
+            'under', 'around', 'among', 'and', 'but', 'or', 'nor', 'so', 'yet', 'because',
+            'although', 'though', 'while', 'if', 'than', 'that', 'whether', 'till', 'until',
+            'not', 'over',
+
+            // Question words and demonstratives
+            'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'how',
+            'this', 'that', 'these', 'those', 'here', 'there',
+
+            // Common adverbs and intensifiers
+            'very', 'really', 'quite', 'too', 'so', 'just', 'only', 'even', 'also', 'still',
+            'already', 'always', 'never', 'often', 'sometimes', 'usually', 'perhaps', 'maybe',
+            'probably', 'certainly', 'definitely', 'surely', 'absolutely', 'completely',
+            'totally', 'entirely', 'exactly', 'nearly', 'almost', 'hardly', 'barely',
+            'right', 'well', 'now', 'then', 'again', 'away', 'off', 'down', 'up', 'out',
+
+            // Common verbs (conversational)
+            'go', 'went', 'gone', 'going', 'come', 'came', 'get', 'got', 'getting', 'make',
+            'made', 'making', 'take', 'took', 'taken', 'taking', 'give', 'gave', 'given',
+            'say', 'said', 'saying', 'know', 'knew', 'known', 'knowing', 'think', 'thought',
+            'see', 'saw', 'seen', 'want', 'wanted', 'look', 'looked', 'looking', 'need',
+            'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call',
+            'keep', 'let', 'begin', 'help', 'show', 'hear', 'play', 'run', 'move', 'live',
+            'believe', 'bring', 'happen', 'write', 'sit', 'stand', 'lose', 'pay', 'meet',
+            'include', 'continue', 'set', 'learn', 'change', 'lead', 'understand', 'watch',
+
+            // Common adjectives and quantities
+            'good', 'new', 'first', 'last', 'long', 'great', 'little', 'own', 'other', 'old',
+            'right', 'big', 'high', 'different', 'small', 'large', 'next', 'early', 'young',
+            'important', 'few', 'public', 'bad', 'same', 'able', 'nice', 'sure', 'okay',
+            'fine', 'better', 'best', 'worse', 'worst', 'much', 'many', 'more', 'most', 'less',
+            'least', 'some', 'any', 'every', 'all', 'both', 'each', 'few', 'more', 'other',
+            'another', 'such', 'one', 'two', 'three', 'four', 'five',
+
+            // Conversational filler words
+            'yeah', 'yes', 'yep', 'nope', 'nah', 'okay', 'ok', 'hey', 'oh', 'ah', 'um', 'uh',
+            'hmm', 'huh', 'wow', 'well', 'like', 'guess', 'suppose', 'mean', 'actually',
+            'something', 'anything', 'everything', 'nothing', 'someone', 'anyone', 'everyone',
+            'nobody', 'somewhere', 'anywhere', 'everywhere', 'nowhere', 'gonna', 'wanna', 'gotta',
+
+            // Common nouns (too generic)
+            'time', 'year', 'day', 'thing', 'things', 'way', 'man', 'people', 'world',
+            'life', 'hand', 'part', 'place', 'case', 'week', 'company', 'system', 'program',
+            'question', 'work', 'government', 'number', 'night', 'point', 'home', 'water',
+            'room', 'mother', 'area', 'money', 'story', 'fact', 'month', 'lot', 'moment',
+            'side', 'kind', 'head', 'house', 'service', 'friend', 'father', 'power', 'hour',
+            'game', 'line', 'end', 'member', 'law', 'car', 'city', 'community', 'name',
+            'president', 'team', 'minute', 'idea', 'kid', 'body', 'information', 'back',
+            'parent', 'face', 'others', 'level', 'office', 'door', 'health', 'person',
+            'art', 'war', 'history', 'party', 'result', 'change', 'morning', 'reason',
+            'research', 'girl', 'guy', 'guys', 'moment', 'air', 'teacher', 'force', 'education',
+        ];
+
+        $wordCounts = [];
+        $phraseCounts = [];
+
+        // Process each dialogue text
+        foreach ($dialogueTexts as $text) {
+            // Convert to lowercase and remove special characters, keeping spaces
+            $cleaned = strtolower((string) $text);
+            $cleaned = preg_replace('/[^\p{L}\p{N}\s\-\']/u', ' ', $cleaned);
+            $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+            $cleaned = trim($cleaned);
+
+            // Split into words
+            $words = explode(' ', $cleaned);
+            $words = array_values(array_filter($words, fn ($w) => strlen($w) >= $minWordLength));
+
+            // Count individual words
+            foreach ($words as $word) {
+                $word = trim($word);
+                if (! in_array($word, $stopWords, true) && strlen($word) >= $minWordLength) {
+                    $wordCounts[$word] = ($wordCounts[$word] ?? 0) + 1;
+                }
+            }
+
+            // Count 2-word and 3-word phrases if requested
+            if ($includePhrases && count($words) >= 2) {
+                // Bigrams (2-word phrases)
+                for ($i = 0; $i < count($words) - 1; $i++) {
+                    $phrase = $words[$i] . ' ' . $words[$i + 1];
+                    // Only count if phrase is meaningful (not all stop words)
+                    if (! (in_array($words[$i], $stopWords, true) && in_array($words[$i + 1], $stopWords, true))) {
+                        $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
+                    }
+                }
+
+                // Trigrams (3-word phrases)
+                for ($i = 0; $i < count($words) - 2; $i++) {
+                    $phrase = $words[$i] . ' ' . $words[$i + 1] . ' ' . $words[$i + 2];
+                    $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
+                }
+            }
+        }
+
+        // Sort by frequency and combine words and phrases
+        arsort($wordCounts);
+        arsort($phraseCounts);
+
+        // Take top words and phrases, then combine them
+        $topWords = array_slice($wordCounts, 0, (int) ($limit * 0.7), true);
+        $topPhrases = $includePhrases ? array_slice($phraseCounts, 0, (int) ($limit * 0.3), true) : [];
+
+        $combined = [];
+        foreach ($topWords as $text => $count) {
+            $combined[] = ['text' => $text, 'value' => $count];
+        }
+        foreach ($topPhrases as $text => $count) {
+            $combined[] = ['text' => $text, 'value' => $count];
+        }
+
+        // Sort combined by value descending
+        usort($combined, fn ($a, $b) => $b['value'] <=> $a['value']);
+
+        // Limit to requested count
+        $result = array_slice($combined, 0, $limit);
+
+        return response()->json([
+            'success' => true,
+            'data' => $result,
+        ]);
+    }
 }
