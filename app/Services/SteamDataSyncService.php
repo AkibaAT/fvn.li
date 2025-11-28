@@ -213,7 +213,7 @@ class SteamDataSyncService
      */
     private function refreshFromSteamApi(Game $game, string $appId): void
     {
-        $url = "https://store.steampowered.com/api/appdetails?appids={$appId}&l=english";
+        $url = "https://store.steampowered.com/api/appdetails?appids={$appId}&cc=us&l=english";
 
         Log::info('Fetching Steam API data', [
             'app_id' => $appId,
@@ -245,7 +245,9 @@ class SteamDataSyncService
             $game->is_paid = true;
             // Steam prices are in cents
             $game->min_price = $appData['price_overview']['initial'] / 100;
-            $game->is_on_sale = $appData['price_overview']['discount_percent'] > 0;
+            $discountPercent = $appData['price_overview']['discount_percent'] ?? 0;
+            $game->is_on_sale = $discountPercent > 0;
+            $game->sale_discount_percent = $discountPercent > 0 ? $discountPercent : null;
             // Extract currency from Steam API (ISO 4217 codes like USD, EUR, JPY)
             $game->currency = strtoupper($appData['price_overview']['currency'] ?? 'USD');
         }
