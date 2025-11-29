@@ -225,6 +225,13 @@ readonly class GameStatsService
                     $displayNames = $character->exists ? $character->display_names : [];
                     $displayNames[$isoCode] = $charData['display_name'] ?? $charId;
                     $character->display_names = $displayNames;
+
+                    // Update species if present (only from English language data to avoid duplication)
+                    // Only set species if it doesn't already exist in the database
+                    if ($isoCode === 'eng' && isset($charData['species']) && !$character->species) {
+                        $character->species = $charData['species'];
+                    }
+
                     $character->save();
 
                     // Update version tracking
@@ -242,9 +249,19 @@ readonly class GameStatsService
                     }
                     echo "    [Stats] Character {$charId} processed\n";
 
-                    // Store JSON stats for later comparison with calculated stats
-                    // We'll use our centralized calculation after dialogue import
-                    // but want to compare with JSON values for discrepancy reporting
+                    // Create/update version_character_stats from JSON data
+                    // This ensures stats are available even for stats-only imports (without dialogue_lines)
+                    VersionCharacterStats::updateOrCreate(
+                        [
+                            'game_version_id' => $version->id,
+                            'character_id' => $character->id,
+                            'iso_code' => $isoCode,
+                        ],
+                        [
+                            'blocks' => $charData['blocks'] ?? 0,
+                            'words' => $charData['words'] ?? 0,
+                        ]
+                    );
                 }
             }
         }

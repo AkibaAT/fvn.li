@@ -430,8 +430,11 @@ class SteamDataSyncService
         // Strip HTML tags and extract language names
         $languagesText = strip_tags($steamLanguagesHtml);
 
-        // Remove the footnote about audio support
-        $languagesText = preg_replace('/\*.*$/s', '', $languagesText);
+        // Remove asterisks that mark audio support
+        $languagesText = str_replace('*', '', $languagesText);
+
+        // Remove the footnote text (everything after "languages with")
+        $languagesText = preg_replace('/\s*languages with.*$/is', '', $languagesText);
 
         // Split by comma and clean up
         $languageNames = array_map('trim', explode(',', $languagesText));
