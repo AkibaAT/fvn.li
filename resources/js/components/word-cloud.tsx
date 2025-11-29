@@ -10,12 +10,14 @@ type WordCloudProps = {
     data: WordFrequencyData[];
     width?: number;
     height?: number;
+    onWordClick?: (word: string) => void;
 };
 
 export const WordCloud: FC<WordCloudProps> = ({
     data,
     width = 900,
     height = 450,
+    onWordClick,
 }) => {
     // Sort data by value and take top items
     const sortedData = useMemo(() => {
@@ -83,7 +85,8 @@ export const WordCloud: FC<WordCloudProps> = ({
                                 fontWeight: fontSize > 30 ? 'bold' : 'normal',
                                 lineHeight: 1.2,
                             }}
-                            title={`${item.text}: ${item.value} occurrences`}
+                            title={`${item.text}: ${item.value} occurrences - Click to search`}
+                            onClick={() => onWordClick?.(item.text)}
                         >
                             {item.text}
                         </span>

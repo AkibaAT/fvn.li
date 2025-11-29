@@ -880,7 +880,16 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 dialogue. Larger bubbles indicate higher frequency.
                             </p>
                             <div className="flex justify-center">
-                                <WordCloud data={wordFrequency} width={900} height={450} />
+                                <WordCloud
+                                    data={wordFrequency}
+                                    width={900}
+                                    height={450}
+                                    onWordClick={(word) => {
+                                        setQ(word);
+                                        setShowDuplicates(false);
+                                        setCurrentPage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     )}
