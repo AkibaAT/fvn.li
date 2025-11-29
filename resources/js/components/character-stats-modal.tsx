@@ -104,11 +104,11 @@ export default function CharacterStatsModal({
                 {showCharacterStats === versionId &&
                 characterStatsData?.characters &&
                 characterStatsData.characters.length > 0 ? (
-                    <div className="overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
+                    <div className="overflow-x-auto rounded-lg bg-gray-50 dark:bg-gray-800">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                             <thead>
                             <tr>
-                                <th className="px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
+                                <th className="sticky left-0 z-10 bg-gray-50 px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] dark:bg-gray-800 dark:text-gray-400 dark:shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)]">
                                     Character
                                 </th>
                                 {characterStatsData.languages?.map(
@@ -136,7 +136,7 @@ export default function CharacterStatsModal({
                             {characterStatsData.characters?.map(
                                 (character: string) => (
                                     <tr key={character}>
-                                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+                                        <td className="sticky left-0 z-10 bg-white px-4 py-2 text-sm text-gray-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] dark:bg-gray-800 dark:text-gray-100 dark:shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)]">
                                             {character}
                                         </td>
                                         {characterStatsData.languages?.map(
@@ -164,7 +164,7 @@ export default function CharacterStatsModal({
                             </tbody>
                             <tfoot>
                             <tr className="bg-gray-50 dark:bg-gray-700/50">
-                                <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                <td className="sticky left-0 z-10 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] dark:bg-gray-700/50 dark:text-gray-100 dark:shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)]">
                                     Total
                                 </td>
                                 {characterStatsData.languages?.map(
