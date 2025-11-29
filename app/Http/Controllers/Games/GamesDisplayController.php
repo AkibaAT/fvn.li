@@ -222,6 +222,21 @@ class GamesDisplayController extends Controller
             }
         }
 
+        // Check if dialogue lines exist for each version (to show/hide browse dialogue button)
+        // Optimized: Use batch query instead of N+1
+        $versionHasDialogueLines = [];
+        if (! empty($versionIds)) {
+            $versionsWithDialogueLines = DB::table('version_dialogue_lines')
+                ->whereIn('game_version_id', $versionIds)
+                ->distinct()
+                ->pluck('game_version_id')
+                ->toArray();
+
+            foreach ($versionIds as $versionId) {
+                $versionHasDialogueLines[$versionId] = in_array($versionId, $versionsWithDialogueLines);
+            }
+        }
+
         // Determine edit permissions
         $user = Auth::user();
         $isOwner = $user && $user->ownsGame($game);
@@ -287,6 +302,7 @@ class GamesDisplayController extends Controller
             'englishStats' => $englishStats,
             'versionCharacterCounts' => $versionCharacterCounts,
             'versionHasFileStats' => $versionHasFileStats,
+            'versionHasDialogueLines' => $versionHasDialogueLines,
             'userVnLists' => $userVnLists,
             'gameListMembership' => $gameListMembership,
             'editPermissions' => [

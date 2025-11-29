@@ -165,6 +165,7 @@ interface Game {
     discount_percentage?: number;
     url?: string;
     platform?: 'itch_io' | 'steam' | 'other';
+    primary_url?: string | null;
     custom_css?: string;
     custom_tags?: string;
     is_visible?: boolean;
@@ -241,6 +242,7 @@ interface GameShowProps {
     englishStats?: LanguageStats;
     versionCharacterCounts?: Record<number, number>;
     versionHasFileStats?: Record<number, boolean>;
+    versionHasDialogueLines?: Record<number, boolean>;
     availableRatings?: number[];
     platforms?: {
         windows: boolean;
@@ -264,6 +266,7 @@ export default function GameShow({
                                      englishStats,
                                      versionCharacterCounts = {},
                                      versionHasFileStats = {},
+                                     versionHasDialogueLines = {},
                                      availableRatings = [],
                                      platforms = {
                                          windows: false,
@@ -1483,9 +1486,11 @@ export default function GameShow({
                         Version History
                     </h2>
 
-                    {/* Browse Dialogue Link */}
+                    {/* Browse Dialogue Link - Only for free games with dialogue lines */}
                     {game.latest_version &&
-                        versionCharacterCounts[game.latest_version.id] > 0 && (
+                        !game.is_paid &&
+                        versionCharacterCounts[game.latest_version.id] > 0 &&
+                        versionHasDialogueLines[game.latest_version.id] && (
                             <div className="mb-4">
                                 <a
                                     href={route('dialogue.browser', {

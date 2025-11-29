@@ -51,6 +51,9 @@ export interface Game {
     status: string;
     authors?: string;
     game_engine?: string;
+    platform?: string; // 'itch_io' | 'steam' | 'other'
+    primary_url?: string | null;
+    effective_name?: string;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
