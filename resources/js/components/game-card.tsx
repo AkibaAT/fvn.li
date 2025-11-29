@@ -3,7 +3,7 @@ import GameImage from './game-card/GameImage';
 import GameTitle from './game-card/GameTitle';
 import GameMetadata from './game-card/GameMetadata';
 import GamePlatformPill from './game-card/GamePlatformPill';
-import GameLanguagePill from './game-card/GameLanguagePill';
+import GameLanguageSection from './game-card/GameLanguageSection';
 import GameTagSection from './game-card/GameTagSection';
 import GameStatusBadge from './game-card/GameStatusBadge';
 import GameContentBadge from './game-card/GameContentBadge';
@@ -35,6 +35,11 @@ export default function GameCard(props: GameCardProps) {
         setTagRef,
         tagsExpanded,
         setTagsExpanded,
+        languageContainerRef,
+        hiddenLanguageCount,
+        setLanguageRef,
+        languagesExpanded,
+        setLanguagesExpanded,
     } = useGameCard(props);
 
     const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale, ignoredGameIds, onIgnoreToggle} = props;
@@ -146,21 +151,16 @@ export default function GameCard(props: GameCardProps) {
                     </div>
 
                     {/* Languages */}
-                    <div className="h-8 border-t border-gray-100 pt-2 dark:border-gray-700/50">
-                        <div className="flex h-6 flex-nowrap items-center gap-1 overflow-hidden">
-                            {game.supported_languages?.map((language) => {
-                                const isActive = selectedLanguages?.includes(language.iso_code);
-                                return (
-                                    <GameLanguagePill
-                                        key={language.iso_code}
-                                        language={language}
-                                        isActive={isActive}
-                                        onClick={handleLanguage}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <GameLanguageSection
+                        languages={game.supported_languages}
+                        selectedLanguages={selectedLanguages}
+                        hiddenLanguageCount={hiddenLanguageCount}
+                        languagesExpanded={languagesExpanded}
+                        setLanguagesExpanded={setLanguagesExpanded}
+                        languageContainerRef={languageContainerRef}
+                        setLanguageRef={setLanguageRef}
+                        handleLanguage={handleLanguage}
+                    />
 
                     {/* Tags */}
                     <GameTagSection

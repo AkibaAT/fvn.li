@@ -1,4 +1,5 @@
 import type {GameCardGame} from '@/hooks/useGameCard';
+import {forwardRef} from 'react';
 
 interface GameLanguagePillProps {
     language: NonNullable<GameCardGame['supported_languages']>[0];
@@ -6,10 +7,12 @@ interface GameLanguagePillProps {
     onClick: (iso: string) => void;
 }
 
-export default function GameLanguagePill({language, isActive = false, onClick}: GameLanguagePillProps) {
-    return (
-        <button
-            key={language.iso_code}
+const GameLanguagePill = forwardRef<HTMLButtonElement, GameLanguagePillProps>(
+    ({language, isActive = false, onClick}, ref) => {
+        return (
+            <button
+                ref={ref}
+                key={language.iso_code}
             onClick={() => onClick(language.iso_code)}
             className={`inline-flex cursor-pointer items-center rounded border px-1.5 py-1 text-xs transition-colors ${
                 isActive
@@ -25,4 +28,8 @@ export default function GameLanguagePill({language, isActive = false, onClick}: 
             />
         </button>
     );
-}
+});
+
+GameLanguagePill.displayName = 'GameLanguagePill';
+
+export default GameLanguagePill;

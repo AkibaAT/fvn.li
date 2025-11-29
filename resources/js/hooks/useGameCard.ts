@@ -208,6 +208,17 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
 
     const [tagsExpanded, setTagsExpanded] = useState(false);
 
+    // Language resize observer
+    const {
+        containerRef: languageContainerRef,
+        hiddenTagCount: hiddenLanguageCount,
+        setTagRef: setLanguageRef
+    } = useTagResizeObserver({
+        enabled: (game.supported_languages?.length ?? 0) > 0,
+    });
+
+    const [languagesExpanded, setLanguagesExpanded] = useState(false);
+
     return {
         // Image handling
         thumbnailUrl: getThumbnailUrl(),
@@ -234,5 +245,12 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         setTagRef,
         tagsExpanded,
         setTagsExpanded,
+
+        // Languages
+        languageContainerRef,
+        hiddenLanguageCount,
+        setLanguageRef,
+        languagesExpanded,
+        setLanguagesExpanded,
     };
 }
