@@ -26,10 +26,12 @@ class SearchIndexService
 
         try {
             // Reindex games
-            Game::where('is_visible', true)->chunk(100, function ($games) use (&$stats) {
-                $games->searchable();
-                $stats['games'] += $games->count();
-            });
+            Game::where('is_visible', true)
+                ->with(['tags', 'gameJams', 'gameVersions'])
+                ->chunk(100, function ($games) use (&$stats) {
+                    $games->searchable();
+                    $stats['games'] += $games->count();
+                });
 
             // Reindex dialogue texts (per-game deduplication)
             // Get all games that have dialogue

@@ -175,15 +175,17 @@ class MeilisearchSetup extends Command
             $bar->start();
 
             $errors = [];
-            Game::where('is_visible', true)->chunk(100, function ($games) use ($bar, &$errors) {
-                try {
-                    $games->searchable();
-                    $bar->advance($games->count());
-                } catch (Exception $e) {
-                    $errors[] = "Games chunk error: {$e->getMessage()}";
-                    $bar->advance($games->count());
-                }
-            });
+            Game::where('is_visible', true)
+                ->with(['tags', 'gameJams', 'gameVersions'])
+                ->chunk(100, function ($games) use ($bar, &$errors) {
+                    try {
+                        $games->searchable();
+                        $bar->advance($games->count());
+                    } catch (Exception $e) {
+                        $errors[] = "Games chunk error: {$e->getMessage()}";
+                        $bar->advance($games->count());
+                    }
+                });
 
             $bar->finish();
             $this->newLine();

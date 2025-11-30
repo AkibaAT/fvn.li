@@ -37,13 +37,21 @@ class GameObserver
         $game->processPendingTags();
 
         // Add game to search index if it's visible and has a name
-        // This ensures game jams and tags are included in the search index from the start
+        // Defer indexing until after the transaction commits to ensure all relationships are saved
         if ($game->is_visible && ! empty(trim($game->name))) {
-            Log::info('Adding newly created visible game to search index', [
-                'game_id' => $game->id,
-                'game_name' => $game->name,
-            ]);
-            $game->searchable();
+            $gameId = $game->id;
+            $gameName = $game->name;
+
+            dispatch(function () use ($gameId, $gameName) {
+                $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+                if ($game) {
+                    $game->searchable();
+                    Log::info('Added newly created visible game to search index', [
+                        'game_id' => $gameId,
+                        'game_name' => $gameName,
+                    ]);
+                }
+            })->afterCommit();
         }
     }
 
@@ -73,11 +81,21 @@ class GameObserver
             if ($isVisible && ! empty(trim($game->name))) {
                 // Game is now visible - add to search index
                 echo "    [Observer] Adding game to search index\n";
-                $game->searchable();
-                Log::info('Added game to search index', [
-                    'game_id' => $game->id,
-                    'game_name' => $game->name,
-                ]);
+
+                // Defer indexing until after the transaction commits to ensure all relationships are saved
+                $gameId = $game->id;
+                $gameName = $game->name;
+
+                dispatch(function () use ($gameId, $gameName) {
+                    $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+                    if ($game) {
+                        $game->searchable();
+                        Log::info('Added game to search index', [
+                            'game_id' => $gameId,
+                            'game_name' => $gameName,
+                        ]);
+                    }
+                })->afterCommit();
             } elseif (! $isVisible) {
                 // Game is now hidden - remove from search index
                 echo "    [Observer] Removing game from search index\n";
@@ -106,9 +124,29 @@ class GameObserver
 
         // Process any pending associations
         echo "    [Observer] Processing pending game jams\n";
+        $hadPendingGameJams = ! empty($game->pendingGameJamId);
         $game->processPendingGameJams();
+
         echo "    [Observer] Processing pending tags\n";
+        $hadPendingTags = ! empty($game->pendingTagIds);
         $game->processPendingTags();
+
+        // If we processed any pending associations and the game is visible, re-index it
+        if (($hadPendingGameJams || $hadPendingTags) && $game->is_visible) {
+            echo "    [Observer] Re-indexing game due to updated associations\n";
+            $gameId = $game->id;
+
+            dispatch(function () use ($gameId) {
+                $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+                if ($game && $game->is_visible) {
+                    $game->searchable();
+                    Log::info('Re-indexed game after updating associations', [
+                        'game_id' => $gameId,
+                    ]);
+                }
+            })->afterCommit();
+        }
+
         echo "    [Observer] Game updated event complete\n";
     }
 
