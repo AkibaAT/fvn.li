@@ -299,7 +299,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                         context: selectedContext || undefined,
                         perPage,
                         page: opts?.page ?? currentPage,
-                        exactMatch: exactMatch || undefined,
+                        exactMatch: exactMatch ? 1 : undefined,
                     },
                 },
             );
