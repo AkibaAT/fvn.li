@@ -8,6 +8,7 @@ use App\Models\Game;
 use DateTime;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class Upload
 {
@@ -197,9 +198,37 @@ class Upload
             return 1;
         }
 
+        // Trim whitespace that might cause matching issues
+        $a = trim($a);
+        $b = trim($b);
+
         // Match version numbers and optional suffix
-        preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $a, $matchesA);
-        preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $b, $matchesB);
+        $matchedA = preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $a, $matchesA);
+        $matchedB = preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $b, $matchesB);
+
+        // Log if either version didn't match the pattern (this shouldn't happen normally)
+        if (!$matchedA || !$matchedB) {
+            Log::warning('Version string did not match expected pattern', [
+                'version_a' => $a,
+                'version_b' => $b,
+                'matched_a' => $matchedA,
+                'matched_b' => $matchedB,
+                'upload_a_filename' => $this->filename,
+            ]);
+        }
+
+        // If neither matched the pattern, fall back to string comparison
+        if (!$matchedA && !$matchedB) {
+            return strcmp($a, $b);
+        }
+
+        // If only one matched, the one that matched is considered newer
+        if (!$matchedA) {
+            return -1;
+        }
+        if (!$matchedB) {
+            return 1;
+        }
 
         // Compare the numeric parts first
         $verCompare = version_compare($matchesA[1], $matchesB[1]);
