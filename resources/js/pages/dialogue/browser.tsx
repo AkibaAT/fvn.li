@@ -139,17 +139,15 @@ export default function DialogueBrowser({initial}: InitialProps) {
     const [contexts, setContexts] = useState<string[]>([]);
     const [summary, setSummary] = useState<{
         totalLines: number;
-        uniqueTexts: number;
-        duplicationRatio: number;
-        spaceSavedPercent: number;
-        spaceSavedKb: number;
+        totalWords: number;
+        uniqueCharacters: number;
+        avgWordsPerLine: number;
         languages: ApiLanguage[];
     }>({
         totalLines: 0,
-        uniqueTexts: 0,
-        duplicationRatio: 0,
-        spaceSavedPercent: 0,
-        spaceSavedKb: 0,
+        totalWords: 0,
+        uniqueCharacters: 0,
+        avgWordsPerLine: 0,
         languages: [],
     });
     const [pagination, setPagination] = useState<Pagination>({
@@ -168,6 +166,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
     );
     const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
     const [selectedContext, setSelectedContext] = useState<string>('');
+    const [exactMatch, setExactMatch] = useState<boolean>(false);
 
     // Search vs duplicates
     const [showDuplicates, setShowDuplicates] = useState(false);
@@ -270,10 +269,9 @@ export default function DialogueBrowser({initial}: InitialProps) {
                 const s = resp.data.data;
                 setSummary({
                     totalLines: s.total_lines ?? 0,
-                    uniqueTexts: s.unique_texts ?? 0,
-                    duplicationRatio: Number(s.duplication_ratio ?? 0),
-                    spaceSavedPercent: Number(s.space_efficiency ?? 0),
-                    spaceSavedKb: Number(s.estimated_saved_kb ?? 0),
+                    totalWords: s.total_words ?? 0,
+                    uniqueCharacters: s.unique_characters ?? 0,
+                    avgWordsPerLine: Number(s.avg_words_per_line ?? 0),
                     languages: languages.length ? languages : summary.languages,
                 });
             }
@@ -301,6 +299,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                         context: selectedContext || undefined,
                         perPage,
                         page: opts?.page ?? currentPage,
+                        exactMatch: exactMatch || undefined,
                     },
                 },
             );
@@ -435,6 +434,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
         selectedContext,
         showDuplicates,
         canSearch,
+        exactMatch,
     ]);
 
     // When toggling duplicates on, clear search and fetch duplicates automatically
@@ -678,6 +678,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                             setQ(e.target.value);
                                             if (e.target.value)
                                                 setShowDuplicates(false);
+                                            setExactMatch(false);
                                         }}
                                         onKeyDown={async (e) => {
                                             if (e.key === 'Enter') {
@@ -836,35 +837,29 @@ export default function DialogueBrowser({initial}: InitialProps) {
 
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Unique Texts
+                                    Total Words
                                 </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                    {summary.uniqueTexts.toLocaleString()}
+                                    {summary.totalWords.toLocaleString()}
                                 </div>
                             </div>
 
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Duplication Ratio
+                                    Characters
                                 </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                    {summary.duplicationRatio.toFixed(2)} x
+                                    {summary.uniqueCharacters.toLocaleString()}
                                 </div>
                             </div>
 
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Space Saved
+                                    Avg Words/Line
                                 </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                    {summary.spaceSavedPercent.toFixed(1)} %
+                                    {summary.avgWordsPerLine.toFixed(1)}
                                 </div>
-                                {summary.spaceSavedKb > 0 && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {summary.spaceSavedKb.toLocaleString()}{' '}
-                                        KB
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -888,6 +883,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         setQ(word);
                                         setShowDuplicates(false);
                                         setCurrentPage(1);
+                                        setExactMatch(true);
                                     }}
                                 />
                             </div>

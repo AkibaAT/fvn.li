@@ -347,6 +347,7 @@ class DialogueController extends Controller
             'context' => 'nullable|string',
             'perPage' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
+            'exactMatch' => 'nullable|boolean',
         ]);
 
         $filters = [
@@ -355,6 +356,7 @@ class DialogueController extends Controller
             'version_id' => $request->integer('versionId') ?: null,
             'character_id' => $request->input('characterId') ?: null,
             'context' => $request->input('context') ?: null,
+            'exact_match' => $request->boolean('exactMatch', false),
         ];
 
         $perPage = min(100, max(1, (int) $request->input('perPage', 20)));
@@ -519,6 +521,24 @@ class DialogueController extends Controller
         $limit = min(200, max(10, (int) $request->input('limit', 100)));
         $includePhrases = $request->boolean('includePhrases', true);
         $minWordLength = max(1, min(10, (int) $request->input('minWordLength', 3)));
+
+        // Try to read from pre-calculated cache first (default parameters: limit=100, includePhrases=true, minWordLength=3)
+        if ($limit === 100 && $includePhrases === true && $minWordLength === 3) {
+            $cached = DB::table('version_word_frequencies')
+                ->where('game_version_id', '=', $versionId)
+                ->where('iso_code', '=', $language)
+                ->first();
+
+            if ($cached) {
+                $wordData = json_decode($cached->word_data, true);
+                return response()->json([
+                    'success' => true,
+                    'data' => $wordData ?? [],
+                    'cached' => true,
+                    'calculated_at' => $cached->calculated_at,
+                ]);
+            }
+        }
 
         // Fetch all dialogue texts for this version and language
         $dialogueTexts = DB::table('version_dialogue_lines as vdl')

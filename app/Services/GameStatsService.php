@@ -321,6 +321,11 @@ readonly class GameStatsService
             echo "    [Stats] Calculating stats and checking discrepancies\n";
             $this->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
             echo "    [Stats] Stats calculated\n";
+
+            // Queue word frequency calculation for all languages in this version
+            echo "    [Stats] Queueing word frequency calculations\n";
+            $this->queueWordFrequencyCalculations($version->id);
+            echo "    [Stats] Word frequency calculations queued\n";
         }
 
         echo "    [Stats] Version stats processing complete\n";
@@ -1033,5 +1038,35 @@ readonly class GameStatsService
         }
 
         return $stats;
+    }
+
+    /**
+     * Queue word frequency calculations for all languages in a game version.
+     * This is called after dialogue import to pre-calculate word frequencies.
+     */
+    protected function queueWordFrequencyCalculations(int $versionId): void
+    {
+        // Get all distinct languages for this version
+        $languages = DB::table('version_dialogue_lines')
+            ->where('game_version_id', $versionId)
+            ->distinct()
+            ->pluck('iso_code');
+
+        if ($languages->isEmpty()) {
+            return;
+        }
+
+        // Run the artisan command for each language synchronously (in the background would be better but this ensures it's done)
+        foreach ($languages as $language) {
+            try {
+                \Artisan::call('dialogue:calculate-word-frequencies', [
+                    '--version-id' => $versionId,
+                    '--language' => $language,
+                    '--force' => true, // Force recalculation since this is a fresh import
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: " . $e->getMessage());
+            }
+        }
     }
 }

@@ -25,6 +25,7 @@ class DialogueSearchService
         int $page = 1
     ): LengthAwarePaginator {
         $language = $filters['language'] ?? null;
+        $exactMatch = $filters['exact_match'] ?? false;
 
         // Get raw Meilisearch results with all metadata
         $client = app(Client::class);
@@ -47,6 +48,10 @@ class DialogueSearchService
             $filterParts[] = 'character_ids = ' . (int) $filters['character_id'];
         }
 
+        // If exact match is requested, wrap the search term in quotes for phrase matching
+        // This ensures whole word matching rather than substring matching
+        $actualSearchTerm = $exactMatch ? '"' . addslashes($searchTerm) . '"' : $searchTerm;
+
         // Execute search with highlighting
         $searchParams = [
             'limit' => $perPage,
@@ -59,7 +64,7 @@ class DialogueSearchService
             $searchParams['filter'] = implode(' AND ', $filterParts);
         }
 
-        $results = $index->search($searchTerm, $searchParams);
+        $results = $index->search($actualSearchTerm, $searchParams);
         $hits = $results->getHits();
         $total = $results->getEstimatedTotalHits();
 
@@ -235,23 +240,21 @@ class DialogueSearchService
         return Cache::remember("dialogue.version_stats.{$version->id}", 3600, function () use ($version) {
             $totalLines = $version->dialogueLines()->count();
 
-            // Count unique texts used in this version
-            $uniqueTextsCount = DB::table('version_dialogue_lines')
+            // Calculate total word count from version_character_stats
+            $totalWords = DB::table('version_character_stats')
                 ->where('game_version_id', $version->id)
-                ->distinct('text_id')
-                ->count('text_id');
+                ->sum('words');
 
-            // Calculate character counts
-            $characterStats = DB::table('version_dialogue_lines')
-                ->where('game_version_id', $version->id)
-                ->leftJoin('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-                ->select([
-                    'characters.character_id',
-                    DB::raw('COUNT(*) as line_count'),
-                ])
-                ->groupBy('characters.character_id')
-                ->orderByDesc('line_count')
-                ->get();
+            // Count unique characters (excluding narrator and menu_choice)
+            $uniqueCharacters = DB::table('version_dialogue_lines as vdl')
+                ->join('characters as c', 'c.id', '=', 'vdl.character_id')
+                ->where('vdl.game_version_id', $version->id)
+                ->whereNotIn('c.character_id', ['narrator', 'menu_choice'])
+                ->distinct('c.id')
+                ->count('c.id');
+
+            // Calculate average words per line
+            $avgWordsPerLine = $totalLines > 0 ? round($totalWords / $totalLines, 1) : 0;
 
             // Language breakdown
             $languageStats = DB::table('version_dialogue_lines')
@@ -264,33 +267,11 @@ class DialogueSearchService
                 ->orderByDesc('line_count')
                 ->get();
 
-            // Calculate storage efficiency
-            $uniqueTextsSize = DB::table('unique_dialogue_texts')
-                ->whereIn('id', function ($query) use ($version) {
-                    $query->select('text_id')
-                        ->from('version_dialogue_lines')
-                        ->where('game_version_id', $version->id);
-                })
-                ->sum(DB::raw('LENGTH(text_content)'));
-
-            $duplicationRatio = $totalLines > 0 && $uniqueTextsCount > 0
-                ? ($totalLines / $uniqueTextsCount)
-                : 0;
-
-            $spaceEfficiency = $duplicationRatio > 1
-                ? (1 - (1 / $duplicationRatio)) * 100
-                : 0;
-
             return [
                 'total_lines' => $totalLines,
-                'unique_texts' => $uniqueTextsCount,
-                'duplication_ratio' => $duplicationRatio,
-                'space_efficiency' => $spaceEfficiency,
-                'estimated_raw_size_kb' => $uniqueTextsSize ? round($uniqueTextsSize / 1024, 2) : 0,
-                'estimated_saved_kb' => $spaceEfficiency > 0
-                    ? round(($uniqueTextsSize * ($duplicationRatio - 1) / $duplicationRatio) / 1024, 2)
-                    : 0,
-                'characters' => $characterStats,
+                'total_words' => (int) $totalWords,
+                'unique_characters' => $uniqueCharacters,
+                'avg_words_per_line' => $avgWordsPerLine,
                 'languages' => $languageStats,
             ];
         });
