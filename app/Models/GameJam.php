@@ -336,6 +336,28 @@ class GameJam extends Model
             }
         }
 
+        // Look for span.date_format elements which contain raw dates in their text content
+        // These are the most reliable source as they contain machine-readable dates
+        // Format: <span class="date_format" data-format="...">2024-05-01 04:00:00</span>
+        $dateSpans = $doc->querySelectorAll('span.date_format');
+        if (count($dateSpans) >= 2) {
+            try {
+                $firstDate = trim($dateSpans[0]->textContent);
+                $secondDate = trim($dateSpans[1]->textContent);
+
+                // Only parse if they look like dates (YYYY-MM-DD HH:MM:SS format)
+                if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $firstDate) &&
+                    preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $secondDate)) {
+                    $this->start_date = new DateTime($firstDate);
+                    $this->end_date = new DateTime($secondDate);
+
+                    return; // Dates found, no need to continue
+                }
+            } catch (Exception) {
+                // Continue with other methods if date parsing fails
+            }
+        }
+
         // Look for text like "Submissions open from 2025-07-18 16:00:00 to 2025-07-20 16:00:00"
         // We need to check all divs since we can't use :contains() selector
         $submissionsText = null;
