@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class SearchIndexService
 {
-    public function fullReindex(): array
+    public function fullReindex(?callable $progressCallback = null): array
     {
         $stats = [
             'games' => 0,
@@ -28,9 +28,12 @@ class SearchIndexService
             // Reindex games
             Game::where('is_visible', true)
                 ->with(['tags', 'gameJams', 'gameVersions'])
-                ->chunk(100, function ($games) use (&$stats) {
+                ->chunk(100, function ($games) use (&$stats, $progressCallback) {
                     $games->searchable();
                     $stats['games'] += $games->count();
+                    if ($progressCallback) {
+                        $progressCallback($games->count());
+                    }
                 });
 
             // Reindex dialogue texts (per-game deduplication)
@@ -44,8 +47,11 @@ class SearchIndexService
                 try {
                     $dialogueTexts = GameDialogueText::getForGame($gameId);
                     if ($dialogueTexts->isNotEmpty()) {
-                        $dialogueTexts->chunk(500)->each(function ($chunk) {
+                        $dialogueTexts->chunk(500)->each(function ($chunk) use ($progressCallback) {
                             $chunk->searchable();
+                            if ($progressCallback) {
+                                $progressCallback($chunk->count());
+                            }
                         });
                         $stats['dialogue_texts'] += $dialogueTexts->count();
                     }
@@ -58,21 +64,159 @@ class SearchIndexService
             Rating::where('is_visible', true)
                 ->where('is_reviewed', true)
                 ->whereRaw("trim(review) != ''")
-                ->chunk(100, function ($reviews) use (&$stats) {
+                ->chunk(100, function ($reviews) use (&$stats, $progressCallback) {
                     $reviews->searchable();
                     $stats['reviews'] += $reviews->count();
+                    if ($progressCallback) {
+                        $progressCallback($reviews->count());
+                    }
                 });
 
             // Reindex tags
-            Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats) {
+            Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats, $progressCallback) {
                 $tags->searchable();
                 $stats['tags'] += $tags->count();
+                if ($progressCallback) {
+                    $progressCallback($tags->count());
+                }
             });
 
             Log::info('Full search reindex completed', $stats);
         } catch (Exception $e) {
             $stats['errors'][] = $e->getMessage();
             Log::error('Full search reindex failed', [
+                'error' => $e->getMessage(),
+                'stats' => $stats,
+            ]);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Reindex only games.
+     */
+    public function reindexGames(?callable $progressCallback = null): array
+    {
+        $stats = ['count' => 0, 'errors' => []];
+
+        try {
+            Game::where('is_visible', true)
+                ->with(['tags', 'gameJams', 'gameVersions'])
+                ->chunk(100, function ($games) use (&$stats, $progressCallback) {
+                    $games->searchable();
+                    $stats['count'] += $games->count();
+                    if ($progressCallback) {
+                        $progressCallback($games->count());
+                    }
+                });
+
+            Log::info('Games reindexed', $stats);
+        } catch (Exception $e) {
+            $stats['errors'][] = $e->getMessage();
+            Log::error('Games reindex failed', [
+                'error' => $e->getMessage(),
+                'stats' => $stats,
+            ]);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Reindex only dialogue texts.
+     */
+    public function reindexDialogue(?callable $progressCallback = null): array
+    {
+        $stats = ['count' => 0, 'errors' => []];
+
+        try {
+            // Get all games that have dialogue
+            $gameIds = DB::table('version_dialogue_lines as vdl')
+                ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
+                ->distinct()
+                ->pluck('gv.game_id');
+
+            foreach ($gameIds as $gameId) {
+                try {
+                    $dialogueTexts = GameDialogueText::getForGame($gameId);
+                    if ($dialogueTexts->isNotEmpty()) {
+                        $dialogueTexts->chunk(500)->each(function ($chunk) use ($progressCallback) {
+                            $chunk->searchable();
+                            if ($progressCallback) {
+                                $progressCallback($chunk->count());
+                            }
+                        });
+                        $stats['count'] += $dialogueTexts->count();
+                    }
+                } catch (Exception $e) {
+                    $stats['errors'][] = "Game {$gameId}: {$e->getMessage()}";
+                }
+            }
+
+            Log::info('Dialogue texts reindexed', $stats);
+        } catch (Exception $e) {
+            $stats['errors'][] = $e->getMessage();
+            Log::error('Dialogue texts reindex failed', [
+                'error' => $e->getMessage(),
+                'stats' => $stats,
+            ]);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Reindex only reviews.
+     */
+    public function reindexReviews(?callable $progressCallback = null): array
+    {
+        $stats = ['count' => 0, 'errors' => []];
+
+        try {
+            Rating::where('is_visible', true)
+                ->where('is_reviewed', true)
+                ->whereRaw("trim(review) != ''")
+                ->chunk(100, function ($reviews) use (&$stats, $progressCallback) {
+                    $reviews->searchable();
+                    $stats['count'] += $reviews->count();
+                    if ($progressCallback) {
+                        $progressCallback($reviews->count());
+                    }
+                });
+
+            Log::info('Reviews reindexed', $stats);
+        } catch (Exception $e) {
+            $stats['errors'][] = $e->getMessage();
+            Log::error('Reviews reindex failed', [
+                'error' => $e->getMessage(),
+                'stats' => $stats,
+            ]);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Reindex only tags.
+     */
+    public function reindexTags(?callable $progressCallback = null): array
+    {
+        $stats = ['count' => 0, 'errors' => []];
+
+        try {
+            Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats, $progressCallback) {
+                $tags->searchable();
+                $stats['count'] += $tags->count();
+                if ($progressCallback) {
+                    $progressCallback($tags->count());
+                }
+            });
+
+            Log::info('Tags reindexed', $stats);
+        } catch (Exception $e) {
+            $stats['errors'][] = $e->getMessage();
+            Log::error('Tags reindex failed', [
                 'error' => $e->getMessage(),
                 'stats' => $stats,
             ]);
