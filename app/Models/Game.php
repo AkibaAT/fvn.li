@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\Scout\Searchable;
 use Throwable;
@@ -158,11 +159,37 @@ class Game extends Model
     {
         parent::boot();
 
-        // Generate slug automatically if not set
         static::saving(function (self $game) {
-            // Generate slug if it's null or empty
-            if (empty($game->slug) && ! empty($game->name)) {
-                $game->slug = $game->generateUniqueSlug($game->name);
+            // Generate slug if it doesn't exist or if URL/name changed
+            if (! $game->slug || $game->isDirty(['url', 'name'])) {
+                // Try to get slug from primary URL first
+                $primaryUrl = $game->getPrimaryUrl();
+                $baseSlug = null;
+
+                if ($primaryUrl) {
+                    $baseSlug = basename($primaryUrl);
+
+                    // Check if basename is usable (not empty, not '/', not a domain)
+                    // A domain typically has dots and no hyphens/underscores
+                    if (empty($baseSlug) || $baseSlug === '/' || strpos($baseSlug, '.') !== false) {
+                        $baseSlug = null;
+                    }
+                }
+
+                // If URL doesn't provide a usable slug, generate from name
+                if (! $baseSlug) {
+                    $baseSlug = Str::slug($game->name);
+                }
+
+                // Find a unique slug
+                $slug = $baseSlug;
+                $counter = 1;
+
+                while (static::where('slug', $slug)->where('id', '!=', $game->id ?? 0)->exists()) {
+                    $slug = $baseSlug . '-' . $counter++;
+                }
+
+                $game->slug = $slug;
             }
 
             // Validate that platform is set before saving

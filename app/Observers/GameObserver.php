@@ -8,21 +8,9 @@ use App\Models\Game;
 use App\Services\GameFilterService;
 use App\Services\HomePageCacheService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class GameObserver
 {
-    /**
-     * Handle the Game "saving" event.
-     */
-    public function saving(Game $game): void
-    {
-        // Generate slug if it doesn't exist or if relevant fields changed
-        if (! $game->slug || $game->isDirty(['url', 'name'])) {
-            $this->generateSlug($game);
-        }
-    }
-
     /**
      * Handle the Game "created" event.
      */
@@ -47,6 +35,16 @@ class GameObserver
         // Process any pending associations
         $game->processPendingGameJams();
         $game->processPendingTags();
+
+        // Add game to search index if it's visible and has a name
+        // This ensures game jams and tags are included in the search index from the start
+        if ($game->is_visible && ! empty(trim($game->name))) {
+            Log::info('Adding newly created visible game to search index', [
+                'game_id' => $game->id,
+                'game_name' => $game->name,
+            ]);
+            $game->searchable();
+        }
     }
 
     public function updated(Game $game): void
@@ -126,29 +124,5 @@ class GameObserver
         if ($game->optimized_thumbnails) {
             $game->clearOptimizedThumbnails();
         }
-    }
-
-    /**
-     * Generate a unique slug for the game.
-     */
-    protected function generateSlug(Game $game): void
-    {
-        // Get base slug from game URL
-        $baseSlug = basename($game->url);
-
-        // If URL doesn't provide a usable slug, generate from name
-        if (empty($baseSlug) || $baseSlug === '/') {
-            $baseSlug = Str::slug($game->name);
-        }
-
-        // Find a unique slug
-        $slug = $baseSlug;
-        $counter = 1;
-
-        while (Game::where('slug', $slug)->where('id', '!=', $game->id)->exists()) {
-            $slug = $baseSlug . '-' . $counter++;
-        }
-
-        $game->slug = $slug;
     }
 }

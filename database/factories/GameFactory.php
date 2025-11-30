@@ -21,12 +21,12 @@ class GameFactory extends Factory
     {
         return [
             'itch_id' => fake()->unique()->randomNumber(6),
-            'slug' => fake()->slug(),
             'name' => fake()->words(3, true),
             'status' => fake()->randomElement(['Released', 'In Development', 'Abandoned', 'Canceled']),
             'is_visible' => true,
             'is_nsfw' => fake()->boolean(20),
             'description' => fake()->paragraph(),
+            'platform' => 'itch_io', // Default platform for tests
             'url' => [
                 'itch_io' => fake()->url(),
             ],
