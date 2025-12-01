@@ -4,6 +4,7 @@ import VnListCard from '@/components/vn-list-card';
 import {Head, Link, router} from '@inertiajs/react';
 import React, {useEffect, useState} from 'react';
 import {toast} from '@/utils/toast';
+import {authenticatedFetch} from '@/utils/csrf';
 
 interface ListsIndexProps {
     lists: {
@@ -148,6 +149,42 @@ export default function ListsIndex({
             console.error('Error toggling visibility:', error);
         }
     };
+
+    const handleDelete = async (list: VnList) => {
+        // Optimistic update - remove from local state
+        const updatedLists = localLists.filter(l => l.id !== list.id);
+        setLocalLists(updatedLists);
+
+        // Update counts optimistically
+        const newCounts = {...localCounts};
+        newCounts.all -= 1;
+        if (list.is_public) {
+            newCounts.public -= 1;
+        } else {
+            newCounts.private -= 1;
+        }
+        setLocalCounts(newCounts);
+
+        try {
+            const response = await authenticatedFetch(route('api.vn-lists.destroy', list.id), {
+                method: 'DELETE',
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success(data.message);
+            } else {
+                throw new Error(data.message || 'Failed to delete list');
+            }
+        } catch (error) {
+            // Revert optimistic update on error
+            setLocalLists(localLists);
+            setLocalCounts(localCounts);
+            toast.error('Failed to delete list');
+            console.error('Error deleting list:', error);
+        }
+    };
     return (
         <>
             <Head title={metaTags?.title || 'Your Visual Novel Lists'}/>
@@ -254,13 +291,7 @@ export default function ListsIndex({
                                 isOwner={true}
                                 showActions={true}
                                 onToggleVisibility={handleToggleVisibility}
-                                onDelete={(list) => {
-                                    router.delete(route('api.vn-lists.destroy', list.id), {
-                                        onSuccess: () => {
-                                            router.reload();
-                                        },
-                                    });
-                                }}
+                                onDelete={handleDelete}
                             />
                         ))}
                     </div>

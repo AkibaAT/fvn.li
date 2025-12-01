@@ -31,7 +31,7 @@ export default function CreateList({metaTags}: CreateListProps) {
             const data = await response.json();
 
             if (data.success) {
-                router.visit(route('lists.show', data.vnList.id));
+                router.visit(route('lists.show', data.list.id));
             } else {
                 alert(data.message || 'Failed to create list');
             }
