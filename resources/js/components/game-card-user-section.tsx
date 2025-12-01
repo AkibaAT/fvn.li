@@ -474,8 +474,8 @@ export default function GameCardUserSection({
                 }}
             >
                 <div onClick={(e) => e.stopPropagation()}>
-                    <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    <div className="mb-4 flex items-center justify-between overflow-hidden">
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white break-words line-clamp-3">
                             Manage Lists for "{gameName}"
                         </h3>
                         <button

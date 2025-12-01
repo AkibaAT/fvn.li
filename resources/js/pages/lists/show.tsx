@@ -454,7 +454,7 @@ const GameEntry = React.memo(function GameEntry({
                 <div className="flex-grow">
                     <Link
                         href={route('games.show', game.slug)}
-                        className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                        className="font-medium break-words text-blue-600 hover:underline dark:text-blue-400"
                     >
                         {game.effective_name}
                     </Link>

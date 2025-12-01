@@ -118,7 +118,7 @@ export default function EditableGameName({
     };
 
     return (
-        <div className={`relative inline-flex items-center gap-2 ${className}`}>
+        <div className={`relative flex flex-wrap items-center gap-2 min-w-0 w-full ${className}`}>
             {isEditing ? (
                 <>
                     <input
@@ -127,40 +127,40 @@ export default function EditableGameName({
                         onChange={(e) => setEditName(e.target.value)}
                         onKeyDown={handleKeyPress}
                         disabled={isSaving}
-                        className="text-2xl font-bold bg-white dark:bg-gray-700 border-2 border-blue-300 rounded px-2 py-1 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500"
+                        className="text-2xl font-bold break-words bg-white dark:bg-gray-700 border-2 border-blue-300 rounded px-2 py-1 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 min-w-0 flex-1"
                         autoFocus
                         maxLength={255}
                     />
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50 text-sm"
+                        className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50 text-sm whitespace-nowrap"
                     >
                         {isSaving ? 'Saving...' : 'Save'}
                     </button>
                     <button
                         onClick={handleCancel}
                         disabled={isSaving}
-                        className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 disabled:opacity-50 text-sm"
+                        className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 disabled:opacity-50 text-sm whitespace-nowrap"
                     >
                         Cancel
                     </button>
                     {saveStatus === 'saved' && (
-                        <span className="text-green-600 text-sm">✓</span>
+                        <span className="text-green-600 text-sm whitespace-nowrap">✓</span>
                     )}
                     {saveStatus === 'error' && (
-                        <span className="text-red-600 text-sm">✗</span>
+                        <span className="text-red-600 text-sm whitespace-nowrap">✗</span>
                     )}
                 </>
             ) : (
                 <>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <h1 className="text-2xl font-bold break-words text-gray-900 dark:text-gray-100 min-w-0">
                         {displayName}
                     </h1>
                     {canEdit && (
                         <button
                             onClick={handleEdit}
-                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
                             title="Edit name"
                         >
                             Edit

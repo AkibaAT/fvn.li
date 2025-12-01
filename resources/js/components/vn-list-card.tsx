@@ -320,7 +320,7 @@ export default function VnListCard({
                         <div className="mt-2">
                             <Link
                                 href={route('games.show', currentGame.slug)}
-                                className="block truncate text-sm text-gray-900 hover:underline dark:text-gray-100"
+                                className="block truncate break-words text-sm text-gray-900 hover:underline dark:text-gray-100"
                                 title={currentGame.effective_name}
                             >
                                 {currentGame.effective_name}

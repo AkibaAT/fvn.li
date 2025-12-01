@@ -10,8 +10,8 @@ export default function GameTitle({game, authorsInlineHtml}: GameTitleProps) {
     const gameName = game.effective_name;
 
     return (
-        <div className="space-y-1">
-            <h2 className="line-clamp-2 min-h-[3.5rem] text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="space-y-1 overflow-hidden">
+            <h2 className="line-clamp-2 min-h-[3.5rem] break-words text-lg font-semibold text-gray-900 dark:text-white">
                 <Link
                     href={route('games.show', game.slug)}
                     className="transition-colors hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"

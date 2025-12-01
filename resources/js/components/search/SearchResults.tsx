@@ -171,8 +171,8 @@ function GameResultItem({ game, query }: { game: SearchResult; query: string }) 
                 href={route('games.show', gameSlug)}
                 className="block"
             >
-                <h4 
-                    className="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+                <h4
+                    className="text-lg font-semibold break-words text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
                     dangerouslySetInnerHTML={{ __html: highlightText(gameName) }}
                 />
                 {gameAuthors && (

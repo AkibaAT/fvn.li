@@ -1008,9 +1008,9 @@ export default function GameShow({
                         </div>
                     )}
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                         <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                            <div className="group">
+                            <div className="group min-w-0 flex-1">
                                 <EditableGameName
                                     gameId={game.id}
                                     name={game.effective_name}
