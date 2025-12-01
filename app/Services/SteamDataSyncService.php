@@ -61,6 +61,10 @@ class SteamDataSyncService
             // Store the Steam App ID
             $game->steam_app_id = $appId;
 
+            // Store original values to detect changes
+            $originalThumbUrl = $game->thumb_url;
+            $originalScreenshots = $game->screenshots;
+
             // Fetch data from Steam API (this will also parse languages)
             $this->refreshFromSteamApi($game, $appId);
 
@@ -74,6 +78,9 @@ class SteamDataSyncService
 
             // Sync tags from Steam genres and user tags
             $this->syncSteamTags($game);
+
+            // Process images (thumbnails and screenshots) if they changed
+            $this->processImages($game, $originalThumbUrl, $originalScreenshots);
 
             $game->error = null;
         } catch (Exception $exception) {
@@ -650,5 +657,67 @@ class SteamDataSyncService
             'tag_count' => count($tagIds),
             'tags' => $tagNames,
         ]);
+    }
+
+    /**
+     * Process images (thumbnails and screenshots) if they changed
+     */
+    private function processImages(Game $game, ?string $originalThumbUrl, ?array $originalScreenshots): void
+    {
+        $imageService = app(ImageProcessingService::class);
+
+        // Process screenshots if they changed
+        if ($game->screenshots !== $originalScreenshots && ! empty($game->screenshots)) {
+            try {
+                echo "    [Steam] Screenshots changed, processing...\n";
+                $imageService->processGameScreenshots($game);
+                echo "    [Steam] Screenshots processed successfully\n";
+            } catch (Exception $e) {
+                Log::error('Failed to process Steam screenshots', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue anyway - we'll save the URLs at least
+            }
+        }
+
+        // Process thumbnail if it changed OR if we have a URL but no processed thumbnails
+        $needsThumbnailProcessing = (
+            ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) ||
+            ($game->thumb_url && empty($game->optimized_thumbnails))
+        );
+
+        if ($needsThumbnailProcessing) {
+            try {
+                echo "    [Steam] Thumbnail needs processing...\n";
+                // Clear old thumbnails first
+                if ($game->optimized_thumbnails) {
+                    $game->clearOptimizedThumbnails();
+                }
+                $imageService->processGameThumbnail($game);
+                echo "    [Steam] Thumbnail processed successfully\n";
+            } catch (Exception $e) {
+                Log::error('Failed to process Steam thumbnail', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue anyway
+            }
+        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $game->screenshots !== $originalScreenshots) {
+            // No thumbnail but have screenshots - process first screenshot as thumbnail
+            try {
+                echo "    [Steam] No thumbnail, processing first screenshot as fallback...\n";
+                if ($game->optimized_thumbnails) {
+                    $game->clearOptimizedThumbnails();
+                }
+                $imageService->processGameThumbnail($game);
+                echo "    [Steam] Thumbnail fallback processed successfully\n";
+            } catch (Exception $e) {
+                Log::error('Failed to process Steam thumbnail fallback', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 }
