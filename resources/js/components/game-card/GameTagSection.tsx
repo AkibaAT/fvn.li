@@ -53,17 +53,15 @@ export default function GameTagSection({
                         </button>
                     ))}
                 </div>
-                {hiddenTagCount > 0 && (
+                {hiddenTagCount > 0 && !tagsExpanded && (
                     <button
                         onClick={() => setTagsExpanded(!tagsExpanded)}
                         className="group flex items-center justify-center w-6 h-6 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer flex-shrink-0"
-                        title={tagsExpanded ? 'Show less' : `Show ${hiddenTagCount} more tags`}
-                        aria-label={tagsExpanded ? 'Show less' : `Show ${hiddenTagCount} more tags`}
+                        title={`Show ${hiddenTagCount} more tags`}
+                        aria-label={`Show ${hiddenTagCount} more tags`}
                     >
                         <svg
-                            className={`w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-all duration-200 ${
-                                tagsExpanded ? 'rotate-180' : 'rotate-0'
-                            }`}
+                            className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-all duration-200 rotate-0"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
