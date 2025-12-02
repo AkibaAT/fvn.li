@@ -132,23 +132,14 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: 10
-          run_install: false
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
+      - uses: oven-sh/setup-bun@v2
+        name: Install Bun
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Build assets
-        run: pnpm run build:ssr
+        run: bun run build:ssr
 
       - name: Create or update .env file with deployment configuration
         run: ./scripts/create-env-deploy.sh "${{ steps.meta.outputs.tags }}" "${{ steps.vars.outputs.dockerfile_changed }}" "${{ steps.vars.outputs.social_images_changed }}"

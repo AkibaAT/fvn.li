@@ -2,7 +2,6 @@ project_name: fvn.li
 language: php
 ignored_paths:
 - /.phpunit.cache
-- /.pnpm-store
 - /bootstrap/ssr
 - /itchbot
 - /node_modules

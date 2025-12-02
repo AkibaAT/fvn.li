@@ -43,8 +43,7 @@ For detailed architecture information, see the [Frontend Architecture](https://a
 - [Docker](https://www.docker.com/get-started)
 - [DDEV](https://ddev.readthedocs.io/en/stable/)
 - [Composer](https://getcomposer.org/)
-- [Node.js](https://nodejs.org/) (v22+)
-- [npm](https://www.npmjs.com/)
+- [Bun](https://bun.sh/)
 
 ### Local Development Setup
 
@@ -66,7 +65,7 @@ For detailed architecture information, see the [Frontend Architecture](https://a
 
 4. Install JavaScript dependencies:
    ```bash
-   ddev pnpm install
+   ddev bun install
    ```
 
 5. Copy the environment file and generate an application key:
@@ -82,7 +81,7 @@ For detailed architecture information, see the [Frontend Architecture](https://a
 
 7. Start the Vite development server:
    ```bash
-   ddev pnpm dev
+   ddev bun dev
    ```
 
 8. Access the application at [https://fvn-li.ddev.site](https://fvn-li.ddev.site)
@@ -172,37 +171,37 @@ ddev composer migrate:test
 
 ```bash
 # Run all E2E tests
-ddev pnpm test:e2e
+ddev bun test:e2e
 
 # Run in UI mode (interactive)
-ddev pnpm test:e2e:ui
+ddev bun test:e2e:ui
 
 # Run accessibility tests
-ddev pnpm test:a11y
+ddev bun test:a11y
 
 # View test report
-ddev pnpm test:a11y:report
+ddev bun test:a11y:report
 ```
 
 ### Code Quality
 
 ```bash
 # TypeScript type checking
-ddev pnpm types
+ddev bun types
 
 # ESLint
-ddev pnpm lint
+ddev bun lint
 
 # Prettier formatting
-ddev pnpm format
-ddev pnpm format:check
+ddev bun format
+ddev bun format:check
 ```
 
 ## DDEV Conventions
 
-- Run Composer and pnpm inside DDEV: `ddev composer <cmd>`, `ddev pnpm <cmd>`.
+- Run Composer and bun inside DDEV: `ddev composer <cmd>`, `ddev bun <cmd>`.
 - PHP Linting: `ddev composer lint` (PHP/Duster), `ddev composer lint:fix`.
-- Frontend Linting: `ddev pnpm lint`, `ddev pnpm format`.
+- Frontend Linting: `ddev bun lint`, `ddev bun format`.
 - Git hooks run linters and tests via DDEV. Enable with `composer hooks:install` and ensure hooks are executable.
 - Testing URL: `fvn-li-testing.ddev.site` is configured via DDEV `additional_fqdns`. Run `ddev restart` after pulling
   config changes.

@@ -242,7 +242,7 @@ export function useAccessibility() {
 ### Development
 
 ```bash
-ddev pnpm dev
+ddev bun dev
 ```
 
 Vite development server features:
@@ -254,7 +254,7 @@ Vite development server features:
 ### Production Build
 
 ```bash
-ddev pnpm build:ssr
+ddev bun build:ssr
 ```
 
 Build optimizations:

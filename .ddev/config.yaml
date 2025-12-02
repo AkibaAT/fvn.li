@@ -22,7 +22,7 @@ web_extra_exposed_ports:
     https_port: 5173
 web_extra_daemons:
   - name: ssr-1
-    command: /var/www/html/artisan inertia:start-ssr
+    command: /var/www/html/artisan inertia:start-ssr --runtime=bun
     directory: /var/www/html
 
 # Key features of DDEV's config.yaml:

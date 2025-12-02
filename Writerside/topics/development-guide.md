@@ -9,7 +9,7 @@ This guide covers common development tasks and workflows for working with FVN.li
 Ensure you have the following installed:
 - Docker and DDEV
 - Node.js 22+ (managed by DDEV)
-- pnpm (installed via DDEV)
+- Bun (installed via DDEV)
 
 ### Initial Setup
 
@@ -21,7 +21,7 @@ Ensure you have the following installed:
 2. Install dependencies:
    ```bash
    ddev composer install
-   ddev pnpm install
+   ddev bun install
    ```
 
 3. Set up environment:
@@ -33,7 +33,7 @@ Ensure you have the following installed:
 
 4. Start development server:
    ```bash
-   ddev pnpm dev
+   ddev bun dev
    ```
 
 5. Access the application at `https://fvn-li.ddev.site`
@@ -46,7 +46,7 @@ The Vite development server provides hot module replacement (HMR) for instant fe
 
 ```bash
 # Start Vite dev server
-ddev pnpm dev
+ddev bun dev
 ```
 
 Features:
@@ -62,7 +62,7 @@ Features:
 Run TypeScript compiler to check for type errors:
 
 ```bash
-ddev pnpm types
+ddev bun types
 ```
 
 This runs `tsc --noEmit` to check types without generating output files.
@@ -73,10 +73,10 @@ Check and fix code style issues:
 
 ```bash
 # Check for issues
-ddev pnpm lint
+ddev bun lint
 
 # Auto-fix issues
-ddev pnpm lint --fix
+ddev bun lint --fix
 ```
 
 ESLint configuration includes:
@@ -91,10 +91,10 @@ Format code with Prettier:
 
 ```bash
 # Format all files
-ddev pnpm format
+ddev bun format
 
 # Check formatting without changes
-ddev pnpm format:check
+ddev bun format:check
 ```
 
 Prettier is configured to:
@@ -107,7 +107,7 @@ Prettier is configured to:
 #### Client-Side Only
 
 ```bash
-ddev pnpm build
+ddev bun build
 ```
 
 This creates optimized production assets in `public/build/`.
@@ -115,7 +115,7 @@ This creates optimized production assets in `public/build/`.
 #### With SSR Support
 
 ```bash
-ddev pnpm build:ssr
+ddev bun build:ssr
 ```
 
 This builds both client and server bundles:
@@ -359,10 +359,10 @@ Run tests:
 
 ```bash
 # Run all tests
-ddev pnpm test:e2e
+ddev bun test:e2e
 
 # Run in UI mode
-ddev pnpm test:e2e:ui
+ddev bun test:e2e:ui
 
 # Run specific test file
 ddev playwright test tests/e2e/specs/example.spec.ts
@@ -372,10 +372,10 @@ ddev playwright test tests/e2e/specs/example.spec.ts
 
 ```bash
 # Run accessibility tests
-ddev pnpm test:a11y
+ddev bun test:a11y
 
 # View accessibility report
-ddev pnpm test:a11y:report
+ddev bun test:a11y:report
 ```
 
 ## Common Tasks
@@ -526,15 +526,15 @@ Use appropriate image formats and sizes:
 
 ### Type Errors
 
-1. Run `ddev pnpm types` to see all type errors
+1. Run `ddev bun types` to see all type errors
 2. Check that types are properly imported
 3. Ensure `tsconfig.json` paths are correct
 4. Restart TypeScript server in your IDE
 
 ### Build Failures
 
-1. Check for TypeScript errors: `ddev pnpm types`
-2. Check for linting errors: `ddev pnpm lint`
+1. Check for TypeScript errors: `ddev bun types`
+2. Check for linting errors: `ddev bun lint`
 3. Clear build cache: `rm -rf public/build`
-4. Reinstall dependencies: `ddev pnpm install`
+4. Reinstall dependencies: `ddev bun install`
 

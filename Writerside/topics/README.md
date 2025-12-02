@@ -41,7 +41,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 - **Local Environment**: DDEV for containerized development
 - **Code Quality**: ESLint, Prettier, TypeScript strict mode
 - **E2E Testing**: Playwright for browser automation and accessibility testing
-- **Package Manager**: pnpm for efficient dependency management
+- **Package Manager**: bun for efficient dependency management
 - **Hot Reload**: Vite HMR with WebSocket support over SSL
 
 ### Deployment & CI/CD
@@ -80,7 +80,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 
 4. Install JavaScript dependencies:
    ```bash
-   ddev pnpm install
+   ddev bun install
    ```
 
 5. Copy the environment file and generate an application key:
@@ -96,7 +96,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 
 7. Start the Vite development server:
    ```bash
-   ddev pnpm dev
+   ddev bun dev
    ```
 
    This starts Vite with HMR (Hot Module Replacement) for instant updates during development.
@@ -109,10 +109,10 @@ To build optimized assets for production:
 
 ```bash
 # Build client-side assets only
-ddev pnpm build
+ddev bun build
 
 # Build with SSR support (recommended)
-ddev pnpm build:ssr
+ddev bun build:ssr
 ```
 
 The build process:
@@ -249,16 +249,16 @@ End-to-end tests using Playwright for browser automation:
 
 ```bash
 # Run all E2E tests
-ddev pnpm test:e2e
+ddev bun test:e2e
 
 # Run tests in UI mode (interactive)
-ddev pnpm test:e2e:ui
+ddev bun test:e2e:ui
 
 # Run accessibility tests
-ddev pnpm test:a11y
+ddev bun test:a11y
 
 # View test report
-ddev pnpm test:a11y:report
+ddev bun test:a11y:report
 ```
 
 Playwright tests cover:
@@ -271,16 +271,16 @@ Playwright tests cover:
 
 ```bash
 # Run TypeScript type checking
-ddev pnpm types
+ddev bun types
 
 # Run ESLint
-ddev pnpm lint
+ddev bun lint
 
 # Format code with Prettier
-ddev pnpm format
+ddev bun format
 
 # Check formatting without changes
-ddev pnpm format:check
+ddev bun format:check
 ```
 
 ## Deployment

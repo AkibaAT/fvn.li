@@ -3,7 +3,9 @@
 
 cd test/playwright || exit 1
 
-if [ -f yarn.lock ]; then
+if [ -f bun.lock ]; then
+  bun && bun playwright "$@"
+elif [ -f yarn.lock ]; then
   yarn && yarn playwright "$@"
 else
   npx playwright "$@"
