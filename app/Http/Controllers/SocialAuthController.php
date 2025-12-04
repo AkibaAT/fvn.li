@@ -165,7 +165,7 @@ class SocialAuthController extends Controller
             ]);
 
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
-            Auth::login($user);
+            Auth::login($user, remember: true);
 
             // Ensure user has default lists (fallback if UserObserver failed)
             if ($user->vnLists()->count() === 0) {
