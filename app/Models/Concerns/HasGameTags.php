@@ -8,6 +8,7 @@ use App\Models\GameJam;
 use App\Models\Tag;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 trait HasGameTags
 {
@@ -80,7 +81,8 @@ trait HasGameTags
         $tagIds = [];
 
         foreach ($tagNames as $tagName) {
-            $tag = Tag::firstOrCreate(['name' => $tagName]);
+            $slug = Str::slug($tagName);
+            $tag = Tag::firstOrCreate(['slug' => $slug], ['name' => $tagName]);
             $tagIds[] = $tag->id;
         }
 

@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\Tag;
 use App\Models\VersionSupportedLanguage;
 use App\ValueObjects\Upload;
 use DateMalformedStringException;
@@ -508,7 +507,7 @@ class GameDataSyncService
 
                 switch ($label) {
                     case 'Tags':
-                        $this->syncTagsFromString($game, $value);
+                        $game->syncTagsFromString($value);
                         break;
                     case 'Author':
                     case 'Authors':
@@ -603,40 +602,6 @@ class GameDataSyncService
             'custom_css_length' => strlen($game->custom_css ?? ''),
             'dirty_attributes' => $game->getDirty(),
         ]);
-
-        // Mark pending associations to be processed by caller
-        // (caller will call processPendingGameJams and processPendingTags after save)
-    }
-
-    /**
-     * Sync tags from a comma-separated string
-     */
-    public function syncTagsFromString(Game $game, string $tags): void
-    {
-        $tagNames = array_filter(array_map('trim', explode(',', $tags)));
-        $tagIds = [];
-
-        foreach ($tagNames as $tagName) {
-            $tag = Tag::firstOrCreate(['name' => $tagName]);
-            $tagIds[] = $tag->id;
-        }
-
-        // If the game is already saved, sync tags immediately
-        if ($game->exists && $game->id) {
-            $game->tags()->sync($tagIds);
-            Log::info('Synced tags for existing game', [
-                'game_id' => $game->id,
-                'game_name' => $game->name,
-                'tag_ids' => $tagIds,
-            ]);
-        } else {
-            // Otherwise, store them for later processing
-            $game->pendingTagIds = $tagIds;
-            Log::info('Stored pending tags for new game', [
-                'game_name' => $game->name,
-                'tag_ids' => $tagIds,
-            ]);
-        }
     }
 
     /**
