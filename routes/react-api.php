@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\PushSubscriptionController;
+use App\Http\Controllers\BugReportController;
 use App\Http\Controllers\ClickTrackingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
@@ -177,6 +178,9 @@ Route::middleware(['web'])->group(function () {
         // Notifications (persistent)
         Route::get('notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('react-api.notifications.index');
         Route::post('notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('react-api.notifications.read');
+
+        // Bug Reports
+        Route::post('bug-reports', [BugReportController::class, 'store'])->name('react-api.bug-reports.store');
     });
 
     // Health/test

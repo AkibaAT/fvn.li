@@ -1,4 +1,5 @@
 import Container from '@/components/container';
+import BugReportButton from '@/components/BugReportButton';
 import {Link} from '@inertiajs/react';
 
 export default function Footer() {
@@ -163,8 +164,10 @@ export default function Footer() {
                             <p>© 2023 - {currentYear} AkibaAT</p>
                         </div>
 
-                        {/* Platform Status */}
+                        {/* Platform Status & Bug Report */}
                         <div className="flex items-center space-x-4 text-sm">
+                            <BugReportButton />
+                            <span className="text-gray-300 dark:text-gray-600">|</span>
                             <Link
                                 href={route('system.status')}
                                 className="text-gray-500 transition-colors hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
