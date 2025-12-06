@@ -9,7 +9,20 @@ interface UseGameFiltersProps {
 
 export function useGameFilters({currentFilters, filters, onGamesPage = false}: UseGameFiltersProps) {
     const updateFilters = (newFilters: Partial<CurrentFilters>) => {
-        const params = {...currentFilters, ...newFilters};
+        // Keys that don't affect result count - changing these shouldn't reset page
+        const paginationKeys = ['page', 'perPage', 'sort', 'direction'];
+
+        // Check if any actual filter (non-pagination) keys are being changed
+        const hasFilterChanges = Object.keys(newFilters).some(
+            (key) => !paginationKeys.includes(key)
+        );
+
+        // Reset page to 1 when filters change (not when just changing page/sort)
+        const params = {
+            ...currentFilters,
+            ...newFilters,
+            ...(hasFilterChanges ? {page: 1} : {}),
+        };
 
         // Remove empty arrays and false values
         Object.keys(params).forEach((key) => {

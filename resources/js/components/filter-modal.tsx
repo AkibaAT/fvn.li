@@ -1,8 +1,8 @@
 import React, {useEffect, useRef} from 'react';
-import {router} from '@inertiajs/react';
 import MultiSelect from '@/components/multi-select';
 import ItchioIcon from '@/components/icons/itchio';
 import SteamIcon from '@/components/icons/steam';
+import {useGameFilters} from '@/hooks/useGameFilters';
 import type {CurrentFilters, FilterOptions} from '@/types';
 
 interface FilterModalProps {
@@ -24,10 +24,28 @@ export function FilterModal({
     const filterCloseBtnRef = useRef<HTMLButtonElement>(null);
     const filterOpenerRef = useRef<HTMLElement | null>(null);
 
-    // Don't render during SSR to avoid HTML structure issues
-    if (typeof window === 'undefined') {
-        return null;
-    }
+    const {
+        updateFilters: hookUpdateFilters,
+        toggleFilter,
+        clearFilters: hookClearFilters,
+        hasActiveFilters,
+    } = useGameFilters({currentFilters, filters, onGamesPage});
+
+    // Wrap updateFilters to close modal when navigating away from games page
+    const updateFilters = (newFilters: Partial<CurrentFilters>) => {
+        hookUpdateFilters(newFilters);
+        if (!onGamesPage) {
+            onClose();
+        }
+    };
+
+    // Wrap clearFilters similarly
+    const clearFilters = () => {
+        hookClearFilters();
+        if (!onGamesPage) {
+            onClose();
+        }
+    };
 
     // Handle dialog open/close
     useEffect(() => {
@@ -65,108 +83,6 @@ export function FilterModal({
             return () => dialog.removeEventListener('click', handleClick);
         }
     }, [isOpen, onClose]);
-
-    const updateFilters = (newFilters: Partial<CurrentFilters>) => {
-        const params = {...currentFilters, ...newFilters};
-
-        // Remove empty arrays and false values
-        Object.keys(params).forEach((key) => {
-            const value = params[key as keyof CurrentFilters];
-            if (Array.isArray(value) && value.length === 0) {
-                delete params[key as keyof CurrentFilters];
-            } else if (
-                value === false ||
-                value === '' ||
-                value === null ||
-                value === undefined
-            ) {
-                delete params[key as keyof CurrentFilters];
-            }
-        });
-
-        if (onGamesPage) {
-            // Update current games page
-            router.get(route('games.index'), params, {
-                preserveState: true,
-                preserveScroll: true,
-            });
-        } else {
-            // Navigate to games page with filters
-            router.get(route('games.index'), params, {
-                preserveState: false,
-            });
-            onClose();
-        }
-    };
-
-    const toggleFilter = (type: string, value: string) => {
-        // Map filter types to their correct property names
-        const propertyMap: Record<string, keyof CurrentFilters> = {
-            status: 'selectedStatuses',
-            engine: 'selectedEngines',
-            platform: 'selectedPlatforms',
-            storePlatform: 'selectedStorePlatforms',
-            language: 'selectedLanguages',
-            gameJam: 'selectedGameJams',
-            tag: 'selectedTags',
-        };
-
-        const propertyName = propertyMap[type];
-        if (!propertyName) return;
-
-        const currentArray = (currentFilters[propertyName] as string[]) || [];
-        const newArray = currentArray.includes(value)
-            ? currentArray.filter((item) => item !== value)
-            : [...currentArray, value];
-
-        updateFilters({[propertyName]: newArray});
-    };
-
-    const clearFilters = () => {
-        updateFilters({
-            selectedStatuses: [],
-            selectedEngines: [],
-            selectedPlatforms: [],
-            selectedLanguages: [],
-            selectedGameJams: [],
-            selectedTags: [],
-            nsfw: false,
-            sfw: false,
-            showPaid: false,
-            showFree: false,
-            showDemo: false,
-        });
-    };
-
-    const hasActiveFilters = () => {
-        const {
-            selectedStatuses,
-            selectedEngines,
-            selectedPlatforms,
-            selectedLanguages,
-            selectedGameJams,
-            selectedTags,
-            nsfw,
-            sfw,
-            showPaid,
-            showFree,
-            showDemo,
-        } = currentFilters;
-
-        return Boolean(
-            (selectedStatuses && selectedStatuses.length > 0) ||
-            (selectedEngines && selectedEngines.length > 0) ||
-            (selectedPlatforms && selectedPlatforms.length > 0) ||
-            (selectedLanguages && selectedLanguages.length > 0) ||
-            (selectedGameJams && selectedGameJams.length > 0) ||
-            (selectedTags && selectedTags.length > 0) ||
-            nsfw ||
-            sfw ||
-            showPaid ||
-            showFree ||
-            showDemo,
-        );
-    };
 
     // Don't render during SSR to avoid HTML structure issues
     if (typeof window === 'undefined') {

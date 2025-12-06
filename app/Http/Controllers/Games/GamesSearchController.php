@@ -62,9 +62,11 @@ class GamesSearchController extends Controller
         }
 
         // Use Meilisearch for search and filtering
+        $requestedPage = (int) $request->get('page', 1);
+
         try {
             $searchQuery = trim($search ?? '') ?: '*';
-            $games = $service->searchGames($searchQuery, $filters, $perPage, (int) $request->get('page', 1), $sortField, $sortDirection, $ignoredGameIds);
+            $games = $service->searchGames($searchQuery, $filters, $perPage, $requestedPage, $sortField, $sortDirection, $ignoredGameIds);
 
             Log::info('Meilisearch success', [
                 'query' => $searchQuery,
@@ -78,7 +80,17 @@ class GamesSearchController extends Controller
             ]);
 
             // Fallback to basic database search
-            $games = $this->fallbackSearch($search, $perPage, (int) $request->get('page', 1), $ignoredGameIds);
+            $games = $this->fallbackSearch($search, $perPage, $requestedPage, $ignoredGameIds);
+        }
+
+        // If requested page exceeds available pages, re-query for page 1
+        if ($requestedPage > 1 && $games->lastPage() > 0 && $requestedPage > $games->lastPage()) {
+            try {
+                $searchQuery = trim($search ?? '') ?: '*';
+                $games = $service->searchGames($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
+            } catch (Exception $e) {
+                $games = $this->fallbackSearch($search, $perPage, 1, $ignoredGameIds);
+            }
         }
 
         // Load essential relationships for the frontend
@@ -208,7 +220,7 @@ class GamesSearchController extends Controller
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
-                'page' => (int) $request->get('page', 1),
+                'page' => $games->currentPage(),
             ],
             'filters' => $filterOptions,
             'metaTags' => $metaTags,
