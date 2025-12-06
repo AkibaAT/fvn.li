@@ -187,6 +187,7 @@ class GamesDisplayController extends Controller
         }
 
         // Batch query for character counts for all versions at once
+        // Count distinct display names (not character_ids) to match modal grouping
         if (! empty($versionIds)) {
             $characterCounts = DB::table('version_character_stats')
                 ->join('characters', 'characters.id', '=', 'version_character_stats.character_id')
@@ -199,7 +200,7 @@ class GamesDisplayController extends Controller
                     $query->where('version_character_stats.iso_code', $game->source_language_id);
                 })
                 ->select('version_character_stats.game_version_id')
-                ->selectRaw('COUNT(DISTINCT characters.character_id) as count')
+                ->selectRaw("COUNT(DISTINCT characters.display_names->>'eng') as count")
                 ->groupBy('version_character_stats.game_version_id')
                 ->get()
                 ->pluck('count', 'game_version_id')

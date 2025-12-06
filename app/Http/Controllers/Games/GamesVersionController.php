@@ -129,6 +129,7 @@ class GamesVersionController extends Controller
         })->values()->toArray();
 
         // Build word counts matrix: character -> language -> word count
+        // Sum word counts for characters with the same display name (e.g., 'f' and 'f2' both named "Fred")
         $wordCounts = [];
         foreach ($characterStats as $stat) {
             $characterId = $stat->character_id;
@@ -137,7 +138,7 @@ class GamesVersionController extends Controller
             if (! isset($wordCounts[$characterName])) {
                 $wordCounts[$characterName] = [];
             }
-            $wordCounts[$characterName][$isoCode] = $stat->words;
+            $wordCounts[$characterName][$isoCode] = ($wordCounts[$characterName][$isoCode] ?? 0) + $stat->words;
         }
 
         // Calculate language totals
