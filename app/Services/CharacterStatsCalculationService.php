@@ -357,16 +357,20 @@ class CharacterStatsCalculationService
     /**
      * Recalculate language-level statistics by summing up character statistics
      * This ensures language totals are consistent with character breakdowns
+     * Note: 'alt' characters are excluded as they contain alt text, not narrative content
      */
     private function recalculateLanguageStats(int $versionId): int
     {
-        // Get language totals by summing character stats
+        // Get language totals by summing character stats, excluding 'alt' characters
+        // 'alt' contains alt text for images, not actual narrative content
         $languageTotals = DB::table('version_character_stats')
+            ->join('characters', 'version_character_stats.character_id', '=', 'characters.id')
             ->where('game_version_id', $versionId)
-            ->select('iso_code')
-            ->selectRaw('SUM(blocks) as total_blocks')
-            ->selectRaw('SUM(words) as total_words')
-            ->groupBy('iso_code')
+            ->where('characters.character_id', '!=', 'alt')
+            ->select('version_character_stats.iso_code')
+            ->selectRaw('SUM(version_character_stats.blocks) as total_blocks')
+            ->selectRaw('SUM(version_character_stats.words) as total_words')
+            ->groupBy('version_character_stats.iso_code')
             ->get();
 
         $languageStatsUpdated = 0;

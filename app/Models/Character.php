@@ -34,12 +34,13 @@ class Character extends Model
         ?string $languageCode = null,
         ?int $versionId = null
     ): int {
-        // Get characters for the specific version, excluding narrator and menu_choice
+        // Get characters for the specific version, excluding narrator, menu_choice, and alt
         $characters = self::query()
             ->join('version_character_stats', 'characters.id', '=', 'version_character_stats.character_id')
             ->where('characters.game_id', $gameId)
             ->where('characters.character_id', '!=', 'narrator')
             ->where('characters.character_id', '!=', 'menu_choice')
+            ->where('characters.character_id', '!=', 'alt')
             ->when($versionId, function ($query) use ($versionId) {
                 $query->where('version_character_stats.game_version_id', $versionId);
             })

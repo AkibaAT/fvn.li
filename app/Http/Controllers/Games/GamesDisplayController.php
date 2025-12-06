@@ -194,6 +194,7 @@ class GamesDisplayController extends Controller
                 ->where('characters.game_id', $game->id)
                 ->where('characters.character_id', '!=', 'narrator')
                 ->where('characters.character_id', '!=', 'menu_choice')
+                ->where('characters.character_id', '!=', 'alt')
                 ->when($game->source_language_id, function ($query) use ($game) {
                     $query->where('version_character_stats.iso_code', $game->source_language_id);
                 })
