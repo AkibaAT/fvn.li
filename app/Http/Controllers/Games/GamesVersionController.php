@@ -80,13 +80,20 @@ class GamesVersionController extends Controller
             return response()->json(['error' => 'Version does not belong to this game'], 400);
         }
 
+        // Get available language codes for this version
+        $availableLanguages = $version->supportedLanguages()
+            ->where('is_available', true)
+            ->pluck('iso_code')
+            ->toArray();
+
         $characterStats = $version->characterStats()
             ->with(['character', 'language'])
             ->orderBy('words', 'desc')
             ->get()
             ->filter(fn ($stat) => $stat->language !== null
                 && ! str_starts_with($stat->iso_code, 'q')
-                && $stat->character?->character_id !== 'alt'); // Exclude alt text from word counts
+                && $stat->character?->character_id !== 'alt' // Exclude alt text from word counts
+                && in_array($stat->iso_code, $availableLanguages)); // Only include available languages
 
         // Group by language
         $groupedByLanguage = $characterStats->groupBy('iso_code');

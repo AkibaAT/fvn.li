@@ -63,12 +63,17 @@ class DialogueController extends Controller
             $selectedLanguages = array_values(array_filter(array_map('trim', explode(',', $selectedLanguagesParam))));
         }
 
-        // Base query for items/summary (no dependency on version_supported_languages)
+        // Base query for items/summary - only include languages marked as available
         $base = DB::table('version_character_stats as vcs')
             ->join('game_versions as gv', 'gv.id', '=', 'vcs.game_version_id')
             ->join('characters as c', 'c.id', '=', 'vcs.character_id')
             ->join('iso_639_3_languages as l', 'l.id', '=', 'vcs.iso_code')
-            ->where('vcs.iso_code', 'not like', 'q%');
+            ->join('version_supported_languages as vsl', function ($join) {
+                $join->on('vsl.game_version_id', '=', 'gv.id')
+                    ->on('vsl.iso_code', '=', 'vcs.iso_code');
+            })
+            ->where('vcs.iso_code', 'not like', 'q%')
+            ->where('vsl.is_available', '=', true);
 
         if ($gameId) {
             $base->where('gv.game_id', '=', $gameId);
@@ -268,13 +273,19 @@ class DialogueController extends Controller
             ])
             ->values();
 
-        // Languages available for this specific game - much faster query
+        // Languages available for this specific game - only show languages marked as available
         $languages = DB::table('iso_639_3_languages as l')
-            ->whereExists(function ($q) use ($gameId) {
+            ->whereExists(function ($q) use ($gameId, $versionId) {
                 $q->select('vdl.id')
                     ->from('version_dialogue_lines as vdl')
                     ->join('game_versions as gv', 'gv.id', '=', 'vdl.game_version_id')
+                    ->join('version_supported_languages as vsl', function ($join) {
+                        $join->on('vsl.game_version_id', '=', 'gv.id')
+                            ->on('vsl.iso_code', '=', 'vdl.iso_code');
+                    })
                     ->where('gv.game_id', '=', $gameId)
+                    ->where('vsl.is_available', '=', true)
+                    ->when($versionId, fn ($q) => $q->where('gv.id', '=', $versionId))
                     ->whereColumn('vdl.iso_code', 'l.id')
                     ->limit(1);
             })
