@@ -77,7 +77,6 @@ class Game extends Model
         'is_suspended',
         'additional_links',
         'screenshots',
-        'optimized_screenshots',
         'optimized_thumbnails',
         'has_custom_page',
         'custom_name',
@@ -127,7 +126,6 @@ class Game extends Model
         'supported_languages' => 'collection',
         'uploads' => 'array',
         'screenshots' => 'array',
-        'optimized_screenshots' => 'array',
         'additional_links' => 'array',
         'custom_css' => 'string',
         'has_custom_page' => 'boolean',
@@ -210,41 +208,6 @@ class Game extends Model
 
             return true;
         });
-    }
-
-    /**
-     * Merge screenshots with optimized_screenshots for backwards compatibility
-     *
-     * This accessor ensures that when screenshots are accessed, they include the optimized
-     * data from the optimized_screenshots column, providing a seamless transition from the
-     * old single-column structure to the new two-column structure.
-     */
-    public function getScreenshotsAttribute($value): ?array
-    {
-        // Decode the JSON value if it's a string
-        $screenshots = is_string($value) ? json_decode($value, true) : $value;
-
-        // If there are no screenshots, return null
-        if (empty($screenshots)) {
-            return $screenshots;
-        }
-
-        // If optimized_screenshots exists, merge them
-        $optimizedScreenshots = $this->attributes['optimized_screenshots'] ?? null;
-        if ($optimizedScreenshots) {
-            $optimizedScreenshots = is_string($optimizedScreenshots)
-                ? json_decode($optimizedScreenshots, true)
-                : $optimizedScreenshots;
-
-            // Merge optimized data back into screenshots
-            foreach ($screenshots as $index => $screenshot) {
-                if (isset($optimizedScreenshots[$index]['optimized'])) {
-                    $screenshots[$index]['optimized'] = $optimizedScreenshots[$index]['optimized'];
-                }
-            }
-        }
-
-        return $screenshots;
     }
 
     /**

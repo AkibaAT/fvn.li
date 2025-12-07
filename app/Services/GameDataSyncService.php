@@ -536,8 +536,8 @@ class GameDataSyncService
         // ========================================
         $imageService = app(ImageProcessingService::class);
 
-        // Process screenshots if they changed
-        if ($game->screenshots !== $originalScreenshots && ! empty($game->screenshots)) {
+        // Process screenshots if they changed (compare only source URLs, not optimized data)
+        if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots) && ! empty($game->screenshots)) {
             try {
                 echo "    [Metadata] Screenshots changed, processing before save...\n";
                 $imageService->processGameScreenshots($game);
@@ -573,7 +573,7 @@ class GameDataSyncService
                 ]);
                 // Continue anyway
             }
-        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $game->screenshots !== $originalScreenshots) {
+        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
             // No thumbnail but have screenshots - process first screenshot as thumbnail
             try {
                 echo "    [Metadata] No thumbnail, processing first screenshot as fallback...\n";
@@ -808,5 +808,44 @@ class GameDataSyncService
 
         // Clear the pending list
         $game->pendingTagIds = [];
+    }
+
+    /**
+     * Compare screenshot arrays by their source URLs only.
+     * This ignores optimized variants when determining if screenshots have actually changed.
+     *
+     * @param  array|null  $screenshots1  First screenshots array
+     * @param  array|null  $screenshots2  Second screenshots array
+     * @return bool True if the screenshot source URLs are different
+     */
+    private function screenshotUrlsChanged(?array $screenshots1, ?array $screenshots2): bool
+    {
+        // Extract just the source URLs from each array
+        $urls1 = $this->extractScreenshotUrls($screenshots1);
+        $urls2 = $this->extractScreenshotUrls($screenshots2);
+
+        return $urls1 !== $urls2;
+    }
+
+    /**
+     * Extract source URLs from a screenshots array, ignoring optimized data.
+     *
+     * @param  array|null  $screenshots  Screenshots array
+     * @return array Sorted array of source URLs
+     */
+    private function extractScreenshotUrls(?array $screenshots): array
+    {
+        if (empty($screenshots)) {
+            return [];
+        }
+
+        $urls = [];
+        foreach ($screenshots as $screenshot) {
+            if (isset($screenshot['url'])) {
+                $urls[] = $screenshot['url'];
+            }
+        }
+
+        return $urls;
     }
 }

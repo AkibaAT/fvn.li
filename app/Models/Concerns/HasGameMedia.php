@@ -43,27 +43,36 @@ trait HasGameMedia
     }
 
     /**
-     * Clear all optimized screenshots
+     * Clear all optimized screenshots from the screenshots array
      */
     public function clearOptimizedScreenshots(): void
     {
-        if (empty($this->optimized_screenshots)) {
+        if (empty($this->screenshots)) {
             return;
         }
 
-        foreach ($this->optimized_screenshots as $optimizedScreenshot) {
-            if (isset($optimizedScreenshot['optimized'])) {
-                foreach ($optimizedScreenshot['optimized'] as $variant) {
+        $updatedScreenshots = [];
+        $hasOptimized = false;
+
+        foreach ($this->screenshots as $screenshot) {
+            // Delete the optimized files from storage
+            if (isset($screenshot['optimized'])) {
+                $hasOptimized = true;
+                foreach ($screenshot['optimized'] as $variant) {
                     if (isset($variant['path'])) {
                         Storage::disk('public')->delete($variant['path']);
                     }
                 }
             }
+
+            // Keep only the original URL, remove optimized data
+            $updatedScreenshots[] = ['url' => $screenshot['url']];
         }
 
-        // Clear the optimized screenshots data
-        $this->optimized_screenshots = null;
-        $this->save();
+        if ($hasOptimized) {
+            $this->screenshots = $updatedScreenshots;
+            $this->save();
+        }
     }
 
     /**
@@ -105,9 +114,9 @@ trait HasGameMedia
 
         $firstScreenshot = $this->screenshots[0];
 
-        // If we have optimized screenshots, use them
-        if (isset($this->optimized_screenshots[0]['optimized'][$variant]['path'])) {
-            return asset('storage/' . $this->optimized_screenshots[0]['optimized'][$variant]['path']);
+        // If we have optimized data for this variant, use it
+        if (isset($firstScreenshot['optimized'][$variant]['path'])) {
+            return asset('storage/' . $firstScreenshot['optimized'][$variant]['path']);
         }
 
         // Fallback to original screenshot URL
@@ -128,10 +137,10 @@ trait HasGameMedia
 
         $screenshots = [];
 
-        foreach (array_keys($this->screenshots) as $index) {
+        foreach ($this->screenshots as $screenshot) {
             $screenshots[] = [
-                'url' => $this->getScreenshotUrl($index, 'large'),
-                'thumbnail_url' => $this->getScreenshotUrl($index, $variant),
+                'url' => $this->getOptimizedOrOriginalUrl($screenshot, 'large'),
+                'thumbnail_url' => $this->getOptimizedOrOriginalUrl($screenshot, $variant),
             ];
         }
 
@@ -139,7 +148,19 @@ trait HasGameMedia
     }
 
     /**
-     * Get a screenshot URL by variant
+     * Get optimized URL for a screenshot or fall back to original
+     */
+    private function getOptimizedOrOriginalUrl(array $screenshot, string $variant): ?string
+    {
+        if (isset($screenshot['optimized'][$variant]['path'])) {
+            return asset('storage/' . $screenshot['optimized'][$variant]['path']);
+        }
+
+        return $screenshot['url'] ?? null;
+    }
+
+    /**
+     * Get a screenshot URL by index and variant
      */
     public function getScreenshotUrl(int $index = 0, string $variant = 'default'): ?string
     {
@@ -147,12 +168,20 @@ trait HasGameMedia
             return null;
         }
 
-        if (! isset($this->optimized_screenshots[$index]['optimized'][$variant])) {
-            return $this->screenshots[$index]['url'] ?? null;
+        $screenshot = $this->screenshots[$index];
+
+        return $this->getOptimizedOrOriginalUrl($screenshot, $variant);
+    }
+
+    /**
+     * Check if a screenshot has been optimized
+     */
+    public function isScreenshotOptimized(int $index = 0): bool
+    {
+        if (empty($this->screenshots) || ! isset($this->screenshots[$index])) {
+            return false;
         }
 
-        $path = $this->optimized_screenshots[$index]['optimized'][$variant]['path'];
-
-        return asset('storage/' . $path);
+        return isset($this->screenshots[$index]['optimized']) && ! empty($this->screenshots[$index]['optimized']);
     }
 }

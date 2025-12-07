@@ -11,7 +11,7 @@ export const SCREENSHOT_VARIANTS = {
 export type ScreenshotVariant = typeof SCREENSHOT_VARIANTS[keyof typeof SCREENSHOT_VARIANTS];
 
 /**
- * Helper type for the optimized screenshot structure
+ * Single optimized variant data
  */
 export interface OptimizedScreenshotVariant {
     path: string;
@@ -20,6 +20,9 @@ export interface OptimizedScreenshotVariant {
     mime_type?: string;
 }
 
+/**
+ * All optimized variants for a screenshot
+ */
 export interface OptimizedScreenshotVariants {
     [SCREENSHOT_VARIANTS.SMALL]?: OptimizedScreenshotVariant;
     [SCREENSHOT_VARIANTS.DEFAULT]?: OptimizedScreenshotVariant;

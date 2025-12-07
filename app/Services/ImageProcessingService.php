@@ -201,15 +201,30 @@ class ImageProcessingService
         echo '    [Images] Processing ' . count($game->screenshots) . " screenshots\n";
 
         $updatedScreenshots = [];
-        $updatedOptimizedScreenshots = [];
 
         foreach ($game->screenshots as $index => $screenshot) {
-            echo "    [Images] Processing screenshot {$index}...\n";
+            $sourceUrl = $screenshot['url'] ?? null;
+
+            if (empty($sourceUrl)) {
+                echo "    [Images] Screenshot {$index} has no URL, skipping\n";
+
+                continue;
+            }
+
+            echo "    [Images] Processing screenshot {$index}: {$sourceUrl}\n";
 
             try {
+                // Skip if already optimized and not forcing
+                if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
+                    echo "    [Images] Screenshot already optimized, skipping\n";
+                    $updatedScreenshots[] = $screenshot;
+
+                    continue;
+                }
+
                 // Download the screenshot
                 echo "    [Images] Downloading screenshot...\n";
-                $response = $this->httpClient->get($screenshot['url'], [
+                $response = $this->httpClient->get($sourceUrl, [
                     'timeout' => 30,
                     'connect_timeout' => 10,
                     'verify' => false,
@@ -219,22 +234,11 @@ class ImageProcessingService
                 $tempFile = tempnam(sys_get_temp_dir(), 'screenshot_');
                 file_put_contents($tempFile, $content);
 
-                // Skip if already optimized and not forcing
-                $existingOptimized = $game->optimized_screenshots[$index] ?? null;
-                if (! $force && isset($existingOptimized['optimized']) && ! empty($existingOptimized['optimized'])) {
-                    echo "    [Images] Screenshot already optimized, skipping\n";
-                    $updatedScreenshots[] = $screenshot;
-                    $updatedOptimizedScreenshots[] = $existingOptimized;
-                    unlink($tempFile);
+                // Clean up existing screenshots for this game and URL
+                $this->cleanupExistingScreenshots($game->id, $sourceUrl);
 
-                    continue;
-                }
-
-                // Clean up existing screenshots for this game and index
-                $this->cleanupExistingScreenshots($game->id, $index);
-
-                // Generate a unique filename with content checksum
-                $baseFilename = $this->generateScreenshotFilename($game, $index, $screenshot['url'], $content);
+                // Generate a unique filename based on URL and content
+                $baseFilename = $this->generateScreenshotFilename($game, $sourceUrl, $content);
 
                 // Verify it's a valid image
                 $imageInfo = getimagesize($tempFile);
@@ -275,11 +279,9 @@ class ImageProcessingService
                     ];
                 }
 
-                // Keep the original screenshot
-                $updatedScreenshots[] = $screenshot;
-
-                // Store optimized variants separately
-                $updatedOptimizedScreenshots[] = [
+                // Store the screenshot with optimized data embedded
+                $updatedScreenshots[] = [
+                    'url' => $sourceUrl,
                     'optimized' => $optimizedVariants,
                 ];
 
@@ -291,17 +293,13 @@ class ImageProcessingService
                     'index' => $index,
                     'error' => $e->getMessage(),
                 ]);
-                // Keep original data
+                // Keep original screenshot data (with any existing optimized data)
                 $updatedScreenshots[] = $screenshot;
-                if (isset($game->optimized_screenshots[$index])) {
-                    $updatedOptimizedScreenshots[] = $game->optimized_screenshots[$index];
-                }
             }
         }
 
         // Update the game with processed screenshots
         $game->screenshots = $updatedScreenshots;
-        $game->optimized_screenshots = $updatedOptimizedScreenshots;
     }
 
     /**
@@ -422,17 +420,20 @@ class ImageProcessingService
     }
 
     /**
-     * Generate a unique filename for a screenshot
+     * Generate a unique filename for a screenshot based on URL and content
      */
-    private function generateScreenshotFilename(Game $game, int $index, string $url, string $fileContent): string
+    private function generateScreenshotFilename(Game $game, string $url, string $fileContent): string
     {
+        // Use URL hash as the primary identifier (stable across updates)
+        $urlHash = substr(md5($url), 0, 8);
+
+        // Generate a checksum of the file content to ensure cache invalidation when the image changes
         $contentChecksum = substr(md5($fileContent), 0, 8);
 
         return sprintf(
-            '%d_screenshot_%d_%s_%s',
+            '%d_screenshot_%s_%s',
             $game->id,
-            $index,
-            substr(md5($url), 0, 8),
+            $urlHash,
             $contentChecksum
         );
     }
@@ -461,12 +462,15 @@ class ImageProcessingService
     }
 
     /**
-     * Clean up existing screenshot files for a game
+     * Clean up existing screenshot files for a game based on URL hash
      */
-    private function cleanupExistingScreenshots(int $gameId, int $screenshotIndex): void
+    private function cleanupExistingScreenshots(int $gameId, string $sourceUrl): void
     {
         $files = Storage::disk('public')->files(self::SCREENSHOTS_PATH);
-        $pattern = "/^{$gameId}_screenshot_{$screenshotIndex}_[a-f0-9]{8}/";
+
+        // Generate the URL hash prefix to match files for this game and URL
+        $urlHash = substr(md5($sourceUrl), 0, 8);
+        $pattern = "/^{$gameId}_screenshot_{$urlHash}_[a-f0-9]{8}/";
 
         foreach ($files as $file) {
             $filename = basename($file);
