@@ -63,11 +63,9 @@ class VnListController extends Controller
                             },
                         ])
                         ->orderBy('sort_order')
-                        ->limit(6); // Only load first 6 entries for card preview
+                        ->limit(10); // Only load first 10 entries for card preview
                 },
             ])
-            ->select('id', 'user_id', 'name', 'description', 'type', 'is_public', 'is_default', 'created_at',
-                'updated_at')
             ->where('user_id', $user->id);
 
         // Apply visibility filter if provided
@@ -263,20 +261,57 @@ class VnListController extends Controller
         $perPage = $request->input('per_page', 8);
         $type = $request->input('type', 'all');
         $page = $request->input('page', 1);
+        $search = $request->input('search', '');
+        $sort = $request->input('sort', 'default'); // default, newest, oldest, most_entries
+        $gameId = $request->input('game'); // Filter by game ID
+
+        // Load game if filtering by game
+        $filterGame = null;
+        if ($gameId) {
+            $filterGame = Game::select('id', 'name', 'slug')->find($gameId);
+        }
 
         // Create a unique cache key for this request
-        $cacheKey = "public_lists:{$type}:{$perPage}:{$page}";
+        $searchKey = $search ? md5($search) : '';
+        $gameKey = $gameId ?: '';
+        $cacheKey = "public_lists:{$type}:{$perPage}:{$page}:{$sort}:{$searchKey}:{$gameKey}";
 
-        // Try to get cached data
-        $cachedData = Cache::get($cacheKey);
+        // Try to get cached data (only cache non-search/non-game-filter queries to keep them responsive)
+        if (empty($search) && empty($gameId)) {
+            $cachedData = Cache::get($cacheKey);
+            if ($cachedData) {
+                // Add current filter values to cached response
+                $cachedData['search'] = $search;
+                $cachedData['sort'] = $sort;
+                $cachedData['filterGame'] = $filterGame;
 
-        if ($cachedData) {
-            return Inertia::render('lists/public', $cachedData);
+                return Inertia::render('lists/public', $cachedData);
+            }
         }
 
         // Get counts for each tab with a single query using conditional aggregation
-        $counts = VnList::where('is_public', true)
-            ->has('entries')
+        $countsQuery = VnList::where('is_public', true)
+            ->has('entries');
+
+        // Apply game filter to counts
+        if ($gameId) {
+            $countsQuery->whereHas('entries', function ($q) use ($gameId) {
+                $q->where('game_id', $gameId);
+            });
+        }
+
+        // Apply search to counts if searching (by user name or game name)
+        if (! empty($search)) {
+            $countsQuery->where(function ($q) use ($search) {
+                $q->whereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'ILIKE', "%{$search}%");
+                })->orWhereHas('entries.game', function ($gameQuery) use ($search) {
+                    $gameQuery->where('name', 'ILIKE', "%{$search}%");
+                });
+            });
+        }
+
+        $counts = $countsQuery
             ->selectRaw('COUNT(*) as all_count')
             ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as plan_to_read_count', ['plan_to_read'])
             ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as reading_count', ['reading'])
@@ -294,10 +329,10 @@ class VnListController extends Controller
                     $q->select('id', 'name', 'avatar');
                 },
                 'entries' => function ($query) {
-                    // Load only first 6 entries for carousel with minimal game data
+                    // Load only first 10 entries for carousel with minimal game data
                     $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
                         ->orderBy('sort_order')
-                        ->limit(6)
+                        ->limit(10)
                         ->with([
                             'game' => function ($q) {
                                 // Only select essential fields for the game
@@ -311,9 +346,26 @@ class VnListController extends Controller
                         ]);
                 },
             ])
-            ->select('id', 'user_id', 'name', 'description', 'type', 'is_public', 'created_at', 'updated_at')
             ->where('is_public', true)
             ->has('entries');
+
+        // Apply search filter (by user name or game name)
+        if (! empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'ILIKE', "%{$search}%");
+                })->orWhereHas('entries.game', function ($gameQuery) use ($search) {
+                    $gameQuery->where('name', 'ILIKE', "%{$search}%");
+                });
+            });
+        }
+
+        // Apply game filter
+        if ($gameId) {
+            $query->whereHas('entries', function ($q) use ($gameId) {
+                $q->where('game_id', $gameId);
+            });
+        }
 
         // Apply type filter if provided
         if ($type !== 'all') {
@@ -324,17 +376,36 @@ class VnListController extends Controller
             }
         }
 
-        // Sort by type priority first, then by creation date
-        $lists = $query->orderByRaw("
-            CASE type
-                WHEN 'reading' THEN 1
-                WHEN 'plan_to_read' THEN 2
-                WHEN 'completed' THEN 3
-                WHEN 'on_hold' THEN 4
-                WHEN 'dropped' THEN 5
-                ELSE 6
-            END, created_at DESC
-        ")->paginate($perPage);
+        // Apply sorting
+        switch ($sort) {
+            case 'newest':
+                $query->orderBy('created_at', 'desc');
+                break;
+            case 'oldest':
+                $query->orderBy('created_at', 'asc');
+                break;
+            case 'most_entries':
+                $query->orderByRaw('(SELECT COUNT(*) FROM vn_list_entries WHERE vn_list_entries.vn_list_id = vn_lists.id) DESC');
+                break;
+            case 'recently_updated':
+                $query->orderBy('updated_at', 'desc');
+                break;
+            default:
+                // Sort by type priority first, then by creation date
+                $query->orderByRaw("
+                    CASE type
+                        WHEN 'reading' THEN 1
+                        WHEN 'plan_to_read' THEN 2
+                        WHEN 'completed' THEN 3
+                        WHEN 'on_hold' THEN 4
+                        WHEN 'dropped' THEN 5
+                        ELSE 6
+                    END, created_at DESC
+                ");
+                break;
+        }
+
+        $lists = $query->paginate($perPage);
 
         // Get first list for meta tag image using optimized thumbnail helper
         // Normalize game thumbnails to optimized URLs for client/preload
@@ -351,10 +422,10 @@ class VnListController extends Controller
 
         $metaTags = [
             'title' => 'Public Visual Novel Lists',
-            'description' => 'Browse public visual novel lists shared by the community. ' .
-                "Currently featuring {$lists->total()} public lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
+            'description' => 'Browse public visual novel lists shared by the community. '.
+                "Currently featuring {$lists->total()} public lists".
+                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
+                    return "{$list->name} by {$list->user->name} (".$list->entries->count().' games)';
                 })->implode(', ') : ''),
             'image' => asset(config('social.images.public_lists', config('social.images.default'))),
             'structuredData' => [
@@ -392,6 +463,9 @@ class VnListController extends Controller
             'lists' => $lists,
             'metaTags' => $metaTags,
             'type' => $type,
+            'search' => $search,
+            'sort' => $sort,
+            'filterGame' => $filterGame,
             'counts' => [
                 'all' => $counts->all_count,
                 'plan_to_read' => $counts->plan_to_read_count,
@@ -403,8 +477,10 @@ class VnListController extends Controller
             ],
         ];
 
-        // Cache the response for 1 hour
-        Cache::put($cacheKey, $responseData, now()->addHour());
+        // Cache the response for 1 hour (only non-search queries)
+        if (empty($search)) {
+            Cache::put($cacheKey, $responseData, now()->addHour());
+        }
 
         return Inertia::render('lists/public', $responseData);
     }
@@ -437,10 +513,9 @@ class VnListController extends Controller
                             },
                         ])
                         ->orderBy('sort_order')
-                        ->limit(6); // Only load first 6 entries for card preview
+                        ->limit(10); // Only load first 10 entries for card preview
                 },
             ])
-            ->select('id', 'user_id', 'name', 'description', 'type', 'is_public', 'created_at', 'updated_at')
             ->where('user_id', $user->id)
             ->where('is_public', true)
             ->has('entries');

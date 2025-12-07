@@ -38,6 +38,7 @@ export interface VnList {
     created_at: string;
     updated_at?: string;
     entries: VnListEntry[];
+    entries_count?: number;
     user: User;
 }
 
@@ -210,8 +211,8 @@ export default function VnListCard({
                             </Link>
                         </h2>
                         <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-                            {list.entries.length}{' '}
-                            {list.entries.length === 1 ? 'game' : 'games'} ·
+                            {list.entries_count ?? list.entries.length}{' '}
+                            {(list.entries_count ?? list.entries.length) === 1 ? 'game' : 'games'} ·
                             Updated{' '}
                             {formatDate(list.updated_at || list.created_at)}
                         </div>
@@ -346,10 +347,10 @@ export default function VnListCard({
                                         : entry.game.effective_name}
                                 </Link>
                             ))}
-                            {list.entries.length > 3 && (
+                            {(list.entries_count ?? list.entries.length) > 3 && (
                                 <span
                                     className="rounded-md bg-gray-100/80 px-2 py-1 text-xs text-gray-800 dark:bg-gray-700/80 dark:text-gray-200">
-                                    +{list.entries.length - 3} more
+                                    +{(list.entries_count ?? list.entries.length) - 3} more
                                 </span>
                             )}
                         </div>

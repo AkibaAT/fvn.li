@@ -296,6 +296,22 @@ class GamesDisplayController extends Controller
             }
         }
 
+        // Fetch public lists that contain this game
+        $publicListsQuery = VnList::where('is_public', true)
+            ->whereHas('entries', function ($query) use ($game) {
+                $query->where('game_id', $game->id);
+            });
+
+        $publicListsCount = $publicListsQuery->count();
+
+        $publicLists = (clone $publicListsQuery)
+            ->withCount('entries')
+            ->with(['user:id,name,avatar'])
+            ->orderByDesc('entries_count')
+            ->limit(9)
+            ->get()
+            ->map(fn ($list) => $list->only(['id', 'user_id', 'name', 'description', 'type', 'created_at', 'entries_count', 'user']));
+
         return Inertia::render('games/show', [
             'game' => $game,
             'reviews' => $reviews,
@@ -316,6 +332,8 @@ class GamesDisplayController extends Controller
             'canSeeAnalytics' => $canSeeAnalytics,
             'clickStats' => $clickStats,
             'dailyStats' => $dailyStats,
+            'publicLists' => $publicLists,
+            'publicListsCount' => $publicListsCount,
             'metaTags' => $this->getMetaTags(),
         ]);
     }

@@ -234,6 +234,20 @@ interface EditPermissions {
     isAdmin: boolean;
 }
 
+interface PublicList {
+    id: number;
+    name: string;
+    description?: string;
+    type: string;
+    entries_count: number;
+    created_at: string;
+    user: {
+        id: number;
+        name: string;
+        avatar?: string;
+    };
+}
+
 interface GameShowProps {
     game: Game;
     reviews?: Paginated<Review>;
@@ -255,6 +269,8 @@ interface GameShowProps {
     clickStats?: ClickStats;
     dailyStats?: DailyStats[];
     editPermissions?: EditPermissions;
+    publicLists?: PublicList[];
+    publicListsCount?: number;
     metaTags?: MetaTags;
 }
 
@@ -284,6 +300,8 @@ export default function GameShow({
                                          isOwner: false,
                                          isAdmin: false,
                                      },
+                                     publicLists = [],
+                                     publicListsCount = 0,
                                      metaTags,
                                  }: GameShowProps) {
     // SSR-safe auth detection via Inertia props
@@ -934,6 +952,14 @@ export default function GameShow({
                                 Downloads
                             </a>
                         )}
+                    {publicLists && publicLists.length > 0 && (
+                        <a
+                            href="#featured-lists"
+                            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                        >
+                            Lists
+                        </a>
+                    )}
                     {gameVersions && gameVersions.data.length > 0 && (
                         <a
                             href="#versions"
@@ -1475,6 +1501,82 @@ export default function GameShow({
                 />
             )}
 
+            {/* Featured in Public Lists */}
+            {publicLists && publicLists.length > 0 && (
+                <div
+                    id="featured-lists"
+                    className="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800"
+                >
+                    <div className="mb-4 flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                            Featured in {publicListsCount} Public {publicListsCount === 1 ? 'List' : 'Lists'}
+                        </h2>
+                        {publicListsCount > publicLists.length && (
+                            <Link
+                                href={route('lists.public', { game: game.id })}
+                                className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                                View all {publicListsCount} lists
+                            </Link>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {publicLists.map((list) => {
+                            const typeColors: Record<string, { border: string; bg: string; text: string; darkBg: string; darkText: string }> = {
+                                reading: { border: 'border-blue-500', bg: 'bg-blue-100', text: 'text-blue-800', darkBg: 'dark:bg-blue-900/20', darkText: 'dark:text-blue-400' },
+                                completed: { border: 'border-green-500', bg: 'bg-green-100', text: 'text-green-800', darkBg: 'dark:bg-green-900/20', darkText: 'dark:text-green-400' },
+                                plan_to_read: { border: 'border-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-800', darkBg: 'dark:bg-yellow-900/20', darkText: 'dark:text-yellow-400' },
+                                on_hold: { border: 'border-orange-500', bg: 'bg-orange-100', text: 'text-orange-800', darkBg: 'dark:bg-orange-900/20', darkText: 'dark:text-orange-400' },
+                                dropped: { border: 'border-red-500', bg: 'bg-red-100', text: 'text-red-800', darkBg: 'dark:bg-red-900/20', darkText: 'dark:text-red-400' },
+                            };
+                            const colors = typeColors[list.type] || { border: 'border-gray-500', bg: 'bg-gray-100', text: 'text-gray-800', darkBg: 'dark:bg-gray-900/20', darkText: 'dark:text-gray-400' };
+
+                            return (
+                                <Link
+                                    key={list.id}
+                                    href={route('lists.show', list.id)}
+                                    className={`group block rounded-lg border-l-4 ${colors.border} bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-700/50`}
+                                >
+                                    <div className="mb-2 flex items-start justify-between">
+                                        <h3 className="font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
+                                            {list.name}
+                                        </h3>
+                                        <span className="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-600 dark:text-gray-300">
+                                            {list.entries_count} {list.entries_count === 1 ? 'game' : 'games'}
+                                        </span>
+                                    </div>
+                                    <div className="mb-2">
+                                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${colors.bg} ${colors.text} ${colors.darkBg} ${colors.darkText}`}>
+                                            {list.type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                                        </span>
+                                    </div>
+                                    {list.description && (
+                                        <p className="mb-2 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+                                            {list.description}
+                                        </p>
+                                    )}
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                        {list.user.avatar ? (
+                                            <img
+                                                src={list.user.avatar}
+                                                alt={list.user.name}
+                                                className="h-5 w-5 rounded-full"
+                                            />
+                                        ) : (
+                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600">
+                                                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                                    {list.user.name.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <span>by {list.user.name}</span>
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Version History */}
             {gameVersions && gameVersions.data.length > 0 && (

@@ -4,6 +4,12 @@ import VnListCard from '@/components/vn-list-card';
 import {Head, Link, router} from '@inertiajs/react';
 import React, {useEffect, useState} from 'react';
 
+interface FilterGame {
+    id: number;
+    name: string;
+    slug: string;
+}
+
 interface PublicListsProps {
     lists: {
         data: VnList[];
@@ -17,6 +23,9 @@ interface PublicListsProps {
         description?: string;
     };
     type?: string;
+    search?: string;
+    sort?: string;
+    filterGame?: FilterGame | null;
     counts?: {
         all: number;
         plan_to_read: number;
@@ -33,6 +42,9 @@ export default function PublicLists({
                                         lists,
                                         metaTags,
                                         type = 'all',
+                                        search: initialSearch = '',
+                                        sort: initialSort = 'default',
+                                        filterGame = null,
                                         counts = {
                                             all: 0,
                                             plan_to_read: 0,
@@ -46,12 +58,18 @@ export default function PublicLists({
     const [isLoading, setIsLoading] = useState(false);
     const [localLists, setLocalLists] = useState(lists.data);
     const [localCounts, setLocalCounts] = useState(counts);
+    const [searchInput, setSearchInput] = useState(initialSearch);
+    const [currentSearch, setCurrentSearch] = useState(initialSearch);
+    const [currentSort, setCurrentSort] = useState(initialSort);
 
     // Sync local state when props change (from navigation)
     useEffect(() => {
         setLocalLists(lists.data);
         setLocalCounts(counts);
-    }, [lists.data, counts]);
+        setSearchInput(initialSearch);
+        setCurrentSearch(initialSearch);
+        setCurrentSort(initialSort);
+    }, [lists.data, counts, initialSearch, initialSort]);
 
     const typeLabel = (t: string) =>
         t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
@@ -64,6 +82,9 @@ export default function PublicLists({
                 type: newType,
                 per_page: lists.per_page,
                 page: 1,
+                search: currentSearch || undefined,
+                sort: currentSort !== 'default' ? currentSort : undefined,
+                game: filterGame?.id || undefined,
             },
             {
                 preserveState: true,
@@ -81,6 +102,9 @@ export default function PublicLists({
                 type: type,
                 per_page: lists.per_page,
                 page: page,
+                search: currentSearch || undefined,
+                sort: currentSort !== 'default' ? currentSort : undefined,
+                game: filterGame?.id || undefined,
             },
             {
                 preserveState: true,
@@ -98,6 +122,73 @@ export default function PublicLists({
                 type: type,
                 per_page: perPage,
                 page: 1,
+                search: currentSearch || undefined,
+                sort: currentSort !== 'default' ? currentSort : undefined,
+                game: filterGame?.id || undefined,
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            },
+        );
+    };
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setCurrentSearch(searchInput);
+        router.get(
+            route('lists.public'),
+            {
+                type: type,
+                per_page: lists.per_page,
+                page: 1,
+                search: searchInput || undefined,
+                sort: currentSort !== 'default' ? currentSort : undefined,
+                game: filterGame?.id || undefined,
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            },
+        );
+    };
+
+    const handleSortChange = (newSort: string) => {
+        setIsLoading(true);
+        setCurrentSort(newSort);
+        router.get(
+            route('lists.public'),
+            {
+                type: type,
+                per_page: lists.per_page,
+                page: 1,
+                search: currentSearch || undefined,
+                sort: newSort !== 'default' ? newSort : undefined,
+                game: filterGame?.id || undefined,
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            },
+        );
+    };
+
+    const clearSearch = () => {
+        setSearchInput('');
+        setCurrentSearch('');
+        setIsLoading(true);
+        router.get(
+            route('lists.public'),
+            {
+                type: type,
+                per_page: lists.per_page,
+                page: 1,
+                sort: currentSort !== 'default' ? currentSort : undefined,
+                game: filterGame?.id || undefined,
             },
             {
                 preserveState: true,
@@ -111,9 +202,31 @@ export default function PublicLists({
     const buildPageUrl = (page: number): string => {
         const params = new URLSearchParams();
         if (type && type !== 'all') params.set('type', type);
+        if (currentSearch) params.set('search', currentSearch);
+        if (currentSort && currentSort !== 'default') params.set('sort', currentSort);
+        if (filterGame?.id) params.set('game', filterGame.id.toString());
         params.set('per_page', lists.per_page.toString());
         params.set('page', page.toString());
         return `/lists/public?${params.toString()}`;
+    };
+
+    const clearGameFilter = () => {
+        setIsLoading(true);
+        router.get(
+            route('lists.public'),
+            {
+                type: type,
+                per_page: lists.per_page,
+                page: 1,
+                search: currentSearch || undefined,
+                sort: currentSort !== 'default' ? currentSort : undefined,
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            },
+        );
     };
 
     return (
@@ -154,6 +267,116 @@ export default function PublicLists({
                         </Link>
                     </div>
                 </div>
+
+                {/* Search and Sort Controls */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-white/70 p-4 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
+                    {/* Search Form */}
+                    <form onSubmit={handleSearch} className="flex flex-1 gap-2 max-w-md">
+                        <div className="relative flex-1">
+                            <input
+                                type="text"
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                placeholder="Search by user or VN name..."
+                                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                            />
+                            <svg
+                                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                />
+                            </svg>
+                            {currentSearch && (
+                                <button
+                                    type="button"
+                                    onClick={clearSearch}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            Search
+                        </button>
+                    </form>
+
+                    {/* Sort Dropdown */}
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="sort" className="text-sm text-gray-600 dark:text-gray-400">
+                            Sort by:
+                        </label>
+                        <select
+                            id="sort"
+                            value={currentSort}
+                            onChange={(e) => handleSortChange(e.target.value)}
+                            disabled={isLoading}
+                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                        >
+                            <option value="default">Default</option>
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="most_entries">Most Games</option>
+                            <option value="recently_updated">Recently Updated</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Active Search Indicator */}
+                {currentSearch && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span>Showing results for:</span>
+                        <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            "{currentSearch}"
+                        </span>
+                        <button
+                            onClick={clearSearch}
+                            className="text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
+
+                {/* Game Filter Indicator */}
+                {filterGame && (
+                    <div className="flex items-center gap-2 rounded-lg bg-purple-50 p-3 text-sm dark:bg-purple-900/20">
+                        <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        <span className="text-gray-700 dark:text-gray-300">
+                            Showing lists containing:
+                        </span>
+                        <Link
+                            href={route('games.show', filterGame.slug)}
+                            className="font-medium text-purple-700 hover:underline dark:text-purple-300"
+                        >
+                            {filterGame.name}
+                        </Link>
+                        <button
+                            onClick={clearGameFilter}
+                            className="ml-auto rounded-full p-1 text-purple-600 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-900/30"
+                            title="Clear filter"
+                        >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
 
                 {/* Tabbed View */}
                 <div className="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
