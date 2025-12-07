@@ -531,6 +531,9 @@ class GameDataSyncService
         $nsfw = $doc->querySelector('div.content_warning_inner');
         $game->is_nsfw = $nsfw !== null;
 
+        // Check delisted status (robots noindex meta tag)
+        $game->is_delisted = $this->checkForNoindexTag($doc);
+
         // ========================================
         // PHASE 2: Process images (NO TRANSACTION - downloads can take seconds!)
         // ========================================
@@ -732,6 +735,23 @@ class GameDataSyncService
                 $gameVersion->addSupportedLanguage('eng');
             }
         }
+    }
+
+    /**
+     * Check if the page has a robots noindex meta tag, indicating the game is delisted
+     */
+    private function checkForNoindexTag(HTMLDocument $doc): bool
+    {
+        // Look for meta robots tag with noindex
+        $metaTags = $doc->querySelectorAll('meta[name="robots"]');
+        foreach ($metaTags as $meta) {
+            $content = strtolower($meta->getAttribute('content') ?? '');
+            if (str_contains($content, 'noindex')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -29,7 +29,7 @@ interface GamesIndexGame {
     is_nsfw: boolean;
     is_paid: boolean;
     has_demo: boolean;
-    is_suspended: boolean;
+    is_delisted: boolean;
     authors?: string;
     tags?: Array<{ id: number; name: string; slug: string }>;
     gameJams?: Array<{ id: number; name: string }>;
@@ -204,7 +204,7 @@ export default function GamesIndex({
                 return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300';
             case 'sale':
                 return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
-            case 'suspended':
+            case 'delisted':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
             case 'hidden':
                 return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
@@ -440,6 +440,7 @@ export default function GamesIndex({
                     onPaidToggle={() => updateFilters({showPaid: !currentFilters.showPaid})}
                     onDemoToggle={() => updateFilters({showDemo: !currentFilters.showDemo})}
                     onSaleToggle={() => updateFilters({showSale: !currentFilters.showSale})}
+                    onDelistedToggle={() => updateFilters({delisted: !currentFilters.delisted})}
                     updateFilters={updateFilters}
                     onIgnoreToggle={handleIgnoreToggle}
                 />

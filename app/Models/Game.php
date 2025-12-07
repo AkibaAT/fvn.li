@@ -74,7 +74,7 @@ class Game extends Model
         'sale_discount_percent',
         'is_paid',
         'has_demo',
-        'is_suspended',
+        'is_delisted',
         'additional_links',
         'screenshots',
         'optimized_thumbnails',
@@ -122,6 +122,7 @@ class Game extends Model
         'sale_discount_percent' => 'integer',
         'is_paid' => 'boolean',
         'has_demo' => 'boolean',
+        'is_delisted' => 'boolean',
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
@@ -881,7 +882,7 @@ class Game extends Model
             // Status and visibility
             'status' => $this->status,
             'is_visible' => $this->is_visible,
-            'is_suspended' => $this->is_suspended,
+            'is_delisted' => $this->is_delisted,
 
             // Content flags
             'is_nsfw' => $this->is_nsfw,

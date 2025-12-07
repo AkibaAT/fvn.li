@@ -7,12 +7,13 @@ namespace App\Console\Commands;
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\ItchHttpClientService;
+use Dom\HTMLDocument;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 
-class CheckSuspendedGames extends Command
+class CheckDelistedGames extends Command
 {
     use SelectsGames;
 
@@ -21,7 +22,7 @@ class CheckSuspendedGames extends Command
      *
      * @var string
      */
-    protected $signature = 'games:check-suspended
+    protected $signature = 'games:check-delisted
         {--game-id= : ID of the specific game to check}
         {--game-name= : Name (or part of name) of the game(s) to check}
         {--all : Check all visible games}
@@ -34,7 +35,7 @@ class CheckSuspendedGames extends Command
      *
      * @var string
      */
-    protected $description = 'Check visible games for suspension status by fetching their project pages';
+    protected $description = 'Check visible games for delisted status by detecting robots noindex meta tag';
 
     /**
      * Execute the console command.
@@ -46,7 +47,7 @@ class CheckSuspendedGames extends Command
             return 1;
         }
 
-        $this->info('Starting suspension check for games');
+        $this->info('Starting delisted check for games');
 
         try {
             // Build query for games - only itch.io games for now
@@ -73,34 +74,34 @@ class CheckSuspendedGames extends Command
             $itchClient->setBaseCooldown((int) $this->option('retry-cooldown'));
 
             $checkedCount = 0;
-            $suspendedCount = 0;
+            $delistedCount = 0;
             $errorCount = 0;
 
             foreach ($games as $game) {
                 $this->info("\nChecking game: {$game->name} (ID: {$game->id})");
 
                 try {
-                    $isSuspended = $this->checkGameSuspension($game, $itchClient);
+                    $isDelisted = $this->checkGameDelisted($game, $itchClient);
 
-                    if ($isSuspended !== null) {
-                        $previousStatus = $game->is_suspended;
-                        $game->is_suspended = $isSuspended;
+                    if ($isDelisted !== null) {
+                        $previousStatus = $game->is_delisted;
+                        $game->is_delisted = $isDelisted;
                         $game->save();
 
-                        if ($isSuspended && ! $previousStatus) {
-                            $this->warn('  → Game is now SUSPENDED');
-                            $suspendedCount++;
-                        } elseif (! $isSuspended && $previousStatus) {
-                            $this->info('  → Game is no longer suspended');
-                        } elseif ($isSuspended) {
-                            $this->warn('  → Game remains suspended');
+                        if ($isDelisted && ! $previousStatus) {
+                            $this->warn('  → Game is now DELISTED');
+                            $delistedCount++;
+                        } elseif (! $isDelisted && $previousStatus) {
+                            $this->info('  → Game is no longer delisted');
+                        } elseif ($isDelisted) {
+                            $this->warn('  → Game remains delisted');
                         } else {
-                            $this->info('  → Game is not suspended');
+                            $this->info('  → Game is not delisted');
                         }
 
                         $checkedCount++;
                     } else {
-                        $this->error('  → Could not determine suspension status');
+                        $this->error('  → Could not determine delisted status');
                         $errorCount++;
                     }
 
@@ -110,32 +111,32 @@ class CheckSuspendedGames extends Command
 
                 } catch (Exception $e) {
                     $this->error("  Error checking game: {$e->getMessage()}");
-                    Log::error("Error checking suspension for game {$game->id}: {$e->getMessage()}");
+                    Log::error("Error checking delisted status for game {$game->id}: {$e->getMessage()}");
                     $errorCount++;
                 }
             }
 
             $this->info("\n=== Summary ===");
             $this->info("Games checked: {$checkedCount}");
-            $this->info("Newly suspended: {$suspendedCount}");
+            $this->info("Newly delisted: {$delistedCount}");
             $this->info("Errors: {$errorCount}");
 
             return 0;
 
         } catch (Exception $e) {
             $this->error("Command failed: {$e->getMessage()}");
-            Log::error("CheckSuspendedGames command failed: {$e->getMessage()}");
+            Log::error("CheckDelistedGames command failed: {$e->getMessage()}");
 
             return 1;
         }
     }
 
     /**
-     * Check if a game is suspended by fetching its project page
+     * Check if a game is delisted by looking for robots noindex meta tag
      *
-     * @return bool|null Returns true if suspended, false if not suspended, null if could not determine
+     * @return bool|null Returns true if delisted, false if not delisted, null if could not determine
      */
-    private function checkGameSuspension(Game $game, ItchHttpClientService $itchClient): ?bool
+    private function checkGameDelisted(Game $game, ItchHttpClientService $itchClient): ?bool
     {
         try {
             $gameUrl = $game->getPrimaryUrl();
@@ -155,45 +156,43 @@ class CheckSuspendedGames extends Command
             }
 
             $html = $response->getBody()->getContents();
+            $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-            // Check for various suspension messages
-            $suspensionMessages = [
-                "This game's files have been suspended by an itch.io administrator.",
-                'suspended by an itch.io administrator',
-                'files have been suspended',
-                'This game has been suspended',
-                'suspended by itch.io',
-                'content has been suspended',
-            ];
+            // Check for robots noindex meta tag
+            $isDelisted = $this->checkForNoindexTag($doc);
 
-            $isSuspended = false;
-            $foundMessage = null;
-            foreach ($suspensionMessages as $message) {
-                if (str_contains($html, $message)) {
-                    $isSuspended = true;
-                    $foundMessage = $message;
-                    break;
-                }
-            }
-
-            // Debug: Show a snippet of the page content if verbose
+            // Debug: Show information if verbose
             if ($this->getOutput()->isVerbose()) {
-                $snippet = substr($html, 0, 500);
-                $this->line('  → Page content snippet: ' . $snippet);
-                $this->line('  → Looking for suspension messages...');
-                if ($isSuspended && $foundMessage) {
-                    $this->line('  → Found suspension message: ' . $foundMessage);
+                $this->line('  → Checking for robots noindex meta tag...');
+                if ($isDelisted) {
+                    $this->line('  → Found noindex meta tag - game is delisted');
                 } else {
-                    $this->line('  → No suspension message found');
+                    $this->line('  → No noindex meta tag found');
                 }
             }
 
-            return $isSuspended;
+            return $isDelisted;
 
         } catch (Exception $e) {
-            $this->error("  → Exception while fetching {$game->url}: {$e->getMessage()}");
+            $this->error("  → Exception while fetching {$game->getPrimaryUrl()}: {$e->getMessage()}");
 
             return null;
         }
+    }
+
+    /**
+     * Check if the page has a robots noindex meta tag
+     */
+    private function checkForNoindexTag(HTMLDocument $doc): bool
+    {
+        $metaTags = $doc->querySelectorAll('meta[name="robots"]');
+        foreach ($metaTags as $meta) {
+            $content = strtolower($meta->getAttribute('content') ?? '');
+            if (str_contains($content, 'noindex')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

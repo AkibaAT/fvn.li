@@ -290,7 +290,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
                 return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
             case 'sale':
                 return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
-            case 'suspended':
+            case 'delisted':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
             case 'hidden':
                 return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';

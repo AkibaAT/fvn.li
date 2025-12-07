@@ -217,13 +217,13 @@ test('game rating attributes work correctly', function () {
         ->and($game->rating_count)->toBe(123);
 });
 
-test('game handles suspension status', function () {
+test('game handles delisted status', function () {
     $game = Game::factory()->create([
-        'is_suspended' => true,
+        'is_delisted' => true,
         'is_visible' => false,
     ]);
 
-    expect($game->is_suspended)->toBeTrue()
+    expect($game->is_delisted)->toBeTrue()
         ->and($game->is_visible)->toBeFalse();
 });
 

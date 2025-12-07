@@ -360,6 +360,11 @@ class MeilisearchService
             $search->where('is_visible', true);
         }
 
+        // Delisted filter - only filter when explicitly set (to show only delisted games)
+        if (isset($filters['is_delisted'])) {
+            $search->where('is_delisted', $filters['is_delisted']);
+        }
+
         // Apply sorting
         $sortableFields = [
             'first_visible_at',

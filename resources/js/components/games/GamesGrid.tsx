@@ -17,7 +17,7 @@ interface Game {
     is_nsfw: boolean;
     is_paid: boolean;
     has_demo: boolean;
-    is_suspended: boolean;
+    is_delisted: boolean;
     authors?: string;
     tags?: Array<{ id: number; name: string; slug: string }>;
     gameJams?: Array<{ id: number; name: string }>;
@@ -54,6 +54,7 @@ interface GamesGridProps {
     onPaidToggle: () => void;
     onDemoToggle: () => void;
     onSaleToggle: () => void;
+    onDelistedToggle: () => void;
     updateFilters: (filters: Partial<CurrentFilters>) => void;
     onIgnoreToggle?: (gameId: number, isIgnored: boolean, ignoredGameIds: number[]) => void;
 }
@@ -71,6 +72,7 @@ export default function GamesGrid({
     onPaidToggle,
     onDemoToggle,
     onSaleToggle,
+    onDelistedToggle,
     onIgnoreToggle,
 }: GamesGridProps) {
     if (games.length === 0) {
@@ -101,6 +103,7 @@ export default function GamesGrid({
                     showPaid={currentFilters.showPaid || false}
                     showDemo={currentFilters.showDemo || false}
                     showSale={currentFilters.showSale || false}
+                    delisted={currentFilters.delisted || false}
                     ignoredGameIds={ignoredGameIds}
                     onPlatformClick={onPlatformClick}
                     onLanguageClick={onLanguageClick}
@@ -111,6 +114,7 @@ export default function GamesGrid({
                     onPaidToggle={onPaidToggle}
                     onDemoToggle={onDemoToggle}
                     onSaleToggle={onSaleToggle}
+                    onDelistedToggle={onDelistedToggle}
                     onIgnoreToggle={onIgnoreToggle}
                 />
             ))}

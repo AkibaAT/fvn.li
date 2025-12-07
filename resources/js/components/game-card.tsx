@@ -29,6 +29,7 @@ export default function GameCard(props: GameCardProps) {
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
+        handleDelistedToggle,
         orderedTags,
         tagContainerRef,
         hiddenTagCount,
@@ -42,7 +43,7 @@ export default function GameCard(props: GameCardProps) {
         setLanguagesExpanded,
     } = useGameCard(props);
 
-    const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale, ignoredGameIds, onIgnoreToggle} = props;
+    const {game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale, delisted, ignoredGameIds, onIgnoreToggle} = props;
     const {getSupportedPlatforms, getPlatformIcon} = usePlatformIcons();
     const {getStorePlatformIcon, getStorePlatformFromString} = useStorePlatformIcons();
     const {auth} = usePage().props as any;
@@ -179,6 +180,7 @@ export default function GameCard(props: GameCardProps) {
                         Boolean((game as Game).is_on_sale) ||
                         game.is_paid ||
                         game.has_demo ||
+                        game.is_delisted ||
                         Boolean(game.status)) && (
                         <div
                             className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700/50">
@@ -193,10 +195,12 @@ export default function GameCard(props: GameCardProps) {
                                 showPaid={showPaid}
                                 showDemo={showDemo}
                                 showSale={showSale}
+                                showDelisted={delisted}
                                 onNsfwToggle={handleNsfwToggle}
                                 onPaidToggle={handlePaidToggle}
                                 onDemoToggle={handleDemoToggle}
                                 onSaleToggle={handleSaleToggle}
+                                onDelistedToggle={handleDelistedToggle}
                             />
                         </div>
                     )}

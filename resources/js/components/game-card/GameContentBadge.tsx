@@ -6,13 +6,15 @@ interface GameContentBadgeProps {
     showPaid?: boolean;
     showDemo?: boolean;
     showSale?: boolean;
+    showDelisted?: boolean;
     onNsfwToggle?: () => void;
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
+    onDelistedToggle?: () => void;
 }
 
-export default function GameContentBadge({game, nsfw, showPaid, showDemo, showSale, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameContentBadgeProps) {
+export default function GameContentBadge({game, nsfw, showPaid, showDemo, showSale, showDelisted, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle, onDelistedToggle}: GameContentBadgeProps) {
     return (
         <>
             {game.is_nsfw && (
@@ -75,6 +77,21 @@ export default function GameContentBadge({game, nsfw, showPaid, showDemo, showSa
                     title="Filter by has demo"
                 >
                     🎮 Demo
+                </button>
+            )}
+            {game.is_delisted && (
+                <button
+                    type="button"
+                    onClick={onDelistedToggle}
+                    className={`cursor-pointer rounded-full border border-yellow-300 bg-yellow-200 px-3 py-1.5 text-xs font-bold text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300 ${
+                        showDelisted
+                            ? 'border-2 ring-1 ring-yellow-300 dark:ring-yellow-300'
+                            : ''
+                    }`}
+                    aria-label="Filter by delisted games"
+                    title="Filter by delisted games"
+                >
+                    Delisted
                 </button>
             )}
         </>

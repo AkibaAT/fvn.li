@@ -169,7 +169,7 @@ interface Game {
     custom_css?: string;
     custom_tags?: string;
     is_visible?: boolean;
-    is_suspended?: boolean;
+    is_delisted?: boolean;
     hasAdditionalLinks?: () => boolean;
     created_at: string;
     updated_at: string;
@@ -1048,17 +1048,17 @@ export default function GameShow({
                                     </div>
                                 )}
 
-                                {/* Pills (NSFW, Suspended, Sale, Paid, Demo) */}
+                                {/* Pills (NSFW, Delisted, Sale, Paid, Demo) */}
                                 {game.is_nsfw && (
                                     <span
                                         className="rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800 dark:bg-red-900 dark:text-red-200">
                                         NSFW
                                     </span>
                                 )}
-                                {game.is_suspended && (
+                                {game.is_delisted && (
                                     <span
                                         className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                                        Suspended
+                                        Delisted
                                     </span>
                                 )}
                                 {game.is_on_sale && (

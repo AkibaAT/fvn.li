@@ -80,7 +80,7 @@ class GamesSearchController extends Controller
             ]);
 
             // Fallback to basic database search
-            $games = $this->fallbackSearch($search, $perPage, $requestedPage, $ignoredGameIds);
+            $games = $this->fallbackSearch($search, $perPage, $requestedPage, $ignoredGameIds, $request->boolean('delisted'));
         }
 
         // If requested page exceeds available pages, re-query for page 1
@@ -89,7 +89,7 @@ class GamesSearchController extends Controller
                 $searchQuery = trim($search ?? '') ?: '*';
                 $games = $service->searchGames($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
             } catch (Exception $e) {
-                $games = $this->fallbackSearch($search, $perPage, 1, $ignoredGameIds);
+                $games = $this->fallbackSearch($search, $perPage, 1, $ignoredGameIds, $request->boolean('delisted'));
             }
         }
 
@@ -217,6 +217,7 @@ class GamesSearchController extends Controller
                 'showDemo' => $request->boolean('showDemo'),
                 'showSale' => $request->boolean('showSale'),
                 'showIgnored' => $request->boolean('showIgnored'),
+                'delisted' => $request->boolean('delisted'),
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
@@ -437,18 +438,29 @@ class GamesSearchController extends Controller
             $filters['is_on_sale'] = true;
         }
 
+        // Delisted filter - when checked, show only delisted games
+        if ($request->boolean('delisted')) {
+            $filters['is_delisted'] = true;
+        }
+
         return $filters;
     }
 
     /**
      * Fallback database search when Meilisearch fails
      */
-    private function fallbackSearch(?string $search, int $perPage, int $page, array $ignoredGameIds = [])
+    private function fallbackSearch(?string $search, int $perPage, int $page, array $ignoredGameIds = [], bool $delistedOnly = false)
     {
         $query = Game::query()
             ->fromItchio()
-            ->where('is_visible', true)
-            ->with([
+            ->where('is_visible', true);
+
+        // Filter to only delisted games if requested
+        if ($delistedOnly) {
+            $query->where('is_delisted', true);
+        }
+
+        $query->with([
                 'tags',
                 'latestVersion.supportedLanguages.language',
                 'latestVersion.languageStats',

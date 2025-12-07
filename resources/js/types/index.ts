@@ -179,6 +179,7 @@ export interface CurrentFilters {
     showDemo?: boolean;
     showSale?: boolean;
     showIgnored?: boolean;
+    delisted?: boolean;
     sort?: string;
     direction?: string;
     perPage?: number;

@@ -67,6 +67,7 @@ class ImageProcessingService
      * @param  array  $config  Configuration with width and height
      * @param  int  $quality  WebP quality (0-100)
      * @param  string  $diskName  Storage disk name
+     * @return array Array with width and height of the processed image
      *
      * @throws Exception
      */
@@ -76,7 +77,7 @@ class ImageProcessingService
         array $config,
         int $quality,
         string $diskName = 'public'
-    ): void {
+    ): array {
         try {
             // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
             $imageInfo = getimagesize($sourcePath);
@@ -134,11 +135,20 @@ class ImageProcessingService
                     $image->resize($newWidth, $newHeight);
                 }
 
+                // Capture dimensions before encoding
+                $finalWidth = $image->width();
+                $finalHeight = $image->height();
+
                 // Save as WebP
                 Storage::disk($diskName)->put(
                     $targetPath,
                     (string) $image->toWebp($quality)
                 );
+
+                return [
+                    'width' => $finalWidth,
+                    'height' => $finalHeight,
+                ];
             } finally {
                 // Clean up temporary frame file if it exists
                 if (isset($tempJpg) && file_exists($tempJpg)) {
@@ -148,36 +158,6 @@ class ImageProcessingService
         } catch (Exception $e) {
             throw new Exception("Failed to process image: {$e->getMessage()}");
         }
-    }
-
-    /**
-     * Get dimensions of an image using ImageMagick's identify command
-     *
-     * @param  string  $path  Path to the image
-     * @param  string  $diskName  Storage disk name
-     * @return array Array with width and height
-     *
-     * @throws Exception
-     */
-    public function getImageDimensions(string $path, string $diskName = 'public'): array
-    {
-        $realPath = Storage::disk($diskName)->path($path);
-
-        // Use [0] to specify first frame, which works for both animated and static images
-        $command = sprintf('identify -format "%%wx%%h" %s[0]', escapeshellarg($realPath));
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0 || empty($output)) {
-            throw new Exception('Failed to get image dimensions');
-        }
-
-        // identify outputs dimensions in format "widthxheight"
-        [$width, $height] = explode('x', $output[0]);
-
-        return [
-            'width' => (int) $width,
-            'height' => (int) $height,
-        ];
     }
 
     /**
@@ -263,13 +243,7 @@ class ImageProcessingService
                     $variantFilename = $baseFilename . "_{$variant}.webp";
                     $variantPath = $this->getStoragePath($variantFilename, self::SCREENSHOTS_PATH);
 
-                    $this->processImageVariant($tempFile, $variantPath, $config, $quality);
-
-                    if (! Storage::disk('public')->exists($variantPath)) {
-                        throw new Exception("Failed to create variant file: {$variantPath}");
-                    }
-
-                    $dimensions = $this->getImageDimensions($variantPath);
+                    $dimensions = $this->processImageVariant($tempFile, $variantPath, $config, $quality);
 
                     $optimizedVariants[$variant] = [
                         'path' => $variantPath,
@@ -393,13 +367,7 @@ class ImageProcessingService
                 $variantFilename = $baseFilename . "_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH);
 
-                $this->processImageVariant($tempFile, $variantPath, $config, $quality);
-
-                if (! Storage::disk('public')->exists($variantPath)) {
-                    throw new Exception("Failed to create variant file: {$variantPath}");
-                }
-
-                $dimensions = $this->getImageDimensions($variantPath);
+                $dimensions = $this->processImageVariant($tempFile, $variantPath, $config, $quality);
 
                 $thumbnails[$variant] = [
                     'path' => $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH),

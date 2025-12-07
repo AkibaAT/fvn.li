@@ -75,7 +75,7 @@ trait HasGameSearch
             // Status and visibility
             'status' => $this->status,
             'is_visible' => $this->is_visible,
-            'is_suspended' => $this->is_suspended,
+            'is_delisted' => $this->is_delisted,
 
             // Content flags
             'is_nsfw' => $this->is_nsfw,

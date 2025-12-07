@@ -167,14 +167,6 @@ class UpdateWatchlist extends Command
             $isNew = ! $game->exists;
             $wasInvisible = $game->exists && ! $game->is_visible;
 
-            // Skip if game is suspended
-            if ($game->exists && $game->is_suspended) {
-                DB::rollBack();
-                $this->info("Skipping suspended game: {$game->name}");
-
-                return;
-            }
-
             // Update if game exists but isn't visible
             if ($game->exists) {
                 if (! $game->is_visible) {

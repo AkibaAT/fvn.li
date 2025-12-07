@@ -91,8 +91,7 @@ class RefreshSteamGames extends Command
         // Build query for Steam games
         $query = Game::query()
             ->fromSteam()
-            ->where('is_visible', true)
-            ->where('is_suspended', false);
+            ->where('is_visible', true);
 
         // Apply game selection filters
         $this->applyGameSelectionFilters($query);

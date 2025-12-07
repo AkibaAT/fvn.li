@@ -7,7 +7,7 @@ importing statistics.
 
 | Command                     | Purpose                                      | Key Options                                            |
 |-----------------------------|----------------------------------------------|--------------------------------------------------------|
-| `games:check-suspended`     | Check visible games for suspension status    | None                                                   |
+| `games:check-delisted`      | Check visible games for delisting status     | None                                                   |
 | `games:cleanup-downloads`   | Clean up old game version downloads          | `--game-id=ID`, `--all`                                |
 | `games:import-stats`        | Import stats JSON for a game version         | `--game-id=ID`, `--version-id=ID`, `--stats-file=PATH` |
 | `games:process-screenshots` | Process and optimize game screenshots        | `--game-id=ID`, `--all`, `--quality=N`                 |

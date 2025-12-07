@@ -3,11 +3,12 @@
 declare(strict_types=1);
 
 use App\Services\ImageProcessingService;
+use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     Storage::fake('public');
-    $this->service = new ImageProcessingService;
+    $this->service = new ImageProcessingService(new Client);
 });
 
 test('process image variant preserves aspect ratio', function () {
@@ -31,9 +32,9 @@ test('process image variant preserves aspect ratio', function () {
         'height' => 180,
     ];
 
-    // Process the image
+    // Process the image and get dimensions
     $targetPath = 'test/processed_image.webp';
-    $this->service->processImageVariant(
+    $dimensions = $this->service->processImageVariant(
         $tempFile,
         $targetPath,
         $config,
@@ -43,8 +44,6 @@ test('process image variant preserves aspect ratio', function () {
     // Verify the file was created
     expect(Storage::disk('public')->exists($targetPath))->toBeTrue();
 
-    // Get the dimensions of the processed image
-    $dimensions = $this->service->getImageDimensions($targetPath);
     $processedWidth = $dimensions['width'];
     $processedHeight = $dimensions['height'];
 

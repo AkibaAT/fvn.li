@@ -97,8 +97,7 @@ class RefreshGames extends Command
         // Build query for games - only itch.io games for now
         $query = Game::query()
             ->fromItchio()
-            ->where('is_visible', true)
-            ->where('is_suspended', false);
+            ->where('is_visible', true);
 
         // Apply game selection filters
         $this->applyGameSelectionFilters($query);
@@ -176,6 +175,7 @@ class RefreshGames extends Command
                     $itchClient->executeWithRetry(
                         function () use ($game) {
                             $game->refreshMetadata();
+                            $game->save();
                         },
                         'Metadata',
                         fn (string $op) => $this->info("  {$op} updated successfully"),

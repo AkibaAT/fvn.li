@@ -27,7 +27,7 @@
         </toc-element>
         <toc-element toc-title="Games Commands">
             <toc-element topic="games-commands-overview.md"/>
-            <toc-element topic="games-check-suspended.md" toc-title="Check Suspended"/>
+            <toc-element topic="games-check-delisted.md" toc-title="Check Delisted"/>
             <toc-element topic="games-cleanup-downloads.md" toc-title="Cleanup Downloads"/>
             <toc-element topic="games-import-stats.md" toc-title="Import Stats"/>
             <toc-element topic="games-process-screenshots.md" toc-title="Process Screenshots"/>

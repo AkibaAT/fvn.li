@@ -213,6 +213,17 @@ export function FilterModal({
                                         On Sale
                                     </span>
                                 </label>
+                                <label className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={currentFilters.delisted || false}
+                                        onChange={(e) => updateFilters({delisted: e.target.checked})}
+                                        className="mr-3 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                        Delisted
+                                    </span>
+                                </label>
                             </div>
                         </div>
 

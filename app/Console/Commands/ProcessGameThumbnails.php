@@ -68,7 +68,6 @@ class ProcessGameThumbnails extends Command
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
-                ->where('is_suspended', false)
                 ->where(function ($q) {
                     $q->whereNotNull('thumb_url')
                         ->orWhereNotNull('screenshots');
@@ -230,20 +229,12 @@ class ProcessGameThumbnails extends Command
                 $variantFilename = $baseFilename . "_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename);
 
-                $this->processStaticVariant(
+                $dimensions = $this->processStaticVariant(
                     $tempFile,
                     $variantPath,
                     $config,
                     $quality
                 );
-
-                // Verify the file was created
-                if (! Storage::disk('public')->exists($variantPath)) {
-                    throw new Exception("Failed to create variant file: {$variantPath}");
-                }
-
-                // Get dimensions of processed image
-                $dimensions = $this->getImageDimensions($variantPath);
 
                 // Add to thumbnails array
                 $thumbnails[$variant] = [
@@ -321,14 +312,14 @@ class ProcessGameThumbnails extends Command
         string $destPath,
         array $config,
         int $quality
-    ): void {
+    ): array {
         try {
             // Get image info for logging
             $imageInfo = getimagesize($sourcePath);
             $this->info("Processing image: {$imageInfo[0]}x{$imageInfo[1]} pixels");
 
-            // Use the service to process the image
-            $this->imageProcessingService->processImageVariant(
+            // Use the service to process the image and return dimensions
+            return $this->imageProcessingService->processImageVariant(
                 $sourcePath,
                 $destPath,
                 $config,
@@ -337,13 +328,5 @@ class ProcessGameThumbnails extends Command
         } catch (Exception $e) {
             throw new Exception("Failed to process static image: {$e->getMessage()}");
         }
-    }
-
-    /**
-     * Get image dimensions using the image processing service
-     */
-    private function getImageDimensions(string $path): array
-    {
-        return $this->imageProcessingService->getImageDimensions($path);
     }
 }

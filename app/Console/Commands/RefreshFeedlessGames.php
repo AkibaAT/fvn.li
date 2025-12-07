@@ -56,7 +56,6 @@ class RefreshFeedlessGames extends Command
             $query = Game::query()
                 ->fromItchio()
                 ->where('is_visible', true)
-                ->where('is_suspended', false)
                 ->where('is_feedless', true)
                 ->orderBy('id');
 

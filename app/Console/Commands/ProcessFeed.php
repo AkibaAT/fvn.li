@@ -274,8 +274,8 @@ class ProcessFeed extends Command
                 $game->platform = 'itch_io';
             }
 
-            // Skip if game isn't visible or is suspended
-            if (! $game->exists || ! $game->is_visible || $game->is_suspended) {
+            // Skip if game isn't visible
+            if (! $game->exists || ! $game->is_visible) {
                 DB::commit();
                 $this->output->write('.');
                 $this->skippedCount++;

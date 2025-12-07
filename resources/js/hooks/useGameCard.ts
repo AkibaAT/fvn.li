@@ -29,6 +29,7 @@ export interface GameCardGame {
     is_paid?: boolean;
     has_demo?: boolean;
     is_on_sale?: boolean;
+    is_delisted?: boolean;
     // store platform (itch.io, steam, other)
     platform?: 'itch_io' | 'steam' | 'other';
     // game platforms (OS support)
@@ -73,6 +74,7 @@ export interface GameCardProps {
     showPaid?: boolean;
     showDemo?: boolean;
     showSale?: boolean;
+    delisted?: boolean;
     ignoredGameIds?: number[];
     // Optional filter handlers; if omitted, will navigate to games index with the respective filter
     onTagClick?: (tagId: string) => void;
@@ -84,10 +86,11 @@ export interface GameCardProps {
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
+    onDelistedToggle?: () => void;
     onIgnoreToggle?: (gameId: number, isIgnored: boolean, ignoredGameIds: number[]) => void;
 }
 
-export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onStorePlatformClick, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle}: GameCardProps) {
+export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, onLanguageClick, onStatusClick, onStorePlatformClick, onNsfwToggle, onPaidToggle, onDemoToggle, onSaleToggle, onDelistedToggle}: GameCardProps) {
     // Image handling
     const getOptimizedScreenshotUrl = (
         screenshot: NonNullable<GameCardGame['screenshots']>[number],
@@ -191,6 +194,11 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         navigateWith({showSale: true});
     };
 
+    const handleDelistedToggle = () => {
+        if (onDelistedToggle) return onDelistedToggle();
+        navigateWith({delisted: true});
+    };
+
     // Tag ordering and state
     const orderedTags = game.tags && game.tags.length > 0
         ? [...game.tags].sort((a, b) => {
@@ -237,6 +245,7 @@ export function useGameCard({game, selectedTags, onTagClick, onPlatformClick, on
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
+        handleDelistedToggle,
 
         // Tags
         orderedTags,
