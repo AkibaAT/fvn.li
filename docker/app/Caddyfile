@@ -4,6 +4,12 @@
 	admin {$CADDY_SERVER_ADMIN_HOST}:{$CADDY_SERVER_ADMIN_PORT}
 
 	frankenphp {
+        php_ini {
+            memory_limit 1G
+            max_execution_time 60
+            max_input_time 60
+        }
+
 		worker {
 			file "{$APP_PUBLIC_PATH}/frankenphp-worker.php"
 			{$CADDY_SERVER_WORKER_DIRECTIVE}
