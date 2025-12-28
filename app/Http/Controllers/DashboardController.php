@@ -9,6 +9,7 @@ use App\Models\ChangeLog;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\NotificationHistory;
+use App\Models\NotificationQueue;
 use App\Models\Rating;
 use App\Models\User;
 use App\Models\UserGameProgress;
@@ -164,6 +165,31 @@ class DashboardController extends Controller
 
         $ignoredGamesCount = $user->ignoredGames()->count();
 
+        // Discord bot installation info
+        $hasDiscordAccount = in_array('discord', $connectedProviders);
+        $discordClientId = config('services.discord.client_id');
+        $discordBotInstallUrl = $discordClientId
+            ? "https://discord.com/oauth2/authorize?client_id={$discordClientId}&integration_type=1&scope=applications.commands"
+            : null;
+
+        // Get the most recent Discord notification status
+        $lastDiscordNotification = null;
+        if ($hasDiscordAccount) {
+            $lastNotification = NotificationQueue::where('user_id', $user->id)
+                ->where('channel', 'discord')
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($lastNotification) {
+                $lastDiscordNotification = [
+                    'status' => $lastNotification->status,
+                    'error' => $lastNotification->error,
+                    'processedAt' => $lastNotification->processed_at?->toISOString(),
+                    'createdAt' => $lastNotification->created_at->toISOString(),
+                ];
+            }
+        }
+
         return Inertia::render('dashboard/index', [
             'user' => $user,
             'connectedProviders' => $connectedProviders,
@@ -177,6 +203,11 @@ class DashboardController extends Controller
                 'browser_notifications_enabled' => $notificationPreferences->browser_notifications_enabled,
                 'discord_notifications_enabled' => $notificationPreferences->discord_notifications_enabled,
                 'notification_digest' => $notificationPreferences->notification_digest,
+            ],
+            'discordInfo' => [
+                'hasAccount' => $hasDiscordAccount,
+                'botInstallUrl' => $discordBotInstallUrl,
+                'lastNotification' => $lastDiscordNotification,
             ],
             'recentRequests' => $recentRequests,
             'ignoredGames' => $ignoredGames,
@@ -213,12 +244,42 @@ class DashboardController extends Controller
             ]);
         }
 
+        // Discord bot installation info
+        $hasDiscordAccount = $user->socialAccounts()->where('provider_name', 'discord')->exists();
+        $discordClientId = config('services.discord.client_id');
+        $discordBotInstallUrl = $discordClientId
+            ? "https://discord.com/oauth2/authorize?client_id={$discordClientId}&integration_type=1&scope=applications.commands"
+            : null;
+
+        // Get the most recent Discord notification status
+        $lastDiscordNotification = null;
+        if ($hasDiscordAccount) {
+            $lastNotification = NotificationQueue::where('user_id', $user->id)
+                ->where('channel', 'discord')
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($lastNotification) {
+                $lastDiscordNotification = [
+                    'status' => $lastNotification->status,
+                    'error' => $lastNotification->error,
+                    'processedAt' => $lastNotification->processed_at?->toISOString(),
+                    'createdAt' => $lastNotification->created_at->toISOString(),
+                ];
+            }
+        }
+
         return response()->json([
             'success' => true,
             'preferences' => [
                 'browser_notifications_enabled' => (bool) $preferences->browser_notifications_enabled,
                 'discord_notifications_enabled' => (bool) $preferences->discord_notifications_enabled,
                 'notification_digest' => $preferences->notification_digest,
+            ],
+            'discordInfo' => [
+                'hasAccount' => $hasDiscordAccount,
+                'botInstallUrl' => $discordBotInstallUrl,
+                'lastNotification' => $lastDiscordNotification,
             ],
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
         ]);

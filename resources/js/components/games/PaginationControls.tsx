@@ -58,8 +58,8 @@ export default function PaginationControls({
         if (currentFilters.nsfw) params.set('nsfw', '1');
         if (currentFilters.showPaid) params.set('showPaid', '1');
         if (currentFilters.showDemo) params.set('showDemo', '1');
-        if (currentFilters.sortBy) params.set('sortBy', currentFilters.sortBy);
-        if (currentFilters.sortOrder) params.set('sortOrder', currentFilters.sortOrder);
+        if (currentFilters.sort) params.set('sort', currentFilters.sort);
+        if (currentFilters.direction) params.set('direction', currentFilters.direction);
         if (currentFilters.perPage) params.set('perPage', currentFilters.perPage.toString());
 
         // Add the page parameter

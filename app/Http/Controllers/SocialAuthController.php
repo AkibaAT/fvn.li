@@ -43,8 +43,11 @@ class SocialAuthController extends Controller
         // Provider-specific scope configuration
         switch ($provider) {
             case 'discord':
+                // Include applications.commands scope with integration_type=1 to prompt
+                // users to install the bot for DM notifications during OAuth flow
                 return Socialite::driver($provider)
-                    ->setScopes(['identify'])
+                    ->setScopes(['identify', 'applications.commands'])
+                    ->with(['integration_type' => '1'])
                     ->redirect();
 
             case 'google':

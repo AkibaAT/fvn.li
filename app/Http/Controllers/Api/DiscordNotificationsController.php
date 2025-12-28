@@ -73,9 +73,9 @@ class DiscordNotificationsController extends Controller
                     return null;
                 }
 
-                // Get the user's social account
-                $socialAccount = $user->socialAccounts->first();
-                if (! $socialAccount) {
+                // Get the user's Discord social account specifically
+                $discordAccount = $user->socialAccounts->where('provider_name', 'discord')->first();
+                if (! $discordAccount) {
                     return null;
                 }
 
@@ -104,7 +104,7 @@ class DiscordNotificationsController extends Controller
 
                 return [
                     'notification_id' => $notification->id,
-                    'discord_user_id' => $user->socialAccounts->first()->provider_id,
+                    'discord_user_id' => $discordAccount->provider_id,
                     'game' => [
                         'id' => $game->id,
                         'name' => $game->name,

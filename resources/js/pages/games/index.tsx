@@ -16,6 +16,7 @@ import SeoHead, {type MetaTags as SeoMetaTags} from '@/components/seo/SeoHead';
 interface GamesIndexGame {
     id: number;
     name: string;
+    effective_name: string;
     slug: string;
     description?: string;
     thumb_url?: string;

@@ -23,20 +23,27 @@ class DiscordBotController extends Controller
             return response()->json(['error' => $validator->errors()], 422);
         }
 
+        $name = $request->input('name');
+        $baseUrl = rtrim(config('app.url'), '/');
+
         $games = Game::query()
             ->fromItchio()
             ->with('latestVersion')
             ->where('is_visible', true)
-            ->where('name', 'ilike', "%{$request->input('name')}%")
+            ->where('name', 'ilike', "%{$name}%")
+            ->limit(10)
             ->get();
 
         return response()->json([
             'matches' => $games->count(),
+            'search_url' => $baseUrl.'/games/search?q='.urlencode($name),
             'games' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
+                'url' => $baseUrl.'/games/'.$game->slug,
+                'primary_url' => $game->getPrimaryUrl(),
+                'english_word_count' => $game->english_word_count,
                 'published_at' => $game->latestVersion?->published_at ? $game->latestVersion->published_at->timestamp : null,
-                'url' => $game->url, // Multi-platform URLs as JSONB object
             ]),
         ]);
     }

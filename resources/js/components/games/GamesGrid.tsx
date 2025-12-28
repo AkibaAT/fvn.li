@@ -4,6 +4,7 @@ import type {CurrentFilters} from '@/types';
 interface Game {
     id: number;
     name: string;
+    effective_name: string;
     slug: string;
     description?: string;
     thumb_url?: string;
