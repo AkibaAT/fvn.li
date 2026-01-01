@@ -78,6 +78,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:cleanup-downloads',
             ['--all'])->weekly()->sundays()->at('02:00')->withoutOverlapping();
         $schedule->command('model:prune', ['--model' => MonitoredScheduledTaskLogItem::class])->daily();
+
+        // Database maintenance - create next month's audit log partition on the 1st of each month
+        $schedule->command('audit:create-partitions')->monthlyOn(1, '00:00')->withoutOverlapping();
     }
 
     /**
