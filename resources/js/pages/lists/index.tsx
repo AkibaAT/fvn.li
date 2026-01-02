@@ -193,17 +193,17 @@ export default function ListsIndex({
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-blue-600">
+                        <h1 className="text-3xl font-bold text-[var(--color-ui-text)]">
                             Your Visual Novel Lists
                         </h1>
-                        <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        <p className="mt-2 text-[var(--color-ui-text-muted)]">
                             Organize and manage your visual novel collections
                         </p>
                     </div>
                     <div className="mt-4 flex space-x-3 sm:mt-0">
                         <Link
                             href={route('lists.public')}
-                            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
+                            className="inline-flex items-center rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
                         >
                             <svg
                                 className="mr-2 h-5 w-5"
@@ -222,7 +222,7 @@ export default function ListsIndex({
                         </Link>
                         <Link
                             href={route('lists.create')}
-                            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
+                            className="inline-flex items-center rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
                         >
                             <svg
                                 className="mr-2 h-5 w-5"
@@ -243,8 +243,8 @@ export default function ListsIndex({
                 </div>
 
                 {/* Tabbed View */}
-                <div className="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
-                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="section-surface rounded-2xl p-6">
+                    <div className="flex flex-wrap gap-2 border-b border-[var(--color-ui-border)]">
                         {[
                             {
                                 key: 'all',
@@ -269,10 +269,10 @@ export default function ListsIndex({
                                     e.preventDefault();
                                     handleTabChange(tab.key);
                                 }}
-                                className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                                className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] ${
                                     visibility === tab.key
-                                        ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                                        ? 'border-b-2 border-[var(--color-brand-primary)] bg-[var(--color-surface-peach)] text-[var(--color-link)]'
+                                        : 'text-[var(--color-ui-text-muted)] hover:bg-[var(--color-ui-surface-alt)] hover:text-[var(--color-ui-text)]'
                                 }`}
                             >
                                 {tab.label} ({tab.count})
@@ -298,9 +298,9 @@ export default function ListsIndex({
                 ) : (
                     <div className="py-12 text-center">
                         <div
-                            className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                            className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-ui-surface-alt)]">
                             <svg
-                                className="h-12 w-12 text-gray-400"
+                                className="h-12 w-12 text-[var(--color-ui-text-muted)]"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -313,17 +313,17 @@ export default function ListsIndex({
                                 />
                             </svg>
                         </div>
-                        <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 className="mb-2 text-lg font-medium text-[var(--color-ui-text)]">
                             No lists found
                         </h3>
-                        <p className="mb-6 text-gray-600 dark:text-gray-400">
+                        <p className="mb-6 text-[var(--color-ui-text-muted)]">
                             {visibility === 'all'
                                 ? "You haven't created any lists yet."
                                 : `No ${visibility} lists found.`}
                         </p>
                         <Link
                             href={route('lists.create')}
-                            className="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+                            className="inline-flex items-center rounded-lg bg-[var(--color-brand-primary)] px-6 py-3 font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
                         >
                             <svg
                                 className="mr-2 h-5 w-5"

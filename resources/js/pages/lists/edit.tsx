@@ -97,22 +97,22 @@ export default function EditList({vnList, metaTags}: EditListProps) {
             <div className="mx-auto max-w-2xl space-y-8">
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-blue-600">
+                    <h1 className="text-3xl font-bold text-[var(--color-ui-text)]">
                         Edit List
                     </h1>
-                    <p className="mt-2 text-gray-600 dark:text-gray-400">
+                    <p className="mt-2 text-[var(--color-ui-text-muted)]">
                         Update your visual novel list settings
                     </p>
                 </div>
 
                 {/* Form */}
-                <div className="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
+                <div className="section-surface rounded-2xl p-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* List Name */}
                         <div>
                             <label
                                 htmlFor="name"
-                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                className="block text-sm font-medium text-[var(--color-ui-text)]"
                             >
                                 List Name *
                             </label>
@@ -127,19 +127,19 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                                     })
                                 }
                                 required
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                                 placeholder="Enter list name..."
                             />
                         </div>
 
                         {/* List Type (Read-only for default lists) */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label className="block text-sm font-medium text-[var(--color-ui-text)]">
                                 List Type
                             </label>
                             <div
-                                className="mt-1 rounded-md border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
-                                <span className="text-sm text-gray-900 dark:text-gray-100">
+                                className="mt-1 rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface-alt)] p-3">
+                                <span className="text-sm text-[var(--color-ui-text)]">
                                     {vnList.type
                                         .replace(/_/g, ' ')
                                         .replace(/\b\w/g, (l) =>
@@ -149,7 +149,7 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                                 </span>
                             </div>
                             {vnList.is_default && (
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                <p className="mt-1 text-xs text-[var(--color-ui-text-muted)]">
                                     Default lists cannot be modified
                                 </p>
                             )}
@@ -159,7 +159,7 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                         <div>
                             <label
                                 htmlFor="description"
-                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                className="block text-sm font-medium text-[var(--color-ui-text)]"
                             >
                                 Description
                             </label>
@@ -173,10 +173,10 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                                     })
                                 }
                                 rows={4}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                                 placeholder="Optional description for your list..."
                             />
-                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            <p className="mt-1 text-xs text-[var(--color-ui-text-muted)]">
                                 Describe what this list is for (optional)
                             </p>
                         </div>
@@ -193,13 +193,13 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                                             is_public: e.target.checked,
                                         })
                                     }
-                                    className="focus:ring-opacity-50 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
+                                    className="focus:ring-opacity-50 rounded border-[var(--color-ui-border)] text-[var(--color-link)] shadow-sm focus:border-[var(--color-brand-primary-light)] focus:ring focus:ring-[var(--color-brand-primary)]/20"
                                 />
-                                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                <span className="ml-2 text-sm text-[var(--color-ui-text)]">
                                     Make this list public
                                 </span>
                             </label>
-                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            <p className="mt-1 text-xs text-[var(--color-ui-text-muted)]">
                                 Public lists can be viewed by anyone, private
                                 lists are only visible to you
                             </p>
@@ -210,7 +210,7 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                             <div className="flex space-x-3">
                                 <Link
                                     href={route('lists.show', vnList.id)}
-                                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                    className="inline-flex items-center rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-4 py-2 text-sm font-medium text-[var(--color-ui-text)] shadow-sm hover:border-[var(--color-brand-primary)] hover:text-[var(--color-link)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)]"
                                 >
                                     Cancel
                                 </Link>
@@ -230,7 +230,7 @@ export default function EditList({vnList, metaTags}: EditListProps) {
                             <button
                                 type="submit"
                                 disabled={isLoading || !formData.name.trim()}
-                                className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center rounded-md border border-transparent bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[var(--color-brand-primary-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {isLoading ? 'Saving...' : 'Save Changes'}
                             </button>

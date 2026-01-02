@@ -21,8 +21,8 @@
     @endif
 
     <!-- Essential Meta Tags - Dynamic content provided by Inertia Head -->
-    <meta name="theme-color" content="#3B82F6">
-    <meta name="msapplication-TileColor" content="#3B82F6">
+    <meta name="theme-color" content="#f97316">
+    <meta name="msapplication-TileColor" content="#f97316">
     <meta name="application-name" content="FVN.li">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -58,7 +58,7 @@
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen antialiased">
+<body class="min-h-screen antialiased app-body bg-texture">
 @inertia
 </body>
 </html>

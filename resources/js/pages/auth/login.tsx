@@ -82,13 +82,13 @@ export default function Login({metaTags}: LoginProps) {
             <div className="py-12">
                 <div className="mx-auto max-w-md sm:px-6 lg:px-8">
                     <div
-                        className="overflow-hidden border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl sm:rounded-2xl dark:border-gray-700/50 dark:bg-gray-800/70">
-                        <div className="p-6 text-gray-900 dark:text-gray-100">
+                        className="section-surface overflow-hidden sm:rounded-2xl">
+                        <div className="p-6 text-[var(--color-ui-text)]">
                             <div className="mb-6 text-center">
-                                <h1 className="mb-2 text-2xl font-bold text-blue-600">
+                                <h1 className="mb-2 text-2xl font-bold text-[var(--color-ui-text)]">
                                     Welcome to FVN.li
                                 </h1>
-                                <p className="text-gray-600 dark:text-gray-400">
+                                <p className="text-[var(--color-ui-text-muted)]">
                                     Log in to manage your visual novel
                                     collections
                                 </p>
@@ -134,7 +134,7 @@ export default function Login({metaTags}: LoginProps) {
                             <div className="mt-6 text-center">
                                 <Link
                                     href={route('home')}
-                                    className="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                    className="text-sm text-[var(--color-ui-text-muted)] transition-colors hover:text-[var(--color-ui-text)]"
                                 >
                                     ← Back to home
                                 </Link>

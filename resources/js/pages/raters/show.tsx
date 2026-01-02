@@ -489,10 +489,10 @@ export default function RaterShow({
                 {/* Review Text Controls */}
                 <ReviewTextControls />
 
-                <div className="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="section-surface overflow-hidden rounded-2xl">
+                    <div className="divide-y divide-[var(--color-ui-border)]">
                         {!ratings || ratings.data.length === 0 ? (
-                            <div className="p-6 text-gray-500 dark:text-gray-400">No ratings</div>
+                            <div className="p-6 text-[var(--color-ui-text-muted)]">No ratings</div>
                         ) : (
                             ratings.data.map((row) => (
                                 <div key={row.id} className="p-6">
@@ -500,7 +500,7 @@ export default function RaterShow({
                                         <div className="flex items-center gap-4">
                                             <Link
                                                 href={route('games.show', {game: row.game.slug})}
-                                                className="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
+                                                className="text-lg font-medium text-[var(--color-link)] hover:underline"
                                             >
                                                 {row.game.name}
                                             </Link>
@@ -527,7 +527,7 @@ export default function RaterShow({
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <Stars rating={row.rating}/>
-                                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                            <span className="text-sm text-[var(--color-ui-text-muted)]">
                                                     {row.published_at
                                                         ? new Date(row.published_at).toLocaleDateString(undefined, {
                                                             month: 'short',
@@ -551,7 +551,7 @@ export default function RaterShow({
                                     </div>
                                     {row.review ? (
                                         <div
-                                            className="prose dark:prose-invert mt-2 text-gray-600 dark:text-gray-300 mx-auto"
+                                            className="prose dark:prose-invert mt-2 text-[var(--color-ui-text-muted)] mx-auto"
                                             style={reviewStyles}>
                                             {/* review is trusted HTML from server */}
                                             <div dangerouslySetInnerHTML={{__html: row.review || ''}}/>
@@ -585,7 +585,7 @@ export default function RaterShow({
                     aria-modal="true"
                     aria-labelledby="phrases-dialog-title"
                     aria-describedby="phrases-dialog-desc"
-                    className="m-auto w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:bg-gray-800 dark:text-gray-100"
+                    className="m-auto w-full max-w-3xl rounded-lg bg-[var(--color-ui-surface)] p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
                 >
                     <h1 id="phrases-dialog-title" className="sr-only">
                         Common Phrase Contexts
@@ -618,15 +618,15 @@ export default function RaterShow({
                             <div className="max-h-96 space-y-4 overflow-y-auto">
                                 {Object.entries(safePhrases[selectedPhrase].contexts).map(([gameName, context]) => (
                                     <div key={gameName}>
-                                        <h4 className="mb-2 font-medium text-gray-900 dark:text-gray-100">
+                                        <h4 className="mb-2 font-medium text-[var(--color-ui-text)]">
                                             <Link
                                                 href={route('games.show', {game: context.slug})}
-                                                className="text-blue-600 hover:underline dark:text-blue-400"
+                                                className="text-[var(--color-link)] hover:underline"
                                             >
                                                 {gameName}
                                             </Link>{' '}
                                             <span
-                                                className="font-normal text-gray-500 dark:text-gray-400">({context.rating}★)</span>
+                                                className="font-normal text-[var(--color-ui-text-muted)]">({context.rating}★)</span>
                                         </h4>
                                         <div className="space-y-2">
                                             {context.sentences.map((sentence, index) => {
@@ -634,11 +634,11 @@ export default function RaterShow({
                                                 const parts = sentence.split(regex);
                                                 return (
                                                     <div key={index}
-                                                         className="rounded bg-gray-50 p-2 text-sm dark:bg-gray-700">
+                                                         className="rounded bg-[var(--color-ui-surface-alt)] p-2 text-sm">
                                                         {parts.map((part, i) =>
                                                             regex.test(part) ? (
                                                                 <span key={i}
-                                                                      className="font-medium text-blue-600 dark:text-blue-400">{part}</span>
+                                                                      className="font-medium text-[var(--color-link)]">{part}</span>
                                                             ) : (
                                                                 <span key={i}>{part}</span>
                                                             ),
@@ -661,7 +661,7 @@ export default function RaterShow({
                     aria-modal="true"
                     aria-labelledby="history-dialog-title"
                     aria-describedby="history-dialog-desc"
-                    className="m-auto w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:bg-gray-800 dark:text-gray-100"
+                    className="m-auto w-full max-w-2xl rounded-lg bg-[var(--color-ui-surface)] p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
                     onClick={(e) => {
                         if (e.target === e.currentTarget) closeHistory();
                     }}
@@ -674,8 +674,8 @@ export default function RaterShow({
                     </p>
                     {historyModal.gameName && (
                         <div className="mb-4">
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{historyModal.gameName}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Rating history for this game:</p>
+                            <h3 className="text-lg font-medium text-[var(--color-ui-text)]">{historyModal.gameName}</h3>
+                            <p className="text-sm text-[var(--color-ui-text-muted)]">Rating history for this game:</p>
                         </div>
                     )}
                     <div className="space-y-6">
@@ -683,12 +683,12 @@ export default function RaterShow({
                             historyModal.ratings.map((hr, idx) => (
                                 <div
                                     key={hr.id}
-                                    className={`${idx < historyModal.ratings.length - 1 ? 'border-b border-gray-200 pb-6 dark:border-gray-700' : ''}`}
+                                    className={`${idx < historyModal.ratings.length - 1 ? 'border-b border-[var(--color-ui-border)] pb-6' : ''}`}
                                 >
                                     <div className="mb-2 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Stars rating={hr.rating}/>
-                                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                            <span className="text-sm text-[var(--color-ui-text-muted)]">
                                                     {hr.published_at
                                                         ? new Date(hr.published_at).toLocaleDateString(undefined, {
                                                             month: 'short',
@@ -699,7 +699,7 @@ export default function RaterShow({
                                                 </span>
                                             {hr.is_visible ? (
                                                 <span
-                                                    className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">Current</span>
+                                                    className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-xs text-[var(--color-link)]">Current</span>
                                             ) : null}
                                         </div>
                                         {hr.event_id ? (
@@ -707,7 +707,7 @@ export default function RaterShow({
                                                 href={`https://itch.io/event/${hr.event_id}`}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                                                className="text-sm text-[var(--color-link)] hover:underline"
                                             >
                                                 View on itch.io
                                             </a>
@@ -715,7 +715,7 @@ export default function RaterShow({
                                     </div>
                                     {hr.review ? (
                                         <div
-                                            className="prose dark:prose-invert text-gray-600 dark:text-gray-300 mx-auto"
+                                            className="prose dark:prose-invert text-[var(--color-ui-text-muted)] mx-auto"
                                             style={reviewStyles}>
                                             <div dangerouslySetInnerHTML={{__html: hr.review || ''}}/>
                                         </div>
@@ -723,7 +723,7 @@ export default function RaterShow({
                                 </div>
                             ))
                         ) : (
-                            <div className="py-4 text-center text-gray-500 dark:text-gray-400">No rating history
+                            <div className="py-4 text-center text-[var(--color-ui-text-muted)]">No rating history
                                 found.</div>
                         )}
                     </div>
@@ -731,7 +731,7 @@ export default function RaterShow({
                         <button
                             ref={historyCloseBtnRef}
                             onClick={closeHistory}
-                            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                            className="rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-4 py-2 text-sm text-[var(--color-ui-text)] hover:border-[var(--color-brand-primary)] hover:text-[var(--color-link)]"
                             aria-label="Close dialog"
                         >
                             Close

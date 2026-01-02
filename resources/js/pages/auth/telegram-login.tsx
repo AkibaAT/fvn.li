@@ -45,8 +45,8 @@ export default function TelegramLogin({metaTags}: TelegramLoginProps) {
             <Head title={title}/>
 
             <div className="flex min-h-[70vh] items-center justify-center">
-                <div className="w-full max-w-md rounded-lg bg-white p-8 text-center shadow-md dark:bg-gray-800">
-                    <h2 className="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="section-surface w-full max-w-md rounded-2xl p-8 text-center">
+                    <h2 className="mb-6 text-xl font-bold text-[var(--color-ui-text)]">
                         {title}
                     </h2>
 
@@ -58,7 +58,7 @@ export default function TelegramLogin({metaTags}: TelegramLoginProps) {
                     <div className="mt-6">
                         <Link
                             href={route('home')}
-                            className="text-blue-600 hover:underline dark:text-blue-400"
+                            className="text-[var(--color-link)] hover:underline"
                         >
                             Cancel and go back
                         </Link>

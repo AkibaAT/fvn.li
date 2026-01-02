@@ -148,6 +148,10 @@ Route::get('lists/{vnList}', [VnListController::class, 'listShow'])
 Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
     ->name('system.status');
 
+// System Status
+Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
+    ->name('system.status');
+
 // Social Authentication Routes
 Route::get('auth/telegram', function () {
     return Inertia::render('auth/telegram-login', [

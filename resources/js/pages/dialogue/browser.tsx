@@ -1,16 +1,16 @@
 import Pagination from '@/components/pagination';
-import {WordCloud} from '@/components/word-cloud';
+import { WordCloud } from '@/components/word-cloud';
 import {
-    useDialogueOptions,
-    useDialogueVersionStats,
-    useDialogueSearch,
-    useDialogueDuplicates,
-    useWordFrequency,
     DialogueSearchResult,
     DuplicateItem,
+    useDialogueDuplicates,
+    useDialogueOptions,
+    useDialogueSearch,
+    useDialogueVersionStats,
+    useWordFrequency,
 } from '@/hooks/api';
-import {Link, usePage} from '@inertiajs/react';
-import {useEffect, useMemo, useState} from 'react';
+import { Link, usePage } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
 
 type InitialProps = {
     initial: {
@@ -21,7 +21,7 @@ type InitialProps = {
     };
 };
 
-export default function DialogueBrowser({initial}: InitialProps) {
+export default function DialogueBrowser({ initial }: InitialProps) {
     const inertiaPage = usePage();
 
     const gameId = initial.gameId;
@@ -33,10 +33,15 @@ export default function DialogueBrowser({initial}: InitialProps) {
     const initialLocation =
         typeof window !== 'undefined'
             ? window.location.href
-            : (inertiaPage?.props as { ziggy?: { location?: string } })?.ziggy?.location || 'http://localhost/';
+            : (inertiaPage?.props as { ziggy?: { location?: string } })?.ziggy
+                  ?.location || 'http://localhost/';
 
     const url = useMemo(
-        () => new URL(initialLocation, typeof window === 'undefined' ? 'http://localhost/' : undefined),
+        () =>
+            new URL(
+                initialLocation,
+                typeof window === 'undefined' ? 'http://localhost/' : undefined,
+            ),
         [initialLocation],
     );
     const qp = url.searchParams;
@@ -56,10 +61,17 @@ export default function DialogueBrowser({initial}: InitialProps) {
     );
     const [q, setQ] = useState(qpQ);
     const [debouncedQ, setDebouncedQ] = useState(qpQ);
-    const [currentPage, setCurrentPage] = useState(Number.isFinite(qpPage) && qpPage > 0 ? qpPage : 1);
-    const [perPage, setPerPage] = useState([25, 50, 100].includes(qpPerPage) ? qpPerPage : 25);
-    const [selectedLangs, setSelectedLangs] = useState<string[]>(qpSelectedLangs);
-    const [language, setLanguage] = useState<string>(qpSelectedLangs[0] || 'eng');
+    const [currentPage, setCurrentPage] = useState(
+        Number.isFinite(qpPage) && qpPage > 0 ? qpPage : 1,
+    );
+    const [perPage, setPerPage] = useState(
+        [25, 50, 100].includes(qpPerPage) ? qpPerPage : 25,
+    );
+    const [selectedLangs, setSelectedLangs] =
+        useState<string[]>(qpSelectedLangs);
+    const [language, setLanguage] = useState<string>(
+        qpSelectedLangs[0] || 'eng',
+    );
     const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
     const [selectedContext, setSelectedContext] = useState<string>('');
     const [exactMatch, setExactMatch] = useState<boolean>(false);
@@ -80,19 +92,15 @@ export default function DialogueBrowser({initial}: InitialProps) {
     }, [q]);
 
     // TanStack Query hooks
-    const {
-        data: options,
-        isLoading: optionsLoading,
-    } = useDialogueOptions(gameId, versionId, language);
+    const { data: options, isLoading: optionsLoading } = useDialogueOptions(
+        gameId,
+        versionId,
+        language,
+    );
 
-    const {
-        data: versionStats,
-    } = useDialogueVersionStats(versionId);
+    const { data: versionStats } = useDialogueVersionStats(versionId);
 
-    const {
-        data: searchData,
-        isLoading: searchLoading,
-    } = useDialogueSearch(
+    const { data: searchData, isLoading: searchLoading } = useDialogueSearch(
         {
             q: debouncedQ,
             language,
@@ -104,28 +112,24 @@ export default function DialogueBrowser({initial}: InitialProps) {
             page: currentPage,
             exactMatch,
         },
-        { enabled: !showDuplicates && !!versionId && !!debouncedQ.trim() }
+        { enabled: !showDuplicates && !!versionId && !!debouncedQ.trim() },
     );
 
-    const {
-        data: duplicates = [],
-        isLoading: duplicatesLoading,
-    } = useDialogueDuplicates(
-        {
-            language,
-            gameId,
-            versionId,
-            characterId: selectedCharacterId,
-            minLineLength,
-            minDuplicateCount,
-            limit: duplicatesLimit,
-        },
-        { enabled: showDuplicates && !!versionId }
-    );
+    const { data: duplicates = [], isLoading: duplicatesLoading } =
+        useDialogueDuplicates(
+            {
+                language,
+                gameId,
+                versionId,
+                characterId: selectedCharacterId,
+                minLineLength,
+                minDuplicateCount,
+                limit: duplicatesLimit,
+            },
+            { enabled: showDuplicates && !!versionId },
+        );
 
-    const {
-        data: wordFrequency = [],
-    } = useWordFrequency(versionId, language);
+    const { data: wordFrequency = [] } = useWordFrequency(versionId, language);
 
     // Derived state
     const versions = options?.versions || [];
@@ -173,9 +177,11 @@ export default function DialogueBrowser({initial}: InitialProps) {
 
         if (versionId) sp.set('versionId', String(versionId));
         if (q) sp.set('q', q);
-        if (currentPage && currentPage !== 1) sp.set('page', String(currentPage));
+        if (currentPage && currentPage !== 1)
+            sp.set('page', String(currentPage));
         if (perPage && perPage !== 25) sp.set('perPage', String(perPage));
-        if (selectedLangs.length > 0) sp.set('selectedLangs', selectedLangs.join(','));
+        if (selectedLangs.length > 0)
+            sp.set('selectedLangs', selectedLangs.join(','));
 
         const newUrl = `${next.pathname}?${sp.toString()}`;
         if (newUrl !== window.location.pathname + window.location.search) {
@@ -184,7 +190,11 @@ export default function DialogueBrowser({initial}: InitialProps) {
     }, [versionId, q, currentPage, perPage, selectedLangs]);
 
     const onChangePage = (newPage: number) => {
-        if (newPage < 1 || (pagination.last_page && newPage > pagination.last_page)) return;
+        if (
+            newPage < 1 ||
+            (pagination.last_page && newPage > pagination.last_page)
+        )
+            return;
         setCurrentPage(newPage);
     };
 
@@ -202,8 +212,18 @@ export default function DialogueBrowser({initial}: InitialProps) {
                             href={route('games.show', gameSlug)}
                             className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                         >
-                            <svg className="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                            <svg
+                                className="mr-1 h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M15 19l-7-7 7-7"
+                                />
                             </svg>
                             Back to {gameName}
                         </Link>
@@ -223,14 +243,22 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 </label>
                                 <select
                                     value={versionId ?? ''}
-                                    onChange={(e) => setVersionId(e.target.value ? Number(e.target.value) : null)}
+                                    onChange={(e) =>
+                                        setVersionId(
+                                            e.target.value
+                                                ? Number(e.target.value)
+                                                : null,
+                                        )
+                                    }
                                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                     <option value="">Select Version</option>
                                     {versions.map((v) => (
                                         <option key={v.id} value={v.id}>
                                             {v.version}
-                                            {v.published_at ? ` (${new Date(v.published_at).toISOString().slice(0, 10)})` : ''}
+                                            {v.published_at
+                                                ? ` (${new Date(v.published_at).toISOString().slice(0, 10)})`
+                                                : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -242,15 +270,22 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 </label>
                                 <select
                                     value={selectedCharacterId}
-                                    onChange={(e) => setSelectedCharacterId(e.target.value)}
+                                    onChange={(e) =>
+                                        setSelectedCharacterId(e.target.value)
+                                    }
                                     disabled={!versionId}
                                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                     <option value="">All Characters</option>
                                     <option value="narrator">Narrator</option>
-                                    <option value="menu_choice">Menu Choices</option>
+                                    <option value="menu_choice">
+                                        Menu Choices
+                                    </option>
                                     {characters.map((c) => (
-                                        <option key={c.id} value={c.character_id}>
+                                        <option
+                                            key={c.id}
+                                            value={c.character_id}
+                                        >
                                             {c.name}
                                         </option>
                                     ))}
@@ -263,11 +298,15 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 </label>
                                 <select
                                     value={language}
-                                    onChange={(e) => setLanguage(e.target.value)}
+                                    onChange={(e) =>
+                                        setLanguage(e.target.value)
+                                    }
                                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                     {languages.length === 0 && (
-                                        <option value={language}>{language.toUpperCase()}</option>
+                                        <option value={language}>
+                                            {language.toUpperCase()}
+                                        </option>
                                     )}
                                     {languages.map((l) => (
                                         <option key={l.id} value={l.id}>
@@ -285,13 +324,17 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 </label>
                                 <select
                                     value={selectedContext}
-                                    onChange={(e) => setSelectedContext(e.target.value)}
+                                    onChange={(e) =>
+                                        setSelectedContext(e.target.value)
+                                    }
                                     disabled={!versionId}
                                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                                 >
                                     <option value="">All Contexts</option>
                                     {contexts.map((c) => (
-                                        <option key={c} value={c}>{c}</option>
+                                        <option key={c} value={c}>
+                                            {c}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
@@ -306,12 +349,13 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         value={q}
                                         onChange={(e) => {
                                             setQ(e.target.value);
-                                            if (e.target.value) setShowDuplicates(false);
+                                            if (e.target.value)
+                                                setShowDuplicates(false);
                                             setExactMatch(false);
                                         }}
                                         placeholder="Search dialogue..."
                                         disabled={showDuplicates}
-                                        className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                        className="block w-full rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-4 py-2 text-[var(--color-ui-text)] shadow-sm"
                                     />
                                 </div>
                             </div>
@@ -322,33 +366,54 @@ export default function DialogueBrowser({initial}: InitialProps) {
                             <div className="flex items-center space-x-4">
                                 <button
                                     type="button"
-                                    onClick={() => setShowDuplicates((prev) => !prev)}
+                                    onClick={() =>
+                                        setShowDuplicates((prev) => !prev)
+                                    }
                                     className={`flex items-center rounded-lg px-3 py-1 text-sm ${
                                         showDuplicates
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                                            ? 'bg-[var(--color-surface-peach)] text-[var(--color-link)]'
+                                            : 'bg-[var(--color-ui-surface-alt)] text-[var(--color-ui-text)] hover:bg-[var(--color-surface-cream)]'
                                     }`}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="mr-1 h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                        />
                                     </svg>
-                                    {showDuplicates ? 'Hide Duplicates' : 'Show Duplicates'}
+                                    {showDuplicates
+                                        ? 'Hide Duplicates'
+                                        : 'Show Duplicates'}
                                 </button>
 
                                 <div className="flex items-center space-x-2">
                                     <select
                                         value={perPage}
-                                        onChange={(e) => onChangePerPage(Number(e.target.value))}
-                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                        onChange={(e) =>
+                                            onChangePerPage(
+                                                Number(e.target.value),
+                                            )
+                                        }
+                                        className="rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-1 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:outline-none"
                                     >
                                         <option value={25}>25 per page</option>
                                         <option value={50}>50 per page</option>
-                                        <option value={100}>100 per page</option>
+                                        <option value={100}>
+                                            100 per page
+                                        </option>
                                     </select>
                                 </div>
                             </div>
                             {!canSearch && (
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                <span className="text-sm text-[var(--color-ui-text-muted)]">
                                     Select a game and version to search
                                 </span>
                             )}
@@ -356,8 +421,8 @@ export default function DialogueBrowser({initial}: InitialProps) {
 
                         {/* Duplicates Options */}
                         {showDuplicates && (
-                            <div className="mt-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700/30">
-                                <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <div className="mt-4 rounded-lg bg-[var(--color-ui-surface-alt)] p-4">
+                                <h3 className="mb-3 text-sm font-medium text-[var(--color-ui-text)]">
                                     Duplicate Line Settings
                                 </h3>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -368,7 +433,12 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         <input
                                             type="number"
                                             value={minLineLength}
-                                            onChange={(e) => setMinLineLength(parseInt(e.target.value) || 10)}
+                                            onChange={(e) =>
+                                                setMinLineLength(
+                                                    parseInt(e.target.value) ||
+                                                        10,
+                                                )
+                                            }
                                             min="3"
                                             max="50"
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -381,7 +451,12 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         <input
                                             type="number"
                                             value={minDuplicateCount}
-                                            onChange={(e) => setMinDuplicateCount(parseInt(e.target.value) || 3)}
+                                            onChange={(e) =>
+                                                setMinDuplicateCount(
+                                                    parseInt(e.target.value) ||
+                                                        3,
+                                                )
+                                            }
                                             min="2"
                                             max="20"
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -394,7 +469,12 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         <input
                                             type="number"
                                             value={duplicatesLimit}
-                                            onChange={(e) => setDuplicatesLimit(parseInt(e.target.value) || 10)}
+                                            onChange={(e) =>
+                                                setDuplicatesLimit(
+                                                    parseInt(e.target.value) ||
+                                                        10,
+                                                )
+                                            }
                                             min="5"
                                             max="50"
                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -412,25 +492,33 @@ export default function DialogueBrowser({initial}: InitialProps) {
                         </h3>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                                <div className="text-sm text-gray-500 dark:text-gray-400">Total Lines</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    Total Lines
+                                </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                                     {summary.totalLines.toLocaleString()}
                                 </div>
                             </div>
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                                <div className="text-sm text-gray-500 dark:text-gray-400">Total Words</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    Total Words
+                                </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                                     {summary.totalWords.toLocaleString()}
                                 </div>
                             </div>
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                                <div className="text-sm text-gray-500 dark:text-gray-400">Characters</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    Characters
+                                </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                                     {summary.uniqueCharacters.toLocaleString()}
                                 </div>
                             </div>
                             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                                <div className="text-sm text-gray-500 dark:text-gray-400">Avg Words/Line</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    Avg Words/Line
+                                </div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                                     {summary.avgWordsPerLine.toFixed(1)}
                                 </div>
@@ -445,7 +533,9 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 Common Words & Phrases
                             </h3>
                             <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                                The most frequently used words and phrases in the dialogue. Larger bubbles indicate higher frequency.
+                                The most frequently used words and phrases in
+                                the dialogue. Larger bubbles indicate higher
+                                frequency.
                             </p>
                             <div className="flex justify-center">
                                 <WordCloud
@@ -469,16 +559,23 @@ export default function DialogueBrowser({initial}: InitialProps) {
                         {showDuplicates && (
                             <div className="mb-4">
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                    Top Duplicated Lines {gameId ? 'in Selected Game' : 'Across All Games'}
+                                    Top Duplicated Lines{' '}
+                                    {gameId
+                                        ? 'in Selected Game'
+                                        : 'Across All Games'}
                                 </h3>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Showing lines that appear at least {minDuplicateCount} times, with a minimum length of {minLineLength} characters.
+                                    Showing lines that appear at least{' '}
+                                    {minDuplicateCount} times, with a minimum
+                                    length of {minLineLength} characters.
                                 </p>
                             </div>
                         )}
 
                         {loading ? (
-                            <div className="p-6 text-gray-600 dark:text-gray-300">Loading…</div>
+                            <div className="p-6 text-gray-600 dark:text-gray-300">
+                                Loading…
+                            </div>
                         ) : (
                             <>
                                 {showDuplicates && (
@@ -486,42 +583,98 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         {duplicates.length === 0 ? (
                                             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
                                                 <p className="text-yellow-700 dark:text-yellow-500">
-                                                    No duplicate lines found matching your criteria. Try adjusting the minimum line length or duplicate count.
+                                                    No duplicate lines found
+                                                    matching your criteria. Try
+                                                    adjusting the minimum line
+                                                    length or duplicate count.
                                                 </p>
                                             </div>
                                         ) : (
-                                            duplicates.map((dupe: DuplicateItem) => (
-                                                <div key={dupe.text_id} className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                                                    <div className="mb-3 flex items-center justify-between">
-                                                        <div className="font-medium text-gray-900 dark:text-gray-100">
-                                                            Appears {dupe.usage_count} times
+                                            duplicates.map(
+                                                (dupe: DuplicateItem) => (
+                                                    <div
+                                                        key={dupe.text_id}
+                                                        className="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+                                                    >
+                                                        <div className="mb-3 flex items-center justify-between">
+                                                            <div className="font-medium text-gray-900 dark:text-gray-100">
+                                                                Appears{' '}
+                                                                {
+                                                                    dupe.usage_count
+                                                                }{' '}
+                                                                times
+                                                            </div>
+                                                            <div className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-xs text-[var(--color-link)]">
+                                                                {dupe
+                                                                    .text_content
+                                                                    ?.length ||
+                                                                    0}{' '}
+                                                                characters
+                                                            </div>
                                                         </div>
-                                                        <div className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                                                            {dupe.text_content?.length || 0} characters
+                                                        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                                                            {dupe.text_content}
+                                                        </div>
+                                                        <div className="mt-3">
+                                                            <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                Examples:
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {dupe.examples?.map(
+                                                                    (
+                                                                        ex,
+                                                                        idx,
+                                                                    ) => (
+                                                                        <div
+                                                                            key={
+                                                                                idx
+                                                                            }
+                                                                            className="rounded-lg border border-gray-200 bg-white p-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                                                                        >
+                                                                            <div className="flex justify-between">
+                                                                                <span className="font-medium">
+                                                                                    {
+                                                                                        ex.game_name
+                                                                                    }{' '}
+                                                                                    (
+                                                                                    {
+                                                                                        ex.version
+                                                                                    }
+                                                                                    )
+                                                                                </span>
+                                                                                <span>
+                                                                                    {ex.character_id ===
+                                                                                    'menu_choice'
+                                                                                        ? 'Choice'
+                                                                                        : ex.character_display_name ||
+                                                                                          ex.character_id}
+                                                                                </span>
+                                                                            </div>
+                                                                            {ex.context && (
+                                                                                <div className="mt-1 text-gray-500 dark:text-gray-400">
+                                                                                    Context:{' '}
+                                                                                    {
+                                                                                        ex.context
+                                                                                    }
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="mt-1 text-gray-500 dark:text-gray-400">
+                                                                                {
+                                                                                    ex.file_path
+                                                                                }
+                                                                                :
+                                                                                {
+                                                                                    ex.line_number
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    ),
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
-                                                        {dupe.text_content}
-                                                    </div>
-                                                    <div className="mt-3">
-                                                        <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Examples:</div>
-                                                        <div className="space-y-2">
-                                                            {dupe.examples?.map((ex, idx) => (
-                                                                <div key={idx} className="rounded-lg border border-gray-200 bg-white p-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                                                                    <div className="flex justify-between">
-                                                                        <span className="font-medium">{ex.game_name} ({ex.version})</span>
-                                                                        <span>{ex.character_id === 'menu_choice' ? 'Choice' : ex.character_display_name || ex.character_id}</span>
-                                                                    </div>
-                                                                    {ex.context && (
-                                                                        <div className="mt-1 text-gray-500 dark:text-gray-400">Context: {ex.context}</div>
-                                                                    )}
-                                                                    <div className="mt-1 text-gray-500 dark:text-gray-400">{ex.file_path}:{ex.line_number}</div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
+                                                ),
+                                            )
                                         )}
                                     </div>
                                 )}
@@ -531,39 +684,68 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                     <>
                                         <div className="mb-4">
                                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                                Search Results: {pagination.total} matches for "{q}"
+                                                Search Results:{' '}
+                                                {pagination.total} matches for "
+                                                {q}"
                                             </h3>
                                         </div>
 
                                         {searchResults.length === 0 ? (
                                             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
-                                                <p className="text-yellow-700 dark:text-yellow-500">No results found for "{q}"</p>
+                                                <p className="text-yellow-700 dark:text-yellow-500">
+                                                    No results found for "{q}"
+                                                </p>
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
                                                 {searchResults.map((line) => (
-                                                    <div key={line.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                                    <div
+                                                        key={line.id}
+                                                        className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                                                    >
                                                         <div
                                                             className="mb-3 text-gray-900 dark:text-gray-100"
-                                                            dangerouslySetInnerHTML={{ __html: line.highlighted_text }}
+                                                            dangerouslySetInnerHTML={{
+                                                                __html: line.highlighted_text,
+                                                            }}
                                                         />
-                                                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+
+                                                        <div className="flex flex-wrap gap-2 text-xs text-[var(--color-ui-text-muted)]">
                                                             {line.character_name && (
                                                                 <span className="rounded-full bg-green-100 px-2 py-1 text-green-800 dark:bg-green-900/50 dark:text-green-200">
-                                                                    {line.character_name}
+                                                                    {
+                                                                        line.character_name
+                                                                    }
                                                                 </span>
                                                             )}
                                                             {line.context && (
-                                                                <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                                                                    {line.context}
+                                                                <span className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-[var(--color-link)]">
+                                                                    {
+                                                                        line.context
+                                                                    }
                                                                 </span>
                                                             )}
                                                         </div>
                                                         {line.file_path && (
-                                                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                            <div className="mt-2 text-xs text-[var(--color-ui-text-muted)]">
                                                                 <span className="font-medium">
-                                                                    {line.game?.name}({line.version?.version}) -{line.file_path}
-                                                                    {line.line_number && `:${line.line_number}`}
+                                                                    {
+                                                                        line
+                                                                            .game
+                                                                            ?.name
+                                                                    }
+                                                                    (
+                                                                    {
+                                                                        line
+                                                                            .version
+                                                                            ?.version
+                                                                    }
+                                                                    ) -
+                                                                    {
+                                                                        line.file_path
+                                                                    }
+                                                                    {line.line_number &&
+                                                                        `:${line.line_number}`}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -576,15 +758,30 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                             <div className="mt-4">
                                                 <Pagination
                                                     meta={{
-                                                        current_page: currentPage,
-                                                        last_page: pagination.last_page || Math.ceil(pagination.total / perPage),
+                                                        current_page:
+                                                            currentPage,
+                                                        last_page:
+                                                            pagination.last_page ||
+                                                            Math.ceil(
+                                                                pagination.total /
+                                                                    perPage,
+                                                            ),
                                                         total: pagination.total,
-                                                        from: (currentPage - 1) * perPage + 1,
-                                                        to: Math.min(currentPage * perPage, pagination.total),
+                                                        from:
+                                                            (currentPage - 1) *
+                                                                perPage +
+                                                            1,
+                                                        to: Math.min(
+                                                            currentPage *
+                                                                perPage,
+                                                            pagination.total,
+                                                        ),
                                                     }}
                                                     loading={loading}
                                                     label="results"
-                                                    onChange={(page) => onChangePage(page)}
+                                                    onChange={(page) =>
+                                                        onChangePage(page)
+                                                    }
                                                 />
                                             </div>
                                         )}
@@ -592,8 +789,8 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 )}
 
                                 {!q.trim() && !showDuplicates && (
-                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-700/30">
-                                        <p className="text-gray-500 dark:text-gray-400">
+                                    <div className="rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface-alt)] p-8 text-center">
+                                        <p className="text-[var(--color-ui-text-muted)]">
                                             {showDuplicates
                                                 ? 'Adjust the settings above to find duplicated dialogue lines'
                                                 : 'Enter a search term to find dialogue or use the "Show Duplicates" button to see repeated lines'}

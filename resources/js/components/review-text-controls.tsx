@@ -161,9 +161,9 @@ export default function ReviewTextControls({ className = '' }: ReviewTextControl
     };
 
     return (
-        <div className={`rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800 ${className}`}>
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Review Text Controls</h3>
+        <div className={`section-surface rounded-2xl p-6 ${className}`}>
+            <div className="mb-6 flex items-center justify-between">
+                <h3 className="text-base font-semibold text-[var(--color-ui-text)]">Review Text Controls</h3>
                 <button
                     onClick={() => {
                         setReviewWidth(100);
@@ -177,7 +177,7 @@ export default function ReviewTextControls({ className = '' }: ReviewTextControl
                             window.dispatchEvent(new Event('reviewTextStylesChanged'));
                         }
                     }}
-                    className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
+                    className="rounded-md px-3 py-1.5 text-sm font-medium text-[var(--color-ui-text-muted)] transition-colors hover:bg-[var(--color-ui-surface-alt)] hover:text-[var(--color-ui-text)]"
                 >
                     Reset to Default
                 </button>
@@ -185,22 +185,22 @@ export default function ReviewTextControls({ className = '' }: ReviewTextControl
             <div className="grid grid-cols-1 gap-6">
                 {/* Width Control */}
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Width</span>
+                    <span className="text-sm font-medium text-[var(--color-ui-text)]">Width</span>
                     <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">50%</span>
+                        <span className="text-sm text-[var(--color-ui-text-muted)]">50%</span>
                         <input
                             type="range"
                             min="50"
                             max="100"
                             value={reviewWidth || 100}
                             onChange={(e) => setReviewWidth(parseInt(e.target.value))}
-                            className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                            className="h-2 w-24 cursor-pointer appearance-none rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-track)]"
                             style={{
-                                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewWidth || 100) - 50) / 50) * 100}%, #e5e7eb ${(((reviewWidth || 100) - 50) / 50) * 100}%, #e5e7eb 100%)`
+                                background: `linear-gradient(to right, var(--color-brand-primary) 0%, var(--color-brand-primary) ${(((reviewWidth || 100) - 50) / 50) * 100}%, var(--color-track) ${(((reviewWidth || 100) - 50) / 50) * 100}%, var(--color-track) 100%)`
                             }}
                         />
-                        <span className="text-sm text-gray-500 dark:text-gray-400">100%</span>
-                        <span className="ml-3 text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[3.5rem] text-right">
+                        <span className="text-sm text-[var(--color-ui-text-muted)]">100%</span>
+                        <span className="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-[var(--color-ui-text)]">
                             {reviewWidth || 100}%
                         </span>
                     </div>
@@ -208,22 +208,22 @@ export default function ReviewTextControls({ className = '' }: ReviewTextControl
 
                 {/* Font Size Control */}
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</span>
+                    <span className="text-sm font-medium text-[var(--color-ui-text)]">Font Size</span>
                     <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">75%</span>
+                        <span className="text-sm text-[var(--color-ui-text-muted)]">75%</span>
                         <input
                             type="range"
                             min="75"
                             max="150"
                             value={reviewFontSize || 100}
                             onChange={(e) => setReviewFontSize(parseInt(e.target.value))}
-                            className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                            className="h-2 w-24 cursor-pointer appearance-none rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-track)]"
                             style={{
-                                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewFontSize || 100) - 75) / 75) * 100}%, #e5e7eb ${(((reviewFontSize || 100) - 75) / 75) * 100}%, #e5e7eb 100%)`
+                                background: `linear-gradient(to right, var(--color-brand-primary) 0%, var(--color-brand-primary) ${(((reviewFontSize || 100) - 75) / 75) * 100}%, var(--color-track) ${(((reviewFontSize || 100) - 75) / 75) * 100}%, var(--color-track) 100%)`
                             }}
                         />
-                        <span className="text-sm text-gray-500 dark:text-gray-400">150%</span>
-                        <span className="ml-3 text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[3.5rem] text-right">
+                        <span className="text-sm text-[var(--color-ui-text-muted)]">150%</span>
+                        <span className="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-[var(--color-ui-text)]">
                             {reviewFontSize || 100}%
                         </span>
                     </div>
@@ -231,22 +231,22 @@ export default function ReviewTextControls({ className = '' }: ReviewTextControl
 
                 {/* Line Height Control */}
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Line Height</span>
+                    <span className="text-sm font-medium text-[var(--color-ui-text)]">Line Height</span>
                     <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">100%</span>
+                        <span className="text-sm text-[var(--color-ui-text-muted)]">100%</span>
                         <input
                             type="range"
                             min="100"
                             max="300"
                             value={reviewLineHeight || 150}
                             onChange={(e) => setReviewLineHeight(parseInt(e.target.value))}
-                            className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                            className="h-2 w-24 cursor-pointer appearance-none rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-track)]"
                             style={{
-                                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, #e5e7eb ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, #e5e7eb 100%)`
+                                background: `linear-gradient(to right, var(--color-brand-primary) 0%, var(--color-brand-primary) ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, var(--color-track) ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, var(--color-track) 100%)`
                             }}
                         />
-                        <span className="text-sm text-gray-500 dark:text-gray-400">300%</span>
-                        <span className="ml-3 text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[3.5rem] text-right">
+                        <span className="text-sm text-[var(--color-ui-text-muted)]">300%</span>
+                        <span className="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-[var(--color-ui-text)]">
                             {reviewLineHeight || 150}%
                         </span>
                     </div>

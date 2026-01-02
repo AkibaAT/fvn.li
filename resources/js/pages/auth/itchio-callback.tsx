@@ -30,9 +30,9 @@ export default function ItchioCallback() {
             <div className="flex min-h-[60vh] items-center justify-center">
                 <div
                     ref={cardRef}
-                    className="w-full max-w-md rounded-lg bg-white p-8 text-center shadow-md dark:bg-gray-800"
+                    className="section-surface w-full max-w-md rounded-2xl p-8 text-center"
                 >
-                    <h2 className="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">
+                    <h2 className="mb-6 text-xl font-bold text-[var(--color-ui-text)]">
                         {title}
                     </h2>
 
@@ -41,7 +41,7 @@ export default function ItchioCallback() {
                             <ItchioIcon className="h-12 w-12 text-itchio"/>
                             <div className="flex items-center justify-center space-x-3">
                                 <svg
-                                    className="h-5 w-5 animate-spin text-blue-500"
+                                    className="h-5 w-5 animate-spin text-[var(--color-link)]"
                                     xmlns="http://www.w3.org/2000/svg"
                                     fill="none"
                                     viewBox="0 0 24 24"
@@ -60,7 +60,7 @@ export default function ItchioCallback() {
                                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                     ></path>
                                 </svg>
-                                <span className="text-gray-700 dark:text-gray-300">
+                                <span className="text-[var(--color-ui-text-muted)]">
                                     Processing authentication...
                                 </span>
                             </div>
@@ -85,7 +85,7 @@ export default function ItchioCallback() {
                             <div className="mt-6">
                                 <Link
                                     href={route('home')}
-                                    className="text-blue-600 hover:underline dark:text-blue-400"
+                                    className="text-[var(--color-link)] hover:underline"
                                 >
                                     Go back and try again
                                 </Link>
