@@ -10,15 +10,23 @@ trait HasGameSearch
 {
     /**
      * Get the trending score for this game based on recent page views.
-     * Calculates fresh data from click_stats table.
+     *
+     * Uses exponential decay with a 7-day half-life so recent views count more
+     * than older ones. A view from 7 days ago is worth 50% of a view today,
+     * 14 days ago is worth 25%, etc.
+     *
+     * Formula: score = Σ(e^(-λ × age_days)) where λ = ln(2)/7 ≈ 0.099
      */
     public function getTrendingScore(): int
     {
-        return DB::table('click_stats')
+        $result = DB::table('click_stats')
             ->where('game_id', $this->id)
             ->where('type', 'page_view')
             ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '14 days'"))
-            ->count();
+            ->selectRaw("COALESCE(SUM(EXP(-0.099 * EXTRACT(EPOCH FROM (NOW() - clicked_at)) / 86400)), 0) as score")
+            ->first();
+
+        return (int) round((float) $result->score);
     }
 
     /**
@@ -58,7 +66,7 @@ trait HasGameSearch
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
-            'authors' => strip_tags($this->authors),
+            'authors' => $this->authors ? strip_tags($this->authors) : null,
 
             // Descriptions for search (with URLs removed)
             'description' => $this->stripUrlsFromText($this->description),
@@ -93,7 +101,10 @@ trait HasGameSearch
             'supported_languages' => $supportedLanguages,
             'english_word_count' => $englishWordCount,
 
-            // Platform support (from latest version)
+            // Store platform (where game is hosted)
+            'platform' => $this->platform,
+
+            // Platform support (from latest version - where game runs)
             'latest_version_id' => $latestVersion ? $latestVersion->id : null,
             'is_windows' => $latestVersion ? $latestVersion->is_windows : false,
             'is_linux' => $latestVersion ? $latestVersion->is_linux : false,
