@@ -126,7 +126,6 @@ class DashboardController extends Controller
                         'status_color' => $request->status_color,
                         'created_at' => $request->created_at?->toISOString(),
                         'reviewed_at' => $request->reviewed_at?->toISOString(),
-                        'rejection_reason' => $request->rejection_reason,
                         'game' => $request->game ? [
                             'id' => $request->game->id,
                             'name' => $request->game->name,
@@ -415,8 +414,6 @@ class DashboardController extends Controller
                     'created_at' => $request->created_at->toISOString(),
                     'reviewed_at' => $request->reviewed_at?->toISOString(),
                     'processed_at' => $request->reviewed_at?->toISOString(),
-                    'rejection_reason' => $request->rejection_reason,
-                    'admin_notes' => $request->rejection_reason,
                     'game' => $request->game ? [
                         'id' => $request->game->id,
                         'name' => $request->game->name,

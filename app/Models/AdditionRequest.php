@@ -276,13 +276,13 @@ class AdditionRequest extends Model
     /**
      * Mark this request as rejected.
      */
-    public function reject(User $reviewer, string $reason): void
+    public function reject(User $reviewer, ?string $adminNotes = null): void
     {
         $this->update([
             'status' => self::STATUS_REJECTED,
             'reviewed_at' => now(),
             'reviewed_by' => $reviewer->id,
-            'rejection_reason' => $reason,
+            'rejection_reason' => $adminNotes,
             'game_id' => null,
         ]);
     }

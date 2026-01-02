@@ -56,7 +56,11 @@ class AdditionRequestResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->limit(50)
-                    ->tooltip(fn (AdditionRequest $record): string => $record->game_url),
+                    ->tooltip(fn (AdditionRequest $record): string => $record->game_url)
+                    ->url(fn (AdditionRequest $record): string => $record->game_url)
+                    ->openUrlInNewTab()
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->iconPosition('after'),
 
                 TextColumn::make('platform')
                     ->label('Platform')
@@ -240,9 +244,9 @@ class AdditionRequestResource extends Resource
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->schema([
-                        Textarea::make('rejection_reason')
-                            ->label('Rejection Reason')
-                            ->required()
+                        Textarea::make('admin_notes')
+                            ->label('Admin Notes')
+                            ->helperText('Internal notes about this decision (not visible to users)')
                             ->maxLength(1000)
                             ->rows(3),
                     ])
@@ -250,7 +254,7 @@ class AdditionRequestResource extends Resource
                     ->action(function (AdditionRequest $record, array $data): void {
                         $user = Auth::user();
                         if ($user instanceof User) {
-                            $record->reject($user, $data['rejection_reason']);
+                            $record->reject($user, $data['admin_notes'] ?? null);
                             Notification::make()
                                 ->title('Request rejected successfully')
                                 ->success()
@@ -384,11 +388,11 @@ class AdditionRequestResource extends Resource
                             ->helperText('Select the game if this request has been approved and added to the site'),
 
                         Textarea::make('rejection_reason')
-                            ->label('Rejection Reason')
+                            ->label('Admin Notes')
+                            ->helperText('Internal notes about this decision (not visible to users)')
                             ->maxLength(1000)
                             ->rows(3)
                             ->visible(fn (Get $get) => $get('status') === AdditionRequest::STATUS_REJECTED)
-                            ->required(fn (Get $get) => $get('status') === AdditionRequest::STATUS_REJECTED)
                             ->columnSpanFull(),
                     ])->columns(2),
 
