@@ -183,7 +183,7 @@ const NotificationToggle = React.memo(function NotificationToggle({
                 className="peer sr-only"
             />
             <div
-                className="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"></div>
+                className="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-[var(--color-brand-primary)] peer-focus:ring-4 peer-focus:ring-[var(--color-brand-primary-light)] after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700"></div>
             <span className="sr-only">
                 {notificationStatus
                     ? 'Turn off notifications'
@@ -454,7 +454,7 @@ const GameEntry = React.memo(function GameEntry({
                 <div className="flex-grow">
                     <Link
                         href={route('games.show', game.slug)}
-                        className="font-medium break-words text-blue-600 hover:underline dark:text-blue-400"
+                        className="font-medium break-words text-[var(--color-link)] hover:underline"
                     >
                         {game.effective_name}
                     </Link>
@@ -476,7 +476,7 @@ const GameEntry = React.memo(function GameEntry({
                     )}
                     {isOwner && entry.private_notes && (
                         <div className="mt-1 max-w-md truncate text-xs italic">
-                            <span className="text-blue-500 dark:text-blue-400">
+                            <span className="text-[var(--color-link)]">
                                 Private:
                             </span>{' '}
                             "{entry.private_notes}"
@@ -517,7 +517,7 @@ const GameEntry = React.memo(function GameEntry({
                                     {game.latest_version && currentVersion && (
                                         <button
                                             type="button"
-                                            className="cursor-pointer mt-1 inline-flex items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                            className="cursor-pointer mt-1 inline-flex items-center text-xs text-[var(--color-link)] hover:underline"
                                             onClick={() => {
                                                 onCompareVersions(
                                                     game.id,
@@ -578,7 +578,7 @@ const GameEntry = React.memo(function GameEntry({
                     <div className="w-20 space-y-2 text-sm">
                         <button
                             onClick={() => setIsEditing(!isEditing)}
-                            className="block w-full cursor-pointer text-left text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            className="block w-full cursor-pointer text-left text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
                         >
                             Edit
                         </button>
@@ -663,7 +663,7 @@ const GameEntry = React.memo(function GameEntry({
                     <div className="flex-1">
                         <Link
                             href={route('games.show', game.slug)}
-                            className="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
+                            className="text-lg font-medium text-[var(--color-link)] hover:underline"
                         >
                             {game.effective_name}
                         </Link>
@@ -731,7 +731,7 @@ const GameEntry = React.memo(function GameEntry({
                                     {game.latest_version && (
                                         <button
                                             type="button"
-                                            className="cursor-pointer ml-2 inline-flex items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                            className="cursor-pointer ml-2 inline-flex items-center text-xs text-[var(--color-link)] hover:underline"
                                             onClick={() => {
                                                 // showToast?.('Version comparison feature coming soon', 'info'); // Removed showToast
                                             }}
@@ -773,7 +773,7 @@ const GameEntry = React.memo(function GameEntry({
 
                             {isOwner && entry.private_notes && (
                                 <div className="mt-1 truncate text-xs italic">
-                                    <span className="text-blue-500 dark:text-blue-400">
+                                    <span className="text-[var(--color-link)]">
                                         Private:
                                     </span>{' '}
                                     "{entry.private_notes}"
@@ -786,7 +786,7 @@ const GameEntry = React.memo(function GameEntry({
                                 <div className="flex space-x-2 text-sm">
                                     <button
                                         onClick={() => setIsEditing(!isEditing)}
-                                        className="cursor-pointer text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                        className="cursor-pointer text-[var(--color-link)] hover:text-[var(--color-link-hover)]"
                                     >
                                         Edit
                                     </button>
@@ -853,7 +853,7 @@ const GameEntry = React.memo(function GameEntry({
                                             game_version_id: e.target.value,
                                         })
                                     }
-                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                    className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                                 >
                                     <option value="">Not started</option>
                                     {game.game_versions?.map((version) => (
@@ -884,7 +884,7 @@ const GameEntry = React.memo(function GameEntry({
                                             started_at: e.target.value,
                                         })
                                     }
-                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                    className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                                 />
                             </div>
 
@@ -903,7 +903,7 @@ const GameEntry = React.memo(function GameEntry({
                                                 completed_at: e.target.value,
                                             })
                                         }
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                        className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                                     />
                                 </div>
                             )}
@@ -922,7 +922,7 @@ const GameEntry = React.memo(function GameEntry({
                                     })
                                 }
                                 rows={4}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                             />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 These notes will be visible to anyone who can
@@ -943,7 +943,7 @@ const GameEntry = React.memo(function GameEntry({
                                     })
                                 }
                                 rows={4}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                             />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 These notes will only be visible to you, even if
@@ -961,7 +961,7 @@ const GameEntry = React.memo(function GameEntry({
                             <button
                                 onClick={handleSaveEdit}
                                 disabled={isLoading}
-                                className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                                className="inline-flex items-center rounded-md border border-transparent bg-[var(--color-brand-primary)] px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-[var(--color-brand-primary-dark)] disabled:opacity-50"
                             >
                                 Save Changes
                             </button>
@@ -986,7 +986,7 @@ const GameEntry = React.memo(function GameEntry({
                                         target_list_id: e.target.value,
                                     })
                                 }
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                className="mt-1 block w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
                             >
                                 <option value="">Select a list...</option>
                                 {availableListsForMove.map((list) => (
@@ -1421,14 +1421,14 @@ export default function ListShow({
             <div className="space-y-6">
                 {/* Header Card */}
                 <div
-                    className={`mb-6 rounded-lg border-l-4 bg-white p-4 shadow-sm md:p-6 dark:bg-gray-800 ${
+                    className={`mb-6 rounded-2xl border-l-4 section-surface p-4 md:p-6 ${
                         color === 'blue'
-                            ? 'border-blue-500'
+                            ? 'border-[var(--color-brand-primary)]'
                             : color === 'green'
                                 ? 'border-green-500'
-                                : color === 'yellow'
-                                    ? 'border-yellow-500'
-                                    : color === 'orange'
+                            : color === 'yellow'
+                                ? 'border-yellow-500'
+                            : color === 'orange'
                                         ? 'border-orange-500'
                                         : color === 'red'
                                             ? 'border-red-500'
@@ -1437,11 +1437,11 @@ export default function ListShow({
                 >
                     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 md:text-2xl dark:text-white">
+                            <h1 className="text-xl font-bold text-[var(--color-ui-text)] md:text-2xl">
                                 {isEditingList ? listFormData.name : listData.name}
                             </h1>
                             {(isEditingList ? listFormData.description : listData.description) && (
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                                <p className="mt-2 text-sm text-[var(--color-ui-text-muted)]">
                                     {(isEditingList ? listFormData.description : listData.description)!
                                         .split('\n')
                                         .map((line, index) => (
@@ -1457,14 +1457,14 @@ export default function ListShow({
                                 </p>
                             )}
                             {!isOwner && vnList?.user?.name && (
-                                <div className="mt-2 text-sm text-gray-500">
+                                <div className="mt-2 text-sm text-[var(--color-ui-text-muted)]">
                                     By{' '}
                                     <Link
                                         href={route(
                                             'lists.user-public',
                                             vnList.user.id,
                                         )}
-                                        className="text-blue-600 hover:underline dark:text-blue-400"
+                                        className="text-[var(--color-link)] hover:underline"
                                     >
                                         {vnList.user.name}
                                     </Link>
@@ -1485,7 +1485,7 @@ export default function ListShow({
 
                             {isPublic && (
                                 <span
-                                    className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                    className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-xs font-semibold text-[var(--color-link)]">
                                     Public
                                 </span>
                             )}
@@ -1504,7 +1504,7 @@ export default function ListShow({
                                         disabled={isToggleVisibilityLoading}
                                         className={`inline-flex items-center rounded-md border border-transparent px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase disabled:opacity-50 ${
                                             isPublic
-                                                ? 'bg-blue-500 hover:bg-blue-400'
+                                                ? 'bg-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary-dark)]'
                                                 : 'bg-gray-500 hover:bg-gray-400'
                                         }`}
                                     >
@@ -1563,7 +1563,7 @@ export default function ListShow({
                                     type="text"
                                     value={listFormData.name}
                                     onChange={(e) => setListFormData(prev => ({...prev, name: e.target.value}))}
-                                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    className="w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
                                     placeholder="Enter list name"
                                 />
                             </div>
@@ -1577,7 +1577,7 @@ export default function ListShow({
                                     value={listFormData.description}
                                     onChange={(e) => setListFormData(prev => ({...prev, description: e.target.value}))}
                                     rows={3}
-                                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    className="w-full rounded-md border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
                                     placeholder="Enter list description"
                                 />
                             </div>
@@ -1622,7 +1622,7 @@ export default function ListShow({
                                             className="peer sr-only"
                                         />
                                         <div
-                                            className="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"></div>
+                                            className="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-[var(--color-brand-primary)] peer-focus:ring-4 peer-focus:ring-[var(--color-brand-primary-light)] after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700"></div>
                                         <span className="sr-only">
                                             {allFreeGamesReceiveUpdates
                                                 ? 'Turn off notifications for all free entries'

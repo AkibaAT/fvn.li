@@ -688,7 +688,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                         }}
                                         placeholder="Search dialogue..."
                                         disabled={showDuplicates}
-                                        className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                        className="block w-full rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-4 py-2 text-[var(--color-ui-text)] shadow-sm"
                                     />
                                 </div>
                             </div>
@@ -705,8 +705,8 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                     }
                                     className={`flex items-center rounded-lg px-3 py-1 text-sm ${
                                         showDuplicates
-                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                                            ? 'bg-[var(--color-surface-peach)] text-[var(--color-link)]'
+                                            : 'bg-[var(--color-ui-surface-alt)] text-[var(--color-ui-text)] hover:bg-[var(--color-surface-cream)]'
                                     }`}
                                 >
                                     <svg
@@ -736,7 +736,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                 Number(e.target.value),
                                             )
                                         }
-                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                        className="rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-1 text-sm text-[var(--color-ui-text)] shadow-sm focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
                                     >
                                         <option value={25}>25 per page</option>
                                         <option value={50}>50 per page</option>
@@ -747,7 +747,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                 </div>
                             </div>
                             {!canSearch && (
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                <span className="text-sm text-[var(--color-ui-text-muted)]">
                                     Select a game and version to search
                                 </span>
                             )}
@@ -755,8 +755,8 @@ export default function DialogueBrowser({initial}: InitialProps) {
 
                         {/* Duplicates Options */}
                         {showDuplicates && (
-                            <div className="mt-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700/30">
-                                <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <div className="mt-4 rounded-lg bg-[var(--color-ui-surface-alt)] p-4">
+                                <h3 className="mb-3 text-sm font-medium text-[var(--color-ui-text)]">
                                     Duplicate Line Settings
                                 </h3>
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -940,7 +940,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                             times
                                                         </div>
                                                         <div
-                                                            className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                                            className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-xs text-[var(--color-link)]">
                                                             {dupe.text_content
                                                                     ?.length ||
                                                                 0}{' '}
@@ -1047,7 +1047,7 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                             dangerouslySetInnerHTML={{ __html: line.highlighted_text }}
                                                         />
 
-                                                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                        <div className="flex flex-wrap gap-2 text-xs text-[var(--color-ui-text-muted)]">
                                                             {line.character_name && (
                                                                 <span className="rounded-full bg-green-100 px-2 py-1 text-green-800 dark:bg-green-900/50 dark:text-green-200">
                                                                     {line.character_name}
@@ -1055,14 +1055,14 @@ export default function DialogueBrowser({initial}: InitialProps) {
                                                             )}
 
                                                             {line.context && (
-                                                                <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                                                <span className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-[var(--color-link)]">
                                                                     {line.context}
                                                                 </span>
                                                             )}
                                                         </div>
 
                                                         {line.file_path && (
-                                                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                            <div className="mt-2 text-xs text-[var(--color-ui-text-muted)]">
                                                                 <span className="font-medium">
                                                                     {line.game?.name}({line.version?.version}) -{line.file_path}
                                                                     {line.line_number && `:${line.line_number}`}
@@ -1112,8 +1112,8 @@ export default function DialogueBrowser({initial}: InitialProps) {
 
                                 {!q.trim() && !showDuplicates && (
                                     <div
-                                        className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-700/30">
-                                        <p className="text-gray-500 dark:text-gray-400">
+                                        className="rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface-alt)] p-8 text-center">
+                                        <p className="text-[var(--color-ui-text-muted)]">
                                             {showDuplicates
                                                 ? 'Adjust the settings above to find duplicated dialogue lines'
                                                 : 'Enter a search term to find dialogue or use the "Show Duplicates" button to see repeated lines'}

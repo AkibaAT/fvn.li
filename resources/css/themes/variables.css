@@ -1,9 +1,33 @@
 /* Base theme CSS variables */
 :root {
-    /* Brand colors */
-    --color-itchio: #FA5C5C;
-    --color-steam-primary: #144b7e;
-    --color-steam-secondary: #fff;
+    /* Brand colors - Ocean dusk with warm embers */
+    --color-brand-primary: #2b8a93;       /* Deep teal */
+    --color-brand-primary-light: #46a2aa; /* Sea glass */
+    --color-brand-primary-dark: #1a6b73;  /* Abyss */
+    --color-brand-secondary: #f4a261;     /* Apricot */
+    --color-brand-accent: #e76f51;        /* Terracotta */
+    --color-brand-accent-dark: #cf5f45;   /* Deep terracotta */
+    --color-brand-accent-light: #f4b192;  /* Soft coral */
+    --color-brand-warm: #fff6eb;          /* Warm parchment */
+    --color-link: #2b8a93;
+    --color-link-hover: #1a6b73;
+
+    /* Gradient stops for hero backgrounds */
+    --color-gradient-start: #0b2d3a;      /* Deep ocean */
+    --color-gradient-mid: #145e66;        /* Tide */
+    --color-gradient-end: #f4a261;        /* Ember */
+
+    /* Surface colors - Warm neutrals */
+    --color-surface-warm: #fffaf4;        /* Warm white */
+    --color-surface-cream: #f5ede2;       /* Cream */
+    --color-surface-peach: #ffe8d2;       /* Soft peach */
+    --color-surface-sand: #f1e4d4;        /* Sand */
+    --color-track: #ead9c8;              /* Control track */
+
+    /* Glow colors */
+    --color-glow-orange: rgba(244, 162, 97, 0.45);
+    --color-glow-pink: rgba(231, 111, 81, 0.35);
+    --color-glow-amber: rgba(15, 76, 92, 0.35);
 
     /* Platform colors */
     --color-platform-windows: #00A4EF;
@@ -13,91 +37,114 @@
     --color-platform-mac-dark: #e5e7eb;
     --color-platform-android: #3DDC84;
     --color-platform-web: #4285F4;
+    --color-itchio: #FA5C5C;
+    --color-steam-primary: #144b7e;
+    --color-steam-secondary: #fff;
 
     /* Progress colors */
-    --color-progress-primary: #4F46E5;
+    --color-progress-primary: #f4a261;
 
     /* Chart colors */
-    --color-chart-primary: #3b82f6;
-    --color-chart-secondary: #8b5cf6;
-    --color-chart-success: #10b981;
-    --color-chart-warning: #EAB308;
+    --color-chart-primary: #0f4c5c;
+    --color-chart-secondary: #e76f51;
+    --color-chart-success: #2a9d8f;
+    --color-chart-warning: #f4a261;
 
     /* Chart background colors with alpha */
-    --color-chart-primary-bg: rgba(59, 130, 246, 0.1);
-    --color-chart-secondary-bg: rgba(139, 92, 246, 0.1);
-    --color-chart-success-bg: rgba(16, 185, 129, 0.1);
-    --color-chart-warning-bg: rgba(234, 179, 8, 0.1);
+    --color-chart-primary-bg: rgba(15, 76, 92, 0.1);
+    --color-chart-secondary-bg: rgba(231, 111, 81, 0.12);
+    --color-chart-success-bg: rgba(42, 157, 143, 0.12);
+    --color-chart-warning-bg: rgba(244, 162, 97, 0.12);
 
     /* Chart light variants */
-    --color-chart-primary-light: #93c5fd;
-    --color-chart-primary-light-bg: rgba(147, 197, 253, 0.1);
-    --color-chart-secondary-light: #c4b5fd;
-    --color-chart-secondary-light-bg: rgba(196, 181, 253, 0.1);
-    --color-chart-success-light: #6ee7b7;
-    --color-chart-success-light-bg: rgba(110, 231, 183, 0.1);
-
-    /* Grid and axis colors for charts */
-    --color-chart-grid-axis-label: rgb(156, 163, 175);
-    --color-chart-grid-line-light: rgba(148, 163, 184, 0.35);
-    --color-chart-grid-line-dark: rgba(255, 255, 255, 0.1);
-    --color-chart-grid-split-line: rgba(148, 163, 184, 0.15);
-    --color-chart-axis-line-light: rgba(71, 85, 105, 0.6);
-    --color-chart-axis-line-dark: rgba(203, 213, 225, 0.6);
+    --color-chart-primary-light: #7fb0b8;
+    --color-chart-primary-light-bg: rgba(127, 176, 184, 0.18);
+    --color-chart-secondary-light: #f1b79e;
+    --color-chart-secondary-light-bg: rgba(241, 183, 158, 0.18);
+    --color-chart-success-light: #7bd6c9;
+    --color-chart-success-light-bg: rgba(123, 214, 201, 0.18);
 }
 
 /* Light mode UI colors */
+/* Light mode UI colors */
 :root {
-    --color-ui-background: #ffffff;
-    --color-ui-text: #111827;
-    --color-ui-border: #e5e7eb;
+    --color-ui-background: #f6f1ea;
+    --color-ui-background-rgb: 246 241 234;
+    --color-ui-surface: #fffaf4;
+    --color-ui-surface-rgb: 255 250 244;
+    --color-ui-surface-alt: #f1e9dd;
+    --color-ui-surface-alt-rgb: 241 233 221;
+    --color-ui-text: #14151b;
+    --color-ui-text-muted: #5d5a52;
+    --color-ui-border: #e2d6c6;
+    --color-ui-border-rgb: 226 214 198;
 
     /* Tooltip colors */
-    --color-tooltip-background: rgba(255, 255, 255, 0.95);
-    --color-tooltip-border: rgba(229, 231, 235, 1);
-    --color-tooltip-title: #111827;
-    --color-tooltip-body: #111827;
+    --color-tooltip-background: rgba(255, 250, 244, 0.96);
+    --color-tooltip-border: rgba(226, 214, 198, 1);
+    --color-tooltip-title: #14151b;
+    --color-tooltip-body: #14151b;
 
     /* Editor colors */
-    --color-editor-background: #ffffff;
-    --color-editor-text: #111827;
-    --color-editor-toolbar-border: #ddd;
-    --color-editor-toolbar-background: #ffffff;
-    --color-editor-link: #2563eb;
-    --color-editor-menubar-background: #f3f4f6;
-    --color-editor-menubar-text: #1f2937;
-    --color-editor-content-background: #f9fafb;
-    --color-editor-content-text: #111827;
-    --color-editor-content-border: #e5e7eb;
-    --color-editor-blockquote-border: #2563eb;
-    --color-editor-pre-text: #6b7280;
+    --color-editor-background: #fffaf4;
+    --color-editor-text: #14151b;
+    --color-editor-toolbar-border: #e2d6c6;
+    --color-editor-toolbar-background: #fffaf4;
+    --color-editor-link: #0f4c5c;
+    --color-editor-menubar-background: #f1e9dd;
+    --color-editor-menubar-text: #14151b;
+    --color-editor-content-background: #fdf8f2;
+    --color-editor-content-text: #14151b;
+    --color-editor-content-border: #e2d6c6;
+    --color-editor-blockquote-border: #e76f51;
+    --color-editor-pre-text: #6b6257;
 }
 
 /* Dark mode UI colors */
+/* Dark mode UI colors */
 .dark {
-    --color-ui-background: #1f2937;
-    --color-ui-text: #f9fafb;
-    --color-ui-border: #4b5563;
+    --color-surface-warm: #121824;
+    --color-surface-cream: #0f1720;
+    --color-surface-peach: #1b2432;
+    --color-surface-sand: #0b1118;
+    --color-track: #1a2330;
+
+    --color-brand-primary: #2b8a93;
+    --color-brand-primary-light: #46a2aa;
+    --color-brand-primary-dark: #1a6b73;
+    --color-link: #8dd6e3;
+    --color-link-hover: #b5e7f0;
+
+    --color-ui-background: #0b0f14;
+    --color-ui-background-rgb: 11 15 20;
+    --color-ui-surface: #121824;
+    --color-ui-surface-rgb: 18 24 36;
+    --color-ui-surface-alt: #0f1720;
+    --color-ui-surface-alt-rgb: 15 23 32;
+    --color-ui-text: #f8fafc;
+    --color-ui-text-muted: #c7d1de;
+    --color-ui-border: #243244;
+    --color-ui-border-rgb: 36 50 68;
 
     /* Tooltip colors */
-    --color-tooltip-background: rgba(17, 24, 39, 0.95);
-    --color-tooltip-border: rgba(55, 65, 81, 1);
-    --color-tooltip-title: #E5E7EB;
-    --color-tooltip-body: #E5E7EB;
+    --color-tooltip-background: rgba(18, 24, 36, 0.96);
+    --color-tooltip-border: rgba(36, 50, 68, 1);
+    --color-tooltip-title: #f8fafc;
+    --color-tooltip-body: #f8fafc;
 
     /* Editor colors */
-    --color-editor-background: #1f2937;
-    --color-editor-text: #f9fafb;
-    --color-editor-toolbar-border: #4b5563;
-    --color-editor-toolbar-background: #374151;
-    --color-editor-link: #60a5fa;
-    --color-editor-menubar-background: #374151;
-    --color-editor-menubar-text: #f9fafb;
-    --color-editor-content-background: #111827;
-    --color-editor-content-text: #f9fafb;
-    --color-editor-content-border: #4b5563;
-    --color-editor-blockquote-border: #60a5fa;
-    --color-editor-pre-text: #d1d5db;
+    --color-editor-background: #121824;
+    --color-editor-text: #f8fafc;
+    --color-editor-toolbar-border: #243244;
+    --color-editor-toolbar-background: #0f1720;
+    --color-editor-link: #f4a261;
+    --color-editor-menubar-background: #0f1720;
+    --color-editor-menubar-text: #f8fafc;
+    --color-editor-content-background: #121824;
+    --color-editor-content-text: #f8fafc;
+    --color-editor-content-border: #243244;
+    --color-editor-blockquote-border: #e76f51;
+    --color-editor-pre-text: #9aa4b2;
 }
 
 /* Utility classes for platform colors */
@@ -169,4 +216,164 @@
 
 .bg-chart-warning {
     background-color: var(--color-chart-warning-bg);
+}
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+    background-color: rgba(244, 162, 97, 0.35);
+}
+
+/* Subtle noise texture for backgrounds */
+.bg-texture {
+    position: relative;
+}
+
+.bg-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Gradient text */
+.text-gradient {
+    background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-secondary) 50%, var(--color-brand-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Glow effects */
+.glow-orange {
+    box-shadow: 0 0 20px var(--color-glow-orange);
+}
+
+.glow-pink {
+    box-shadow: 0 0 20px var(--color-glow-pink);
+}
+
+.glow-amber {
+    box-shadow: 0 0 20px var(--color-glow-amber);
+}
+
+/* Inner glow for inputs */
+.input-glow:focus {
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+/* Gradient borders */
+.border-gradient {
+    position: relative;
+    background: transparent;
+}
+
+.border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-secondary), var(--color-brand-accent));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+/* Shimmer effect for loading states */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.shimmer {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.dark .shimmer {
+    background: linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(0, 0, 0, 0) 100%
+    );
+    background-size: 200% 100%;
+}
+
+/* Float animation */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.animate-float {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse glow */
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 20px var(--color-glow-orange);
+    }
+    50% {
+        box-shadow: 0 0 40px var(--color-glow-orange);
+    }
+}
+
+.animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Hover lift with glow */
+.hover-lift-glow {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift-glow:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px var(--color-glow-orange);
+}
+
+/* Orb decoration */
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* Glass morphism */
+.glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass {
+    background: rgba(28, 25, 23, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }

@@ -139,7 +139,7 @@ export default function BugReportButton() {
             {/* Bug Report Button */}
             <button
                 onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                className="flex items-center gap-2 text-[var(--color-ui-text-muted)] transition-colors hover:text-[var(--color-ui-text)]"
                 aria-label="Report a bug"
                 title="Report a bug"
             >

@@ -237,10 +237,10 @@ export default function PublicLists({
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-blue-600">
+                        <h1 className="text-3xl font-bold text-[var(--color-ui-text)]">
                             Public Visual Novel Lists
                         </h1>
-                        <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        <p className="mt-2 text-[var(--color-ui-text-muted)]">
                             Discover and explore visual novel lists shared by
                             the community
                         </p>
@@ -248,7 +248,7 @@ export default function PublicLists({
                     <div className="mt-4 flex space-x-3 sm:mt-0">
                         <Link
                             href={route('lists.index')}
-                            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
+                            className="inline-flex items-center rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
                         >
                             <svg
                                 className="mr-2 h-5 w-5"
@@ -269,7 +269,7 @@ export default function PublicLists({
                 </div>
 
                 {/* Search and Sort Controls */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl bg-white/70 p-4 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
+                <div className="section-surface flex flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between">
                     {/* Search Form */}
                     <form onSubmit={handleSearch} className="flex flex-1 gap-2 max-w-md">
                         <div className="relative flex-1">
@@ -278,10 +278,10 @@ export default function PublicLists({
                                 value={searchInput}
                                 onChange={(e) => setSearchInput(e.target.value)}
                                 placeholder="Search by user or VN name..."
-                                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                                className="w-full rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] py-2 pl-10 pr-4 text-sm text-[var(--color-ui-text)] placeholder-[var(--color-ui-text-muted)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
                             />
                             <svg
-                                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-ui-text-muted)]"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -297,7 +297,7 @@ export default function PublicLists({
                                 <button
                                     type="button"
                                     onClick={clearSearch}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-ui-text-muted)] hover:text-[var(--color-ui-text)]"
                                 >
                                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -308,7 +308,7 @@ export default function PublicLists({
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                            className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)] disabled:opacity-50"
                         >
                             Search
                         </button>
@@ -316,7 +316,7 @@ export default function PublicLists({
 
                     {/* Sort Dropdown */}
                     <div className="flex items-center gap-2">
-                        <label htmlFor="sort" className="text-sm text-gray-600 dark:text-gray-400">
+                        <label htmlFor="sort" className="text-sm text-[var(--color-ui-text-muted)]">
                             Sort by:
                         </label>
                         <select
@@ -324,7 +324,7 @@ export default function PublicLists({
                             value={currentSort}
                             onChange={(e) => handleSortChange(e.target.value)}
                             disabled={isLoading}
-                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                            className="rounded-lg border border-[var(--color-ui-border)] bg-[var(--color-ui-surface)] px-3 py-2 text-sm text-[var(--color-ui-text)] focus:border-[var(--color-brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)]"
                         >
                             <option value="default">Default</option>
                             <option value="newest">Newest First</option>
@@ -337,14 +337,14 @@ export default function PublicLists({
 
                 {/* Active Search Indicator */}
                 {currentSearch && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-ui-text-muted)]">
                         <span>Showing results for:</span>
-                        <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                        <span className="rounded-full bg-[var(--color-surface-peach)] px-3 py-1 font-medium text-[var(--color-link)]">
                             "{currentSearch}"
                         </span>
                         <button
                             onClick={clearSearch}
-                            className="text-blue-600 hover:underline dark:text-blue-400"
+                            className="text-[var(--color-brand-accent)] hover:underline"
                         >
                             Clear
                         </button>
@@ -353,22 +353,22 @@ export default function PublicLists({
 
                 {/* Game Filter Indicator */}
                 {filterGame && (
-                    <div className="flex items-center gap-2 rounded-lg bg-purple-50 p-3 text-sm dark:bg-purple-900/20">
-                        <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2 rounded-lg bg-[var(--color-surface-peach)] p-3 text-sm">
+                        <svg className="h-5 w-5 text-[var(--color-brand-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
-                        <span className="text-gray-700 dark:text-gray-300">
+                        <span className="text-[var(--color-ui-text)]">
                             Showing lists containing:
                         </span>
                         <Link
                             href={route('games.show', filterGame.slug)}
-                            className="font-medium text-purple-700 hover:underline dark:text-purple-300"
+                            className="font-medium text-[var(--color-brand-accent)] hover:underline"
                         >
                             {filterGame.name}
                         </Link>
                         <button
                             onClick={clearGameFilter}
-                            className="ml-auto rounded-full p-1 text-purple-600 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-900/30"
+                            className="ml-auto rounded-full p-1 text-[var(--color-brand-accent)] hover:bg-[var(--color-surface-cream)]"
                             title="Clear filter"
                         >
                             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,8 +379,8 @@ export default function PublicLists({
                 )}
 
                 {/* Tabbed View */}
-                <div className="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
-                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="section-surface rounded-2xl p-6">
+                    <div className="flex flex-wrap gap-2 border-b border-[var(--color-ui-border)]">
                         {[
                             {
                                 key: 'all',
@@ -425,10 +425,10 @@ export default function PublicLists({
                                     e.preventDefault();
                                     handleTabChange(tab.key);
                                 }}
-                                className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                                className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] ${
                                     type === tab.key
-                                        ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                                        ? 'border-b-2 border-[var(--color-brand-primary)] bg-[var(--color-surface-peach)] text-[var(--color-link)]'
+                                        : 'text-[var(--color-ui-text-muted)] hover:bg-[var(--color-ui-surface-alt)] hover:text-[var(--color-ui-text)]'
                                 }`}
                             >
                                 {tab.label} ({tab.count})
@@ -447,9 +447,9 @@ export default function PublicLists({
                 ) : (
                     <div className="py-12 text-center">
                         <div
-                            className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                            className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-ui-surface-alt)]">
                             <svg
-                                className="h-12 w-12 text-gray-400"
+                                className="h-12 w-12 text-[var(--color-ui-text-muted)]"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -462,10 +462,10 @@ export default function PublicLists({
                                 />
                             </svg>
                         </div>
-                        <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 className="mb-2 text-lg font-medium text-[var(--color-ui-text)]">
                             No public lists found
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
+                        <p className="text-[var(--color-ui-text-muted)]">
                             There are no public lists available for this
                             category.
                         </p>

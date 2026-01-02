@@ -75,17 +75,17 @@ export default function UserPublicLists({
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-blue-600">
+                        <h1 className="text-3xl font-bold text-[var(--color-ui-text)]">
                             {user.name}'s Visual Novel Lists
                         </h1>
-                        <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        <p className="mt-2 text-[var(--color-ui-text-muted)]">
                             Browse {user.name}'s public visual novel collections
                         </p>
                     </div>
                     <div className="mt-4 flex space-x-3 sm:mt-0">
                         <Link
                             href={route('lists.public')}
-                            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
+                            className="inline-flex items-center rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
                         >
                             <svg
                                 className="mr-2 h-5 w-5"
@@ -104,7 +104,7 @@ export default function UserPublicLists({
                         </Link>
                         <Link
                             href={route('lists.index')}
-                            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
+                            className="inline-flex items-center rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-brand-primary-dark)]"
                         >
                             <svg
                                 className="mr-2 h-5 w-5"
@@ -135,9 +135,9 @@ export default function UserPublicLists({
                 ) : (
                     <div className="py-12 text-center">
                         <div
-                            className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                            className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-ui-surface-alt)]">
                             <svg
-                                className="h-12 w-12 text-gray-400"
+                                className="h-12 w-12 text-[var(--color-ui-text-muted)]"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -150,10 +150,10 @@ export default function UserPublicLists({
                                 />
                             </svg>
                         </div>
-                        <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 className="mb-2 text-lg font-medium text-[var(--color-ui-text)]">
                             No public lists found
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
+                        <p className="text-[var(--color-ui-text-muted)]">
                             There are no public lists available for this
                             category.
                         </p>

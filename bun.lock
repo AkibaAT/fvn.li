@@ -9,7 +9,7 @@
         "@dnd-kit/utilities": "^3.2.2",
         "@headlessui/react": "^2.2.9",
         "@heroicons/react": "^2.2.0",
-        "@inertiajs/react": "^2.3.4",
+        "@inertiajs/react": "^2.3.6",
         "@tailwindcss/vite": "^4.1.18",
         "@tinymce/tinymce-react": "^6.3.0",
         "@types/react": "^19.2.7",
@@ -47,7 +47,7 @@
         "prettier": "^3.7.4",
         "prettier-plugin-organize-imports": "^4.3.0",
         "prettier-plugin-tailwindcss": "^0.7.2",
-        "typescript-eslint": "^8.50.1",
+        "typescript-eslint": "^8.51.0",
       },
       "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "^4.54.0",

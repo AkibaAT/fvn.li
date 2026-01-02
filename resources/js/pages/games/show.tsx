@@ -988,7 +988,7 @@ export default function GameShow({
                                 className={`max-h-52 max-w-64 rounded-lg ${game.platform === 'steam' ? 'object-contain' : 'object-cover'}`}
                             />
                             {editPermissions.canEdit && (
-                                <label className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-2 hover:bg-blue-700 transition-colors shadow-lg cursor-pointer">
+                                <label className="absolute top-2 right-2 bg-[var(--color-brand-primary)] text-white rounded-full p-2 hover:bg-[var(--color-brand-primary-dark)] transition-colors shadow-lg cursor-pointer">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                     </svg>
@@ -1054,7 +1054,7 @@ export default function GameShow({
                                         url={game.primary_url}
                                         platform={game.platform}
                                         gameId={game.id}
-                                        className="inline-flex items-center gap-2 font-medium transition-colors text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                        className="inline-flex items-center gap-2 font-medium transition-colors text-[var(--color-link)] hover:text-[var(--color-link-hover)] dark:text-[var(--color-link)] dark:hover:text-[var(--color-link-hover)]"
                                     />
                                 )}
                             </div>
@@ -1089,17 +1089,17 @@ export default function GameShow({
                                 )}
                                 {game.is_on_sale && (
                                     <span
-                                        className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                        className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-xs font-medium text-[var(--color-link)] dark:bg-[var(--color-surface-peach)] dark:text-[var(--color-link)]">
                                         Sale{typeof game.discount_percentage === 'number' ? ` -${game.discount_percentage}%` : ''}
                                     </span>
                                 )}
                                 {game.is_paid && (
                                     <span
-                                        className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                        className="rounded-full bg-[var(--color-surface-peach)] px-2 py-1 text-xs font-medium text-[var(--color-link)] dark:bg-[var(--color-surface-peach)] dark:text-[var(--color-link)]">
                                         {game.is_on_sale && game.formatted_current_price && game.formatted_original_price ? (
                                             <>
                                                 <span
-                                                    className="line-through text-blue-500 dark:text-blue-400 mr-1">{game.formatted_original_price}</span>
+                                                    className="line-through text-[var(--color-link)] dark:text-[var(--color-link)] mr-1">{game.formatted_original_price}</span>
                                                 {game.formatted_current_price}
                                             </>
                                         ) : (
@@ -1167,7 +1167,7 @@ export default function GameShow({
                             <div className="text-sm text-gray-600 dark:text-gray-400">
                                 <Link
                                     href={route('login')}
-                                    className="text-blue-600 hover:underline dark:text-blue-400"
+                                    className="text-[var(--color-link)] hover:underline dark:text-[var(--color-link)]"
                                 >
                                     Log in
                                 </Link>{' '}
@@ -1340,16 +1340,16 @@ export default function GameShow({
                                                     href={jam.url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="hover:text-blue-600 dark:hover:text-blue-400"
+                                                    className="hover:text-[var(--color-link)] dark:hover:text-[var(--color-link-hover)]"
                                                 >
                                                     <span
-                                                        className="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-sm text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                                        className="inline-flex items-center rounded-md bg-[var(--color-surface-peach)] px-2 py-1 text-sm text-[var(--color-brand-primary-dark)] dark:bg-[var(--color-surface-peach)] dark:text-[var(--color-link)]">
                                                         {jam.name}
                                                     </span>
                                                 </a>
                                             ) : (
                                                 <span
-                                                    className="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-sm text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                                    className="inline-flex items-center rounded-md bg-[var(--color-surface-peach)] px-2 py-1 text-sm text-[var(--color-brand-primary-dark)] dark:bg-[var(--color-surface-peach)] dark:text-[var(--color-link)]">
                                                     {jam.name}
                                                 </span>
                                             )}
@@ -1388,7 +1388,7 @@ export default function GameShow({
                                                     Game Rank:
                                                 </span>
                                                 <span
-                                                    className="ml-1 rounded-full bg-blue-200 px-1.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-800 dark:text-blue-200">
+                                                    className="ml-1 rounded-full bg-[var(--color-surface-peach)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-link)] dark:bg-[var(--color-surface-peach)] dark:text-[var(--color-link)]">
                                                     {jam.pivot.ranking}
                                                 </span>
                                             </p>
@@ -1449,7 +1449,7 @@ export default function GameShow({
                                                                                 }
                                                                                 {details.score && (
                                                                                     <span
-                                                                                        className="ml-1 rounded bg-blue-100 px-1 py-0.5 text-xs text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                                                                        className="ml-1 rounded bg-[var(--color-surface-peach)] px-1 py-0.5 text-xs text-[var(--color-link)] dark:bg-[var(--color-surface-peach)] dark:text-[var(--color-link)]">
                                                                                         (Score:{' '}
                                                                                         {
                                                                                             details.score
@@ -1514,7 +1514,7 @@ export default function GameShow({
                         {publicListsCount > publicLists.length && (
                             <Link
                                 href={route('lists.public', { game: game.id })}
-                                className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                                className="text-sm text-[var(--color-link)] hover:underline dark:text-[var(--color-link)]"
                             >
                                 View all {publicListsCount} lists
                             </Link>
@@ -1523,7 +1523,7 @@ export default function GameShow({
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {publicLists.map((list) => {
                             const typeColors: Record<string, { border: string; bg: string; text: string; darkBg: string; darkText: string }> = {
-                                reading: { border: 'border-blue-500', bg: 'bg-blue-100', text: 'text-blue-800', darkBg: 'dark:bg-blue-900/20', darkText: 'dark:text-blue-400' },
+                                reading: { border: 'border-[var(--color-brand-primary)]', bg: 'bg-[var(--color-surface-peach)]', text: 'text-[var(--color-link)]', darkBg: 'dark:bg-[var(--color-surface-peach)]/20', darkText: 'dark:text-[var(--color-link)]' },
                                 completed: { border: 'border-green-500', bg: 'bg-green-100', text: 'text-green-800', darkBg: 'dark:bg-green-900/20', darkText: 'dark:text-green-400' },
                                 plan_to_read: { border: 'border-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-800', darkBg: 'dark:bg-yellow-900/20', darkText: 'dark:text-yellow-400' },
                                 on_hold: { border: 'border-orange-500', bg: 'bg-orange-100', text: 'text-orange-800', darkBg: 'dark:bg-orange-900/20', darkText: 'dark:text-orange-400' },
@@ -1538,7 +1538,7 @@ export default function GameShow({
                                     className={`group block rounded-lg border-l-4 ${colors.border} bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-700/50`}
                                 >
                                     <div className="mb-2 flex items-start justify-between">
-                                        <h3 className="font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
+                                        <h3 className="font-medium text-gray-900 group-hover:text-[var(--color-link)] dark:text-gray-100 dark:group-hover:text-[var(--color-link-hover)]">
                                             {list.name}
                                         </h3>
                                         <span className="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-600 dark:text-gray-300">
@@ -1599,7 +1599,7 @@ export default function GameShow({
                                         gameId: game.id,
                                         versionId: game.latest_version.id,
                                     })}
-                                    className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
+                                    className="inline-flex items-center rounded-md border border-transparent bg-[var(--color-brand-primary)] px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-[var(--color-brand-primary-dark)] focus:border-[var(--color-brand-primary-dark)] focus:ring focus:ring-[var(--color-brand-primary-light)] focus:outline-none active:bg-[var(--color-brand-primary-dark)] disabled:opacity-25"
                                 >
                                     <svg
                                         className="mr-1 h-5 w-5"
@@ -1725,13 +1725,13 @@ export default function GameShow({
                                         !compareToVersionId ||
                                         isLoadingComparison
                                     }
-                                    className="inline-flex items-center gap-2 rounded-md border border-transparent bg-blue-600 px-4 py-3 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-25 cursor-pointer"
+                                    className="inline-flex items-center gap-2 rounded-md border border-transparent bg-[var(--color-brand-primary)] px-4 py-3 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-[var(--color-brand-primary-dark)] focus:border-[var(--color-brand-primary-dark)] focus:ring focus:ring-[var(--color-brand-primary-light)] focus:outline-none active:bg-[var(--color-brand-primary-dark)] disabled:cursor-not-allowed disabled:opacity-25 cursor-pointer"
                                 >
                                     {isLoadingComparison ? (
                                         <>
                                             <LoadingSpinner
                                                 size="sm"
-                                                className="border-white border-t-blue-200"
+                                                className="border-white border-t-[var(--color-brand-primary-light)]"
                                             />
                                             Comparing...
                                         </>
@@ -1854,7 +1854,7 @@ export default function GameShow({
                                                 version.id ||
                                                 fileStatsLoading === version.id
                                             }
-                                            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
+                                            className="inline-flex items-center gap-2 text-sm text-[var(--color-link)] hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-[var(--color-link)]"
                                         >
                                             {characterStatsLoading ===
                                             version.id ? (
@@ -1877,7 +1877,7 @@ export default function GameShow({
                                                 version.id ||
                                                 fileStatsLoading === version.id
                                             }
-                                            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
+                                            className="inline-flex items-center gap-2 text-sm text-[var(--color-link)] hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-[var(--color-link)]"
                                         >
                                             {fileStatsLoading === version.id ? (
                                                 <>
@@ -1966,7 +1966,7 @@ export default function GameShow({
                     <button
                         onClick={handleToggleRatingsView}
                         disabled={reviewsLoading}
-                        className="text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 dark:text-blue-400"
+                        className="text-sm text-[var(--color-link)] hover:underline disabled:cursor-not-allowed disabled:text-gray-400 dark:text-[var(--color-link)]"
                     >
                         {reviewsLoading
                             ? 'Loading...'
@@ -1976,7 +1976,7 @@ export default function GameShow({
 
                 {reviewsLoading ? (
                     <div className="flex items-center justify-center py-8">
-                        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[var(--color-brand-primary)]"></div>
                         <span className="ml-2 text-gray-600 dark:text-gray-400">
                             Loading reviews...
                         </span>

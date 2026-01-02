@@ -13,10 +13,10 @@ export default function Card({
     hover = false,
     padding = 'md',
 }: CardProps) {
-    const baseClasses = 'rounded-lg border bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700';
-    
-    const hoverClasses = hover ? 'transition-all duration-200 hover:shadow-md hover:scale-[1.02]' : '';
-    
+    const baseClasses = 'rounded-xl border border-stone-200/80 bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700';
+
+    const hoverClasses = hover ? 'transition-all duration-200 hover:shadow-md hover:shadow-teal-500/5 hover:-translate-y-0.5' : '';
+
     const paddingClasses = {
         none: '',
         sm: 'p-3',

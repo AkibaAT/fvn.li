@@ -7,6 +7,7 @@ import MobileSearch from '@/components/layout/MobileSearch';
 import NotificationsDropdown from '@/components/layout/NotificationsDropdown';
 import UserMenu from '@/components/layout/UserMenu';
 import AppearanceDropdown from '@/components/appearance-dropdown';
+
 const Header = memo(() => {
     const [showMobileSearch, setShowMobileSearch] = useState(false);
 
@@ -20,32 +21,36 @@ const Header = memo(() => {
 
     return (
         <>
-            {/* Modern Header */}
             <header
-                className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 shadow-sm backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80"
+                className="sticky top-0 z-50 nav-glass"
                 role="banner"
-                aria-label="Main navigation">
+                aria-label="Main navigation"
+            >
+                {/* Subtle accent bar */}
+                <div className="h-0.5 bg-[var(--color-brand-primary)]" />
+
                 <Container>
-                    <div className="flex items-center justify-between py-4">
+                    <div className="flex items-center justify-between py-3">
                         {/* Logo & Brand */}
-                        <Logo/>
+                        <Logo />
 
                         {/* Navigation */}
-                        <Navigation/>
+                        <Navigation />
 
                         {/* Search Bar */}
-                        <div className="mx-8 hidden max-w-lg flex-1 lg:flex" role="search">
+                        <div className="mx-6 hidden max-w-md flex-1 lg:flex" role="search">
                             <SearchBar />
                         </div>
 
-                        {/* Mobile Search Button (toggle) */}
-                        <div className="flex items-center space-x-2 lg:hidden">
+                        {/* Right side actions */}
+                        <div className="flex items-center gap-2">
+                            {/* Mobile Search Button */}
                             <button
                                 onClick={toggleMobileSearch}
                                 aria-expanded={showMobileSearch}
                                 aria-controls="mobile-search-bar"
                                 aria-label={showMobileSearch ? 'Hide search' : 'Show search'}
-                                className="cursor-pointer rounded-lg bg-gray-100 p-2 transition-colors duration-200 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-[var(--color-ui-surface-alt)] text-[var(--color-brand-primary)] transition-colors hover:bg-[var(--color-surface-peach)] hover:text-[var(--color-brand-primary-dark)] lg:hidden"
                             >
                                 {showMobileSearch ? (
                                     <svg
@@ -63,19 +68,31 @@ const Header = memo(() => {
                                         />
                                     </svg>
                                 ) : (
-                                    <span className="text-lg">🔍</span>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                        />
+                                    </svg>
                                 )}
-
-	                        {/* Notification bell with unread count */}
-	                        {/* Count is shown inside dropdown via fetched list; optional indicator could be added here later */}
                             </button>
-                        </div>
 
-                        {/* User Menu */}
-                        <div className="flex items-center space-x-3">
+                            {/* Notifications */}
                             <NotificationsDropdown />
+
+                            {/* User Menu */}
                             <UserMenu />
-                            <AppearanceDropdown/>
+
+                            {/* Theme Toggle */}
+                            <AppearanceDropdown />
                         </div>
                     </div>
                 </Container>

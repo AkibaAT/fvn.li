@@ -108,11 +108,11 @@ export function FilterModal({
             </p>
 
             {/* Right Sidebar */}
-            <div className="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-gray-900">
+            <div className="ml-auto flex h-full w-full max-w-md flex-col bg-[var(--color-ui-surface)] shadow-2xl">
                 {/* Header */}
                 <div
-                    className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    className="flex items-center justify-between border-b border-[var(--color-ui-border)] px-6 py-4">
+                    <h2 className="text-lg font-semibold text-[var(--color-ui-text)]">
                         Filter Games
                     </h2>
                     <div className="flex items-center space-x-2">
@@ -120,7 +120,7 @@ export function FilterModal({
                             <button
                                 type="button"
                                 onClick={clearFilters}
-                                className="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                                className="text-sm text-[var(--color-brand-accent)] hover:text-[var(--color-brand-primary)]"
                             >
                                 Clear All
                             </button>
@@ -129,7 +129,7 @@ export function FilterModal({
                             ref={filterCloseBtnRef}
                             type="button"
                             onClick={onClose}
-                            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                            className="rounded-lg p-2 text-[var(--color-ui-text-muted)] hover:bg-[var(--color-ui-surface-alt)] hover:text-[var(--color-ui-text)]"
                             aria-label="Close filter dialog"
                         >
                             ✕

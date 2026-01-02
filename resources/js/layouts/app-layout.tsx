@@ -63,20 +63,19 @@ export default function AppLayout({children, title}: AppLayoutProps) {
             {/* Skip to main content link for keyboard users */}
             <a
                 href="#main-content"
-                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:rounded-lg bg-blue-600 px-4 py-2 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-white font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-secondary)] focus:ring-offset-2 shadow-lg"
             >
                 Skip to main content
             </a>
 
-            <div
-                className="flex min-h-screen flex-col bg-slate-50 dark:bg-gray-900">
+            <div className="app-shell flex min-h-screen flex-col">
                 {/* Flash Messages */}
                 <FlashMessages message={flash?.message} error={flash?.error}/>
 
-                {/* Modern Main Content */}
+                {/* Main Content */}
                 <main
                     id="main-content"
-                    className="flex-1 py-8 scroll-mt-28"
+                    className="flex-1 py-8 scroll-mt-20"
                     role="main"
                     aria-label="Main content"
                 >
