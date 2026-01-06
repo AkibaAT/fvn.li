@@ -8,7 +8,6 @@ use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
-use App\Http\Controllers\NewsController;
 use App\Http\Controllers\RatingsController;
 use App\Http\Controllers\SystemStatusController;
 use App\Http\Controllers\UserGameProgressController;
@@ -148,12 +147,6 @@ Route::get('lists/{vnList}', [VnListController::class, 'listShow'])
 // System Status
 Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
     ->name('system.status');
-
-// News & Announcements
-Route::get('news', [NewsController::class, 'index'])
-    ->name('news.index');
-Route::get('news/{news:slug}', [NewsController::class, 'show'])
-    ->name('news.show');
 
 // Social Authentication Routes
 Route::get('auth/telegram', function () {

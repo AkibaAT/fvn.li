@@ -10,7 +10,6 @@ interface Routes {
     games: RouteInfo;
     lists: RouteInfo;
     ratings: RouteInfo;
-    news: RouteInfo;
 }
 
 // Helper function to extract pathname from a URL or return as-is if already a path
@@ -36,7 +35,6 @@ export function useStableRoutes() {
                 games: { path: '/games', isActive: false },
                 lists: { path: '/lists/public', isActive: false },
                 ratings: { path: '/ratings', isActive: false },
-                news: { path: '/news', isActive: false },
             };
         }
 
@@ -45,7 +43,6 @@ export function useStableRoutes() {
         const gamesPath = getPathname(route('games.index'));
         const listsPath = getPathname(route('lists.public'));
         const ratingsPath = getPathname(route('ratings.index'));
-        const newsPath = getPathname(route('news.index'));
 
         return {
             games: {
@@ -60,10 +57,6 @@ export function useStableRoutes() {
                 path: ratingsPath,
                 isActive: currentPath === ratingsPath || currentPath.startsWith(ratingsPath + '/')
             },
-            news: {
-                path: newsPath,
-                isActive: currentPath === newsPath || currentPath.startsWith(newsPath + '/')
-            },
         };
     });
 
@@ -76,18 +69,15 @@ export function useStableRoutes() {
             const gamesPath = getPathname(route('games.index'));
             const listsPath = getPathname(route('lists.public'));
             const ratingsPath = getPathname(route('ratings.index'));
-            const newsPath = getPathname(route('news.index'));
 
             const newGamesActive = currentPath === gamesPath || currentPath.startsWith(gamesPath + '/');
             const newListsActive = currentPath === listsPath || currentPath.startsWith(listsPath + '/');
             const newRatingsActive = currentPath === ratingsPath || currentPath.startsWith(ratingsPath + '/');
-            const newNewsActive = currentPath === newsPath || currentPath.startsWith(newsPath + '/');
 
             // Only update if something actually changed
             if (prevRoutes.games.isActive === newGamesActive &&
                 prevRoutes.lists.isActive === newListsActive &&
-                prevRoutes.ratings.isActive === newRatingsActive &&
-                prevRoutes.news.isActive === newNewsActive) {
+                prevRoutes.ratings.isActive === newRatingsActive) {
                 return prevRoutes;
             }
 
@@ -95,7 +85,6 @@ export function useStableRoutes() {
                 games: { path: gamesPath, isActive: newGamesActive },
                 lists: { path: listsPath, isActive: newListsActive },
                 ratings: { path: ratingsPath, isActive: newRatingsActive },
-                news: { path: newsPath, isActive: newNewsActive },
             };
         });
     }, []);
