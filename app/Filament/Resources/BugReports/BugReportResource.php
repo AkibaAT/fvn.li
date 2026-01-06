@@ -21,6 +21,7 @@ use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -72,11 +73,16 @@ class BugReportResource extends Resource
                         BugReport::STATUS_OPEN => 'warning',
                         BugReport::STATUS_IN_PROGRESS => 'info',
                         BugReport::STATUS_RESOLVED => 'success',
-                        BugReport::STATUS_CLOSED => 'gray',
                         BugReport::STATUS_WONT_FIX => 'danger',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => BugReport::getStatuses()[$state] ?? $state),
+
+                TextColumn::make('is_closed')
+                    ->label('User Closed')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'gray' : 'success')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Closed' : 'Active'),
 
                 TextColumn::make('resolver.name')
                     ->label('Resolved By')
@@ -145,24 +151,18 @@ class BugReportResource extends Resource
                     }),
 
                 Action::make('close')
-                    ->label('Close')
+                    ->label('Close for User')
                     ->icon('heroicon-o-x-circle')
                     ->color('gray')
                     ->requiresConfirmation()
-                    ->visible(fn (BugReport $record): bool => ! $record->isClosed())
+                    ->modalDescription('This will mark the report as closed on behalf of the user. They will no longer see it on their dashboard.')
+                    ->visible(fn (BugReport $record): bool => ! $record->is_closed)
                     ->action(function (BugReport $record): void {
-                        $user = Auth::user();
-                        if ($user instanceof User) {
-                            $record->update([
-                                'status' => BugReport::STATUS_CLOSED,
-                                'resolved_by' => $user->id,
-                                'resolved_at' => now(),
-                            ]);
-                            Notification::make()
-                                ->title('Bug report closed')
-                                ->success()
-                                ->send();
-                        }
+                        $record->update(['is_closed' => true]);
+                        Notification::make()
+                            ->title('Bug report closed for user')
+                            ->success()
+                            ->send();
                     }),
 
                 Action::make('wont_fix')
@@ -194,11 +194,27 @@ class BugReportResource extends Resource
                     }),
 
                 Action::make('reopen')
-                    ->label('Reopen')
+                    ->label('Reopen for User')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->visible(fn (BugReport $record): bool => $record->isClosed())
+                    ->modalDescription('This will reopen the report so the user sees it on their dashboard again.')
+                    ->visible(fn (BugReport $record): bool => $record->is_closed)
+                    ->action(function (BugReport $record): void {
+                        $record->update(['is_closed' => false]);
+                        Notification::make()
+                            ->title('Bug report reopened for user')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('reset_status')
+                    ->label('Reset Status')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalDescription('This will reset the status to Open and clear resolution info.')
+                    ->visible(fn (BugReport $record): bool => $record->isTerminal())
                     ->action(function (BugReport $record): void {
                         $record->update([
                             'status' => BugReport::STATUS_OPEN,
@@ -206,7 +222,7 @@ class BugReportResource extends Resource
                             'resolved_at' => null,
                         ]);
                         Notification::make()
-                            ->title('Bug report reopened')
+                            ->title('Bug report status reset')
                             ->success()
                             ->send();
                     }),
@@ -236,29 +252,23 @@ class BugReportResource extends Resource
                         }),
 
                     BulkAction::make('mark_closed')
-                        ->label('Close Selected')
+                        ->label('Close for Users')
                         ->icon('heroicon-o-x-circle')
                         ->color('gray')
                         ->requiresConfirmation()
+                        ->modalDescription('This will mark selected reports as closed. Users will no longer see them on their dashboards.')
                         ->action(function (Collection $records): void {
-                            $user = Auth::user();
-                            if ($user instanceof User) {
-                                $count = 0;
-                                foreach ($records as $record) {
-                                    if (! $record->isClosed()) {
-                                        $record->update([
-                                            'status' => BugReport::STATUS_CLOSED,
-                                            'resolved_by' => $user->id,
-                                            'resolved_at' => now(),
-                                        ]);
-                                        $count++;
-                                    }
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if (! $record->is_closed) {
+                                    $record->update(['is_closed' => true]);
+                                    $count++;
                                 }
-                                Notification::make()
-                                    ->title("Closed {$count} bug report(s)")
-                                    ->success()
-                                    ->send();
                             }
+                            Notification::make()
+                                ->title("Closed {$count} bug report(s) for users")
+                                ->success()
+                                ->send();
                         }),
 
                     DeleteBulkAction::make(),
@@ -310,6 +320,10 @@ class BugReportResource extends Resource
                         Select::make('status')
                             ->options(BugReport::getStatuses())
                             ->required(),
+
+                        Toggle::make('is_closed')
+                            ->label('Closed for User')
+                            ->helperText('When enabled, the user will not see this report on their dashboard.'),
 
                         Textarea::make('admin_notes')
                             ->label('Admin Notes')

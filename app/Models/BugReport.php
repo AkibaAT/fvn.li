@@ -19,8 +19,6 @@ class BugReport extends Model
 
     public const STATUS_RESOLVED = 'resolved';
 
-    public const STATUS_CLOSED = 'closed';
-
     public const STATUS_WONT_FIX = 'wont_fix';
 
     /**
@@ -36,6 +34,7 @@ class BugReport extends Model
         'request_parameters',
         'user_agent',
         'status',
+        'is_closed',
         'admin_notes',
         'resolved_by',
         'resolved_at',
@@ -48,6 +47,7 @@ class BugReport extends Model
      */
     protected $casts = [
         'request_parameters' => 'array',
+        'is_closed' => 'boolean',
         'resolved_at' => 'datetime',
     ];
 
@@ -62,7 +62,6 @@ class BugReport extends Model
             self::STATUS_OPEN => 'Open',
             self::STATUS_IN_PROGRESS => 'In Progress',
             self::STATUS_RESOLVED => 'Resolved',
-            self::STATUS_CLOSED => 'Closed',
             self::STATUS_WONT_FIX => "Won't Fix",
         ];
     }
@@ -92,11 +91,19 @@ class BugReport extends Model
     }
 
     /**
-     * Check if this report is resolved or closed.
+     * Check if this report has been closed by the user.
      */
     public function isClosed(): bool
     {
-        return in_array($this->status, [self::STATUS_RESOLVED, self::STATUS_CLOSED, self::STATUS_WONT_FIX], true);
+        return $this->is_closed;
+    }
+
+    /**
+     * Check if this report has a terminal status (resolved or won't fix).
+     */
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, [self::STATUS_RESOLVED, self::STATUS_WONT_FIX], true);
     }
 
     /**
@@ -121,7 +128,6 @@ class BugReport extends Model
             self::STATUS_OPEN => 'warning',
             self::STATUS_IN_PROGRESS => 'info',
             self::STATUS_RESOLVED => 'success',
-            self::STATUS_CLOSED => 'gray',
             self::STATUS_WONT_FIX => 'danger',
             default => 'gray',
         };

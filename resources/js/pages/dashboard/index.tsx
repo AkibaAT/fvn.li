@@ -88,6 +88,7 @@ interface BugReportDetail {
     status: string;
     status_label: string;
     status_color: string;
+    is_closed: boolean;
     admin_notes?: string;
     created_at: string;
     resolved_at?: string;
@@ -640,22 +641,10 @@ export default function Dashboard({
             );
             const data = await response.json();
             if (data.success) {
-                // Update the selected report
-                setSelectedBugReport(prev => prev ? {
-                    ...prev,
-                    status: data.status,
-                    status_label: data.status_label,
-                    status_color: data.status_color,
-                } : null);
-                // Update the list
-                setBugReports(prev => prev.map(r =>
-                    r.id === selectedBugReport.id ? {
-                        ...r,
-                        status: data.status,
-                        status_label: data.status_label,
-                        status_color: data.status_color,
-                    } : r
-                ));
+                // Remove the bug report from the list (closed reports don't show on dashboard)
+                setBugReports(prev => prev.filter(r => r.id !== selectedBugReport.id));
+                // Close the modal
+                closeBugReportModal();
                 toast.success('Ticket closed');
             } else {
                 toast.error(data.message || 'Failed to close ticket');
@@ -2026,7 +2015,7 @@ export default function Dashboard({
                                     </div>
 
                                     {/* Add Comment Form - only for open/in_progress reports */}
-                                    {!['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) && (
+                                    {!selectedBugReport.is_closed && (
                                         <div>
                                             <label htmlFor="new-comment" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                                 Add Information
@@ -2051,9 +2040,9 @@ export default function Dashboard({
                                         </div>
                                     )}
 
-                                    {['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) && (
+                                    {selectedBugReport.is_closed && (
                                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400">
-                                            This report is closed and cannot receive new comments.
+                                            You have closed this report.
                                         </div>
                                     )}
                                 </>
@@ -2062,7 +2051,7 @@ export default function Dashboard({
 
                         {/* Footer */}
                         <div className="flex gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
-                            {selectedBugReport && !['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) && (
+                            {selectedBugReport && !selectedBugReport.is_closed && (
                                 <button
                                     onClick={closeTicket}
                                     disabled={closingTicket}
@@ -2075,7 +2064,7 @@ export default function Dashboard({
                                 onClick={closeBugReportModal}
                                 className="flex-1 cursor-pointer rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                             >
-                                {selectedBugReport && ['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) ? 'Close' : 'Keep Open'}
+                                {selectedBugReport?.is_closed ? 'Close' : 'Keep Open'}
                             </button>
                         </div>
                 </div>

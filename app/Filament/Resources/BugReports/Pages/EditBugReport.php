@@ -30,7 +30,7 @@ class EditBugReport extends EditRecord
         $newStatus = $data['status'];
 
         // If status is changing to a resolved state, set resolution tracking
-        $resolvedStatuses = [BugReport::STATUS_RESOLVED, BugReport::STATUS_CLOSED, BugReport::STATUS_WONT_FIX];
+        $resolvedStatuses = [BugReport::STATUS_RESOLVED, BugReport::STATUS_WONT_FIX];
         $wasResolved = in_array($originalStatus, $resolvedStatuses, true);
         $isNowResolved = in_array($newStatus, $resolvedStatuses, true);
 

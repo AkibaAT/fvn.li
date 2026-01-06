@@ -135,6 +135,7 @@ class BugReportController extends Controller
                 'status' => $bugReport->status,
                 'status_label' => $bugReport->status_label,
                 'status_color' => $bugReport->status_color,
+                'is_closed' => $bugReport->is_closed,
                 'admin_notes' => $bugReport->admin_notes,
                 'created_at' => $bugReport->created_at->toISOString(),
                 'resolved_at' => $bugReport->resolved_at?->toISOString(),
@@ -212,16 +213,13 @@ class BugReportController extends Controller
         }
 
         $bugReport->update([
-            'status' => BugReport::STATUS_CLOSED,
-            'resolved_at' => now(),
+            'is_closed' => true,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Bug report closed successfully.',
-            'status' => $bugReport->status,
-            'status_label' => $bugReport->status_label,
-            'status_color' => $bugReport->status_color,
+            'is_closed' => true,
         ]);
     }
 }

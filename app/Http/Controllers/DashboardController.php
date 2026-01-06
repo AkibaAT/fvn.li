@@ -165,9 +165,9 @@ class DashboardController extends Controller
 
         $ignoredGamesCount = $user->ignoredGames()->count();
 
-        // Get user's active bug reports (not closed) with unread admin reply counts
+        // Get user's active bug reports (not closed by user) with unread admin reply counts
         $activeBugReports = BugReport::where('user_id', $user->id)
-            ->whereNotIn('status', [BugReport::STATUS_RESOLVED, BugReport::STATUS_CLOSED, BugReport::STATUS_WONT_FIX])
+            ->where('is_closed', false)
             ->withCount(['comments as unread_count' => function ($query) {
                 $query->where('is_from_admin', true)->where('is_read', false);
             }])
