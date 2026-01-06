@@ -7,6 +7,7 @@ namespace App\Filament\Resources\BugReports;
 use App\Filament\Resources\BugReports\Pages\EditBugReport;
 use App\Filament\Resources\BugReports\Pages\ListBugReports;
 use App\Filament\Resources\BugReports\Pages\ViewBugReport;
+use App\Filament\Resources\BugReports\RelationManagers\CommentsRelationManager;
 use App\Models\BugReport;
 use App\Models\User;
 use BackedEnum;
@@ -346,7 +347,9 @@ class BugReportResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            CommentsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

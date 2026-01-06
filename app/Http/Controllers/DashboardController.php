@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\AdditionRequest;
+use App\Models\BugReport;
 use App\Models\ChangeLog;
 use App\Models\ClickStat;
 use App\Models\Game;
@@ -164,6 +165,29 @@ class DashboardController extends Controller
 
         $ignoredGamesCount = $user->ignoredGames()->count();
 
+        // Get user's active bug reports (not closed) with unread admin reply counts
+        $activeBugReports = BugReport::where('user_id', $user->id)
+            ->whereNotIn('status', [BugReport::STATUS_RESOLVED, BugReport::STATUS_CLOSED, BugReport::STATUS_WONT_FIX])
+            ->withCount(['comments as unread_count' => function ($query) {
+                $query->where('is_from_admin', true)->where('is_read', false);
+            }])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($report) {
+                return [
+                    'id' => $report->id,
+                    'page_title' => $report->page_title,
+                    'description' => $report->description,
+                    'status' => $report->status,
+                    'status_label' => $report->status_label,
+                    'status_color' => $report->status_color,
+                    'unread_count' => $report->unread_count,
+                    'created_at' => $report->created_at->toISOString(),
+                ];
+            });
+
+        $totalUnreadBugReportReplies = $activeBugReports->sum('unread_count');
+
         // Discord bot installation info
         $hasDiscordAccount = in_array('discord', $connectedProviders);
         $discordClientId = config('services.discord.client_id');
@@ -211,6 +235,8 @@ class DashboardController extends Controller
             'recentRequests' => $recentRequests,
             'ignoredGames' => $ignoredGames,
             'ignoredGamesCount' => $ignoredGamesCount,
+            'activeBugReports' => $activeBugReports,
+            'totalUnreadBugReportReplies' => $totalUnreadBugReportReplies,
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
             'metaTags' => [
                 'title' => 'Dashboard',

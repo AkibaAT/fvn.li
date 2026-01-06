@@ -542,6 +542,7 @@ class DialogueController extends Controller
 
             if ($cached) {
                 $wordData = json_decode($cached->word_data, true);
+
                 return response()->json([
                     'success' => true,
                     'data' => $wordData ?? [],

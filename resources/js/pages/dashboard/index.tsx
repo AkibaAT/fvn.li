@@ -3,7 +3,7 @@ import type {SocialAccount as TypedSocialAccount, User as TypedUser,} from '@/ty
 import {authenticatedFetch} from '@/utils/csrf';
 import {toast} from '@/utils/toast';
 import {Head, Link} from '@inertiajs/react';
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 // Import the ItchioIcon component
 import ItchioIcon from '@/components/icons/itchio';
 
@@ -58,6 +58,41 @@ interface IgnoredGame {
     platform?: 'itch_io' | 'steam' | 'other';
 }
 
+interface BugReport {
+    id: number;
+    page_title?: string;
+    description: string;
+    status: string;
+    status_label: string;
+    status_color: string;
+    unread_count: number;
+    created_at: string;
+}
+
+interface BugReportComment {
+    id: number;
+    message: string;
+    is_from_admin: boolean;
+    user: {
+        id: number;
+        name: string;
+    };
+    created_at: string;
+}
+
+interface BugReportDetail {
+    id: number;
+    page_url: string;
+    page_title?: string;
+    description: string;
+    status: string;
+    status_label: string;
+    status_color: string;
+    admin_notes?: string;
+    created_at: string;
+    resolved_at?: string;
+}
+
 interface DiscordNotificationStatus {
     status: 'pending' | 'processing' | 'sent' | 'failed';
     error: string | null;
@@ -85,6 +120,8 @@ interface DashboardProps {
     recentRequests: AdditionRequest[];
     ignoredGames: IgnoredGame[];
     ignoredGamesCount: number;
+    activeBugReports?: BugReport[];
+    totalUnreadBugReportReplies?: number;
     metaTags?: {
         title?: string;
     };
@@ -103,6 +140,8 @@ export default function Dashboard({
                                       recentRequests: recentRequestsInitial,
                                       ignoredGames: ignoredGamesInitial,
                                       ignoredGamesCount: ignoredGamesCountInitial,
+                                      activeBugReports: activeBugReportsInitial,
+                                      totalUnreadBugReportReplies: totalUnreadInitial,
                                       metaTags,
                                   }: DashboardProps) {
     // Local interactive state hydrated from server props
@@ -114,6 +153,15 @@ export default function Dashboard({
     const [itchioData] = useState(itchioDataInitial);
     const [ignoredGames, setIgnoredGames] = useState<IgnoredGame[]>(ignoredGamesInitial || []);
     const [ignoredGamesCount, setIgnoredGamesCount] = useState(ignoredGamesCountInitial || 0);
+
+    // Bug report state
+    const [bugReports, setBugReports] = useState<BugReport[]>(activeBugReportsInitial || []);
+    const [selectedBugReport, setSelectedBugReport] = useState<BugReportDetail | null>(null);
+    const [bugReportComments, setBugReportComments] = useState<BugReportComment[]>([]);
+    const bugReportDialogRef = useRef<HTMLDialogElement>(null);
+    const [loadingBugReport, setLoadingBugReport] = useState(false);
+    const [newComment, setNewComment] = useState('');
+    const [submittingComment, setSubmittingComment] = useState(false);
 
     const [requestText, setRequestText] = useState('');
     type SubmissionResult = {
@@ -185,6 +233,48 @@ export default function Dashboard({
             return;
         setNotificationPermission(Notification.permission);
     }, [metaTags]);
+
+    // Handle bug_report query parameter from notification links
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        const bugReportId = params.get('bug_report');
+        if (bugReportId) {
+            // Open the bug report modal
+            const reportId = parseInt(bugReportId, 10);
+            if (!isNaN(reportId)) {
+                // Delay slightly to ensure component is fully mounted
+                setTimeout(() => {
+                    setLoadingBugReport(true);
+                    bugReportDialogRef.current?.showModal();
+                    fetch(route('react-api.bug-reports.show', { bugReport: reportId }), {
+                        credentials: 'same-origin',
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                setSelectedBugReport(data.report);
+                                setBugReportComments(data.comments);
+                                setBugReports(prev => prev.map(r =>
+                                    r.id === reportId ? { ...r, unread_count: 0 } : r
+                                ));
+                            } else {
+                                toast.error(data.message || 'Failed to load bug report');
+                                bugReportDialogRef.current?.close();
+                            }
+                        })
+                        .catch(() => {
+                            toast.error('Failed to load bug report');
+                            bugReportDialogRef.current?.close();
+                        })
+                        .finally(() => setLoadingBugReport(false));
+                }, 100);
+                // Clean up URL
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+            }
+        }
+    }, []);
 
     // Helper to convert VAPID base64 url key
     function base64UrlToUint8Array(base64String: string) {
@@ -473,6 +563,126 @@ export default function Dashboard({
         }
     };
 
+    // Bug report functions
+    const openBugReport = async (reportId: number) => {
+        setLoadingBugReport(true);
+        bugReportDialogRef.current?.showModal();
+        try {
+            const response = await fetch(route('react-api.bug-reports.show', { bugReport: reportId }), {
+                credentials: 'same-origin',
+            });
+            const data = await response.json();
+            if (data.success) {
+                setSelectedBugReport(data.report);
+                setBugReportComments(data.comments);
+                // Update unread count in the list
+                setBugReports(prev => prev.map(r =>
+                    r.id === reportId ? { ...r, unread_count: 0 } : r
+                ));
+            } else {
+                toast.error(data.message || 'Failed to load bug report');
+                bugReportDialogRef.current?.close();
+            }
+        } catch (error) {
+            console.error('Failed to load bug report:', error);
+            toast.error('Failed to load bug report');
+            bugReportDialogRef.current?.close();
+        } finally {
+            setLoadingBugReport(false);
+        }
+    };
+
+    const closeBugReportModal = () => {
+        bugReportDialogRef.current?.close();
+        setSelectedBugReport(null);
+        setBugReportComments([]);
+        setNewComment('');
+    };
+
+    const submitBugReportComment = async () => {
+        if (!selectedBugReport || !newComment.trim()) return;
+
+        setSubmittingComment(true);
+        try {
+            const response = await authenticatedFetch(
+                route('react-api.bug-reports.comments.store', { bugReport: selectedBugReport.id }),
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ message: newComment.trim() }),
+                }
+            );
+            const data = await response.json();
+            if (data.success) {
+                setBugReportComments(prev => [...prev, data.comment]);
+                setNewComment('');
+                toast.success('Comment added');
+            } else {
+                toast.error(data.message || 'Failed to add comment');
+            }
+        } catch (error) {
+            console.error('Failed to add comment:', error);
+            toast.error('Failed to add comment');
+        } finally {
+            setSubmittingComment(false);
+        }
+    };
+
+    const [closingTicket, setClosingTicket] = useState(false);
+
+    const closeTicket = async () => {
+        if (!selectedBugReport) return;
+
+        setClosingTicket(true);
+        try {
+            const response = await authenticatedFetch(
+                route('react-api.bug-reports.close', { bugReport: selectedBugReport.id }),
+                { method: 'POST' }
+            );
+            const data = await response.json();
+            if (data.success) {
+                // Update the selected report
+                setSelectedBugReport(prev => prev ? {
+                    ...prev,
+                    status: data.status,
+                    status_label: data.status_label,
+                    status_color: data.status_color,
+                } : null);
+                // Update the list
+                setBugReports(prev => prev.map(r =>
+                    r.id === selectedBugReport.id ? {
+                        ...r,
+                        status: data.status,
+                        status_label: data.status_label,
+                        status_color: data.status_color,
+                    } : r
+                ));
+                toast.success('Ticket closed');
+            } else {
+                toast.error(data.message || 'Failed to close ticket');
+            }
+        } catch (error) {
+            console.error('Failed to close ticket:', error);
+            toast.error('Failed to close ticket');
+        } finally {
+            setClosingTicket(false);
+        }
+    };
+
+    const getStatusBadgeClasses = (color: string) => {
+        switch (color) {
+            case 'warning':
+                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+            case 'info':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+            case 'success':
+                return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+            case 'danger':
+                return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+            default:
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+        }
+    };
+
     return (<>
             <Head title={metaTags?.title || 'Dashboard'}/>
 
@@ -499,6 +709,64 @@ export default function Dashboard({
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
                 {/* Left Column - User Settings */}
                 <div className="space-y-6 lg:col-span-3">
+                    {/* Bug Reports Section - only shown if user has active reports */}
+                    {bugReports.length > 0 && (
+                        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 shadow-sm dark:border-amber-700 dark:bg-amber-900/20">
+                            <div className="p-6">
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-amber-800 dark:text-amber-300">
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        Your Bug Reports
+                                        {bugReports.reduce((sum, r) => sum + r.unread_count, 0) > 0 && (
+                                            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                                                {bugReports.reduce((sum, r) => sum + r.unread_count, 0)} new
+                                            </span>
+                                        )}
+                                    </h2>
+                                    <span className="text-sm text-amber-600 dark:text-amber-400">
+                                        {bugReports.length} active
+                                    </span>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {bugReports.map((report) => (
+                                        <div
+                                            key={report.id}
+                                            className="cursor-pointer rounded-lg border border-amber-200 bg-white p-4 transition-colors hover:border-amber-400 dark:border-amber-800 dark:bg-gray-800 dark:hover:border-amber-600"
+                                            onClick={() => openBugReport(report.id)}
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="mb-2 flex items-center gap-2">
+                                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClasses(report.status_color)}`}>
+                                                            {report.status_label}
+                                                        </span>
+                                                        {report.unread_count > 0 && (
+                                                            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                                {report.unread_count} new {report.unread_count === 1 ? 'reply' : 'replies'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
+                                                        {report.description}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                        Reported {new Date(report.created_at).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <svg className="ml-2 h-5 w-5 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Profile Section */}
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
                         <div className="p-6">
@@ -1644,6 +1912,174 @@ export default function Dashboard({
                     </div>
                 </div>
             </div>
+
+            {/* Bug Report Detail Modal */}
+            <dialog
+                ref={bugReportDialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="bug-report-modal-title"
+                className="m-auto max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800"
+                onClick={(e) => {
+                    if (e.target === e.currentTarget) closeBugReportModal();
+                }}
+            >
+                <div className="relative">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+                            <h3 id="bug-report-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+                                Bug Report #{selectedBugReport?.id}
+                            </h3>
+                            <button
+                                onClick={closeBugReportModal}
+                                className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="max-h-[calc(90vh-180px)] overflow-y-auto p-6">
+                            {loadingBugReport ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <svg className="h-8 w-8 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                </div>
+                            ) : selectedBugReport ? (
+                                <>
+                                    {/* Report Details */}
+                                    <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClasses(selectedBugReport.status_color)}`}>
+                                                {selectedBugReport.status_label}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                Submitted {new Date(selectedBugReport.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+
+                                        <p className="mb-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {selectedBugReport.description}
+                                        </p>
+
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                            <strong>Page:</strong>{' '}
+                                            <a href={selectedBugReport.page_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">
+                                                {selectedBugReport.page_title || selectedBugReport.page_url}
+                                            </a>
+                                        </div>
+
+                                        {selectedBugReport.admin_notes && (
+                                            <div className="mt-3 rounded border-l-4 border-blue-500 bg-blue-50 p-3 dark:bg-blue-900/20">
+                                                <div className="text-xs font-medium text-blue-700 dark:text-blue-400">Admin Notes:</div>
+                                                <p className="mt-1 text-sm text-blue-600 dark:text-blue-300">{selectedBugReport.admin_notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Comments Section */}
+                                    <div className="mb-6">
+                                        <h4 className="mb-3 font-medium text-gray-900 dark:text-white">
+                                            Conversation ({bugReportComments.length})
+                                        </h4>
+
+                                        {bugReportComments.length === 0 ? (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                No comments yet. Add additional information below.
+                                            </p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {bugReportComments.map((comment) => (
+                                                    <div
+                                                        key={comment.id}
+                                                        className={`rounded-lg p-3 ${
+                                                            comment.is_from_admin
+                                                                ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                                                : 'border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+                                                        }`}
+                                                    >
+                                                        <div className="mb-1 flex items-center gap-2">
+                                                            <span className={`text-sm font-medium ${comment.is_from_admin ? 'text-blue-700 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
+                                                                {comment.user.name}
+                                                            </span>
+                                                            {comment.is_from_admin && (
+                                                                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                                                    Staff
+                                                                </span>
+                                                            )}
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                {new Date(comment.created_at).toLocaleDateString()} at{' '}
+                                                                {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                        <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+                                                            {comment.message}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Add Comment Form - only for open/in_progress reports */}
+                                    {!['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) && (
+                                        <div>
+                                            <label htmlFor="new-comment" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                Add Information
+                                            </label>
+                                            <textarea
+                                                id="new-comment"
+                                                value={newComment}
+                                                onChange={(e) => setNewComment(e.target.value)}
+                                                rows={3}
+                                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                placeholder="Provide additional details or respond to staff..."
+                                            />
+                                            <div className="mt-2 flex justify-end">
+                                                <button
+                                                    onClick={submitBugReportComment}
+                                                    disabled={submittingComment || newComment.trim().length < 5}
+                                                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    {submittingComment ? 'Sending...' : 'Send'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) && (
+                                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400">
+                                            This report is closed and cannot receive new comments.
+                                        </div>
+                                    )}
+                                </>
+                            ) : null}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+                            {selectedBugReport && !['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) && (
+                                <button
+                                    onClick={closeTicket}
+                                    disabled={closingTicket}
+                                    className="flex-1 cursor-pointer rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                                >
+                                    {closingTicket ? 'Closing...' : 'Close Ticket'}
+                                </button>
+                            )}
+                            <button
+                                onClick={closeBugReportModal}
+                                className="flex-1 cursor-pointer rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                {selectedBugReport && ['resolved', 'closed', 'wont_fix'].includes(selectedBugReport.status) ? 'Close' : 'Keep Open'}
+                            </button>
+                        </div>
+                </div>
+            </dialog>
         </>
     );
 }

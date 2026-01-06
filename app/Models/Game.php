@@ -23,7 +23,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\Scout\Searchable;
@@ -37,12 +36,12 @@ class Game extends Model
     use HasGameLanguageSupport;
     use HasGameMedia;
     use HasGamePricing;
-    use HasGameTags;
-    use Searchable, HasGameSearch {
+    use HasGameSearch, Searchable {
         HasGameSearch::toSearchableArray insteadof Searchable;
         HasGameSearch::searchableAs insteadof Searchable;
         HasGameSearch::shouldBeSearchable insteadof Searchable;
     }
+    use HasGameTags;
 
     /**
      * Temporary flags that should not be persisted to the database.

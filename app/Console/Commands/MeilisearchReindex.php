@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\SearchIndexService;
 use Illuminate\Console\Command;
+use InvalidArgumentException;
 
 class MeilisearchReindex extends Command
 {
@@ -23,6 +24,24 @@ class MeilisearchReindex extends Command
      * @var string
      */
     protected $description = 'Reindex content in Meilisearch for maintenance (normal operations use automatic indexing)';
+
+    /**
+     * Execute the console command.
+     */
+    public function handle(SearchIndexService $searchService): int
+    {
+        $type = $this->option('type');
+
+        $this->info('🔄 Starting Meilisearch maintenance reindex...');
+        $this->line('ℹ️  Note: Normal operations use automatic indexing via Eloquent observers');
+
+        if ($type === 'all') {
+            return $this->handleFullReindex($searchService);
+        }
+
+        // Handle specific type reindexing with progress bar
+        return $this->handleTypeReindex($type, $searchService);
+    }
 
     /**
      * Handle full reindex of all content types.
@@ -91,7 +110,7 @@ class MeilisearchReindex extends Command
             'dialogue' => $searchService->reindexDialogue($progressCallback),
             'reviews' => $searchService->reindexReviews($progressCallback),
             'tags' => $searchService->reindexTags($progressCallback),
-            default => throw new \InvalidArgumentException("Invalid type: {$type}"),
+            default => throw new InvalidArgumentException("Invalid type: {$type}"),
         };
 
         if (isset($this->bar)) {
@@ -114,23 +133,5 @@ class MeilisearchReindex extends Command
         $this->info('🎉 Reindex completed successfully!');
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Execute the console command.
-     */
-    public function handle(SearchIndexService $searchService): int
-    {
-        $type = $this->option('type');
-
-        $this->info('🔄 Starting Meilisearch maintenance reindex...');
-        $this->line('ℹ️  Note: Normal operations use automatic indexing via Eloquent observers');
-
-        if ($type === 'all') {
-            return $this->handleFullReindex($searchService);
-        }
-
-        // Handle specific type reindexing with progress bar
-        return $this->handleTypeReindex($type, $searchService);
     }
 }

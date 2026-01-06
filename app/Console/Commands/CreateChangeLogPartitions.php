@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -99,7 +100,7 @@ class CreateChangeLogPartitions extends Command
 
         // Check if partition already exists
         $exists = DB::selectOne(
-            "SELECT 1 FROM pg_tables WHERE tablename = ?",
+            'SELECT 1 FROM pg_tables WHERE tablename = ?',
             [$partitionName]
         );
 
@@ -116,16 +117,16 @@ class CreateChangeLogPartitions extends Command
             DB::statement($sql);
             $this->info("  Created {$partitionName}");
 
-            Log::info("Created change_logs partition", [
+            Log::info('Created change_logs partition', [
                 'partition' => $partitionName,
                 'range' => "{$startDate} to {$endDate}",
             ]);
 
             return 'created';
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->error("  Failed to create {$partitionName}: " . $e->getMessage());
 
-            Log::error("Failed to create change_logs partition", [
+            Log::error('Failed to create change_logs partition', [
                 'partition' => $partitionName,
                 'error' => $e->getMessage(),
             ]);

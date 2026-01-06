@@ -207,7 +207,7 @@ class Upload
         $matchedB = preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $b, $matchesB);
 
         // Log if either version didn't match the pattern (this shouldn't happen normally)
-        if (!$matchedA || !$matchedB) {
+        if (! $matchedA || ! $matchedB) {
             Log::warning('Version string did not match expected pattern', [
                 'version_a' => $a,
                 'version_b' => $b,
@@ -218,15 +218,15 @@ class Upload
         }
 
         // If neither matched the pattern, fall back to string comparison
-        if (!$matchedA && !$matchedB) {
+        if (! $matchedA && ! $matchedB) {
             return strcmp($a, $b);
         }
 
         // If only one matched, the one that matched is considered newer
-        if (!$matchedA) {
+        if (! $matchedA) {
             return -1;
         }
-        if (!$matchedB) {
+        if (! $matchedB) {
             return 1;
         }
 

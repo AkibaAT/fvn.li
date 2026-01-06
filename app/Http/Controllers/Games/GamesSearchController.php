@@ -461,10 +461,10 @@ class GamesSearchController extends Controller
         }
 
         $query->with([
-                'tags',
-                'latestVersion.supportedLanguages.language',
-                'latestVersion.languageStats',
-            ])
+            'tags',
+            'latestVersion.supportedLanguages.language',
+            'latestVersion.languageStats',
+        ])
             ->withCount('ratings');
 
         // Exclude ignored games

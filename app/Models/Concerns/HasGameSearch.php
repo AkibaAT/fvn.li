@@ -23,7 +23,7 @@ trait HasGameSearch
             ->where('game_id', $this->id)
             ->where('type', 'page_view')
             ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '14 days'"))
-            ->selectRaw("COALESCE(SUM(EXP(-0.099 * EXTRACT(EPOCH FROM (NOW() - clicked_at)) / 86400)), 0) as score")
+            ->selectRaw('COALESCE(SUM(EXP(-0.099 * EXTRACT(EPOCH FROM (NOW() - clicked_at)) / 86400)), 0) as score')
             ->first();
 
         return (int) round((float) $result->score);

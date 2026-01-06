@@ -257,17 +257,18 @@ class BackfillRatings extends Command
         }
 
         // Get or create game
-        $game = Game::firstOrNew(['game_id' => $gameId]);
+        $game = Game::firstOrNew(['itch_id' => $gameId]);
         if (! $game->exists) {
             $game->fill([
-                'game_id' => $gameId,
+                'itch_id' => $gameId,
                 'name' => $gameName,
-                'url' => $gameUrl,
+                'platform' => 'itch_io',
             ]);
+            $game->setUrlForPlatform('itch_io', $gameUrl);
             $game->save();
-        } elseif ($game->name !== $gameName || $game->url !== $gameUrl) {
+        } elseif ($game->name !== $gameName || $game->getUrlForPlatform('itch_io') !== $gameUrl) {
             $game->name = $gameName;
-            $game->url = $gameUrl;
+            $game->setUrlForPlatform('itch_io', $gameUrl);
             $game->save();
         }
 

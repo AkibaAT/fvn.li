@@ -290,7 +290,7 @@ class BackfillFeed extends Command
         DB::beginTransaction();
 
         // Get or create game
-        $game = Game::firstOrNew(['game_id' => $gameId]);
+        $game = Game::firstOrNew(['itch_id' => $gameId]);
 
         try {
             // Skip if game isn't visible

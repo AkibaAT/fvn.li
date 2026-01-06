@@ -52,6 +52,7 @@ class CalculateWordFrequencies extends Command
 
         if ($combinations->isEmpty()) {
             $this->warn('No dialogue data found for the specified criteria.');
+
             return 0;
         }
 
@@ -64,7 +65,7 @@ class CalculateWordFrequencies extends Command
 
         foreach ($combinations as $combo) {
             // Check if already cached and not forcing
-            if (!$force) {
+            if (! $force) {
                 $exists = DB::table('version_word_frequencies')
                     ->where('game_version_id', $combo->game_version_id)
                     ->where('iso_code', $combo->iso_code)
@@ -73,6 +74,7 @@ class CalculateWordFrequencies extends Command
                 if ($exists) {
                     $skipped++;
                     $bar->advance();
+
                     continue;
                 }
             }
@@ -87,7 +89,7 @@ class CalculateWordFrequencies extends Command
         $this->info("Processed: {$processed}");
         if ($skipped > 0) {
             $this->info("Skipped (already cached): {$skipped}");
-            $this->info("Use --force to recalculate existing entries.");
+            $this->info('Use --force to recalculate existing entries.');
         }
 
         return 0;
@@ -148,8 +150,7 @@ class CalculateWordFrequencies extends Command
      * Calculate word frequency from dialogue texts.
      * This is extracted from DialogueController::getWordFrequency for reusability.
      *
-     * @param \Illuminate\Support\Collection $dialogueTexts
-     * @return array
+     * @param  \Illuminate\Support\Collection  $dialogueTexts
      */
     private function calculateWordFrequency($dialogueTexts, int $limit, bool $includePhrases, int $minWordLength): array
     {
@@ -222,8 +223,6 @@ class CalculateWordFrequencies extends Command
     /**
      * Get the list of stop words.
      * TODO: Move this to a configuration file or database table for easier updates.
-     *
-     * @return array
      */
     private function getStopWords(): array
     {

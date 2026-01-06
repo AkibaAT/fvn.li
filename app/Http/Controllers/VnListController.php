@@ -422,10 +422,10 @@ class VnListController extends Controller
 
         $metaTags = [
             'title' => 'Public Visual Novel Lists',
-            'description' => 'Browse public visual novel lists shared by the community. '.
-                "Currently featuring {$lists->total()} public lists".
-                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
-                    return "{$list->name} by {$list->user->name} (".$list->entries->count().' games)';
+            'description' => 'Browse public visual novel lists shared by the community. ' .
+                "Currently featuring {$lists->total()} public lists" .
+                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
+                    return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
             'image' => asset(config('social.images.public_lists', config('social.images.default'))),
             'structuredData' => [

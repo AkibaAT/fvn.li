@@ -15,6 +15,7 @@ use App\Models\VersionSupportedLanguage;
 use Exception;
 use FilesystemIterator;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -228,7 +229,7 @@ readonly class GameStatsService
 
                     // Update species if present (only from English language data to avoid duplication)
                     // Only set species if it doesn't already exist in the database
-                    if ($isoCode === 'eng' && isset($charData['species']) && !$character->species) {
+                    if ($isoCode === 'eng' && isset($charData['species']) && ! $character->species) {
                         $character->species = $charData['species'];
                     }
 
@@ -735,6 +736,36 @@ readonly class GameStatsService
     }
 
     /**
+     * Queue word frequency calculations for all languages in a game version.
+     * This is called after dialogue import to pre-calculate word frequencies.
+     */
+    protected function queueWordFrequencyCalculations(int $versionId): void
+    {
+        // Get all distinct languages for this version
+        $languages = DB::table('version_dialogue_lines')
+            ->where('game_version_id', $versionId)
+            ->distinct()
+            ->pluck('iso_code');
+
+        if ($languages->isEmpty()) {
+            return;
+        }
+
+        // Run the artisan command for each language synchronously (in the background would be better but this ensures it's done)
+        foreach ($languages as $language) {
+            try {
+                Artisan::call('dialogue:calculate-word-frequencies', [
+                    '--version-id' => $versionId,
+                    '--language' => $language,
+                    '--force' => true, // Force recalculation since this is a fresh import
+                ]);
+            } catch (Throwable $e) {
+                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Extract a game archive to the specified directory
      *
      * @throws RuntimeException If extraction fails
@@ -1038,35 +1069,5 @@ readonly class GameStatsService
         }
 
         return $stats;
-    }
-
-    /**
-     * Queue word frequency calculations for all languages in a game version.
-     * This is called after dialogue import to pre-calculate word frequencies.
-     */
-    protected function queueWordFrequencyCalculations(int $versionId): void
-    {
-        // Get all distinct languages for this version
-        $languages = DB::table('version_dialogue_lines')
-            ->where('game_version_id', $versionId)
-            ->distinct()
-            ->pluck('iso_code');
-
-        if ($languages->isEmpty()) {
-            return;
-        }
-
-        // Run the artisan command for each language synchronously (in the background would be better but this ensures it's done)
-        foreach ($languages as $language) {
-            try {
-                \Artisan::call('dialogue:calculate-word-frequencies', [
-                    '--version-id' => $versionId,
-                    '--language' => $language,
-                    '--force' => true, // Force recalculation since this is a fresh import
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: " . $e->getMessage());
-            }
-        }
     }
 }

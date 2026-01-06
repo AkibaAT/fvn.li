@@ -148,18 +148,6 @@ trait HasGameMedia
     }
 
     /**
-     * Get optimized URL for a screenshot or fall back to original
-     */
-    private function getOptimizedOrOriginalUrl(array $screenshot, string $variant): ?string
-    {
-        if (isset($screenshot['optimized'][$variant]['path'])) {
-            return asset('storage/' . $screenshot['optimized'][$variant]['path']);
-        }
-
-        return $screenshot['url'] ?? null;
-    }
-
-    /**
      * Get a screenshot URL by index and variant
      */
     public function getScreenshotUrl(int $index = 0, string $variant = 'default'): ?string
@@ -183,5 +171,17 @@ trait HasGameMedia
         }
 
         return isset($this->screenshots[$index]['optimized']) && ! empty($this->screenshots[$index]['optimized']);
+    }
+
+    /**
+     * Get optimized URL for a screenshot or fall back to original
+     */
+    private function getOptimizedOrOriginalUrl(array $screenshot, string $variant): ?string
+    {
+        if (isset($screenshot['optimized'][$variant]['path'])) {
+            return asset('storage/' . $screenshot['optimized'][$variant]['path']);
+        }
+
+        return $screenshot['url'] ?? null;
     }
 }

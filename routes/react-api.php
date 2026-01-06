@@ -181,6 +181,10 @@ Route::middleware(['web'])->group(function () {
 
         // Bug Reports
         Route::post('bug-reports', [BugReportController::class, 'store'])->name('react-api.bug-reports.store');
+        Route::get('bug-reports', [BugReportController::class, 'index'])->name('react-api.bug-reports.index');
+        Route::get('bug-reports/{bugReport}', [BugReportController::class, 'show'])->name('react-api.bug-reports.show');
+        Route::post('bug-reports/{bugReport}/comments', [BugReportController::class, 'addComment'])->name('react-api.bug-reports.comments.store');
+        Route::post('bug-reports/{bugReport}/close', [BugReportController::class, 'close'])->name('react-api.bug-reports.close');
     });
 
     // Health/test

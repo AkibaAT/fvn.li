@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BugReport extends Model
 {
@@ -132,5 +133,46 @@ class BugReport extends Model
     public function getStatusLabelAttribute(): string
     {
         return self::getStatuses()[$this->status] ?? 'Unknown';
+    }
+
+    /**
+     * Get comments for this bug report.
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(BugReportComment::class)->orderBy('created_at', 'asc');
+    }
+
+    /**
+     * Check if this report has unread admin replies for the reporter.
+     */
+    public function hasUnreadAdminReplies(): bool
+    {
+        return $this->comments()
+            ->where('is_from_admin', true)
+            ->where('is_read', false)
+            ->exists();
+    }
+
+    /**
+     * Get the count of unread admin replies.
+     */
+    public function getUnreadAdminReplyCountAttribute(): int
+    {
+        return $this->comments()
+            ->where('is_from_admin', true)
+            ->where('is_read', false)
+            ->count();
+    }
+
+    /**
+     * Mark all admin replies as read for this report.
+     */
+    public function markAdminRepliesAsRead(): void
+    {
+        $this->comments()
+            ->where('is_from_admin', true)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
     }
 }

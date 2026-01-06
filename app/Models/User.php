@@ -88,7 +88,7 @@ class User extends Authenticatable
         // First, check if we have API data with game IDs
         if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
             // Check if the game's itch.io ID is in the user's list of games
-            return in_array($game->game_id, $itchioAccount->itchio_game_ids, true);
+            return in_array($game->itch_id, $itchioAccount->itchio_game_ids, true);
         }
 
         // Fallback to URL-based check if API data is not available

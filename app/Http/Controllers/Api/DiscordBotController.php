@@ -36,11 +36,11 @@ class DiscordBotController extends Controller
 
         return response()->json([
             'matches' => $games->count(),
-            'search_url' => $baseUrl.'/games/search?q='.urlencode($name),
+            'search_url' => $baseUrl . '/games/search?q=' . urlencode($name),
             'games' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
-                'url' => $baseUrl.'/games/'.$game->slug,
+                'url' => $baseUrl . '/games/' . $game->slug,
                 'primary_url' => $game->getPrimaryUrl(),
                 'english_word_count' => $game->english_word_count,
                 'published_at' => $game->latestVersion?->published_at ? $game->latestVersion->published_at->timestamp : null,

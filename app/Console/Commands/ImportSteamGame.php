@@ -49,6 +49,7 @@ class ImportSteamGame extends Command
         // Validate it's a Steam URL
         if (! str_contains($url, 'steampowered.com')) {
             $this->error('Invalid Steam URL. Must be a store.steampowered.com URL.');
+
             return 1;
         }
 
@@ -56,6 +57,7 @@ class ImportSteamGame extends Command
         $appId = $this->platformService->extractSteamAppId($url);
         if (! $appId) {
             $this->error('Could not extract Steam App ID from URL. Expected format: https://store.steampowered.com/app/123456/Game_Name/');
+
             return 1;
         }
 
@@ -65,9 +67,10 @@ class ImportSteamGame extends Command
         $existingGame = Game::where('steam_app_id', $appId)->first();
         if ($existingGame) {
             $this->error("Game already exists: {$existingGame->name} (ID: {$existingGame->id})");
-            $this->info("URL: " . route('games.show', $existingGame));
+            $this->info('URL: ' . route('games.show', $existingGame));
             $this->newLine();
             $this->warn('If you want to refresh this game data, use: php artisan games:refresh-steam --game-id=' . $existingGame->id . ' --update-data');
+
             return 1;
         }
 
@@ -75,7 +78,8 @@ class ImportSteamGame extends Command
         $existingByUrl = Game::byUrl($url)->first();
         if ($existingByUrl) {
             $this->error("Game already exists (found by URL): {$existingByUrl->name} (ID: {$existingByUrl->id})");
-            $this->info("URL: " . route('games.show', $existingByUrl));
+            $this->info('URL: ' . route('games.show', $existingByUrl));
+
             return 1;
         }
 
@@ -83,6 +87,7 @@ class ImportSteamGame extends Command
         $validContentTypes = ['visual_novel', 'adjacent_game', 'other_content'];
         if (! in_array($contentType, $validContentTypes)) {
             $this->error("Invalid content type: {$contentType}. Valid options: " . implode(', ', $validContentTypes));
+
             return 1;
         }
 
