@@ -20,6 +20,14 @@ import ReactDOM from 'react-dom';
 import { type OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
 import SeoHead, {type MetaTags, createGameMetaTags} from '@/components/seo/SeoHead';
 import {formatLocalDate} from '@/utils/date-formatting';
+import {
+    useGameReviews,
+    useGameVersionsPaginated,
+    useCharacterStats,
+    useFileStats,
+    useUploadThumbnail,
+    useVersionComparison,
+} from '@/hooks/api';
 
 // Use global axios from window (configured with CSRF)
 import type {AxiosInstance} from 'axios';
@@ -324,65 +332,42 @@ export default function GameShow({
     const [compareToVersionId, setCompareToVersionId] = useState<number | null>(
         null,
     );
-    const [showCharacterStats, setShowCharacterStats] = useState<number | null>(
-        null,
-    );
+    const [showCharacterStats, setShowCharacterStats] = useState<number | null>(null);
     const [showFileStats, setShowFileStats] = useState<number | null>(null);
     const [showVersionComparison, setShowVersionComparison] = useState(false);
-    const [versionComparisonData, setVersionComparisonData] = useState<{
-        fromVersion: { version: string; published_at: string };
-        toVersion: { version: string; published_at: string };
-        languages: { id: string; flag: string; name: string }[];
-        characters: string[];
-        characterDiffs: Record<
-            string,
-            Record<string, { from: number; to: number; diff: number }>
-        >;
-        languageTotals: {
-            from: Record<string, number>;
-            to: Record<string, number>;
-            diff: Record<string, number>;
-        };
-        fileCategories?: Array<{
-            category: string;
-            from: { count: number; size: number };
-            to: { count: number; size: number };
-            diff: { count: number; size: number };
-            fileTypes?: Record<
-                string,
-                {
-                    from: { count: number; size: number };
-                    to: { count: number; size: number };
-                    diff: { count: number; size: number };
-                }
-            >;
-        }>;
-    } | null>(null);
-    const [isLoadingComparison, setIsLoadingComparison] = useState(false);
-    const [activeComparisonTab, setActiveComparisonTab] = useState<
-        'character' | 'file'
-    >('character');
-    const [characterStatsData, setCharacterStatsData] = useState<{
-        languages: { id: string; flag: string; name: string; count: number }[];
-        characters: string[];
-        totalCharacters: number;
-    } | null>(null);
-    const [fileStatsData, setFileStatsData] = useState<{
-        version?: { version?: string };
-        file_categories?: {
-            category: string;
-            total_count: number;
-            total_size: number;
-            file_types: { extension: string; count: number; size: number }[];
-        }[];
-    } | null>(null);
-    const [statsLoading, setStatsLoading] = useState(false);
-    const [characterStatsLoading, setCharacterStatsLoading] = useState<
-        number | null
-    >(null);
-    const [fileStatsLoading, setFileStatsLoading] = useState<number | null>(
-        null,
-    );
+    const [activeComparisonTab, setActiveComparisonTab] = useState<'character' | 'file'>('character');
+
+    // TanStack Query for character stats (on-demand)
+    const {
+        data: characterStatsData,
+        isLoading: characterStatsQueryLoading,
+    } = useCharacterStats(game.slug, showCharacterStats, {
+        enabled: showCharacterStats !== null,
+    });
+
+    // TanStack Query for file stats (on-demand)
+    const {
+        data: fileStatsData,
+        isLoading: fileStatsQueryLoading,
+    } = useFileStats(game.slug, showFileStats, {
+        enabled: showFileStats !== null,
+    });
+
+    // TanStack Query for version comparison
+    const {
+        data: versionComparisonData,
+        isLoading: isLoadingComparison,
+    } = useVersionComparison(game.id, compareFromVersionId ?? undefined, compareToVersionId ?? undefined, {
+        enabled: showVersionComparison && !!compareFromVersionId && !!compareToVersionId,
+    });
+
+    // Loading states for buttons (which version is being loaded)
+    const [characterStatsLoading, setCharacterStatsLoading] = useState<number | null>(null);
+    const [fileStatsLoading, setFileStatsLoading] = useState<number | null>(null);
+    const statsLoading = characterStatsQueryLoading || fileStatsQueryLoading;
+
+    // Thumbnail upload mutation
+    const uploadThumbnailMutation = useUploadThumbnail();
     const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
     const [lightboxIndex, setLightboxIndex] = useState<number>(0);
 
@@ -417,51 +402,57 @@ export default function GameShow({
 
     // Lightbox keyboard and swipe navigation handled within Lightbox component
 
-    const [currentReviews, setCurrentReviews] = useState(reviews?.data || []);
-    const [currentAvailableRatings, setCurrentAvailableRatings] = useState(
-        availableRatings || [],
+    // Reviews query params state
+    const [reviewsPage, setReviewsPage] = useState(1);
+    const [reviewsPerPage, setReviewsPerPage] = useState(
+        reviews?.per_page ?? reviews?.meta?.per_page ?? 5
     );
-    const [reviewsLoading, setReviewsLoading] = useState(false);
-    const [reviewsPagination, setReviewsPagination] = useState({
+
+    // Use TanStack Query for reviews
+    const {
+        data: reviewsData,
+        isLoading: reviewsLoading,
+    } = useGameReviews(game.id, {
+        showAllRatings,
+        selectedRating,
+        page: reviewsPage,
+        perPage: reviewsPerPage,
+    });
+
+    // Derive state from query data or initial props
+    const currentReviews = reviewsData?.reviews ?? reviews?.data ?? [];
+    const currentAvailableRatings = reviewsData?.availableRatings ?? availableRatings ?? [];
+    const reviewsPagination = reviewsData?.pagination ?? {
         current_page: reviews?.current_page ?? reviews?.meta?.current_page ?? 1,
         last_page: reviews?.last_page ?? reviews?.meta?.last_page ?? 1,
         per_page: reviews?.per_page ?? reviews?.meta?.per_page ?? 5,
-        total:
-            reviews?.total ??
-            reviews?.meta?.total ??
-            (reviews?.data ? reviews.data.length : 0),
-        from:
-            reviews?.from ??
-            reviews?.meta?.from ??
-            (reviews?.data && reviews.data.length > 0 ? 1 : 0),
-        to:
-            reviews?.to ??
-            reviews?.meta?.to ??
-            (reviews?.data ? reviews.data.length : 0),
-    });
+        total: reviews?.total ?? reviews?.meta?.total ?? (reviews?.data ? reviews.data.length : 0),
+        from: reviews?.from ?? reviews?.meta?.from ?? (reviews?.data && reviews.data.length > 0 ? 1 : 0),
+        to: reviews?.to ?? reviews?.meta?.to ?? (reviews?.data ? reviews.data.length : 0),
+    };
 
-    // Versions state management
-    const [currentVersions, setCurrentVersions] = useState(gameVersions?.data || []);
-    const [versionsLoading, setVersionsLoading] = useState(false);
-    const [versionsPagination, setVersionsPagination] = useState({
-        current_page:
-            gameVersions?.current_page ?? gameVersions?.meta?.current_page ?? 1,
-        last_page:
-            gameVersions?.last_page ?? gameVersions?.meta?.last_page ?? 1,
+    // Versions query params state
+    const [versionsPage, setVersionsPage] = useState(1);
+    const [versionsPerPage, setVersionsPerPage] = useState(
+        gameVersions?.per_page ?? gameVersions?.meta?.per_page ?? 5
+    );
+
+    // Use TanStack Query for versions
+    const {
+        data: versionsData,
+        isLoading: versionsLoading,
+    } = useGameVersionsPaginated(game.id, versionsPage, versionsPerPage);
+
+    // Derive state from query data or initial props
+    const currentVersions = versionsData?.versions ?? gameVersions?.data ?? [];
+    const versionsPagination = versionsData?.pagination ?? {
+        current_page: gameVersions?.current_page ?? gameVersions?.meta?.current_page ?? 1,
+        last_page: gameVersions?.last_page ?? gameVersions?.meta?.last_page ?? 1,
         per_page: gameVersions?.per_page ?? gameVersions?.meta?.per_page ?? 5,
-        total:
-            gameVersions?.total ??
-            gameVersions?.meta?.total ??
-            (gameVersions?.data ? gameVersions.data.length : 0),
-        from:
-            gameVersions?.from ??
-            gameVersions?.meta?.from ??
-            (gameVersions?.data && gameVersions.data.length > 0 ? 1 : 0),
-        to:
-            gameVersions?.to ??
-            gameVersions?.meta?.to ??
-            (gameVersions?.data ? gameVersions.data.length : 0),
-    });
+        total: gameVersions?.total ?? gameVersions?.meta?.total ?? (gameVersions?.data ? gameVersions.data.length : 0),
+        from: gameVersions?.from ?? gameVersions?.meta?.from ?? (gameVersions?.data && gameVersions.data.length > 0 ? 1 : 0),
+        to: gameVersions?.to ?? gameVersions?.meta?.to ?? (gameVersions?.data ? gameVersions.data.length : 0),
+    };
 
     // Get platform information from latest version or props
     const getPlatforms = () => {
@@ -490,183 +481,75 @@ export default function GameShow({
     if (activePlatforms.android) platformNames.push('Android');
     if (activePlatforms.web) platformNames.push('Web');
 
-    // Fetch reviews from API
-    const fetchReviews = async (
-        showAll: boolean = showAllRatings,
-        rating: number | null = selectedRating,
-        page: number = 1,
-        perPage: number = reviewsPagination.per_page,
-    ) => {
-        setReviewsLoading(true);
-        try {
-            const url = route('react-api.games.reviews', {game: game.id});
-            const params = {
-                showAllRatings: showAll,
-                selectedRating: rating,
-                perPage: perPage,
-                page: page,
-            };
-
-            const response = await window.axios.get(url, {params});
-
-            if (response.data.success) {
-                setCurrentReviews(response.data.reviews.data);
-                setCurrentAvailableRatings(response.data.availableRatings);
-
-                // Laravel pagination structure - metadata is directly on the paginated object
-                setReviewsPagination({
-                    current_page: response.data.reviews.current_page,
-                    last_page: response.data.reviews.last_page,
-                    per_page: response.data.reviews.per_page,
-                    total: response.data.reviews.total,
-                    from: response.data.reviews.from,
-                    to: response.data.reviews.to,
-                });
-            } else {
-                console.error('API returned success: false', response.data);
-            }
-        } catch (error) {
-            console.error('Error fetching reviews:', error);
-        } finally {
-            setReviewsLoading(false);
-        }
-    };
-
-    // Fetch versions from API
-    const fetchVersions = async (page: number = 1, perPage: number = 5) => {
-        setVersionsLoading(true);
-        try {
-            const url = route('react-api.games.versions', {game: game.id});
-            const params = {
-                page: page,
-                perPage: perPage,
-            };
-
-            const response = await window.axios.get(url, {params});
-
-            if (response.data.success) {
-                setCurrentVersions(response.data.versions.data);
-
-                setVersionsPagination({
-                    current_page: response.data.versions.current_page,
-                    last_page: response.data.versions.last_page,
-                    per_page: response.data.versions.per_page,
-                    total: response.data.versions.total,
-                    from: response.data.versions.from,
-                    to: response.data.versions.to,
-                });
-            } else {
-                console.error('API returned success: false', response.data);
-            }
-        } catch (error) {
-            console.error('Error fetching versions:', error);
-        } finally {
-            setVersionsLoading(false);
-        }
-    };
-
-    const handleReviewsPerPageChange = async (perPage: number) => {
-        // Update the per_page value in reviewsPagination state
-        setReviewsPagination(prev => ({
-            ...prev,
-            per_page: perPage
-        }));
-        // Fetch reviews with the new perPage value, reset to page 1
-        await fetchReviews(showAllRatings, selectedRating, 1, perPage);
+    // Reviews handlers - TanStack Query handles fetching automatically
+    const handleReviewsPerPageChange = (perPage: number) => {
+        setReviewsPerPage(perPage);
+        setReviewsPage(1);
     };
 
     // Use current reviews directly (filtering is done on the server)
     const filteredReviews = currentReviews;
 
-    const handleToggleRatingsView = async () => {
-        const newShowAllRatings = !showAllRatings;
-        setShowAllRatings(newShowAllRatings);
+    const handleToggleRatingsView = () => {
+        setShowAllRatings((prev) => !prev);
         setSelectedRating(null);
-        await fetchReviews(newShowAllRatings, null, 1); // Reset to page 1
+        setReviewsPage(1);
     };
 
-    const handleRatingFilterChange = async (rating: number | null) => {
+    const handleRatingFilterChange = (rating: number | null) => {
         setSelectedRating(rating);
-        await fetchReviews(showAllRatings, rating, 1); // Reset to page 1
+        setReviewsPage(1);
     };
 
-    const handlePageChange = async (page: number) => {
-        await fetchReviews(showAllRatings, selectedRating, page);
+    const handlePageChange = (page: number) => {
+        setReviewsPage(page);
     };
 
-    const handleVersionsPageChange = async (page: number) => {
-        await fetchVersions(page, versionsPagination.per_page);
+    const handleVersionsPageChange = (page: number) => {
+        setVersionsPage(page);
     };
 
-    const handleVersionsPerPageChange = async (perPage: number) => {
-        // Update the per_page value in versionsPagination state
-        setVersionsPagination(prev => ({
-            ...prev,
-            per_page: perPage
-        }));
-        // Fetch versions with the new perPage value, reset to page 1
-        await fetchVersions(1, perPage);
+    const handleVersionsPerPageChange = (perPage: number) => {
+        setVersionsPerPage(perPage);
+        setVersionsPage(1);
     };
 
-    // Fetch character stats for a version
-    const fetchCharacterStats = async (versionId: number) => {
+    // Trigger character stats query by setting the version ID
+    const fetchCharacterStats = (versionId: number) => {
         setCharacterStatsLoading(versionId);
-        setStatsLoading(true);
-        try {
-            const response = await window.axios.get(
-                route('react-api.games.version.character-stats', {
-                    game: game.slug,
-                    version: versionId,
-                }),
-            );
-            if (response.data.success) {
-                setCharacterStatsData(response.data.data);
-                setShowCharacterStats(versionId);
-                // Open the dialog using native showModal()
-                const dialog = document.getElementById(
-                    `character-stats-${versionId}`,
-                ) as HTMLDialogElement;
-                if (dialog) {
-                    dialog.showModal();
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching character stats:', error);
-        } finally {
-            setCharacterStatsLoading(null);
-            setStatsLoading(false);
-        }
+        setShowCharacterStats(versionId);
     };
 
-    // Fetch file stats for a version
-    const fetchFileStats = async (versionId: number) => {
+    // Trigger file stats query by setting the version ID
+    const fetchFileStats = (versionId: number) => {
         setFileStatsLoading(versionId);
-        setStatsLoading(true);
-        try {
-            const response = await window.axios.get(
-                route('react-api.games.version.file-stats', {
-                    game: game.slug,
-                    version: versionId,
-                }),
-            );
-            if (response.data.success) {
-                setFileStatsData(response.data.data);
-                setShowFileStats(versionId);
-                // Open the dialog using native showModal()
-                const dialog = document.getElementById(
-                    `file-stats-${versionId}`,
-                ) as HTMLDialogElement;
-                if (dialog) {
-                    dialog.showModal();
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching file stats:', error);
-        } finally {
-            setFileStatsLoading(null);
-            setStatsLoading(false);
-        }
+        setShowFileStats(versionId);
     };
+
+    // Open dialogs when data loads
+    useEffect(() => {
+        if (showCharacterStats && characterStatsData && !characterStatsQueryLoading) {
+            setCharacterStatsLoading(null);
+            const dialog = document.getElementById(
+                `character-stats-${showCharacterStats}`,
+            ) as HTMLDialogElement;
+            if (dialog && !dialog.open) {
+                dialog.showModal();
+            }
+        }
+    }, [showCharacterStats, characterStatsData, characterStatsQueryLoading]);
+
+    useEffect(() => {
+        if (showFileStats && fileStatsData && !fileStatsQueryLoading) {
+            setFileStatsLoading(null);
+            const dialog = document.getElementById(
+                `file-stats-${showFileStats}`,
+            ) as HTMLDialogElement;
+            if (dialog && !dialog.open) {
+                dialog.showModal();
+            }
+        }
+    }, [showFileStats, fileStatsData, fileStatsQueryLoading]);
 
     // Helper functions to close dialogs
     const closeCharacterStatsDialog = (versionId: number) => {
@@ -677,7 +560,6 @@ export default function GameShow({
             dialog.close();
         }
         setShowCharacterStats(null);
-        setCharacterStatsData(null);
     };
 
     const closeFileStatsDialog = (versionId: number) => {
@@ -688,37 +570,14 @@ export default function GameShow({
             dialog.close();
         }
         setShowFileStats(null);
-        setFileStatsData(null);
     };
 
-    const compareVersions = async () => {
+    // Trigger version comparison - TanStack Query fetches when enabled
+    const compareVersions = () => {
         if (!compareFromVersionId || !compareToVersionId) {
             return;
         }
-
-        setIsLoadingComparison(true);
-
-        try {
-            const response = await window.axios.get(
-                route('api.games.compare-versions', game.id),
-                {
-                    params: {
-                        fromVersionId: compareFromVersionId,
-                        toVersionId: compareToVersionId,
-                    },
-                },
-            );
-
-            // API returns data directly, not wrapped in success/data structure
-            setVersionComparisonData(response.data);
-            // Only show the dialog after data is loaded
-            setShowVersionComparison(true);
-        } catch (error) {
-            console.error('Error fetching version comparison:', error);
-            setVersionComparisonData(null);
-        } finally {
-            setIsLoadingComparison(false);
-        }
+        setShowVersionComparison(true);
     };
 
     const closeVersionComparisonDialog = () => {
@@ -729,8 +588,6 @@ export default function GameShow({
             dialog.close();
         }
         setShowVersionComparison(false);
-        setVersionComparisonData(null);
-        // Reset tab to default when closing
         setActiveComparisonTab('character');
     };
 
@@ -748,7 +605,6 @@ export default function GameShow({
                     // Add event listener for native dialog close (Escape key)
                     const handleDialogClose = () => {
                         setShowVersionComparison(false);
-                        setVersionComparisonData(null);
                         setActiveComparisonTab('character');
                     };
 
@@ -780,11 +636,9 @@ export default function GameShow({
                     // Clear states when closing
                     if (showCharacterStats !== null) {
                         setShowCharacterStats(null);
-                        setCharacterStatsData(null);
                     }
                     if (showFileStats !== null) {
                         setShowFileStats(null);
-                        setFileStatsData(null);
                     }
                 }
             }
@@ -995,36 +849,31 @@ export default function GameShow({
                                     <input
                                         type="file"
                                         accept="image/*"
-                                        onChange={async (e) => {
+                                        onChange={(e) => {
                                             if (e.target.files?.[0]) {
                                                 const file = e.target.files[0];
                                                 if (!file.type.startsWith('image/')) {
                                                     alert('Please upload an image file');
                                                     return;
                                                 }
-                                                const formData = new FormData();
-                                                formData.append('thumbnail', file);
-                                                try {
-                                                    const res = await window.axios.post(
-                                                        route('react-api.my-games.thumbnail.update', { game: game.slug }),
-                                                        formData
-                                                    );
-                                                    if (res.data?.success) {
-                                                        setCurrentThumbnail(res.data.thumbnail_url);
+                                                uploadThumbnailMutation.mutate(
+                                                    { gameSlug: game.slug, file },
+                                                    {
+                                                        onSuccess: (data) => {
+                                                            setCurrentThumbnail(data.thumbnail_url);
+                                                        },
+                                                        onError: (error: any) => {
+                                                            console.error('Failed to upload thumbnail', error);
+                                                            if (error.response?.data?.message) {
+                                                                alert(error.response.data.message);
+                                                            } else if (error.response?.data?.errors?.thumbnail) {
+                                                                alert(error.response.data.errors.thumbnail[0]);
+                                                            } else {
+                                                                alert('Failed to upload thumbnail. Please try again.');
+                                                            }
+                                                        },
                                                     }
-                                                } catch (e) {
-                                                    console.error('Failed to upload thumbnail', e);
-
-                                                    // Show error message to user
-                                                    const error = e as any;
-                                                    if (error.response?.data?.message) {
-                                                        alert(error.response.data.message);
-                                                    } else if (error.response?.data?.errors?.thumbnail) {
-                                                        alert(error.response.data.errors.thumbnail[0]);
-                                                    } else {
-                                                        alert('Failed to upload thumbnail. Please try again.');
-                                                    }
-                                                }
+                                                );
                                             }
                                         }}
                                         className="hidden"
@@ -1895,7 +1744,7 @@ export default function GameShow({
                                 <CharacterStatsModal
                                     versionId={version.id}
                                     showCharacterStats={showCharacterStats}
-                                    characterStatsData={characterStatsData}
+                                    characterStatsData={characterStatsData ?? null}
                                     statsLoading={statsLoading}
                                     closeCharacterStatsDialog={
                                         closeCharacterStatsDialog
@@ -1907,7 +1756,7 @@ export default function GameShow({
                                 <FileStatsModal
                                     versionId={version.id}
                                     showFileStats={showFileStats}
-                                    fileStatsData={fileStatsData}
+                                    fileStatsData={fileStatsData ?? null}
                                     statsLoading={statsLoading}
                                     closeFileStatsDialog={closeFileStatsDialog}
                                 />
@@ -2096,7 +1945,7 @@ export default function GameShow({
             {/* Version Comparison Dialog */}
             <GameVersionComparisonModal
                 showVersionComparison={showVersionComparison}
-                versionComparisonData={versionComparisonData}
+                versionComparisonData={versionComparisonData ?? null}
                 isLoadingComparison={isLoadingComparison}
                 activeComparisonTab={activeComparisonTab}
                 setActiveComparisonTab={setActiveComparisonTab}

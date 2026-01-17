@@ -52,6 +52,8 @@ export default function ScreenshotsGallery({ screenshots, blur = false, onOpenLi
   const shouldBlur = blur && !canEdit;
 
   const handleScreenshotUpload = async (files: FileList) => {
+    if (typeof window === 'undefined') return;
+
     const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
     if (imageFiles.length === 0) {
       alert('Please upload image files');
@@ -65,7 +67,7 @@ export default function ScreenshotsGallery({ screenshots, blur = false, onOpenLi
 
     try {
       const res = await (window as any).axios.post(
-        (window as any).route('react-api.my-games.screenshots.upload', { game: gameSlug }),
+        route('react-api.my-games.screenshots.upload', { game: gameSlug }),
         formData
       );
       if (res.data?.success) {
@@ -77,10 +79,12 @@ export default function ScreenshotsGallery({ screenshots, blur = false, onOpenLi
   };
 
   const handleScreenshotDelete = async (index: number) => {
+    if (typeof window === 'undefined') return;
     if (!confirm('Delete this screenshot?')) return;
+
     try {
       const res = await (window as any).axios.delete(
-        (window as any).route('react-api.my-games.screenshots.delete', { game: gameSlug }),
+        route('react-api.my-games.screenshots.delete', { game: gameSlug }),
         { data: { index } }
       );
       if (res.data?.success) {

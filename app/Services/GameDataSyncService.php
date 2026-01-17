@@ -231,7 +231,14 @@ class GameDataSyncService
 
             // Only create version if it doesn't exist
             $shouldCreateVersion = ! $existingVersion;
+
+            // When force is enabled and version exists, we should reprocess stats for that version
+            $shouldReprocessExistingVersion = $force && $existingVersion;
+
             echo '    [Version] Should create version: ' . ($shouldCreateVersion ? 'yes' : 'no') . ' (existing: ' . ($existingVersion ? 'yes' : 'no') . ', force: ' . ($force ? 'yes' : 'no') . ")\n";
+            if ($shouldReprocessExistingVersion) {
+                echo "    [Version] Force mode: will reprocess stats for existing version\n";
+            }
         }
 
         // ========================================
@@ -242,13 +249,15 @@ class GameDataSyncService
         $archiveResult = null;
         $versionStats = null;
         $tempDirPath = null;
+        $shouldReprocessExistingVersion = $shouldReprocessExistingVersion ?? false;
         $shouldProcessRenPy = $bestUpload &&
-            $shouldCreateVersion &&
+            ($shouldCreateVersion || $shouldReprocessExistingVersion) &&
             (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
 
         echo "    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
              ' (bestUpload: ' . ($bestUpload ? 'yes' : 'no') .
              ', shouldCreate: ' . ($shouldCreateVersion ? 'yes' : 'no') .
+             ', shouldReprocess: ' . ($shouldReprocessExistingVersion ? 'yes' : 'no') .
              ', engine: ' . ($game->game_engine ?: 'null') . ")\n";
 
         if ($shouldProcessRenPy) {
@@ -356,7 +365,22 @@ class GameDataSyncService
                 $gameVersion->save();
                 echo "    [Version] Version marked as latest\n";
             }
-            // Case 2: Game had no versions at start and we couldn't create a real version
+            // Case 2: Force reprocessing stats for an existing version
+            elseif ($shouldReprocessExistingVersion && $versionStats) {
+                echo "    [Version] Reprocessing stats for existing version: {$existingVersion->version} (ID: {$existingVersion->id})\n";
+
+                $game->game_engine = "Ren'Py";
+                echo "    [Version] Game engine set (will be saved by caller)\n";
+
+                echo "    [Version] Saving version stats to existing version...\n";
+                $statsService = app(GameStatsService::class);
+                $statsService->saveVersionStats($existingVersion, $versionStats,
+                    $game->source_language_id, $game);
+                echo "    [Version] Version stats saved to existing version\n";
+
+                $gameVersion = $existingVersion;
+            }
+            // Case 3: Game had no versions at start and we couldn't create a real version
             // Create a fallback "Unknown" version so the game has at least one version
             elseif ($hadNoVersions) {
                 echo "    [Version] Creating fallback Unknown version\n";
