@@ -393,8 +393,8 @@ class GamesDisplayController extends Controller
         $title = $game->effective_name;
         $description = $game->description ?: "Discover {$game->effective_name} on fvn.li - Visual Novel Database and Analytics";
 
-        // Use game thumbnail or first screenshot as image
-        $image = $game->thumb_url ?: ($game->screenshots[0]['url'] ?? null);
+        // Use optimized thumbnail for social sharing, fallback to default social image
+        $image = $game->getThumbnailUrl('default') ?? asset(config('social.images.default'));
 
         // Add game-specific info to description
         $metaDescription = $description;
@@ -459,12 +459,12 @@ class GamesDisplayController extends Controller
             'section' => 'Visual Novels',
             'tags' => $tags,
             'noindex' => ! $game->is_visible,
-            'structuredData' => [
-                '@context' => 'https://schema.org',
+            'structuredData' => array_filter([
                 '@type' => 'VideoGame',
                 'name' => $game->name,
                 'description' => $game->description,
                 'image' => $image,
+                'url' => route('games.show', $game),
                 'author' => $game->authors ? [
                     '@type' => 'Organization',
                     'name' => strip_tags($game->authors),
@@ -479,14 +479,14 @@ class GamesDisplayController extends Controller
                     'priceCurrency' => 'USD',
                     'availability' => 'https://schema.org/InStock',
                 ] : null,
-                'aggregateRating' => $game->average_rating ? [
+                'aggregateRating' => $game->rating_score ? [
                     '@type' => 'AggregateRating',
-                    'ratingValue' => $game->average_rating,
-                    'ratingCount' => $game->ratings_count,
+                    'ratingValue' => round($game->rating_score, 2),
+                    'ratingCount' => $game->rating_count,
                     'bestRating' => 5,
                     'worstRating' => 1,
                 ] : null,
-            ],
+            ], fn ($value) => $value !== null),
         ]);
     }
 }

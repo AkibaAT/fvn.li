@@ -724,11 +724,9 @@ export default function GameShow({
         );
     }
 
-    // Generate meta tags - merge backend meta tags with frontend-generated structured data
+    // Generate meta tags - use backend meta tags if available, fallback to frontend-generated
     const frontendMetaTags = createGameMetaTags(game);
-    const gameMetaTags = metaTags
-        ? { ...metaTags, structuredData: frontendMetaTags.structuredData }
-        : frontendMetaTags;
+    const gameMetaTags = metaTags || frontendMetaTags;
 
     return (
         <>
