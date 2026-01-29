@@ -42,6 +42,18 @@ Route::get('health', function () {
 
 /*
 |--------------------------------------------------------------------------
+| CSRF Token Refresh Route
+|--------------------------------------------------------------------------
+| Returns a fresh CSRF token for long-running tabs where the session may
+| have expired. This allows the frontend to recover from 419 errors.
+*/
+
+Route::get('csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->name('csrf.token');
+
+/*
+|--------------------------------------------------------------------------
 | Web Routes (React/Inertia frontend)
 |--------------------------------------------------------------------------
 */

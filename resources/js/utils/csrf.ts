@@ -17,22 +17,75 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 /**
+ * Refresh the CSRF token from the server
+ * Updates both the meta tag and returns the new token
+ */
+export async function refreshCsrfToken(): Promise<string> {
+    const response = await fetch('/csrf-token', {
+        method: 'GET',
+        credentials: 'same-origin',
+    });
+    const data = await response.json();
+
+    if (data.token) {
+        // Update the meta tag so subsequent calls to getCsrfToken() get the new token
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) {
+            metaTag.setAttribute('content', data.token);
+        }
+
+        // Also update axios defaults if window.axios exists
+        if (typeof window !== 'undefined' && window.axios) {
+            window.axios.defaults.headers.common['X-CSRF-TOKEN'] = data.token;
+        }
+
+        return data.token;
+    }
+
+    throw new Error('Failed to refresh CSRF token');
+}
+
+/**
  * Make an authenticated fetch request with CSRF token
+ * Automatically retries once with a fresh token on 419 (CSRF mismatch) errors
  */
 export async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
-    const defaultOptions: RequestInit = {
-        credentials: 'same-origin',
-        headers: getAuthHeaders(),
+    const makeRequest = (token: string): Promise<Response> => {
+        const defaultOptions: RequestInit = {
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': token,
+            },
+        };
+
+        const mergedOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...options.headers,
+                'X-CSRF-TOKEN': token, // Ensure fresh token is used
+            },
+        };
+
+        return fetch(url, mergedOptions);
     };
 
-    const mergedOptions = {
-        ...defaultOptions,
-        ...options,
-        headers: {
-            ...defaultOptions.headers,
-            ...options.headers,
-        },
-    };
+    // First attempt with current token
+    let response = await makeRequest(getCsrfToken());
 
-    return fetch(url, mergedOptions);
+    // If we get a 419 (CSRF token mismatch), refresh the token and retry once
+    if (response.status === 419) {
+        try {
+            const newToken = await refreshCsrfToken();
+            response = await makeRequest(newToken);
+        } catch {
+            // If token refresh fails, return the original 419 response
+            return response;
+        }
+    }
+
+    return response;
 }
