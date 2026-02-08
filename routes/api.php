@@ -34,6 +34,13 @@ Route::middleware('auth:sanctum')->prefix('discord')->group(function () {
     Route::post('unsubscribe', [DiscordBotController::class, 'unsubscribe']);
 });
 
+// Bot API routes (for migration and ongoing integration)
+Route::middleware('auth:sanctum')->prefix('bot')->group(function () {
+    Route::post('find-by-url', [DiscordBotController::class, 'findByUrl']);
+    Route::post('bulk-find-by-url', [DiscordBotController::class, 'bulkFindByUrl']);
+    Route::get('games/{id}', [DiscordBotController::class, 'getGame']);
+});
+
 // New Discord notification routes
 Route::middleware('auth:sanctum')->prefix('discord-notifications')->group(function () {
     Route::get('pending', [DiscordNotificationsController::class, 'getPendingNotifications']);

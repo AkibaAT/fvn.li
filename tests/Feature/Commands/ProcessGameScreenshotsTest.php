@@ -45,7 +45,6 @@ test('process screenshots command', function () {
     // Save the image to a temporary file
     $tempFile = tempnam(sys_get_temp_dir(), 'test_image_');
     imagepng($image, $tempFile);
-    imagedestroy($image);
 
     // Read the image data
     $imageData = file_get_contents($tempFile);

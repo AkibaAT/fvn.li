@@ -24,7 +24,6 @@ test('process image variant preserves aspect ratio', function () {
     // Save the image to a temporary file
     $tempFile = tempnam(sys_get_temp_dir(), 'test_image_');
     imagepng($image, $tempFile);
-    imagedestroy($image);
 
     // Define target dimensions
     $config = [

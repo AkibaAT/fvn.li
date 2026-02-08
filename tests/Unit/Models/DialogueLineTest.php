@@ -120,7 +120,6 @@ test('withTextContent scope includes text content in query', function () {
 test('getLanguageConfig returns correct language configurations', function () {
     $ref = new ReflectionClass(DialogueLine::class);
     $method = $ref->getMethod('getLanguageConfig');
-    $method->setAccessible(true);
 
     $instance = $ref->newInstanceWithoutConstructor();
 
@@ -136,7 +135,6 @@ test('getLanguageConfig returns correct language configurations', function () {
 test('getTsvectorColumnForLanguage returns correct column names', function () {
     $ref = new ReflectionClass(DialogueLine::class);
     $method = $ref->getMethod('getTsvectorColumnForLanguage');
-    $method->setAccessible(true);
 
     $instance = $ref->newInstanceWithoutConstructor();
 
