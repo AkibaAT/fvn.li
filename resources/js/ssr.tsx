@@ -1,5 +1,6 @@
 import {createInertiaApp} from '@inertiajs/react';
 import createServer from '@inertiajs/react/server';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {resolvePageComponent} from 'laravel-vite-plugin/inertia-helpers';
 import ReactDOMServer from 'react-dom/server';
 import {type Config, route, type RouteName} from 'ziggy-js';
@@ -35,7 +36,14 @@ createServer((page) =>
                     location: new URL(ziggy.location),
                 });
 
-            return <App {...props} />;
+            // Create a new QueryClient per request to avoid shared state between SSR requests
+            const queryClient = new QueryClient();
+
+            return (
+                <QueryClientProvider client={queryClient}>
+                    <App {...props} />
+                </QueryClientProvider>
+            );
         },
     }),
 );
