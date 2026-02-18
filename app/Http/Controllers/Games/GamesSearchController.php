@@ -472,7 +472,7 @@ class GamesSearchController extends Controller
             $query->whereNotIn('games.id', $ignoredGameIds);
         }
 
-        if (! empty(trim($search))) {
+        if (! empty(trim((string) $search))) {
             $searchTerm = "%{$search}%";
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'ilike', $searchTerm)
