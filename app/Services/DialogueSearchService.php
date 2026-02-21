@@ -34,7 +34,8 @@ class DialogueSearchService
         // Build filter array (Meilisearch filter syntax)
         $filterParts = [];
         if (! empty($language)) {
-            $filterParts[] = "language = '{$language}'";
+            $safeLanguage = preg_replace('/[^a-zA-Z0-9]/', '', $language);
+            $filterParts[] = "language = '{$safeLanguage}'";
         }
         if (! empty($filters['game_id'])) {
             $filterParts[] = 'game_id = ' . (int) $filters['game_id'];

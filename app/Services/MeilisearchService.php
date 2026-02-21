@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\Rating;
 use App\Models\Tag;
@@ -180,7 +179,7 @@ class MeilisearchService
     /**
      * Get faceted search data for filters.
      */
-    public function getFacets(string $query = ''): array
+    public function getFacets(): array
     {
         // This would typically use Meilisearch's faceting features
         // For now, we'll return static data that can be enhanced later
@@ -241,7 +240,14 @@ class MeilisearchService
         string $sortDirection,
         array $ignoredGameIds = []
     ): LengthAwarePaginator {
-        // First try: Exact matching with quotes for precise results
+        $terms = array_filter(preg_split('/\s+/', trim($query)));
+        if (count($terms) <= 1) {
+            $fuzzyQuery = $this->processSearchQuery($query, false);
+
+            return $this->executeSearch($fuzzyQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
+        }
+
+        // For multi-term queries: exact matching first for precise results
         $exactQuery = $this->processSearchQuery($query, true); // true = exact mode
         $exactResults = $this->executeSearch($exactQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
 
@@ -437,61 +443,4 @@ class MeilisearchService
         }, array_filter($terms)));
     }
 
-    /**
-     * Convert raw Meilisearch results to Laravel paginated format.
-     */
-    private function convertToPaginatedResults(array $results, int $perPage, int $page): LengthAwarePaginator
-    {
-        $hits = $results['hits'] ?? [];
-        $total = $results['estimatedTotalHits'] ?? count($hits);
-
-        // Convert hits to objects for easier access
-        $items = collect($hits)->map(function ($hit) {
-            return (object) $hit;
-        });
-
-        return new LengthAwarePaginator(
-            $items,
-            $total,
-            $perPage,
-            $page,
-            [
-                'path' => request()->url(),
-                'pageName' => 'page',
-            ]
-        );
-    }
-
-    /**
-     * Enhance models with data from search results.
-     *
-     * This ensures that the indexed data is available on the model instances
-     * for display in the frontend.
-     */
-    private function enhanceModelsWithSearchData($models): void
-    {
-        foreach ($models as $model) {
-            // Get the searchable array data (this includes the indexed data)
-            $searchableData = $model->toSearchableArray();
-
-            // Set the supported languages from the search index
-            if (isset($searchableData['supported_languages'])) {
-                $model->supported_languages = $searchableData['supported_languages'];
-            }
-
-            // Set platform flags from search data
-            $model->is_windows = $searchableData['is_windows'] ?? false;
-            $model->is_linux = $searchableData['is_linux'] ?? false;
-            $model->is_mac = $searchableData['is_mac'] ?? false;
-            $model->is_android = $searchableData['is_android'] ?? false;
-            $model->is_web = $searchableData['is_web'] ?? false;
-
-            // Set version data
-            $model->latest_version_id = $searchableData['latest_version_id'] ?? null;
-            $model->latest_version_published_at = $searchableData['latest_version_published_at'] ?? null;
-
-            // Set word count if available
-            $model->english_word_count = $searchableData['english_word_count'] ?? null;
-        }
-    }
 }
