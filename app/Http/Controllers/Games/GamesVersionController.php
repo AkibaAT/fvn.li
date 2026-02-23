@@ -58,9 +58,11 @@ class GamesVersionController extends Controller
         // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors
         $versions->getCollection()->transform(function ($version) {
             $version->supportedLanguages = $version->supportedLanguages
-                ->filter(fn ($sl) => $sl->language !== null && ! str_starts_with($sl->iso_code, 'q'));
+                ->filter(fn ($sl) => $sl->language !== null && ! str_starts_with($sl->iso_code, 'q'))
+                ->values();
             $version->languageStats = $version->languageStats
-                ->filter(fn ($ls) => $ls->language !== null && ! str_starts_with($ls->iso_code, 'q'));
+                ->filter(fn ($ls) => $ls->language !== null && ! str_starts_with($ls->iso_code, 'q'))
+                ->values();
 
             return $version;
         });
