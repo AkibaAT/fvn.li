@@ -148,7 +148,7 @@ jobs:
         run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
-        uses: burnett01/rsync-deployments@7.0.2
+        uses: burnett01/rsync-deployments@8.0.4
         with:
           switches: -avz --delete --dirs  --exclude-from=scripts/rsync-exclude.txt --rsync-path="sudo rsync" --chown=www-data:www-data
           path: ./
