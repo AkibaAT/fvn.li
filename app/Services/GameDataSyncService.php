@@ -505,11 +505,8 @@ class GameDataSyncService
             }
         }
 
-        // Only sync description and screenshots if custom page is not enabled
-        if (! $game->has_custom_page) {
-            $extractor->extractFullDescription($game, $doc, app(ItchHtmlProcessor::class));
-            $extractor->extractScreenshots($game, $doc);
-        }
+        $extractor->extractFullDescription($game, $doc, app(ItchHtmlProcessor::class));
+        $extractor->extractScreenshots($game, $doc);
 
         // Always sync custom CSS (styling should be updated regardless of custom page status)
         $extractor->extractCustomCss($game, $html, app(ItchCssProcessor::class));
