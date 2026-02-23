@@ -210,3 +210,7 @@ fixed_tools: []
 # Note that when using the JetBrains backend, language servers are not used and this list is correspondingly ignored.
 languages:
 - php
+
+# override of the corresponding setting in serena_config.yml, see the documentation there.
+# If null or missing, the value from the global config is used.
+symbol_info_budget:
