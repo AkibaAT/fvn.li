@@ -24,258 +24,7 @@ class MeilisearchService
         string $sortDirection = 'desc',
         array $ignoredGameIds = []
     ): LengthAwarePaginator {
-        // Try exact search first, then fuzzy search if needed
-        return $this->performTieredSearch($query, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
-    }
-
-    /**
-     * Search for unique dialogue texts with filters and pagination.
-     * Now searches UniqueDialogueText instead of individual DialogueLine instances.
-     */
-    public function searchDialogue(
-        string $query,
-        array $filters = [],
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
-        $processedQuery = $this->processSearchQuery($query);
-        $search = UniqueDialogueText::search($processedQuery);
-
-        // Apply language filter (searches in languages array)
-        if (! empty($filters['language'])) {
-            $search->where('languages', $filters['language']);
-        }
-
-        // Apply game filter (searches in game_ids or game_names arrays)
-        if (! empty($filters['game_id'])) {
-            $search->where('game_ids', (int) $filters['game_id']);
-        }
-
-        if (! empty($filters['game_names'])) {
-            if (is_array($filters['game_names'])) {
-                foreach ($filters['game_names'] as $gameName) {
-                    $search->where('game_names', $gameName);
-                }
-            } else {
-                $search->where('game_names', $filters['game_names']);
-            }
-        }
-
-        // Apply version filter (searches in version_ids array)
-        if (! empty($filters['version_id'])) {
-            $search->where('version_ids', (int) $filters['version_id']);
-        }
-
-        // Apply character filter (searches in character_names array)
-        if (! empty($filters['character_names'])) {
-            if (is_array($filters['character_names'])) {
-                foreach ($filters['character_names'] as $characterName) {
-                    $search->where('character_names', $characterName);
-                }
-            } else {
-                $search->where('character_names', $filters['character_names']);
-            }
-        }
-
-        return $search->paginate($perPage, 'page', $page);
-    }
-
-    /**
-     * Search for reviews with filters and pagination.
-     */
-    public function searchReviews(
-        string $query,
-        array $filters = [],
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
-        $processedQuery = $this->processSearchQuery($query);
-        $search = Rating::search($processedQuery);
-
-        // Apply filters
-        if (! empty($filters['game_name'])) {
-            $search->where('game_name', $filters['game_name']);
-        }
-
-        if (! empty($filters['rater_name'])) {
-            $search->where('rater_name', $filters['rater_name']);
-        }
-
-        if (isset($filters['min_rating'])) {
-            $search->where('rating', '>=', $filters['min_rating']);
-        }
-
-        if (isset($filters['max_rating'])) {
-            $search->where('rating', '<=', $filters['max_rating']);
-        }
-
-        // Always filter to visible reviews
-        $search->where('is_visible', true);
-        $search->where('is_reviewed', true);
-
-        return $search->paginate($perPage, 'page', $page);
-    }
-
-    /**
-     * Search for tags with filters and pagination.
-     */
-    public function searchTags(
-        string $query,
-        array $filters = [],
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
-        $processedQuery = $this->processSearchQuery($query);
-        $search = Tag::search($processedQuery);
-
-        // Apply filters
-        if (isset($filters['min_game_count'])) {
-            $search->where('game_count', '>=', $filters['min_game_count']);
-        }
-
-        return $search->paginate($perPage, 'page', $page);
-    }
-
-    /**
-     * Perform a global search across all content types.
-     */
-    public function globalSearch(string $query, int $limit = 10): array
-    {
-        $games = $this->searchGames($query, ['show_hidden' => false], $limit, 1);
-        $dialogue = $this->searchDialogue($query, [], $limit, 1);
-        $reviews = $this->searchReviews($query, [], $limit, 1);
-        $tags = $this->searchTags($query, [], $limit, 1);
-
-        return [
-            'games' => $games->items(),
-            'dialogue' => $dialogue->items(),
-            'reviews' => $reviews->items(),
-            'tags' => $tags->items(),
-            'total_games' => $games->total(),
-            'total_dialogue' => $dialogue->total(),
-            'total_reviews' => $reviews->total(),
-            'total_tags' => $tags->total(),
-        ];
-    }
-
-    /**
-     * Get search suggestions for autocomplete.
-     */
-    public function getSearchSuggestions(string $query, int $limit = 5): array
-    {
-        // Get top game names that match
-        $gameNames = Game::search($query)
-            ->where('is_visible', true)
-            ->take($limit)
-            ->get()
-            ->pluck('name')
-            ->toArray();
-
-        return [
-            'games' => array_slice($gameNames, 0, $limit),
-        ];
-    }
-
-    /**
-     * Get faceted search data for filters.
-     */
-    public function getFacets(): array
-    {
-        // This would typically use Meilisearch's faceting features
-        // For now, we'll return static data that can be enhanced later
-        return [
-            'statuses' => ['released', 'in_development', 'prototype', 'canceled'],
-            'engines' => ['renpy', 'unity', 'twine', 'rpgmaker', 'other'],
-            'languages' => ['eng', 'jpn', 'spa', 'fra', 'deu'],
-        ];
-    }
-
-    /**
-     * Highlight search terms in text content.
-     */
-    public function highlightText(string $text, string $query): string
-    {
-        if (empty($query)) {
-            return $text;
-        }
-
-        // Simple highlighting - Meilisearch provides better highlighting in responses
-        $terms = explode(' ', $query);
-        foreach ($terms as $term) {
-            if (strlen($term) > 2) {
-                $text = preg_replace(
-                    '/(' . preg_quote($term, '/') . ')/i',
-                    '<mark>$1</mark>',
-                    $text
-                );
-            }
-        }
-
-        return $text;
-    }
-
-    /**
-     * Get search analytics data.
-     */
-    public function getSearchAnalytics(): array
-    {
-        // This would integrate with Meilisearch analytics
-        // For now, return placeholder data
-        return [
-            'total_searches' => 0,
-            'top_queries' => [],
-            'no_results_queries' => [],
-        ];
-    }
-
-    /**
-     * Perform a two-tier search: exact first, then fuzzy if needed.
-     */
-    private function performTieredSearch(
-        string $query,
-        array $filters,
-        int $perPage,
-        int $page,
-        string $sortField,
-        string $sortDirection,
-        array $ignoredGameIds = []
-    ): LengthAwarePaginator {
-        $terms = array_filter(preg_split('/\s+/', trim($query)));
-        if (count($terms) <= 1) {
-            $fuzzyQuery = $this->processSearchQuery($query, false);
-
-            return $this->executeSearch($fuzzyQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
-        }
-
-        // For multi-term queries: exact matching first for precise results
-        $exactQuery = $this->processSearchQuery($query, true); // true = exact mode
-        $exactResults = $this->executeSearch($exactQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
-
-        // If we have good results from exact search, use them
-        // Consider "good results" as having at least 3 results or being on page 1 with any results
-        if ($exactResults->total() >= 3 || ($page === 1 && $exactResults->total() > 0)) {
-            return $exactResults;
-        }
-
-        // Second try: Fuzzy matching for typo tolerance
-        $fuzzyQuery = $this->processSearchQuery($query, false); // false = fuzzy mode
-
-        return $this->executeSearch($fuzzyQuery, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
-    }
-
-    /**
-     * Execute the actual search with given query and filters.
-     */
-    private function executeSearch(
-        string $processedQuery,
-        array $filters,
-        int $perPage,
-        int $page,
-        string $sortField,
-        string $sortDirection,
-        array $ignoredGameIds = []
-    ): LengthAwarePaginator {
-        $search = Game::search($processedQuery);
+        $search = Game::search(trim($query));
 
         // Exclude ignored games
         if (! empty($ignoredGameIds)) {
@@ -385,62 +134,126 @@ class MeilisearchService
         ];
 
         if ($sortField === 'relevance') {
-            // For relevance sorting, don't apply any orderBy - let Meilisearch use natural relevance
-            // This gives the best search results based on matching quality
+            // Let Meilisearch use natural relevance ranking
         } elseif ($sortField === 'trending') {
-            // Map 'trending' to 'trending_score' for compatibility
             $search->orderBy('trending_score', $sortDirection);
         } elseif (in_array($sortField, $sortableFields)) {
             $search->orderBy($sortField, $sortDirection);
         } else {
-            // Default sort for non-search browsing
             $search->orderBy('first_visible_at', 'desc');
         }
 
-        // Use Laravel Scout's standard pagination
         return $search->paginate($perPage, 'page', $page);
     }
 
     /**
-     * Process search query to use AND logic with optional exact matching.
-     *
-     * @param  string  $query  The search query
-     * @param  bool  $exact  Whether to use exact matching (true) or allow typos (false)
+     * Search for unique dialogue texts with filters and pagination.
      */
-    private function processSearchQuery(string $query, bool $exact = false): string
-    {
-        // If it's a wildcard search, return as-is
-        if (trim($query) === '*' || empty(trim($query))) {
-            return $query;
+    public function searchDialogue(
+        string $query,
+        array $filters = [],
+        int $perPage = 20,
+        int $page = 1
+    ): LengthAwarePaginator {
+        $search = UniqueDialogueText::search(trim($query));
+
+        if (! empty($filters['language'])) {
+            $search->where('languages', $filters['language']);
         }
 
-        // Split the query into individual terms
-        $terms = preg_split('/\s+/', trim($query));
-
-        // If only one term, return as-is (with or without quotes based on exact mode)
-        if (count($terms) <= 1) {
-            if ($exact && ! str_starts_with($query, '"')) {
-                return '"' . addslashes(trim($query)) . '"';
-            }
-
-            return $query;
+        if (! empty($filters['game_id'])) {
+            $search->where('game_ids', (int) $filters['game_id']);
         }
 
-        // For multiple terms, use AND operator
-        return implode(' AND ', array_map(function ($term) use ($exact) {
-            $term = trim($term);
-            if (empty($term)) {
-                return '';
+        if (! empty($filters['game_names'])) {
+            foreach ((array) $filters['game_names'] as $gameName) {
+                $search->where('game_names', $gameName);
             }
+        }
 
-            if ($exact) {
-                // Exact mode: wrap in quotes for precise matching
-                return '"' . addslashes($term) . '"';
-            } else {
-                // Fuzzy mode: no quotes to allow typo tolerance
-                return $term;
+        if (! empty($filters['version_id'])) {
+            $search->where('version_ids', (int) $filters['version_id']);
+        }
+
+        if (! empty($filters['character_names'])) {
+            foreach ((array) $filters['character_names'] as $characterName) {
+                $search->where('character_names', $characterName);
             }
-        }, array_filter($terms)));
+        }
+
+        return $search->paginate($perPage, 'page', $page);
     }
 
+    /**
+     * Search for reviews with filters and pagination.
+     */
+    public function searchReviews(
+        string $query,
+        array $filters = [],
+        int $perPage = 20,
+        int $page = 1
+    ): LengthAwarePaginator {
+        $search = Rating::search(trim($query));
+
+        if (! empty($filters['game_name'])) {
+            $search->where('game_name', $filters['game_name']);
+        }
+
+        if (! empty($filters['rater_name'])) {
+            $search->where('rater_name', $filters['rater_name']);
+        }
+
+        if (isset($filters['min_rating'])) {
+            $search->where('rating', '>=', $filters['min_rating']);
+        }
+
+        if (isset($filters['max_rating'])) {
+            $search->where('rating', '<=', $filters['max_rating']);
+        }
+
+        $search->where('is_visible', true);
+        $search->where('is_reviewed', true);
+
+        return $search->paginate($perPage, 'page', $page);
+    }
+
+    /**
+     * Search for tags with filters and pagination.
+     */
+    public function searchTags(
+        string $query,
+        array $filters = [],
+        int $perPage = 20,
+        int $page = 1
+    ): LengthAwarePaginator {
+        $search = Tag::search(trim($query));
+
+        if (isset($filters['min_game_count'])) {
+            $search->where('game_count', '>=', $filters['min_game_count']);
+        }
+
+        return $search->paginate($perPage, 'page', $page);
+    }
+
+    /**
+     * Perform a global search across all content types.
+     */
+    public function globalSearch(string $query, int $limit = 10): array
+    {
+        $games = $this->searchGames($query, ['show_hidden' => false], $limit, 1);
+        $dialogue = $this->searchDialogue($query, [], $limit, 1);
+        $reviews = $this->searchReviews($query, [], $limit, 1);
+        $tags = $this->searchTags($query, [], $limit, 1);
+
+        return [
+            'games' => $games->items(),
+            'dialogue' => $dialogue->items(),
+            'reviews' => $reviews->items(),
+            'tags' => $tags->items(),
+            'total_games' => $games->total(),
+            'total_dialogue' => $dialogue->total(),
+            'total_reviews' => $reviews->total(),
+            'total_tags' => $tags->total(),
+        ];
+    }
 }
