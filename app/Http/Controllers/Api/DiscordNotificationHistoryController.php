@@ -69,7 +69,7 @@ class DiscordNotificationHistoryController
     {
         $this->authorize('view', $server);
 
-        $days = $request->get('days', 30);
+        $days = (int) $request->get('days', 30);
 
         $stats = [
             'total' => $server->notificationHistory()->recent($days)->count(),
@@ -153,7 +153,7 @@ class DiscordNotificationHistoryController
     {
         $this->authorize('update', $server);
 
-        $days = $request->get('days', 30);
+        $days = (int) $request->get('days', 30);
 
         $deleted = $server->notificationHistory()
             ->where('sent_at', '<', now()->subDays($days))

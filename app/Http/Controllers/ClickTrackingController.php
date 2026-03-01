@@ -248,7 +248,7 @@ class ClickTrackingController extends Controller
             }
 
             // Get time period from request (default to last 30 days)
-            $days = $request->input('days', 30);
+            $days = (int) $request->input('days', 30);
             $since = now()->subDays($days);
 
             $stats = ClickStat::getGameStats($game->id, $since);
@@ -298,7 +298,7 @@ class ClickTrackingController extends Controller
             }
 
             // Get time period from request (default to last 30 days)
-            $days = $request->input('days', 30);
+            $days = (int) $request->input('days', 30);
 
             $dailyStats = ClickStat::getDailyStats($game->id, $days);
             $linkStats = ClickStat::getLinkStats($game->id, $days);

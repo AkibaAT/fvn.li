@@ -124,9 +124,9 @@ class GameReviewsController extends Controller
                 ], 404);
             }
 
-            $page = $request->input('page', 1);
-            $perPage = $request->input('per_page', 20);
-            $ratingFilter = $request->input('rating_filter');
+            $page = (int) $request->input('page', 1);
+            $perPage = (int) $request->input('per_page', 20);
+            $ratingFilter = $request->input('rating_filter') !== null ? (int) $request->input('rating_filter') : null;
             $showAllRatings = filter_var($request->input('show_all_ratings', false), FILTER_VALIDATE_BOOLEAN);
 
             // Build the query

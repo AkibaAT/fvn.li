@@ -281,20 +281,20 @@ class GamesSearchController extends Controller
         // Convert tag IDs to tag names if tags are provided
         $tags = $request->input('tags');
         if ($tags) {
-            $tagIds = is_array($tags) ? $tags : explode(',', $tags);
-            $tagNames = Tag::whereIn('id', $tagIds)
+            $tagIds = array_filter(array_map('intval', is_array($tags) ? $tags : explode(',', $tags)));
+            $tagNames = ! empty($tagIds) ? Tag::whereIn('id', $tagIds)
                 ->pluck('name')
-                ->toArray();
+                ->toArray() : [];
             $tags = ! empty($tagNames) ? $tagNames : null;
         }
 
         // Convert game jam IDs to game jam names if game jams are provided
         $gameJams = $request->input('game_jams');
         if ($gameJams) {
-            $gameJamIds = is_array($gameJams) ? $gameJams : explode(',', $gameJams);
-            $gameJamNames = GameJam::whereIn('id', $gameJamIds)
+            $gameJamIds = array_filter(array_map('intval', is_array($gameJams) ? $gameJams : explode(',', $gameJams)));
+            $gameJamNames = ! empty($gameJamIds) ? GameJam::whereIn('id', $gameJamIds)
                 ->pluck('name')
-                ->toArray();
+                ->toArray() : [];
             $gameJams = ! empty($gameJamNames) ? $gameJamNames : null;
         }
 
@@ -388,25 +388,31 @@ class GamesSearchController extends Controller
 
         // Tags filter - convert tag IDs to tag names for search
         if ($selectedTags) {
-            $tagIds = is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags);
-            // Convert tag IDs to tag names since search index stores names, not IDs
-            $tagNames = Tag::whereIn('id', $tagIds)
-                ->pluck('name')
-                ->toArray();
-            if (! empty($tagNames)) {
-                $filters['tags'] = $tagNames;
+            $tagIds = array_map('intval', is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags));
+            $tagIds = array_filter($tagIds);
+            if (! empty($tagIds)) {
+                // Convert tag IDs to tag names since search index stores names, not IDs
+                $tagNames = Tag::whereIn('id', $tagIds)
+                    ->pluck('name')
+                    ->toArray();
+                if (! empty($tagNames)) {
+                    $filters['tags'] = $tagNames;
+                }
             }
         }
 
         // Game jams filter - convert game jam IDs to game jam names for search
         if ($selectedGameJams) {
-            $gameJamIds = is_array($selectedGameJams) ? $selectedGameJams : explode(',', $selectedGameJams);
-            // Convert game jam IDs to game jam names since search index stores names, not IDs
-            $gameJamNames = GameJam::whereIn('id', $gameJamIds)
-                ->pluck('name')
-                ->toArray();
-            if (! empty($gameJamNames)) {
-                $filters['game_jams'] = $gameJamNames;
+            $gameJamIds = array_map('intval', is_array($selectedGameJams) ? $selectedGameJams : explode(',', $selectedGameJams));
+            $gameJamIds = array_filter($gameJamIds);
+            if (! empty($gameJamIds)) {
+                // Convert game jam IDs to game jam names since search index stores names, not IDs
+                $gameJamNames = GameJam::whereIn('id', $gameJamIds)
+                    ->pluck('name')
+                    ->toArray();
+                if (! empty($gameJamNames)) {
+                    $filters['game_jams'] = $gameJamNames;
+                }
             }
         }
 

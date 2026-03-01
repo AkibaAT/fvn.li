@@ -258,12 +258,12 @@ class VnListController extends Controller
 
     public function publicLists(Request $request): Response
     {
-        $perPage = $request->input('per_page', 8);
+        $perPage = (int) $request->input('per_page', 8);
         $type = $request->input('type', 'all');
-        $page = $request->input('page', 1);
+        $page = (int) $request->input('page', 1);
         $search = $request->input('search', '');
         $sort = $request->input('sort', 'default'); // default, newest, oldest, most_entries
-        $gameId = $request->input('game'); // Filter by game ID
+        $gameId = $request->input('game') ? (int) $request->input('game') : null;
 
         // Load game if filtering by game
         $filterGame = null;
