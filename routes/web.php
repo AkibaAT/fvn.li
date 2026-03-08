@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
+use App\Http\Controllers\FeedController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
@@ -91,6 +92,8 @@ Route::get('/', [HomeController::class, 'home'])
 // Games routes
 Route::get('games', [GamesController::class, 'gamesIndex'])
     ->name('games.index');
+Route::get('games/random', [GamesController::class, 'randomGame'])
+    ->name('games.random');
 Route::get('games/{game:slug}', [GamesController::class, 'gameShow'])
     ->name('games.show')
     ->middleware('track.page.views');
@@ -121,6 +124,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('users.dashboard.version-comparison');
     Route::put('user-progress/{game:id}', [UserGameProgressController::class, 'update'])
         ->name('user-progress.update');
+
+    // User Preferences - Language Preferences
+    Route::get('user/language-preferences', [\App\Http\Controllers\UserPreferencesController::class, 'getLanguagePreferences'])
+        ->name('user.language-preferences.index');
+    Route::put('user/language-preferences', [\App\Http\Controllers\UserPreferencesController::class, 'updateLanguagePreferences'])
+        ->name('user.language-preferences.update');
 
     // User Preferences - Ignored Games
     Route::get('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'getIgnoredGames'])
@@ -211,6 +220,12 @@ Route::get('dialogue/browser/{gameId}/{versionId?}', [DialogueController::class,
 // Ratings domain (React/Inertia) scaffolds
 Route::get('ratings', [RatingsController::class, 'ratingsIndex'])
     ->name('ratings.index');
+Route::get('reviews/{rating}', [RatingsController::class, 'reviewShow'])
+    ->whereNumber('rating')
+    ->name('reviews.show');
+Route::get('users/{user}/reviews', [RatingsController::class, 'userReviews'])
+    ->whereNumber('user')
+    ->name('users.reviews');
 Route::get('raters/{rater}', [RatingsController::class, 'raterShow'])
     ->whereNumber('rater')
     ->name('raters.show');
@@ -231,6 +246,10 @@ Route::middleware('auth')->group(function () {
 // React API JSON for versions moved to react-api.php
 
 // JSON list APIs moved to react-api.php
+
+// RSS Feeds
+Route::get('feed/new', [FeedController::class, 'newGames'])->name('feed.new');
+Route::get('feed/updates', [FeedController::class, 'updatedGames'])->name('feed.updates');
 
 // Click tracking routes (public)
 Route::get('track/link', [App\Http\Controllers\ClickTrackingController::class, 'redirectCustomLink'])

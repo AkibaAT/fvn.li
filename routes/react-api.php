@@ -10,6 +10,8 @@ use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\GameContentController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\MyGamesController;
+use App\Http\Controllers\ReviewReportController;
+use App\Http\Controllers\UserReviewController;
 use App\Http\Controllers\VnListController;
 use App\Http\Middleware\CanEditGame;
 use Illuminate\Support\Facades\Route;
@@ -178,6 +180,22 @@ Route::middleware(['web'])->group(function () {
         // Notifications (persistent)
         Route::get('notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('react-api.notifications.index');
         Route::post('notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('react-api.notifications.read');
+
+        // User Reviews
+        Route::get('user-reviews/{game}', [UserReviewController::class, 'show'])
+            ->whereNumber('game')->name('react-api.user-reviews.show');
+        Route::post('user-reviews/{game}', [UserReviewController::class, 'store'])
+            ->whereNumber('game')->name('react-api.user-reviews.store');
+        Route::delete('user-reviews/{game}', [UserReviewController::class, 'destroy'])
+            ->whereNumber('game')->name('react-api.user-reviews.destroy');
+
+        // Review Reports
+        Route::post('review-reports/{rating}', [ReviewReportController::class, 'store'])
+            ->whereNumber('rating')->name('react-api.review-reports.store');
+        Route::get('review-reports', [ReviewReportController::class, 'index'])
+            ->name('react-api.review-reports.index');
+        Route::post('review-reports/{report}/resolve', [ReviewReportController::class, 'resolve'])
+            ->whereNumber('report')->name('react-api.review-reports.resolve');
 
         // Bug Reports
         Route::post('bug-reports', [BugReportController::class, 'store'])->name('react-api.bug-reports.store');

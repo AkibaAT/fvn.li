@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->prefix('bot')->group(function () {
 Route::middleware('auth:sanctum')->prefix('discord-notifications')->group(function () {
     Route::get('pending', [DiscordNotificationsController::class, 'getPendingNotifications']);
     Route::get('addition-requests', [DiscordNotificationsController::class, 'getPendingAdditionRequests']);
+    Route::get('review-reports', [DiscordNotificationsController::class, 'getPendingReviewReports']);
     Route::post('status', [DiscordNotificationsController::class, 'recordDeliveryStatus']);
 });
 

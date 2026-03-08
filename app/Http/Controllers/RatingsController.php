@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Rater;
+use App\Models\Rating;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -392,6 +394,166 @@ class RatingsController extends Controller
         }
 
         return Inertia::render('raters/show', $props);
+    }
+
+    /**
+     * Show a single review detail page.
+     */
+    public function reviewShow(int $rating): Response
+    {
+        $review = Rating::with([
+            'game:id,name,slug,thumb_url,optimized_thumbnails',
+            'user:id,name,avatar',
+            'rater:id,name,external_platform',
+        ])
+            ->where('is_visible', true)
+            ->findOrFail($rating);
+
+        $reviewData = [
+            'id' => $review->id,
+            'rating' => (int) $review->rating,
+            'review' => $this->sanitizeReview($review->review),
+            'published_at' => $review->published_at?->toISOString(),
+            'is_reviewed' => $review->is_reviewed,
+            'has_spoilers' => (bool) $review->has_spoilers,
+            'event_id' => $review->event_id,
+            'source_platform' => $review->source_platform,
+            'game' => $review->game ? [
+                'id' => $review->game->id,
+                'name' => $review->game->name,
+                'slug' => $review->game->slug,
+                'thumb_url' => $review->game->getThumbnailUrl('small'),
+            ] : null,
+            'user' => $review->user ? [
+                'id' => $review->user->id,
+                'name' => $review->user->name,
+                'avatar' => $review->user->avatar,
+            ] : null,
+            'rater' => $review->rater ? [
+                'id' => $review->rater->id,
+                'name' => $review->rater->name,
+                'external_platform' => $review->rater->external_platform,
+            ] : null,
+        ];
+
+        $authorName = $review->user?->name ?? $review->rater?->name ?? 'Unknown';
+        $gameName = $review->game?->name ?? 'Unknown';
+        $excerpt = $review->review ? mb_substr(strip_tags($review->review), 0, 160) : null;
+
+        return Inertia::render('reviews/show', [
+            'review' => $reviewData,
+            'metaTags' => [
+                'title' => "{$authorName}'s review of {$gameName}",
+                'description' => $excerpt ?? "{$authorName} rated {$gameName} {$review->rating}/5 stars.",
+                'structuredData' => [
+                    '@type' => 'Review',
+                    'itemReviewed' => [
+                        '@type' => 'SoftwareApplication',
+                        'name' => $gameName,
+                        'url' => $review->game ? route('games.show', $review->game->slug) : null,
+                    ],
+                    'author' => [
+                        '@type' => 'Person',
+                        'name' => $authorName,
+                    ],
+                    'reviewRating' => [
+                        '@type' => 'Rating',
+                        'ratingValue' => $review->rating,
+                        'bestRating' => 5,
+                        'worstRating' => 1,
+                    ],
+                    'datePublished' => $review->published_at?->toISOString(),
+                    'reviewBody' => $excerpt,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Show all reviews by a specific user (FVN.li user reviews only).
+     */
+    public function userReviews(Request $request, User $user): Response
+    {
+        $page = max(1, (int) $request->input('page', 1));
+        $perPage = min(50, max(1, (int) $request->input('perPage', 10)));
+        $sortField = $request->input('sortField', 'published_at');
+        $sortDirection = strtolower($request->input('sortDirection', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $allowedSorts = ['published_at', 'rating'];
+        if (! in_array($sortField, $allowedSorts, true)) {
+            $sortField = 'published_at';
+        }
+
+        $query = Rating::where('user_id', $user->id)
+            ->where('is_visible', true)
+            ->whereNotNull('user_id');
+
+        $total = $query->count();
+
+        $reviews = (clone $query)
+            ->with(['game:id,name,slug,thumb_url,optimized_thumbnails'])
+            ->orderBy($sortField, $sortDirection)
+            ->forPage($page, $perPage)
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => (int) $review->rating,
+                    'review' => $this->sanitizeReview($review->review),
+                    'published_at' => $review->published_at?->toISOString(),
+                    'is_reviewed' => $review->is_reviewed,
+                    'has_spoilers' => (bool) $review->has_spoilers,
+                    'game' => $review->game ? [
+                        'id' => $review->game->id,
+                        'name' => $review->game->name,
+                        'slug' => $review->game->slug,
+                        'thumb_url' => $review->game->getThumbnailUrl('small'),
+                    ] : null,
+                ];
+            });
+
+        // Stats
+        $stats = DB::table('ratings')
+            ->where('user_id', $user->id)
+            ->where('is_visible', true)
+            ->select([
+                DB::raw('COUNT(*) as total_ratings'),
+                DB::raw('SUM(CASE WHEN is_reviewed THEN 1 ELSE 0 END) as reviewed_count'),
+                DB::raw('AVG(rating) as average_rating'),
+                DB::raw('COUNT(DISTINCT game_id) as unique_games'),
+            ])
+            ->first();
+
+        return Inertia::render('reviews/user', [
+            'reviewUser' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar' => $user->avatar,
+            ],
+            'reviews' => [
+                'data' => $reviews,
+                'current_page' => $page,
+                'last_page' => $total > 0 ? (int) ceil($total / $perPage) : 1,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
+            'stats' => [
+                'total_ratings' => (int) ($stats->total_ratings ?? 0),
+                'reviewed_count' => (int) ($stats->reviewed_count ?? 0),
+                'average_rating' => round((float) ($stats->average_rating ?? 0), 1),
+                'unique_games' => (int) ($stats->unique_games ?? 0),
+            ],
+            'filters' => [
+                'sortField' => $sortField,
+                'sortDirection' => $sortDirection,
+                'page' => $page,
+                'perPage' => $perPage,
+            ],
+            'metaTags' => [
+                'title' => "{$user->name}'s Reviews",
+                'description' => "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of " . round((float) ($stats->average_rating ?? 0), 1) . '/5.',
+            ],
+        ]);
     }
 
     public function getRatingHistory(Request $request, Rater $rater, Game $game)

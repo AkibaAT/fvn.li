@@ -9,12 +9,18 @@ export interface Review {
   published_at: string;
   is_visible: boolean;
   is_reviewed: boolean;
+  has_spoilers?: boolean;
   event_id?: string;
   rater: {
     id: number;
     name: string;
     external_platform?: string;
   };
+  user?: {
+    id: number;
+    name: string;
+    avatar?: string;
+  } | null;
 }
 
 export interface GamePageLanguage {

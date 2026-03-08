@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {FilterModal} from '@/components/filter-modal';
 import {useGameFilters} from '@/hooks/useGameFilters';
 import {usePlatformIcons, type GameCardPlatform} from '@/hooks/usePlatformIcons';
@@ -9,6 +9,7 @@ import GamesGrid from '@/components/games/GamesGrid';
 import PaginationControls from '@/components/games/PaginationControls';
 import type {CurrentFilters, FilterOptions} from '@/types';
 import SeoHead, {type MetaTags as SeoMetaTags} from '@/components/seo/SeoHead';
+import {router} from '@inertiajs/react';
 
 // No-op placeholder: Collapsible sections were removed; keep UI flat for now
 
@@ -46,6 +47,8 @@ interface GamesIndexGame {
     is_web?: boolean;
     platform?: 'itch_io' | 'steam' | 'other';
     english_word_count?: number;
+    primary_word_count?: number | null;
+    primary_language_label?: string | null;
     trending_score?: number;
     initially_published_at?: string;
     latest_version_published_at?: string;
@@ -134,6 +137,24 @@ export default function GamesIndex({
         setLocalIgnoredGameIds(newIgnoredGameIds);
     };
 
+    const [isRandomLoading, setIsRandomLoading] = useState(false);
+
+    // Navigate to a random game
+    const handleRandomGame = useCallback(async () => {
+        setIsRandomLoading(true);
+        try {
+            const response = await fetch(route('games.random'));
+            const data = await response.json();
+            if (data.slug) {
+                router.visit(route('games.show', {game: data.slug}));
+            }
+        } catch {
+            // Silently fail - the button will just stop loading
+        } finally {
+            setIsRandomLoading(false);
+        }
+    }, []);
+
     // Normalize pagination meta in case backend shape varies or meta is missing
     const resolveGamesMeta = () => {
         const rawMeta: PaginationMeta =
@@ -205,6 +226,10 @@ export default function GamesIndex({
                 return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300';
             case 'sale':
                 return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
+            case 'excludeTag':
+                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+            case 'readingTime':
+                return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300';
             case 'delisted':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
             case 'hidden':
@@ -272,8 +297,21 @@ export default function GamesIndex({
                         {/* Visual Separator */}
                         <div className="hidden lg:block h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
 
-                        {/* Section 3: Filters Button */}
-                        <div className="flex items-center">
+                        {/* Section 3: Quick Filters + Filters Button */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Random Game Button */}
+                            <button
+                                onClick={handleRandomGame}
+                                disabled={isRandomLoading}
+                                className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <svg className={`h-3.5 w-3.5 ${isRandomLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {isRandomLoading ? 'Loading...' : "I'm Feeling Lucky"}
+                            </button>
+
+                            {/* Filters Button */}
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
                                 className="cursor-pointer inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -384,6 +422,24 @@ export default function GamesIndex({
                                 </label>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Default Language Preferences Info Bar */}
+                {currentFilters.usingDefaultLanguages && (
+                    <div className="flex items-center justify-between rounded-lg border border-indigo-300 bg-indigo-50 p-3 dark:border-indigo-600 dark:bg-indigo-900/30">
+                        <div className="flex items-center gap-2 text-sm text-indigo-700 dark:text-indigo-300">
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            <span>Showing games in your preferred languages.</span>
+                        </div>
+                        <button
+                            onClick={() => updateFilters({selectedLanguages: [], noDefaults: true})}
+                            className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                        >
+                            Show all
+                        </button>
                     </div>
                 )}
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdditionRequest;
 use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
+use App\Models\ReviewReport;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -282,6 +283,70 @@ class DiscordNotificationsController extends Controller
             Log::error('Error fetching pending addition requests for Discord', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * Get pending review report notifications for Discord.
+     */
+    public function getPendingReviewReports(): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $reports = ReviewReport::with(['rating.game:id,name,slug', 'rating.user:id,name', 'rating.rater:id,name', 'reporter:id,name'])
+                ->where('status', 'pending')
+                ->whereNull('discord_notified_at')
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->lockForUpdate()
+                ->get();
+
+            if ($reports->isEmpty()) {
+                DB::commit();
+
+                return response()->json([
+                    'notifications' => [],
+                    'count' => 0,
+                ]);
+            }
+
+            ReviewReport::whereIn('id', $reports->pluck('id'))
+                ->update(['discord_notified_at' => now()]);
+
+            DB::commit();
+
+            $notifications = $reports->map(function ($report) {
+                $reviewAuthor = $report->rating?->user?->name ?? $report->rating?->rater?->name ?? 'Unknown';
+
+                return [
+                    'id' => $report->id,
+                    'reason' => ReviewReport::REASONS[$report->reason] ?? $report->reason,
+                    'details' => $report->details,
+                    'reporter' => $report->reporter?->name ?? 'Unknown',
+                    'review_author' => $reviewAuthor,
+                    'game_name' => $report->rating?->game?->name ?? 'Unknown',
+                    'game_slug' => $report->rating?->game?->slug,
+                    'review_excerpt' => $report->rating?->review
+                        ? mb_substr(strip_tags($report->rating->review), 0, 200)
+                        : null,
+                    'created_at' => $report->created_at->toISOString(),
+                    'admin_panel_url' => config('app.url') . '/admin/review-reports/' . $report->id,
+                ];
+            });
+
+            return response()->json([
+                'notifications' => $notifications,
+                'count' => $notifications->count(),
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Error fetching pending review reports for Discord', [
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json(['error' => 'Internal server error'], 500);

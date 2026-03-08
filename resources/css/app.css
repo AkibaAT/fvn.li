@@ -2,6 +2,7 @@
 @import './flag-icons.css';
 @import './themes/variables.css';
 @import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -22,6 +23,13 @@
     ::backdrop,
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
+    }
+
+    button,
+    [role="button"],
+    a[href],
+    summary {
+        cursor: pointer;
     }
 }
 

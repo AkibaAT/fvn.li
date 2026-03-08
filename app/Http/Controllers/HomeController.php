@@ -91,6 +91,7 @@ class HomeController extends Controller
             // Load relationships to prevent N+1 queries
             $paginator->load([
                 'tags',
+                'sourceLanguage',
                 'latestVersion.supportedLanguages.language',
                 'latestVersion.languageStats',
             ]);
@@ -133,14 +134,28 @@ class HomeController extends Controller
                     $game->supported_languages = collect();
                 }
 
-                // Set english_word_count from the latest version (same pattern as supported_languages)
+                // Set word counts from the latest version
                 if ($game->latestVersion) {
                     $englishStats = $game->latestVersion->languageStats
                         ->where('iso_code', 'eng')
                         ->first();
                     $game->english_word_count = $englishStats?->words;
+
+                    // Set primary word count and language label
+                    $sourceLanguageId = $game->source_language_id ?? 'eng';
+                    if ($sourceLanguageId !== 'eng') {
+                        $primaryStats = $game->latestVersion->languageStats
+                            ->where('iso_code', $sourceLanguageId)
+                            ->first();
+                        $game->primary_word_count = $primaryStats?->words;
+                    } else {
+                        $game->primary_word_count = $game->english_word_count;
+                    }
+                    $game->primary_language_label = $game->getPrimaryLanguageLabel();
                 } else {
                     $game->english_word_count = null;
+                    $game->primary_word_count = null;
+                    $game->primary_language_label = 'EN';
                 }
             }
         }

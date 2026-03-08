@@ -18,10 +18,12 @@ class Rating extends Model
         'event_id',
         'game_id',
         'rater_id',
+        'user_id',
         'rating',
         'review',
         'is_visible',
         'is_reviewed',
+        'has_spoilers',
         'external_id',
         'source_platform',
         'external_metadata',
@@ -32,6 +34,7 @@ class Rating extends Model
         'rating' => 'float',
         'is_visible' => 'boolean',
         'is_reviewed' => 'boolean',
+        'has_spoilers' => 'boolean',
         'external_metadata' => 'array',
     ];
 
@@ -45,6 +48,19 @@ class Rating extends Model
         return $this->belongsTo(Rater::class);
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Check if this is a user-submitted review (vs imported).
+     */
+    public function isUserReview(): bool
+    {
+        return $this->user_id !== null;
+    }
+
     /**
      * Get the indexable data array for the model.
      */
@@ -52,7 +68,7 @@ class Rating extends Model
     {
         // Load relationships if not already loaded
         if (! $this->relationLoaded('game') || ! $this->relationLoaded('rater')) {
-            $this->load(['game', 'rater']);
+            $this->load(['game', 'rater', 'user']);
         }
 
         return [
@@ -69,6 +85,10 @@ class Rating extends Model
             // Rater data
             'rater_id' => $this->rater_id,
             'rater_name' => $this->rater?->name,
+
+            // User data (for user-submitted reviews)
+            'user_id' => $this->user_id,
+            'user_name' => $this->user?->name,
 
             // Event and timing
             'event_id' => $this->event_id,

@@ -70,6 +70,26 @@ class MeilisearchService
             }
         }
 
+        // Exclude specific tags (NOT filter)
+        if (! empty($filters['excluded_tags'])) {
+            foreach ((array) $filters['excluded_tags'] as $tag) {
+                $search->where('tags', '!=', $tag);
+            }
+        }
+
+        // Reading time filter based on english_word_count
+        if (! empty($filters['reading_time'])) {
+            match ($filters['reading_time']) {
+                'short' => $search->where('english_word_count', '<', 10000),
+                'medium' => (function () use ($search) {
+                    $search->where('english_word_count', '>=', 10000);
+                    $search->where('english_word_count', '<=', 50000);
+                })(),
+                'long' => $search->where('english_word_count', '>', 50000),
+                default => null,
+            };
+        }
+
         if (! empty($filters['game_jams'])) {
             foreach ((array) $filters['game_jams'] as $gameJam) {
                 $search->where('game_jams', $gameJam);
@@ -77,8 +97,11 @@ class MeilisearchService
         }
 
         if (! empty($filters['supported_languages'])) {
-            foreach ((array) $filters['supported_languages'] as $language) {
-                $search->where('supported_languages', $language);
+            $languages = (array) $filters['supported_languages'];
+            if (count($languages) === 1) {
+                $search->where('supported_languages', $languages[0]);
+            } else {
+                $search->whereIn('supported_languages', $languages);
             }
         }
 

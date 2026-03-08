@@ -34,6 +34,8 @@ class GamesSearchController extends Controller
         $selectedLanguages = $request->get('selectedLanguages');
         $selectedGameJams = $request->get('selectedGameJams');
         $selectedTags = $request->get('selectedTags');
+        $excludedTags = $request->get('excludedTags');
+        $readingTime = $request->get('readingTime');
 
         // Smart default sorting: relevance for search, date for browsing
         $isSearching = ! empty(trim($search ?? ''));
@@ -42,8 +44,18 @@ class GamesSearchController extends Controller
         $sortDirection = $request->get('direction', 'desc');
         $perPage = min(32, max(8, (int) $request->get('perPage', 8)));
 
+        // Apply default language preferences if no explicit language filter is set
+        $usingDefaultLanguages = false;
+        if (! $request->has('selectedLanguages') && ! $request->has('noDefaults') && Auth::check()) {
+            $userPreferences = Auth::user()->preferences;
+            if ($userPreferences && ! empty($userPreferences->preferred_languages)) {
+                $selectedLanguages = $userPreferences->preferred_languages;
+                $usingDefaultLanguages = true;
+            }
+        }
+
         // Build filters
-        $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags);
+        $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags, $excludedTags, $readingTime);
 
         // Get ignored game IDs for authenticated users (unless they want to show ignored)
         $allIgnoredGameIds = [];
@@ -98,6 +110,7 @@ class GamesSearchController extends Controller
             // Load relationships to prevent N+1 queries
             $games->load([
                 'tags',
+                'sourceLanguage',
                 'latestVersion.supportedLanguages.language',
                 'latestVersion.languageStats',
             ]);
@@ -146,8 +159,22 @@ class GamesSearchController extends Controller
                         ->where('iso_code', 'eng')
                         ->first();
                     $game->english_word_count = $englishStats?->words;
+
+                    // Set primary word count and language label
+                    $sourceLanguageId = $game->source_language_id ?? 'eng';
+                    if ($sourceLanguageId !== 'eng') {
+                        $primaryStats = $game->latestVersion->languageStats
+                            ->where('iso_code', $sourceLanguageId)
+                            ->first();
+                        $game->primary_word_count = $primaryStats?->words;
+                    } else {
+                        $game->primary_word_count = $game->english_word_count;
+                    }
+                    $game->primary_language_label = $game->getPrimaryLanguageLabel();
                 } else {
                     $game->english_word_count = null;
+                    $game->primary_word_count = null;
+                    $game->primary_language_label = 'EN';
                 }
             }
         }
@@ -210,6 +237,8 @@ class GamesSearchController extends Controller
                 'selectedLanguages' => is_array($selectedLanguages) ? $selectedLanguages : [],
                 'selectedGameJams' => is_array($selectedGameJams) ? $selectedGameJams : [],
                 'selectedTags' => is_array($selectedTags) ? $selectedTags : [],
+                'excludedTags' => is_array($excludedTags) ? $excludedTags : [],
+                'readingTime' => $readingTime ?: '',
                 'nsfw' => $request->boolean('nsfw'),
                 'sfw' => $request->boolean('sfw'),
                 'showPaid' => $request->boolean('showPaid'),
@@ -222,6 +251,7 @@ class GamesSearchController extends Controller
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
                 'page' => $games->currentPage(),
+                'usingDefaultLanguages' => $usingDefaultLanguages,
             ],
             'filters' => $filterOptions,
             'metaTags' => $metaTags,
@@ -345,9 +375,28 @@ class GamesSearchController extends Controller
     }
 
     /**
+     * Return a random visible game slug for the "I'm Feeling Lucky" feature
+     */
+    public function randomGame(): JsonResponse
+    {
+        $game = Game::query()
+            ->where('is_visible', true)
+            ->where('is_delisted', false)
+            ->whereNotNull('slug')
+            ->inRandomOrder()
+            ->first(['slug']);
+
+        if (! $game) {
+            return response()->json(['error' => 'No games found'], 404);
+        }
+
+        return response()->json(['slug' => $game->slug]);
+    }
+
+    /**
      * Build search filters from request parameters
      */
-    private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags): array
+    private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags, $excludedTags = null, $readingTime = null): array
     {
         $filters = [];
 
@@ -399,6 +448,30 @@ class GamesSearchController extends Controller
                     $filters['tags'] = $tagNames;
                 }
             }
+        }
+
+        // Excluded tags filter - convert tag IDs to tag names for search
+        if ($excludedTags) {
+            $excludedTagIds = array_map('intval', is_array($excludedTags) ? $excludedTags : explode(',', $excludedTags));
+            $excludedTagIds = array_filter($excludedTagIds);
+            if (! empty($excludedTagIds)) {
+                $excludedTagNames = Tag::whereIn('id', $excludedTagIds)
+                    ->pluck('name')
+                    ->toArray();
+                if (! empty($excludedTagNames)) {
+                    $filters['excluded_tags'] = $excludedTagNames;
+                }
+            }
+        }
+
+        // Reading time filter based on english_word_count
+        if ($readingTime) {
+            match ($readingTime) {
+                'short' => $filters['reading_time'] = 'short',     // < 10,000 words
+                'medium' => $filters['reading_time'] = 'medium',   // 10,000 - 50,000 words
+                'long' => $filters['reading_time'] = 'long',       // > 50,000 words
+                default => null,
+            };
         }
 
         // Game jams filter - convert game jam IDs to game jam names for search
@@ -468,6 +541,7 @@ class GamesSearchController extends Controller
 
         $query->with([
             'tags',
+            'sourceLanguage',
             'latestVersion.supportedLanguages.language',
             'latestVersion.languageStats',
         ])
@@ -534,8 +608,22 @@ class GamesSearchController extends Controller
                         ->where('iso_code', 'eng')
                         ->first();
                     $game->english_word_count = $englishStats?->words;
+
+                    // Set primary word count and language label
+                    $sourceLanguageId = $game->source_language_id ?? 'eng';
+                    if ($sourceLanguageId !== 'eng') {
+                        $primaryStats = $game->latestVersion->languageStats
+                            ->where('iso_code', $sourceLanguageId)
+                            ->first();
+                        $game->primary_word_count = $primaryStats?->words;
+                    } else {
+                        $game->primary_word_count = $game->english_word_count;
+                    }
+                    $game->primary_language_label = $game->getPrimaryLanguageLabel();
                 } else {
                     $game->english_word_count = null;
+                    $game->primary_word_count = null;
+                    $game->primary_language_label = 'EN';
                 }
             }
         }

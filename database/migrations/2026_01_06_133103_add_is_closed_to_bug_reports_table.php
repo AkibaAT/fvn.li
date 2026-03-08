@@ -9,9 +9,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('bug_reports', function (Blueprint $table) {
@@ -27,9 +24,6 @@ return new class extends Migration
             ]);
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         // Convert is_closed back to status = 'closed'

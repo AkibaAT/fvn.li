@@ -121,6 +121,8 @@ interface DashboardProps {
     recentRequests: AdditionRequest[];
     ignoredGames: IgnoredGame[];
     ignoredGamesCount: number;
+    languagePreferences: string[];
+    availableLanguages: Record<string, { ref_name: string; flag_code: string }>;
     activeBugReports?: BugReport[];
     totalUnreadBugReportReplies?: number;
     metaTags?: {
@@ -141,6 +143,8 @@ export default function Dashboard({
                                       recentRequests: recentRequestsInitial,
                                       ignoredGames: ignoredGamesInitial,
                                       ignoredGamesCount: ignoredGamesCountInitial,
+                                      languagePreferences: languagePreferencesInitial,
+                                      availableLanguages,
                                       activeBugReports: activeBugReportsInitial,
                                       totalUnreadBugReportReplies: totalUnreadInitial,
                                       metaTags,
@@ -154,6 +158,8 @@ export default function Dashboard({
     const [itchioData] = useState(itchioDataInitial);
     const [ignoredGames, setIgnoredGames] = useState<IgnoredGame[]>(ignoredGamesInitial || []);
     const [ignoredGamesCount, setIgnoredGamesCount] = useState(ignoredGamesCountInitial || 0);
+    const [selectedLanguages, setSelectedLanguages] = useState<string[]>(languagePreferencesInitial || []);
+    const [savingLanguages, setSavingLanguages] = useState(false);
 
     // Bug report state
     const [bugReports, setBugReports] = useState<BugReport[]>(activeBugReportsInitial || []);
@@ -561,6 +567,35 @@ export default function Dashboard({
         } catch (error) {
             console.error('Failed to unignore game:', error);
             toast.error('Failed to remove game from ignore list');
+        }
+    };
+
+    const toggleLanguagePreference = (isoCode: string) => {
+        setSelectedLanguages(prev =>
+            prev.includes(isoCode)
+                ? prev.filter(l => l !== isoCode)
+                : [...prev, isoCode]
+        );
+    };
+
+    const saveLanguagePreferences = async () => {
+        setSavingLanguages(true);
+        try {
+            const response = await authenticatedFetch(route('user.language-preferences.update'), {
+                method: 'PUT',
+                body: JSON.stringify({ preferred_languages: selectedLanguages }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                toast.success('Language preferences saved');
+            } else {
+                toast.error(data.message || 'Failed to save language preferences');
+            }
+        } catch (error) {
+            console.error('Failed to save language preferences:', error);
+            toast.error('Failed to save language preferences');
+        } finally {
+            setSavingLanguages(false);
         }
     };
 
@@ -1691,26 +1726,48 @@ export default function Dashboard({
                                 </div>
                             )}
 
-                            <Link
-                                href={route('my-games.index')}
-                                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
+                            <div className="flex flex-wrap gap-2">
+                                <Link
+                                    href={route('my-games.index')}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
                                 >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                                    />
-                                </svg>
-                                <span>Manage My Games</span>
-                            </Link>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                                        />
+                                    </svg>
+                                    <span>Manage My Games</span>
+                                </Link>
+                                <Link
+                                    href={route('users.reviews', user.id)}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                        />
+                                    </svg>
+                                    <span>My Reviews</span>
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1727,6 +1784,70 @@ export default function Dashboard({
                             >
                         }
                     />
+
+                    {/* Language Preferences Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Language Preferences
+                                </h2>
+                                {selectedLanguages.length > 0 && (
+                                    <span className="rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                        {selectedLanguages.length} selected
+                                    </span>
+                                )}
+                            </div>
+
+                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                                Set your preferred languages to auto-filter the games list. When set, the games page will show only games available in these languages by default.
+                            </p>
+
+                            <div className="mb-4 flex flex-wrap gap-2">
+                                {Object.entries(availableLanguages || {}).map(([isoCode, lang]) => {
+                                    const isSelected = selectedLanguages.includes(isoCode);
+                                    return (
+                                        <button
+                                            key={isoCode}
+                                            onClick={() => toggleLanguagePreference(isoCode)}
+                                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                                                isSelected
+                                                    ? 'border-indigo-500 bg-indigo-100 text-indigo-800 dark:border-indigo-400 dark:bg-indigo-900/40 dark:text-indigo-300'
+                                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                            }`}
+                                        >
+                                            {lang.flag_code && (
+                                                <img
+                                                    src={`https://flagcdn.com/16x12/${lang.flag_code}.png`}
+                                                    alt=""
+                                                    className="h-3 w-4"
+                                                />
+                                            )}
+                                            {lang.ref_name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={saveLanguagePreferences}
+                                    disabled={savingLanguages}
+                                    className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                                >
+                                    {savingLanguages ? 'Saving...' : 'Save Preferences'}
+                                </button>
+                                {selectedLanguages.length > 0 && (
+                                    <button
+                                        onClick={() => setSelectedLanguages([])}
+                                        className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    >
+                                        Clear All
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Ignored Games Section */}
                     <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">

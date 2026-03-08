@@ -13,9 +13,11 @@ import PlatformLink from '@/components/game-card/PlatformLink';
 import PlatformIcon from '@/components/ui/platform-icon';
 
 import DownloadsList from '@/components/games/DownloadsList';
+import UserReviewForm, {type UserReviewFormHandle} from '@/components/games/UserReviewForm';
+import ReportReviewModal from '@/components/games/ReportReviewModal';
 import ReviewTextControls, {useReviewTextStyles} from '@/components/review-text-controls';
 import {Link, usePage} from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { type OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
 import SeoHead, {type MetaTags, createGameMetaTags} from '@/components/seo/SeoHead';
@@ -129,6 +131,12 @@ interface Rater {
     external_platform?: string;
 }
 
+interface ReviewUser {
+    id: number;
+    name: string;
+    avatar?: string;
+}
+
 interface Review {
     id: number;
     rating: number;
@@ -136,8 +144,19 @@ interface Review {
     published_at: string;
     is_visible: boolean;
     is_reviewed: boolean;
+    has_spoilers?: boolean;
     event_id?: string;
     rater: Rater;
+    user?: ReviewUser | null;
+}
+
+interface UserReview {
+    id: number;
+    rating: number;
+    review: string;
+    has_spoilers: boolean;
+    published_at: string;
+    updated_at: string;
 }
 
 interface Game {
@@ -256,12 +275,33 @@ interface PublicList {
     };
 }
 
+interface SimilarGame {
+    id: number;
+    name: string;
+    slug: string;
+    thumb_url?: string;
+    authors?: string;
+    rating_score?: number;
+    rating_count?: number;
+    status?: string;
+    platform?: string;
+}
+
+interface EstimatedReadingTime {
+    hours: number;
+    minutes: number;
+    total_minutes: number;
+    word_count: number;
+}
+
 interface GameShowProps {
     game: Game;
     reviews?: Paginated<Review>;
     gameVersions?: Paginated<GameVersion>;
     supportedLanguages?: SupportedLanguage[];
     englishStats?: LanguageStats;
+    primaryStats?: LanguageStats;
+    primaryLanguageLabel?: string;
     versionCharacterCounts?: Record<number, number>;
     versionHasFileStats?: Record<number, boolean>;
     versionHasDialogueLines?: Record<number, boolean>;
@@ -277,9 +317,78 @@ interface GameShowProps {
     clickStats?: ClickStats;
     dailyStats?: DailyStats[];
     editPermissions?: EditPermissions;
+    userReview?: UserReview | null;
     publicLists?: PublicList[];
     publicListsCount?: number;
+    similarGames?: SimilarGame[];
+    developerGames?: SimilarGame[];
+    estimatedReadingTime?: EstimatedReadingTime | null;
     metaTags?: MetaTags;
+}
+
+const REVIEW_COLLAPSE_HEIGHT = 200; // px – reviews taller than this get collapsed
+
+function CollapsibleReview({ html, reviewStyles }: { html: string; reviewStyles: React.CSSProperties }) {
+    const contentRef = useRef<HTMLDivElement>(null);
+    const [isOverflowing, setIsOverflowing] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+
+    useEffect(() => {
+        const el = contentRef.current;
+        if (el) {
+            setIsOverflowing(el.scrollHeight > REVIEW_COLLAPSE_HEIGHT);
+        }
+    }, [html]);
+
+    return (
+        <div>
+            <div
+                ref={contentRef}
+                className={`relative overflow-hidden transition-[max-height] duration-300 ease-in-out ${!expanded && isOverflowing ? '' : ''}`}
+                style={{ maxHeight: !expanded && isOverflowing ? `${REVIEW_COLLAPSE_HEIGHT}px` : undefined }}
+            >
+                <div
+                    className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
+                    style={reviewStyles}
+                >
+                    <div dangerouslySetInnerHTML={{ __html: html }} />
+                </div>
+                {!expanded && isOverflowing && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white dark:from-gray-800" />
+                )}
+            </div>
+            {isOverflowing && (
+                <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="mt-1 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                    {expanded ? 'Show less' : 'Read more'}
+                </button>
+            )}
+        </div>
+    );
+}
+
+function SpoilerReview({ review, reviewStyles }: { review: string; reviewStyles: React.CSSProperties }) {
+    const [revealed, setRevealed] = useState(false);
+    return revealed ? (
+        <div>
+            <span className="mr-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                Spoilers
+            </span>
+            <CollapsibleReview html={review} reviewStyles={reviewStyles} />
+        </div>
+    ) : (
+        <button
+            onClick={() => setRevealed(true)}
+            className="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 transition-colors hover:bg-yellow-100 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/50"
+        >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            This review contains spoilers — click to reveal
+        </button>
+    );
 }
 
 export default function GameShow({
@@ -288,6 +397,8 @@ export default function GameShow({
                                      gameVersions,
                                      supportedLanguages,
                                      englishStats,
+                                     primaryStats,
+                                     primaryLanguageLabel,
                                      versionCharacterCounts = {},
                                      versionHasFileStats = {},
                                      versionHasDialogueLines = {},
@@ -308,13 +419,19 @@ export default function GameShow({
                                          isOwner: false,
                                          isAdmin: false,
                                      },
+                                     userReview = null,
                                      publicLists = [],
                                      publicListsCount = 0,
+                                     similarGames = [],
+                                     developerGames = [],
+                                     estimatedReadingTime = null,
                                      metaTags,
                                  }: GameShowProps) {
     // SSR-safe auth detection via Inertia props
-    const {auth} = (usePage().props as { auth?: { user?: unknown } }) ?? {};
+    const {auth} = (usePage().props as { auth?: { user?: { id: number } | null } }) ?? {};
     const isAuthenticated = Boolean(auth?.user);
+    const currentUserId = (auth?.user as { id: number } | null)?.id ?? null;
+    const reviewFormRef = useRef<UserReviewFormHandle>(null);
     // Helper function to format bytes
     const formatBytes = (bytes: number): string => {
         if (bytes === 0) return '0 B';
@@ -370,6 +487,11 @@ export default function GameShow({
     const uploadThumbnailMutation = useUploadThumbnail();
     const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
     const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+
+    // Report modal state
+    const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
+    const [reportingReviewerName, setReportingReviewerName] = useState('');
+    const [copiedReviewId, setCopiedReviewId] = useState<number | null>(null);
 
     // Use the review text styles hook
     const reviewStyles = useReviewTextStyles();
@@ -648,6 +770,31 @@ export default function GameShow({
         return () => document.removeEventListener('click', handleDialogClick);
     }, [showCharacterStats, showFileStats]);
 
+    // Scroll to review anchor from URL hash (e.g. #review-123)
+    useEffect(() => {
+        const hash = window.location.hash;
+        if (hash?.startsWith('#review-')) {
+            // Small delay to ensure reviews are rendered
+            setTimeout(() => {
+                const el = document.getElementById(hash.slice(1));
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('bg-blue-50', 'dark:bg-blue-900/20', 'rounded-lg', 'transition-colors');
+                    setTimeout(() => el.classList.remove('bg-blue-50', 'dark:bg-blue-900/20'), 3000);
+                }
+            }, 500);
+        }
+
+        // Auto-open edit form when navigating from review detail page
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('editReview') === '1') {
+            setTimeout(() => {
+                reviewFormRef.current?.startEditing();
+                document.getElementById('user-review-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }, []);
+
     const getPlatformIcon = (platform: string) => {
         const platformConfigs = {
             windows: {icon: 'icon-windows', color: 'text-platform-windows'},
@@ -685,41 +832,23 @@ export default function GameShow({
 
     function TagsSection({
                              tags,
-                             customTags,
                          }: {
         tags: Array<{ id: number; name: string }>;
-        customTags: string;
     }) {
         return (
-            <div>
-                <div className="flex flex-wrap items-center gap-2">
-                    {tags.map((tag) => (
-                        <Link
-                            key={tag.id}
-                            href={route('games.index', {
-                                selectedTags: [tag.id],
-                            })}
-                            className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >
-                            {tag.name}
-                        </Link>
-                    ))}
-                </div>
-                {customTags && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {customTags.split(',').map((raw, idx) => {
-                            const t = raw.trim();
-                            return t ? (
-                                <span
-                                    key={idx}
-                                    className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                                >
-                                    {t}
-                                </span>
-                            ) : null;
+            <div className="flex flex-wrap items-center gap-2">
+                {tags.map((tag) => (
+                    <Link
+                        key={tag.id}
+                        href={route('games.index', {
+                            selectedTags: [tag.id],
+                            noDefaults: true,
                         })}
-                    </div>
-                )}
+                        className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    >
+                        {tag.name}
+                    </Link>
+                ))}
             </div>
         );
     }
@@ -826,6 +955,14 @@ export default function GameShow({
                     >
                         Reviews
                     </a>
+                    {similarGames && similarGames.length > 0 && (
+                        <a
+                            href="#similar-games"
+                            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                        >
+                            Similar
+                        </a>
+                    )}
                 </nav>
             </div>
 
@@ -1080,12 +1217,24 @@ export default function GameShow({
                                         value: game.latest_version?.version || '-',
                                     },
                                     {
-                                        label: 'Word Count (English)',
+                                        label: `Word Count (${primaryLanguageLabel || 'EN'})`,
                                         value:
-                                            typeof englishStats?.words === 'number' &&
-                                            englishStats.words > 0
-                                                ? englishStats.words.toLocaleString()
+                                            typeof primaryStats?.words === 'number' &&
+                                            primaryStats.words > 0
+                                                ? primaryStats.words.toLocaleString() +
+                                                  (primaryLanguageLabel && primaryLanguageLabel !== 'EN' &&
+                                                   typeof englishStats?.words === 'number' && englishStats.words > 0
+                                                      ? ` (EN: ${englishStats.words.toLocaleString()})`
+                                                      : '')
                                                 : '-',
+                                    },
+                                    {
+                                        label: 'Est. Reading Time',
+                                        value: estimatedReadingTime
+                                            ? estimatedReadingTime.hours > 0
+                                                ? `~${estimatedReadingTime.hours} hr ${estimatedReadingTime.minutes} min`
+                                                : `~${estimatedReadingTime.minutes} min`
+                                            : '-',
                                     },
                                     {
                                         label: 'Price',
@@ -1164,7 +1313,6 @@ export default function GameShow({
                         <div className="overflow-hidden">
                             <TagsSection
                                 tags={game.tags || []}
-                                customTags={game.custom_tags || ''}
                             />
                         </div>
                     </div>
@@ -1778,6 +1926,16 @@ export default function GameShow({
                 <ReviewTextControls />
             </div>
 
+            {/* User Review Form */}
+            <div id="user-review-form">
+                <UserReviewForm
+                    ref={reviewFormRef}
+                    gameId={game.id}
+                    gameName={game.effective_name || game.name}
+                    initialReview={userReview}
+                />
+            </div>
+
             {/* Reviews Section */}
             <div
                 id="reviews"
@@ -1843,19 +2001,35 @@ export default function GameShow({
                             filteredReviews.map((review) => (
                                 <div
                                     key={review.id}
+                                    id={`review-${review.id}`}
                                     className="border-b border-gray-200 pb-6 last:border-0 dark:border-gray-700"
                                 >
                                     <div className="mb-2 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <span className="font-medium text-gray-900 dark:text-gray-100">
-                                                <Link
-                                                    href={`/raters/${review.rater.id}`}
-                                                    className="hover:underline"
-                                                >
-                                                    {review.rater.name}
-                                                </Link>
+                                                {review.user ? (
+                                                    <Link
+                                                        href={route('users.reviews', review.user.id)}
+                                                        className="flex items-center gap-1 hover:underline"
+                                                    >
+                                                        {review.user.avatar && (
+                                                            <img src={review.user.avatar} alt="" className="h-5 w-5 rounded-full" />
+                                                        )}
+                                                        {review.user.name}
+                                                        <span className="ml-1 rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                                            FVN.li
+                                                        </span>
+                                                    </Link>
+                                                ) : (
+                                                    <Link
+                                                        href={`/raters/${review.rater.id}`}
+                                                        className="hover:underline"
+                                                    >
+                                                        {review.rater.name}
+                                                    </Link>
+                                                )}
                                             </span>
-                                            {review.rater.external_platform && (
+                                            {!review.user && review.rater.external_platform && (
                                                 <PlatformIcon platform={review.rater.external_platform} />
                                             )}
                                             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -1897,20 +2071,70 @@ export default function GameShow({
                                                     <i className="icon-external-link h-4 w-4"></i>
                                                 </a>
                                             )}
+                                            {review.user && (
+                                                <button
+                                                    onClick={() => {
+                                                        const url = route('reviews.show', review.id);
+                                                        const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
+                                                        navigator.clipboard.writeText(fullUrl).then(() => {
+                                                            setCopiedReviewId(review.id);
+                                                            setTimeout(() => setCopiedReviewId(null), 2000);
+                                                        });
+                                                    }}
+                                                    className="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
+                                                    title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
+                                                >
+                                                    {copiedReviewId === review.id ? (
+                                                        <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            )}
+                                            {review.user && currentUserId === review.user.id && (
+                                                <button
+                                                    onClick={() => {
+                                                        reviewFormRef.current?.startEditing();
+                                                        document.getElementById('user-review-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                    }}
+                                                    className="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
+                                                    title="Edit your review"
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                            {isAuthenticated && review.user?.id !== currentUserId && (
+                                                <button
+                                                    onClick={() => {
+                                                        setReportingReviewId(review.id);
+                                                        setReportingReviewerName(review.user?.name || review.rater.name);
+                                                    }}
+                                                    className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+                                                    title="Report review"
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
                                     {review.review &&
                                         (!showAllRatings ||
                                             review.is_reviewed) && (
-                                            <div
-                                                className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300"
-                                                style={reviewStyles}>
-                                                <div
-                                                    dangerouslySetInnerHTML={{
-                                                        __html: review.review,
-                                                    }}
-                                                />
+                                            <div>
+                                                {review.has_spoilers ? (
+                                                    <SpoilerReview review={review.review} reviewStyles={reviewStyles} />
+                                                ) : (
+                                                    <CollapsibleReview html={review.review} reviewStyles={reviewStyles} />
+                                                )}
                                             </div>
                                         )}
                                 </div>
@@ -1930,6 +2154,117 @@ export default function GameShow({
                 />
             </div>
 
+            {/* Similar Games */}
+            {similarGames && similarGames.length > 0 && (
+                <div id="similar-games" className="mt-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+                    <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        Similar Games
+                    </h2>
+                    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                        {similarGames.map((sg) => (
+                            <Link
+                                key={sg.id}
+                                href={route('games.show', sg.slug)}
+                                className="group flex w-44 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200/50 bg-white/70 shadow transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700/50 dark:bg-gray-800/70"
+                            >
+                                {sg.thumb_url ? (
+                                    <img
+                                        src={sg.thumb_url}
+                                        alt={sg.name}
+                                        className="h-24 w-full object-cover"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <div className="flex h-24 w-full items-center justify-center bg-gray-200 dark:bg-gray-700">
+                                        <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                )}
+                                <div className="flex flex-1 flex-col p-3">
+                                    <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
+                                        {sg.name}
+                                    </h3>
+                                    {sg.authors && (
+                                        <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {sg.authors}
+                                        </p>
+                                    )}
+                                    <div className="mt-auto flex items-center gap-2 pt-2">
+                                        {typeof sg.rating_score === 'number' && sg.rating_score > 0 && (
+                                            <span className="flex items-center gap-0.5 text-xs text-yellow-600 dark:text-yellow-400">
+                                                <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                                {sg.rating_score.toFixed(1)}
+                                            </span>
+                                        )}
+                                        {sg.status && (
+                                            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                {sg.status}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Developer's Other Games */}
+            {developerGames && developerGames.length > 0 && (
+                <div className="mt-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+                    <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        More by This Developer
+                    </h2>
+                    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                        {developerGames.map((dg) => (
+                            <Link
+                                key={dg.id}
+                                href={route('games.show', dg.slug)}
+                                className="group flex w-36 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200/50 bg-white/70 shadow transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-gray-700/50 dark:bg-gray-800/70"
+                            >
+                                {dg.thumb_url ? (
+                                    <img
+                                        src={dg.thumb_url}
+                                        alt={dg.name}
+                                        className="h-20 w-full object-cover"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <div className="flex h-20 w-full items-center justify-center bg-gray-200 dark:bg-gray-700">
+                                        <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                )}
+                                <div className="flex flex-1 flex-col p-2">
+                                    <h3 className="line-clamp-2 text-xs font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
+                                        {dg.name}
+                                    </h3>
+                                    <div className="mt-auto flex items-center gap-1 pt-1">
+                                        {typeof dg.rating_score === 'number' && dg.rating_score > 0 && (
+                                            <span className="flex items-center gap-0.5 text-[10px] text-yellow-600 dark:text-yellow-400">
+                                                <svg className="h-3 w-3 fill-current" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                                {dg.rating_score.toFixed(1)}
+                                            </span>
+                                        )}
+                                        {dg.status && (
+                                            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                {dg.status}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Lightbox */}
             {isLightboxOpen && currentScreenshots && (
                 <ScreenshotsLightbox
@@ -1937,6 +2272,19 @@ export default function GameShow({
                     screenshots={currentScreenshots}
                     startIndex={lightboxIndex}
                     onClose={closeLightbox}
+                />
+            )}
+
+            {/* Report Review Modal */}
+            {reportingReviewId && (
+                <ReportReviewModal
+                    ratingId={reportingReviewId}
+                    reviewerName={reportingReviewerName}
+                    isOpen={true}
+                    onClose={() => {
+                        setReportingReviewId(null);
+                        setReportingReviewerName('');
+                    }}
                 />
             )}
 

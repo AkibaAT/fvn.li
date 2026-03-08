@@ -46,6 +46,7 @@ trait HasGameSearch
         $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
         $supportedLanguages = [];
         $englishWordCount = null;
+        $primaryWordCount = null;
 
         if ($latestVersion) {
             // Get supported languages from the latest version
@@ -59,6 +60,17 @@ trait HasGameSearch
                 ->where('iso_code', 'eng')
                 ->first();
             $englishWordCount = $englishStats?->words;
+
+            // Get primary language word count
+            $sourceLanguageId = $this->source_language_id ?? 'eng';
+            if ($sourceLanguageId !== 'eng') {
+                $primaryStats = $latestVersion->languageStats()
+                    ->where('iso_code', $sourceLanguageId)
+                    ->first();
+                $primaryWordCount = $primaryStats?->words;
+            } else {
+                $primaryWordCount = $englishWordCount;
+            }
         }
 
         return [
@@ -100,6 +112,8 @@ trait HasGameSearch
             'game_engine' => $this->game_engine,
             'supported_languages' => $supportedLanguages,
             'english_word_count' => $englishWordCount,
+            'primary_word_count' => $primaryWordCount,
+            'source_language_id' => $this->source_language_id,
 
             // Store platform (where game is hosted)
             'platform' => $this->platform,

@@ -150,10 +150,11 @@ class VnListController extends Controller
     {
         $this->authorize('view', $vnList);
 
+        $listOwnerId = $vnList->user_id;
         $vnList->load([
-            'entries' => function ($query) {
+            'entries' => function ($query) use ($listOwnerId) {
                 $query->with([
-                    'game' => function ($q) {
+                    'game' => function ($q) use ($listOwnerId) {
                         $q->select([
                             'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw', 'slug',
                             'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
@@ -167,6 +168,14 @@ class VnListController extends Controller
                                 },
                             ]);
                         }
+                        // Load the list owner's review for each game
+                        $q->with([
+                            'ratings' => function ($rQuery) use ($listOwnerId) {
+                                $rQuery->where('user_id', $listOwnerId)
+                                    ->where('is_visible', true)
+                                    ->select(['id', 'game_id', 'user_id', 'rating', 'is_reviewed']);
+                            },
+                        ]);
                     },
                 ]);
                 $query->orderBy('sort_order');
@@ -920,17 +929,27 @@ class VnListController extends Controller
     public function updateUserProgress(\App\Http\Requests\UpdateUserProgressRequest $request, Game $game): JsonResponse
     {
 
+        $updateData = [
+            'game_version_id' => $request->game_version_id ?: null,
+            'personal_notes' => $request->personal_notes ?: null,
+            'started_at' => $request->started_at ?: null,
+            'completed_at' => $request->completed_at ?: null,
+        ];
+
+        if ($request->has('hours_played')) {
+            $updateData['hours_played'] = $request->hours_played;
+        }
+
+        if ($request->has('progress')) {
+            $updateData['progress'] = $request->progress;
+        }
+
         $progress = UserGameProgress::updateOrCreate(
             [
                 'user_id' => Auth::id(),
                 'game_id' => $game->id,
             ],
-            [
-                'game_version_id' => $request->game_version_id ?: null,
-                'personal_notes' => $request->personal_notes ?: null,
-                'started_at' => $request->started_at ?: null,
-                'completed_at' => $request->completed_at ?: null,
-            ]
+            $updateData
         );
 
         // Clear cache if this game is in any public lists

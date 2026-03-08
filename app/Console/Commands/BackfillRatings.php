@@ -250,9 +250,10 @@ class BackfillRatings extends Command
     ): void {
         // Get or create rater
         $rater = Rater::firstOrNew(['itch_id' => $userId]);
-        if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername) {
+        if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername || $rater->external_platform !== 'itch_io') {
             $rater->name = $userName;
             $rater->username = $userUsername;
+            $rater->external_platform = 'itch_io';
             $rater->save();
         }
 
@@ -290,6 +291,7 @@ class BackfillRatings extends Command
             'review' => $reviewText,
             'is_visible' => true,
             'is_reviewed' => $reviewText !== '',
+            'source_platform' => 'itch_io',
         ]);
 
         UpdateGameRating::dispatch($game->id);

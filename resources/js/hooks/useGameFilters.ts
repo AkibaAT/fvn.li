@@ -63,6 +63,7 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             language: 'selectedLanguages',
             gameJam: 'selectedGameJams',
             tag: 'selectedTags',
+            excludeTag: 'excludedTags',
         };
 
         const propertyName = propertyMap[type];
@@ -86,12 +87,15 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             selectedLanguages: [],
             selectedGameJams: [],
             selectedTags: [],
+            excludedTags: [],
+            readingTime: '',
             nsfw: false,
             sfw: false,
             showPaid: false,
             showFree: false,
             showDemo: false,
             showSale: false,
+            noDefaults: true,
         });
     };
 
@@ -104,6 +108,8 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             selectedLanguages,
             selectedGameJams,
             selectedTags,
+            excludedTags,
+            readingTime,
             nsfw,
             sfw,
             showPaid,
@@ -120,6 +126,8 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             (selectedLanguages && selectedLanguages.length > 0) ||
             (selectedGameJams && selectedGameJams.length > 0) ||
             (selectedTags && selectedTags.length > 0) ||
+            (excludedTags && excludedTags.length > 0) ||
+            readingTime ||
             nsfw ||
             sfw ||
             showPaid ||
@@ -211,6 +219,36 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
             toggleFilter('tag', v),
         );
 
+        // Excluded tags
+        if (currentFilters.excludedTags && currentFilters.excludedTags.length > 0) {
+            currentFilters.excludedTags.forEach((value) => {
+                const opt = filters.tags ? filters.tags[value] : undefined;
+                const label = typeof opt === 'string' ? opt : value;
+                chips.push({
+                    key: `excludeTag:${value}`,
+                    type: 'excludeTag',
+                    value,
+                    label: `Exclude: ${label}`,
+                    onClear: () => toggleFilter('excludeTag', value),
+                });
+            });
+        }
+
+        // Reading time
+        if (currentFilters.readingTime) {
+            const readingTimeLabels: Record<string, string> = {
+                short: 'Short (< 10k words)',
+                medium: 'Medium (10k-50k words)',
+                long: 'Long (> 50k words)',
+            };
+            chips.push({
+                key: 'readingTime',
+                type: 'readingTime',
+                label: readingTimeLabels[currentFilters.readingTime] || currentFilters.readingTime,
+                onClear: () => updateFilters({readingTime: ''}),
+            });
+        }
+
         // Booleans
         if (currentFilters.sfw)
             chips.push({
@@ -290,6 +328,10 @@ export function useGameFilters({currentFilters, filters, onGamesPage = false}: U
                 return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
             case 'sale':
                 return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
+            case 'excludeTag':
+                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+            case 'readingTime':
+                return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300';
             case 'delisted':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
             case 'hidden':

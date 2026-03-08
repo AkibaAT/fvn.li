@@ -33,6 +33,14 @@ class GamesController extends Controller
     }
 
     /**
+     * Return a random visible game slug
+     */
+    public function randomGame(): JsonResponse
+    {
+        return $this->searchController->randomGame();
+    }
+
+    /**
      * Display a single game page
      */
     public function gameShow(Game $game): Response

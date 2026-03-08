@@ -29,6 +29,14 @@ interface GameVersion {
     published_at: string;
 }
 
+interface GameRating {
+    id: number;
+    game_id: number;
+    user_id: number;
+    rating: number;
+    is_reviewed: boolean;
+}
+
 interface Game {
     id: number;
     name: string;
@@ -44,6 +52,7 @@ interface Game {
     latest_version?: GameVersion;
     game_versions?: GameVersion[];
     user_progress?: UserGameProgress[];
+    ratings?: GameRating[];
     platform?: 'itch_io' | 'steam' | 'other';
 }
 
@@ -452,12 +461,26 @@ const GameEntry = React.memo(function GameEntry({
 
                 {/* Title */}
                 <div className="flex-grow">
-                    <Link
-                        href={route('games.show', game.slug)}
-                        className="font-medium break-words text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                        {game.effective_name}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href={route('games.show', game.slug)}
+                            className="font-medium break-words text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                            {game.effective_name}
+                        </Link>
+                        {game.ratings && game.ratings.length > 0 && (
+                            <Link
+                                href={route('reviews.show', game.ratings[0].id)}
+                                className="inline-flex items-center gap-0.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800"
+                                title={game.ratings[0].is_reviewed ? 'View review' : 'View rating'}
+                            >
+                                <svg className="h-3 w-3 fill-current" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                                {game.ratings[0].rating}
+                            </Link>
+                        )}
+                    </div>
 
                     {/* Notes Display */}
                     {(userProgress?.personal_notes ||
@@ -661,12 +684,26 @@ const GameEntry = React.memo(function GameEntry({
 
                     {/* Game Info */}
                     <div className="flex-1">
-                        <Link
-                            href={route('games.show', game.slug)}
-                            className="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
-                        >
-                            {game.effective_name}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={route('games.show', game.slug)}
+                                className="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                                {game.effective_name}
+                            </Link>
+                            {game.ratings && game.ratings.length > 0 && (
+                                <Link
+                                    href={route('reviews.show', game.ratings[0].id)}
+                                    className="inline-flex items-center gap-0.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800"
+                                    title={game.ratings[0].is_reviewed ? 'View review' : 'View rating'}
+                                >
+                                    <svg className="h-3 w-3 fill-current" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    {game.ratings[0].rating}
+                                </Link>
+                            )}
+                        </div>
 
                         <div className="mt-2 flex items-center gap-2">
                             {/* Version Badge */}

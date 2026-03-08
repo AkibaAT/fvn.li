@@ -20,6 +20,8 @@ export interface GameCardGame {
         optimized?: OptimizedScreenshotVariants;
     }>;
     english_word_count?: number | null;
+    primary_word_count?: number | null;
+    primary_language_label?: string | null;
     initially_published_at?: string | null;
     latest_version_published_at?: string | null;
     rating_score?: number | null;
