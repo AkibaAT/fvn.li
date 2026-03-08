@@ -154,6 +154,11 @@ class GameFilterService
                     'name' => 'Name',
                     'initially_published_at' => 'Release Date',
                 ],
+                'readingTimeOptions' => [
+                    'short' => 'Short (< 10k words)',
+                    'medium' => 'Medium (10k-50k words)',
+                    'long' => 'Long (> 50k words)',
+                ],
             ];
         });
     }

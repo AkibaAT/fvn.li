@@ -473,6 +473,70 @@ export function FilterModal({
                             </div>
                         </div>
 
+                        {/* Exclude Tags */}
+                        <div>
+                            <h3 className="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
+                                <span className="mr-2 h-2 w-2 rounded-full bg-red-500"></span>
+                                Exclude Tags
+                            </h3>
+                            <div className="space-y-2">
+                                <MultiSelect
+                                    title="Exclude Tags"
+                                    items={filters.tags}
+                                    selectedItems={currentFilters.excludedTags || []}
+                                    onToggle={(value) => toggleFilter('excludeTag', value)}
+                                    placeholder="Select tags to exclude..."
+                                />
+                                {currentFilters.excludedTags && currentFilters.excludedTags.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateFilters({excludedTags: []})}
+                                        className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                                    >
+                                        Clear all excluded tags
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Reading Time */}
+                        <div>
+                            <h3 className="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
+                                <span className="mr-2 h-2 w-2 rounded-full bg-violet-500"></span>
+                                Reading Time
+                            </h3>
+                            <div className="space-y-3">
+                                {Object.entries(filters.readingTimeOptions || {
+                                    short: 'Short (< 10k words)',
+                                    medium: 'Medium (10k-50k words)',
+                                    long: 'Long (> 50k words)',
+                                }).map(([value, label]) => (
+                                    <label key={value} className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="readingTime"
+                                            value={value}
+                                            checked={currentFilters.readingTime === value}
+                                            onChange={() => updateFilters({readingTime: value})}
+                                            className="mr-3 border-gray-300 text-violet-600 focus:ring-violet-500"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                                            {label}
+                                        </span>
+                                    </label>
+                                ))}
+                                {currentFilters.readingTime && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateFilters({readingTime: ''})}
+                                        className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                                    >
+                                        Clear reading time
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Game Jams */}
                         <div>
                             <h3 className="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">

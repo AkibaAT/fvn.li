@@ -1,3 +1,50 @@
+var CACHE_NAME = 'fvn-cache-v1';
+
+// Cache game page responses for offline browsing
+self.addEventListener('fetch', function (event) {
+    // Only cache GET requests for game pages and static assets
+    if (event.request.method !== 'GET') return;
+
+    var url = new URL(event.request.url);
+
+    // Cache game page responses and static assets
+    var shouldCache = url.pathname.startsWith('/games/') ||
+        url.pathname.startsWith('/build/') ||
+        url.pathname === '/';
+
+    if (!shouldCache) return;
+
+    event.respondWith(
+        caches.open(CACHE_NAME).then(function (cache) {
+            return fetch(event.request).then(function (response) {
+                // Only cache successful responses
+                if (response.status === 200) {
+                    cache.put(event.request, response.clone());
+                }
+                return response;
+            }).catch(function () {
+                // Return cached version when offline
+                return cache.match(event.request);
+            });
+        })
+    );
+});
+
+// Clean old caches on activation
+self.addEventListener('activate', function (event) {
+    event.waitUntil(
+        caches.keys().then(function (cacheNames) {
+            return Promise.all(
+                cacheNames.filter(function (name) {
+                    return name !== CACHE_NAME;
+                }).map(function (name) {
+                    return caches.delete(name);
+                })
+            );
+        })
+    );
+});
+
 self.addEventListener('push', function (event) {
     const payload = event.data ? event.data.json() : {};
     event.waitUntil(

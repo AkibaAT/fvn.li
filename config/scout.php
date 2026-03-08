@@ -215,6 +215,11 @@ return [
                     'rating_score',
                     'rating_count',
 
+                    // Word count (for reading time filter)
+                    'english_word_count',
+                    'primary_word_count',
+                    'source_language_id',
+
                     // Tags and categorization
                     'tags',
                     'game_jams',
@@ -240,6 +245,7 @@ return [
                     'first_visible_at',
                     'custom_page_updated_at',
                     'english_word_count',
+                    'primary_word_count',
                     'trending_score',
                 ],
                 'searchableAttributes' => [
@@ -277,6 +283,8 @@ return [
                     'rating_score',
                     'rating_count',
                     'english_word_count',
+                    'primary_word_count',
+                    'source_language_id',
                     'trending_score',
                     'created_at',
                     'initially_published_at',
@@ -290,6 +298,13 @@ return [
                     'minWordSizeForTypos' => [
                         'oneTypo' => 3,
                         'twoTypos' => 6,
+                    ],
+                ],
+                'embedders' => [
+                    'default' => [
+                        'source' => 'huggingFace',
+                        'model' => 'nomic-ai/nomic-embed-text-v1.5',
+                        'documentTemplate' => 'A visual novel called {{doc.name}} by {{doc.authors}}. Tags: {{doc.tags}}. {{doc.description}} {{doc.full_description}}',
                     ],
                 ],
             ],

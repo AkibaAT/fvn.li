@@ -17,6 +17,7 @@ class Rater extends Model
         'name',
         'steam_id',
         'external_platform',
+        'is_review_banned',
     ];
 
     public function ratings(): HasMany

@@ -15,6 +15,7 @@ interface TinyMCEEditorProps {
     placeholder?: string;
     height?: number;
     gameId?: number | string; // used for uploads and gallery
+    disableImages?: boolean; // hide image-related plugins and toolbar buttons
 }
 
 // Function to detect dark mode (SSR-safe)
@@ -29,6 +30,7 @@ export default function TinyMCEEditor({
                                           placeholder = 'Start writing...',
                                           height = 400,
                                           gameId,
+                                          disableImages = false,
                                       }: TinyMCEEditorProps) {
     const isDark = useDarkMode();
     const [isClient, setIsClient] = useState(false);
@@ -68,26 +70,32 @@ export default function TinyMCEEditor({
         content_css: isDarkMode(document, isDark) ? 'dark' : 'default',
 
         plugins: [
-            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-            'searchreplace', 'visualblocks', 'fullscreen', 'insertdatetime', 'media',
+            'advlist', 'autolink', 'lists', 'link',
+            ...(disableImages ? [] : ['image']),
+            'charmap', 'preview',
+            'searchreplace', 'visualblocks', 'fullscreen', 'insertdatetime',
+            ...(disableImages ? [] : ['media']),
             'table', 'help', 'wordcount', 'code', 'codesample', 'autoresize'
         ],
-        toolbar: 'undo redo | blocks | ' +
-            'bold italic backcolor | alignleft aligncenter ' +
-            'alignright alignjustify | bullist numlist outdent indent | ' +
-            'removeformat | image imagepicker media link | code | fullscreen | help',
+        toolbar: disableImages
+            ? 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | link | code | fullscreen | help'
+            : 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image imagepicker media link | code | fullscreen | help',
         content_style: `
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            font-size: 16px;
-            line-height: 1.8;
+            font-size: 1rem;
+            line-height: 1.75;
             margin: 0.75rem;
             background-color: var(--color-editor-background);
             color: var(--color-editor-text);
           }
           p {
-            margin-bottom: 1.2em;
-            line-height: 1.8;
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+            line-height: 1.75;
+          }
+          p:first-child {
+            margin-top: 0;
           }
           h1, h2, h3, h4, h5, h6 {
             line-height: 1.4;
@@ -97,6 +105,19 @@ export default function TinyMCEEditor({
           ul, ol {
             line-height: 1.8;
             margin-bottom: 1.2em;
+            padding-left: 1.625em;
+          }
+          ul {
+            list-style-type: disc;
+          }
+          ol {
+            list-style-type: decimal;
+          }
+          ul ul {
+            list-style-type: circle;
+          }
+          ul ul ul {
+            list-style-type: square;
           }
           li {
             margin-bottom: 0.4em;
@@ -256,7 +277,7 @@ export default function TinyMCEEditor({
         },
         // Use self-hosted TinyMCE like production
         }),
-    }), [height, placeholder, gameId, isClient, isDark]);
+    }), [height, placeholder, gameId, isClient, isDark, disableImages]);
 
     // Don't render TinyMCE on server side
     if (!isClient) {

@@ -1,5 +1,6 @@
 import Container from '@/components/container';
 import Footer from '@/components/footer/footer';
+import BackToTop from '@/components/ui/BackToTop';
 import {NotificationContainer, notify} from '@/components/toast';
 import FlashMessages from '@/components/layout/FlashMessages';
 import {Head, usePage} from '@inertiajs/react';
@@ -86,6 +87,9 @@ export default function AppLayout({children, title}: AppLayoutProps) {
                 {/* Footer */}
                 <Footer/>
             </div>
+
+            {/* Back to Top Button */}
+            <BackToTop/>
 
             {/* Global Toast Container */}
             <NotificationContainer/>

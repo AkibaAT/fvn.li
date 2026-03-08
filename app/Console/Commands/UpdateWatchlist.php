@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Models\Language;
 use App\Services\HomePageCacheService;
 use App\Services\ItchAuthService;
 use Exception;
@@ -123,7 +124,8 @@ class UpdateWatchlist extends Command
 
         foreach ($games as $collectionEntry) {
             $gameData = $collectionEntry['game'];
-            $this->processCollectionGame($gameData, $isPaid);
+            $blurb = $collectionEntry['blurb'] ?? null;
+            $this->processCollectionGame($gameData, $isPaid, $blurb);
         }
 
         return true;
@@ -134,13 +136,43 @@ class UpdateWatchlist extends Command
      *
      * @throws Throwable
      */
-    private function processCollectionGame(array $gameData, bool $isPaid): void
+    private function processCollectionGame(array $gameData, bool $isPaid, ?string $blurb = null): void
     {
         // Log the game being processed
         $this->processedGames++;
         $gameId = $gameData['id'];
 
         $this->info("Processing game {$gameId}: {$gameData['title']}");
+
+        // Parse blurb metadata (e.g. "lang:jpn tag:ai-assets tag:kinetic-novel")
+        $sourceLanguageId = 'eng';
+        $blurbTags = [];
+
+        if ($blurb) {
+            // Parse source language
+            if (preg_match('/\blang:([a-z]{3})\b/', $blurb, $matches)) {
+                $langCode = $matches[1];
+                if (! Language::where('id', $langCode)->exists()) {
+                    $this->error("  ✗ Skipping game {$gameId} ({$gameData['title']}): invalid language code '{$langCode}' in blurb");
+                    Log::error('UpdateWatchlist: invalid language code in blurb', [
+                        'game_id' => $gameId,
+                        'title' => $gameData['title'],
+                        'blurb' => $blurb,
+                        'lang_code' => $langCode,
+                    ]);
+
+                    return;
+                }
+                $sourceLanguageId = $langCode;
+                $this->info("  - Source language from blurb: {$langCode}");
+            }
+
+            // Parse custom tags (e.g. "tag:ai-assets tag:kinetic-novel")
+            if (preg_match_all('/\btag:([\w-]+)/', $blurb, $tagMatches)) {
+                $blurbTags = $tagMatches[1];
+                $this->info('  - Tags from blurb: ' . implode(', ', $blurbTags));
+            }
+        }
 
         // Extract price information from collection data if available
         if ($isPaid && isset($gameData['min_price'])) {
@@ -172,7 +204,7 @@ class UpdateWatchlist extends Command
                 if (! $game->is_visible) {
                     $game->updated_at = now();
                     if (! $game->source_language_id) {
-                        $game->source_language_id = 'eng';
+                        $game->source_language_id = $sourceLanguageId;
                     }
                     $shouldRefreshVersion = true;
                 }
@@ -225,7 +257,7 @@ class UpdateWatchlist extends Command
                     'description' => $gameData['short_text'] ?? null,
                     'platform' => 'itch_io',  // ← Explicitly set platform for itch.io games
                     'thumb_url' => $gameData['cover_url'] ?? null,
-                    'source_language_id' => 'eng',
+                    'source_language_id' => $sourceLanguageId,
                     'is_paid' => $isPaid,
                     'is_visible' => false,  // ← Keep invisible until fully loaded
                 ]);
@@ -364,6 +396,13 @@ class UpdateWatchlist extends Command
                     $game->is_visible = true;
                 }
             }
+
+            // Store blurb tags in custom_tags — this is the source of truth
+            // for watchlist-managed tags. They get merged into the game_tag
+            // pivot table automatically during tag sync.
+            $game->custom_tags = ! empty($blurbTags)
+                ? implode(', ', array_map(fn ($slug) => ucwords(str_replace('-', ' ', $slug)), $blurbTags))
+                : '';
 
             $game->save();
 

@@ -64,6 +64,7 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'userPreferences' => fn () => $request->user()?->preferences?->only('preferred_languages'),
             // Only provide heavy game filter options on routes that need them
             'gameFilters' => fn () => $request->routeIs('games.*') ? GameFilterService::getOptions() : null,
             // SEO meta information

@@ -6,12 +6,59 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\User;
+use App\Models\UserPreference;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class UserPreferencesController extends Controller
 {
+    /**
+     * Get the user's language preferences
+     */
+    public function getLanguagePreferences(): JsonResponse
+    {
+        $authId = Auth::id();
+        if (! $authId) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $preferences = UserPreference::where('user_id', $authId)->first();
+
+        return response()->json([
+            'success' => true,
+            'preferred_languages' => $preferences?->preferred_languages ?? [],
+        ]);
+    }
+
+    /**
+     * Update the user's language preferences
+     */
+    public function updateLanguagePreferences(Request $request): JsonResponse
+    {
+        $authId = Auth::id();
+        if (! $authId) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $request->validate([
+            'preferred_languages' => 'nullable|array',
+            'preferred_languages.*' => 'string|size:3',
+        ]);
+
+        $languages = $request->input('preferred_languages', []);
+
+        $preferences = UserPreference::updateOrCreate(
+            ['user_id' => $authId],
+            ['preferred_languages' => ! empty($languages) ? $languages : null],
+        );
+
+        return response()->json([
+            'success' => true,
+            'preferred_languages' => $preferences->preferred_languages ?? [],
+        ]);
+    }
+
     /**
      * Get the list of game IDs that the user has ignored
      */

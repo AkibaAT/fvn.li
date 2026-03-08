@@ -9,12 +9,17 @@ export default function GameMetadata({game}: GameMetadataProps) {
         <dl className="min-h-24 space-y-1 overflow-hidden border-t border-gray-100 pt-2 text-sm dark:border-gray-700/50">
             <div className="grid grid-cols-[120px_1fr] gap-2">
                 <dt className="text-gray-500 dark:text-gray-400">
-                    Words (EN)
+                    Words ({game.primary_language_label || 'EN'})
                 </dt>
                 <dd className="text-gray-700 dark:text-gray-200">
-                    {game.english_word_count
-                        ? game.english_word_count.toLocaleString()
+                    {game.primary_word_count
+                        ? game.primary_word_count.toLocaleString()
                         : '—'}
+                    {game.primary_language_label && game.primary_language_label !== 'EN' && game.english_word_count ? (
+                        <span className="ml-1.5 text-xs text-gray-400 dark:text-gray-500">
+                            EN: {game.english_word_count.toLocaleString()}
+                        </span>
+                    ) : null}
                 </dd>
             </div>
             <div className="grid grid-cols-[120px_1fr] gap-2">

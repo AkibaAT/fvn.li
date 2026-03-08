@@ -15,6 +15,13 @@
     <!-- Favicon -->
     <link rel="icon" href="{{ asset('favicon.ico') }}">
 
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+
+    <!-- RSS Feeds -->
+    <link rel="alternate" type="application/rss+xml" title="FVN.li - New Visual Novels" href="{{ route('feed.new') }}">
+    <link rel="alternate" type="application/rss+xml" title="FVN.li - Updated Visual Novels" href="{{ route('feed.updates') }}">
+
     <!-- Robots meta tag for non-production environments -->
     @if (!app()->environment('production'))
         <meta name="robots" content="noindex, nofollow">
@@ -38,74 +45,74 @@
         $socialTitle = $metaTags['socialTitle'] ?? $seoTitle;
     @endphp
 
-    @if($seoTitle)
+    @if ($seoTitle)
         <title>{{ $seoTitle }} - FVN.li</title>
     @endif
 
-    @if(!empty($metaTags['description']))
+    @if (!empty($metaTags['description']))
         <meta name="description" content="{{ $metaTags['description'] }}">
     @endif
 
-    @if(!empty($metaTags['author']))
+    @if (!empty($metaTags['author']))
         <meta name="author" content="{{ $metaTags['author'] }}">
     @endif
 
-    @if(!empty($metaTags['noindex']) && $metaTags['noindex'])
+    @if (!empty($metaTags['noindex']) && $metaTags['noindex'])
         <meta name="robots" content="noindex">
     @endif
 
     <!-- Open Graph / Facebook -->
-    @if($socialTitle)
+    @if ($socialTitle)
         <meta property="og:title" content="{{ $socialTitle }}">
     @endif
-    @if(!empty($metaTags['description']))
+    @if (!empty($metaTags['description']))
         <meta property="og:description" content="{{ $metaTags['description'] }}">
     @endif
-    @if(!empty($metaTags['image']))
+    @if (!empty($metaTags['image']))
         <meta property="og:image" content="{{ $metaTags['image'] }}">
     @endif
-    @if(!empty($metaTags['url']))
+    @if (!empty($metaTags['url']))
         <meta property="og:url" content="{{ $metaTags['url'] }}">
     @endif
     <meta property="og:type" content="{{ $metaTags['type'] ?? 'website' }}">
     <meta property="og:site_name" content="{{ $metaTags['siteName'] ?? 'FVN.li' }}">
     <meta property="og:locale" content="{{ $metaTags['locale'] ?? 'en_US' }}">
 
-    @if(!empty($metaTags['publishedTime']))
+    @if (!empty($metaTags['publishedTime']))
         <meta property="article:published_time" content="{{ $metaTags['publishedTime'] }}">
     @endif
-    @if(!empty($metaTags['modifiedTime']))
+    @if (!empty($metaTags['modifiedTime']))
         <meta property="article:modified_time" content="{{ $metaTags['modifiedTime'] }}">
     @endif
-    @if(!empty($metaTags['author']))
+    @if (!empty($metaTags['author']))
         <meta property="article:author" content="{{ $metaTags['author'] }}">
     @endif
-    @if(!empty($metaTags['section']))
+    @if (!empty($metaTags['section']))
         <meta property="article:section" content="{{ $metaTags['section'] }}">
     @endif
-    @if(!empty($metaTags['tags']))
-        @foreach($metaTags['tags'] as $tag)
+    @if (!empty($metaTags['tags']))
+        @foreach ($metaTags['tags'] as $tag)
             <meta property="article:tag" content="{{ $tag }}">
         @endforeach
     @endif
 
     <!-- Twitter Cards -->
     <meta name="twitter:card" content="{{ $metaTags['twitterCard'] ?? 'summary_large_image' }}">
-    @if($socialTitle)
+    @if ($socialTitle)
         <meta name="twitter:title" content="{{ $socialTitle }}">
     @endif
-    @if(!empty($metaTags['description']))
+    @if (!empty($metaTags['description']))
         <meta name="twitter:description" content="{{ $metaTags['description'] }}">
     @endif
-    @if(!empty($metaTags['image']))
+    @if (!empty($metaTags['image']))
         <meta name="twitter:image" content="{{ $metaTags['image'] }}">
     @endif
-    @if(!empty($metaTags['url']))
+    @if (!empty($metaTags['url']))
         <meta name="twitter:url" content="{{ $metaTags['url'] }}">
     @endif
 
     <!-- Structured Data (JSON-LD) -->
-    @if(!empty($metaTags['structuredData']))
+    @if (!empty($metaTags['structuredData']))
         @php
             $structuredDataJson = json_encode(
                 array_merge(['@context' => 'https://schema.org'], $metaTags['structuredData']),

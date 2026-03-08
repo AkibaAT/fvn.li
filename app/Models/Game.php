@@ -21,6 +21,7 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
@@ -235,6 +236,14 @@ class Game extends Model
         }
 
         return $slug;
+    }
+
+    /**
+     * Get the source language for this game.
+     */
+    public function sourceLanguage(): BelongsTo
+    {
+        return $this->belongsTo(Language::class, 'source_language_id');
     }
 
     /**

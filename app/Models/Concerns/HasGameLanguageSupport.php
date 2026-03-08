@@ -113,6 +113,55 @@ trait HasGameLanguageSupport
     }
 
     /**
+     * Get the primary word count based on the game's source language.
+     * Falls back to English if no source language is set.
+     */
+    public function getPrimaryWordCount(): ?int
+    {
+        $langCode = $this->source_language_id ?? 'eng';
+
+        // If it's English, delegate to existing method
+        if ($langCode === 'eng') {
+            return $this->getEnglishWordCount();
+        }
+
+        // Try to get from the latest version's language stats
+        if ($this->relationLoaded('latestVersion') && $this->latestVersion) {
+            if ($this->latestVersion->relationLoaded('languageStats')) {
+                $stats = $this->latestVersion->languageStats
+                    ->where('iso_code', $langCode)
+                    ->first();
+
+                return $stats?->words;
+            }
+
+            $stats = $this->latestVersion->getStatsForLanguage($langCode);
+
+            return $stats?->words;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the label for the game's primary language (e.g., "JP", "EN", "FR").
+     */
+    public function getPrimaryLanguageLabel(): string
+    {
+        $langCode = $this->source_language_id ?? 'eng';
+
+        if ($this->relationLoaded('sourceLanguage') && $this->sourceLanguage) {
+            $part1 = $this->sourceLanguage->part1;
+            if ($part1) {
+                return strtoupper($part1);
+            }
+        }
+
+        // Fallback: uppercase first 2 chars of ISO code
+        return strtoupper(substr($langCode, 0, 2));
+    }
+
+    /**
      * Get the character stats for the latest version in a specific language.
      */
     public function getLatestCharacterStats(string $isoCode): Collection

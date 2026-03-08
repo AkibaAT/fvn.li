@@ -161,6 +161,7 @@ export interface FilterOptions {
     gameJams: Record<string, string>;
     tags: Record<string, string>;
     sortOptions?: Record<string, string>;
+    readingTimeOptions?: Record<string, string>;
 }
 
 export interface CurrentFilters {
@@ -172,6 +173,8 @@ export interface CurrentFilters {
     selectedLanguages?: string[];
     selectedGameJams?: string[];
     selectedTags?: string[];
+    excludedTags?: string[];
+    readingTime?: string;
     nsfw?: boolean;
     sfw?: boolean;
     showPaid?: boolean;
@@ -184,4 +187,6 @@ export interface CurrentFilters {
     direction?: string;
     perPage?: number;
     page?: number;
+    noDefaults?: boolean;
+    usingDefaultLanguages?: boolean;
 }

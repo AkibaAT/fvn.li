@@ -10,6 +10,7 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
+use App\Services\SimilarGamesService;
 use App\Traits\HasSocialMetaTags;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -40,7 +41,7 @@ class GamesDisplayController extends Controller
         $reviews = $game->ratings()
             ->where('is_visible', true)
             ->where('is_reviewed', true)
-            ->with('rater')
+            ->with(['rater', 'user:id,name,avatar'])
             ->orderByDesc('published_at')
             ->paginate(5);
 
@@ -99,6 +100,22 @@ class GamesDisplayController extends Controller
 
         // Get English word count from latest version for game detail section
         $englishStats = null;
+        $primaryStats = null;
+
+        // Compute primary language label from the language stats (already loaded)
+        // to avoid loading sourceLanguage relation onto the game (it would get serialized)
+        $sourceLanguageId = $game->source_language_id ?? 'eng';
+        $primaryLanguageLabel = 'EN';
+        if ($sourceLanguageId !== 'eng' && $game->latestVersion) {
+            $primaryLangStats = $game->latestVersion->languageStats
+                ->where('iso_code', $sourceLanguageId)
+                ->first();
+            if ($primaryLangStats?->language) {
+                $primaryLanguageLabel = strtoupper($primaryLangStats->language->part1 ?? substr($sourceLanguageId, 0, 2));
+            } else {
+                $primaryLanguageLabel = strtoupper(substr($sourceLanguageId, 0, 2));
+            }
+        }
         if ($game->latestVersion) {
             $englishLanguageStats = $game->latestVersion->languageStats
                 ->where('iso_code', 'eng')
@@ -113,6 +130,47 @@ class GamesDisplayController extends Controller
                         'ref_name' => $englishLanguageStats->language->ref_name,
                         'flag_code' => $englishLanguageStats->language->flag_code,
                     ],
+                ];
+            }
+
+            // Get primary language stats (source language or English fallback)
+            $sourceLanguageId = $game->source_language_id ?? 'eng';
+            if ($sourceLanguageId !== 'eng') {
+                $primaryLanguageStats = $game->latestVersion->languageStats
+                    ->where('iso_code', $sourceLanguageId)
+                    ->first();
+
+                if ($primaryLanguageStats && $primaryLanguageStats->language !== null) {
+                    $primaryStats = [
+                        'words' => $primaryLanguageStats->words,
+                        'language' => [
+                            'id' => $primaryLanguageStats->language->id,
+                            'iso_code' => $primaryLanguageStats->language->id,
+                            'ref_name' => $primaryLanguageStats->language->ref_name,
+                            'flag_code' => $primaryLanguageStats->language->flag_code,
+                        ],
+                    ];
+                }
+            } else {
+                $primaryStats = $englishStats;
+            }
+        }
+
+        // Get authenticated user's own review for this game
+        $userReview = null;
+        if (Auth::check()) {
+            $existingReview = $game->ratings()
+                ->where('user_id', Auth::id())
+                ->first();
+
+            if ($existingReview) {
+                $userReview = [
+                    'id' => $existingReview->id,
+                    'rating' => $existingReview->rating,
+                    'review' => $existingReview->review,
+                    'has_spoilers' => $existingReview->has_spoilers,
+                    'published_at' => $existingReview->published_at?->toISOString(),
+                    'updated_at' => $existingReview->updated_at?->toISOString(),
                 ];
             }
         }
@@ -296,6 +354,52 @@ class GamesDisplayController extends Controller
             }
         }
 
+        // Find similar games and developer's other games
+        $similarGamesService = app(SimilarGamesService::class);
+        try {
+            $similarGames = $similarGamesService->findSimilarGames($game, 6)
+                ->map(fn (Game $g) => [
+                    'id' => $g->id,
+                    'name' => $g->effective_name,
+                    'slug' => $g->slug,
+                    'thumb_url' => $g->optimized_thumbnail_url ?? $g->thumb_url,
+                    'authors' => $g->authors ? strip_tags($g->authors) : null,
+                    'rating_score' => $g->rating_score,
+                    'rating_count' => $g->rating_count,
+                    'status' => $g->status,
+                    'platform' => $g->platform,
+                ]);
+        } catch (Exception $e) {
+            $similarGames = collect();
+        }
+
+        $developerGames = $similarGamesService->findDeveloperGames($game, 12)
+            ->map(fn (Game $g) => [
+                'id' => $g->id,
+                'name' => $g->effective_name,
+                'slug' => $g->slug,
+                'thumb_url' => $g->optimized_thumbnail_url ?? $g->thumb_url,
+                'rating_score' => $g->rating_score,
+                'rating_count' => $g->rating_count,
+                'status' => $g->status,
+                'platform' => $g->platform,
+            ]);
+
+        // Calculate estimated reading time from primary word count
+        $estimatedReadingTime = null;
+        $primaryWordCount = $primaryStats['words'] ?? null;
+        if ($primaryWordCount && $primaryWordCount > 0) {
+            $totalMinutes = (int) ceil($primaryWordCount / 200);
+            $hours = intdiv($totalMinutes, 60);
+            $minutes = $totalMinutes % 60;
+            $estimatedReadingTime = [
+                'hours' => $hours,
+                'minutes' => $minutes,
+                'total_minutes' => $totalMinutes,
+                'word_count' => $primaryWordCount,
+            ];
+        }
+
         // Fetch public lists that contain this game
         $publicListsQuery = VnList::where('is_public', true)
             ->whereHas('entries', function ($query) use ($game) {
@@ -318,6 +422,8 @@ class GamesDisplayController extends Controller
             'availableRatings' => $availableRatings,
             'gameVersions' => $gameVersions,
             'englishStats' => $englishStats,
+            'primaryStats' => $primaryStats,
+            'primaryLanguageLabel' => $primaryLanguageLabel,
             'versionCharacterCounts' => $versionCharacterCounts,
             'versionHasFileStats' => $versionHasFileStats,
             'versionHasDialogueLines' => $versionHasDialogueLines,
@@ -332,8 +438,12 @@ class GamesDisplayController extends Controller
             'canSeeAnalytics' => $canSeeAnalytics,
             'clickStats' => $clickStats,
             'dailyStats' => $dailyStats,
+            'userReview' => $userReview,
             'publicLists' => $publicLists,
             'publicListsCount' => $publicListsCount,
+            'similarGames' => $similarGames,
+            'developerGames' => $developerGames,
+            'estimatedReadingTime' => $estimatedReadingTime,
             'metaTags' => $this->getMetaTags(),
         ]);
     }

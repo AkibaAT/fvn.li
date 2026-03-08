@@ -250,9 +250,10 @@ class BackfillRatings extends Command
     ): void {
         // Get or create rater
         $rater = Rater::firstOrNew(['itch_id' => $userId]);
-        if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername) {
+        if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername || $rater->external_platform !== 'itch_io') {
             $rater->name = $userName;
             $rater->username = $userUsername;
+            $rater->external_platform = 'itch_io';
             $rater->save();
         }
 
@@ -280,7 +281,7 @@ class BackfillRatings extends Command
                 $rating->update(['is_visible' => false]);
             });
 
-        // Create new rating
+        // Create new rating (auto-hide if rater is banned from reviewing)
         Rating::create([
             'event_id' => $eventId,
             'published_at' => $updatedAt,
@@ -288,8 +289,9 @@ class BackfillRatings extends Command
             'rater_id' => $rater->id,
             'rating' => $rating,
             'review' => $reviewText,
-            'is_visible' => true,
+            'is_visible' => ! $rater->is_review_banned,
             'is_reviewed' => $reviewText !== '',
+            'source_platform' => 'itch_io',
         ]);
 
         UpdateGameRating::dispatch($game->id);

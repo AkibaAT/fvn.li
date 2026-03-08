@@ -28,6 +28,7 @@ class User extends Authenticatable
         'password',
         'avatar',
         'is_admin',
+        'is_review_banned',
     ];
 
     /**
@@ -49,6 +50,7 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'is_admin' => 'boolean',
+        'is_review_banned' => 'boolean',
     ];
 
     /**
@@ -182,6 +184,14 @@ class User extends Authenticatable
             ->where('is_visible', true)
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * Get the user's preferences.
+     */
+    public function preferences(): HasOne
+    {
+        return $this->hasOne(UserPreference::class);
     }
 
     /**

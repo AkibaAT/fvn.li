@@ -298,6 +298,7 @@ class DiscordBotController extends Controller
     {
         $url = preg_replace('#^https?://#', '', $url);
         $url = rtrim($url, '/');
+
         return strtolower($url);
     }
 
@@ -314,6 +315,7 @@ class DiscordBotController extends Controller
         }
 
         $parts = explode('/', $path);
+
         return end($parts) ?: null;
     }
 }

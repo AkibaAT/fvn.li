@@ -86,6 +86,9 @@ trait HasGameTags
             $tagIds[] = $tag->id;
         }
 
+        // Merge custom_tags into the tag list
+        $tagIds = array_values(array_unique(array_merge($tagIds, $this->getCustomTagIds())));
+
         // If the game is already saved, sync tags immediately
         if ($this->exists && $this->id) {
             $this->tags()->sync($tagIds);
@@ -153,6 +156,13 @@ trait HasGameTags
     {
         // Check if we have any pending tag associations
         if (empty($this->pendingTagIds)) {
+            // No page tags were parsed — only attach custom tags without
+            // removing existing ones
+            $customTagIds = $this->getCustomTagIds();
+            if (! empty($customTagIds) && $this->exists && $this->id) {
+                $this->tags()->syncWithoutDetaching($customTagIds);
+            }
+
             return;
         }
 
@@ -167,6 +177,12 @@ trait HasGameTags
             return;
         }
 
+        // Merge custom_tags into pending tags before syncing
+        $customTagIds = $this->getCustomTagIds();
+        if (! empty($customTagIds)) {
+            $this->pendingTagIds = array_values(array_unique(array_merge($this->pendingTagIds, $customTagIds)));
+        }
+
         // Sync the tags
         $this->tags()->sync($this->pendingTagIds);
 
@@ -178,5 +194,31 @@ trait HasGameTags
 
         // Clear the pending list
         $this->pendingTagIds = [];
+    }
+
+    /**
+     * Get tag IDs from the custom_tags string field.
+     * Creates Tag records if they don't exist yet.
+     */
+    private function getCustomTagIds(): array
+    {
+        $customTags = $this->custom_tags ?? '';
+        if (empty(trim($customTags))) {
+            return [];
+        }
+
+        $tagIds = [];
+        $tagNames = array_filter(array_map('trim', explode(',', $customTags)));
+
+        foreach ($tagNames as $tagName) {
+            $slug = Str::slug($tagName);
+            if (empty($slug)) {
+                continue;
+            }
+            $tag = Tag::firstOrCreate(['slug' => $slug], ['name' => $tagName]);
+            $tagIds[] = $tag->id;
+        }
+
+        return $tagIds;
     }
 }

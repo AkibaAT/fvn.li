@@ -34,7 +34,7 @@ class GamesReviewController extends Controller
             ->where('is_visible', true)
             ->when(! $showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->when($selectedRating !== null, fn ($query) => $query->where('rating', $selectedRating))
-            ->with('rater')
+            ->with(['rater', 'user:id,name,avatar'])
             ->orderByDesc('published_at')
             ->paginate($perPage);
 
