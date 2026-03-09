@@ -123,6 +123,8 @@ interface DashboardProps {
     ignoredGamesCount: number;
     languagePreferences: string[];
     availableLanguages: Record<string, { ref_name: string; flag_code: string }>;
+    excludedTagPreferences: number[];
+    availableTags: Record<string, string>;
     activeBugReports?: BugReport[];
     totalUnreadBugReportReplies?: number;
     metaTags?: {
@@ -145,6 +147,8 @@ export default function Dashboard({
                                       ignoredGamesCount: ignoredGamesCountInitial,
                                       languagePreferences: languagePreferencesInitial,
                                       availableLanguages,
+                                      excludedTagPreferences: excludedTagPreferencesInitial,
+                                      availableTags,
                                       activeBugReports: activeBugReportsInitial,
                                       totalUnreadBugReportReplies: totalUnreadInitial,
                                       metaTags,
@@ -160,6 +164,9 @@ export default function Dashboard({
     const [ignoredGamesCount, setIgnoredGamesCount] = useState(ignoredGamesCountInitial || 0);
     const [selectedLanguages, setSelectedLanguages] = useState<string[]>(languagePreferencesInitial || []);
     const [savingLanguages, setSavingLanguages] = useState(false);
+    const [excludedTags, setExcludedTags] = useState<number[]>(excludedTagPreferencesInitial || []);
+    const [savingExcludedTags, setSavingExcludedTags] = useState(false);
+    const [tagSearch, setTagSearch] = useState('');
 
     // Bug report state
     const [bugReports, setBugReports] = useState<BugReport[]>(activeBugReportsInitial || []);
@@ -598,6 +605,42 @@ export default function Dashboard({
             setSavingLanguages(false);
         }
     };
+
+    const toggleExcludedTag = (tagId: number) => {
+        setExcludedTags(prev =>
+            prev.includes(tagId)
+                ? prev.filter(id => id !== tagId)
+                : [...prev, tagId]
+        );
+    };
+
+    const saveExcludedTags = async () => {
+        setSavingExcludedTags(true);
+        try {
+            const response = await authenticatedFetch(route('user.excluded-tags.update'), {
+                method: 'PUT',
+                body: JSON.stringify({ excluded_tags: excludedTags }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                toast.success('Excluded tags saved');
+            } else {
+                toast.error(data.message || 'Failed to save excluded tags');
+            }
+        } catch (error) {
+            console.error('Failed to save excluded tags:', error);
+            toast.error('Failed to save excluded tags');
+        } finally {
+            setSavingExcludedTags(false);
+        }
+    };
+
+    const filteredTags = Object.entries(availableTags || {})
+        .filter(([, label]) => {
+            if (!tagSearch) return true;
+            return label.toLowerCase().includes(tagSearch.toLowerCase());
+        })
+        .sort(([, a], [, b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
     // Bug report functions
     const openBugReport = async (reportId: number) => {
@@ -1840,6 +1883,78 @@ export default function Dashboard({
                                 {selectedLanguages.length > 0 && (
                                     <button
                                         onClick={() => setSelectedLanguages([])}
+                                        className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    >
+                                        Clear All
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Excluded Tags Section */}
+                    <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                        <div className="p-6">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Excluded Tags
+                                </h2>
+                                {excludedTags.length > 0 && (
+                                    <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                        {excludedTags.length} excluded
+                                    </span>
+                                )}
+                            </div>
+
+                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                                Select tags to exclude from game search results by default. Games with any of these tags will be hidden unless you explicitly include them.
+                            </p>
+
+                            <div className="mb-4">
+                                <input
+                                    type="text"
+                                    placeholder="Search tags..."
+                                    value={tagSearch}
+                                    onChange={(e) => setTagSearch(e.target.value)}
+                                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-400"
+                                />
+                            </div>
+
+                            <div className="mb-4 flex max-h-64 flex-wrap gap-2 overflow-y-auto">
+                                {filteredTags.map(([tagId, label]) => {
+                                    const id = parseInt(tagId, 10);
+                                    const isExcluded = excludedTags.includes(id);
+                                    const tagName = label.replace(/\s*\(\d+\)$/, '');
+                                    return (
+                                        <button
+                                            key={tagId}
+                                            onClick={() => toggleExcludedTag(id)}
+                                            className={`inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                                                isExcluded
+                                                    ? 'border-red-500 bg-red-100 text-red-800 dark:border-red-400 dark:bg-red-900/40 dark:text-red-300'
+                                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                            }`}
+                                        >
+                                            {tagName}
+                                        </button>
+                                    );
+                                })}
+                                {filteredTags.length === 0 && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">No tags match your search.</p>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={saveExcludedTags}
+                                    disabled={savingExcludedTags}
+                                    className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                                >
+                                    {savingExcludedTags ? 'Saving...' : 'Save Preferences'}
+                                </button>
+                                {excludedTags.length > 0 && (
+                                    <button
+                                        onClick={() => setExcludedTags([])}
                                         className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         Clear All

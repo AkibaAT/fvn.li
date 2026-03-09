@@ -238,6 +238,8 @@ class DashboardController extends Controller
             'ignoredGamesCount' => $ignoredGamesCount,
             'languagePreferences' => $user->preferences?->preferred_languages ?? [],
             'availableLanguages' => GameFilterService::getOptions()['languages'] ?? [],
+            'excludedTagPreferences' => $user->preferences?->excluded_tags ?? [],
+            'availableTags' => GameFilterService::getOptions()['tags'] ?? [],
             'activeBugReports' => $activeBugReports,
             'totalUnreadBugReportReplies' => $totalUnreadBugReportReplies,
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),

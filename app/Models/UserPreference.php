@@ -12,10 +12,12 @@ class UserPreference extends Model
     protected $fillable = [
         'user_id',
         'preferred_languages',
+        'excluded_tags',
     ];
 
     protected $casts = [
         'preferred_languages' => 'array',
+        'excluded_tags' => 'array',
     ];
 
     public function user(): BelongsTo

@@ -189,4 +189,5 @@ export interface CurrentFilters {
     page?: number;
     noDefaults?: boolean;
     usingDefaultLanguages?: boolean;
+    usingDefaultExcludedTags?: boolean;
 }

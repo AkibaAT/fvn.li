@@ -70,11 +70,9 @@ class MeilisearchService
             }
         }
 
-        // Exclude specific tags (NOT filter)
+        // Exclude specific tags (NOT IN filter)
         if (! empty($filters['excluded_tags'])) {
-            foreach ((array) $filters['excluded_tags'] as $tag) {
-                $search->where('tags', '!=', $tag);
-            }
+            $search->whereNotIn('tags', (array) $filters['excluded_tags']);
         }
 
         // Reading time filter based on english_word_count

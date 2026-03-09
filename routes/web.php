@@ -131,6 +131,12 @@ Route::middleware(['auth'])->group(function () {
     Route::put('user/language-preferences', [\App\Http\Controllers\UserPreferencesController::class, 'updateLanguagePreferences'])
         ->name('user.language-preferences.update');
 
+    // User Preferences - Excluded Tags
+    Route::get('user/excluded-tags', [\App\Http\Controllers\UserPreferencesController::class, 'getExcludedTags'])
+        ->name('user.excluded-tags.index');
+    Route::put('user/excluded-tags', [\App\Http\Controllers\UserPreferencesController::class, 'updateExcludedTags'])
+        ->name('user.excluded-tags.update');
+
     // User Preferences - Ignored Games
     Route::get('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'getIgnoredGames'])
         ->name('user.ignored-games.index');

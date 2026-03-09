@@ -54,6 +54,16 @@ class GamesSearchController extends Controller
             }
         }
 
+        // Apply default excluded tags if no explicit tag exclusion is set
+        $usingDefaultExcludedTags = false;
+        if (! $request->has('excludedTags') && ! $request->has('noDefaults') && Auth::check()) {
+            $userPreferences = $userPreferences ?? Auth::user()->preferences;
+            if ($userPreferences && ! empty($userPreferences->excluded_tags)) {
+                $excludedTags = array_map('strval', $userPreferences->excluded_tags);
+                $usingDefaultExcludedTags = true;
+            }
+        }
+
         // Build filters
         $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags, $excludedTags, $readingTime);
 
@@ -252,6 +262,7 @@ class GamesSearchController extends Controller
                 'perPage' => $perPage,
                 'page' => $games->currentPage(),
                 'usingDefaultLanguages' => $usingDefaultLanguages,
+                'usingDefaultExcludedTags' => $usingDefaultExcludedTags,
             ],
             'filters' => $filterOptions,
             'metaTags' => $metaTags,
