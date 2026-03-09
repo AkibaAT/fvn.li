@@ -63,6 +63,7 @@
 		@static_files {
 			path_regexp \.(css|js|jpg|jpeg|png|gif|ico|svg|webp|woff|woff2|ttf|eot|otf|map|json|xml|txt|pdf|zip|mp4|webm|ogg)$
 			not path /livewire/*
+			not path_regexp ^/livewire-[a-f0-9]+/
 		}
 		handle @static_files {
 			# Try to serve the file, return 404 if not found (don't invoke Laravel)
