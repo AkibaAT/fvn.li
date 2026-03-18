@@ -49,6 +49,7 @@
         "laravel/pint": "*",
         "mockery/mockery": "*",
         "nunomaduro/collision": "*",
+        "pestphp/pest-plugin-laravel": "*",
         "spatie/laravel-ignition": "*",
         "tightenco/duster": "*"
     },
