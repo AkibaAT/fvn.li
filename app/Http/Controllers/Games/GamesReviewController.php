@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Games;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game;
+use App\Services\HtmlSanitizerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,6 +31,8 @@ class GamesReviewController extends Controller
         $selectedRating = $request->input('selectedRating');
         $perPage = $request->input('perPage', 5);
 
+        $sanitizer = app(HtmlSanitizerService::class);
+
         $reviews = $game->ratings()
             ->where('is_visible', true)
             ->when(! $showAllRatings, fn ($query) => $query->where('is_reviewed', true))
@@ -37,6 +40,12 @@ class GamesReviewController extends Controller
             ->with(['rater', 'user:id,name,avatar'])
             ->orderByDesc('published_at')
             ->paginate($perPage);
+
+        $reviews->through(function ($rating) use ($sanitizer) {
+            $rating->review = $sanitizer->sanitizeReview($rating->review);
+
+            return $rating;
+        });
 
         $availableRatings = $game->ratings()
             ->where('is_visible', true)

@@ -1,5 +1,5 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
 import { getCsrfToken } from './client';
+import http from '@/utils/http';
 
 export interface GameStats {
   itchioUsername?: string;
@@ -62,15 +62,7 @@ export interface VersionComparisonData {
   fileCategories: FileCategory[];
 }
 
-export const gameDataKeys = {
-  all: ['game-data'] as const,
-  stats: () => [...gameDataKeys.all, 'stats'] as const,
-  versionComparison: (gameId: number, fromVersionId?: number, toVersionId?: number) =>
-    [...gameDataKeys.all, 'version-comparison', gameId, fromVersionId, toVersionId] as const,
-  userProgress: (gameId: number) => [...gameDataKeys.all, 'user-progress', gameId] as const,
-};
-
-async function fetchGameStats(): Promise<GameStats> {
+export async function fetchGameStats(): Promise<GameStats> {
   const response = await fetch(route('react-api.dashboard.game-stats'));
   const data = await response.json();
   if (!data.success) throw new Error('Failed to fetch game stats');
@@ -83,7 +75,7 @@ interface VersionComparisonParams {
   toVersionId?: number;
 }
 
-async function fetchVersionComparison({
+export async function fetchVersionComparison({
   gameId,
   fromVersionId,
   toVersionId,
@@ -110,38 +102,12 @@ interface ToggleNotificationsParams {
   receiveUpdates: boolean;
 }
 
-async function toggleGameNotifications({
+export async function toggleGameNotifications({
   gameId,
   receiveUpdates,
 }: ToggleNotificationsParams): Promise<{ success: boolean; receive_updates: boolean }> {
-  const response = await window.axios.patch(`/react-api/user-progress/${gameId}/toggle-updates`, {
+  const response = await http.patch(`/react-api/user-progress/${gameId}/toggle-updates`, {
     receive_updates: receiveUpdates,
   });
   return response.data;
-}
-
-export function useGameStats() {
-  return useQuery({
-    queryKey: gameDataKeys.stats(),
-    queryFn: fetchGameStats,
-  });
-}
-
-export function useVersionComparison(
-  gameId: number,
-  fromVersionId?: number,
-  toVersionId?: number,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: gameDataKeys.versionComparison(gameId, fromVersionId, toVersionId),
-    queryFn: () => fetchVersionComparison({ gameId, fromVersionId, toVersionId }),
-    enabled: options?.enabled ?? (!!gameId && !!fromVersionId && !!toVersionId),
-  });
-}
-
-export function useToggleGameNotifications() {
-  return useMutation({
-    mutationFn: toggleGameNotifications,
-  });
 }

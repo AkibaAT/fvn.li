@@ -182,6 +182,24 @@ class VnListController extends Controller
             }, 'user',
         ]);
 
+        $allVersionIds = $vnList->entries->flatMap(function ($entry) {
+            return $entry->game->gameVersions->pluck('id')
+                ->merge($entry->game->latestVersion ? [$entry->game->latestVersion->id] : []);
+        })->unique()->values()->toArray();
+
+        $versionHasCharacterStats = [];
+        if (! empty($allVersionIds)) {
+            $statsVersionIds = DB::table('version_character_stats')
+                ->whereIn('game_version_id', $allVersionIds)
+                ->distinct()
+                ->pluck('game_version_id')
+                ->toArray();
+
+            foreach ($allVersionIds as $vid) {
+                $versionHasCharacterStats[$vid] = in_array($vid, $statsVersionIds);
+            }
+        }
+
         $isOwner = Auth::check() && Auth::id() === $vnList->user_id;
 
         $availableLists = [];
@@ -227,6 +245,7 @@ class VnListController extends Controller
             'isOwner' => $isOwner,
             'availableLists' => $availableLists,
             'metaTags' => $metaTags,
+            'versionHasCharacterStats' => $versionHasCharacterStats,
         ]);
     }
 

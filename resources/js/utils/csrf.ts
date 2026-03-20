@@ -1,3 +1,5 @@
+import http from '@/utils/http';
+
 /**
  * Get the CSRF token from the meta tag
  */
@@ -34,10 +36,8 @@ export async function refreshCsrfToken(): Promise<string> {
             metaTag.setAttribute('content', data.token);
         }
 
-        // Also update axios defaults if window.axios exists
-        if (typeof window !== 'undefined' && window.axios) {
-            window.axios.defaults.headers.common['X-CSRF-TOKEN'] = data.token;
-        }
+        // Also update axios defaults on the http instance
+        http.defaults.headers.common['X-CSRF-TOKEN'] = data.token;
 
         return data.token;
     }

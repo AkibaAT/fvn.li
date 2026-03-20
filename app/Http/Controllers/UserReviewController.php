@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Rating;
+use App\Services\HtmlSanitizerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -33,7 +34,7 @@ class UserReviewController extends Controller
             ], 403);
         }
 
-        $reviewText = $request->input('review', '');
+        $reviewText = $request->input('review') ?? '';
 
         // Strip image/media tags — reviews don't support image uploads
         $reviewText = preg_replace('/<img[^>]*>/i', '', $reviewText);
@@ -123,10 +124,12 @@ class UserReviewController extends Controller
 
     private function formatUserReview(Rating $rating): array
     {
+        $sanitizer = app(HtmlSanitizerService::class);
+
         return [
             'id' => $rating->id,
             'rating' => $rating->rating,
-            'review' => $rating->review,
+            'review' => $sanitizer->sanitizeReview($rating->review),
             'has_spoilers' => $rating->has_spoilers,
             'published_at' => $rating->published_at?->toISOString(),
             'updated_at' => $rating->updated_at?->toISOString(),

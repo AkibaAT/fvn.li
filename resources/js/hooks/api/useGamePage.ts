@@ -1,5 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCsrfToken } from './client';
+import http from '@/utils/http';
 
 // Types
 export interface Review {
@@ -80,19 +79,6 @@ export interface FileStatsData {
   }[];
 }
 
-// Query keys
-export const gamePageKeys = {
-  all: ['game-page'] as const,
-  reviews: (gameId: number, params: ReviewsParams) =>
-    [...gamePageKeys.all, 'reviews', gameId, params] as const,
-  versions: (gameId: number, page: number, perPage: number) =>
-    [...gamePageKeys.all, 'versions', gameId, page, perPage] as const,
-  characterStats: (gameSlug: string, versionId: number) =>
-    [...gamePageKeys.all, 'character-stats', gameSlug, versionId] as const,
-  fileStats: (gameSlug: string, versionId: number) =>
-    [...gamePageKeys.all, 'file-stats', gameSlug, versionId] as const,
-};
-
 // Params
 interface ReviewsParams {
   showAllRatings: boolean;
@@ -113,8 +99,8 @@ interface VersionsResponse {
 }
 
 // API functions
-async function fetchReviews(gameId: number, params: ReviewsParams): Promise<ReviewsResponse> {
-  const response = await window.axios.get(route('react-api.games.reviews', { game: gameId }), {
+export async function fetchReviews(gameId: number, params: ReviewsParams): Promise<ReviewsResponse> {
+  const response = await http.get(route('react-api.games.reviews', { game: gameId }), {
     params: {
       showAllRatings: params.showAllRatings,
       selectedRating: params.selectedRating,
@@ -141,8 +127,8 @@ async function fetchReviews(gameId: number, params: ReviewsParams): Promise<Revi
   };
 }
 
-async function fetchVersions(gameId: number, page: number, perPage: number): Promise<VersionsResponse> {
-  const response = await window.axios.get(route('react-api.games.versions', { game: gameId }), {
+export async function fetchVersions(gameId: number, page: number, perPage: number): Promise<VersionsResponse> {
+  const response = await http.get(route('react-api.games.versions', { game: gameId }), {
     params: { page, perPage },
   });
 
@@ -163,8 +149,8 @@ async function fetchVersions(gameId: number, page: number, perPage: number): Pro
   };
 }
 
-async function fetchCharacterStats(gameSlug: string, versionId: number): Promise<CharacterStatsData> {
-  const response = await window.axios.get(
+export async function fetchCharacterStats(gameSlug: string, versionId: number): Promise<CharacterStatsData> {
+  const response = await http.get(
     route('react-api.games.version.character-stats', {
       game: gameSlug,
       version: versionId,
@@ -178,8 +164,8 @@ async function fetchCharacterStats(gameSlug: string, versionId: number): Promise
   return response.data.data;
 }
 
-async function fetchFileStats(gameSlug: string, versionId: number): Promise<FileStatsData> {
-  const response = await window.axios.get(
+export async function fetchFileStats(gameSlug: string, versionId: number): Promise<FileStatsData> {
+  const response = await http.get(
     route('react-api.games.version.file-stats', {
       game: gameSlug,
       version: versionId,
@@ -198,11 +184,11 @@ interface UploadThumbnailParams {
   file: File;
 }
 
-async function uploadThumbnail({ gameSlug, file }: UploadThumbnailParams): Promise<{ thumbnail_url: string }> {
+export async function uploadThumbnail({ gameSlug, file }: UploadThumbnailParams): Promise<{ thumbnail_url: string }> {
   const formData = new FormData();
   formData.append('thumbnail', file);
 
-  const response = await window.axios.post(
+  const response = await http.post(
     route('react-api.my-games.thumbnail.update', { game: gameSlug }),
     formData
   );
@@ -212,62 +198,4 @@ async function uploadThumbnail({ gameSlug, file }: UploadThumbnailParams): Promi
   }
 
   return { thumbnail_url: response.data.thumbnail_url };
-}
-
-// Hooks
-export function useGameReviews(
-  gameId: number,
-  params: ReviewsParams,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: gamePageKeys.reviews(gameId, params),
-    queryFn: () => fetchReviews(gameId, params),
-    enabled: options?.enabled ?? !!gameId,
-    placeholderData: (previousData) => previousData,
-  });
-}
-
-export function useGameVersionsPaginated(
-  gameId: number,
-  page: number,
-  perPage: number,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: gamePageKeys.versions(gameId, page, perPage),
-    queryFn: () => fetchVersions(gameId, page, perPage),
-    enabled: options?.enabled ?? !!gameId,
-    placeholderData: (previousData) => previousData,
-  });
-}
-
-export function useCharacterStats(
-  gameSlug: string,
-  versionId: number | null,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: gamePageKeys.characterStats(gameSlug, versionId!),
-    queryFn: () => fetchCharacterStats(gameSlug, versionId!),
-    enabled: (options?.enabled ?? true) && !!versionId && !!gameSlug,
-  });
-}
-
-export function useFileStats(
-  gameSlug: string,
-  versionId: number | null,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: gamePageKeys.fileStats(gameSlug, versionId!),
-    queryFn: () => fetchFileStats(gameSlug, versionId!),
-    enabled: (options?.enabled ?? true) && !!versionId && !!gameSlug,
-  });
-}
-
-export function useUploadThumbnail() {
-  return useMutation({
-    mutationFn: uploadThumbnail,
-  });
 }

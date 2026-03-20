@@ -35,8 +35,8 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
 
   echo "Performing full restart..."
 
-  # Pull the latest images
-  docker compose pull
+  # Pull the latest images (including tools profile for social-image-generator)
+  docker compose --profile tools pull
 
   # Full restart
   docker compose down --remove-orphans

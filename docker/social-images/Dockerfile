@@ -4,6 +4,7 @@ FROM mcr.microsoft.com/playwright:v1.58.2
 WORKDIR /app
 
 RUN npm init -y \
+    && npm pkg set type=module \
     && npm i playwright
 
 # Copy application files

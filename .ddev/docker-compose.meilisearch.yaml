@@ -15,8 +15,6 @@ services:
       - MEILI_ENV=development
       - MEILI_HTTP_ADDR=0.0.0.0:7700
       - MEILI_LOG_LEVEL=DEBUG
-    ports:
-      - "7700:7700"
     volumes:
       - meilisearch_data:/meili_data
     networks:

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import http from '@/utils/http';
 
 export interface SearchFilters {
   language?: string;
@@ -32,16 +32,6 @@ export interface GlobalSearchData {
   total_dialogue: number;
 }
 
-export const searchKeys = {
-  all: ['search'] as const,
-  games: (query: string, filters: SearchFilters, page: number, perPage: number) =>
-    [...searchKeys.all, 'games', query, filters, page, perPage] as const,
-  dialogue: (query: string, filters: SearchFilters, page: number, perPage: number) =>
-    [...searchKeys.all, 'dialogue', query, filters, page, perPage] as const,
-  global: (query: string, limit: number) =>
-    [...searchKeys.all, 'global', query, limit] as const,
-};
-
 interface SearchParams {
   query: string;
   filters?: SearchFilters;
@@ -55,8 +45,8 @@ interface SearchResponse {
   searchEngine?: string;
 }
 
-async function fetchGameSearch({ query, filters = {}, page = 1, perPage = 20 }: SearchParams): Promise<SearchResponse> {
-  const response = await window.axios.get(route('api.games.search-enhanced'), {
+export async function fetchGameSearch({ query, filters = {}, page = 1, perPage = 20 }: SearchParams): Promise<SearchResponse> {
+  const response = await http.get(route('api.games.search-enhanced'), {
     params: {
       q: query.trim(),
       page,
@@ -81,8 +71,8 @@ async function fetchGameSearch({ query, filters = {}, page = 1, perPage = 20 }: 
   };
 }
 
-async function fetchDialogueSearch({ query, filters = {}, page = 1, perPage = 20 }: SearchParams): Promise<SearchResponse> {
-  const response = await window.axios.get(route('react-api.dialogue.search-enhanced'), {
+export async function fetchDialogueEnhancedSearch({ query, filters = {}, page = 1, perPage = 20 }: SearchParams): Promise<SearchResponse> {
+  const response = await http.get(route('react-api.dialogue.search-enhanced'), {
     params: {
       q: query.trim(),
       page,
@@ -107,8 +97,8 @@ async function fetchDialogueSearch({ query, filters = {}, page = 1, perPage = 20
   };
 }
 
-async function fetchGlobalSearch(query: string, limit: number): Promise<GlobalSearchData> {
-  const response = await window.axios.get(route('api.search.global'), {
+export async function fetchGlobalSearch(query: string, limit: number = 20): Promise<GlobalSearchData> {
+  const response = await http.get(route('api.search.global'), {
     params: { q: query.trim(), limit },
   });
 
@@ -117,54 +107,4 @@ async function fetchGlobalSearch(query: string, limit: number): Promise<GlobalSe
   }
 
   return response.data.data;
-}
-
-// Hooks
-
-export function useGameSearch(
-  query: string,
-  filters: SearchFilters = {},
-  page = 1,
-  perPage = 20,
-  options?: { enabled?: boolean }
-) {
-  const trimmedQuery = query.trim();
-
-  return useQuery({
-    queryKey: searchKeys.games(trimmedQuery, filters, page, perPage),
-    queryFn: () => fetchGameSearch({ query: trimmedQuery, filters, page, perPage }),
-    enabled: (options?.enabled ?? true) && trimmedQuery.length > 0,
-    placeholderData: (previousData) => previousData,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-export function useDialogueEnhancedSearch(
-  query: string,
-  filters: SearchFilters = {},
-  page = 1,
-  perPage = 20,
-  options?: { enabled?: boolean }
-) {
-  const trimmedQuery = query.trim();
-
-  return useQuery({
-    queryKey: searchKeys.dialogue(trimmedQuery, filters, page, perPage),
-    queryFn: () => fetchDialogueSearch({ query: trimmedQuery, filters, page, perPage }),
-    enabled: (options?.enabled ?? true) && trimmedQuery.length > 0,
-    placeholderData: (previousData) => previousData,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-export function useGlobalSearch(query: string, limit = 20, options?: { enabled?: boolean }) {
-  const trimmedQuery = query.trim();
-
-  return useQuery({
-    queryKey: searchKeys.global(trimmedQuery, limit),
-    queryFn: () => fetchGlobalSearch(trimmedQuery, limit),
-    enabled: (options?.enabled ?? true) && trimmedQuery.length > 0,
-    placeholderData: (previousData) => previousData,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
 }

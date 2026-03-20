@@ -21,7 +21,7 @@ export function usePlatformIcons() {
         mac: {
             icon: 'icon-apple',
             color: 'text-platform-mac',
-            title: 'macOS',
+            title: 'Mac',
         },
         android: {
             icon: 'icon-android',

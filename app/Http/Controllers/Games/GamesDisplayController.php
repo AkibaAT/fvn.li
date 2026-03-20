@@ -11,6 +11,7 @@ use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
 use App\Services\SimilarGamesService;
+use App\Services\HtmlSanitizerService;
 use App\Traits\HasSocialMetaTags;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -416,6 +417,9 @@ class GamesDisplayController extends Controller
             ->get()
             ->map(fn ($list) => $list->only(['id', 'user_id', 'name', 'description', 'type', 'created_at', 'entries_count', 'user']));
 
+        $sanitizer = app(HtmlSanitizerService::class);
+        $sanitizer->sanitizeGameModel($game);
+
         return Inertia::render('games/show', [
             'game' => $game,
             'reviews' => $reviews,
@@ -459,13 +463,15 @@ class GamesDisplayController extends Controller
             'gameJams',
         ]);
 
+        $sanitizer = app(HtmlSanitizerService::class);
+
         return response()->json([
             'id' => $game->id,
             'name' => $game->name,
             'slug' => $game->slug,
-            'description' => $game->description,
-            'full_description' => $game->full_description,
-            'authors' => $game->authors,
+            'description' => $sanitizer->sanitizeDescription($game->description),
+            'full_description' => $sanitizer->sanitizeDescription($game->full_description),
+            'authors' => $sanitizer->sanitizeAuthors($game->authors),
             'status' => $game->status,
             'game_engine' => $game->game_engine,
             'is_nsfw' => $game->is_nsfw,

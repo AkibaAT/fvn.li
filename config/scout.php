@@ -300,6 +300,9 @@ return [
                         'twoTypos' => 6,
                     ],
                 ],
+                'pagination' => [
+                    'maxTotalHits' => 10000,
+                ],
                 'embedders' => [
                     'default' => [
                         'source' => 'huggingFace',

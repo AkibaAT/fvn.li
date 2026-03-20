@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
+use App\Services\HtmlSanitizerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -1005,14 +1006,7 @@ class RatingsController extends Controller
             return $review;
         }
 
-        // Replace all variants of non-breaking spaces with regular spaces
-        return preg_replace([
-            '/&nbsp;/',
-            '/\s+/',  // Replace multiple spaces with single space
-        ], [
-            ' ',
-            ' ',
-        ], str_replace("\u{00A0}", ' ', trim($review)));
+        return app(HtmlSanitizerService::class)->sanitizeReview($review);
     }
 
     private function isPhraseMeaningful(string $phrase): bool

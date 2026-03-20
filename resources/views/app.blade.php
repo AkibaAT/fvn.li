@@ -31,7 +31,7 @@
     <meta name="theme-color" content="#3B82F6">
     <meta name="msapplication-TileColor" content="#3B82F6">
     <meta name="application-name" content="FVN.li">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="FVN.li">
 
@@ -143,8 +143,7 @@
         })();
     </script>
 
-    @viteReactRefresh
-    @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
+    @vite('resources/js/app.ts')
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen antialiased">
 @inertia

@@ -3,10 +3,8 @@ export default {
     content: [
         "./resources/**/*.blade.php",
         "./resources/**/*.js",
-        "./resources/**/*.jsx",
         "./resources/**/*.ts",
-        "./resources/**/*.tsx",
-        "./resources/**/*.vue",
+        "./resources/**/*.svelte",
     ],
     safelist: [
         // Border colors for list cards

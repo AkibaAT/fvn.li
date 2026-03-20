@@ -182,8 +182,37 @@ class GameContentController extends Controller
         $revertName = $request->boolean('revert_name', false);
         $revertScreenshots = $request->boolean('revert_screenshots', false);
         $revertThumbnail = $request->boolean('revert_thumbnail', false);
+        $revertAll = $revertName && $revertScreenshots && $revertThumbnail;
 
-        // Enable custom page if not already enabled
+        // If reverting everything, fully disable custom page
+        if ($revertAll) {
+            // Clean up custom images and screenshots before disabling
+            $this->cleanupUnusedImages($game, $game->full_description ?? '');
+            if ($game->custom_screenshots) {
+                $this->cleanupCustomScreenshots($game);
+            }
+
+            $thumbnailUrl = $this->revertThumbnail($game);
+
+            $game->disableCustomPage();
+            $game->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'All custom content has been removed. The game now shows original itch.io content.',
+                'data' => [
+                    'name' => $game->name,
+                    'effective_name' => $game->effective_name,
+                    'content' => $game->full_description,
+                    'screenshots' => $game->screenshots,
+                    'thumbnail_url' => $thumbnailUrl,
+                    'has_custom_page' => false,
+                    'is_reverted' => true,
+                ],
+            ]);
+        }
+
+        // Partial revert: enable custom page if not already enabled
         if (! $game->has_custom_page) {
             $game->enableCustomPage($user);
         }
@@ -193,7 +222,7 @@ class GameContentController extends Controller
         ];
 
         // Clean up unused images before reverting (since we're replacing content)
-        $this->cleanupUnusedImages($game, $game->full_description);
+        $this->cleanupUnusedImages($game, $game->full_description ?? '');
 
         // Revert screenshots if requested
         if ($revertScreenshots && $game->screenshots) {

@@ -35,28 +35,9 @@ use ZipArchive;
 
 class DashboardController extends Controller
 {
-    public function dashboard(): Response
+    private function getSocialAccountsData(User $user): array
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return Inertia::render('auth/login', [
-                'metaTags' => [
-                    'title' => 'Log in',
-                    'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
-                    'structuredData' => [
-                        '@type' => 'WebPage',
-                        'name' => 'Log in',
-                        'description' => 'Log in to your FVN.li account to track your visual novel progress',
-                        'url' => route('login'),
-                    ],
-                ],
-            ]);
-        }
-        $user = User::findOrFail($authId);
-
-        $connectedProviders = $user->socialAccounts()->pluck('provider_name')->toArray();
-
-        $socialAccounts = $user->socialAccounts()->get()->mapWithKeys(function ($account) {
+        return $user->socialAccounts()->get()->mapWithKeys(function ($account) {
             $displayName = null;
             $avatar = null;
 
@@ -95,28 +76,68 @@ class DashboardController extends Controller
                 ],
             ];
         })->toArray();
+    }
+
+    public function dashboard(): Response
+    {
+        $authId = Auth::id();
+        if (! $authId) {
+            return Inertia::render('auth/login', [
+                'metaTags' => [
+                    'title' => 'Log in',
+                    'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
+                    'structuredData' => [
+                        '@type' => 'WebPage',
+                        'name' => 'Log in',
+                        'description' => 'Log in to your FVN.li account to track your visual novel progress',
+                        'url' => route('login'),
+                    ],
+                ],
+            ]);
+        }
+        $user = User::findOrFail($authId);
+
+        $connectedProviders = $user->socialAccounts()->pluck('provider_name')->toArray();
+
+        $socialAccounts = $this->getSocialAccountsData($user);
 
         $itchioAccount = $user->socialAccounts()->where('provider_name', 'itchio')->first();
         $itchioUsername = $itchioAccount?->provider_data['username'] ?? (method_exists($user,
             'getItchioUsername') ? $user->getItchioUsername() : null);
 
-        $ownedGamesCount = 0;
-        $gamesWithLinks = 0;
+        // My Games data
+        $ownedGames = collect();
+        $clickStats = [];
         if ($itchioUsername && method_exists($user, 'getOwnedGames')) {
-            $ownedGames = $user->getOwnedGames();
-            $ownedGamesCount = $ownedGames->count();
-            $gamesWithLinks = $ownedGames->filter(function ($game) {
-                return method_exists($game,
-                    'hasAdditionalLinks') ? $game->hasAdditionalLinks() : ! empty($game->additional_links);
-            })->count();
+            $ownedGames = $user->getOwnedGames()->map(function ($g) {
+                return [
+                    'id' => $g->id,
+                    'name' => $g->name,
+                    'slug' => $g->slug,
+                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : $g->thumb_url,
+                    'platform' => $g->platform,
+                    'has_additional_links' => method_exists($g,
+                        'hasAdditionalLinks') ? $g->hasAdditionalLinks() : ! empty($g->additional_links),
+                ];
+            })->values();
+
+            if (class_exists(ClickStat::class) && $ownedGames->isNotEmpty()) {
+                $gameIds = $ownedGames->pluck('id')->toArray();
+                try {
+                    $clickStats = ClickStat::getMultipleGameStats($gameIds, now()->subDays(30));
+                } catch (Throwable $e) {
+                    $clickStats = [];
+                }
+            }
         }
 
+        // VN Addition Requests
         $recentRequests = [];
         if (class_exists(AdditionRequest::class)) {
             $recentRequests = $user->additionRequests()
                 ->with(['game', 'reviewer'])
                 ->orderBy('addition_request_users.created_at', 'desc')
-                ->take(5)
+                ->take(20)
                 ->get()
                 ->map(function ($request) {
                     return [
@@ -147,11 +168,10 @@ class DashboardController extends Controller
             'notification_digest' => 'asap',
         ]);
 
-        // Get ignored games with basic info
+        // Search preferences data
         $ignoredGames = $user->ignoredGames()
             ->select('games.id', 'games.name', 'games.slug', 'games.thumb_url', 'games.optimized_thumbnails', 'games.platform')
             ->orderBy('user_ignored_games.created_at', 'desc')
-            ->limit(10)
             ->get()
             ->map(function ($game) {
                 return [
@@ -220,9 +240,9 @@ class DashboardController extends Controller
             'socialAccounts' => $socialAccounts,
             'itchioData' => [
                 'username' => $itchioUsername,
-                'ownedGamesCount' => $ownedGamesCount,
-                'gamesWithLinks' => $gamesWithLinks,
             ],
+            'myGames' => $ownedGames,
+            'myGamesClickStats' => $clickStats,
             'notificationPreferences' => [
                 'browser_notifications_enabled' => $notificationPreferences->browser_notifications_enabled,
                 'discord_notifications_enabled' => $notificationPreferences->discord_notifications_enabled,

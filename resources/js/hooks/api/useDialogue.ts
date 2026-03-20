@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import http from '@/utils/http';
 
 export interface DialogueSearchFilters {
   q?: string;
@@ -89,28 +89,14 @@ export interface WordFrequencyItem {
   value: number;
 }
 
-export const dialogueKeys = {
-  all: ['dialogue'] as const,
-  options: (gameId: number, versionId?: number | null, language?: string) =>
-    [...dialogueKeys.all, 'options', gameId, versionId, language] as const,
-  versionStats: (versionId: number) =>
-    [...dialogueKeys.all, 'version-stats', versionId] as const,
-  search: (filters: DialogueSearchFilters) =>
-    [...dialogueKeys.all, 'search', filters] as const,
-  duplicates: (params: DuplicatesParams) =>
-    [...dialogueKeys.all, 'duplicates', params] as const,
-  wordFrequency: (versionId: number, language: string) =>
-    [...dialogueKeys.all, 'word-frequency', versionId, language] as const,
-};
-
 interface OptionsParams {
   gameId: number;
   versionId?: number | null;
   language?: string;
 }
 
-async function fetchDialogueOptions({ gameId, versionId, language }: OptionsParams): Promise<DialogueOptions> {
-  const resp = await window.axios.get(route('react-api.dialogue.options'), {
+export async function fetchDialogueOptions({ gameId, versionId, language }: OptionsParams): Promise<DialogueOptions> {
+  const resp = await http.get(route('react-api.dialogue.options'), {
     params: {
       gameId,
       versionId: versionId ?? undefined,
@@ -128,8 +114,8 @@ async function fetchDialogueOptions({ gameId, versionId, language }: OptionsPara
   };
 }
 
-async function fetchVersionStats(versionId: number): Promise<DialogueVersionStats> {
-  const resp = await window.axios.get(route('react-api.dialogue.version-stats'), {
+export async function fetchDialogueVersionStats(versionId: number): Promise<DialogueVersionStats> {
+  const resp = await http.get(route('react-api.dialogue.version-stats'), {
     params: { versionId },
   });
 
@@ -149,8 +135,8 @@ interface SearchResponse {
   pagination: DialoguePagination;
 }
 
-async function fetchDialogueSearch(filters: DialogueSearchFilters): Promise<SearchResponse> {
-  const resp = await window.axios.get(route('react-api.dialogue.search'), {
+export async function fetchDialogueSearch(filters: DialogueSearchFilters): Promise<SearchResponse> {
+  const resp = await http.get(route('react-api.dialogue.search'), {
     params: {
       q: filters.q,
       language: filters.language,
@@ -187,8 +173,8 @@ interface DuplicatesParams {
   limit: number;
 }
 
-async function fetchDuplicates(params: DuplicatesParams): Promise<DuplicateItem[]> {
-  const resp = await window.axios.get(route('react-api.dialogue.duplicates'), {
+export async function fetchDialogueDuplicates(params: DuplicatesParams): Promise<DuplicateItem[]> {
+  const resp = await http.get(route('react-api.dialogue.duplicates'), {
     params: {
       language: params.language,
       gameId: params.gameId ?? undefined,
@@ -209,8 +195,8 @@ interface WordFrequencyParams {
   language: string;
 }
 
-async function fetchWordFrequency({ versionId, language }: WordFrequencyParams): Promise<WordFrequencyItem[]> {
-  const resp = await window.axios.get(route('react-api.dialogue.word-frequency'), {
+export async function fetchWordFrequency({ versionId, language }: WordFrequencyParams): Promise<WordFrequencyItem[]> {
+  const resp = await http.get(route('react-api.dialogue.word-frequency'), {
     params: {
       versionId,
       language,
@@ -222,50 +208,4 @@ async function fetchWordFrequency({ versionId, language }: WordFrequencyParams):
 
   if (!resp.data?.success) throw new Error('Failed to fetch word frequency');
   return resp.data.data || [];
-}
-
-// Hooks
-
-export function useDialogueOptions(gameId: number, versionId?: number | null, language?: string) {
-  return useQuery({
-    queryKey: dialogueKeys.options(gameId, versionId, language),
-    queryFn: () => fetchDialogueOptions({ gameId, versionId, language }),
-    enabled: !!gameId,
-  });
-}
-
-export function useDialogueVersionStats(versionId: number | null) {
-  return useQuery({
-    queryKey: dialogueKeys.versionStats(versionId!),
-    queryFn: () => fetchVersionStats(versionId!),
-    enabled: !!versionId,
-  });
-}
-
-export function useDialogueSearch(filters: DialogueSearchFilters, options?: { enabled?: boolean }) {
-  const hasQuery = !!filters.q?.trim();
-  const hasVersion = !!filters.versionId;
-
-  return useQuery({
-    queryKey: dialogueKeys.search(filters),
-    queryFn: () => fetchDialogueSearch(filters),
-    enabled: (options?.enabled ?? true) && hasQuery && hasVersion,
-    placeholderData: (previousData) => previousData, // Keep previous data while loading
-  });
-}
-
-export function useDialogueDuplicates(params: DuplicatesParams, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: dialogueKeys.duplicates(params),
-    queryFn: () => fetchDuplicates(params),
-    enabled: options?.enabled ?? !!params.versionId,
-  });
-}
-
-export function useWordFrequency(versionId: number | null, language: string) {
-  return useQuery({
-    queryKey: dialogueKeys.wordFrequency(versionId!, language),
-    queryFn: () => fetchWordFrequency({ versionId: versionId!, language }),
-    enabled: !!versionId,
-  });
 }
