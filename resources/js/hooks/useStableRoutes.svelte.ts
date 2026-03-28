@@ -1,3 +1,4 @@
+import { page } from '@inertiajs/svelte';
 import { route } from 'ziggy-js';
 
 interface RouteInfo {
@@ -14,16 +15,14 @@ interface Routes {
 // Helper function to extract pathname from a URL or return as-is if already a path
 function getPathname(urlOrPath: string): string {
     try {
-        if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
-            return new URL(urlOrPath).pathname;
-        }
-        return urlOrPath;
+        const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+        return new URL(urlOrPath, base).pathname;
     } catch {
         return urlOrPath;
     }
 }
 
-function computeRoutes(): Routes {
+function computeRoutes(currentUrl?: string): Routes {
     if (typeof window === 'undefined') {
         return {
             games: { path: '/games', isActive: false },
@@ -32,7 +31,7 @@ function computeRoutes(): Routes {
         };
     }
 
-    const currentPath = window.location.pathname;
+    const currentPath = getPathname(currentUrl ?? window.location.pathname);
     const gamesPath = getPathname(route('games.index'));
     const listsPath = getPathname(route('lists.public'));
     const ratingsPath = getPathname(route('ratings.index'));
@@ -54,25 +53,14 @@ function computeRoutes(): Routes {
 }
 
 export function useStableRoutes() {
+    let currentUrl = $state('');
     let routes = $state<Routes>(computeRoutes());
 
-    const updateRoutes = () => {
-        if (typeof window === 'undefined') return;
-        routes = computeRoutes();
-    };
-
     $effect(() => {
-        updateRoutes();
-
-        const handlePopState = () => {
-            updateRoutes();
-        };
-
-        window.addEventListener('popstate', handlePopState);
-
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
+        return page.subscribe(($page) => {
+            currentUrl = $page.url;
+            routes = computeRoutes(currentUrl);
+        });
     });
 
     return {
