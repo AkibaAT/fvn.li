@@ -497,8 +497,8 @@ class MyGamesController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Screenshots uploaded successfully.',
-                'screenshots' => $allScreenshots,
-                'new_screenshots' => $newScreenshots,
+                'screenshots' => $game->resolveScreenshots($allScreenshots),
+                'new_screenshots' => $game->resolveScreenshots($newScreenshots),
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -588,7 +588,7 @@ class MyGamesController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Screenshot deleted successfully.',
-                'screenshots' => $screenshots,
+                'screenshots' => $game->resolveScreenshots($screenshots),
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -639,7 +639,7 @@ class MyGamesController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Screenshots reordered successfully.',
-                'screenshots' => $reorderedScreenshots,
+                'screenshots' => $game->resolveScreenshots($reorderedScreenshots),
             ]);
         } catch (Exception $e) {
             return response()->json([

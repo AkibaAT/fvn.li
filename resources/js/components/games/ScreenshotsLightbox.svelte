@@ -1,27 +1,12 @@
 <script lang="ts">
     import { untrack } from 'svelte';
-    import { SCREENSHOT_VARIANTS, type ScreenshotVariant } from '@/constants/screenshot-variants';
 
     export type Screenshot = {
         id: number;
         url: string;
         thumbnail_url?: string;
-        optimized?: Record<string, { path?: string }>;
+        original_url?: string;
     };
-
-    function getOptimizedScreenshotUrl(
-        screenshot: Screenshot,
-        variant: ScreenshotVariant = SCREENSHOT_VARIANTS.DEFAULT,
-        fallbackToOriginal: boolean = true,
-    ): string {
-        const path = screenshot.optimized?.[variant]?.path;
-        if (path) return `/storage/${path}`;
-        if (!fallbackToOriginal) return '';
-        if (variant === SCREENSHOT_VARIANTS.SMALL || variant === SCREENSHOT_VARIANTS.DEFAULT) {
-            return screenshot.thumbnail_url || screenshot.url;
-        }
-        return screenshot.url;
-    }
 
     interface Props {
         isOpen: boolean;
@@ -45,7 +30,7 @@
     });
 
     const currentImage = $derived(
-        !isOpen || !screenshots || screenshots.length === 0 ? '' : getOptimizedScreenshotUrl(screenshots[index], SCREENSHOT_VARIANTS.LARGE, true),
+        !isOpen || !screenshots || screenshots.length === 0 ? '' : screenshots[index]?.url || '',
     );
 
     function navigate(direction: 'prev' | 'next') {
@@ -181,7 +166,7 @@
                         style="transform: translateX({-index * 72 + (Math.min(5, screenshots.length) - 1) * 36}px)"
                     >
                         {#each screenshots as screenshot, i (i)}
-                            {@const thumbUrl = getOptimizedScreenshotUrl(screenshot, SCREENSHOT_VARIANTS.SMALL, true)}
+                            {@const thumbUrl = screenshot.thumbnail_url || screenshot.url}
                             <button
                                 onclick={(e) => {
                                     e.stopPropagation();
@@ -203,7 +188,7 @@
 
             <div class="flex items-center gap-3">
                 <a
-                    href={screenshots[index]?.url}
+                    href={screenshots[index]?.original_url || screenshots[index]?.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     class="rounded bg-white px-3 py-1 text-sm font-medium text-black hover:bg-gray-100"

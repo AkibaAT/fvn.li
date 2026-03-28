@@ -420,6 +420,11 @@ class GamesDisplayController extends Controller
         $sanitizer = app(HtmlSanitizerService::class);
         $sanitizer->sanitizeGameModel($game);
 
+        $game->screenshots = $game->getScreenshots();
+        if ($game->custom_screenshots) {
+            $game->custom_screenshots = $game->resolveScreenshots($game->custom_screenshots);
+        }
+
         return Inertia::render('games/show', [
             'game' => $game,
             'reviews' => $reviews,
@@ -481,7 +486,7 @@ class GamesDisplayController extends Controller
             'current_price' => $game->current_price,
             'url' => $game->url,
             'thumb_url' => $game->thumb_url,
-            'screenshots' => $game->screenshots,
+            'screenshots' => $game->getScreenshots(),
             'additional_links' => $game->additional_links,
             'platforms' => $game->platforms,
             'supported_languages' => $game->getSupportedLanguages(),

@@ -124,6 +124,29 @@ trait HasGameMedia
     }
 
     /**
+     * Resolve a screenshots array into frontend-ready URLs.
+     *
+     * @param  array<int, array<string, mixed>>  $screenshots
+     * @return array<int, array<string, mixed>>
+     */
+    public function resolveScreenshots(array $screenshots, string $thumbnailVariant = 'default', string $displayVariant = 'large'): array
+    {
+        if (empty($screenshots)) {
+            return [];
+        }
+
+        return array_map(function (array $screenshot) use ($thumbnailVariant, $displayVariant): array {
+            $originalUrl = $screenshot['url'] ?? null;
+
+            return [
+                'url' => $this->getOptimizedOrOriginalUrl($screenshot, $displayVariant),
+                'thumbnail_url' => $this->getOptimizedOrOriginalUrl($screenshot, $thumbnailVariant),
+                'original_url' => $originalUrl,
+            ];
+        }, $screenshots);
+    }
+
+    /**
      * Get all screenshots
      *
      * @param  string  $variant  The variant of the screenshot to get (small, default, large)
@@ -135,16 +158,7 @@ trait HasGameMedia
             return [];
         }
 
-        $screenshots = [];
-
-        foreach ($this->screenshots as $screenshot) {
-            $screenshots[] = [
-                'url' => $this->getOptimizedOrOriginalUrl($screenshot, 'large'),
-                'thumbnail_url' => $this->getOptimizedOrOriginalUrl($screenshot, $variant),
-            ];
-        }
-
-        return $screenshots;
+        return $this->resolveScreenshots($this->screenshots, $variant, 'large');
     }
 
     /**

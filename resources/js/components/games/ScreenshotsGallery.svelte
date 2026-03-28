@@ -1,26 +1,12 @@
 <script lang="ts">
-    import { SCREENSHOT_VARIANTS, type ScreenshotVariant, type OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
-
     export interface Screenshot {
         url: string;
-        thumbnail_url: string;
-        optimized?: OptimizedScreenshotVariants;
+        thumbnail_url?: string;
+        original_url?: string;
     }
 
-    function getOptimizedScreenshotUrl(
-        screenshot: Screenshot,
-        variant: ScreenshotVariant = SCREENSHOT_VARIANTS.DEFAULT,
-        fallbackToOriginal: boolean = true,
-    ): string {
-        const path = screenshot.optimized?.[variant]?.path;
-        if (path) return `/storage/${path}`;
-        if (fallbackToOriginal) {
-            if (variant === SCREENSHOT_VARIANTS.SMALL || variant === SCREENSHOT_VARIANTS.DEFAULT) {
-                return screenshot.thumbnail_url || screenshot.url;
-            }
-            return screenshot.url;
-        }
-        return '';
+    function getThumbnailUrl(screenshot: Screenshot): string {
+        return screenshot.thumbnail_url || screenshot.url;
     }
 
     interface Props {
@@ -119,8 +105,8 @@
         {#if screenshots && screenshots.length > 0}
             <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4" id="screenshots-gallery">
                 {#each screenshots as screenshot, index (`${screenshot.url}-${index}`)}
-                    {@const thumbnailUrl = getOptimizedScreenshotUrl(screenshot, SCREENSHOT_VARIANTS.DEFAULT, true)}
-                    {@const fullUrl = getOptimizedScreenshotUrl(screenshot, SCREENSHOT_VARIANTS.LARGE, true)}
+                    {@const thumbnailUrl = getThumbnailUrl(screenshot)}
+                    {@const fullUrl = screenshot.url}
                     <div class="group relative h-32 w-full">
                         <a
                             href={fullUrl}

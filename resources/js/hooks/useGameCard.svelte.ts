@@ -2,8 +2,6 @@ import { useTagResizeObserver } from '@/hooks/useTagResizeObserver.svelte';
 import { router } from '@inertiajs/svelte';
 import { SvelteURLSearchParams } from 'svelte/reactivity';
 import type { GameCardPlatform } from './usePlatformIcons';
-import { SCREENSHOT_VARIANTS } from '@/constants/screenshot-variants';
-import type { OptimizedScreenshotVariants, ScreenshotVariant } from '@/constants/screenshot-variants';
 
 export interface GameCardGame {
     id: number;
@@ -17,7 +15,6 @@ export interface GameCardGame {
     screenshots?: Array<{
         url?: string;
         thumbnail_url?: string;
-        optimized?: OptimizedScreenshotVariants;
     }>;
     english_word_count?: number | null;
     primary_word_count?: number | null;
@@ -99,28 +96,6 @@ export function useGameCard({
     onSaleToggle,
     onDelistedToggle,
 }: GameCardProps) {
-    // Image handling
-    const getOptimizedScreenshotUrl = (
-        screenshot: NonNullable<GameCardGame['screenshots']>[number],
-        variant: ScreenshotVariant = SCREENSHOT_VARIANTS.DEFAULT,
-        fallbackToOriginal: boolean = true,
-    ): string | null => {
-        if (!screenshot) return null;
-
-        if (screenshot.optimized?.[variant]?.path) {
-            return `/storage/${screenshot.optimized[variant].path}`;
-        }
-
-        if (fallbackToOriginal) {
-            if (variant === SCREENSHOT_VARIANTS.SMALL || variant === SCREENSHOT_VARIANTS.DEFAULT) {
-                return screenshot.thumbnail_url || screenshot.url || null;
-            }
-            return screenshot.url || null;
-        }
-
-        return null;
-    };
-
     const getThumbnailUrl = (): string | null => {
         if (game.optimized_thumbnails?.default?.path) {
             return `/storage/${game.optimized_thumbnails.default.path}`;
@@ -130,7 +105,7 @@ export function useGameCard({
 
         const first = game.screenshots?.[0];
         if (first) {
-            return getOptimizedScreenshotUrl(first, SCREENSHOT_VARIANTS.DEFAULT, true);
+            return first.thumbnail_url || first.url || null;
         }
 
         return null;
@@ -236,7 +211,6 @@ export function useGameCard({
     return {
         // Image handling
         thumbnailUrl: getThumbnailUrl(),
-        getOptimizedScreenshotUrl,
 
         // Content
         authorsInlineHtml,

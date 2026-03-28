@@ -110,12 +110,12 @@ class GameContentController extends Controller
                 'custom_content' => [
                     'name' => $game->custom_name,
                     'description' => $game->custom_description,
-                    'screenshots' => $game->custom_screenshots,
+                    'screenshots' => $game->custom_screenshots ? $game->resolveScreenshots($game->custom_screenshots) : [],
                 ],
                 'original_content' => [
                     'name' => $game->name,
                     'description' => $game->full_description,
-                    'screenshots' => $game->screenshots,
+                    'screenshots' => $game->getScreenshots(),
                 ],
                 'effective_content' => [
                     'name' => $game->getEffectiveName(),
