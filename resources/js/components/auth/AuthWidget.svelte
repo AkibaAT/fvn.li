@@ -3,6 +3,7 @@
     import Steam from '@/components/icons/Steam.svelte';
     import { router } from '@inertiajs/svelte';
     import type { User } from '@/types';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         user?: User;
@@ -33,14 +34,16 @@
         );
     }
 
-    $effect(() => {
-        if (!dialogEl) return;
-        const handleClickOutside = (e: MouseEvent) => {
-            if (e.target === dialogEl) closeDialog();
-        };
-        dialogEl.addEventListener('click', handleClickOutside);
-        return () => dialogEl.removeEventListener('click', handleClickOutside);
-    });
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        closeDialog();
+    }
+
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
+            closeDialog();
+        }
+    }
 </script>
 
 <button
@@ -71,6 +74,8 @@
 
 <dialog
     bind:this={dialogEl}
+    onclick={handleBackdropClick}
+    oncancel={handleCancel}
     class="m-auto w-full max-w-sm rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
 >
     <div class="mb-4 flex items-baseline justify-between">

@@ -2,6 +2,7 @@
     import { page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
     import http from '@/utils/http';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     let {
         gameId,
@@ -234,10 +235,16 @@
     const customLists = $derived(allLists.filter((list) => list.type === 'custom' || !list.type).sort((a, b) => a.name.localeCompare(b.name)));
 
     const handleDialogBackdropClick = (e: MouseEvent) => {
-        if (e.target === e.currentTarget) {
+        if (isDialogBackdropClick(dialogEl, e)) {
             dialogEl?.close();
             showListDialog = false;
         }
+    };
+
+    const handleDialogCancel = (event: Event) => {
+        event.preventDefault();
+        dialogEl?.close();
+        showListDialog = false;
     };
 </script>
 
@@ -357,6 +364,7 @@
         <!-- Comprehensive List Management Dialog -->
         <dialog
             bind:this={dialogEl}
+            oncancel={handleDialogCancel}
             class="m-auto w-full max-w-md rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
             onclick={handleDialogBackdropClick}
         >

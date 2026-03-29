@@ -417,6 +417,22 @@ class GamesDisplayController extends Controller
             ->get()
             ->map(fn ($list) => $list->only(['id', 'user_id', 'name', 'description', 'type', 'created_at', 'entries_count', 'user']));
 
+        // Fetch pre-calculated route paths to endings for latest version
+        $routePaths = [];
+        if ($game->latestVersion) {
+            $routePaths = $game->latestVersion->routePaths()
+                ->orderBy('word_count')
+                ->get()
+                ->map(fn ($rp) => [
+                    'ending_label' => $rp->ending_label,
+                    'step_count' => $rp->step_count,
+                    'word_count' => $rp->word_count,
+                    'choice_count' => $rp->choice_count,
+                    'choices' => $rp->choices ?? [],
+                ])
+                ->toArray();
+        }
+
         $sanitizer = app(HtmlSanitizerService::class);
         $sanitizer->sanitizeGameModel($game);
 
@@ -453,6 +469,7 @@ class GamesDisplayController extends Controller
             'similarGames' => $similarGames,
             'developerGames' => $developerGames,
             'estimatedReadingTime' => $estimatedReadingTime,
+            'routePaths' => $routePaths,
             'metaTags' => $this->getMetaTags(),
         ]);
     }

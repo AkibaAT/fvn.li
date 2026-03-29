@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { isDialogBackdropClick } from '@/utils/dialog';
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
@@ -230,6 +231,10 @@
             phrasesDialogEl.close();
         }
     });
+
+    function closePhrasesDialog() {
+        showContext = false;
+    }
 </script>
 
 <SeoHead {metaTags} />
@@ -460,9 +465,13 @@
     <dialog
         bind:this={phrasesDialogEl}
         aria-modal="true"
+        oncancel={(event) => {
+            event.preventDefault();
+            closePhrasesDialog();
+        }}
         class="m-auto w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:bg-gray-800 dark:text-gray-100"
         onclick={(e) => {
-            if (e.target === e.currentTarget) showContext = false;
+            if (isDialogBackdropClick(phrasesDialogEl, e)) closePhrasesDialog();
         }}
     >
         {#if selectedPhrase && safePhrases[selectedPhrase]}
@@ -474,9 +483,7 @@
                     </span>
                 </h3>
                 <button
-                    onclick={() => {
-                        showContext = false;
-                    }}
+                    onclick={closePhrasesDialog}
                     class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     aria-label="Close dialog"
                 >
@@ -511,9 +518,13 @@
     <dialog
         bind:this={historyDialogEl}
         aria-modal="true"
+        oncancel={(event) => {
+            event.preventDefault();
+            closeHistory();
+        }}
         class="m-auto w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:bg-gray-800 dark:text-gray-100"
         onclick={(e) => {
-            if (e.target === e.currentTarget) closeHistory();
+            if (isDialogBackdropClick(historyDialogEl, e)) closeHistory();
         }}
     >
         {#if historyModal.gameName}

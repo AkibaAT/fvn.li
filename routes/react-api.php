@@ -8,6 +8,7 @@ use App\Http\Controllers\ClickTrackingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\GameContentController;
+use App\Http\Controllers\Games\RouteMapController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\MyGamesController;
 use App\Http\Controllers\ReviewReportController;
@@ -59,6 +60,10 @@ Route::middleware(['web'])->group(function () {
         [GamesController::class, 'getVersionCharacterStats'])->name('react-api.games.version.character-stats');
     Route::get('games/{game:slug}/versions/{version}/file-stats',
         [GamesController::class, 'getVersionFileStats'])->name('react-api.games.version.file-stats');
+    Route::get('games/{game:slug}/versions/{version}/route-graph',
+        [RouteMapController::class, 'getRouteGraph'])->name('react-api.games.version.route-graph');
+    Route::post('games/{game:slug}/versions/{version}/parse-save',
+        [RouteMapController::class, 'parseSaveFile'])->name('react-api.games.version.parse-save');
 
     // Click tracking (session-based)
     Route::post('track/custom-link',

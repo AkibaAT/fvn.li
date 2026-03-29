@@ -35,6 +35,7 @@
         "vite": "^8.0.8"
     },
     "dependencies": {
+        "@dagrejs/dagre": "^3.0.0",
         "@dnd-kit-svelte/svelte": "^0.1.6",
         "@dnd-kit/helpers": "^0.3.2",
         "@inertiajs/svelte": "^2.3.21",
@@ -42,6 +43,7 @@
         "@tailwindcss/typography": "^0.5.19",
         "@tailwindcss/vite": "^4.2.2",
         "axios": "^1.15.0",
+        "@xyflow/svelte": "^1.5.2",
         "chart.js": "^4.5.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",

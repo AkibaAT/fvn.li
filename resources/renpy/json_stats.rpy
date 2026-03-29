@@ -1,5 +1,10 @@
 init 10000 python:
     from __future__ import unicode_literals  # Helps ensure string consistency in Py2
+    import ast as pyast
+    # Python 2 / old Python 3 compatibility: ast.Constant was added in 3.8.
+    # Older versions use ast.Num, ast.Str, ast.NameConstant instead.
+    if not hasattr(pyast, 'Constant'):
+        pyast.Constant = type(b'Constant', (), {})  # dummy class that never matches isinstance
     import codecs
     import collections
     import io
@@ -64,6 +69,18 @@ init 10000 python:
 
     # Store dialogue lines by language
     dialogue_lines = collections.defaultdict(list)
+
+    # Route graph data
+    route_labels = collections.OrderedDict()
+    route_edges = []
+    route_edge_keys = set()
+    route_menu_choices = []
+    route_variables = []
+    route_variable_changes = []
+    route_labels_with_screen_calls = set()
+    route_menu_conditions = {}  # id(Menu node) -> enclosing if condition
+    route_literal_variables = collections.defaultdict(dict)
+    screen_action_exprs = collections.defaultdict(list)
 
     # File statistics by type
     file_statistics = {
@@ -143,14 +160,470 @@ init 10000 python:
         r"Character\s*\(\s*[\"']((?:\\.|[^\"'])+)[\"']"
     )
 
+    ENDING_PATTERN = re.compile(
+        r'(?:^|[_\.])(?:ending|end|credits|game_?over|true_?end|good_?end|bad_?end|normal_?end|route_?end)(?:$|[_\.])',
+        re.IGNORECASE
+    )
+
+    def is_game_file(filename):
+        if not filename:
+            return False
+        fl = filename.replace("\\", "/")
+        return not fl.startswith("renpy/common/")
+
+    def extract_python_edges(source, from_label, filename, linenumber, condition=None):
+        """Extract renpy.jump() and renpy.call() from Python source."""
+        if not source or not source.strip():
+            return
+        try:
+            tree = pyast.parse(source)
+        except (SyntaxError, ValueError):
+            return
+        for node in pyast.walk(tree):
+            if not isinstance(node, pyast.Expr):
+                continue
+            call_node = getattr(node, 'value', None)
+            if call_node is None or not isinstance(call_node, pyast.Call):
+                continue
+            func = getattr(call_node, 'func', None)
+            if func is None:
+                continue
+            # Match renpy.jump("label") / renpy.call("label")
+            func_name = None
+            if isinstance(func, pyast.Attribute) and getattr(func, 'attr', None) in ('jump', 'call'):
+                owner = getattr(func, 'value', None)
+                if isinstance(owner, pyast.Name) and getattr(owner, 'id', None) == 'renpy':
+                    func_name = func.attr
+            if not func_name:
+                continue
+            # Get the first positional argument as the target label
+            args = getattr(call_node, 'args', [])
+            if not args:
+                continue
+            arg = args[0]
+            target = None
+            if isinstance(arg, pyast.Constant):
+                target = arg.value
+            elif hasattr(pyast, 'Str') and isinstance(arg, pyast.Str):
+                target = arg.s
+            if target and isinstance(target, str):
+                add_route_edge(from_label, target, func_name, filename, linenumber, condition=condition)
+
+    def extract_assignments(source, current_label, filename, linenumber, context_type="python_block"):
+        """Parse Python source and extract simple variable assignments."""
+        if not source or not source.strip():
+            return
+        try:
+            tree = pyast.parse(source)
+        except (SyntaxError, ValueError):
+            return
+        for node in pyast.walk(tree):
+            if isinstance(node, pyast.Assign):
+                for target in node.targets:
+                    if isinstance(target, pyast.Name):
+                        literal_value = None
+                        if isinstance(node.value, pyast.Constant):
+                            literal_value = node.value.value
+                        elif hasattr(pyast, 'Num') and isinstance(node.value, pyast.Num):
+                            literal_value = node.value.n
+                        elif hasattr(pyast, 'Str') and isinstance(node.value, pyast.Str):
+                            literal_value = node.value.s
+                        elif hasattr(pyast, 'NameConstant') and isinstance(node.value, pyast.NameConstant):
+                            literal_value = node.value.value
+
+                        if isinstance(literal_value, (str, int, float, bool)) or literal_value is None:
+                            route_literal_variables[current_label][target.id] = literal_value
+                        elif target.id in route_literal_variables[current_label]:
+                            del route_literal_variables[current_label][target.id]
+
+                        route_variable_changes.append({
+                            "label": current_label,
+                            "variable": target.id,
+                            "operation": "=",
+                            "value": pyast.dump(node.value) if hasattr(pyast, "dump") else "",
+                            "file": filename,
+                            "line": linenumber,
+                            "context": context_type,
+                        })
+            elif isinstance(node, pyast.AugAssign):
+                if isinstance(node.target, pyast.Name):
+                    if node.target.id in route_literal_variables[current_label]:
+                        del route_literal_variables[current_label][node.target.id]
+                    op_map = {
+                        pyast.Add: "+=", pyast.Sub: "-=", pyast.Mult: "*=",
+                        pyast.Div: "/=", pyast.Mod: "%=", pyast.BitAnd: "&=",
+                        pyast.BitOr: "|=", pyast.BitXor: "^=",
+                        pyast.LShift: "<<=", pyast.RShift: ">>=",
+                        pyast.Pow: "**=", pyast.FloorDiv: "//=",
+                    }
+                    op_str = op_map.get(type(node.op), "?=")
+                    route_variable_changes.append({
+                        "label": current_label,
+                        "variable": node.target.id,
+                        "operation": op_str,
+                        "value": pyast.dump(node.value) if hasattr(pyast, "dump") else "",
+                        "file": filename,
+                        "line": linenumber,
+                        "context": context_type,
+                    })
+
+    def find_target_in_block(block):
+        """Walk a block of AST nodes to find the first Jump or Call target."""
+        if not block:
+            return None
+        for stmt in block:
+            screen_name = get_call_screen_name(stmt)
+            if screen_name:
+                targets = resolve_screen_targets(screen_name, {})
+                if targets:
+                    return targets[0]
+            if isinstance(stmt, renpy.ast.Jump):
+                return {"target": stmt.target, "type": "jump"}
+            if isinstance(stmt, renpy.ast.Call):
+                return {"target": stmt.label, "type": "call"}
+            if isinstance(stmt, renpy.ast.Label):
+                return {"target": stmt.name, "type": "label"}
+        return None
+
+    def collect_targets_from_action_expr(expr, variables):
+        if not expr:
+            return []
+
+        try:
+            tree = pyast.parse(expr, mode="eval")
+        except Exception:
+            return []
+
+        targets = []
+
+        for node in pyast.walk(tree):
+            if not isinstance(node, pyast.Call):
+                continue
+
+            func_name = None
+            if isinstance(node.func, pyast.Name):
+                func_name = node.func.id
+            elif isinstance(node.func, pyast.Attribute):
+                func_name = node.func.attr
+
+            if func_name not in ("Jump", "Call"):
+                continue
+
+            if not node.args:
+                continue
+
+            first_arg = node.args[0]
+            target_value = None
+
+            if isinstance(first_arg, pyast.Constant) and isinstance(first_arg.value, str):
+                target_value = first_arg.value
+            elif isinstance(first_arg, pyast.Name):
+                resolved = variables.get(first_arg.id, None)
+                if isinstance(resolved, str):
+                    target_value = resolved
+
+            if isinstance(target_value, str):
+                targets.append({"target": target_value, "type": "screen_" + func_name.lower()})
+
+        return targets
+
+    def collect_screen_targets():
+        collected = collections.defaultdict(list)
+        visited_screens = set()
+
+        def add_screen_expr(screen_name, expr):
+            existing = collected[screen_name]
+            if expr not in existing:
+                existing.append(expr)
+
+        def walk_screen_node(screen_name, node):
+            if node is None:
+                return
+
+            if hasattr(node, "keyword"):
+                for key, expr in getattr(node, "keyword", []):
+                    if key == "action":
+                        add_screen_expr(screen_name, expr)
+
+            if hasattr(node, "children"):
+                for child in getattr(node, "children", []):
+                    walk_screen_node(screen_name, child)
+
+            if hasattr(node, "entries"):
+                for _condition, block in getattr(node, "entries", []):
+                    walk_screen_node(screen_name, block)
+
+            block = getattr(node, "block", None)
+            if block is not None:
+                walk_screen_node(screen_name, block)
+
+            target_name = getattr(node, "target", None)
+            if isinstance(target_name, str):
+                nested_screen = renpy.display.screen.get_screen_variant(target_name)
+                if nested_screen is not None and nested_screen.ast is not None:
+                    walk_screen_ast(target_name, nested_screen.ast)
+
+        def walk_screen_ast(screen_name, ast_root):
+            if screen_name in visited_screens or ast_root is None:
+                return
+
+            visited_screens.add(screen_name)
+            walk_screen_node(screen_name, ast_root)
+
+        for (screen_name, _variant), screen in renpy.display.screen.screens.items():
+            if screen_name in visited_screens:
+                continue
+            if getattr(screen, "ast", None) is None:
+                continue
+            walk_screen_ast(screen_name, screen.ast)
+
+        return collected
+
+    def resolve_screen_targets(screen_name, variables):
+        targets = []
+        for expr in screen_action_exprs.get(screen_name, []):
+            for target_info in collect_targets_from_action_expr(expr, variables):
+                if target_info not in targets:
+                    targets.append(target_info)
+        return targets
+
+    def get_call_screen_name(stmt):
+        if isinstance(stmt, renpy.ast.UserStatement):
+            parsed = stmt.parsed
+            if parsed is None:
+                parsed = renpy.statements.parse(stmt, stmt.line, stmt.block)
+                stmt.parsed = parsed
+
+            name, parsed_data = parsed
+            if " ".join(name) == "call screen":
+                if not parsed_data.get("expression", False):
+                    return parsed_data.get("name", None)
+
+        return None
+
+    def combine_conditions(outer_condition, inner_condition):
+        if not outer_condition or outer_condition == "True":
+            return inner_condition
+        if not inner_condition or inner_condition == "True":
+            return outer_condition
+        return "(%s) and (%s)" % (outer_condition, inner_condition)
+
+    def handle_call_screen(from_label, screen_name, filename, linenumber, condition=None):
+        if not from_label or not screen_name:
+            return
+
+        route_labels_with_screen_calls.add(from_label)
+        variables = route_literal_variables.get(from_label, {})
+
+        for target_info in resolve_screen_targets(screen_name, variables):
+            add_route_edge(
+                from_label,
+                target_info["target"],
+                target_info["type"],
+                filename,
+                linenumber,
+                condition=condition,
+            )
+
+    def add_edge_from_statement(from_label, stmt, filename, condition=None):
+        if not from_label or stmt is None:
+            return
+
+        linenumber = getattr(stmt, "linenumber", 0)
+        screen_name = get_call_screen_name(stmt)
+        if screen_name:
+            handle_call_screen(from_label, screen_name, filename, linenumber, condition=condition)
+            return
+
+        if isinstance(stmt, renpy.ast.Jump):
+            add_route_edge(from_label, stmt.target, "jump", filename, linenumber, condition=condition)
+            return
+
+        if isinstance(stmt, renpy.ast.Call):
+            add_route_edge(from_label, stmt.label, "call", filename, linenumber, condition=condition)
+            return
+
+        if isinstance(stmt, renpy.ast.Label):
+            next_filename = getattr(stmt, "filename", filename)
+            next_line = getattr(stmt, "linenumber", 0)
+            ensure_route_label(stmt.name, next_filename, next_line)
+            add_route_edge(from_label, stmt.name, "flow", next_filename, next_line, condition=condition)
+            return
+
+        if isinstance(stmt, renpy.ast.If):
+            for branch_condition, sub_block in getattr(stmt, "entries", []):
+                if not sub_block:
+                    continue
+                walk_for_edges(
+                    sub_block,
+                    from_label,
+                    filename,
+                    "if",
+                    combine_conditions(condition, branch_condition),
+                )
+
+    def ensure_route_label(label_name, filename, linenumber, is_ending=False):
+        if label_name not in route_labels:
+            route_labels[label_name] = {
+                "file": filename,
+                "line": linenumber,
+                "is_ending": bool(is_ending or ENDING_PATTERN.search(label_name)),
+            }
+
+    def add_route_edge(from_label, to_label, edge_type, filename, linenumber, choice_text=None, condition=None):
+        if not from_label or not to_label:
+            return
+
+        edge_key = (
+            from_label,
+            to_label,
+            edge_type,
+            choice_text if choice_text is not None else "",
+            condition if condition is not None else "",
+        )
+
+        if edge_key in route_edge_keys:
+            return
+
+        route_edge_keys.add(edge_key)
+
+        edge = {
+            "from_label": from_label,
+            "to_label": to_label,
+            "edge_type": edge_type,
+            "file": filename,
+            "line": linenumber,
+        }
+
+        if choice_text is not None:
+            edge["choice_text"] = choice_text
+        if condition is not None:
+            edge["condition"] = condition
+
+        route_edges.append(edge)
+
+    def walk_for_edges(block, from_label, filename, from_type="flow", active_condition=None):
+        """Recursively walk a block to find all Jump/Call edges and variable changes."""
+        if not block:
+            return
+        for stmt in block:
+            screen_name = get_call_screen_name(stmt)
+            if screen_name:
+                handle_call_screen(
+                    from_label,
+                    screen_name,
+                    filename,
+                    getattr(stmt, "linenumber", 0),
+                    condition=active_condition,
+                )
+            elif isinstance(stmt, renpy.ast.Jump):
+                add_route_edge(
+                    from_label,
+                    stmt.target,
+                    "jump",
+                    filename,
+                    getattr(stmt, "linenumber", 0),
+                    condition=active_condition,
+                )
+            elif isinstance(stmt, renpy.ast.Call):
+                add_route_edge(
+                    from_label,
+                    stmt.label,
+                    "call",
+                    filename,
+                    getattr(stmt, "linenumber", 0),
+                    condition=active_condition,
+                )
+            elif isinstance(stmt, renpy.ast.Return):
+                # Return inside a conditional block = conditional ending
+                if active_condition:
+                    ending_name = from_label + ":ending"
+                    ensure_route_label(ending_name, filename, getattr(stmt, "linenumber", 0), is_ending=True)
+                    add_route_edge(
+                        from_label,
+                        ending_name,
+                        "return",
+                        filename,
+                        getattr(stmt, "linenumber", 0),
+                        condition=active_condition,
+                    )
+            elif isinstance(stmt, renpy.ast.Label):
+                nested_filename = getattr(stmt, "filename", filename)
+                nested_line = getattr(stmt, "linenumber", 0)
+
+                ensure_route_label(stmt.name, nested_filename, nested_line)
+                add_route_edge(
+                    from_label,
+                    stmt.name,
+                    "flow",
+                    nested_filename,
+                    nested_line,
+                    condition=active_condition,
+                )
+
+                # Subsequent statements belong to this label, not the parent
+                from_label = stmt.name
+                filename = nested_filename
+                active_condition = None
+
+                if getattr(stmt, "block", None):
+                    walk_for_edges(stmt.block, stmt.name, nested_filename, "label_block")
+            elif isinstance(stmt, renpy.ast.Python):
+                source = getattr(stmt.code, "source", "")
+                if source:
+                    extract_assignments(
+                        source, from_label, filename,
+                        getattr(stmt, "linenumber", 0), from_type
+                    )
+                    extract_python_edges(
+                        source, from_label, filename,
+                        getattr(stmt, "linenumber", 0),
+                        condition=active_condition
+                    )
+            elif isinstance(stmt, renpy.ast.If):
+                for i, (condition, sub_block) in enumerate(stmt.entries):
+                    if sub_block:
+                        walk_for_edges(
+                            sub_block,
+                            from_label,
+                            filename,
+                            "if",
+                            combine_conditions(active_condition, condition),
+                        )
+            elif isinstance(stmt, renpy.ast.Menu):
+                if active_condition:
+                    route_menu_conditions[id(stmt)] = active_condition
+            elif hasattr(stmt, 'block') and stmt.block:
+                walk_for_edges(stmt.block, from_label, filename, from_type, active_condition)
+
     def wordcounter():
         """Count words and analyze the game script."""
         all_stmts = list(renpy.game.script.all_stmts)
         all_stmts.sort(key=lambda n: n.filename or "")
+        screen_action_exprs.update(collect_screen_targets())
 
         known_languages = renpy.known_languages()
 
-        # First pass: identify characters
+        # Build translation map: {identifier: {lang: translated_text}}
+        # This maps original Say statements to their translations across languages
+        say_translations = {}
+        # From Translate blocks (Ren'Py 7.x)
+        for node in all_stmts:
+            if isinstance(node, renpy.ast.Translate) and node.language:
+                for stmt in getattr(node, "block", []):
+                    if isinstance(stmt, renpy.ast.Say) and stmt.what:
+                        ident = getattr(node, "identifier", None)
+                        if ident:
+                            say_translations.setdefault(ident, {})[node.language] = clean_text(stmt.what)
+        # From TranslateSay nodes (Ren'Py 8.x)
+        if hasattr(renpy.ast, "TranslateSay"):
+            for node in all_stmts:
+                if isinstance(node, renpy.ast.TranslateSay) and node.language and node.what:
+                    ident = getattr(node, "identifier", None)
+                    if ident:
+                        say_translations.setdefault(ident, {})[node.language] = clean_text(node.what)
+
+        # First pass: identify characters and variable defaults
         for node in all_stmts:
             if isinstance(node, renpy.ast.Define):
                 varname = node.varname
@@ -187,6 +660,16 @@ init 10000 python:
                 for lang in known_languages:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
 
+            elif isinstance(node, renpy.ast.Default):
+                if is_game_file(node.filename):
+                    route_variables.append({
+                        "name": node.varname,
+                        "default_value": getattr(node.code, "source", "").strip(),
+                        "type": "default",
+                        "file": node.filename,
+                        "line": getattr(node, "linenumber", 0),
+                    })
+
         # Check through all nodes for TranslateSay
         has_translate_say = False
         if hasattr(renpy.ast, "TranslateSay"):
@@ -197,6 +680,7 @@ init 10000 python:
 
         # Find context (current label or scene)
         current_context = {}
+        route_context_terminated = False
 
         # Track the last character who spoke in each language for extend statements
         last_character = {}
@@ -228,12 +712,55 @@ init 10000 python:
                 return character_id, True
 
         # Second pass: gather dialogue and menu statistics
+        last_say_text = None
+        last_say_identifier = None  # for looking up prompt translations
         for node in all_stmts:
+            # Track the last Say text for menu prompts
+            # Include default-language Say/TranslateSay (language is None), skip translated ones
+            if isinstance(node, renpy.ast.Say) and not getattr(node, "language", None):
+                last_say_text = clean_text(node.what) if node.what else None
+                last_say_identifier = getattr(node, "identifier", None)
+
             # Track context (labels)
             if isinstance(node, renpy.ast.Label):
-                # Update context
                 for lang in ['default'] + list(known_languages):
                     current_context[lang] = node.name
+                route_context_terminated = False
+                if is_game_file(node.filename):
+                    ensure_route_label(node.name, node.filename, getattr(node, "linenumber", 0))
+
+                    if getattr(node, "block", None):
+                        walk_for_edges(node.block, node.name, node.filename, "label_block")
+                        trailing_stmt = node.block[-1]
+                        next_stmt = getattr(trailing_stmt, "next", None)
+                    else:
+                        next_stmt = getattr(node, "next", None)
+
+                    # Follow the .next chain until we find a label, jump, call,
+                    # return, or end of statements. This captures implicit
+                    # fall-through between labels where non-control statements
+                    # (Say, Python, Show, etc.) sit between them.
+                    seen_next = set()
+                    edge_count_before = len(route_edges)
+                    while next_stmt is not None and id(next_stmt) not in seen_next:
+                        seen_next.add(id(next_stmt))
+                        if isinstance(next_stmt, (renpy.ast.Jump, renpy.ast.Call, renpy.ast.Return)):
+                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            break
+                        if isinstance(next_stmt, renpy.ast.Label):
+                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            break
+                        # Non-terminal control flow: process edges but keep walking
+                        # unless it produced conditional edges (flow is now conditional)
+                        if get_call_screen_name(next_stmt):
+                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                        elif isinstance(next_stmt, renpy.ast.If):
+                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            if len(route_edges) > edge_count_before:
+                                break
+                        elif isinstance(next_stmt, renpy.ast.Menu):
+                            pass  # menus are handled separately in the main loop
+                        next_stmt = getattr(next_stmt, "next", None)
 
             # Older versions (without TranslateSay) - handle both Say and Menu blocks
             if (not has_translate_say and isinstance(node, renpy.ast.Translate)):
@@ -318,15 +845,83 @@ init 10000 python:
                 for lang in ['default'] + list(known_languages):
                     all_lang_stats[lang]["menu_count"] += 1
 
+                menu_context = current_context.get("default", "")
+                if route_context_terminated:
+                    menu_context = ""
+
+                # Capture the prompt: menu caption or last dialogue line
+                menu_prompt = None
+                for item_l, item_c, item_b in node.items:
+                    if not item_l and item_b:
+                        # Caption item (empty label = menu's own text)
+                        for stmt in item_b:
+                            if isinstance(stmt, renpy.ast.Say) and stmt.what:
+                                menu_prompt = clean_text(stmt.what)
+                        break
+                if not menu_prompt:
+                    menu_prompt = last_say_text
+
+                # Get the enclosing if condition (if this menu is inside an if block)
+                enclosing_condition = route_menu_conditions.get(id(node))
+
                 for l, c, b in node.items:
                     if l:  # Only process non-empty choices
-                        # Count options for all languages
                         for lang in ['default'] + list(known_languages):
                             all_lang_stats[lang]["options_count"] += 1
 
-                        # Clean the original text
                         original_text = clean_text(l)
                         character_id = "menu_choice"
+
+                        # Combine enclosing if-condition with the choice's own condition
+                        effective_condition = combine_conditions(enclosing_condition, c) if enclosing_condition else c
+
+                        # Determine the target of this menu choice
+                        target_info = find_target_in_block(b)
+                        choice_target = target_info["target"] if target_info else None
+                        choice_type = target_info["type"] if target_info else None
+
+                        # Collect translations for this choice
+                        choice_translations = {}
+                        for lang in known_languages:
+                            translated = translate_string(l, lang)
+                            if translated and translated != l:
+                                choice_translations[lang] = clean_text(translated)
+
+                        # Get prompt translations via Say identifier
+                        prompt_translations = {}
+                        if last_say_identifier and last_say_identifier in say_translations:
+                            prompt_translations = say_translations[last_say_identifier]
+
+                        # Store route menu choice data
+                        if menu_context and is_game_file(node.filename):
+                            route_menu_choices.append({
+                                "from_label": menu_context,
+                                "text": ensure_unicode(original_text),
+                                "condition": ensure_unicode(effective_condition) if effective_condition else None,
+                                "target_label": ensure_unicode(choice_target) if choice_target else None,
+                                "edge_type": ensure_unicode(choice_type) if choice_type else None,
+                                "prompt": ensure_unicode(menu_prompt) if menu_prompt else None,
+                                "translations": choice_translations,
+                                "prompt_translations": prompt_translations,
+                                "file": node.filename,
+                                "line": getattr(node, "linenumber", 0),
+                            })
+
+                            # Record an edge from the menu's label to the choice target
+                            if choice_target:
+                                add_route_edge(
+                                    menu_context,
+                                    choice_target,
+                                    "menu_choice",
+                                    node.filename,
+                                    getattr(node, "linenumber", 0),
+                                    choice_text=ensure_unicode(original_text),
+                                    condition=ensure_unicode(effective_condition) if effective_condition else None,
+                                )
+
+                            # Walk the menu choice block for nested edges
+                            choice_context = "menu_choice:" + ensure_unicode(original_text)
+                            walk_for_edges(b, menu_context, node.filename, choice_context)
 
                         # Add menu choice for default language
                         dialogue_lines["default"].append({
@@ -342,7 +937,6 @@ init 10000 python:
                         for lang in known_languages:
                             translated_text = translate_string(l, lang)
                             if translated_text and translated_text != l:
-                                # Use translated text if it's different from original
                                 cleaned_translated_text = clean_text(translated_text)
                                 dialogue_lines[lang].append({
                                     "character": character_id,
@@ -353,7 +947,6 @@ init 10000 python:
                                 })
                                 all_lang_stats[lang]["characters"]["menu_choice"].add(translated_text)
                             else:
-                                # Use original text if no translation available
                                 dialogue_lines[lang].append({
                                     "character": character_id,
                                     "text": original_text,
@@ -362,6 +955,37 @@ init 10000 python:
                                     "context": current_context.get(lang, "")
                                 })
                                 all_lang_stats[lang]["characters"]["menu_choice"].add(l)
+                    else:
+                        # Empty caption choice - still walk the block for edges
+                        if menu_context and is_game_file(node.filename):
+                            walk_for_edges(b, menu_context, node.filename, "menu_block")
+
+            elif isinstance(node, renpy.ast.Return):
+                ctx = current_context.get("default", "")
+                has_outgoing_route = False
+                if ctx:
+                    for edge in route_edges:
+                        if edge.get("from_label") == ctx:
+                            has_outgoing_route = True
+                            break
+                if (
+                    ctx
+                    and not route_context_terminated
+                    and is_game_file(node.filename)
+                    and ctx in route_labels
+                    and ctx not in route_labels_with_screen_calls
+                    and not has_outgoing_route
+                ):
+                    route_labels[ctx]["is_ending"] = True
+                    route_context_terminated = True
+        # Post-process: mark labels as endings if they jump/call back to main_menu
+        main_menu_targets = {"main_menu", "_main_menu"}
+        for edge in route_edges:
+            if edge.get("to_label") in main_menu_targets:
+                from_label = edge.get("from_label")
+                if from_label and from_label in route_labels:
+                    route_labels[from_label]["is_ending"] = True
+
         collect_file_statistics()
         report_stats()
 
@@ -462,6 +1086,76 @@ init 10000 python:
                     "context": ensure_unicode(line["context"]) if line["context"] else None
                 })
             result["dialogue_lines"][ensure_unicode(lang)] = processed_lines
+
+        # Add route graph data
+        processed_labels = []
+        for name, info in route_labels.items():
+            processed_labels.append({
+                "name": ensure_unicode(name),
+                "file": ensure_unicode(info["file"]),
+                "line": info["line"],
+                "is_ending": info.get("is_ending", False),
+            })
+        result["route_labels"] = processed_labels
+
+        processed_edges = []
+        for edge in route_edges:
+            processed_edge = {
+                "from_label": ensure_unicode(edge["from_label"]) if edge["from_label"] else None,
+                "to_label": ensure_unicode(edge["to_label"]) if edge["to_label"] else None,
+                "edge_type": ensure_unicode(edge.get("edge_type", "flow")),
+                "file": ensure_unicode(edge["file"]),
+                "line": edge["line"],
+            }
+            if "choice_text" in edge:
+                processed_edge["choice_text"] = ensure_unicode(edge["choice_text"])
+            if "condition" in edge and edge["condition"]:
+                processed_edge["condition"] = ensure_unicode(edge["condition"])
+            processed_edges.append(processed_edge)
+        result["route_edges"] = processed_edges
+
+        processed_choices = []
+        for choice in route_menu_choices:
+            entry = {
+                "from_label": ensure_unicode(choice["from_label"]) if choice["from_label"] else None,
+                "text": ensure_unicode(choice["text"]) if choice["text"] else None,
+                "condition": ensure_unicode(choice["condition"]) if choice["condition"] else None,
+                "target_label": ensure_unicode(choice["target_label"]) if choice["target_label"] else None,
+                "edge_type": ensure_unicode(choice["edge_type"]) if choice["edge_type"] else None,
+                "prompt": ensure_unicode(choice["prompt"]) if choice.get("prompt") else None,
+                "file": ensure_unicode(choice["file"]),
+                "line": choice["line"],
+            }
+            if choice.get("translations"):
+                entry["translations"] = choice["translations"]
+            if choice.get("prompt_translations"):
+                entry["prompt_translations"] = choice["prompt_translations"]
+            processed_choices.append(entry)
+        result["route_menu_choices"] = processed_choices
+
+        processed_variables = []
+        for var in route_variables:
+            processed_variables.append({
+                "name": ensure_unicode(var["name"]),
+                "default_value": ensure_unicode(var["default_value"]) if var["default_value"] else None,
+                "type": ensure_unicode(var["type"]),
+                "file": ensure_unicode(var["file"]),
+                "line": var["line"],
+            })
+        result["route_variables"] = processed_variables
+
+        processed_var_changes = []
+        for vc in route_variable_changes:
+            processed_var_changes.append({
+                "label": ensure_unicode(vc["label"]) if vc["label"] else None,
+                "variable": ensure_unicode(vc["variable"]),
+                "operation": ensure_unicode(vc["operation"]),
+                "value": ensure_unicode(vc["value"]) if vc["value"] else None,
+                "file": ensure_unicode(vc["file"]),
+                "line": vc["line"],
+                "context": ensure_unicode(vc.get("context", "python_block")),
+            })
+        result["route_variable_changes"] = processed_var_changes
 
         with io.open("stats.json", "w", encoding="utf-8") as outfile:
             outfile.write(u"{}".format(json.dumps(result, indent=4, ensure_ascii=False)))

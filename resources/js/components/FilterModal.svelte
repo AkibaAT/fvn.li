@@ -3,6 +3,7 @@
     import MultiSelect from '@/components/MultiSelect.svelte';
     import { useGameFilters } from '@/hooks/useGameFilters.svelte';
     import type { CurrentFilters, FilterOptions } from '@/types';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         isOpen: boolean;
@@ -51,18 +52,16 @@
         }
     });
 
-    $effect(() => {
-        if (!dialogEl || !isOpen) return;
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        onClose();
+    }
 
-        const handleClick = (e: MouseEvent) => {
-            if (e.target === dialogEl) {
-                onClose();
-            }
-        };
-
-        dialogEl.addEventListener('click', handleClick);
-        return () => dialogEl.removeEventListener('click', handleClick);
-    });
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
+            onClose();
+        }
+    }
 
     const readingTimeDefaults: Record<string, string> = {
         short: 'Short (< 10k words)',
@@ -76,6 +75,8 @@
     aria-modal="true"
     aria-labelledby="games-filter-title"
     aria-describedby="games-filter-desc"
+    onclick={handleBackdropClick}
+    oncancel={handleCancel}
     class="h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-black/50 backdrop:backdrop-blur-sm"
 >
     <h1 id="games-filter-title" class="sr-only">Filter Games</h1>

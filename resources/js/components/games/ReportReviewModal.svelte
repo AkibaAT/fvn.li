@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { isDialogBackdropClick } from '@/utils/dialog';
+
     interface Props {
         ratingId: number;
         reviewerName: string;
@@ -61,9 +63,14 @@
     }
 
     function handleBackdropClick(e: MouseEvent) {
-        if (e.target === e.currentTarget) {
+        if (isDialogBackdropClick(dialogEl, e)) {
             onClose();
         }
+    }
+
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        onClose();
     }
 </script>
 
@@ -71,6 +78,7 @@
     bind:this={dialogEl}
     class="m-auto w-full max-w-md rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
     onclick={handleBackdropClick}
+    oncancel={handleCancel}
 >
     <div class="mb-4 flex items-center justify-between">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Report Review</h3>
