@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fetchUserLists, addGameToList } from '@/hooks/api';
     import type { VnList } from '@/hooks/api';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     let {
         gameId,
@@ -90,15 +91,27 @@
 
     $effect(() => {
         if (!dialogEl) return;
+        const currentDialogEl = dialogEl;
         const handleClose = () => {
             isOpen = false;
             selectedListId = null;
             openerEl?.focus?.();
             openerEl = null;
         };
-        dialogEl.addEventListener('close', handleClose);
-        return () => dialogEl?.removeEventListener('close', handleClose);
+        currentDialogEl.addEventListener('close', handleClose);
+        return () => currentDialogEl.removeEventListener('close', handleClose);
     });
+
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        isOpen = false;
+    }
+
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
+            isOpen = false;
+        }
+    }
 </script>
 
 {#if lists.length > 0}
@@ -117,10 +130,9 @@
             bind:this={dialogEl}
             aria-modal="true"
             aria-labelledby="add-to-list-title"
+            oncancel={handleCancel}
             class="m-auto w-80 rounded-lg border border-gray-200 bg-white p-0 shadow-lg backdrop:bg-black/20 dark:border-gray-700 dark:bg-gray-800"
-            onclick={(e: MouseEvent) => {
-                if (e.target === e.currentTarget) isOpen = false;
-            }}
+            onclick={handleBackdropClick}
         >
             <div class="p-4">
                 <h3 id="add-to-list-title" class="mb-4 text-lg font-medium text-gray-900 dark:text-white">

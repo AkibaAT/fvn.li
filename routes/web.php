@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\FeedController;
+use App\Http\Controllers\Games\RouteMapController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
@@ -97,6 +98,8 @@ Route::get('games/random', [GamesController::class, 'randomGame'])
 Route::get('games/{game:slug}', [GamesController::class, 'gameShow'])
     ->name('games.show')
     ->middleware('track.page.views');
+Route::get('games/{game:slug}/route-map', [RouteMapController::class, 'show'])
+    ->name('games.route-map');
 
 // Auth routes
 Route::get('login', [AuthController::class, 'login'])

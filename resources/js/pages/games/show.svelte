@@ -234,6 +234,20 @@
         word_count: number;
     }
 
+    interface RouteChoice {
+        from: string;
+        to: string;
+        text: string | null;
+    }
+
+    interface RoutePath {
+        ending_label: string;
+        step_count: number;
+        word_count: number;
+        choice_count: number;
+        choices: RouteChoice[];
+    }
+
     interface GameShowProps {
         game: Game;
         reviews?: Paginated<Review>;
@@ -257,6 +271,7 @@
         similarGames?: SimilarGame[];
         developerGames?: SimilarGame[];
         estimatedReadingTime?: EstimatedReadingTime | null;
+        routePaths?: RoutePath[];
         metaTags?: MetaTags;
     }
 
@@ -283,6 +298,7 @@
         similarGames = [],
         developerGames = [],
         estimatedReadingTime = null,
+        routePaths = [],
         metaTags,
     }: GameShowProps = $props();
 
@@ -493,6 +509,7 @@
     );
 
     let expandedReviews = $state<Record<number, boolean>>({});
+    let expandedRoutes = $state<Record<string, boolean>>({});
     let revealedSpoilers = $state<Record<number, boolean>>({});
 
     const getLanguageFlag = (flagCode: string) => `https://flagicons.lipis.dev/flags/1x1/${flagCode}.svg`;
@@ -1165,7 +1182,7 @@
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Version History</h2>
 
         {#if game.latest_version && !game.is_paid && versionCharacterCounts[game.latest_version.id] > 0 && versionHasDialogueLines[game.latest_version.id]}
-            <div class="mb-4">
+            <div class="mb-4 flex gap-3">
                 <a
                     href={route('dialogue.browser', { gameId: game.id, versionId: game.latest_version.id })}
                     class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
@@ -1180,6 +1197,91 @@
                     </svg>
                     Browse Dialogue
                 </a>
+                <a
+                    href={route('games.route-map', { game: game.slug })}
+                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition hover:bg-gray-50 focus:border-gray-500 focus:ring focus:ring-gray-300 focus:outline-none active:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                >
+                    <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Route Map
+                </a>
+            </div>
+        {/if}
+
+        {#if routePaths && routePaths.length > 0}
+            <div class="mb-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <h3 class="mb-3 text-base font-medium text-gray-900 dark:text-gray-100">
+                    Route Lengths
+                    <span class="ml-1 text-sm font-normal text-gray-500 dark:text-gray-400">({routePaths.length} ending{routePaths.length !== 1 ? 's' : ''})</span>
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 text-xs font-medium text-gray-500 uppercase dark:border-gray-700 dark:text-gray-400">
+                                <th class="pb-2 pr-4">Ending</th>
+                                <th class="pb-2 pr-4 text-right">Steps</th>
+                                <th class="pb-2 pr-4 text-right">Words</th>
+                                <th class="pb-2 pr-4 text-right">Choices</th>
+                                <th class="pb-2 text-right">Est. Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#each routePaths as rp (rp.ending_label)}
+                                <tr
+                                    class="border-b border-gray-100 dark:border-gray-700/50 {rp.choices?.length > 0 ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30' : ''}"
+                                    onclick={() => {
+                                        if (rp.choices?.length > 0) expandedRoutes[rp.ending_label] = !expandedRoutes[rp.ending_label];
+                                    }}
+                                >
+                                    <td class="py-2 pr-4 font-mono text-xs text-gray-700 dark:text-gray-300">
+                                        {#if rp.choices?.length > 0}
+                                            <span class="mr-1 inline-block w-3 text-gray-400">{expandedRoutes[rp.ending_label] ? '▾' : '▸'}</span>
+                                        {:else}
+                                            <span class="mr-1 inline-block w-3"></span>
+                                        {/if}
+                                        {rp.ending_label}
+                                    </td>
+                                    <td class="py-2 pr-4 text-right text-gray-600 dark:text-gray-400">{rp.step_count}</td>
+                                    <td class="py-2 pr-4 text-right text-gray-600 dark:text-gray-400">{rp.word_count.toLocaleString()}</td>
+                                    <td class="py-2 pr-4 text-right text-gray-600 dark:text-gray-400">{rp.choice_count}</td>
+                                    <td class="py-2 text-right text-gray-600 dark:text-gray-400">
+                                        {#if rp.word_count > 0}
+                                            {(() => {
+                                                const mins = Math.round(rp.word_count / 200);
+                                                if (mins < 1) return '< 1 min';
+                                                if (mins < 60) return `~${mins} min`;
+                                                const h = Math.floor(mins / 60);
+                                                const m = mins % 60;
+                                                return m > 0 ? `~${h}h ${m}m` : `~${h}h`;
+                                            })()}
+                                        {:else}
+                                            -
+                                        {/if}
+                                    </td>
+                                </tr>
+                                {#if expandedRoutes[rp.ending_label] && rp.choices?.length > 0}
+                                    <tr class="border-b border-gray-100 dark:border-gray-700/50">
+                                        <td colspan="5" class="py-2 pl-7">
+                                            <div class="space-y-1">
+                                                {#each rp.choices as choice, i (`${choice.from}:${choice.to}:${i}`)}
+                                                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                        <span class="text-gray-400 dark:text-gray-500">{i + 1}.</span>
+                                                        {#if choice.text}
+                                                            <span class="text-gray-700 dark:text-gray-300">&ldquo;{choice.text}&rdquo;</span>
+                                                        {:else}
+                                                            <span class="font-mono">{choice.from} &rarr; {choice.to}</span>
+                                                        {/if}
+                                                    </div>
+                                                {/each}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {/if}
+                            {/each}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         {/if}
 
@@ -1689,7 +1791,9 @@
     {versionComparisonData}
     isLoadingComparison={showVersionComparison && !versionComparisonData}
     {activeComparisonTab}
-    setActiveComparisonTab={(tab) => { activeComparisonTab = tab; }}
+    setActiveComparisonTab={(tab) => {
+        activeComparisonTab = tab;
+    }}
     {closeVersionComparisonDialog}
     {formatBytes}
 />

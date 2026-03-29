@@ -261,6 +261,36 @@ class GameVersion extends Model
         return $this->hasMany(VersionFileCategory::class);
     }
 
+    public function routeLabels(): HasMany
+    {
+        return $this->hasMany(VersionRouteLabel::class);
+    }
+
+    public function routeEdges(): HasMany
+    {
+        return $this->hasMany(VersionRouteEdge::class);
+    }
+
+    public function routeMenuChoices(): HasMany
+    {
+        return $this->hasMany(VersionRouteMenuChoice::class);
+    }
+
+    public function routeVariables(): HasMany
+    {
+        return $this->hasMany(VersionRouteVariable::class);
+    }
+
+    public function routeVariableChanges(): HasMany
+    {
+        return $this->hasMany(VersionRouteVariableChange::class);
+    }
+
+    public function routePaths(): HasMany
+    {
+        return $this->hasMany(VersionRoutePath::class);
+    }
+
     /**
      * Check if a language is available for this version
      */
