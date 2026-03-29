@@ -7,6 +7,7 @@ namespace App\Observers;
 use App\Models\Game;
 use App\Services\GameFilterService;
 use App\Services\HomePageCacheService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class GameObserver
@@ -18,6 +19,7 @@ class GameObserver
     {
         GameFilterService::clearCache();
         HomePageCacheService::clearAll(); // Clear home page cache for new game
+        $this->bumpRecommendationCacheVersion();
 
         // Set first_visible_at for new games that are created as visible
         // This handles the case where a game is imported with is_visible = true from the start
@@ -108,10 +110,11 @@ class GameObserver
 
             // Clear home page cache when visibility changes
             HomePageCacheService::clearAll();
+            $this->bumpRecommendationCacheVersion();
         }
 
         // Clear filter cache if relevant fields changed
-        if ($game->isDirty(['status', 'game_engine', 'is_visible'])) {
+        if ($game->isDirty(['status', 'game_engine', 'is_visible', 'content_type'])) {
             echo "    [Observer] Clearing filter cache\n";
             GameFilterService::clearCache();
         }
@@ -120,6 +123,10 @@ class GameObserver
         if ($game->wasChanged(['first_visible_at', 'latest_version_published_at', 'trending_score', 'name', 'thumb_url'])) {
             echo "    [Observer] Clearing home page teasers\n";
             HomePageCacheService::clearTeasers();
+        }
+
+        if ($game->wasChanged(['authors', 'custom_name', 'name', 'optimized_thumbnails', 'rating_count', 'rating_score', 'status', 'thumb_url', 'platform'])) {
+            $this->bumpRecommendationCacheVersion();
         }
 
         // Process any pending associations
@@ -134,6 +141,7 @@ class GameObserver
         // If we processed any pending associations and the game is visible, re-index it
         if (($hadPendingGameJams || $hadPendingTags) && $game->is_visible) {
             echo "    [Observer] Re-indexing game due to updated associations\n";
+            $this->bumpRecommendationCacheVersion();
             $gameId = $game->id;
 
             dispatch(function () use ($gameId) {
@@ -157,10 +165,17 @@ class GameObserver
     {
         GameFilterService::clearCache();
         HomePageCacheService::clearAll(); // Clear home page cache when game deleted
+        $this->bumpRecommendationCacheVersion();
 
         // Clean up optimized thumbnails if they exist
         if ($game->optimized_thumbnails) {
             $game->clearOptimizedThumbnails();
         }
+    }
+
+    private function bumpRecommendationCacheVersion(): void
+    {
+        Cache::add('games.recommendations.version', 1);
+        Cache::increment('games.recommendations.version');
     }
 }

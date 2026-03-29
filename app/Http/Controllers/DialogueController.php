@@ -11,6 +11,7 @@ use App\Services\MeilisearchService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -106,7 +107,7 @@ class DialogueController extends Controller
             ->values();
 
         // Options: games with dialogue data
-        $games = DB::table('games as g')
+        $games = Cache::remember('dialogue.games_list', 3600, fn () => DB::table('games as g')
             ->join('game_versions as gv2', 'gv2.game_id', '=', 'g.id')
             ->join('version_character_stats as vcs2', 'vcs2.game_version_id', '=', 'gv2.id')
             ->select('g.id', 'g.name', 'g.slug')
@@ -118,7 +119,7 @@ class DialogueController extends Controller
                 'name' => (string) $row->name,
                 'slug' => (string) $row->slug,
             ])
-            ->values();
+            ->values());
 
         // Options: versions for a selected game (that have dialogue)
         $versions = collect();

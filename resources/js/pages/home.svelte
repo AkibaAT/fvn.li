@@ -421,18 +421,3 @@
         </section>
     </div>
 </div>
-
-<style>
-    :global(.dark .flex.min-h-screen:has(.home-page)) {
-        background: transparent;
-    }
-    :global(.flex.min-h-screen:has(.home-page) main#main-content) {
-        padding-top: 0;
-        padding-bottom: 0;
-    }
-    :global(.flex.min-h-screen:has(.home-page) main#main-content > div) {
-        max-width: 100%;
-        padding-left: 0;
-        padding-right: 0;
-    }
-</style>

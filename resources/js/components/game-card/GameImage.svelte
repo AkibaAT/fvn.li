@@ -26,6 +26,8 @@
             <img
                 src={thumbnailUrl}
                 alt={gameName}
+                loading="lazy"
+                decoding="async"
                 class="h-full w-full {objectFitClass} transition-transform duration-500 group-hover:scale-110"
             />
         {:else}

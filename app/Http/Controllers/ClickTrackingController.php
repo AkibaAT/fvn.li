@@ -59,7 +59,7 @@ class ClickTrackingController extends Controller
             );
 
             // Redirect to the project URL
-            return redirect()->away($primaryUrl);
+            return redirect()->away($primaryUrl)->header('Referrer-Policy', 'origin');
 
         } catch (ValidationException $e) {
             // On validation error, redirect back
@@ -127,7 +127,7 @@ class ClickTrackingController extends Controller
             );
 
             // Redirect to the target URL
-            return redirect()->away($targetLink['url']);
+            return redirect()->away($targetLink['url'])->header('Referrer-Policy', 'origin');
 
         } catch (ValidationException $e) {
             // On validation error, redirect back

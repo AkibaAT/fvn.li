@@ -69,4 +69,21 @@ export default defineConfig({
             host: `${process.env.DDEV_SITENAME}.${process.env.DDEV_TLD}`,
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('/node_modules/chart.js/')) {
+                        return 'chart';
+                    }
+                    if (id.includes('/node_modules/elkjs/')) {
+                        return 'elk';
+                    }
+                    if (id.includes('/node_modules/@xyflow/')) {
+                        return 'xyflow';
+                    }
+                },
+            },
+        },
+    },
 });

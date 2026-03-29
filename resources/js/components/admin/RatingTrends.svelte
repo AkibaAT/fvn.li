@@ -1,7 +1,9 @@
 <script lang="ts">
-    import Chart from '@/components/charts/Chart.svelte';
-    import { Chart as ChartJS, type Plugin, type TooltipItem } from 'chart.js';
+    import { onMount } from 'svelte';
+    import type { Plugin, TooltipItem } from 'chart.js';
     import type { MonthlyTrendData } from '@/types/system';
+
+    type ChartComponentType = typeof import('@/components/charts/Chart.svelte').default;
 
     interface RatingStats {
         monthly_trend: MonthlyTrendData[];
@@ -9,6 +11,7 @@
     }
 
     let { ratingStats }: { ratingStats: RatingStats } = $props();
+    let ChartComponent = $state<ChartComponentType | null>(null);
 
     let colors = $state({
         axisTextColor: '',
@@ -203,8 +206,12 @@
         },
     });
 
-    $effect(() => {
-        ChartJS.register(hoverLinePlugin);
+    const chartPlugins = $derived([hoverLinePlugin]);
+
+    onMount(() => {
+        void import('@/components/charts/Chart.svelte').then((module) => {
+            ChartComponent = module.default;
+        });
     });
 </script>
 
@@ -214,7 +221,9 @@
         <div>
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">All Ratings Trend</h2>
             <div class="relative h-[240px] w-full">
-                <Chart data={allRatingsData} options={chartOptions} style="height: 240px; width: 100%" />
+                {#if ChartComponent}
+                    <ChartComponent data={allRatingsData} options={chartOptions} plugins={chartPlugins} style="height: 240px; width: 100%" />
+                {/if}
             </div>
         </div>
     </div>
@@ -226,7 +235,9 @@
         <div>
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed Games Ratings Trend</h2>
             <div class="relative h-[240px] w-full">
-                <Chart data={listedGamesData} options={chartOptions} style="height: 240px; width: 100%" />
+                {#if ChartComponent}
+                    <ChartComponent data={listedGamesData} options={chartOptions} plugins={chartPlugins} style="height: 240px; width: 100%" />
+                {/if}
             </div>
         </div>
     </div>

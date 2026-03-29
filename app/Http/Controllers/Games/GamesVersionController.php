@@ -57,14 +57,33 @@ class GamesVersionController extends Controller
             ->orderBy('published_at', 'desc')
             ->paginate($request->integer('perPage', 10));
 
+        $versionIds = $versions->getCollection()->pluck('id')->all();
+        $routeDataVersionIds = [];
+        if (! empty($versionIds)) {
+            $versionsWithCachedRouteGraphs = DB::table('game_versions')
+                ->whereIn('id', $versionIds)
+                ->whereNotNull('route_graph_data')
+                ->pluck('id')
+                ->toArray();
+
+            $versionsWithRouteLabels = DB::table('version_route_labels')
+                ->whereIn('game_version_id', $versionIds)
+                ->distinct()
+                ->pluck('game_version_id')
+                ->toArray();
+
+            $routeDataVersionIds = array_flip(array_merge($versionsWithCachedRouteGraphs, $versionsWithRouteLabels));
+        }
+
         // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors
-        $versions->getCollection()->transform(function ($version) {
+        $versions->getCollection()->transform(function ($version) use ($routeDataVersionIds) {
             $version->supportedLanguages = $version->supportedLanguages
                 ->filter(fn ($sl) => $sl->language !== null && ! str_starts_with($sl->iso_code, 'q'))
                 ->values();
             $version->languageStats = $version->languageStats
                 ->filter(fn ($ls) => $ls->language !== null && ! str_starts_with($ls->iso_code, 'q'))
                 ->values();
+            $version->has_route_data = isset($routeDataVersionIds[$version->id]);
 
             return $version;
         });

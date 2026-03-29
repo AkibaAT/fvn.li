@@ -7,6 +7,7 @@ namespace App\Models\Concerns;
 use App\Models\GameJam;
 use App\Models\Tag;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -16,6 +17,7 @@ trait HasGameTags
      * Temporary in-memory storage for pending associations (not persisted to database)
      */
     public array $pendingGameJamId = [];
+
     public array $pendingTagIds = [];
 
     /**
@@ -92,6 +94,7 @@ trait HasGameTags
         // If the game is already saved, sync tags immediately
         if ($this->exists && $this->id) {
             $this->tags()->sync($tagIds);
+            $this->bumpRecommendationCacheVersion();
             Log::info('Synced tags for existing game', [
                 'game_id' => $this->id,
                 'game_name' => $this->name,
@@ -161,6 +164,7 @@ trait HasGameTags
             $customTagIds = $this->getCustomTagIds();
             if (! empty($customTagIds) && $this->exists && $this->id) {
                 $this->tags()->syncWithoutDetaching($customTagIds);
+                $this->bumpRecommendationCacheVersion();
             }
 
             return;
@@ -185,6 +189,7 @@ trait HasGameTags
 
         // Sync the tags
         $this->tags()->sync($this->pendingTagIds);
+        $this->bumpRecommendationCacheVersion();
 
         Log::info('Synced pending tags for game', [
             'game_id' => $this->id,
@@ -220,5 +225,11 @@ trait HasGameTags
         }
 
         return $tagIds;
+    }
+
+    private function bumpRecommendationCacheVersion(): void
+    {
+        Cache::add('games.recommendations.version', 1);
+        Cache::increment('games.recommendations.version');
     }
 }

@@ -108,7 +108,7 @@ class Game extends Model
     // Removed automatic eager loading of tags to prevent N+1 queries
     // Tags should be explicitly loaded only where needed (game detail, games list)
 
-    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'formatted_current_price', 'formatted_original_price', 'optimized_thumbnail_url', 'primary_url', 'effective_name', 'effective_description'];
+    protected $appends = ['current_price', 'original_price', 'discount_percentage', 'formatted_current_price', 'formatted_original_price', 'optimized_thumbnail_url', 'primary_url', 'effective_name'];
 
     protected $casts = [
         'initially_published_at' => 'datetime',

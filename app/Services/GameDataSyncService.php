@@ -378,6 +378,19 @@ class GameDataSyncService
                     $game->source_language_id, $game);
                 echo "    [Version] Version stats saved to existing version\n";
 
+                // Store the archive permanently so reimport-version can reuse it
+                if ($archiveResult && isset($archiveResult['temp_path']) && File::exists($archiveResult['temp_path'])) {
+                    $archiveService = app(GameArchiveService::class);
+                    $archiveService->moveFromTempToStorage(
+                        $archiveResult['temp_path'],
+                        $archiveResult['filename'],
+                        $game->id,
+                        $existingVersion->id,
+                        false // don't delete temp - the finally block handles cleanup
+                    );
+                    echo "    [Version] Archive stored for version {$existingVersion->id}\n";
+                }
+
                 $gameVersion = $existingVersion;
             }
             // Case 3: Game had no versions at start and we couldn't create a real version

@@ -1,6 +1,8 @@
 <script lang="ts">
-    import Chart from '@/components/charts/Chart.svelte';
+    import { onMount } from 'svelte';
     import { formatDateTimeWithTimezone, getUserTimezone } from '@/utils/date-formatting';
+
+    type ChartComponentType = typeof import('@/components/charts/Chart.svelte').default;
 
     interface DailyStats {
         date: string;
@@ -37,6 +39,24 @@
     } = $props();
 
     let activeTab = $state<'overview' | 'pageviews' | 'external' | 'downloads'>('overview');
+    let ChartComponent = $state<ChartComponentType | null>(null);
+    let chartLoadPromise: Promise<void> | null = null;
+    let chartPanel: HTMLDivElement | undefined;
+
+    const loadChart = (): Promise<void> => {
+        if (ChartComponent) return Promise.resolve();
+        if (chartLoadPromise) return chartLoadPromise;
+
+        chartLoadPromise = import('@/components/charts/Chart.svelte')
+            .then((module) => {
+                ChartComponent = module.default;
+            })
+            .finally(() => {
+                chartLoadPromise = null;
+            });
+
+        return chartLoadPromise;
+    };
 
     const getCSSVariable = (varName: string, fallback: string = '#000000'): string => {
         if (typeof document === 'undefined') return fallback;
@@ -150,6 +170,17 @@
         };
     })());
 
+    const activeChartData = $derived((() => {
+        if (activeTab === 'overview') return chartData?.overviewData;
+        if (activeTab === 'pageviews') return chartData?.pageViewsData;
+        if (activeTab === 'external') return chartData?.externalData;
+        if (activeTab === 'downloads') return downloadsChartData;
+
+        return null;
+    })());
+
+    const hasChartData = $derived(Boolean(chartData || downloadsChartData));
+
     const tabs = [
         { id: 'overview', label: 'Overview' },
         { id: 'pageviews', label: 'Page Views' },
@@ -220,6 +251,30 @@
         const totalDownloads = dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
         return { avgDailyViews, totalViews, totalDownloads, userTimezone: getUserTimezone() };
     })());
+
+    onMount(() => {
+        if (!hasChartData) return;
+
+        if (!chartPanel || !('IntersectionObserver' in window)) {
+            void loadChart();
+
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    void loadChart();
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '200px' },
+        );
+
+        observer.observe(chartPanel);
+
+        return () => observer.disconnect();
+    });
 </script>
 
 <div class="space-y-6">
@@ -287,24 +342,16 @@
             </nav>
         </div>
 
-        <div class="p-6">
-            {#if activeTab === 'overview' && chartData?.overviewData}
-                <Chart data={chartData.overviewData} options={chartOptions} style="height: 320px;" />
-            {/if}
-
-            {#if activeTab === 'pageviews' && chartData?.pageViewsData}
-                <Chart data={chartData.pageViewsData} options={chartOptions} style="height: 320px;" />
-            {/if}
-
-            {#if activeTab === 'external' && chartData?.externalData}
-                <Chart data={chartData.externalData} options={chartOptions} style="height: 320px;" />
-            {/if}
-
-            {#if activeTab === 'downloads' && downloadsChartData}
-                <Chart data={downloadsChartData} options={chartOptions} style="height: 320px;" />
-            {/if}
-
-            {#if !chartData && !downloadsChartData}
+        <div class="p-6" bind:this={chartPanel}>
+            {#if activeChartData}
+                {#if ChartComponent}
+                    <ChartComponent data={activeChartData} options={chartOptions} style="height: 320px;" />
+                {:else}
+                    <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">
+                        Loading chart...
+                    </div>
+                {/if}
+            {:else}
                 <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">
                     No analytics data available yet. Share your game to start seeing insights!
                 </div>

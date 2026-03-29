@@ -1,5 +1,6 @@
 <script lang="ts">
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         versionId: number;
@@ -23,9 +24,21 @@
 
     let { versionId, showFileStats, fileStatsData, statsLoading, closeFileStatsDialog }: Props = $props();
 
+    let dialogEl: HTMLDialogElement | null = null;
     // eslint-disable-next-line no-unassigned-vars
     let _closeBtnEl: HTMLButtonElement | undefined;
     let openerEl: HTMLElement | null = null;
+
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        closeFileStatsDialog(versionId);
+    }
+
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
+            closeFileStatsDialog(versionId);
+        }
+    }
 
     function formatBytes(bytes: number, precision: number = 2): string {
         const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -37,17 +50,17 @@
     }
 
     $effect(() => {
-        const dialogEl = document.getElementById(`file-stats-${versionId}`) as HTMLDialogElement | null;
         if (!dialogEl) return;
+        const currentDialogEl = dialogEl;
 
         const handleClose = () => {
             openerEl?.focus?.();
             openerEl = null;
         };
 
-        dialogEl.addEventListener('close', handleClose);
+        currentDialogEl.addEventListener('close', handleClose);
 
-        if (showFileStats === versionId && dialogEl.open) {
+        if (showFileStats === versionId && currentDialogEl.open) {
             openerEl = (document.activeElement as HTMLElement) || null;
             requestAnimationFrame(() => {
                 _closeBtnEl?.focus();
@@ -55,7 +68,7 @@
         }
 
         return () => {
-            dialogEl.removeEventListener('close', handleClose);
+            currentDialogEl.removeEventListener('close', handleClose);
         };
     });
 
@@ -65,10 +78,13 @@
 </script>
 
 <dialog
+    bind:this={dialogEl}
     id={`file-stats-${versionId}`}
     aria-modal="true"
     aria-labelledby={`file-stats-title-${versionId}`}
     aria-describedby={`file-stats-desc-${versionId}`}
+    onclick={handleBackdropClick}
+    oncancel={handleCancel}
     class="m-auto w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
 >
     <h1 id={`file-stats-title-${versionId}`} class="sr-only">File Statistics</h1>

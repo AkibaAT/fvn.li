@@ -1,5 +1,6 @@
 <script lang="ts">
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         showVersionComparison: boolean;
@@ -46,21 +47,22 @@
         formatBytes,
     }: Props = $props();
 
+    let dialogEl = $state<HTMLDialogElement | null>(null);
     let closeBtnEl = $state<HTMLButtonElement | undefined>(undefined);
     let openerEl: HTMLElement | null = null;
 
     $effect(() => {
-        const dialogEl = document.getElementById('version-comparison-dialog') as HTMLDialogElement | null;
         if (!dialogEl) return;
+        const currentDialogEl = dialogEl;
 
         const handleClose = () => {
             openerEl?.focus?.();
             openerEl = null;
         };
 
-        dialogEl.addEventListener('close', handleClose);
+        currentDialogEl.addEventListener('close', handleClose);
 
-        if (showVersionComparison && dialogEl.open) {
+        if (showVersionComparison && currentDialogEl.open) {
             openerEl = (document.activeElement as HTMLElement) || null;
             requestAnimationFrame(() => {
                 closeBtnEl?.focus();
@@ -68,13 +70,17 @@
         }
 
         return () => {
-            dialogEl.removeEventListener('close', handleClose);
+            currentDialogEl.removeEventListener('close', handleClose);
         };
     });
 
-    function handleBackdropClick(e: MouseEvent) {
-        const rect = (e.target as HTMLElement).getBoundingClientRect();
-        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        closeVersionComparisonDialog();
+    }
+
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
             closeVersionComparisonDialog();
         }
     }
@@ -86,10 +92,12 @@
 
 {#if showVersionComparison}
     <dialog
+        bind:this={dialogEl}
         id="version-comparison-dialog"
         aria-modal="true"
         aria-labelledby="version-comparison-title"
         aria-describedby="version-comparison-desc"
+        oncancel={handleCancel}
         class="m-auto max-w-6xl min-w-80 rounded-lg bg-gray-800 p-6 text-gray-100 shadow-xl backdrop:backdrop-blur-md"
         onclick={handleBackdropClick}
     >

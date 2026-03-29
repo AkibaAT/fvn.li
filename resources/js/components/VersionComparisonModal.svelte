@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fetchVersionComparison, type VersionComparisonData } from '@/hooks/api/useGameData';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         isOpen: boolean;
@@ -77,14 +78,26 @@
 
     $effect(() => {
         if (!dialogEl) return;
+        const currentDialogEl = dialogEl;
         const handleClose = () => {
             openerEl?.focus?.();
             openerEl = null;
             if (isOpen) onClose();
         };
-        dialogEl.addEventListener('close', handleClose);
-        return () => dialogEl?.removeEventListener('close', handleClose);
+        currentDialogEl.addEventListener('close', handleClose);
+        return () => currentDialogEl.removeEventListener('close', handleClose);
     });
+
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        onClose();
+    }
+
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
+            onClose();
+        }
+    }
 </script>
 
 {#if isOpen}
@@ -93,10 +106,9 @@
         aria-modal="true"
         aria-labelledby="version-comparison-title"
         aria-describedby="version-comparison-desc"
+        oncancel={handleCancel}
         class="m-auto max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-lg bg-gray-800 p-0 text-gray-100 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-md"
-        onclick={(e) => {
-            if (e.target === e.currentTarget) onClose();
-        }}
+        onclick={handleBackdropClick}
     >
         <h1 id="version-comparison-title" class="sr-only">Version Comparison</h1>
         <p id="version-comparison-desc" class="sr-only">Compare character word counts and file statistics across two versions.</p>

@@ -72,6 +72,7 @@
         is_mac?: boolean;
         is_android?: boolean;
         is_web?: boolean;
+        has_route_data?: boolean;
         supportedLanguages?: SupportedLanguage[];
         languageStats?: LanguageStats[];
     }
@@ -245,6 +246,7 @@
         versionCharacterCounts?: Record<number, number>;
         versionHasFileStats?: Record<number, boolean>;
         versionHasDialogueLines?: Record<number, boolean>;
+        versionHasRouteData?: Record<number, boolean>;
         availableRatings?: number[];
         platforms?: { windows: boolean; linux: boolean; mac: boolean; android: boolean; web: boolean };
         canSeeAnalytics?: boolean;
@@ -271,6 +273,7 @@
         versionCharacterCounts = {},
         versionHasFileStats = {},
         versionHasDialogueLines = {},
+        versionHasRouteData = {},
         availableRatings = [],
         platforms = { windows: false, linux: false, mac: false, android: false, web: false },
         canSeeAnalytics = false,
@@ -295,6 +298,13 @@
     const reviewStyles = $derived(
         `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
     );
+    const latestVersionHasDialogue = $derived(
+        game.latest_version
+            ? (versionCharacterCounts[game.latest_version.id] ?? 0) > 0 && versionHasDialogueLines[game.latest_version.id] === true
+            : false,
+    );
+    const latestVersionHasRouteMap = $derived(game.latest_version ? versionHasRouteData[game.latest_version.id] === true : false);
+    const canBrowseLatestDialogue = $derived(Boolean(game.latest_version && !game.is_paid && latestVersionHasDialogue));
 
     // State
     let showAllRatings = $state(false);
@@ -1164,22 +1174,35 @@
     <div id="versions" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Version History</h2>
 
-        {#if game.latest_version && !game.is_paid && versionCharacterCounts[game.latest_version.id] > 0 && versionHasDialogueLines[game.latest_version.id]}
-            <div class="mb-4">
-                <a
-                    href={route('dialogue.browser', { gameId: game.id, versionId: game.latest_version.id })}
-                    class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
-                >
-                    <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                        />
-                    </svg>
-                    Browse Dialogue
-                </a>
+        {#if game.latest_version && (canBrowseLatestDialogue || latestVersionHasRouteMap)}
+            <div class="mb-4 flex gap-3">
+                {#if canBrowseLatestDialogue}
+                    <a
+                        href={route('dialogue.browser', { gameId: game.id, versionId: game.latest_version.id })}
+                        class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
+                    >
+                        <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                            />
+                        </svg>
+                        Browse Dialogue
+                    </a>
+                {/if}
+                {#if latestVersionHasRouteMap}
+                    <a
+                        href={route('games.route-map', { game: game.slug })}
+                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition hover:bg-gray-50 focus:border-gray-500 focus:ring focus:ring-gray-300 focus:outline-none active:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    >
+                        <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Route Map
+                    </a>
+                {/if}
             </div>
         {/if}
 
@@ -1295,6 +1318,17 @@
                                     View {versionCharacterCounts[version.id]} Characters
                                 {/if}
                             </button>
+                        {/if}
+                        {#if versionHasRouteData[version.id] === true || version.has_route_data === true}
+                            <a
+                                href={route('games.route-map', { game: game.slug }) + '?version_id=' + version.id}
+                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                Route Map
+                            </a>
                         {/if}
                         {#if versionHasFileStats[version.id]}
                             <button
@@ -1689,7 +1723,9 @@
     {versionComparisonData}
     isLoadingComparison={showVersionComparison && !versionComparisonData}
     {activeComparisonTab}
-    setActiveComparisonTab={(tab) => { activeComparisonTab = tab; }}
+    setActiveComparisonTab={(tab) => {
+        activeComparisonTab = tab;
+    }}
     {closeVersionComparisonDialog}
     {formatBytes}
 />

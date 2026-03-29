@@ -10,12 +10,13 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
-use App\Services\SimilarGamesService;
 use App\Services\HtmlSanitizerService;
+use App\Services\SimilarGamesService;
 use App\Traits\HasSocialMetaTags;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,8 +37,8 @@ class GamesDisplayController extends Controller
             'gameJams',
         ]);
 
-        // Add tags_list attribute for frontend display
-        $game->append('tags_list');
+        // Add detail-only attributes for frontend display.
+        $game->append(['tags_list', 'effective_description']);
 
         $reviews = $game->ratings()
             ->where('is_visible', true)
@@ -298,6 +299,28 @@ class GamesDisplayController extends Controller
             }
         }
 
+        // Check if route data exists for each version (to show/hide route map links)
+        // A route map can be built either from cached graph data or raw route labels.
+        $versionHasRouteData = [];
+        if (! empty($versionIds)) {
+            $versionsWithCachedRouteGraphs = DB::table('game_versions')
+                ->whereIn('id', $versionIds)
+                ->whereNotNull('route_graph_data')
+                ->pluck('id')
+                ->toArray();
+
+            $versionsWithRouteLabels = DB::table('version_route_labels')
+                ->whereIn('game_version_id', $versionIds)
+                ->distinct()
+                ->pluck('game_version_id')
+                ->toArray();
+
+            $routeDataVersionIds = array_flip(array_merge($versionsWithCachedRouteGraphs, $versionsWithRouteLabels));
+            foreach ($versionIds as $versionId) {
+                $versionHasRouteData[$versionId] = isset($routeDataVersionIds[$versionId]);
+            }
+        }
+
         // Determine edit permissions
         $user = Auth::user();
         $isOwner = $user && $user->ownsGame($game);
@@ -356,9 +379,9 @@ class GamesDisplayController extends Controller
         }
 
         // Find similar games and developer's other games
-        $similarGamesService = app(SimilarGamesService::class);
+        $recommendationCacheVersion = (int) Cache::get('games.recommendations.version', 1);
         try {
-            $similarGames = $similarGamesService->findSimilarGames($game, 6)
+            $similarGames = Cache::remember("game.{$game->id}.similar.v{$recommendationCacheVersion}", 3600, fn () => app(SimilarGamesService::class)->findSimilarGames($game, 6)
                 ->map(fn (Game $g) => [
                     'id' => $g->id,
                     'name' => $g->effective_name,
@@ -369,12 +392,13 @@ class GamesDisplayController extends Controller
                     'rating_count' => $g->rating_count,
                     'status' => $g->status,
                     'platform' => $g->platform,
-                ]);
+                ]));
         } catch (Exception $e) {
             $similarGames = collect();
         }
 
-        $developerGames = $similarGamesService->findDeveloperGames($game, 12)
+        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
+        $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
             ->map(fn (Game $g) => [
                 'id' => $g->id,
                 'name' => $g->effective_name,
@@ -384,7 +408,7 @@ class GamesDisplayController extends Controller
                 'rating_count' => $g->rating_count,
                 'status' => $g->status,
                 'platform' => $g->platform,
-            ]);
+            ]));
 
         // Calculate estimated reading time from primary word count
         $estimatedReadingTime = null;
@@ -436,6 +460,7 @@ class GamesDisplayController extends Controller
             'versionCharacterCounts' => $versionCharacterCounts,
             'versionHasFileStats' => $versionHasFileStats,
             'versionHasDialogueLines' => $versionHasDialogueLines,
+            'versionHasRouteData' => $versionHasRouteData,
             'userVnLists' => $userVnLists,
             'gameListMembership' => $gameListMembership,
             'editPermissions' => [

@@ -28,6 +28,10 @@ class GameVersion extends Model
         'is_web',
     ];
 
+    protected $hidden = [
+        'route_graph_data',
+    ];
+
     protected $casts = [
         'published_at' => 'datetime',
         'is_windows' => 'boolean',
@@ -36,6 +40,7 @@ class GameVersion extends Model
         'is_android' => 'boolean',
         'is_web' => 'boolean',
         'is_latest' => 'boolean',
+        'route_graph_data' => 'array',
     ];
 
     /**
@@ -259,6 +264,36 @@ class GameVersion extends Model
     public function fileCategories(): HasMany
     {
         return $this->hasMany(VersionFileCategory::class);
+    }
+
+    public function routeLabels(): HasMany
+    {
+        return $this->hasMany(VersionRouteLabel::class);
+    }
+
+    public function routeEdges(): HasMany
+    {
+        return $this->hasMany(VersionRouteEdge::class);
+    }
+
+    public function routeMenuChoices(): HasMany
+    {
+        return $this->hasMany(VersionRouteMenuChoice::class);
+    }
+
+    public function routeVariables(): HasMany
+    {
+        return $this->hasMany(VersionRouteVariable::class);
+    }
+
+    public function routeVariableChanges(): HasMany
+    {
+        return $this->hasMany(VersionRouteVariableChange::class);
+    }
+
+    public function routePaths(): HasMany
+    {
+        return $this->hasMany(VersionRoutePath::class);
     }
 
     /**

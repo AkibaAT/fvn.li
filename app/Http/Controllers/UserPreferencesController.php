@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
-use App\Models\Tag;
 use App\Models\User;
 use App\Models\UserPreference;
 use Illuminate\Http\JsonResponse;

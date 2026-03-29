@@ -35,49 +35,6 @@ use ZipArchive;
 
 class DashboardController extends Controller
 {
-    private function getSocialAccountsData(User $user): array
-    {
-        return $user->socialAccounts()->get()->mapWithKeys(function ($account) {
-            $displayName = null;
-            $avatar = null;
-
-            if ($account->provider_data) {
-                switch ($account->provider_name) {
-                    case 'discord':
-                        $displayName = $account->provider_data['global_name'] ?? $account->provider_data['username'] ?? null;
-                        $avatar = isset($account->provider_data['avatar'])
-                            ? "https://cdn.discordapp.com/avatars/{$account->provider_data['id']}/{$account->provider_data['avatar']}.png"
-                            : null;
-                        break;
-                    case 'google':
-                        $displayName = $account->provider_data['given_name'] ?? null;
-                        $avatar = $account->provider_data['picture'] ?? null;
-                        break;
-                    case 'steam':
-                        $displayName = $account->provider_data['personaname'] ?? null;
-                        $avatar = $account->provider_data['avatarfull'] ?? null;
-                        break;
-                    case 'telegram':
-                        $displayName = $account->provider_data['first_name'] .
-                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
-                        $avatar = $account->provider_data['photo_url'] ?? null;
-                        break;
-                    case 'itchio':
-                        $displayName = $account->provider_data['display_name'] ?? null;
-                        $avatar = $account->provider_data['cover_url'] ?? null;
-                        break;
-                }
-            }
-
-            return [
-                $account->provider_name => [
-                    'display_name' => $displayName,
-                    'avatar' => $avatar,
-                ],
-            ];
-        })->toArray();
-    }
-
     public function dashboard(): Response
     {
         $authId = Auth::id();
@@ -1057,6 +1014,49 @@ class DashboardController extends Controller
         $comparisonData = $versionController->compareVersions($request, $game);
 
         return $comparisonData;
+    }
+
+    private function getSocialAccountsData(User $user): array
+    {
+        return $user->socialAccounts()->get()->mapWithKeys(function ($account) {
+            $displayName = null;
+            $avatar = null;
+
+            if ($account->provider_data) {
+                switch ($account->provider_name) {
+                    case 'discord':
+                        $displayName = $account->provider_data['global_name'] ?? $account->provider_data['username'] ?? null;
+                        $avatar = isset($account->provider_data['avatar'])
+                            ? "https://cdn.discordapp.com/avatars/{$account->provider_data['id']}/{$account->provider_data['avatar']}.png"
+                            : null;
+                        break;
+                    case 'google':
+                        $displayName = $account->provider_data['given_name'] ?? null;
+                        $avatar = $account->provider_data['picture'] ?? null;
+                        break;
+                    case 'steam':
+                        $displayName = $account->provider_data['personaname'] ?? null;
+                        $avatar = $account->provider_data['avatarfull'] ?? null;
+                        break;
+                    case 'telegram':
+                        $displayName = $account->provider_data['first_name'] .
+                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
+                        $avatar = $account->provider_data['photo_url'] ?? null;
+                        break;
+                    case 'itchio':
+                        $displayName = $account->provider_data['display_name'] ?? null;
+                        $avatar = $account->provider_data['cover_url'] ?? null;
+                        break;
+                }
+            }
+
+            return [
+                $account->provider_name => [
+                    'display_name' => $displayName,
+                    'avatar' => $avatar,
+                ],
+            ];
+        })->toArray();
     }
 
     private function addExportFilesToZip(

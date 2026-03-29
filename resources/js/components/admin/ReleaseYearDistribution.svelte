@@ -1,6 +1,8 @@
 <script lang="ts">
-    import Chart from '@/components/charts/Chart.svelte';
+    import { onMount } from 'svelte';
     import type { TooltipItem } from 'chart.js';
+
+    type ChartComponentType = typeof import('@/components/charts/Chart.svelte').default;
 
     interface YearDistributionData {
         year: number;
@@ -12,6 +14,7 @@
     }
 
     let { releaseYearStats }: { releaseYearStats: ReleaseYearStats } = $props();
+    let ChartComponent = $state<ChartComponentType | null>(null);
 
     let colors = $state({
         axisTextColor: '',
@@ -141,6 +144,12 @@
             },
         },
     });
+
+    onMount(() => {
+        void import('@/components/charts/Chart.svelte').then((module) => {
+            ChartComponent = module.default;
+        });
+    });
 </script>
 
 <div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
@@ -148,7 +157,9 @@
         <div>
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed Games by Release Year</h2>
             <div class="relative h-[300px] w-full">
-                <Chart type="bar" data={chartData} options={chartOptions} style="height: 300px; width: 100%" />
+                {#if ChartComponent}
+                    <ChartComponent type="bar" data={chartData} options={chartOptions} style="height: 300px; width: 100%" />
+                {/if}
             </div>
         </div>
     </div>

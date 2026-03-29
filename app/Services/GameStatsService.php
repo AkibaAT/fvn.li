@@ -16,6 +16,7 @@ use Exception;
 use FilesystemIterator;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -307,6 +308,14 @@ readonly class GameStatsService
             echo "    [Stats] File statistics saved\n";
         }
 
+        // Save route graph data
+        $hasRouteData = isset($stats['route_labels']) || isset($stats['route_edges']);
+        if ($hasRouteData) {
+            echo "    [Stats] Saving route graph data\n";
+            $this->saveRouteGraph($version, $stats);
+            echo "    [Stats] Route graph data saved\n";
+        }
+
         // Process dialogue lines
         if (isset($stats['dialogue_lines'])) {
             echo "    [Stats] Saving dialogue lines\n";
@@ -329,7 +338,157 @@ readonly class GameStatsService
             echo "    [Stats] Word frequency calculations queued\n";
         }
 
+        // Calculate route paths and pre-build graph after both route graph and dialogue lines are saved
+        if ($hasRouteData) {
+            echo "    [Stats] Pre-computing route graph\n";
+            app(RouteGraphService::class)->computeAndStore($version);
+            echo "    [Stats] Route graph computed and stored\n";
+        }
+
+        Cache::forget('dialogue.games_list');
         echo "    [Stats] Version stats processing complete\n";
+    }
+
+    /**
+     * Save route graph data (labels, edges, menu choices) for a game version
+     */
+    protected function saveRouteGraph(GameVersion $version, array $stats): void
+    {
+        $now = now();
+
+        // Clear pre-computed route graph
+        $version->route_graph_data = null;
+        $version->saveQuietly();
+
+        // Delete existing route data for this version
+        $version->routeLabels()->delete();
+        $version->routeEdges()->delete();
+        $version->routeMenuChoices()->delete();
+        $version->routeVariables()->delete();
+        $version->routeVariableChanges()->delete();
+
+        // Save route labels
+        if (isset($stats['route_labels']) && ! empty($stats['route_labels'])) {
+            $labelBatch = [];
+            foreach ($stats['route_labels'] as $label) {
+                $labelBatch[] = [
+                    'game_version_id' => $version->id,
+                    'name' => $label['name'] ?? '',
+                    'file_path' => $label['file'] ?? '',
+                    'line_number' => $label['line'] ?? 0,
+                    'is_ending' => $label['is_ending'] ?? false,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($labelBatch, 1000) as $chunk) {
+                DB::table('version_route_labels')->insert($chunk);
+            }
+        }
+
+        // Save route edges
+        if (isset($stats['route_edges']) && ! empty($stats['route_edges'])) {
+            $edgeBatch = [];
+            foreach ($stats['route_edges'] as $edge) {
+                $edgeBatch[] = [
+                    'game_version_id' => $version->id,
+                    'from_label' => $edge['from_label'] ?? '',
+                    'to_label' => $edge['to_label'] ?? '',
+                    'edge_type' => $edge['edge_type'] ?? 'flow',
+                    'condition' => $edge['condition'] ?? null,
+                    'file_path' => $edge['file'] ?? null,
+                    'line_number' => $edge['line'] ?? 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($edgeBatch, 1000) as $chunk) {
+                DB::table('version_route_edges')->insert($chunk);
+            }
+        }
+
+        // Save route menu choices (detailed choice data with conditions)
+        if (isset($stats['route_menu_choices']) && ! empty($stats['route_menu_choices'])) {
+            $choiceBatch = [];
+            $game = $version->game;
+            foreach ($stats['route_menu_choices'] as $choice) {
+                // Map Ren'Py language keys to ISO codes
+                $translations = $this->mapTranslationKeys($choice['translations'] ?? [], $game);
+                $promptTranslations = $this->mapTranslationKeys($choice['prompt_translations'] ?? [], $game);
+
+                $choiceBatch[] = [
+                    'game_version_id' => $version->id,
+                    'from_label' => $choice['from_label'] ?? '',
+                    'prompt' => $choice['prompt'] ?? null,
+                    'prompt_translations' => ! empty($promptTranslations) ? json_encode($promptTranslations) : null,
+                    'text' => $choice['text'] ?? null,
+                    'translations' => ! empty($translations) ? json_encode($translations) : null,
+                    'condition' => $choice['condition'] ?? null,
+                    'target_label' => $choice['target_label'] ?? null,
+                    'edge_type' => $choice['edge_type'] ?? null,
+                    'file_path' => $choice['file'] ?? null,
+                    'line_number' => $choice['line'] ?? 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($choiceBatch, 1000) as $chunk) {
+                DB::table('version_route_menu_choices')->insert($chunk);
+            }
+        }
+
+        // Save route variables (defaults from default/define statements)
+        if (isset($stats['route_variables']) && ! empty($stats['route_variables'])) {
+            $varBatch = [];
+            $seen = [];
+            foreach ($stats['route_variables'] as $var) {
+                $key = $var['name'] ?? '';
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $varBatch[] = [
+                    'game_version_id' => $version->id,
+                    'name' => $var['name'] ?? '',
+                    'default_value' => $var['default_value'] ?? null,
+                    'type' => $var['type'] ?? 'default',
+                    'file_path' => $var['file'] ?? null,
+                    'line_number' => $var['line'] ?? 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($varBatch, 1000) as $chunk) {
+                DB::table('version_route_variables')->insert($chunk);
+            }
+        }
+
+        // Save route variable changes (assignments within labels/choices)
+        if (isset($stats['route_variable_changes']) && ! empty($stats['route_variable_changes'])) {
+            $changeBatch = [];
+            foreach ($stats['route_variable_changes'] as $change) {
+                $changeBatch[] = [
+                    'game_version_id' => $version->id,
+                    'label' => $change['label'] ?? '',
+                    'variable_name' => $change['variable'] ?? '',
+                    'operation' => $change['operation'] ?? '=',
+                    'value' => $change['value'] ?? null,
+                    'file_path' => $change['file'] ?? null,
+                    'line_number' => $change['line'] ?? 0,
+                    'context' => $change['context'] ?? null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($changeBatch, 1000) as $chunk) {
+                DB::table('version_route_variable_changes')->insert($chunk);
+            }
+        }
     }
 
     /**
@@ -510,6 +669,7 @@ readonly class GameStatsService
         }
 
         echo "    [Dialogue] All dialogue lines inserted\n";
+        Cache::forget('dialogue.games_list');
     }
 
     /**
@@ -763,6 +923,22 @@ readonly class GameStatsService
                 Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: " . $e->getMessage());
             }
         }
+    }
+
+    /**
+     * Map Ren'Py language keys to ISO codes using the same logic as dialogue line import
+     */
+    private function mapTranslationKeys(array $translations, ?Game $game): array
+    {
+        $mapped = [];
+        foreach ($translations as $langKey => $text) {
+            $isoCode = $this->languageMappingService->resolveLanguageCode($langKey, $game);
+            if ($isoCode) {
+                $mapped[$isoCode] = $text;
+            }
+        }
+
+        return $mapped;
     }
 
     /**

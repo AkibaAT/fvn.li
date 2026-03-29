@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\Tag;
 use Exception;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class TagObserver
@@ -46,6 +47,9 @@ class TagObserver
                 'tag_id' => $tag->id,
                 'tag_name' => $tag->name,
             ]);
+
+            Cache::add('games.recommendations.version', 1);
+            Cache::increment('games.recommendations.version');
         } catch (Exception $e) {
             Log::warning('Failed to update game search indexes for tag change', [
                 'tag_id' => $tag->id,
