@@ -16,6 +16,9 @@
 
     let { children, title }: Props = $props();
 
+    const FULL_WIDTH_PAGES = new Set(['games/route-map']);
+    let isFullWidth = $derived(FULL_WIDTH_PAGES.has(($page as any).component as string));
+
     const flash = $derived((($page.props as any).flash ?? {}) as { message?: string; error?: string });
 
     // Initialize route accessibility for Inertia.js navigation announcements
@@ -150,8 +153,12 @@
     <FlashMessages message={flash?.message} error={flash?.error} />
 
     <!-- Modern Main Content -->
-    <main id="main-content" class="main-content flex-1 scroll-mt-28 py-8" aria-label="Main content">
-        <Container>{@render children()}</Container>
+    <main id="main-content" class="main-content flex-1 scroll-mt-28 {isFullWidth ? 'full-width' : 'py-8'}" aria-label="Main content">
+        {#if isFullWidth}
+            {@render children()}
+        {:else}
+            <Container>{@render children()}</Container>
+        {/if}
     </main>
 
     <!-- Footer -->
@@ -162,7 +169,7 @@
 <Toast />
 
 <style>
-    .main-content :global(> div) {
+    .main-content:not(.full-width) :global(> div) {
         max-width: 1340px;
     }
 </style>

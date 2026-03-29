@@ -1165,7 +1165,7 @@
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Version History</h2>
 
         {#if game.latest_version && !game.is_paid && versionCharacterCounts[game.latest_version.id] > 0 && versionHasDialogueLines[game.latest_version.id]}
-            <div class="mb-4">
+            <div class="mb-4 flex gap-3">
                 <a
                     href={route('dialogue.browser', { gameId: game.id, versionId: game.latest_version.id })}
                     class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
@@ -1179,6 +1179,15 @@
                         />
                     </svg>
                     Browse Dialogue
+                </a>
+                <a
+                    href={route('games.route-map', { game: game.slug })}
+                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition hover:bg-gray-50 focus:border-gray-500 focus:ring focus:ring-gray-300 focus:outline-none active:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                >
+                    <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Route Map
                 </a>
             </div>
         {/if}
@@ -1689,7 +1698,9 @@
     {versionComparisonData}
     isLoadingComparison={showVersionComparison && !versionComparisonData}
     {activeComparisonTab}
-    setActiveComparisonTab={(tab) => { activeComparisonTab = tab; }}
+    setActiveComparisonTab={(tab) => {
+        activeComparisonTab = tab;
+    }}
     {closeVersionComparisonDialog}
     {formatBytes}
 />

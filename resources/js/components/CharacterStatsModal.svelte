@@ -1,5 +1,6 @@
 <script lang="ts">
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         versionId: number;
@@ -17,21 +18,33 @@
 
     let { versionId, showCharacterStats, characterStatsData, statsLoading, closeCharacterStatsDialog, getLanguageFlag }: Props = $props();
 
+    let dialogEl: HTMLDialogElement | null = null;
     let closeBtnEl: HTMLButtonElement;
     let openerEl: HTMLElement | null = null;
 
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        closeCharacterStatsDialog(versionId);
+    }
+
+    function handleBackdropClick(event: MouseEvent) {
+        if (isDialogBackdropClick(dialogEl, event)) {
+            closeCharacterStatsDialog(versionId);
+        }
+    }
+
     $effect(() => {
-        const dialogEl = document.getElementById(`character-stats-${versionId}`) as HTMLDialogElement | null;
         if (!dialogEl) return;
+        const currentDialogEl = dialogEl;
 
         const handleClose = () => {
             openerEl?.focus?.();
             openerEl = null;
         };
 
-        dialogEl.addEventListener('close', handleClose);
+        currentDialogEl.addEventListener('close', handleClose);
 
-        if (showCharacterStats === versionId && dialogEl.open) {
+        if (showCharacterStats === versionId && currentDialogEl.open) {
             openerEl = (document.activeElement as HTMLElement) || null;
             requestAnimationFrame(() => {
                 closeBtnEl?.focus();
@@ -39,7 +52,7 @@
         }
 
         return () => {
-            dialogEl.removeEventListener('close', handleClose);
+            currentDialogEl.removeEventListener('close', handleClose);
         };
     });
 
@@ -47,10 +60,13 @@
 </script>
 
 <dialog
+    bind:this={dialogEl}
     id={`character-stats-${versionId}`}
     aria-modal="true"
     aria-labelledby={`character-stats-title-${versionId}`}
     aria-describedby={`character-stats-desc-${versionId}`}
+    onclick={handleBackdropClick}
+    oncancel={handleCancel}
     class="m-auto max-w-6xl min-w-80 rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
 >
     <h1 id={`character-stats-title-${versionId}`} class="sr-only">Character Statistics</h1>

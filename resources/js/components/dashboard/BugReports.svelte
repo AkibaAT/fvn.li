@@ -2,6 +2,7 @@
     import { notify } from '@/components/Toast.svelte';
     import { authenticatedFetch } from '@/utils/csrf';
     import { untrack } from 'svelte';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface BugReport {
         id: number;
@@ -160,6 +161,11 @@
     });
 
     const totalUnread = $derived(bugReports.reduce((sum, r) => sum + r.unread_count, 0));
+
+    function handleCancel(event: Event) {
+        event.preventDefault();
+        closeBugReportModal();
+    }
 </script>
 
 {#if bugReports.length > 0}
@@ -224,9 +230,10 @@
     bind:this={dialogEl}
     aria-modal="true"
     aria-labelledby="bug-report-modal-title"
+    oncancel={handleCancel}
     class="m-auto max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800"
     onclick={(e) => {
-        if (e.target === e.currentTarget) closeBugReportModal();
+        if (isDialogBackdropClick(dialogEl, e)) closeBugReportModal();
     }}
 >
     <div class="relative">

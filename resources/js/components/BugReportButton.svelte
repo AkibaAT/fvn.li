@@ -1,6 +1,7 @@
 <script lang="ts">
     import { page } from '@inertiajs/svelte';
     import { notify } from '@/components/Toast.svelte';
+    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface User {
         id: number;
@@ -135,9 +136,13 @@
     bind:this={dialogEl}
     aria-modal="true"
     aria-labelledby="bug-report-title"
+    oncancel={(event) => {
+        event.preventDefault();
+        isOpen = false;
+    }}
     class="m-auto w-full max-w-lg rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800"
     onclick={(e) => {
-        if (e.target === e.currentTarget) isOpen = false;
+        if (isDialogBackdropClick(dialogEl, e)) isOpen = false;
     }}
 >
     <!-- Header -->
