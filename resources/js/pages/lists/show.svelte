@@ -240,10 +240,17 @@
         notify('Entry updated', 'success');
     };
 
+    const getEntryVersionValue = (entry: VnListEntry) => {
+        const userProgress = entry.game.user_progress?.[0] || entry.user_progress;
+        const versionId = userProgress?.game_version_id ?? entry.game_version_id;
+
+        return versionId === null || versionId === undefined ? '' : String(versionId);
+    };
+
     const startEditing = (entry: VnListEntry) => {
         const userProgress = entry.game.user_progress?.[0] || entry.user_progress;
         entryFormData = {
-            game_version_id: String(userProgress?.game_version_id || entry.game_version_id || ''),
+            game_version_id: getEntryVersionValue(entry),
             personal_notes: userProgress?.personal_notes || entry.personal_notes || entry.notes || '',
             private_notes: entry.private_notes || '',
             started_at: userProgress?.started_at ? userProgress.started_at.split('T')[0] : entry.started_at ? entry.started_at.split('T')[0] : '',
@@ -984,7 +991,7 @@
                             >
                                 <option value="">Not started</option>
                                 {#each game.game_versions || [] as version (version.id)}
-                                    <option value={version.id}>{version.version} ({new Date(version.published_at).toLocaleDateString()})</option>
+                                    <option value={String(version.id)}>{version.version} ({new Date(version.published_at).toLocaleDateString()})</option>
                                 {/each}
                             </select>
                         </div>
