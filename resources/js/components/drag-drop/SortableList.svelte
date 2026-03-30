@@ -3,7 +3,7 @@
     import type { Snippet } from 'svelte';
     import { DragDropProvider, DragOverlay, KeyboardSensor, PointerSensor } from '@dnd-kit-svelte/svelte';
     import { useSortable } from '@dnd-kit-svelte/svelte/sortable';
-    import { arrayMove } from '@dnd-kit/helpers';
+    import { move } from '@dnd-kit/helpers';
     import { defaultSortableTransition } from '@dnd-kit/dom/sortable';
 
     interface Props {
@@ -29,17 +29,11 @@
 
         if (event.canceled) return;
 
-        const source = event.operation.source;
-        const target = event.operation.target;
+        const reorderedItems = move(items, event);
 
-        if (!target || source.id === target.id) return;
+        if (reorderedItems === items) return;
 
-        const oldIndex = items.findIndex((item) => item.id === source.id);
-        const newIndex = items.findIndex((item) => item.id === target.id);
-
-        if (oldIndex === -1 || newIndex === -1) return;
-
-        onReorder(arrayMove(items, oldIndex, newIndex));
+        onReorder(reorderedItems);
     }
 </script>
 
