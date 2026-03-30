@@ -21,12 +21,18 @@ class DiscordServerConfig extends Model
         'include_thumbnail',
         'include_ratings',
         'ping_role_id',
+        'routing_rules',
+        'new_game_embed',
+        'update_embed',
     ];
 
     protected $casts = [
         'include_game_description' => 'boolean',
         'include_thumbnail' => 'boolean',
         'include_ratings' => 'boolean',
+        'routing_rules' => 'array',
+        'new_game_embed' => 'array',
+        'update_embed' => 'array',
     ];
 
     /**

@@ -8,6 +8,8 @@ use App\Models\DiscordNotificationHistory;
 use App\Models\DiscordServer;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Services\Discord\DiscordEmbedRendererService;
+use App\Services\Discord\DiscordRoutingService;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -33,7 +35,8 @@ class MultiServerNotificationService
                     $server,
                     $game,
                     'update',
-                    "Game updated: {$game->name}"
+                    "Game updated: {$game->name}",
+                    $version,
                 );
             }
 
@@ -59,32 +62,49 @@ class MultiServerNotificationService
         DiscordServer $server,
         Game $game,
         string $type = 'update',
-        string $description = ''
+        string $description = '',
+        ?GameVersion $gameVersion = null,
     ): void {
         try {
-            if (! $server->isConfigured()) {
-                Log::warning('Server not configured for notifications', [
-                    'server_id' => $server->id,
-                ]);
+            $config = $server->config;
+            $result = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, $type, $gameVersion);
+            if ($result->shouldSkip) {
+                Log::info('Notification skipped by routing rules', ['server_id' => $server->id, 'game_id' => $game->id]);
 
                 return;
             }
 
-            $config = $server->config;
+            $targetChannels = $result->getTargetChannels();
+            if (empty($targetChannels)) {
+                Log::warning('No target channels for notification', ['server_id' => $server->id, 'game_id' => $game->id]);
 
-            // Create notification history record
-            $notification = DiscordNotificationHistory::create([
-                'discord_server_id' => $server->id,
-                'game_id' => $game->id,
-                'notification_type' => $type,
-                'channel_id' => $config->notification_channel_id,
-                'delivery_status' => 'pending',
-            ]);
+                return;
+            }
+
+            $renderer = app(DiscordEmbedRendererService::class);
+            foreach ($targetChannels as $target) {
+                $template = $target['embed_override']
+                    ?? ($type === 'new_game' ? $config?->new_game_embed : $config?->update_embed)
+                    ?? ($type === 'new_game' ? $renderer->getDefaultNewGameEmbed() : $renderer->getDefaultUpdateEmbed());
+                $payload = ['embeds' => [$renderer->renderEmbed($template, $game, $type, $gameVersion, $server)]];
+                if ($config?->ping_role_id) {
+                    $payload['content'] = "<@&{$config->ping_role_id}>";
+                }
+
+                DiscordNotificationHistory::create([
+                    'discord_server_id' => $server->id,
+                    'game_id' => $game->id,
+                    'notification_type' => $type,
+                    'channel_id' => $target['channel_id'],
+                    'delivery_status' => 'pending',
+                    'payload' => $payload,
+                ]);
+            }
 
             Log::info('Queued server notification', [
-                'notification_id' => $notification->id,
                 'server_id' => $server->id,
                 'game_id' => $game->id,
+                'channels' => count($targetChannels),
             ]);
         } catch (Exception $e) {
             Log::error('Error queuing server notification', [

@@ -10,6 +10,7 @@ use App\Http\Controllers\Dashboard\DashboardNotificationController;
 use App\Http\Controllers\Dashboard\DashboardStatsController;
 use App\Http\Controllers\Dashboard\UserDataExportController;
 use App\Http\Controllers\DialogueController;
+use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\EditorUploadController;
 use App\Http\Controllers\GameContentController;
 use App\Http\Controllers\Games\RouteMapController;
@@ -218,6 +219,22 @@ Route::middleware(['web'])->group(function () {
         Route::get('bug-reports/{bugReport}', [BugReportController::class, 'show'])->name('browser-api.bug-reports.show');
         Route::post('bug-reports/{bugReport}/comments', [BugReportController::class, 'addComment'])->name('browser-api.bug-reports.comments.store');
         Route::post('bug-reports/{bugReport}/close', [BugReportController::class, 'close'])->name('browser-api.bug-reports.close');
+
+        Route::prefix('discord')->group(function () {
+            Route::get('guilds', [DiscordConfigController::class, 'guilds'])->name('browser-api.discord.guilds');
+            Route::get('rule-metadata', [DiscordConfigController::class, 'ruleMetadata'])->name('browser-api.discord.rule-metadata');
+            Route::get('servers', [DiscordConfigController::class, 'servers'])->name('browser-api.discord.servers');
+            Route::get('servers/{server}', [DiscordConfigController::class, 'show'])->name('browser-api.discord.servers.show');
+            Route::put('servers/{server}/config', [DiscordConfigController::class, 'updateConfig'])->name('browser-api.discord.servers.config');
+            Route::get('servers/{server}/overrides', [DiscordConfigController::class, 'overrides'])->name('browser-api.discord.servers.overrides');
+            Route::post('servers/{server}/overrides', [DiscordConfigController::class, 'storeOverride'])->name('browser-api.discord.servers.overrides.store');
+            Route::put('servers/{server}/overrides/{override}', [DiscordConfigController::class, 'updateOverride'])->name('browser-api.discord.servers.overrides.update');
+            Route::delete('servers/{server}/overrides/{override}', [DiscordConfigController::class, 'deleteOverride'])->name('browser-api.discord.servers.overrides.delete');
+            Route::post('servers/{server}/preview-embed', [DiscordConfigController::class, 'previewEmbed'])->name('browser-api.discord.servers.preview-embed');
+            Route::get('servers/{server}/channels', [DiscordConfigController::class, 'channels'])->name('browser-api.discord.servers.channels');
+            Route::get('servers/{server}/roles', [DiscordConfigController::class, 'roles'])->name('browser-api.discord.servers.roles');
+            Route::post('servers/{server}/test-notification', [DiscordConfigController::class, 'testNotification'])->name('browser-api.discord.servers.test-notification');
+        });
     });
 
     // Health/test

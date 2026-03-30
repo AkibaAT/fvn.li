@@ -47,3 +47,22 @@ export async function apiPost<T>(url: string, body?: unknown): Promise<T> {
     }
     return response.data;
 }
+
+export async function apiPut<T>(url: string, body?: unknown): Promise<T> {
+    const response = await apiFetch<ApiResponse<T>>(url, {
+        method: 'PUT',
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.success) {
+        throw new Error(response.message || 'Request failed');
+    }
+    return response.data;
+}
+
+export async function apiDelete<T>(url: string): Promise<T> {
+    const response = await apiFetch<ApiResponse<T>>(url, { method: 'DELETE' });
+    if (!response.success) {
+        throw new Error(response.message || 'Request failed');
+    }
+    return response.data;
+}

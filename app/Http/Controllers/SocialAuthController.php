@@ -49,11 +49,8 @@ class SocialAuthController extends Controller
         // Provider-specific scope configuration
         switch ($provider) {
             case 'discord':
-                // Include applications.commands scope with integration_type=1 to prompt
-                // users to install the bot for DM notifications during OAuth flow
                 return Socialite::driver($provider)
-                    ->setScopes(['identify', 'applications.commands'])
-                    ->with(['integration_type' => '1'])
+                    ->setScopes(['identify', 'guilds'])
                     ->redirect();
 
             case 'google':
@@ -283,6 +280,13 @@ class SocialAuthController extends Controller
             $accountData['itchio_game_ids'] = $itchioGameIds;
         }
 
+        if ($provider === 'discord' && isset($socialiteUser->token)) {
+            $guilds = $this->fetchDiscordGuilds($socialiteUser->token);
+            if ($guilds !== null) {
+                $accountData['provider_data'] = array_merge($providerData, ['guilds' => $guilds]);
+            }
+        }
+
         $user->socialAccounts()->updateOrCreate(
             [
                 'provider_name' => $provider,
@@ -290,6 +294,33 @@ class SocialAuthController extends Controller
             ],
             $accountData
         );
+    }
+
+    private function fetchDiscordGuilds(string $token): ?array
+    {
+        try {
+            $response = (new Client)->get('https://discord.com/api/v10/users/@me/guilds', [
+                'headers' => [
+                    'Authorization' => 'Bearer '.$token,
+                    'Accept' => 'application/json',
+                ],
+                'timeout' => 10,
+            ]);
+
+            $guilds = json_decode($response->getBody()->getContents(), true);
+
+            return collect($guilds)->map(fn ($guild) => [
+                'id' => $guild['id'],
+                'name' => $guild['name'],
+                'icon' => $guild['icon'] ?? null,
+                'owner' => $guild['owner'] ?? false,
+                'permissions' => $guild['permissions_new'] ?? $guild['permissions'] ?? '0',
+            ])->values()->all();
+        } catch (Exception $e) {
+            Log::warning('Failed to fetch Discord guilds', ['error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     /**

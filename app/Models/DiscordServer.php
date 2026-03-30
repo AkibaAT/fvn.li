@@ -20,11 +20,15 @@ class DiscordServer extends Model
         'owner_user_id',
         'is_active',
         'bot_joined_at',
+        'available_channels',
+        'channels_synced_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'bot_joined_at' => 'datetime',
+        'available_channels' => 'array',
+        'channels_synced_at' => 'datetime',
     ];
 
     /**
@@ -91,6 +95,11 @@ class DiscordServer extends Model
     public function members(): HasMany
     {
         return $this->hasMany(DiscordServerMember::class);
+    }
+
+    public function gameOverrides(): HasMany
+    {
+        return $this->hasMany(DiscordServerGameOverride::class);
     }
 
     /**

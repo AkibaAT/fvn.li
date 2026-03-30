@@ -68,6 +68,7 @@ class DiscordServerController extends Controller
                 'config',
                 'gameSubscriptions.game',
                 'members',
+                'gameOverrides.game',
                 'notificationHistory' => fn ($q) => $q->orderBy('created_at', 'desc')->limit(50),
             ]),
         ]);
@@ -82,12 +83,27 @@ class DiscordServerController extends Controller
 
         $validated = $request->validate([
             'notification_channel_id' => 'nullable|string',
-            'notification_format' => 'required|in:compact,detailed,custom',
+            'notification_format' => 'sometimes|in:compact,detailed,custom',
             'custom_template' => 'nullable|string|max:2000',
             'include_game_description' => 'boolean',
             'include_thumbnail' => 'boolean',
             'include_ratings' => 'boolean',
             'ping_role_id' => 'nullable|string',
+            'routing_rules' => 'nullable|array',
+            'routing_rules.*.id' => 'required|string',
+            'routing_rules.*.name' => 'required|string|max:255',
+            'routing_rules.*.enabled' => 'boolean',
+            'routing_rules.*.priority' => 'integer',
+            'routing_rules.*.conditions' => 'required|array',
+            'routing_rules.*.conditions.*.field' => 'required|string',
+            'routing_rules.*.conditions.*.operator' => 'required|string',
+            'routing_rules.*.conditions.*.value' => 'required',
+            'routing_rules.*.action' => 'required|array',
+            'routing_rules.*.action.type' => 'required|string|in:ignore,route',
+            'routing_rules.*.action.channel_id' => 'required_if:routing_rules.*.action.type,route|nullable|string',
+            'routing_rules.*.action.embed_override' => 'nullable|array',
+            'new_game_embed' => 'nullable|array',
+            'update_embed' => 'nullable|array',
         ]);
 
         $config = $server->config ?? DiscordServerConfig::create([
@@ -98,7 +114,7 @@ class DiscordServerController extends Controller
 
         return response()->json([
             'message' => 'Configuration updated successfully',
-            'config' => $config,
+            'config' => $config->fresh(),
         ]);
     }
 
