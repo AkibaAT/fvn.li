@@ -26,7 +26,7 @@
         review?: string | null;
         event_id?: number | null;
         is_visible: boolean;
-        game: { id: number; name: string; slug: string; url?: string | null; is_visible?: boolean };
+        game: { id: number; name: string; slug: string; primary_url?: string | null; platform?: string; is_visible?: boolean };
     };
 
     type RatingDistribution = { [key: number]: number };
@@ -392,13 +392,13 @@
                                         </button>
                                     </span>
                                 {/if}
-                                {#if row.game.url}
+                                {#if row.game.primary_url}
                                     <a
-                                        href={row.game.url}
+                                        href={route('track.external-project', { game_id: row.game.id, url: row.game.primary_url })}
                                         target="_blank"
                                         rel="noreferrer"
                                         class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                                        title="Open on itch.io"
+                                        title="Open on external platform"
                                     >
                                         <i class="icon-external-link"></i>
                                     </a>

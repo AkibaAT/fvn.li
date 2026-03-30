@@ -95,6 +95,7 @@ class RatingsController extends Controller
                 'games.name as game_name',
                 'games.slug as game_slug',
                 'games.url as game_url',
+                'games.platform as game_platform',
                 'games.is_visible as game_is_visible',
                 'raters.id as rater_id',
                 'raters.name as rater_name',
@@ -116,7 +117,8 @@ class RatingsController extends Controller
                         'id' => (int) $row->game_id,
                         'name' => $row->game_name,
                         'slug' => $row->game_slug,
-                        'url' => $row->game_url,
+                        'primary_url' => $this->extractPrimaryUrl($row->game_url, $row->game_platform),
+                        'platform' => $row->game_platform,
                         'is_visible' => (bool) $row->game_is_visible,
                     ],
                     'rater' => [
@@ -266,6 +268,7 @@ class RatingsController extends Controller
                 'games.name as game_name',
                 'games.slug as game_slug',
                 'games.url as game_url',
+                'games.platform as game_platform',
                 'games.is_visible as game_is_visible',
                 DB::raw('COUNT(*) OVER() as total_count'),
             ])
@@ -289,7 +292,8 @@ class RatingsController extends Controller
                         'id' => (int) $row->game_id,
                         'name' => $row->game_name,
                         'slug' => $row->game_slug,
-                        'url' => $row->game_url,
+                        'primary_url' => $this->extractPrimaryUrl($row->game_url, $row->game_platform),
+                        'platform' => $row->game_platform,
                         'is_visible' => (bool) $row->game_is_visible,
                     ],
                 ];
@@ -995,6 +999,20 @@ class RatingsController extends Controller
 
             return array_slice($filteredPhrases, 0, 10, true);
         });
+    }
+
+    /**
+     * Extract the primary URL from a JSONB url field using the game's platform.
+     */
+    private function extractPrimaryUrl(?string $urlJson, ?string $platform): ?string
+    {
+        if (! $urlJson || ! $platform) {
+            return null;
+        }
+
+        $urls = json_decode($urlJson, true);
+
+        return $urls[$platform] ?? null;
     }
 
     /**

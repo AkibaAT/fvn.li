@@ -11,7 +11,7 @@
 
     type RatingRow = {
         id: number;
-        game: { id: number; name: string; slug: string };
+        game: { id: number; name: string; slug: string; primary_url?: string | null; platform?: string };
         rater: { id: number; name: string; external_platform?: string };
         score: number;
         created_at: string;
@@ -324,6 +324,17 @@
                                 <Link href={route('games.show', row.game.slug)} class="font-medium text-blue-700 hover:underline dark:text-blue-300"
                                     >{row.game.name}</Link
                                 >
+                                {#if row.game.primary_url}
+                                    <a
+                                        href={route('track.external-project', { game_id: row.game.id, url: row.game.primary_url })}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                        title="Open on external platform"
+                                    >
+                                        <i class="icon-external-link"></i>
+                                    </a>
+                                {/if}
                                 <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                                     <span
                                         >by <Link href={route('raters.show', row.rater.id)} class="text-gray-800 hover:underline dark:text-gray-100"
