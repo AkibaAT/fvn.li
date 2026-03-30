@@ -24,33 +24,21 @@ class GameDiscordSubscription extends Model
         'is_active' => 'boolean',
     ];
 
-    /**
-     * Get the game being subscribed to.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Get the Discord server.
-     */
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
     }
 
-    /**
-     * Scope to active subscriptions.
-     */
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
 
-    /**
-     * Scope to inactive subscriptions.
-     */
     public function scopeInactive($query)
     {
         return $query->where('is_active', false);

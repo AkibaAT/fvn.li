@@ -9,6 +9,7 @@ use App\Http\Controllers\Dashboard\DigestNotificationController;
 use App\Http\Controllers\Dashboard\UserAccountController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
+use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\Games\RouteMapController;
 use App\Http\Controllers\GamesController;
@@ -246,6 +247,13 @@ Route::get('raters/{rater}/games/{game}/history', [RatingsController::class, 'ge
 Route::middleware('auth')->group(function () {
     Route::get('my/games', [MyGamesController::class, 'myGamesIndex'])->name('my-games.index');
     Route::get('my/games/{game:slug}/edit', [MyGamesController::class, 'myGamesEdit'])->name('my-games.edit');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('discord', fn () => Inertia::render('dashboard/discord/index'))->name('dashboard.discord.index');
+    Route::get('discord/install/callback', [DiscordConfigController::class, 'handleBotInstallCallback'])->name('dashboard.discord.install.callback');
+    Route::get('discord/install/{guild}', [DiscordConfigController::class, 'redirectToBotInstall'])->name('dashboard.discord.install');
+    Route::get('discord/{server}', fn ($server) => Inertia::render('dashboard/discord/server', ['server' => (int) $server]))->name('dashboard.discord.server');
 });
 
 // Use slug for these endpoints to match Svelte game page paths

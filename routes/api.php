@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\DiscordBotController;
+use App\Http\Controllers\Api\DiscordBotServerController;
 use App\Http\Controllers\Api\DiscordNotificationHistoryController;
 use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\DiscordServerController;
@@ -91,6 +92,17 @@ Route::middleware('auth:sanctum')->prefix('discord-servers')->group(function () 
     Route::post('{server}/notifications/{notification}/resend', [DiscordNotificationHistoryController::class, 'resend']);
     Route::post('{server}/test-notification', [DiscordNotificationHistoryController::class, 'sendTest']);
     Route::delete('{server}/notifications/clear', [DiscordNotificationHistoryController::class, 'clear']);
+});
+
+// Bot-facing server notification delivery
+Route::middleware('auth:sanctum')->prefix('bot/servers')->group(function () {
+    Route::get('pending-notifications', [DiscordBotServerController::class, 'pendingNotifications']);
+    Route::post('notifications/{notification}/delivered', [DiscordBotServerController::class, 'markDelivered']);
+    Route::post('notifications/{notification}/failed', [DiscordBotServerController::class, 'markFailed']);
+    Route::post('sync-channels', [DiscordBotServerController::class, 'syncChannels']);
+    Route::post('sync-members', [DiscordBotServerController::class, 'syncMembers']);
+    Route::post('bot-joined', [DiscordBotServerController::class, 'botJoined']);
+    Route::post('{server}/bot-left', [DiscordBotServerController::class, 'botLeft']);
 });
 
 // Game reviews API for desktop client

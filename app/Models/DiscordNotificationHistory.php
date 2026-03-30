@@ -23,63 +23,45 @@ class DiscordNotificationHistory extends Model
         'sent_at',
         'delivery_status',
         'error_message',
+        'payload',
+        'batch_key',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'payload' => 'array',
     ];
 
-    /**
-     * Get the Discord server.
-     */
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
     }
 
-    /**
-     * Get the game.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Scope to sent notifications.
-     */
     public function scopeSent($query)
     {
         return $query->where('delivery_status', 'sent');
     }
 
-    /**
-     * Scope to failed notifications.
-     */
     public function scopeFailed($query)
     {
         return $query->where('delivery_status', 'failed');
     }
 
-    /**
-     * Scope to pending notifications.
-     */
     public function scopePending($query)
     {
         return $query->where('delivery_status', 'pending');
     }
 
-    /**
-     * Scope to recent notifications.
-     */
     public function scopeRecent($query, int $days = 30)
     {
         return $query->where('sent_at', '>=', now()->subDays($days));
     }
 
-    /**
-     * Mark as sent.
-     */
     public function markAsSent(?string $messageId = null): void
     {
         $this->update([
@@ -88,9 +70,6 @@ class DiscordNotificationHistory extends Model
         ]);
     }
 
-    /**
-     * Mark as failed.
-     */
     public function markAsFailed(?string $errorMessage = null): void
     {
         $this->update([
