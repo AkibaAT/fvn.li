@@ -14871,16 +14871,16 @@
         },
         {
             "name": "tightenco/duster",
-            "version": "v3.4.0",
+            "version": "v3.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/tighten/duster.git",
-                "reference": "911669fc874a1af4de87cf021cdb58a97584ec52"
+                "reference": "5570f8183c91164192c48908fb94f0b4cafe79ae"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/tighten/duster/zipball/911669fc874a1af4de87cf021cdb58a97584ec52",
-                "reference": "911669fc874a1af4de87cf021cdb58a97584ec52",
+                "url": "https://api.github.com/repos/tighten/duster/zipball/5570f8183c91164192c48908fb94f0b4cafe79ae",
+                "reference": "5570f8183c91164192c48908fb94f0b4cafe79ae",
                 "shasum": ""
             },
             "require": {
@@ -14935,7 +14935,7 @@
                 "issues": "https://github.com/tighten/duster/issues",
                 "source": "https://github.com/tighten/duster"
             },
-            "time": "2026-03-06T22:05:01+00:00"
+            "time": "2026-03-27T00:41:08+00:00"
         },
         {
             "name": "webmozart/assert",
