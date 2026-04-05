@@ -396,7 +396,7 @@
                                     <a
                                         href={route('track.external-project', { game_id: row.game.id, url: row.game.primary_url })}
                                         target="_blank"
-                                        rel="noreferrer"
+                                        rel="noopener"
                                         class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                                         title="Open on external platform"
                                     >
@@ -419,7 +419,7 @@
                                     <a
                                         href={`https://itch.io/event/${row.event_id}`}
                                         target="_blank"
-                                        rel="noreferrer"
+                                        rel="noopener"
                                         class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                                         title="View on itch.io"
                                     >
@@ -544,7 +544,7 @@
                                 <a
                                     href={`https://itch.io/event/${hr.event_id}`}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener"
                                     class="text-sm text-blue-600 hover:underline dark:text-blue-400">View on itch.io</a
                                 >
                             {/if}

@@ -28,7 +28,7 @@
                 <a
                     href={route('track.custom-link', { game_id: gameId, link_id: link.id, url: link.url })}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener"
                     class="group flex items-center gap-4 rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:border-blue-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-blue-500 dark:hover:bg-gray-700"
                 >
                     <div class="flex-shrink-0">

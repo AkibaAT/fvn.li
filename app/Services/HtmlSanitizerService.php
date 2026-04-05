@@ -88,7 +88,7 @@ class HtmlSanitizerService
             ->allowAttribute('height', ['img'])
             ->allowAttribute('colspan', ['td', 'th'])
             ->allowAttribute('rowspan', ['td', 'th'])
-            ->forceAttribute('a', 'rel', 'noopener noreferrer');
+            ->forceAttribute('a', 'rel', 'noopener');
 
         return new HtmlSanitizer($config);
     }
@@ -109,7 +109,7 @@ class HtmlSanitizerService
             ->allowAttribute('height', ['img', 'iframe'])
             ->allowAttribute('colspan', ['td', 'th'])
             ->allowAttribute('rowspan', ['td', 'th'])
-            ->forceAttribute('a', 'rel', 'noopener noreferrer');
+            ->forceAttribute('a', 'rel', 'noopener');
 
         return new HtmlSanitizer($config);
     }
@@ -123,7 +123,7 @@ class HtmlSanitizerService
             ->allowAttribute('href', ['a'])
             ->allowAttribute('target', ['a'])
             ->allowAttribute('rel', ['a'])
-            ->forceAttribute('a', 'rel', 'noopener noreferrer');
+            ->forceAttribute('a', 'rel', 'noopener');
 
         return new HtmlSanitizer($config);
     }

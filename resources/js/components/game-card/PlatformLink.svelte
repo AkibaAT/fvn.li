@@ -45,7 +45,7 @@
 <a
     href={trackingUrl}
     target="_blank"
-    rel="noopener noreferrer"
+    rel="noopener"
     class={className || defaultClassName}
     title={label}
     aria-label="{label} - opens in new window"

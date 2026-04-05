@@ -190,7 +190,7 @@
                 <a
                     href={screenshots[index]?.original_url || screenshots[index]?.url}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener"
                     class="rounded bg-white px-3 py-1 text-sm font-medium text-black hover:bg-gray-100"
                     onclick={(e) => e.stopPropagation()}
                 >

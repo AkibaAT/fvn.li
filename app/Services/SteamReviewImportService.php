@@ -424,10 +424,10 @@ class SteamReviewImportService
         $text = preg_replace('/\[h3\](.*?)\[\/h3\]/is', '<h5>$1</h5>', $text);
 
         // URL with text: [url=http://example.com]text[/url]
-        $text = preg_replace('/\[url=(.*?)\](.*?)\[\/url\]/is', '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>', $text);
+        $text = preg_replace('/\[url=(.*?)\](.*?)\[\/url\]/is', '<a href="$1" target="_blank" rel="noopener">$2</a>', $text);
 
         // URL without text: [url]http://example.com[/url]
-        $text = preg_replace('/\[url\](.*?)\[\/url\]/is', '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>', $text);
+        $text = preg_replace('/\[url\](.*?)\[\/url\]/is', '<a href="$1" target="_blank" rel="noopener">$1</a>', $text);
 
         // Quote
         $text = preg_replace('/\[quote\](.*?)\[\/quote\]/is', '<blockquote>$1</blockquote>', $text);

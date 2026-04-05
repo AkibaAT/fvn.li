@@ -273,7 +273,7 @@
 
                     <div class="text-xs text-gray-500 dark:text-gray-400">
                         <strong>Page:</strong>
-                        <a href={selectedBugReport.page_url} target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline dark:text-blue-400">
+                        <a href={selectedBugReport.page_url} target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">
                             {selectedBugReport.page_title || selectedBugReport.page_url}
                         </a>
                     </div>

@@ -23,7 +23,7 @@
                     <a
                         href="https://github.com/AkibaAT/fvn.li"
                         target="_blank"
-                        rel="noopener noreferrer"
+                        rel="noopener"
                         class="text-gray-400 transition-colors hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300"
                         title="View on GitHub"
                     >

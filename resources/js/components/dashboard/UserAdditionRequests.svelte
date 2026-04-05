@@ -142,7 +142,7 @@
                                 <a
                                     href={request.game_url}
                                     target="_blank"
-                                    rel="noopener noreferrer"
+                                    rel="noopener"
                                     class="block truncate text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                                 >
                                     {request.game_url}

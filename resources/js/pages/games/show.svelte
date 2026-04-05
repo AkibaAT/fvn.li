@@ -994,7 +994,7 @@
                         <div class="border-b border-gray-200 pb-3 last:border-0 last:pb-0 dark:border-gray-700">
                             <h3 class="font-medium text-gray-900 dark:text-gray-100">
                                 {#if jam.url}
-                                    <a href={jam.url} target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 dark:hover:text-blue-400">
+                                    <a href={jam.url} target="_blank" rel="noopener" class="hover:text-blue-600 dark:hover:text-blue-400">
                                         <span
                                             class="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-sm text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
                                         >
@@ -1429,7 +1429,7 @@
                                 <a
                                     href={`https://itch.io/event/${review.event_id}`}
                                     target="_blank"
-                                    rel="noopener noreferrer"
+                                    rel="noopener"
                                     class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                                     title="View on itch.io"
                                 >
