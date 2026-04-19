@@ -67,6 +67,8 @@ export default defineConfig({
         hmr: {
             protocol: 'wss',
             host: `${process.env.DDEV_SITENAME}.${process.env.DDEV_TLD}`,
+            port: 443,
         },
+        origin: `https://${process.env.DDEV_SITENAME}.${process.env.DDEV_TLD}`,
     },
 });

@@ -1,0 +1,21 @@
+http:
+    routers:
+        fvn-li-vite-http:
+            entrypoints:
+                - http-80
+            rule: (HostRegexp(`^fvn-li\.ddev\.site$`) || HostRegexp(`^fvn-li-testing\.ddev\.site$`)) && PathPrefix(`/@vite/`)
+            service: 'fvn-li-web-5173'
+            tls: false
+            priority: 100
+        fvn-li-vite-https:
+            entrypoints:
+                - http-443
+            rule: (HostRegexp(`^fvn-li\.ddev\.site$`) || HostRegexp(`^fvn-li-testing\.ddev\.site$`)) && PathPrefix(`/@vite/`)
+            service: 'fvn-li-web-5173'
+            tls: true
+            priority: 100
+
+tls:
+    certificates:
+        - certFile: /mnt/ddev-global-cache/traefik/certs/fvn-li.crt
+          keyFile: /mnt/ddev-global-cache/traefik/certs/fvn-li.key

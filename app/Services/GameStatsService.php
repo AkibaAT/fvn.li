@@ -337,11 +337,11 @@ readonly class GameStatsService
             echo "    [Stats] Word frequency calculations queued\n";
         }
 
-        // Calculate route paths after both route graph and dialogue lines are saved
+        // Calculate route paths and pre-build graph after both route graph and dialogue lines are saved
         if ($hasRouteData) {
-            echo "    [Stats] Calculating route paths to endings\n";
-            app(RoutePathCalculator::class)->calculateAndStore($version);
-            echo "    [Stats] Route paths calculated\n";
+            echo "    [Stats] Pre-computing route graph\n";
+            app(RouteGraphService::class)->computeAndStore($version);
+            echo "    [Stats] Route graph computed and stored\n";
         }
 
         echo "    [Stats] Version stats processing complete\n";
@@ -354,8 +354,11 @@ readonly class GameStatsService
     {
         $now = now();
 
+        // Clear pre-computed route graph
+        $version->route_graph_data = null;
+        $version->saveQuietly();
+
         // Delete existing route data for this version
-        $version->routePaths()->delete();
         $version->routeLabels()->delete();
         $version->routeEdges()->delete();
         $version->routeMenuChoices()->delete();

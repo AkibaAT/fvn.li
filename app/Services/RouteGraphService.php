@@ -12,6 +12,25 @@ class RouteGraphService
 {
     public function buildGraph(GameVersion $version): array
     {
+        if ($version->route_graph_data) {
+            return $version->route_graph_data;
+        }
+
+        // Fallback: compute and store if not pre-calculated
+        return $this->computeAndStore($version);
+    }
+
+    public function computeAndStore(GameVersion $version): array
+    {
+        $graph = $this->computeGraph($version);
+        $version->route_graph_data = $graph;
+        $version->saveQuietly();
+
+        return $graph;
+    }
+
+    public function computeGraph(GameVersion $version): array
+    {
         $labels = $version->routeLabels()->get();
         $edges = $version->routeEdges()->get();
         $menuChoices = $version->routeMenuChoices()->get();
@@ -21,6 +40,13 @@ class RouteGraphService
         $wordCounts = self::getWordCountsByLabel($version);
 
         $edgeMapByFrom = $edges->groupBy('from_label');
+
+        // Pre-index variable changes by label AND by context for fast lookup
+        $varChangesByContext = [];
+        foreach ($variableChanges as $vc) {
+            $key = $vc->label . '|' . ($vc->context ?? '');
+            $varChangesByContext[$key][] = $vc;
+        }
         $varChangesByLabel = $variableChanges->groupBy('label');
         $choicesByLabel = $menuChoices->groupBy('from_label');
 
@@ -36,24 +62,28 @@ class RouteGraphService
             $nodeChoices = $choicesByLabel->get($name, collect());
 
             // Filter to meaningful choices: ones that change variables or branch to a target
-            $meaningfulChoices = $nodeChoices->filter(function ($mc) use ($varChanges) {
+            $meaningfulChoices = $nodeChoices->filter(function ($mc) use ($name, $varChangesByContext) {
                 if (! empty($mc->target_label)) {
                     return true;
                 }
-                $choiceContext = 'menu_choice:' . ($mc->text ?? '');
+                $contextKey = $name . '|menu_choice:' . ($mc->text ?? '');
 
-                return $varChanges->contains(fn ($vc) => $vc->context === $choiceContext);
+                return ! empty($varChangesByContext[$contextKey]);
             });
 
+            // Only collapse "function menus" (chapter select, gallery, etc.) into hub nodes.
+            // Normal gameplay menus should always expand to show all choices.
+            // Function menus are detected by label names, prompts, or choice patterns.
             $maxExpandedChoices = 10;
 
-            if ($meaningfulChoices->isNotEmpty() && $meaningfulChoices->count() <= $maxExpandedChoices) {
+            // Get the prompt (question) for this menu early (needed for function menu detection)
+            $firstChoice = $meaningfulChoices->first();
+            $menuPrompt = $firstChoice?->prompt;
+            $isFunctionMenu = $this->isFunctionMenu($name, $meaningfulChoices, $menuPrompt);
+
+            if ($meaningfulChoices->isNotEmpty() && ($meaningfulChoices->count() <= $maxExpandedChoices || ! $isFunctionMenu)) {
                 // This label has a manageable number of choices — expand into sub-graph
                 $expandedLabels[$name] = true;
-
-                // Get the prompt (question) for this menu — same for all choices in the group
-                $firstChoice = $meaningfulChoices->first();
-                $menuPrompt = $firstChoice?->prompt;
                 $menuPromptTranslations = $firstChoice?->prompt_translations;
 
                 // Create the main label node (content before the choice)
@@ -81,9 +111,10 @@ class RouteGraphService
                     $choiceId = $name . ':choice_' . $i;
                     $choiceText = $mc->text ?? 'Choice ' . ($i + 1);
 
-                    // Get variable changes for this specific choice
+                    // Get variable changes for this specific choice (indexed lookup)
                     $choiceContext = 'menu_choice:' . ($mc->text ?? '');
-                    $choiceVarChanges = $varChanges->filter(fn ($vc) => $vc->context === $choiceContext);
+                    $contextKey = $name . '|' . $choiceContext;
+                    $choiceVarChanges = collect($varChangesByContext[$contextKey] ?? []);
 
                     // Build label with variable effects
                     $varSummary = $choiceVarChanges->map(function ($vc) {
@@ -197,6 +228,14 @@ class RouteGraphService
             }
         }
 
+        // Pre-index menu choices by from_label:target_label for O(1) lookup
+        $choiceLookup = [];
+        foreach ($menuChoices as $mc) {
+            if (! empty($mc->target_label)) {
+                $choiceLookup[$mc->from_label . ':' . $mc->target_label] = $mc;
+            }
+        }
+
         // Process edges — skip edges from expanded labels (they're replaced by choice sub-graphs)
         foreach ($edges as $edge) {
             if (isset($expandedLabels[$edge->from_label])) {
@@ -214,10 +253,7 @@ class RouteGraphService
             ];
 
             if ($edge->edge_type === 'menu_choice') {
-                $matchingChoice = $menuChoices->first(function ($mc) use ($edge) {
-                    return $mc->from_label === $edge->from_label
-                        && $mc->target_label === $edge->to_label;
-                });
+                $matchingChoice = $choiceLookup[$edge->from_label . ':' . $edge->to_label] ?? null;
                 if ($matchingChoice) {
                     $edgeData['choice_text'] = $matchingChoice->text;
                     $edgeData['condition'] = $matchingChoice->condition;
@@ -228,22 +264,28 @@ class RouteGraphService
         }
 
         // Post-process: infer else conditions and deduplicate
-        // When a label has conditional edges AND unconditional flow edges,
-        // the flow edges are implicitly the "else" case
         $processedEdges = $this->inferElseConditions($processedEdges);
 
-        $variableData = $variables->map(function ($v) use ($variableChanges) {
+        // Bridge disconnected components: if start can't reach the main game,
+        // add a synthetic edge from the last reachable node to the main component
+        $processedEdges = $this->bridgeDisconnectedComponents($nodes, $processedEdges);
+
+        // Pre-count variable changes by name
+        $varChangeCounts = [];
+        foreach ($variableChanges as $vc) {
+            $varChangeCounts[$vc->variable_name] = ($varChangeCounts[$vc->variable_name] ?? 0) + 1;
+        }
+
+        $variableData = $variables->map(function ($v) use ($varChangeCounts) {
             return [
                 'name' => $v->name,
                 'default_value' => $v->default_value,
                 'type' => $v->type,
-                'change_count' => $variableChanges->where('variable_name', $v->name)->count(),
+                'change_count' => $varChangeCounts[$v->name] ?? 0,
             ];
         })->values()->toArray();
 
         $endings = $labels->where('is_ending', true)->pluck('name')->values()->toArray();
-
-        $simplified = $this->buildSimplifiedGraph($labels, $edges, $wordCounts);
 
         return [
             'nodes' => $nodes,
@@ -252,7 +294,6 @@ class RouteGraphService
             'endings' => $endings,
             'total_nodes' => $labels->count(),
             'total_edges' => $edges->count(),
-            'simplified' => $simplified,
             'has_graph_data' => true,
         ];
     }
@@ -262,6 +303,132 @@ class RouteGraphService
      * different targets, the flow edges are the implicit "else" case.
      * Also removes duplicate edges to the same target when a conditional version exists.
      */
+    /**
+     * When start can only reach a small subset of the graph, bridge to
+     * disconnected components via synthetic edges.
+     * This handles games that use screen-based navigation we can't statically resolve.
+     */
+
+    private function bridgeDisconnectedComponents(array $nodes, array $edges): array
+    {
+        if (empty($nodes) || empty($edges)) {
+            return $edges;
+        }
+
+        $startId = null;
+        $nodeIndex = [];
+        foreach ($nodes as $n) {
+            $nodeIndex[$n['id']] = $n;
+            if ($n['is_start'] ?? false) {
+                $startId = $n['id'];
+            }
+        }
+
+        if (! $startId) {
+            return $edges;
+        }
+
+        // Early exit: if start node is not a proper label node, skip bridging
+        $startNode = $nodeIndex[$startId] ?? null;
+        if (! $startNode || ($startNode['node_type'] ?? '') !== 'label') {
+            return $edges;
+        }
+
+        // Iteratively bridge: BFS from start, find unreachable entry points, bridge, repeat
+        $maxBridges = 20;
+        for ($attempt = 0; $attempt < $maxBridges; $attempt++) {
+            $adjacency = [];
+            foreach ($edges as $e) {
+                $adjacency[$e['source']][] = $e['target'];
+            }
+
+            $visited = [$startId => true];
+            $queue = [$startId];
+            while (! empty($queue)) {
+                $current = array_shift($queue);
+                foreach ($adjacency[$current] ?? [] as $target) {
+                    if (! isset($visited[$target])) {
+                        $visited[$target] = true;
+                        $queue[] = $target;
+                    }
+                }
+            }
+
+            if (count($visited) > count($nodes) * 0.95) {
+                break; // Good enough
+            }
+
+            // Find unreachable label nodes (not choice/hub/ending sub-nodes) that have outgoing edges
+            // These are likely game entry points we can't see
+            $bestBridge = null;
+            $bestOutgoing = 0;
+
+            // Build incoming edge index
+            $incomingFromReachable = [];
+            foreach ($edges as $e) {
+                if (isset($visited[$e['source']]) && ! isset($visited[$e['target']])) {
+                    // Edge from reachable to unreachable — but target is already connected? No, it's unreachable
+                }
+                if (! isset($visited[$e['target']])) {
+                    $incomingFromReachable[$e['target']] = ($incomingFromReachable[$e['target']] ?? 0) +
+                        (isset($visited[$e['source']]) ? 1 : 0);
+                }
+            }
+
+            foreach ($nodes as $n) {
+                $id = $n['id'];
+                if (isset($visited[$id])) {
+                    continue;
+                }
+                if (($n['node_type'] ?? '') !== 'label') {
+                    continue;
+                }
+
+                $outCount = count($adjacency[$id] ?? []);
+                if ($outCount <= 0) {
+                    continue;
+                }
+
+                // Prefer nodes with no incoming edges from unreachable nodes (true entry points)
+                $hasUnreachableIncoming = false;
+                foreach ($edges as $e) {
+                    if ($e['target'] === $id && ! isset($visited[$e['source']])) {
+                        $hasUnreachableIncoming = true;
+                        break;
+                    }
+                }
+
+                $score = $outCount + ($hasUnreachableIncoming ? 0 : 1000);
+                if ($score > $bestOutgoing) {
+                    $bestOutgoing = $score;
+                    $bestBridge = $id;
+                }
+            }
+
+            if (! $bestBridge) {
+                break;
+            }
+
+            // Find the last reachable label node as bridge source
+            $bridgeSource = $startId;
+            foreach ($nodes as $n) {
+                if (isset($visited[$n['id']]) && ($n['node_type'] ?? '') === 'label' && ($n['has_menu_choice'] ?? false)) {
+                    $bridgeSource = $n['id'];
+                }
+            }
+
+            $edges[] = [
+                'id' => $bridgeSource . ':' . $bestBridge . ':bridge',
+                'source' => $bridgeSource,
+                'target' => $bestBridge,
+                'edge_type' => 'flow',
+                'condition' => null,
+            ];
+        }
+
+        return $edges;
+    }
+
     private function inferElseConditions(array $edges): array
     {
         // Group edges by source
@@ -337,6 +504,55 @@ class RouteGraphService
     }
 
     /**
+     * Detect if a menu is a "function menu" (chapter select, gallery, etc.)
+     * rather than a normal gameplay choice menu.
+     *
+     * Function menus are identified by:
+     * - Label names containing keywords like "chapter", "gallery", "select", "menu_main"
+     * - Prompt text indicating chapter/scene selection
+     * - Choice text patterns like "Chapter X", "Scene Y", "CG Gallery"
+     */
+    private function isFunctionMenu(string $labelName, $choices, ?string $prompt): bool
+    {
+        // Check label name patterns
+        $labelPatterns = ['/chapter[_\s]?select/i', '/chapter[_\s]?menu/i', '/gallery/i', '/select[_\s]?screen/i', '/main[_\s]?menu/i', '/extras/i', '/bonus/i'];
+        foreach ($labelPatterns as $pattern) {
+            if (preg_match($pattern, $labelName)) {
+                return true;
+            }
+        }
+
+        // Check prompt text patterns
+        if ($prompt) {
+            $promptPatterns = ['/^(select|choose)\s+(a\s+)?chapter/i', '/^(select|choose)\s+(a\s+)?scene/i', '/^chapter\s+select/i', '/^scene\s+select/i', '/^jump\s+to/i'];
+            foreach ($promptPatterns as $pattern) {
+                if (preg_match($pattern, trim($prompt))) {
+                    return true;
+                }
+            }
+        }
+
+        // Check if all choices look like chapter/scene selectors
+        if ($choices->count() > 5) {
+            $chapterLikeChoices = 0;
+            foreach ($choices as $choice) {
+                $text = $choice->text ?? '';
+                // Match patterns like "Chapter 1", "Scene 5", "Prologue", "Epilogue", "Day 1", "Route A"
+                if (preg_match('/^(chapter|scene|day|route|part|act)\s*\d+/i', $text) ||
+                    preg_match('/^(prologue|epilogue|intro|ending|bonus|extra|gallery|cg)/i', $text)) {
+                    $chapterLikeChoices++;
+                }
+            }
+            // If >80% of choices look like chapter selectors, it's likely a function menu
+            if ($chapterLikeChoices / $choices->count() > 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Compute word counts per label from dialogue lines.
      * Uses the game's source language, falling back to English.
      *
@@ -369,14 +585,16 @@ class RouteGraphService
 
     public function buildSimplifiedGraph(Collection $labels, Collection $edges, array $wordCounts = []): array
     {
+        // Pre-index edges for O(1) lookup instead of O(n) per label
         $outgoing = [];
-        foreach ($labels as $label) {
-            $outgoing[$label->name] = $edges->where('from_label', $label->name)->pluck('to_label')->values()->toArray();
-        }
-
         $incoming = [];
         foreach ($labels as $label) {
-            $incoming[$label->name] = $edges->where('to_label', $label->name)->pluck('from_label')->values()->toArray();
+            $outgoing[$label->name] = [];
+            $incoming[$label->name] = [];
+        }
+        foreach ($edges as $edge) {
+            $outgoing[$edge->from_label][] = $edge->to_label;
+            $incoming[$edge->to_label][] = $edge->from_label;
         }
 
         $branchPoints = [];

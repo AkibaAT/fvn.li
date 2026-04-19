@@ -14,12 +14,19 @@ export interface RouteNode {
     parent_label?: string;
     condition?: string | null;
     menu_prompt?: string | null;
+    // Fields added during client-side processing
+    choice_text?: string;
+    translations?: Record<string, string>;
+    menu_prompt_translations?: Record<string, string> | null;
+    var_summary?: string | null;
+    chain_labels?: string[];
 }
 
 export interface MenuChoice {
     text: string | null;
     target_label: string | null;
     condition: string | null;
+    translations?: Record<string, string>;
 }
 
 export interface VariableChange {
@@ -47,25 +54,6 @@ export interface RouteVariable {
     change_count: number;
 }
 
-export interface SimplifiedNode {
-    id: string;
-    label: string;
-    type: 'branch' | 'chain';
-    is_start: boolean;
-    is_ending: boolean;
-    word_count: number;
-    chain_labels?: string[];
-    first_label?: string;
-    last_label?: string;
-}
-
-export interface SimplifiedEdge {
-    id: string;
-    source: string;
-    target: string;
-    edge_type: string;
-}
-
 export interface RouteGraphData {
     nodes: RouteNode[];
     edges: RouteEdge[];
@@ -73,11 +61,6 @@ export interface RouteGraphData {
     endings: string[];
     total_nodes: number;
     total_edges: number;
-    simplified: {
-        nodes: SimplifiedNode[];
-        edges: SimplifiedEdge[];
-        chain_count: number;
-    };
     has_graph_data: boolean;
 }
 
@@ -103,4 +86,42 @@ export interface RouteMapPageProps {
         title: string;
         description: string;
     };
+}
+
+export interface DisplayNode {
+    id: string;
+    type: 'choice' | 'hub' | 'label' | undefined;
+    data: RouteNode & {
+        label?: string;
+        choice_text?: string;
+        translations?: Record<string, string>;
+        var_summary?: string | null;
+        menu_prompt_translations?: Record<string, string> | null;
+        chain_labels?: string[];
+        [key: string]: unknown;
+    };
+    position: { x: number; y: number };
+    style?: string;
+    class?: string;
+}
+
+export interface DisplayEdge {
+    id: string;
+    source: string;
+    target: string;
+    type: string;
+    animated?: boolean;
+    label?: string;
+    data: RouteEdge;
+    style?: string;
+}
+
+export interface NavigationStep {
+    step: number;
+    nodeId: string;
+    edgeType: string;
+    isChoice: boolean;
+    choiceText: string | null;
+    condition: string | null;
+    targetIsEnding: boolean;
 }

@@ -165,11 +165,25 @@ init 10000 python:
         re.IGNORECASE
     )
 
+    # Labels to exclude from route graph: dev tools, debug, internal Ren'Py call targets, system labels
+    SKIP_LABEL_PATTERN = re.compile(
+        r'^(?:_call_|dev_|debug|after_load$|after_warp$|before_main_menu$|change_date$|jump_day$|faces_reset$|set_characters_|initialize_bonus_|unlockPersistent$)',
+        re.IGNORECASE
+    )
+
     def is_game_file(filename):
         if not filename:
             return False
         fl = filename.replace("\\", "/")
         return not fl.startswith("renpy/common/")
+
+    def is_route_label(label_name):
+        """Check if a label should be included in the route graph."""
+        if not label_name:
+            return False
+        if SKIP_LABEL_PATTERN.search(label_name):
+            return False
+        return True
 
     def extract_python_edges(source, from_label, filename, linenumber, condition=None):
         """Extract renpy.jump() and renpy.call() from Python source."""
@@ -462,7 +476,37 @@ init 10000 python:
                     combine_conditions(condition, branch_condition),
                 )
 
+    def block_has_terminal(block):
+        """Check if a block ends with a jump, call, or return."""
+        if not block:
+            return False
+        for stmt in reversed(block):
+            if isinstance(stmt, (renpy.ast.Jump, renpy.ast.Call, renpy.ast.Return)):
+                return True
+            if isinstance(stmt, renpy.ast.If):
+                return is_exhaustive_if(stmt)
+            if isinstance(stmt, renpy.ast.Pass):
+                continue
+            return False
+        return False
+
+    def is_exhaustive_if(stmt):
+        """Check if an If statement has terminal flow in ALL branches including else."""
+        entries = getattr(stmt, "entries", [])
+        if not entries:
+            return False
+        # Must have an else branch (condition is True/always)
+        has_else = False
+        for condition, sub_block in entries:
+            if condition == "True" or condition is True:
+                has_else = True
+            if not block_has_terminal(sub_block):
+                return False
+        return has_else
+
     def ensure_route_label(label_name, filename, linenumber, is_ending=False):
+        if not is_route_label(label_name):
+            return
         if label_name not in route_labels:
             route_labels[label_name] = {
                 "file": filename,
@@ -472,6 +516,8 @@ init 10000 python:
 
     def add_route_edge(from_label, to_label, edge_type, filename, linenumber, choice_text=None, condition=None):
         if not from_label or not to_label:
+            return
+        if not is_route_label(from_label) or not is_route_label(to_label):
             return
 
         edge_key = (
@@ -551,23 +597,25 @@ init 10000 python:
                 nested_filename = getattr(stmt, "filename", filename)
                 nested_line = getattr(stmt, "linenumber", 0)
 
-                ensure_route_label(stmt.name, nested_filename, nested_line)
-                add_route_edge(
-                    from_label,
-                    stmt.name,
-                    "flow",
-                    nested_filename,
-                    nested_line,
-                    condition=active_condition,
-                )
+                if is_route_label(stmt.name):
+                    ensure_route_label(stmt.name, nested_filename, nested_line)
+                    add_route_edge(
+                        from_label,
+                        stmt.name,
+                        "flow",
+                        nested_filename,
+                        nested_line,
+                        condition=active_condition,
+                    )
 
-                # Subsequent statements belong to this label, not the parent
-                from_label = stmt.name
-                filename = nested_filename
-                active_condition = None
+                    # Subsequent statements belong to this label, not the parent
+                    from_label = stmt.name
+                    filename = nested_filename
+                    active_condition = None
 
+                # Walk the block even for filtered labels (may contain relevant edges)
                 if getattr(stmt, "block", None):
-                    walk_for_edges(stmt.block, stmt.name, nested_filename, "label_block")
+                    walk_for_edges(stmt.block, from_label, nested_filename, "label_block")
             elif isinstance(stmt, renpy.ast.Python):
                 source = getattr(stmt.code, "source", "")
                 if source:
@@ -744,19 +792,25 @@ init 10000 python:
                     edge_count_before = len(route_edges)
                     while next_stmt is not None and id(next_stmt) not in seen_next:
                         seen_next.add(id(next_stmt))
-                        if isinstance(next_stmt, (renpy.ast.Jump, renpy.ast.Call, renpy.ast.Return)):
+                        if isinstance(next_stmt, (renpy.ast.Jump, renpy.ast.Return)):
                             add_edge_from_statement(node.name, next_stmt, node.filename)
                             break
+                        if isinstance(next_stmt, renpy.ast.Call):
+                            # Calls return — process edge but keep walking
+                            add_edge_from_statement(node.name, next_stmt, node.filename)
                         if isinstance(next_stmt, renpy.ast.Label):
-                            add_edge_from_statement(node.name, next_stmt, node.filename)
-                            break
+                            if is_route_label(next_stmt.name):
+                                add_edge_from_statement(node.name, next_stmt, node.filename)
+                                break
+                            # Filtered label — skip past it and keep walking
                         # Non-terminal control flow: process edges but keep walking
-                        # unless it produced conditional edges (flow is now conditional)
                         if get_call_screen_name(next_stmt):
                             add_edge_from_statement(node.name, next_stmt, node.filename)
                         elif isinstance(next_stmt, renpy.ast.If):
                             add_edge_from_statement(node.name, next_stmt, node.filename)
-                            if len(route_edges) > edge_count_before:
+                            # Only stop if ALL branches have terminal flow (jump/return)
+                            # meaning execution can't continue past this If
+                            if is_exhaustive_if(next_stmt):
                                 break
                         elif isinstance(next_stmt, renpy.ast.Menu):
                             pass  # menus are handled separately in the main loop

@@ -7,7 +7,8 @@
     import ChoiceNode from '@/components/route-map/ChoiceNode.svelte';
     import HubNode from '@/components/route-map/HubNode.svelte';
     import LabelNode from '@/components/route-map/LabelNode.svelte';
-    import type { RouteEdge, RouteGraphData, RouteMapPageProps, RouteNode } from '@/types/route-graph';
+    import type { DisplayEdge, DisplayNode, MenuChoice, RouteEdge, RouteGraphData, RouteMapPageProps, RouteNode } from '@/types/route-graph';
+    import { usePathfinderWorker } from '@/hooks/usePathfinderWorker.svelte';
     import http from '@/utils/http';
     import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -34,31 +35,50 @@
     let routeGraph = $state<RouteGraphData>((() => $state.snapshot(initialGraph) as RouteGraphData)());
     let selectedVersionId = $state<number>((() => $state.snapshot(currentVersion)?.id ?? 0)());
     let selectedLanguage = $state<string | null>($state.snapshot(currentLanguage) ?? null);
-    let showSimplified = $state((() => (($state.snapshot(initialGraph) as RouteGraphData)?.total_nodes ?? 0) > 500)());
     let selectedNodeId = $state<string | null>(null);
     let isLoading = $state(false);
     let searchQuery = $state('');
     let showSidebar = $state(false);
-    let navigationTarget = $state<string | null>(
-        typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('target') : null,
-    );
+    let navigationTarget = $state<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('target') : null);
     let routePreferences = $state<RoutePreference[]>([]);
     let preferenceVariable = $state('');
     let preferenceMode = $state<RoutePreference['mode']>('maximize');
     let preferenceValue = $state('');
     let seenNodeIds = new SvelteSet<string>();
     let isUploadingSave = $state(false);
+
+    // Web worker for pathfinding (prevents UI freezing on large graphs)
+    const pathfinder = usePathfinderWorker();
+    let navigationPath = $state<Array<{ nodeId: string; edge: RouteEdge | null }> | null>(null);
+    let isCalculatingPath = $state(false);
     let saveUploadError = $state<string | null>(null);
 
-    const seenNodeStyle = 'background:var(--rm-seen-bg);border:2px solid var(--rm-seen-border);border-radius:6px;box-shadow:0 0 0 1px var(--rm-seen-shadow);';
-    const partiallySeenNodeStyle = 'background:var(--rm-partial-bg);border:2px solid var(--rm-partial-border);border-radius:6px;box-shadow:0 0 0 1px var(--rm-partial-shadow);';
+    const seenNodeStyle =
+        'background:var(--rm-seen-bg);border:2px solid var(--rm-seen-border);border-radius:6px;box-shadow:0 0 0 1px var(--rm-seen-shadow);';
+    const partiallySeenNodeStyle =
+        'background:var(--rm-partial-bg);border:2px solid var(--rm-partial-border);border-radius:6px;box-shadow:0 0 0 1px var(--rm-partial-shadow);';
     const pathNodeStyle = 'background:var(--rm-path-bg);border:2px solid var(--rm-path-border);border-radius:6px;';
-    const choiceNodeStyle = 'background:var(--xy-node-choice-bg, #fef3c7);border:2px solid var(--xy-node-choice-border, #f59e0b);border-radius:16px;font-size:12px;';
+    const choiceNodeStyle =
+        'background:var(--xy-node-choice-bg, #fef3c7);border:2px solid var(--xy-node-choice-border, #f59e0b);border-radius:16px;font-size:12px;';
     const dimmedNodeStyle = 'opacity:0.15;';
     const mutedNodeStyle = 'opacity:0.2;';
     const highlightedEdgeStyle = 'stroke:var(--rm-path-border);stroke-width:3;';
     const dimmedEdgeStyle = 'opacity:0.15;';
     const UNKNOWN_VALUE = Symbol('unknown-value');
+
+    // Debounce utility for search input
+    function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(fn: T, delay: number): (...args: Parameters<T>) => void {
+        let timeoutId: ReturnType<typeof setTimeout>;
+        return (...args: Parameters<T>) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn(...args), delay);
+        };
+    }
+
+    let debouncedSearchQuery = $state('');
+    const updateDebouncedSearch = debounce((value: string) => {
+        debouncedSearchQuery = value;
+    }, 150);
     const minimapDefaultNodeColor = '#475569';
     const minimapDefaultNodeStrokeColor = '#0f172a';
     const minimapChoiceNodeColor = '#f59e0b';
@@ -179,7 +199,7 @@
         return minimapDefaultNodeStrokeColor;
     }
 
-    function computeLayout(nodes: any[], edges: any[]): any[] {
+    function computeLayout(nodes: DisplayNode[], edges: DisplayEdge[]): DisplayNode[] {
         const g = new dagre.graphlib.Graph();
         g.setDefaultEdgeLabel(() => ({}));
         g.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 80 });
@@ -275,12 +295,12 @@
     let currentEdges = $derived.by(() => {
         if (!routeGraph?.has_graph_data) return [];
 
-        const sourceEdges = showSimplified ? routeGraph.simplified?.edges : routeGraph.edges;
+        const sourceEdges = routeGraph.edges;
         return Array.isArray(sourceEdges) ? sourceEdges : [];
     });
 
-    let activeEdges = $derived.by(() => {
-        return currentEdges.map((edge: any) => ({
+    let activeEdges = $derived.by((): DisplayEdge[] => {
+        return currentEdges.map((edge: RouteEdge) => ({
             id: edge.id,
             source: edge.source,
             target: edge.target,
@@ -299,10 +319,10 @@
     let currentNodes = $derived.by(() => {
         if (!routeGraph?.has_graph_data) return [];
 
-        const sourceNodes = showSimplified ? routeGraph.simplified?.nodes : routeGraph.nodes;
+        const sourceNodes = routeGraph.nodes;
         if (!Array.isArray(sourceNodes)) return [];
 
-        return sourceNodes.map((node: any) => {
+        return sourceNodes.map((node: RouteNode) => {
             if (node.node_type === 'choice') {
                 const translatedText = tr(node.choice_text, node.translations);
                 return { ...node, label: translatedText, choice_text: translatedText };
@@ -313,24 +333,28 @@
             if (node.choices?.length > 0) {
                 return {
                     ...node,
-                    choices: node.choices.map((c: any) => ({ ...c, text: tr(c.text, c.translations) })),
+                    choices: node.choices.map((c: MenuChoice) => ({ ...c, text: tr(c.text, c.translations) })),
                 };
             }
             return node;
         });
     });
 
-    let activeNodes = $derived.by(() => {
-        const nodes = currentNodes.map((node: any) => ({
-            id: node.id,
-            type: node.node_type === 'choice' ? 'choice' : node.node_type === 'hub' ? 'hub' : (node.menu_prompt ? 'label' : undefined),
-            data: {
-                ...node,
-                label: node.label,
-            },
-            position: { x: 0, y: 0 },
-            style: node.node_type === 'choice' ? choiceNodeStyle : node.node_type === 'hub' ? undefined : undefined,
-        }));
+    let activeNodes = $derived.by((): DisplayNode[] => {
+        const nodes: DisplayNode[] = currentNodes.map((node: RouteNode) => {
+            const nodeType: DisplayNode['type'] =
+                node.node_type === 'choice' ? 'choice' : node.node_type === 'hub' ? 'hub' : node.menu_prompt ? 'label' : undefined;
+            return {
+                id: node.id,
+                type: nodeType,
+                data: {
+                    ...node,
+                    label: node.label,
+                },
+                position: { x: 0, y: 0 },
+                style: node.node_type === 'choice' ? choiceNodeStyle : undefined,
+            };
+        });
 
         return computeLayout(nodes, activeEdges);
     });
@@ -365,95 +389,37 @@
         return (routeGraph?.nodes as any[] | undefined)?.find((n) => n.is_start)?.id ?? null;
     });
 
-    let navigationPath = $derived.by(() => {
-        if (!navigationTarget || !startNodeId) return null;
-
-        // Simple BFS on the current visible graph
-        const adjacency = new SvelteMap<string, Array<{ target: string; edge: RouteEdge }>>();
-        for (const edge of fullEdges) {
-            if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
-            adjacency.get(edge.source)!.push({ target: edge.target, edge });
+    // Calculate path using Web Worker when navigation target changes
+    $effect(() => {
+        if (!navigationTarget || !startNodeId) {
+            navigationPath = null;
+            return;
         }
 
-        const visited = new SvelteSet<string>([startNodeId]);
-        const queue: Array<{ nodeId: string; path: Array<{ nodeId: string; edge: RouteEdge | null }> }> = [
-            { nodeId: startNodeId, path: [{ nodeId: startNodeId, edge: null }] },
-        ];
+        isCalculatingPath = true;
 
-        while (queue.length > 0) {
-            const current = queue.shift()!;
-
-            if (current.nodeId === navigationTarget) {
-                return current.path;
-            }
-
-            for (const { target, edge } of adjacency.get(current.nodeId) ?? []) {
-                if (!visited.has(target)) {
-                    visited.add(target);
-                    queue.push({
-                        nodeId: target,
-                        path: [...current.path, { nodeId: target, edge }],
-                    });
-                }
-            }
-        }
-
-        return null;
+        pathfinder
+            .findPath(startNodeId, navigationTarget, fullEdges)
+            .then((path) => {
+                navigationPath = path;
+            })
+            .catch((error) => {
+                console.error('Pathfinding failed:', error);
+                navigationPath = null;
+            })
+            .finally(() => {
+                isCalculatingPath = false;
+            });
     });
 
     let displayPathNodeIds = $derived.by(() => {
         if (!navigationPath) return new Set<string>();
-
-        if (!showSimplified) {
-            return new SvelteSet(navigationPath.map((s) => s.nodeId));
-        }
-
-        const ids = new SvelteSet<string>();
-        for (const step of navigationPath) {
-            for (const node of currentNodes as any[]) {
-                if (node.id === step.nodeId || node.chain_labels?.includes(step.nodeId)) {
-                    ids.add(node.id);
-                }
-            }
-        }
-
-        return ids;
+        return new SvelteSet(navigationPath.map((s) => s.nodeId));
     });
 
     let displayPathEdgeIds = $derived.by(() => {
         if (!navigationPath) return new Set<string>();
-
-        if (!showSimplified) {
-            return new SvelteSet(navigationPath.filter((s): s is { nodeId: string; edge: RouteEdge } => s.edge !== null).map((s) => s.edge.id));
-        }
-
-        const labelToDisplayId = new SvelteMap<string, string>();
-        for (const node of currentNodes as any[]) {
-            if (node.id) {
-                labelToDisplayId.set(node.id, node.id);
-            }
-            for (const label of node.chain_labels ?? []) {
-                labelToDisplayId.set(label, node.id);
-            }
-        }
-
-        const mappedNodeIds = navigationPath
-            .map((step) => labelToDisplayId.get(step.nodeId))
-            .filter((id): id is string => Boolean(id))
-            .filter((id, index, arr) => index === 0 || arr[index - 1] !== id);
-
-        const ids = new SvelteSet<string>();
-        for (let i = 1; i < mappedNodeIds.length; i++) {
-            const source = mappedNodeIds[i - 1];
-            const target = mappedNodeIds[i];
-
-            const edge = activeEdges.find((candidate: any) => candidate.source === source && candidate.target === target);
-            if (edge) {
-                ids.add(edge.id);
-            }
-        }
-
-        return ids;
+        return new SvelteSet(navigationPath.filter((s): s is { nodeId: string; edge: RouteEdge } => s.edge !== null).map((s) => s.edge.id));
     });
 
     let navigationSteps = $derived.by(() => {
@@ -503,7 +469,6 @@
 
             routeGraph = res.data;
             selectedVersionId = targetVersion;
-            showSimplified = (res.data?.total_nodes ?? 0) > 500;
             selectedNodeId = null;
             navigationTarget = null;
             routePreferences = [];
@@ -511,6 +476,7 @@
             preferenceMode = 'maximize';
             preferenceValue = '';
             seenNodeIds.clear();
+            pathfinder.clearCache();
             saveUploadError = null;
         } finally {
             isLoading = false;
@@ -566,12 +532,12 @@
     }
 
     let filteredNodeIds = $derived.by(() => {
-        if (!searchQuery.trim() || !routeGraph?.nodes) return null;
+        if (!debouncedSearchQuery.trim() || !routeGraph?.nodes) return null;
 
-        const query = searchQuery.toLowerCase();
+        const query = debouncedSearchQuery.toLowerCase();
         const ids = new SvelteSet<string>();
 
-        for (const node of routeGraph.nodes as any[]) {
+        for (const node of routeGraph.nodes) {
             if (node.label?.toLowerCase().includes(query)) {
                 ids.add(node.id);
             }
@@ -582,7 +548,7 @@
 
     let displayNodes = $derived.by(() => {
         if (navigationTarget && displayPathNodeIds.size > 0) {
-            return activeNodes.map((node: any) => {
+            return activeNodes.map((node: DisplayNode) => {
                 if (displayPathNodeIds.has(node.id)) {
                     return {
                         ...node,
@@ -597,7 +563,7 @@
         }
 
         if (seenNodeIds.size > 0 && filteredNodeIds) {
-            return activeNodes.map((node: any) => {
+            return activeNodes.map((node: DisplayNode) => {
                 const matchesSearch = filteredNodeIds.has(node.id);
                 const isSeen = isSeenNode(node);
 
@@ -617,7 +583,7 @@
         }
 
         if (filteredNodeIds) {
-            return activeNodes.map((node: any) => ({
+            return activeNodes.map((node: DisplayNode) => ({
                 ...node,
                 style: filteredNodeIds.has(node.id) ? undefined : mutedNodeStyle,
                 class: filteredNodeIds.has(node.id) ? undefined : 'opacity-20',
@@ -625,7 +591,7 @@
         }
 
         if (seenNodeIds.size > 0) {
-            return activeNodes.map((node: any) => {
+            return activeNodes.map((node: DisplayNode) => {
                 if (isSeenNode(node)) {
                     return {
                         ...node,
@@ -712,25 +678,12 @@
                 </select>
             {/if}
 
-            {#if (routeGraph.total_nodes ?? 0) > 500}
-                <label class="flex items-center gap-2 text-sm">
-                    <input
-                        type="checkbox"
-                        checked={showSimplified}
-                        onchange={() => {
-                            showSimplified = !showSimplified;
-                        }}
-                        class="rounded border-gray-300"
-                    />
-                    <span class="text-gray-600 dark:text-gray-400">Simplified</span>
-                </label>
-            {/if}
-
             <div class="relative">
                 <input
                     type="text"
                     placeholder="Search nodes..."
                     bind:value={searchQuery}
+                    oninput={(e) => updateDebouncedSearch(e.currentTarget.value)}
                     class="w-48 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                 />
             </div>
@@ -815,8 +768,8 @@
         <div class="flex gap-6" style="height: calc(100vh - 200px);">
             <div class="flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" style="min-width: 0">
                 <SvelteFlow
-                    nodes={displayNodes}
-                    edges={displayEdges}
+                    nodes={displayNodes as any[]}
+                    edges={displayEdges as any[]}
                     {nodeTypes}
                     {colorMode}
                     fitView
@@ -866,7 +819,9 @@
                                 </button>
                             </div>
 
-                            {#if navigationPath}
+                            {#if isCalculatingPath}
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Calculating path...</p>
+                            {:else if navigationPath}
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     {navigationSteps.length} steps{#if choiceCount > 0}
                                         &middot; {choiceCount} choice{choiceCount !== 1 ? 's' : ''}{/if}
@@ -1078,18 +1033,27 @@
 
                             {#if selectedNodeData.parent_label}
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    in <button class="font-mono text-blue-500 hover:underline" onclick={() => { selectedNodeId = selectedNodeData.parent_label ?? null; }}>{selectedNodeData.parent_label}</button>
+                                    in <button
+                                        class="font-mono text-blue-500 hover:underline"
+                                        onclick={() => {
+                                            selectedNodeId = selectedNodeData.parent_label ?? null;
+                                        }}>{selectedNodeData.parent_label}</button
+                                    >
                                 </p>
                             {/if}
 
                             <div class="mt-2 flex flex-wrap gap-1">
                                 {#if selectedNodeData.node_type === 'choice'}
-                                    <span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                    <span
+                                        class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                    >
                                         choice
                                     </span>
                                 {/if}
                                 {#if selectedNodeData.node_type === 'hub'}
-                                    <span class="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                    <span
+                                        class="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                                    >
                                         {selectedNodeData.hub_choice_count} routes
                                     </span>
                                 {/if}
@@ -1136,9 +1100,10 @@
                                 <div class="mt-3">
                                     <h4 class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">choices</h4>
                                     {#each selectedNodeData.choices as choice (choice.text)}
-                                        {@const relatedChanges = selectedNodeData.variable_changes?.filter(
-                                            (vc: { context: string | null }) => vc.context === `menu_choice:${choice.text}`,
-                                        ) ?? []}
+                                        {@const relatedChanges =
+                                            selectedNodeData.variable_changes?.filter(
+                                                (vc: { context: string | null }) => vc.context === `menu_choice:${choice.text}`,
+                                            ) ?? []}
                                         <div class="text-xs text-gray-600 dark:text-gray-400">
                                             <span class="font-medium text-gray-800 dark:text-gray-200">{choice.text}</span>
                                             {#if choice.condition}
@@ -1163,7 +1128,7 @@
                                 <div class="mt-3">
                                     <h4 class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">variable changes</h4>
 
-                                    {#each selectedNodeData.variable_changes as vc (`${vc.variable}:${vc.operation}:${vc.value}`)}
+                                    {#each selectedNodeData.variable_changes as vc, i (`${i}:${vc.variable}:${vc.operation}`)}
                                         <div class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                                             <span class="font-mono">{vc.variable}</span>
                                             <span class="text-gray-400">{vc.operation}</span>
@@ -1208,7 +1173,6 @@
                                     <button
                                         class="rounded bg-red-50 px-2 py-1 text-xs text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
                                         onclick={() => {
-                                            navigationTarget = ending;
                                             selectedNodeId = ending;
                                             showSidebar = true;
                                         }}
