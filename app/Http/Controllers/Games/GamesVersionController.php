@@ -10,6 +10,8 @@ use App\Models\GameVersion;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class GamesVersionController extends Controller
@@ -32,7 +34,7 @@ class GamesVersionController extends Controller
         $toVersionId = $request->toVersionId;
 
         // Cache key versioned to avoid serving stale payloads when response shape changes
-        $cacheKey = "version_comparison_v2_{$game->id}_{$fromVersionId}_{$toVersionId}";
+        $cacheKey = "version_comparison_v3_{$game->id}_{$fromVersionId}_{$toVersionId}";
         $cachedResult = cache()->remember($cacheKey, 3600, function () use ($game, $fromVersionId, $toVersionId) {
             return $this->generateVersionComparison($game, $fromVersionId, $toVersionId);
         });
@@ -225,8 +227,14 @@ class GamesVersionController extends Controller
      */
     private function generateVersionComparison(Game $game, $fromVersionId, $toVersionId): array
     {
-        $fromVersion = GameVersion::find($fromVersionId);
-        $toVersion = GameVersion::find($toVersionId);
+        $versions = GameVersion::query()
+            ->select(['id', 'game_id', 'version', 'published_at'])
+            ->whereIn('id', [$fromVersionId, $toVersionId])
+            ->get()
+            ->keyBy('id');
+
+        $fromVersion = $versions->get($fromVersionId);
+        $toVersion = $versions->get($toVersionId);
 
         if (! $fromVersion || ! $toVersion) {
             throw new Exception('Versions not found');
@@ -242,126 +250,257 @@ class GamesVersionController extends Controller
             $toVersion = $temp;
         }
 
-        $fromStats = $fromVersion->characterStats()
-            ->whereIn('iso_code', function ($query) use ($fromVersion) {
-                $query->select('iso_code')
-                    ->from('version_supported_languages')
-                    ->where('game_version_id', $fromVersion->id)
-                    ->where('is_available', true);
-            })
-            ->where('iso_code', 'not like', 'q%')
-            ->with(['character', 'language'])
-            ->get();
+        $displayLanguageCode = $game->source_language_id ?? 'eng';
+        $fromData = $this->loadVersionComparisonStats($fromVersion->id, $displayLanguageCode);
+        $toData = $this->loadVersionComparisonStats($toVersion->id, $displayLanguageCode);
 
-        $toStats = $toVersion->characterStats()
-            ->whereIn('iso_code', function ($query) use ($toVersion) {
-                $query->select('iso_code')
-                    ->from('version_supported_languages')
-                    ->where('game_version_id', $toVersion->id)
-                    ->where('is_available', true);
-            })
-            ->where('iso_code', 'not like', 'q%')
-            ->with(['character', 'language'])
-            ->get();
-
-        // Filter out placeholder 'q' codes and stats with null language relationships before processing
-        $fromStats = $fromStats->filter(fn ($stat) => $stat->language !== null && ! str_starts_with($stat->iso_code, 'q'));
-        $toStats = $toStats->filter(fn ($stat) => $stat->language !== null && ! str_starts_with($stat->iso_code, 'q'));
-
-        $fromLanguages = $fromStats->pluck('language.id')->unique();
-        $toLanguages = $toStats->pluck('language.id')->unique();
-        $allLanguages = $fromLanguages->merge($toLanguages)->unique();
-
-        $languages = [];
-        foreach ($allLanguages as $langId) {
-            $lang = null;
-            if ($fromStats->where('language.id', $langId)->first()) {
-                $lang = $fromStats->where('language.id', $langId)->first()->language;
-            } elseif ($toStats->where('language.id', $langId)->first()) {
-                $lang = $toStats->where('language.id', $langId)->first()->language;
-            }
-            if ($lang) {
-                $languages[] = [
-                    'id' => $lang->id,
-                    'name' => $lang->ref_name,
-                    'flag' => $lang->flag_code,
-                ];
-            }
-        }
-
-        $allCharacterNames = collect($fromStats->pluck('character')->concat($toStats->pluck('character')))
-            ->unique('id')
-            ->map(fn ($c) => $c->getDisplayName($game->source_language_id))
-            ->unique()
-            ->sort()
-            ->values();
-
-        $sortedCharacters = $allCharacterNames->toArray();
+        $languages = $this->mergeComparisonLanguages($fromData['languages'], $toData['languages']);
+        $sortedCharacters = $this->mergeCharacterNames(
+            array_keys($fromData['wordCounts']),
+            array_keys($toData['wordCounts'])
+        );
 
         $characterDiffs = [];
-        // Track language totals for both versions to compute diffs
-        $languageTotalsFrom = [];
-        $languageTotalsTo = [];
         foreach ($sortedCharacters as $characterName) {
-            $characterDiffs[$characterName] = [];
-            foreach ($languages as $lang) {
-                $iso = $lang['id'];
-                $fromStat = $fromStats->first(function ($s) use ($characterName, $iso, $game) {
-                    return $s->character->getDisplayName($game->source_language_id) === $characterName && $s->iso_code === $iso;
-                });
-                $toStat = $toStats->first(function ($s) use ($characterName, $iso, $game) {
-                    return $s->character->getDisplayName($game->source_language_id) === $characterName && $s->iso_code === $iso;
-                });
-                $fromWords = $fromStat?->words ?? 0;
-                $toWords = $toStat?->words ?? 0;
-                $characterDiffs[$characterName][$iso] = [
+            foreach ($languages as $language) {
+                $isoCode = $language['id'];
+                $fromWords = $fromData['wordCounts'][$characterName][$isoCode] ?? 0;
+                $toWords = $toData['wordCounts'][$characterName][$isoCode] ?? 0;
+
+                $characterDiffs[$characterName][$isoCode] = [
                     'from' => $fromWords,
                     'to' => $toWords,
                     'diff' => $toWords - $fromWords,
                 ];
-                $languageTotalsFrom[$iso] = ($languageTotalsFrom[$iso] ?? 0) + $fromWords;
-                $languageTotalsTo[$iso] = ($languageTotalsTo[$iso] ?? 0) + $toWords;
             }
         }
-        // Build language totals with from/to/diff shape expected by frontend
-        $languageTotals = [
-            'from' => $languageTotalsFrom,
-            'to' => $languageTotalsTo,
-            'diff' => collect($languageTotalsTo)
-                ->map(function ($toTotal, $iso) use ($languageTotalsFrom) {
-                    return $toTotal - ($languageTotalsFrom[$iso] ?? 0);
+
+        $languageTotals = $this->buildLanguageTotals(
+            $languages,
+            $fromData['languageTotals'],
+            $toData['languageTotals']
+        );
+
+        $fileCategoryComparisons = $this->buildFileCategoryComparisons($fromVersion, $toVersion);
+
+        return [
+            'fromVersion' => $this->formatVersionSummary($fromVersion),
+            'toVersion' => $this->formatVersionSummary($toVersion),
+            'characters' => $sortedCharacters,
+            'languages' => $languages,
+            'characterDiffs' => $characterDiffs,
+            'languageTotals' => $languageTotals,
+            'fileCategories' => $fileCategoryComparisons,
+        ];
+    }
+
+    private function loadVersionComparisonStats(int $versionId, string $displayLanguageCode): array
+    {
+        $cacheKey = "version_comparison_stats_v1_{$versionId}_{$displayLanguageCode}";
+
+        return cache()->remember($cacheKey, 3600, function () use ($versionId, $displayLanguageCode) {
+            $rows = DB::table('version_character_stats as vcs')
+                ->join('characters as c', 'c.id', '=', 'vcs.character_id')
+                ->join('iso_639_3_languages as l', 'l.id', '=', 'vcs.iso_code')
+                ->join('version_supported_languages as vsl', function ($join) use ($versionId) {
+                    $join->on('vsl.iso_code', '=', 'vcs.iso_code')
+                        ->where('vsl.game_version_id', '=', $versionId)
+                        ->where('vsl.is_available', '=', true);
                 })
-                ->toArray(),
+                ->where('vcs.game_version_id', $versionId)
+                ->where('vcs.iso_code', 'not like', 'q%')
+                ->select([
+                    'vcs.character_id',
+                    'vcs.iso_code',
+                    'vcs.words',
+                    'c.character_id as character_key',
+                    'c.display_names',
+                    'c.display_name_corrections',
+                    'l.ref_name as language_name',
+                    'l.flag_code as language_flag',
+                ])
+                ->orderBy('vcs.character_id')
+                ->orderBy('vcs.iso_code')
+                ->get();
+
+            $characterNames = [];
+            $wordCounts = [];
+            $languageTotals = [];
+            $languages = [];
+
+            foreach ($rows as $row) {
+                $isoCode = (string) $row->iso_code;
+                $characterId = (int) $row->character_id;
+                $words = (int) $row->words;
+
+                if (! isset($languages[$isoCode])) {
+                    $languages[$isoCode] = [
+                        'id' => $isoCode,
+                        'name' => (string) $row->language_name,
+                        'flag' => (string) $row->language_flag,
+                    ];
+                }
+
+                if (! isset($characterNames[$characterId])) {
+                    $characterNames[$characterId] = $this->resolveComparisonDisplayName(
+                        $row->display_names,
+                        $row->display_name_corrections,
+                        $displayLanguageCode,
+                        $row->character_key
+                    );
+                }
+
+                $characterName = $characterNames[$characterId];
+                $wordCounts[$characterName][$isoCode] = ($wordCounts[$characterName][$isoCode] ?? 0) + $words;
+                $languageTotals[$isoCode] = ($languageTotals[$isoCode] ?? 0) + $words;
+            }
+
+            return [
+                'languages' => $languages,
+                'wordCounts' => $wordCounts,
+                'languageTotals' => $languageTotals,
+            ];
+        });
+    }
+
+    private function resolveComparisonDisplayName(
+        mixed $displayNames,
+        mixed $displayNameCorrections,
+        string $displayLanguageCode,
+        ?string $characterKey
+    ): string {
+        $decodedDisplayNames = $this->decodeJsonMap($displayNames);
+        $decodedCorrections = $this->decodeJsonMap($displayNameCorrections);
+
+        return $decodedCorrections[$displayLanguageCode]
+            ?? $decodedDisplayNames[$displayLanguageCode]
+            ?? $decodedCorrections['eng']
+            ?? $decodedDisplayNames['eng']
+            ?? $characterKey
+            ?? 'Unknown';
+    }
+
+    private function decodeJsonMap(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_object($value)) {
+            return (array) $value;
+        }
+
+        if (! is_string($value) || $value === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function mergeComparisonLanguages(array $fromLanguages, array $toLanguages): array
+    {
+        $languages = array_values($fromLanguages + $toLanguages);
+
+        usort($languages, function (array $left, array $right): int {
+            if ($left['id'] === 'eng') {
+                return -1;
+            }
+
+            if ($right['id'] === 'eng') {
+                return 1;
+            }
+
+            return strcmp($left['id'], $right['id']);
+        });
+
+        return $languages;
+    }
+
+    private function mergeCharacterNames(array $fromCharacters, array $toCharacters): array
+    {
+        $characters = array_values(array_unique([...$fromCharacters, ...$toCharacters]));
+        sort($characters, SORT_STRING | SORT_FLAG_CASE);
+
+        return $characters;
+    }
+
+    private function buildLanguageTotals(array $languages, array $fromTotals, array $toTotals): array
+    {
+        $languageTotals = [
+            'from' => [],
+            'to' => [],
+            'diff' => [],
         ];
 
-        // Get actual categories and file types from both versions
-        $fromCategories = $fromVersion->fileCategories()->with('fileTypes')->get();
-        $toCategories = $toVersion->fileCategories()->with('fileTypes')->get();
+        foreach ($languages as $language) {
+            $isoCode = $language['id'];
+            $fromWords = $fromTotals[$isoCode] ?? 0;
+            $toWords = $toTotals[$isoCode] ?? 0;
 
-        // Get all unique categories and extensions from both versions
-        $allCategories = $fromCategories->pluck('category')
-            ->merge($toCategories->pluck('category'))
-            ->unique()
-            ->sort()
-            ->values();
+            $languageTotals['from'][$isoCode] = $fromWords;
+            $languageTotals['to'][$isoCode] = $toWords;
+            $languageTotals['diff'][$isoCode] = $toWords - $fromWords;
+        }
 
-        $allExtensions = $fromCategories->flatMap(fn ($cat) => $cat->fileTypes->pluck('extension'))
-            ->merge($toCategories->flatMap(fn ($cat) => $cat->fileTypes->pluck('extension')))
-            ->unique()
-            ->sort()
-            ->values();
+        return $languageTotals;
+    }
 
-        $fileCategoryComparisons = [];
-        foreach ($allCategories as $category) {
-            $fromCategory = $fromCategories->firstWhere('category', $category);
-            $toCategory = $toCategories->firstWhere('category', $category);
-            $fromCount = $fromCategory?->total_count ?? 0;
-            $toCount = $toCategory?->total_count ?? 0;
-            $fromSize = $fromCategory?->total_size ?? 0;
-            $toSize = $toCategory?->total_size ?? 0;
+    private function buildFileCategoryComparisons(GameVersion $fromVersion, GameVersion $toVersion): array
+    {
+        $fromCategories = $this->mapFileCategories(
+            $fromVersion->fileCategories()
+                ->select(['id', 'game_version_id', 'category', 'total_count', 'total_size'])
+                ->with(['fileTypes:id,version_file_category_id,extension,count,size'])
+                ->get()
+        );
 
-            $categoryComparison = [
-                'category' => $category,
+        $toCategories = $this->mapFileCategories(
+            $toVersion->fileCategories()
+                ->select(['id', 'game_version_id', 'category', 'total_count', 'total_size'])
+                ->with(['fileTypes:id,version_file_category_id,extension,count,size'])
+                ->get()
+        );
+
+        $allCategories = array_values(array_unique([
+            ...array_keys($fromCategories),
+            ...array_keys($toCategories),
+        ]));
+        sort($allCategories, SORT_STRING);
+
+        $comparisons = [];
+        foreach ($allCategories as $categoryName) {
+            $fromCategory = $fromCategories[$categoryName] ?? null;
+            $toCategory = $toCategories[$categoryName] ?? null;
+            $fromCount = $fromCategory['count'] ?? 0;
+            $toCount = $toCategory['count'] ?? 0;
+            $fromSize = $fromCategory['size'] ?? 0;
+            $toSize = $toCategory['size'] ?? 0;
+
+            $fileTypes = [];
+            $extensions = array_values(array_unique([
+                ...array_keys($fromCategory['fileTypes'] ?? []),
+                ...array_keys($toCategory['fileTypes'] ?? []),
+            ]));
+            sort($extensions, SORT_STRING);
+
+            foreach ($extensions as $extension) {
+                $fromFileType = $fromCategory['fileTypes'][$extension] ?? ['count' => 0, 'size' => 0];
+                $toFileType = $toCategory['fileTypes'][$extension] ?? ['count' => 0, 'size' => 0];
+
+                $fileTypes[$extension] = [
+                    'from' => $fromFileType,
+                    'to' => $toFileType,
+                    'diff' => [
+                        'count' => $toFileType['count'] - $fromFileType['count'],
+                        'size' => $toFileType['size'] - $fromFileType['size'],
+                    ],
+                ];
+            }
+
+            $comparisons[] = [
+                'category' => $categoryName,
                 'from' => [
                     'count' => $fromCount,
                     'size' => $fromSize,
@@ -374,49 +513,42 @@ class GamesVersionController extends Controller
                     'count' => $toCount - $fromCount,
                     'size' => $toSize - $fromSize,
                 ],
-                'fileTypes' => [],
+                'fileTypes' => $fileTypes,
             ];
+        }
 
-            // Get extensions for this specific category from both versions
-            $categoryExtensions = collect();
-            if ($fromCategory) {
-                $categoryExtensions = $categoryExtensions->merge($fromCategory->fileTypes->pluck('extension'));
-            }
-            if ($toCategory) {
-                $categoryExtensions = $categoryExtensions->merge($toCategory->fileTypes->pluck('extension'));
-            }
-            $categoryExtensions = $categoryExtensions->unique()->sort()->values();
+        return $comparisons;
+    }
 
-            foreach ($categoryExtensions as $extension) {
-                $fromFileType = $fromCategory ? $fromCategory->fileTypes->firstWhere('extension', $extension) : null;
-                $toFileType = $toCategory ? $toCategory->fileTypes->firstWhere('extension', $extension) : null;
-                $categoryComparison['fileTypes'][$extension] = [
-                    'from' => [
-                        'count' => $fromFileType ? $fromFileType->count : 0,
-                        'size' => $fromFileType ? $fromFileType->size : 0,
-                    ],
-                    'to' => [
-                        'count' => $toFileType ? $toFileType->count : 0,
-                        'size' => $toFileType ? $toFileType->size : 0,
-                    ],
-                    'diff' => [
-                        'count' => ($toFileType ? $toFileType->count : 0) - ($fromFileType ? $fromFileType->count : 0),
-                        'size' => ($toFileType ? $toFileType->size : 0) - ($fromFileType ? $fromFileType->size : 0),
-                    ],
+    private function mapFileCategories(Collection $categories): array
+    {
+        $mapped = [];
+
+        foreach ($categories as $category) {
+            $fileTypes = [];
+            foreach ($category->fileTypes as $fileType) {
+                $fileTypes[$fileType->extension] = [
+                    'count' => (int) $fileType->count,
+                    'size' => (int) $fileType->size,
                 ];
             }
 
-            $fileCategoryComparisons[] = $categoryComparison;
+            $mapped[$category->category] = [
+                'count' => (int) $category->total_count,
+                'size' => (int) $category->total_size,
+                'fileTypes' => $fileTypes,
+            ];
         }
 
+        return $mapped;
+    }
+
+    private function formatVersionSummary(GameVersion $version): array
+    {
         return [
-            'fromVersion' => $fromVersion,
-            'toVersion' => $toVersion,
-            'characters' => $sortedCharacters,
-            'languages' => $languages,
-            'characterDiffs' => $characterDiffs,
-            'languageTotals' => $languageTotals,
-            'fileCategories' => $fileCategoryComparisons,
+            'id' => $version->id,
+            'version' => $version->version,
+            'published_at' => $version->published_at,
         ];
     }
 }

@@ -8,37 +8,82 @@ use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
+use App\Models\VersionSupportedLanguage;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 uses()->group('version-stats');
 
 beforeEach(function () {
-    // Ensure English and French languages exist using raw SQL to avoid transaction issues
-    DB::statement("
-        INSERT INTO iso_639_3_languages (id, part2b, part2t, part1, scope, type, ref_name, flag_code, created_at, updated_at)
-        VALUES ('eng', 'eng', 'eng', 'en', 'I', 'L', 'English', 'gb', NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING
-    ");
+    config()->set('scout.driver', 'null');
+    $this->originalEventDispatcher = Model::getEventDispatcher();
+    Model::unsetEventDispatcher();
 
-    DB::statement("
-        INSERT INTO iso_639_3_languages (id, part2b, part2t, part1, scope, type, ref_name, flag_code, created_at, updated_at)
-        VALUES ('fra', 'fre', 'fra', 'fr', 'I', 'L', 'French', 'fr', NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING
-    ");
+    if (! DB::table('iso_639_3_languages')->where('id', 'eng')->exists()) {
+        DB::table('iso_639_3_languages')->insert([
+            'id' => 'eng',
+            'part2b' => 'eng',
+            'part2t' => 'eng',
+            'part1' => 'en',
+            'scope' => 'I',
+            'type' => 'L',
+            'ref_name' => 'English',
+            'flag_code' => 'gb',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    if (! DB::table('iso_639_3_languages')->where('id', 'fra')->exists()) {
+        DB::table('iso_639_3_languages')->insert([
+            'id' => 'fra',
+            'part2b' => 'fre',
+            'part2t' => 'fra',
+            'part1' => 'fr',
+            'scope' => 'I',
+            'type' => 'L',
+            'ref_name' => 'French',
+            'flag_code' => 'fr',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
 
     // Create a test game
-    $this->game = Game::factory()->create([
+    $this->game = Game::withoutEvents(fn () => Game::factory()->create([
         'name' => 'Test Visual Novel',
         'slug' => 'test-visual-novel',
-    ]);
+    ]));
 
     // Create a test version
-    $this->version = GameVersion::create([
+    $this->version = GameVersion::withoutEvents(fn () => GameVersion::create([
         'game_id' => $this->game->id,
         'version' => '1.0.0',
         'published_at' => now(),
         'is_latest' => true,
-    ]);
+    ]));
+
+    VersionSupportedLanguage::updateOrCreate(
+        [
+            'game_version_id' => $this->version->id,
+            'iso_code' => 'eng',
+        ],
+        ['is_available' => true]
+    );
+
+    VersionSupportedLanguage::updateOrCreate(
+        [
+            'game_version_id' => $this->version->id,
+            'iso_code' => 'fra',
+        ],
+        ['is_available' => true]
+    );
+});
+
+afterEach(function () {
+    if ($this->originalEventDispatcher) {
+        Model::setEventDispatcher($this->originalEventDispatcher);
+    }
 });
 
 describe('character stats endpoint', function () {
@@ -462,6 +507,264 @@ describe('file stats endpoint', function () {
         expect($imageCategory['total_count'])->toBe(200);
         expect($imageCategory['total_size'])->toBe(100000000);
         expect($imageCategory['file_types'])->toHaveCount(3);
+    });
+});
+
+describe('version comparison endpoint', function () {
+    test('returns aggregated diffs with chronological versions and compact version summaries', function () {
+        cache()->flush();
+
+        $this->game->update(['source_language_id' => 'fra']);
+        $this->version->update([
+            'version' => '1.0.0',
+            'published_at' => now()->subDays(2),
+            'is_latest' => false,
+        ]);
+
+        $newVersion = GameVersion::withoutEvents(fn () => GameVersion::create([
+            'game_id' => $this->game->id,
+            'version' => '1.1.0',
+            'published_at' => now()->subDay(),
+            'is_latest' => true,
+        ]));
+
+        foreach ([$this->version->id, $newVersion->id] as $versionId) {
+            VersionSupportedLanguage::updateOrCreate(
+                [
+                    'game_version_id' => $versionId,
+                    'iso_code' => 'eng',
+                ],
+                ['is_available' => true]
+            );
+
+            VersionSupportedLanguage::updateOrCreate(
+                [
+                    'game_version_id' => $versionId,
+                    'iso_code' => 'fra',
+                ],
+                ['is_available' => true]
+            );
+        }
+
+        $alexBefore = Character::create([
+            'game_id' => $this->game->id,
+            'character_id' => 'alex_before',
+            'display_names' => ['eng' => 'Alex', 'fra' => 'Alexandre'],
+        ]);
+
+        $alexAfter = Character::create([
+            'game_id' => $this->game->id,
+            'character_id' => 'alex_after',
+            'display_names' => ['eng' => 'Alex', 'fra' => 'Alexandre'],
+        ]);
+
+        $bea = Character::create([
+            'game_id' => $this->game->id,
+            'character_id' => 'bea',
+            'display_names' => ['eng' => 'Bea', 'fra' => 'Beatrice'],
+        ]);
+
+        collect([
+            [
+                'game_version_id' => $this->version->id,
+                'character_id' => $alexBefore->id,
+                'iso_code' => 'eng',
+                'blocks' => 10,
+                'words' => 100,
+            ],
+            [
+                'game_version_id' => $this->version->id,
+                'character_id' => $alexBefore->id,
+                'iso_code' => 'fra',
+                'blocks' => 12,
+                'words' => 120,
+            ],
+            [
+                'game_version_id' => $this->version->id,
+                'character_id' => $bea->id,
+                'iso_code' => 'eng',
+                'blocks' => 5,
+                'words' => 50,
+            ],
+            [
+                'game_version_id' => $newVersion->id,
+                'character_id' => $alexAfter->id,
+                'iso_code' => 'eng',
+                'blocks' => 18,
+                'words' => 180,
+            ],
+            [
+                'game_version_id' => $newVersion->id,
+                'character_id' => $alexAfter->id,
+                'iso_code' => 'fra',
+                'blocks' => 20,
+                'words' => 200,
+            ],
+            [
+                'game_version_id' => $newVersion->id,
+                'character_id' => $bea->id,
+                'iso_code' => 'eng',
+                'blocks' => 6,
+                'words' => 60,
+            ],
+        ])->each(fn (array $attributes) => VersionCharacterStats::create($attributes));
+
+        $imageBefore = VersionFileCategory::create([
+            'game_version_id' => $this->version->id,
+            'category' => 'image',
+            'total_count' => 10,
+            'total_size' => 1000,
+        ]);
+
+        $imageAfter = VersionFileCategory::create([
+            'game_version_id' => $newVersion->id,
+            'category' => 'image',
+            'total_count' => 12,
+            'total_size' => 1500,
+        ]);
+
+        VersionFileType::create([
+            'version_file_category_id' => $imageBefore->id,
+            'extension' => 'png',
+            'count' => 10,
+            'size' => 1000,
+        ]);
+
+        VersionFileType::create([
+            'version_file_category_id' => $imageAfter->id,
+            'extension' => 'png',
+            'count' => 12,
+            'size' => 1500,
+        ]);
+
+        $response = $this->getJson(
+            "/react-api/games/{$this->game->id}/compare-versions?fromVersionId={$newVersion->id}&toVersionId={$this->version->id}"
+        );
+
+        $response->assertStatus(200);
+
+        $data = $response->json();
+
+        expect($data['fromVersion']['id'])->toBe($this->version->id);
+        expect($data['toVersion']['id'])->toBe($newVersion->id);
+        expect($data['fromVersion'])->toHaveKeys(['id', 'version', 'published_at']);
+        expect($data['fromVersion'])->not->toHaveKey('game_id');
+
+        expect($data['characters'])->toContain('Alexandre');
+        expect($data['characters'])->toContain('Beatrice');
+        expect($data['languages'][0]['id'])->toBe('eng');
+        expect($data['languages'][1]['id'])->toBe('fra');
+
+        expect($data['characterDiffs']['Alexandre']['eng'])->toMatchArray([
+            'from' => 100,
+            'to' => 180,
+            'diff' => 80,
+        ]);
+        expect($data['characterDiffs']['Alexandre']['fra'])->toMatchArray([
+            'from' => 120,
+            'to' => 200,
+            'diff' => 80,
+        ]);
+        expect($data['languageTotals']['from']['eng'])->toBe(150);
+        expect($data['languageTotals']['to']['eng'])->toBe(240);
+        expect($data['languageTotals']['diff']['eng'])->toBe(90);
+
+        $imageComparison = collect($data['fileCategories'])->firstWhere('category', 'image');
+        expect($imageComparison)->not->toBeNull();
+        expect($imageComparison['diff'])->toMatchArray([
+            'count' => 2,
+            'size' => 500,
+        ]);
+        expect($imageComparison['fileTypes']['png']['diff'])->toMatchArray([
+            'count' => 2,
+            'size' => 500,
+        ]);
+    });
+
+    test('omits unavailable languages from comparison output', function () {
+        cache()->flush();
+
+        $olderVersion = $this->version;
+        $olderVersion->update([
+            'published_at' => now()->subDays(2),
+            'is_latest' => false,
+        ]);
+
+        $newVersion = GameVersion::withoutEvents(fn () => GameVersion::create([
+            'game_id' => $this->game->id,
+            'version' => '2.0.0',
+            'published_at' => now()->subDay(),
+            'is_latest' => true,
+        ]));
+
+        foreach ([$olderVersion->id, $newVersion->id] as $versionId) {
+            VersionSupportedLanguage::updateOrCreate(
+                [
+                    'game_version_id' => $versionId,
+                    'iso_code' => 'eng',
+                ],
+                ['is_available' => true]
+            );
+
+            VersionSupportedLanguage::updateOrCreate(
+                [
+                    'game_version_id' => $versionId,
+                    'iso_code' => 'fra',
+                ],
+                ['is_available' => false]
+            );
+        }
+
+        $character = Character::create([
+            'game_id' => $this->game->id,
+            'character_id' => 'tester',
+            'display_names' => ['eng' => 'Tester', 'fra' => 'Testeur'],
+        ]);
+
+        collect([
+            [
+                'game_version_id' => $olderVersion->id,
+                'character_id' => $character->id,
+                'iso_code' => 'eng',
+                'blocks' => 10,
+                'words' => 100,
+            ],
+            [
+                'game_version_id' => $olderVersion->id,
+                'character_id' => $character->id,
+                'iso_code' => 'fra',
+                'blocks' => 10,
+                'words' => 100,
+            ],
+            [
+                'game_version_id' => $newVersion->id,
+                'character_id' => $character->id,
+                'iso_code' => 'eng',
+                'blocks' => 20,
+                'words' => 200,
+            ],
+            [
+                'game_version_id' => $newVersion->id,
+                'character_id' => $character->id,
+                'iso_code' => 'fra',
+                'blocks' => 20,
+                'words' => 200,
+            ],
+        ])->each(fn (array $attributes) => VersionCharacterStats::create($attributes));
+
+        $response = $this->getJson(
+            "/react-api/games/{$this->game->id}/compare-versions?fromVersionId={$olderVersion->id}&toVersionId={$newVersion->id}"
+        );
+
+        $response->assertStatus(200);
+
+        $data = $response->json();
+
+        expect($data['languages'])->toHaveCount(1);
+        expect($data['languages'][0]['id'])->toBe('eng');
+        expect($data['characterDiffs']['Tester'])->toHaveKey('eng');
+        expect($data['characterDiffs']['Tester'])->not->toHaveKey('fra');
+        expect($data['languageTotals']['diff'])->not->toHaveKey('fra');
     });
 });
 

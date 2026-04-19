@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Determine the base URL
-// Priority: E2E_BASE_URL env var > DDEV_PRIMARY_URL (for DDEV) > localhost:5173
-const baseURL = process.env.E2E_BASE_URL || process.env.DDEV_PRIMARY_URL || 'http://localhost:5173';
+// Priority: E2E_BASE_URL env var > DDEV_PRIMARY_URL (for DDEV) > localhost:5273
+const baseURL = process.env.E2E_BASE_URL || process.env.DDEV_PRIMARY_URL || 'http://localhost:5273';
 
 // Check if we're using DDEV
 const isDDEV = !!process.env.DDEV_PRIMARY_URL;
@@ -40,4 +40,3 @@ export default defineConfig({
     },
   }),
 });
-
