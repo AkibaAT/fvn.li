@@ -36,7 +36,7 @@ class RatingsController extends Controller
             $sortField = 'published_at';
         }
 
-        // Detect Inertia partial reloads; make stats lazy during paging/sorting-only reloads
+        // Detect Inertia partial reloads; keep stats closure-backed during paging/sorting-only reloads
         $isInertia = (bool) $request->headers->get('X-Inertia');
         $partialDataHeader = $request->headers->get('X-Inertia-Partial-Data');
         $partialComponent = $request->headers->get('X-Inertia-Partial-Component');
@@ -135,8 +135,8 @@ class RatingsController extends Controller
         ];
 
         $statsProp = $isPartialForThisPage
-            ? Inertia::lazy(fn () => cache()->remember('global_rating_stats', now()->addMinutes(5),
-                fn () => $this->getGlobalRatingStats()))
+            ? fn () => cache()->remember('global_rating_stats', now()->addMinutes(5),
+                fn () => $this->getGlobalRatingStats())
             : cache()->remember('global_rating_stats', now()->addMinutes(5), fn () => $this->getGlobalRatingStats());
 
         return Inertia::render('ratings/index', [
@@ -276,7 +276,11 @@ class RatingsController extends Controller
             ->forPage($page, $perPage)
             ->get();
 
-        $total = $rows->isNotEmpty() ? (int) $rows[0]->total_count : 0;
+        // When the requested page is beyond the end of the result set, the window-function
+        // query returns no rows, so fall back to a cheap count on the filtered base query.
+        $total = $rows->isNotEmpty()
+            ? (int) $rows[0]->total_count
+            : (int) ((clone $ratingsBase)->count('ratings.id'));
 
         $ratings = [
             'data' => $rows->map(function ($row) {
@@ -320,11 +324,9 @@ class RatingsController extends Controller
                 ->toArray();
         }
 
-        // Provide stats/phrases immediately on full loads; keep them lazy during partial reloads
-        $statsProp = $isPartialForThisPage ? Inertia::lazy(fn (
-        ) => $this->getRatingStats($rater)) : $this->getRatingStats($rater);
-        $phrasesProp = $isPartialForThisPage ? Inertia::lazy(fn (
-        ) => $this->getCommonPhrases($rater)) : $this->getCommonPhrases($rater);
+        // Provide stats/phrases immediately on full loads; keep them closure-backed during partial reloads
+        $statsProp = $isPartialForThisPage ? fn () => $this->getRatingStats($rater) : $this->getRatingStats($rater);
+        $phrasesProp = $isPartialForThisPage ? fn () => $this->getCommonPhrases($rater) : $this->getCommonPhrases($rater);
 
         $props = [
             'pageTitle' => 'Rater',
