@@ -1,5 +1,5 @@
 import {AxiosInstance} from 'axios';
-import type {route as routeFn} from 'ziggy-js';
+import type {Config, route as routeFn} from 'ziggy-js';
 import type {MonthlyTrendData} from './system';
 
 declare global {
@@ -10,6 +10,8 @@ declare global {
     // Global Ziggy route helper available in browser and SSR
 
     var route: typeof routeFn;
+    var Ziggy: Config;
+    var ziggy: Config;
 }
 
 declare global {

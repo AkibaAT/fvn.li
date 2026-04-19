@@ -64,7 +64,6 @@
     function getBaseUrl(): string {
         if (typeof window === 'undefined') {
             try {
-                // @ts-expect-error - ziggy is available globally in SSR
                 return globalThis.ziggy?.url || 'https://fvn.li';
             } catch {
                 return 'https://fvn.li';
