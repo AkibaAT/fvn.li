@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\ImageManager;
 use RuntimeException;
 use Symfony\Component\Process\Process as SymfonyProcess;
@@ -750,7 +751,7 @@ class AndroidBuildService
             $foregroundPath = $gameDir . '/android-icon_foreground.png';
 
             // Load and process the image
-            $image = $this->imageManager->read($tempFile);
+            $image = $this->imageManager->decodePath($tempFile);
 
             // Resize to a square (512x512 is a good size for Android icons)
             $size = 512;
@@ -778,7 +779,7 @@ class AndroidBuildService
             $image = $image->resize($size, $size);
 
             // Save as JPEG (Ren'Py will convert it to the appropriate format)
-            $encodedImage = $image->toJpeg();
+            $encodedImage = $image->encode(new JpegEncoder);
             File::put($foregroundPath, $encodedImage);
 
             Log::info('Android icon created successfully', [

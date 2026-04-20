@@ -11,6 +11,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 
 class ImageProcessingService
@@ -103,7 +104,7 @@ class ImageProcessingService
 
             try {
                 // Load source image
-                $image = $this->imageManager->read($sourcePath);
+                $image = $this->imageManager->decodePath($sourcePath);
 
                 // Verify we got a valid image
                 if ($image->width() === 0 || $image->height() === 0) {
@@ -142,7 +143,7 @@ class ImageProcessingService
                 // Save as WebP
                 Storage::disk($diskName)->put(
                     $targetPath,
-                    (string) $image->toWebp($quality)
+                    (string) $image->encode(new WebpEncoder(quality: $quality))
                 );
 
                 return [

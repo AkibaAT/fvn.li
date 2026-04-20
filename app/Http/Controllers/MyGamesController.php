@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 use Throwable;
 
@@ -673,9 +674,9 @@ class MyGamesController extends Controller
 
         foreach ($sizes as $variant => [$width, $height]) {
             try {
-                $image = $manager->read($file);
+                $image = $manager->decode($file);
                 $image->cover($width, $height);
-                $encoded = $image->toWebp(80);
+                $encoded = $image->encode(new WebpEncoder(quality: 80));
 
                 $optimizedPath = "games/{$gameId}/thumbnails/{$variant}_" . time() . '.webp';
                 Storage::disk('public')->put($optimizedPath, (string) $encoded);
@@ -714,9 +715,9 @@ class MyGamesController extends Controller
 
         foreach ($sizes as $variant => [$width, $height]) {
             try {
-                $image = $manager->read($file);
+                $image = $manager->decode($file);
                 $image->scale($width, $height);
-                $encoded = $image->toWebp(80);
+                $encoded = $image->encode(new WebpEncoder(quality: 80));
 
                 $optimizedPath = "games/{$gameId}/screenshots/{$screenshotIndex}_{$variant}_" . time() . '.webp';
                 Storage::disk('public')->put($optimizedPath, (string) $encoded);
