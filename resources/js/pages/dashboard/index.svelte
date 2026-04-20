@@ -244,7 +244,7 @@
     let _requestResults: SubmissionResult | null = $state(null);
     let _showRequestSuccess = $state(false);
     let requestSearch = $state('');
-    let requestStatus = $state<'all' | 'pending' | 'processing' | 'completed' | 'rejected'>('all');
+    let requestStatus = $state<'all' | 'pending' | 'processing' | 'approved' | 'rejected'>('all');
     let submittingRequest = $state(false);
 
     async function jsonGet<T>(url: string): Promise<T> {
@@ -309,15 +309,41 @@
         }
     };
 
+    $effect(() => {
+        void requestStatus;
+        loadRequests({ status: requestStatus });
+    });
+
+    const filteredRequests = $derived(
+        requests.filter((request) => {
+            const search = requestSearch.trim().toLowerCase();
+
+            if (!search) {
+                return true;
+            }
+
+            return (
+                request.game_url.toLowerCase().includes(search) ||
+                request.status.toLowerCase().includes(search) ||
+                request.status_label.toLowerCase().includes(search) ||
+                (request.game?.name?.toLowerCase() ?? '').includes(search)
+            );
+        }),
+    );
+
     const getStatusBadgeClasses = (color: string) => {
         switch (color) {
             case 'warning':
+            case 'yellow':
                 return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
             case 'info':
+            case 'blue':
                 return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
             case 'success':
+            case 'green':
                 return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
             case 'danger':
+            case 'red':
                 return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
             default:
                 return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
@@ -860,7 +886,7 @@
             <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
                 <div class="mb-6 flex items-center justify-between">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">My Requests</h2>
-                    <span class="text-sm text-gray-500 dark:text-gray-400">{requests.length} request(s)</span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{filteredRequests.length} request(s)</span>
                 </div>
                 <div class="mb-6 flex flex-col gap-4 sm:flex-row">
                     <div class="flex-1">
@@ -884,21 +910,41 @@
                         </select>
                     </div>
                 </div>
-                {#if requests.length > 0}
+                {#if filteredRequests.length > 0}
                     <div class="space-y-2">
-                        {#each requests as req (req.id)}
+                        {#each filteredRequests as req (req.id)}
                             <div class="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
                                 <div class="min-w-0 flex-1">
-                                    <div class="truncate text-sm text-gray-900 dark:text-gray-100">{req.game?.name || req.game_url}</div>
+                                    <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                                        {req.game?.name || req.game_url}
+                                    </div>
+                                    {#if req.game}
+                                        <a
+                                            href={req.game_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="mt-1 block truncate text-xs text-gray-500 hover:text-gray-700 hover:underline dark:text-gray-400 dark:hover:text-gray-200"
+                                        >
+                                            {req.game_url}
+                                        </a>
+                                    {/if}
                                     <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {getStatusBadgeClasses(req.status_color)}"
                                         >{req.status_label}</span
                                     >
                                 </div>
-                                {#if req.status === 'pending' || req.status === 'processing'}
-                                    <button onclick={() => cancelRequest(req.id)} class="ml-2 text-xs text-red-600 hover:underline dark:text-red-400"
-                                        >Cancel</button
-                                    >
-                                {/if}
+                                <div class="ml-3 flex items-center gap-3">
+                                    {#if req.status === 'approved' && req.game}
+                                        <Link
+                                            href={route('games.show', req.game.slug)}
+                                            class="text-xs text-blue-600 hover:underline dark:text-blue-400">View entry</Link
+                                        >
+                                    {/if}
+                                    {#if req.status === 'pending' || req.status === 'processing'}
+                                        <button onclick={() => cancelRequest(req.id)} class="text-xs text-red-600 hover:underline dark:text-red-400"
+                                            >Cancel</button
+                                        >
+                                    {/if}
+                                </div>
                             </div>
                         {/each}
                     </div>
