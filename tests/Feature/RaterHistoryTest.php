@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Game;
+use App\Models\Rater;
+use App\Models\Rating;
+
+it('loads rater game history using the numeric game id', function () {
+    $game = Game::factory()->create();
+    $rater = Rater::factory()->create();
+
+    $previousRating = Rating::create([
+        'event_id' => 1001,
+        'game_id' => $game->id,
+        'rater_id' => $rater->id,
+        'rating' => 3,
+        'is_reviewed' => true,
+        'is_visible' => false,
+        'review' => 'Earlier review.',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $currentRating = Rating::create([
+        'event_id' => 1002,
+        'game_id' => $game->id,
+        'rater_id' => $rater->id,
+        'rating' => 5,
+        'is_reviewed' => true,
+        'is_visible' => true,
+        'review' => 'Current review.',
+        'published_at' => now(),
+    ]);
+
+    $this->getJson(route('raters.games.history', [
+        'rater' => $rater->id,
+        'game' => $game->id,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('game.id', $game->id)
+        ->assertJsonPath('ratings.0.id', $currentRating->id)
+        ->assertJsonPath('ratings.1.id', $previousRating->id);
+});

@@ -563,8 +563,12 @@ class RatingsController extends Controller
         ]);
     }
 
-    public function getRatingHistory(Request $request, Rater $rater, Game $game)
+    public function getRatingHistory(Request $request, Rater $rater, string $game)
     {
+        $game = Game::query()
+            ->whereKey($game)
+            ->firstOrFail();
+
         $ratings = DB::table('ratings')
             ->where('rater_id', $rater->id)
             ->where('game_id', $game->id)

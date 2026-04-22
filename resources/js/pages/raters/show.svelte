@@ -126,7 +126,12 @@
     let page = $state<number>(untrack(() => filters?.page ?? 1));
     let perPage = $state<number>(untrack(() => filters?.perPage ?? 10));
     let isLoading = $state(false);
-    let historyModal = $state<{ gameName: string; ratings: RaterRating[]; open: boolean }>({ gameName: '', ratings: [], open: false });
+    let historyModal = $state<{ gameName: string; ratings: RaterRating[]; open: boolean; error: string | null }>({
+        gameName: '',
+        ratings: [],
+        open: false,
+        error: null,
+    });
     let historyDialogEl: HTMLDialogElement;
     let phrasesDialogEl: HTMLDialogElement;
 
@@ -195,9 +200,19 @@
     const openHistory = async (gameId: number, gameName: string) => {
         isLoading = true;
         try {
-            const res = await fetch(route('raters.games.history', { rater: rater.id, game: gameId }));
+            const res = await fetch(route('raters.games.history', { rater: rater.id, game: gameId }), {
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+            if (!res.ok) {
+                throw new Error(`Rating history request failed with ${res.status}`);
+            }
             const json = await res.json();
-            historyModal = { gameName, ratings: json.ratings, open: true };
+            historyModal = { gameName, ratings: json.ratings ?? [], open: true, error: null };
+        } catch (error) {
+            console.error('Failed to load rating history', error);
+            historyModal = { gameName, ratings: [], open: true, error: 'Unable to load rating history.' };
         } finally {
             isLoading = false;
         }
@@ -375,6 +390,63 @@
     <ReviewTextControls />
 
     <div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+        <div class="border-b border-gray-200 p-4 dark:border-gray-700">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Rating History</h2>
+                    <div class="mt-1 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                        <span>{ratingMeta.total.toLocaleString()}</span>
+                        <span>{showOnlyReviews ? 'reviews' : 'ratings'}</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-4">
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                            type="checkbox"
+                            bind:checked={showOnlyReviews}
+                            onchange={() => {
+                                page = 1;
+                            }}
+                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        Reviews only
+                    </label>
+
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                            type="checkbox"
+                            bind:checked={showOnlyVisibleGames}
+                            onchange={() => {
+                                page = 1;
+                            }}
+                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        Listed games only
+                    </label>
+
+                    <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span>Sort by:</span>
+                        <select
+                            value={`${sortField}:${sortDirection}`}
+                            onchange={(e) => {
+                                const [field, direction] = (e.target as HTMLSelectElement).value.split(':');
+                                sortField = field as 'published_at' | 'rating';
+                                sortDirection = direction as 'asc' | 'desc';
+                                page = 1;
+                            }}
+                            class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        >
+                            <option value="published_at:desc">Newest</option>
+                            <option value="published_at:asc">Oldest</option>
+                            <option value="rating:desc">Rating: High to Low</option>
+                            <option value="rating:asc">Rating: Low to High</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
             {#if !ratings || ratings.data.length === 0}
                 <div class="p-6 text-gray-500 dark:text-gray-400">No ratings</div>
@@ -534,7 +606,11 @@
             </div>
         {/if}
         <div class="space-y-6">
-            {#if historyModal.ratings.length > 0}
+            {#if historyModal.error}
+                <div class="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
+                    {historyModal.error}
+                </div>
+            {:else if historyModal.ratings.length > 0}
                 {#each historyModal.ratings as hr, idx (hr.id)}
                     <div class={idx < historyModal.ratings.length - 1 ? 'border-b border-gray-200 pb-6 dark:border-gray-700' : ''}>
                         <div class="mb-2 flex items-center justify-between">
