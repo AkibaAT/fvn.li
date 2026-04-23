@@ -104,19 +104,22 @@ class Upload
     public function compareTo(self $other): int
     {
         $criteria = [
-            // Compare versions first (higher version wins)
+            // itch.io upload timestamps are the most reliable signal for the
+            // currently available downloadable file. Some games use non-semver
+            // version schemes where PHP's version_compare() can rank an older
+            // upload higher than a newer one.
+            fn ($a, $b) => ($b->buildUpdatedAt ?? $b->updatedAt) <=> ($a->buildUpdatedAt ?? $a->updatedAt),
+            fn ($a, $b) => $b->updatedAt <=> $a->updatedAt,
+            // Then compare versions when timestamps do not distinguish uploads.
             fn ($a, $b) => $this->compareVersions(
                 $b->getVersion(),
                 $a->getVersion()
             ),
-            // Then fall back to other criteria
             fn ($a, $b) => $b->isLinux() <=> $a->isLinux(),
             fn ($a, $b) => $b->isWindows() <=> $a->isWindows(),
             fn ($a, $b) => $b->hasLinuxFileName() <=> $a->hasLinuxFileName(),
             fn ($a, $b) => $b->hasPcFileName() <=> $a->hasPcFileName(),
             fn ($a, $b) => $b->isZip() <=> $a->isZip(),
-            fn ($a, $b) => $b->updatedAt <=> $a->updatedAt,
-            fn ($a, $b) => ($b->buildUpdatedAt ?? $b->updatedAt) <=> ($a->buildUpdatedAt ?? $a->updatedAt),
         ];
 
         foreach ($criteria as $criterion) {

@@ -17,6 +17,12 @@ class VersionRouteLabel extends Model
         'file_path',
         'line_number',
         'is_ending',
+        'returns_to_caller',
+    ];
+
+    protected $casts = [
+        'is_ending' => 'boolean',
+        'returns_to_caller' => 'boolean',
     ];
 
     public function gameVersion(): BelongsTo

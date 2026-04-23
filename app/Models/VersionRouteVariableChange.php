@@ -20,6 +20,12 @@ class VersionRouteVariableChange extends Model
         'file_path',
         'line_number',
         'context',
+        'condition',
+        'condition_stack',
+    ];
+
+    protected $casts = [
+        'condition_stack' => 'array',
     ];
 
     public function gameVersion(): BelongsTo

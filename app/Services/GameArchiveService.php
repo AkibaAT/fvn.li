@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\App;
@@ -15,12 +16,16 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Symfony\Component\Process\Process;
+use ZipArchive;
 
 /**
  * Service for handling game archive operations
  */
 readonly class GameArchiveService
 {
+    private const OPTIMIZATION_METADATA_FILENAME = '.fvn-archive-metadata.json';
+
     public function __construct(
         private GameStatsService $statsService
     ) {}
@@ -121,30 +126,21 @@ readonly class GameArchiveService
             'filename' => $filename,
         ]);
 
-        // Get the ItchHttpClientService for itch.io requests
-        $itchClient = $this->getItchClient();
-
-        // Get the download URL
-        $response = $itchClient->post($gameUrl . '/file/' . $uploadId);
-        $downloadInfo = json_decode($response->getBody()->getContents(), true);
-
-        if (! isset($downloadInfo['url'])) {
-            throw new RuntimeException('Could not get download URL');
-        }
+        $downloadUrl = $this->resolveItchDownloadUrl($gameUrl, $uploadId, $gameId);
 
         Log::info('GameArchive: Download URL obtained', [
             'game_id' => $gameId,
-            'cdn_url' => parse_url($downloadInfo['url'], PHP_URL_HOST),
+            'cdn_url' => parse_url($downloadUrl, PHP_URL_HOST),
         ]);
 
         // Create temporary directory and download with ORIGINAL filename
         // This is critical - the extraction logic depends on the exact filename
-        $tempDir = sys_get_temp_dir() . '/game_' . uniqid();
+        $tempDir = sys_get_temp_dir().'/game_'.uniqid();
         if (! File::makeDirectory($tempDir, 0755, true)) {
             throw new RuntimeException('Could not create temporary directory');
         }
 
-        $tempFile = $tempDir . '/' . $filename;
+        $tempFile = $tempDir.'/'.$filename;
 
         Log::info('GameArchive: Starting download to temp', [
             'game_id' => $gameId,
@@ -158,7 +154,7 @@ readonly class GameArchiveService
             'timeout' => 600,  // 10 minutes for the full download
             'connect_timeout' => 30,  // 30 seconds to establish connection
         ]);
-        $downloadClient->get($downloadInfo['url'], [
+        $downloadClient->get($downloadUrl, [
             'sink' => $tempFile,
         ]);
 
@@ -246,7 +242,8 @@ readonly class GameArchiveService
         int $uploadId,
         int $gameId,
         int $versionId,
-        bool $force = false
+        bool $force = false,
+        ?callable $progress = null
     ): string {
         Log::info('GameArchive: Getting download URL', [
             'game_id' => $gameId,
@@ -255,20 +252,11 @@ readonly class GameArchiveService
             'filename' => $filename,
         ]);
 
-        // Get the ItchHttpClientService for itch.io requests
-        $itchClient = $this->getItchClient();
-
-        // Get the download URL
-        $response = $itchClient->post($gameUrl . '/file/' . $uploadId);
-        $downloadInfo = json_decode($response->getBody()->getContents(), true);
-
-        if (! isset($downloadInfo['url'])) {
-            throw new RuntimeException('Could not get download URL');
-        }
+        $downloadUrl = $this->resolveItchDownloadUrl($gameUrl, $uploadId, $gameId);
 
         Log::info('GameArchive: Download URL obtained', [
             'game_id' => $gameId,
-            'cdn_url' => parse_url($downloadInfo['url'], PHP_URL_HOST),
+            'cdn_url' => parse_url($downloadUrl, PHP_URL_HOST),
         ]);
 
         // Create temporary file
@@ -290,8 +278,9 @@ readonly class GameArchiveService
                 'timeout' => 600,  // 10 minutes for the full download
                 'connect_timeout' => 30,  // 30 seconds to establish connection
             ]);
-            $downloadClient->get($downloadInfo['url'], [
+            $downloadClient->get($downloadUrl, [
                 'sink' => $tempFile,
+                'progress' => $progress,
             ]);
 
             $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
@@ -425,7 +414,96 @@ readonly class GameArchiveService
             throw new RuntimeException("Archive file not found: {$archivePath}");
         }
 
-        return $this->statsService->extractGameStats($archivePath);
+        $metadata = $this->readArchiveMetadata($archivePath);
+        $stats = $this->statsService->extractGameStats($archivePath);
+
+        if ($stats !== null && $this->isOptimizedArchiveMetadata($metadata) && isset($stats['file_statistics'])) {
+            unset($stats['file_statistics']);
+            Log::info('GameArchive: Skipping file statistics from optimized archive', [
+                'archive_path' => $archivePath,
+                'original_archive' => $metadata['original_archive']['filename'] ?? null,
+            ]);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function readArchiveMetadata(string $archivePath): ?array
+    {
+        if (! File::exists($archivePath)) {
+            throw new RuntimeException("Archive file not found: {$archivePath}");
+        }
+
+        $json = $this->readArchiveMetadataJson($archivePath);
+        if ($json === null || trim($json) === '') {
+            return null;
+        }
+
+        $metadata = json_decode($json, true);
+
+        return is_array($metadata) ? $metadata : null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $metadata
+     */
+    private function isOptimizedArchiveMetadata(?array $metadata): bool
+    {
+        return ($metadata['schema'] ?? null) === 'fvn.archive_optimization.v1';
+    }
+
+    private function readArchiveMetadataJson(string $archivePath): ?string
+    {
+        $extension = $this->archiveExtension($archivePath);
+
+        if ($extension === 'zip') {
+            $zip = new ZipArchive;
+            $result = $zip->open($archivePath);
+            if ($result !== true) {
+                return null;
+            }
+
+            try {
+                $contents = $zip->getFromName(self::OPTIMIZATION_METADATA_FILENAME);
+
+                return $contents === false ? null : $contents;
+            } finally {
+                $zip->close();
+            }
+        }
+
+        if (in_array($extension, ['tar', 'tar.gz', 'tgz', 'tar.bz2', 'tbz2'], true)) {
+            $flag = match ($extension) {
+                'tar' => '-xOf',
+                'tar.gz', 'tgz' => '-xzOf',
+                'tar.bz2', 'tbz2' => '-xjOf',
+            };
+            $process = new Process(['tar', $flag, $archivePath, self::OPTIMIZATION_METADATA_FILENAME]);
+            $process->setTimeout(60);
+            $process->run();
+
+            return $process->isSuccessful() ? $process->getOutput() : null;
+        }
+
+        return null;
+    }
+
+    private function archiveExtension(string $archivePath): string
+    {
+        $basename = strtolower(basename($archivePath));
+
+        return match (true) {
+            str_ends_with($basename, '.tar.gz') => 'tar.gz',
+            str_ends_with($basename, '.tgz') => 'tgz',
+            str_ends_with($basename, '.tar.bz2') => 'tar.bz2',
+            str_ends_with($basename, '.tbz2') => 'tbz2',
+            str_ends_with($basename, '.tar') => 'tar',
+            str_ends_with($basename, '.zip') => 'zip',
+            default => strtolower(pathinfo($archivePath, PATHINFO_EXTENSION)),
+        };
     }
 
     /**
@@ -442,6 +520,183 @@ readonly class GameArchiveService
         }
 
         return $count;
+    }
+
+    /**
+     * Resolve an itch.io CDN URL for a specific upload.
+     *
+     * Free name-your-own-price games may reject the legacy direct /file/{id}
+     * request until a session has visited the generated download page.
+     *
+     * @throws GuzzleException
+     * @throws RuntimeException
+     * @throws BindingResolutionException
+     */
+    private function resolveItchDownloadUrl(string $gameUrl, int $uploadId, int $gameId): string
+    {
+        $legacyResponse = $this->getItchClient()->post($this->uploadDownloadEndpoint($gameUrl, $uploadId));
+        $legacyDownloadInfo = $this->decodeDownloadInfo($legacyResponse->getBody()->getContents());
+
+        if (isset($legacyDownloadInfo['url'])) {
+            return $legacyDownloadInfo['url'];
+        }
+
+        Log::info('GameArchive: Legacy itch.io download URL endpoint did not return a URL, trying browser download flow', [
+            'game_id' => $gameId,
+            'upload_id' => $uploadId,
+            'status_code' => $legacyResponse->getStatusCode(),
+            'errors' => $legacyDownloadInfo['errors'] ?? null,
+        ]);
+
+        $flareSolverr = App::make(FlareSolverrClient::class);
+        $cookieJar = new CookieJar;
+
+        $gamePageResponse = $this->flareSolverrDownloadRequest($flareSolverr, 'GET', $gameUrl, cookieJar: $cookieJar);
+        $gamePage = $gamePageResponse['response'] ?? '';
+        if (($gamePageResponse['status'] ?? 500) >= 400) {
+            throw new RuntimeException("Could not load itch.io game page before download: HTTP {$gamePageResponse['status']}");
+        }
+
+        $downloadEndpoint = $this->extractDownloadUrlEndpoint($gamePage) ?? rtrim($gameUrl, '/').'/download_url';
+        $csrfToken = $this->extractCsrfToken($gamePage);
+
+        if ($csrfToken === null) {
+            throw new RuntimeException('Could not find itch.io CSRF token on game page');
+        }
+
+        $browserHttpClient = $this->createBrowserSessionHttpClient($cookieJar, $gamePageResponse['userAgent'] ?? null);
+
+        $downloadPageResponse = $browserHttpClient->post($downloadEndpoint, [
+            'form_params' => [
+                'csrf_token' => $csrfToken,
+                'upload_id' => $uploadId,
+            ],
+            'headers' => $this->jsonRequestHeaders($gameUrl),
+        ]);
+        $downloadPageInfo = $this->decodeDownloadInfo($downloadPageResponse->getBody()->getContents());
+        $downloadPageUrl = $downloadPageInfo['url'] ?? null;
+
+        if (! is_string($downloadPageUrl) || $downloadPageUrl === '') {
+            throw new RuntimeException($this->downloadUrlErrorMessage('Could not get itch.io download page URL', $downloadPageInfo));
+        }
+
+        $downloadPageResponse = $this->flareSolverrDownloadRequest($flareSolverr, 'GET', $downloadPageUrl, cookieJar: $cookieJar);
+        $downloadPage = $downloadPageResponse['response'] ?? '';
+        if (($downloadPageResponse['status'] ?? 500) >= 400) {
+            throw new RuntimeException("Could not load itch.io download page: HTTP {$downloadPageResponse['status']}");
+        }
+
+        $downloadPageCsrfToken = $this->extractCsrfToken($downloadPage);
+        if ($downloadPageCsrfToken === null) {
+            throw new RuntimeException('Could not find itch.io CSRF token on download page');
+        }
+
+        $fileEndpointBaseUrl = preg_replace('#/download/.*$#', '', $downloadPageUrl) ?: $gameUrl;
+        $fileResponse = $browserHttpClient->post($this->uploadDownloadEndpoint($fileEndpointBaseUrl, $uploadId), [
+            'form_params' => [
+                'csrf_token' => $downloadPageCsrfToken,
+                'upload_id' => $uploadId,
+            ],
+            'headers' => $this->jsonRequestHeaders($downloadPageUrl),
+        ]);
+        $fileDownloadInfo = $this->decodeDownloadInfo($fileResponse->getBody()->getContents());
+
+        if (isset($fileDownloadInfo['url'])) {
+            return $fileDownloadInfo['url'];
+        }
+
+        throw new RuntimeException($this->downloadUrlErrorMessage('Could not get itch.io file download URL', $fileDownloadInfo));
+    }
+
+    /**
+     * @param  array<string, mixed>  $postData
+     * @return array{status?: int, headers?: array<string, mixed>, cookies?: array<int, mixed>, userAgent?: string|null, response?: string}
+     *
+     * @throws Exception
+     */
+    private function flareSolverrDownloadRequest(
+        FlareSolverrClient $flareSolverr,
+        string $method,
+        string $url,
+        array $postData = [],
+        ?CookieJar $cookieJar = null
+    ): array {
+        return $flareSolverr->request($url, $method, $postData, $cookieJar, true);
+    }
+
+    private function createBrowserSessionHttpClient(CookieJar $cookieJar, ?string $userAgent): Client
+    {
+        return new Client([
+            'cookies' => $cookieJar,
+            'timeout' => 30,
+            'connect_timeout' => 10,
+            'http_errors' => false,
+            'headers' => [
+                'User-Agent' => $userAgent ?: 'Mozilla/5.0',
+            ],
+        ]);
+    }
+
+    private function uploadDownloadEndpoint(string $gameUrl, int $uploadId): string
+    {
+        return rtrim($gameUrl, '/').'/file/'.$uploadId;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeDownloadInfo(string $body): array
+    {
+        $downloadInfo = json_decode($body, true);
+
+        return is_array($downloadInfo) ? $downloadInfo : [];
+    }
+
+    private function extractCsrfToken(string $html): ?string
+    {
+        if (preg_match('/<meta\s+name="csrf_token"\s+value="([^"]+)"/i', $html, $matches)) {
+            return html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        }
+
+        if (preg_match('/<input[^>]+name="csrf_token"[^>]+value="([^"]*)"/i', $html, $matches)) {
+            return html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        }
+
+        return null;
+    }
+
+    private function extractDownloadUrlEndpoint(string $html): ?string
+    {
+        if (! preg_match('/"generate_download_url"\s*:\s*"([^"]+)"/', $html, $matches)) {
+            return null;
+        }
+
+        return str_replace('\\/', '/', stripcslashes($matches[1]));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function jsonRequestHeaders(string $referer): array
+    {
+        return [
+            'Accept' => 'application/json',
+            'Referer' => $referer,
+            'X-Requested-With' => 'XMLHttpRequest',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $downloadInfo
+     */
+    private function downloadUrlErrorMessage(string $message, array $downloadInfo): string
+    {
+        $errors = $downloadInfo['errors'] ?? null;
+        if (is_array($errors) && $errors !== []) {
+            return $message.': '.implode(', ', array_map('strval', $errors));
+        }
+
+        return $message;
     }
 
     private function getStoragePath(int $gameId, int $versionId): string

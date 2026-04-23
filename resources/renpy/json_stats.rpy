@@ -15,6 +15,10 @@ init 10000 python:
     from contextlib import closing
     from renpy import store
     from renpy.loader import listdirfiles
+    try:
+        import builtins as py_builtins
+    except ImportError:
+        import __builtin__ as py_builtins
 
     def translate_string(text, language=None):
         if renpy.version_tuple >= (8, 0, 0, 0):
@@ -66,11 +70,10 @@ init 10000 python:
 
     def first_statement_line(block, fallback_line):
         """Return the first executable line for a menu choice block."""
-        if block:
-            for stmt in block:
-                line = getattr(stmt, "linenumber", 0)
-                if line:
-                    return line
+        for stmt in statement_block_items(block):
+            line = getattr(stmt, "linenumber", 0)
+            if line:
+                return line
         return fallback_line
 
     # Primary data structure for language statistics
@@ -86,10 +89,12 @@ init 10000 python:
     route_menu_choices = []
     route_variables = []
     route_variable_changes = []
+    route_return_labels = set()
     route_labels_with_screen_calls = set()
-    route_menu_conditions = {}  # id(Menu node) -> enclosing if condition
+    route_menu_metadata = {}  # id(Menu node) -> enclosing condition and structural scope
     route_literal_variables = collections.defaultdict(dict)
     screen_action_exprs = collections.defaultdict(list)
+    all_route_label_names = set()
 
     # File statistics by type
     file_statistics = {
@@ -194,48 +199,108 @@ init 10000 python:
             return False
         return True
 
+    def get_renpy_control_call(call_node):
+        func = getattr(call_node, 'func', None)
+        if func is None:
+            return None
+
+        if isinstance(func, pyast.Attribute) and getattr(func, 'attr', None) in ('jump', 'call'):
+            owner = getattr(func, 'value', None)
+            if isinstance(owner, pyast.Name) and getattr(owner, 'id', None) == 'renpy':
+                return func.attr
+
+        return None
+
+    def string_literal_from_ast(node):
+        if isinstance(node, pyast.Constant) and isinstance(node.value, str):
+            return node.value
+        if hasattr(pyast, 'Str') and isinstance(node, pyast.Str):
+            return node.s
+        return None
+
+    def is_dynamic_string_suffix(node):
+        if isinstance(node, pyast.Call):
+            func = getattr(node, 'func', None)
+            return isinstance(func, pyast.Name) and getattr(func, 'id', None) == 'str'
+        return isinstance(node, (pyast.Name, pyast.Attribute, pyast.Subscript))
+
+    def natural_label_sort_key(label):
+        match = re.search(r'(\d+)$', label)
+        if match:
+            return (label[:match.start(1)], int(match.group(1)), label)
+        return (label, -1, label)
+
+    def dynamic_route_targets_from_arg(arg):
+        static_target = string_literal_from_ast(arg)
+        if static_target:
+            return [static_target]
+
+        if not isinstance(arg, pyast.BinOp) or not isinstance(arg.op, pyast.Add):
+            return []
+
+        prefix = string_literal_from_ast(arg.left)
+        if not prefix or not is_dynamic_string_suffix(arg.right):
+            return []
+
+        prefix_pattern = re.compile(r'^%s\d+$' % re.escape(prefix))
+        return sorted(
+            [label for label in all_route_label_names if prefix_pattern.match(label)],
+            key=natural_label_sort_key
+        )
+
     def extract_python_edges(source, from_label, filename, linenumber, condition=None):
         """Extract renpy.jump() and renpy.call() from Python source."""
         if not source or not source.strip():
-            return
+            return False
         try:
             tree = pyast.parse(source)
         except (SyntaxError, ValueError):
-            return
+            return False
+
+        found_terminal_jump = False
+        top_level_expr_ids = set(id(stmt) for stmt in getattr(tree, 'body', []) if isinstance(stmt, pyast.Expr))
         for node in pyast.walk(tree):
             if not isinstance(node, pyast.Expr):
                 continue
             call_node = getattr(node, 'value', None)
             if call_node is None or not isinstance(call_node, pyast.Call):
                 continue
-            func = getattr(call_node, 'func', None)
-            if func is None:
-                continue
-            # Match renpy.jump("label") / renpy.call("label")
-            func_name = None
-            if isinstance(func, pyast.Attribute) and getattr(func, 'attr', None) in ('jump', 'call'):
-                owner = getattr(func, 'value', None)
-                if isinstance(owner, pyast.Name) and getattr(owner, 'id', None) == 'renpy':
-                    func_name = func.attr
+            func_name = get_renpy_control_call(call_node)
             if not func_name:
                 continue
             # Get the first positional argument as the target label
             args = getattr(call_node, 'args', [])
             if not args:
                 continue
-            arg = args[0]
-            target = None
-            if isinstance(arg, pyast.Constant):
-                target = arg.value
-            elif hasattr(pyast, 'Str') and isinstance(arg, pyast.Str):
-                target = arg.s
-            if target and isinstance(target, str):
+            for target in dynamic_route_targets_from_arg(args[0]):
                 add_route_edge(from_label, target, func_name, filename, linenumber, condition=condition)
+            if func_name == 'jump' and id(node) in top_level_expr_ids:
+                found_terminal_jump = True
 
-    def extract_assignments(source, current_label, filename, linenumber, context_type="python_block"):
+        return found_terminal_jump
+
+    def python_source_has_terminal_jump(source):
+        if not source or not source.strip():
+            return False
+        try:
+            tree = pyast.parse(source)
+        except (SyntaxError, ValueError):
+            return False
+
+        for node in getattr(tree, 'body', []):
+            if not isinstance(node, pyast.Expr):
+                continue
+            call_node = getattr(node, 'value', None)
+            if call_node is not None and isinstance(call_node, pyast.Call) and get_renpy_control_call(call_node) == 'jump':
+                return True
+
+        return False
+
+    def extract_assignments(source, current_label, filename, linenumber, context_type="python_block", condition=None, condition_stack=None):
         """Parse Python source and extract simple variable assignments."""
         if not source or not source.strip():
             return
+        condition_stack = condition_stack or []
         try:
             tree = pyast.parse(source)
         except (SyntaxError, ValueError):
@@ -267,6 +332,8 @@ init 10000 python:
                             "file": filename,
                             "line": linenumber,
                             "context": context_type,
+                            "condition": condition,
+                            "condition_stack": list(condition_stack),
                         })
             elif isinstance(node, pyast.AugAssign):
                 if isinstance(node.target, pyast.Name):
@@ -288,13 +355,16 @@ init 10000 python:
                         "file": filename,
                         "line": linenumber,
                         "context": context_type,
+                        "condition": condition,
+                        "condition_stack": list(condition_stack),
                     })
 
     def find_target_in_block(block):
         """Walk a block of AST nodes to find the first Jump or Call target."""
-        if not block:
+        block_items = statement_block_items(block)
+        if not block_items:
             return None
-        for stmt in block:
+        for stmt in block_items:
             screen_name = get_call_screen_name(stmt)
             if screen_name:
                 targets = resolve_screen_targets(screen_name, {})
@@ -305,8 +375,16 @@ init 10000 python:
             if isinstance(stmt, renpy.ast.Call):
                 return {"target": stmt.label, "type": "call"}
             if isinstance(stmt, renpy.ast.Label):
-                return {"target": stmt.name, "type": "label"}
+                return {"target": stmt.name, "type": "flow"}
         return None
+
+    def is_menu_caption_item(label, block):
+        """Ren'Py parser stores caption rows as (label, "True", None)."""
+        return label is not None and block is None
+
+    def is_menu_choice_item(label, block):
+        """Ren'Py parser stores selectable rows as (label, condition, block)."""
+        return label is not None and block is not None
 
     def collect_targets_from_action_expr(expr, variables):
         if not expr:
@@ -444,7 +522,7 @@ init 10000 python:
 
         return "not (" + " or ".join("(%s)" % condition for condition in conditions) + ")"
 
-    def iter_if_entries_with_effective_conditions(entries, outer_condition=None):
+    def iter_if_entries_with_condition_parts(entries, outer_condition=None):
         prior_conditions = []
 
         for branch_condition, sub_block in entries:
@@ -458,8 +536,12 @@ init 10000 python:
             else:
                 local_condition = branch_condition
 
-            yield combine_conditions(outer_condition, local_condition), sub_block
+            yield combine_conditions(outer_condition, local_condition), local_condition, sub_block
             prior_conditions.append(branch_condition)
+
+    def iter_if_entries_with_effective_conditions(entries, outer_condition=None):
+        for effective_condition, _local_condition, sub_block in iter_if_entries_with_condition_parts(entries, outer_condition):
+            yield effective_condition, sub_block
 
     def handle_call_screen(from_label, screen_name, filename, linenumber, condition=None):
         if not from_label or not screen_name:
@@ -518,13 +600,57 @@ init 10000 python:
                     branch_condition,
                 )
 
+    def is_ast_statement(value):
+        if value is None:
+            return False
+
+        ast_node = getattr(renpy.ast, "Node", None)
+        if ast_node is not None and isinstance(value, ast_node):
+            return True
+
+        module_name = getattr(value.__class__, "__module__", "")
+        return module_name.startswith("renpy.ast") and hasattr(value, "linenumber")
+
+    def statement_chain_items(first_statement):
+        items = []
+        seen = set()
+        stmt = first_statement
+
+        while is_ast_statement(stmt) and id(stmt) not in seen:
+            seen.add(id(stmt))
+            items.append(stmt)
+            stmt = getattr(stmt, "next", None)
+
+        return items
+
+    def statement_block_items(block):
+        """Return statements for list-backed or linked Ren'Py AST blocks."""
+        if block is None:
+            return []
+        if is_ast_statement(block):
+            return statement_chain_items(block)
+        try:
+            items = py_builtins.list(block)
+        except TypeError:
+            return []
+        except Exception:
+            return []
+        if not items:
+            return []
+        return [stmt for stmt in items if is_ast_statement(stmt)]
+
     def block_has_terminal(block):
         """Check if a block ends with a jump, call, or return."""
-        if not block:
+        block_items = statement_block_items(block)
+        if not block_items:
             return False
-        for stmt in reversed(block):
+        for stmt in block_items[::-1]:
             if isinstance(stmt, (renpy.ast.Jump, renpy.ast.Call, renpy.ast.Return)):
                 return True
+            if isinstance(stmt, renpy.ast.Python):
+                source = getattr(stmt.code, "source", "")
+                if python_source_has_terminal_jump(source):
+                    return True
             if isinstance(stmt, renpy.ast.If):
                 return is_exhaustive_if(stmt)
             if isinstance(stmt, renpy.ast.Pass):
@@ -590,11 +716,30 @@ init 10000 python:
 
         route_edges.append(edge)
 
-    def walk_for_edges(block, from_label, filename, from_type="flow", active_condition=None):
+    def menu_branch_key(branch_path):
+        if not branch_path:
+            return None
+
+        return "/".join(branch_path)
+
+    def walk_for_edges(
+        block,
+        from_label,
+        filename,
+        from_type="flow",
+        active_condition=None,
+        branch_path=None,
+        parent_menu_line=0,
+        parent_choice_line=0,
+        condition_stack=None
+    ):
         """Recursively walk a block to find all Jump/Call edges and variable changes."""
-        if not block:
+        block_items = statement_block_items(block)
+        if not block_items:
             return
-        for stmt in block:
+        branch_path = branch_path or []
+        condition_stack = condition_stack or []
+        for stmt in block_items:
             screen_name = get_call_screen_name(stmt)
             if screen_name:
                 handle_call_screen(
@@ -656,40 +801,71 @@ init 10000 python:
                     from_label = stmt.name
                     filename = nested_filename
                     active_condition = None
+                    condition_stack = []
 
                 # Walk the block even for filtered labels (may contain relevant edges)
-                if getattr(stmt, "block", None):
+                if statement_block_items(getattr(stmt, "block", None)):
                     walk_for_edges(stmt.block, from_label, nested_filename, "label_block")
             elif isinstance(stmt, renpy.ast.Python):
                 source = getattr(stmt.code, "source", "")
                 if source:
                     extract_assignments(
                         source, from_label, filename,
-                        getattr(stmt, "linenumber", 0), from_type
+                        getattr(stmt, "linenumber", 0), from_type,
+                        active_condition,
+                        condition_stack
                     )
-                    extract_python_edges(
+                    if extract_python_edges(
                         source, from_label, filename,
                         getattr(stmt, "linenumber", 0),
                         condition=active_condition
-                    )
+                    ):
+                        return
             elif isinstance(stmt, renpy.ast.If):
-                for condition, sub_block in iter_if_entries_with_effective_conditions(
+                for entry_index, (condition, local_condition, sub_block) in enumerate(iter_if_entries_with_condition_parts(
                     stmt.entries,
                     active_condition
-                ):
+                )):
                     if sub_block:
+                        branch_segment = "if:%s:%s" % (
+                            getattr(stmt, "linenumber", 0),
+                            entry_index
+                        )
+                        next_condition_stack = list(condition_stack)
+                        if local_condition and not is_true_condition(local_condition):
+                            next_condition_stack.append(local_condition)
                         walk_for_edges(
                             sub_block,
                             from_label,
                             filename,
-                            "if",
+                            from_type,
                             condition,
+                            branch_path + [branch_segment],
+                            parent_menu_line,
+                            parent_choice_line,
+                            next_condition_stack,
                         )
             elif isinstance(stmt, renpy.ast.Menu):
-                if active_condition:
-                    route_menu_conditions[id(stmt)] = active_condition
-            elif hasattr(stmt, 'block') and stmt.block:
-                walk_for_edges(stmt.block, from_label, filename, from_type, active_condition)
+                route_menu_metadata[id(stmt)] = {
+                    "enclosing_condition": active_condition,
+                    "branch_key": menu_branch_key(branch_path),
+                    "parent_menu_line": parent_menu_line,
+                    "parent_choice_line": parent_choice_line,
+                    "branch_path": list(branch_path),
+                    "condition_stack": list(condition_stack),
+                }
+            elif statement_block_items(getattr(stmt, "block", None)):
+                walk_for_edges(
+                    stmt.block,
+                    from_label,
+                    filename,
+                    from_type,
+                    active_condition,
+                    branch_path,
+                    parent_menu_line,
+                    parent_choice_line,
+                    condition_stack,
+                )
 
     def wordcounter():
         """Count words and analyze the game script."""
@@ -773,6 +949,10 @@ init 10000 python:
                     has_translate_say = True
                     break
 
+        for node in all_stmts:
+            if isinstance(node, renpy.ast.Label) and is_game_file(node.filename) and is_route_label(node.name):
+                all_route_label_names.add(node.name)
+
         # Find context (current label or scene)
         current_context = {}
         route_context_terminated = False
@@ -818,16 +998,25 @@ init 10000 python:
 
             # Track context (labels)
             if isinstance(node, renpy.ast.Label):
-                for lang in ['default'] + list(known_languages):
-                    current_context[lang] = node.name
-                route_context_terminated = False
-                if is_game_file(node.filename):
-                    ensure_route_label(node.name, node.filename, getattr(node, "linenumber", 0))
+                is_current_route_label = is_route_label(node.name)
+                if is_current_route_label:
+                    for lang in ['default'] + list(known_languages):
+                        current_context[lang] = node.name
+                    route_context_terminated = False
 
-                    if getattr(node, "block", None):
-                        walk_for_edges(node.block, node.name, node.filename, "label_block")
-                        trailing_stmt = node.block[-1]
-                        next_stmt = getattr(trailing_stmt, "next", None)
+                if is_game_file(node.filename):
+                    route_context = node.name if is_current_route_label else current_context.get("default", "")
+                    if is_current_route_label:
+                        ensure_route_label(node.name, node.filename, getattr(node, "linenumber", 0))
+
+                    if route_context and getattr(node, "block", None):
+                        walk_for_edges(node.block, route_context, node.filename, "label_block")
+                        if block_has_terminal(node.block):
+                            next_stmt = None
+                        else:
+                            block_items = statement_block_items(node.block)
+                            trailing_stmt = block_items[-1] if block_items else None
+                            next_stmt = getattr(trailing_stmt, "next", None)
                     else:
                         next_stmt = getattr(node, "next", None)
 
@@ -840,21 +1029,21 @@ init 10000 python:
                     while next_stmt is not None and id(next_stmt) not in seen_next:
                         seen_next.add(id(next_stmt))
                         if isinstance(next_stmt, (renpy.ast.Jump, renpy.ast.Return)):
-                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename)
                             break
                         if isinstance(next_stmt, renpy.ast.Call):
                             # Calls return — process edge but keep walking
-                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename)
                         if isinstance(next_stmt, renpy.ast.Label):
                             if is_route_label(next_stmt.name):
-                                add_edge_from_statement(node.name, next_stmt, node.filename)
+                                add_edge_from_statement(route_context, next_stmt, node.filename)
                                 break
                             # Filtered label — skip past it and keep walking
                         # Non-terminal control flow: process edges but keep walking
                         if get_call_screen_name(next_stmt):
-                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename)
                         elif isinstance(next_stmt, renpy.ast.If):
-                            add_edge_from_statement(node.name, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename)
                             # Only stop if ALL branches have terminal flow (jump/return)
                             # meaning execution can't continue past this If
                             if is_exhaustive_if(next_stmt):
@@ -949,24 +1138,47 @@ init 10000 python:
                 menu_context = current_context.get("default", "")
                 if route_context_terminated:
                     menu_context = ""
+                menu_line = getattr(node, "linenumber", 0)
 
-                # Capture the prompt: menu caption or last dialogue line
-                menu_prompt = None
-                for item_l, item_c, item_b in node.items:
-                    if not item_l and item_b:
-                        # Caption item (empty label = menu's own text)
-                        for stmt in item_b:
-                            if isinstance(stmt, renpy.ast.Say) and stmt.what:
-                                menu_prompt = clean_text(stmt.what)
-                        break
-                if not menu_prompt:
-                    menu_prompt = last_say_text
+                # Capture the prompt exactly like Ren'Py's parser/runtime:
+                # caption rows have a string label and block=None, while
+                # selectable choices always have a block.
+                menu_caption_labels = [
+                    item_l
+                    for item_l, item_c, item_b in node.items
+                    if is_menu_caption_item(item_l, item_b) and item_l
+                ]
+                menu_prompt = "\n".join(clean_text(label) for label in menu_caption_labels) or last_say_text
+
+                caption_prompt_translations = {}
+                if menu_caption_labels:
+                    for lang in known_languages:
+                        translated_parts = []
+                        has_translation = False
+
+                        for caption_label in menu_caption_labels:
+                            translated = translate_string(caption_label, lang)
+                            if translated and translated != caption_label:
+                                has_translation = True
+                                translated_parts.append(clean_text(translated))
+                            else:
+                                translated_parts.append(clean_text(caption_label))
+
+                        if has_translation:
+                            caption_prompt_translations[lang] = "\n".join(translated_parts)
+
+                menu_metadata = route_menu_metadata.get(id(node), {})
 
                 # Get the enclosing if condition (if this menu is inside an if block)
-                enclosing_condition = route_menu_conditions.get(id(node))
+                enclosing_condition = menu_metadata.get("enclosing_condition")
+                menu_branch = menu_metadata.get("branch_key")
+                parent_menu_line = menu_metadata.get("parent_menu_line") or 0
+                parent_choice_line = menu_metadata.get("parent_choice_line") or 0
+                menu_branch_path = menu_metadata.get("branch_path") or []
+                menu_condition_stack = menu_metadata.get("condition_stack") or []
 
                 for l, c, b in node.items:
-                    if l:  # Only process non-empty choices
+                    if is_menu_choice_item(l, b):
                         for lang in ['default'] + list(known_languages):
                             all_lang_stats[lang]["options_count"] += 1
 
@@ -975,7 +1187,8 @@ init 10000 python:
                         choice_line = first_statement_line(b, getattr(node, "linenumber", 0))
 
                         # Combine enclosing if-condition with the choice's own condition
-                        effective_condition = combine_conditions(enclosing_condition, c) if enclosing_condition else c
+                        choice_condition = c
+                        effective_condition = combine_conditions(enclosing_condition, choice_condition) if enclosing_condition else choice_condition
 
                         # Determine the target of this menu choice
                         target_info = find_target_in_block(b)
@@ -990,8 +1203,8 @@ init 10000 python:
                                 choice_translations[lang] = clean_text(translated)
 
                         # Get prompt translations via Say identifier
-                        prompt_translations = {}
-                        if last_say_identifier and last_say_identifier in say_translations:
+                        prompt_translations = caption_prompt_translations
+                        if not prompt_translations and last_say_identifier and last_say_identifier in say_translations:
                             prompt_translations = say_translations[last_say_identifier]
 
                         # Store route menu choice data
@@ -1005,7 +1218,14 @@ init 10000 python:
                                 "prompt": ensure_unicode(menu_prompt) if menu_prompt else None,
                                 "translations": choice_translations,
                                 "prompt_translations": prompt_translations,
+                                "enclosing_condition": ensure_unicode(enclosing_condition) if enclosing_condition else None,
+                                "choice_condition": ensure_unicode(choice_condition) if choice_condition else None,
+                                "menu_branch": ensure_unicode(menu_branch) if menu_branch else None,
+                                "menu_condition_stack": [ensure_unicode(condition_part) for condition_part in menu_condition_stack],
+                                "parent_menu_line": parent_menu_line,
+                                "parent_choice_line": parent_choice_line,
                                 "file": node.filename,
+                                "menu_line": menu_line,
                                 "line": choice_line,
                             })
 
@@ -1023,14 +1243,26 @@ init 10000 python:
 
                             # Walk the menu choice block for nested edges
                             choice_context = "menu_choice:" + ensure_unicode(original_text)
-                            walk_for_edges(b, menu_context, node.filename, choice_context)
+                            choice_branch_path = list(menu_branch_path)
+                            choice_branch_path.append("menu:%s:choice:%s" % (menu_line, choice_line))
+                            walk_for_edges(
+                                b,
+                                menu_context,
+                                node.filename,
+                                choice_context,
+                                effective_condition,
+                                choice_branch_path,
+                                menu_line,
+                                choice_line,
+                                menu_condition_stack,
+                            )
 
                         # Add menu choice for default language
                         dialogue_lines["default"].append({
                             "character": character_id,
                             "text": original_text,
                             "file": node.filename,
-                            "line": getattr(node, "linenumber", 0),
+                            "line": choice_line,
                             "context": current_context.get("default", "")
                         })
                         all_lang_stats["default"]["characters"]["menu_choice"].add(l)
@@ -1044,7 +1276,7 @@ init 10000 python:
                                     "character": character_id,
                                     "text": cleaned_translated_text,
                                     "file": node.filename,
-                                    "line": getattr(node, "linenumber", 0),
+                                    "line": choice_line,
                                     "context": current_context.get(lang, "")
                                 })
                                 all_lang_stats[lang]["characters"]["menu_choice"].add(translated_text)
@@ -1053,17 +1285,28 @@ init 10000 python:
                                     "character": character_id,
                                     "text": original_text,
                                     "file": node.filename,
-                                    "line": getattr(node, "linenumber", 0),
+                                    "line": choice_line,
                                     "context": current_context.get(lang, "")
                                 })
                                 all_lang_stats[lang]["characters"]["menu_choice"].add(l)
-                    else:
-                        # Empty caption choice - still walk the block for edges
+                    elif b:
                         if menu_context and is_game_file(node.filename):
-                            walk_for_edges(b, menu_context, node.filename, "menu_block")
+                            walk_for_edges(
+                                b,
+                                menu_context,
+                                node.filename,
+                                "menu_block",
+                                enclosing_condition,
+                                menu_branch_path,
+                                parent_menu_line,
+                                parent_choice_line,
+                                menu_condition_stack,
+                            )
 
             elif isinstance(node, renpy.ast.Return):
                 ctx = current_context.get("default", "")
+                if ctx and is_game_file(node.filename):
+                    route_return_labels.add(ctx)
                 has_outgoing_route = False
                 if ctx:
                     for edge in route_edges:
@@ -1087,6 +1330,18 @@ init 10000 python:
                 from_label = edge.get("from_label")
                 if from_label and from_label in route_labels:
                     route_labels[from_label]["is_ending"] = True
+
+        # A label that returns to a caller is a subroutine, not an ending.
+        # We may see the return before the later call site in script order.
+        called_route_labels = set(
+            edge.get("to_label")
+            for edge in route_edges
+            if edge.get("edge_type") == "call" and edge.get("to_label")
+        )
+        for label_name in route_return_labels:
+            if label_name in called_route_labels and label_name in route_labels:
+                route_labels[label_name]["is_ending"] = False
+                route_labels[label_name]["returns_to_caller"] = True
 
         collect_file_statistics()
         report_stats()
@@ -1197,6 +1452,7 @@ init 10000 python:
                 "file": ensure_unicode(info["file"]),
                 "line": info["line"],
                 "is_ending": info.get("is_ending", False),
+                "returns_to_caller": info.get("returns_to_caller", False),
             })
         result["route_labels"] = processed_labels
 
@@ -1222,9 +1478,16 @@ init 10000 python:
                 "from_label": ensure_unicode(choice["from_label"]) if choice["from_label"] else None,
                 "text": ensure_unicode(choice["text"]) if choice["text"] else None,
                 "condition": ensure_unicode(choice["condition"]) if choice["condition"] else None,
+                "enclosing_condition": ensure_unicode(choice.get("enclosing_condition")) if choice.get("enclosing_condition") else None,
+                "choice_condition": ensure_unicode(choice.get("choice_condition")) if choice.get("choice_condition") else None,
+                "menu_branch": ensure_unicode(choice.get("menu_branch")) if choice.get("menu_branch") else None,
+                "menu_condition_stack": [ensure_unicode(condition_part) for condition_part in choice.get("menu_condition_stack", [])],
+                "parent_menu_line": choice.get("parent_menu_line", 0),
+                "parent_choice_line": choice.get("parent_choice_line", 0),
                 "target_label": ensure_unicode(choice["target_label"]) if choice["target_label"] else None,
                 "edge_type": ensure_unicode(choice["edge_type"]) if choice["edge_type"] else None,
                 "prompt": ensure_unicode(choice["prompt"]) if choice.get("prompt") else None,
+                "menu_line": choice.get("menu_line", 0),
                 "file": ensure_unicode(choice["file"]),
                 "line": choice["line"],
             }
@@ -1256,6 +1519,8 @@ init 10000 python:
                 "file": ensure_unicode(vc["file"]),
                 "line": vc["line"],
                 "context": ensure_unicode(vc.get("context", "python_block")),
+                "condition": ensure_unicode(vc.get("condition")) if vc.get("condition") else None,
+                "condition_stack": [ensure_unicode(condition_part) for condition_part in vc.get("condition_stack", [])],
             })
         result["route_variable_changes"] = processed_var_changes
 

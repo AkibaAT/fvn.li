@@ -143,3 +143,50 @@ test('cleanup all old version downloads', function () {
     checkFileNotExists($game2->id, $game2v1->id, 'game2_v1.zip');
     checkFileExists($game2->id, $game2v2->id, 'game2_v2.zip');
 });
+
+test('process archive strips file statistics from optimized archives', function () {
+    $archivePath = tempnam(sys_get_temp_dir(), 'optimized_archive_').'.zip';
+    $zip = new ZipArchive;
+    expect($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
+
+    try {
+        $zip->addFromString('.fvn-archive-metadata.json', json_encode([
+            'schema' => 'fvn.archive_optimization.v1',
+            'original_archive' => [
+                'filename' => 'game.zip',
+                'sha256' => str_repeat('a', 64),
+            ],
+            'original_files' => [
+                [
+                    'path' => 'game/images/bg.png',
+                    'size' => 123,
+                    'sha256' => str_repeat('b', 64),
+                ],
+            ],
+        ]));
+        $zip->addFromString('game/script.rpy', 'label start:');
+    } finally {
+        $zip->close();
+    }
+
+    $statsService = $this->createMock(GameStatsService::class);
+    $statsService->expects($this->once())
+        ->method('extractGameStats')
+        ->with($archivePath)
+        ->willReturn([
+            'languages' => ['eng' => ['blocks' => 1, 'words' => 2]],
+            'file_statistics' => [
+                'summary' => ['total_images' => 1],
+                'images' => ['webp' => ['count' => 1, 'total_size' => 42]],
+            ],
+        ]);
+
+    try {
+        $stats = (new GameArchiveService($statsService))->processArchive($archivePath);
+    } finally {
+        @unlink($archivePath);
+    }
+
+    expect($stats)->toHaveKey('languages')
+        ->and($stats)->not->toHaveKey('file_statistics');
+});
