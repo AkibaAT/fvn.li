@@ -49,15 +49,43 @@ function createRouteLabel(GameVersion $version, string $name, int $line = 1, boo
     ]);
 }
 
-function createRouteChoice(GameVersion $version, string $from, string $text, int $line, ?string $target = null, ?string $condition = 'True'): VersionRouteMenuChoice
-{
+function createRouteChoice(
+    GameVersion $version,
+    string $from,
+    string $text,
+    int $line,
+    ?string $target = null,
+    ?string $condition = 'True',
+    ?string $prompt = null,
+    ?int $menuLine = null,
+    ?string $enclosingCondition = null,
+    ?string $choiceCondition = null,
+    ?string $menuBranch = null,
+    int $parentMenuLine = 0,
+    int $parentChoiceLine = 0,
+    array $menuConditionStack = [],
+    ?string $edgeType = null
+): VersionRouteMenuChoice {
+    $choiceCondition ??= $condition;
+    $effectiveCondition = $enclosingCondition && $choiceCondition && $choiceCondition !== 'True'
+        ? '('.$enclosingCondition.') and ('.$choiceCondition.')'
+        : ($enclosingCondition ?: $choiceCondition);
+
     return VersionRouteMenuChoice::create([
         'game_version_id' => $version->id,
         'from_label' => $from,
+        'prompt' => $prompt,
+        'menu_line' => $menuLine ?? $line,
         'text' => $text,
-        'condition' => $condition,
+        'condition' => $effectiveCondition,
+        'enclosing_condition' => $enclosingCondition,
+        'choice_condition' => $choiceCondition,
+        'menu_branch' => $menuBranch,
+        'menu_condition_stack' => $menuConditionStack,
+        'parent_menu_line' => $parentMenuLine,
+        'parent_choice_line' => $parentChoiceLine,
         'target_label' => $target,
-        'edge_type' => $target ? 'jump' : null,
+        'edge_type' => $target ? ($edgeType ?? 'jump') : null,
         'file_path' => 'game/script.rpy',
         'line_number' => $line,
     ]);
@@ -76,17 +104,28 @@ function createRouteEdge(GameVersion $version, string $from, string $to, string 
     ]);
 }
 
-function createRouteVariableChange(GameVersion $version, string $label, string $context, string $variable = 'route_flag', string $value = 'Constant(value=True)', int $line = 1): VersionRouteVariableChange
-{
+function createRouteVariableChange(
+    GameVersion $version,
+    string $label,
+    string $context,
+    string $variable = 'route_flag',
+    string $value = 'Constant(value=True)',
+    int $line = 1,
+    ?string $condition = null,
+    array $conditionStack = [],
+    string $operation = '='
+): VersionRouteVariableChange {
     return VersionRouteVariableChange::create([
         'game_version_id' => $version->id,
         'label' => $label,
         'variable_name' => $variable,
-        'operation' => '=',
+        'operation' => $operation,
         'value' => $value,
         'file_path' => 'game/script.rpy',
         'line_number' => $line,
         'context' => $context,
+        'condition' => $condition,
+        'condition_stack' => $conditionStack,
     ]);
 }
 
@@ -103,10 +142,58 @@ test('buildGraph refreshes stale cached graph revisions', function () {
 
     $graph = app(RouteGraphService::class)->buildGraph($this->version->fresh());
 
-    expect($graph['graph_revision'])->toBe(11)
+    expect($graph['graph_revision'])->toBe(25)
         ->and(collect($graph['nodes'])->pluck('id'))->toContain('start')
         ->and(collect($graph['nodes'])->pluck('id'))->not->toContain('stale')
-        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(11);
+        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(25);
+});
+
+test('computed route graphs include precomputed GraphViz layout positions', function () {
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'good_end', 20, true);
+    createRouteEdge($this->version, 'start', 'good_end', 'jump', 10, 'route_flag');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $layoutNodes = $graph['layout']['nodes'];
+
+    expect($graph['layout']['engine'])->toBe('graphviz-dot')
+        ->and($graph['layout']['width'])->toBeGreaterThan(0)
+        ->and($graph['layout']['height'])->toBeGreaterThan(0)
+        ->and($layoutNodes)->toHaveKey('start')
+        ->and($layoutNodes)->toHaveKey('good_end')
+        ->and($layoutNodes)->toHaveKey('condition:start:if%20route_flag');
+
+    foreach ($graph['nodes'] as $node) {
+        expect($layoutNodes[$node['id']]['x'])->toBeNumeric()
+            ->and($layoutNodes[$node['id']]['y'])->toBeNumeric()
+            ->and($layoutNodes[$node['id']]['width'])->toBeGreaterThan(0)
+            ->and($layoutNodes[$node['id']]['height'])->toBeGreaterThan(0);
+    }
+});
+
+test('layout includes missing target condition nodes for unresolved edges', function () {
+    createRouteLabel($this->version, 'start');
+    createRouteEdge($this->version, 'start', 'missing_target', 'jump', 10);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+
+    expect(collect($graph['nodes'])->firstWhere('id', 'missing_target')['is_unresolved'] ?? false)->toBeTrue()
+        ->and($graph['layout']['nodes'])->toHaveKey('condition:start:missing%20target');
+});
+
+test('layout merges duplicate condition nodes from the same source', function () {
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'branch_a');
+    createRouteLabel($this->version, 'branch_b');
+    createRouteEdge($this->version, 'start', 'branch_a', 'jump', 10, 'route_flag');
+    createRouteEdge($this->version, 'start', 'branch_b', 'jump', 20, 'route_flag');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $conditionNodes = collect(array_keys($graph['layout']['nodes']))
+        ->filter(fn (string $nodeId) => $nodeId === 'condition:start:if%20route_flag')
+        ->values();
+
+    expect($conditionNodes)->toHaveCount(1);
 });
 
 test('localized chapter select menus collapse to hub nodes instead of expanding every choice', function () {
@@ -136,9 +223,10 @@ test('targetless choices only use continuation edges from their own menu segment
     createRouteChoice($this->version, 'setup', 'A', 20);
     createRouteChoice($this->version, 'setup', 'B', 20);
 
-    foreach (['Yes', 'No', 'A', 'B'] as $choice) {
-        createRouteVariableChange($this->version, 'setup', 'menu_choice:'.$choice, 'route_flag');
-    }
+    createRouteVariableChange($this->version, 'setup', 'menu_choice:Yes', 'route_flag', line: 11);
+    createRouteVariableChange($this->version, 'setup', 'menu_choice:No', 'route_flag', line: 12);
+    createRouteVariableChange($this->version, 'setup', 'menu_choice:A', 'route_flag', line: 21);
+    createRouteVariableChange($this->version, 'setup', 'menu_choice:B', 'route_flag', line: 22);
 
     createRouteEdge($this->version, 'setup', 'after_second_menu', 'flow', 25);
 
@@ -153,11 +241,347 @@ test('targetless choices only use continuation edges from their own menu segment
         ->and($nodesById['setup:choice_0']['variable_changes'][0]['variable'])->toBe('route_flag');
 });
 
+test('pure flavor targetless choices are hidden from route graph', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'after_menu', 100);
+
+    createRouteChoice($this->version, 'scene', 'Hold his hand.', 10, prompt: 'He offered his hand.', menuLine: 9);
+    createRouteChoice($this->version, 'scene', 'Change subject.', 20, prompt: 'He offered his hand.', menuLine: 9);
+    createRouteEdge($this->version, 'scene', 'after_menu', 'jump', 90);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+
+    expect(collect($graph['nodes'])->pluck('label'))->not->toContain('Hold his hand.')
+        ->and(collect($graph['nodes'])->pluck('label'))->not->toContain('Change subject.');
+});
+
+test('targetless choices with route state changes can use later compatible label exits', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'route_exit', 100);
+    createRouteLabel($this->version, 'other_exit', 110);
+
+    createRouteChoice($this->version, 'scene', 'Hold his hand.', 10, condition: 'lionroute == True', prompt: 'He offered his hand.', menuLine: 9);
+    createRouteChoice($this->version, 'scene', 'Follow quietly.', 20, condition: 'lionroute == True', prompt: 'He offered his hand.', menuLine: 9);
+    createRouteChoice($this->version, 'scene', 'Ask about dinner.', 40, prompt: 'Later question.', menuLine: 39);
+    createRouteChoice($this->version, 'scene', 'Stay quiet.', 50, prompt: 'Later question.', menuLine: 39);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Hold his hand.', 'lionlove', line: 11);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Follow quietly.', 'lionroute_seen', line: 21);
+    createRouteEdge($this->version, 'scene', 'route_exit', 'jump', 90, 'lionroute == True');
+    createRouteEdge($this->version, 'scene', 'other_exit', 'jump', 95, 'bearroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'route_exit'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'route_exit'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'other_exit'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'other_exit'))->toBeFalse()
+        ->and($edges->first(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:choice_0')['condition'])->toBe('lionroute == True')
+        ->and($edges->first(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'route_exit')['condition'])->toBeNull();
+});
+
+test('multiple menu prompts in one label are kept as separate menu nodes', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'route_exit', 200);
+
+    createRouteChoice($this->version, 'scene', 'Medicine', 10, condition: 'True', prompt: 'What does Roswell need...?', menuLine: 9);
+    createRouteChoice($this->version, 'scene', 'Tea.', 20, condition: 'True', prompt: 'What does Roswell need...?', menuLine: 9);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Medicine', 'medicine_seen', 'Constant(value=True)', 11);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Tea.', 'tea_seen', 'Constant(value=True)', 21);
+
+    createRouteChoice($this->version, 'scene', 'Movie?', 100, condition: 'True', prompt: 'What are we watching?', menuLine: 99, enclosingCondition: 'lionroute == True');
+    createRouteChoice($this->version, 'scene', 'You can pick.', 110, condition: 'True', prompt: 'What are we watching?', menuLine: 99, enclosingCondition: 'lionroute == True');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:You can pick.', 'lionlove', 'Constant(value=1)', 111);
+    createRouteEdge($this->version, 'scene', 'route_exit', 'jump', 150, 'lionroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes['scene:menu_10']['menu_prompt'])->toBe('What does Roswell need...?')
+        ->and($nodes['scene:menu_100']['menu_prompt'])->toBe('What are we watching?')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_100'))->toBeFalse()
+        ->and($edges->first(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'scene:menu_100')['condition'])->toBe('lionroute == True')
+        ->and($edges->first(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'scene:menu_100')['condition'])->toBe('lionroute == True')
+        ->and($edges->first(fn (array $edge) => $edge['source'] === 'scene:menu_100' && $edge['target'] === 'scene:choice_3')['condition'])->toBeNull();
+});
+
+test('conditional single menus keep their menu entry condition visible', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'trust', 100);
+    createRouteLabel($this->version, 'doubt', 110);
+
+    createRouteChoice($this->version, 'scene', 'Trust Jack.', 10, 'trust', 'True', menuLine: 9, enclosingCondition: 'OzPast2 == True');
+    createRouteChoice($this->version, 'scene', 'Doubt Jack.', 20, 'doubt', 'True', menuLine: 9, enclosingCondition: 'OzPast2 == True');
+    createRouteEdge($this->version, 'scene', 'trust', 'jump', 50, 'not ((OzPast2 == True))');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes)->toHaveKey('scene')
+        ->and($nodes)->toHaveKey('scene:menu_10')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_10' && $edge['condition'] === 'OzPast2 == True'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'trust' && $edge['condition'] === 'not ((OzPast2 == True))'))->toBeTrue()
+        ->and($edges->first(fn (array $edge) => $edge['source'] === 'scene:menu_10' && $edge['target'] === 'scene:choice_0')['condition'])->toBeNull();
+});
+
+test('menus in sibling conditional branches keep separate entry conditions', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'lunch', 100);
+
+    createRouteChoice($this->version, 'scene', 'Dean.', 10, condition: 'True', prompt: 'First branch?', menuLine: 9, enclosingCondition: 'boarroute == True or bearroute == True', menuBranch: 'if:20:0');
+    createRouteChoice($this->version, 'scene', 'Roswell.', 20, condition: 'True', prompt: 'First branch?', menuLine: 9, enclosingCondition: 'boarroute == True or bearroute == True', menuBranch: 'if:20:0');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Dean.', 'dean_seen', 'Constant(value=True)', 11);
+    createRouteEdge($this->version, 'scene', 'lunch', 'jump', 30, 'boarroute == True or bearroute == True');
+
+    createRouteChoice($this->version, 'scene', 'Tyson.', 50, condition: 'True', prompt: 'Second branch?', menuLine: 49, enclosingCondition: 'lionroute == True or wolfroute == True', menuBranch: 'if:40:0');
+    createRouteChoice($this->version, 'scene', 'Hoss.', 60, condition: 'True', prompt: 'Second branch?', menuLine: 49, enclosingCondition: 'lionroute == True or wolfroute == True', menuBranch: 'if:40:0');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Tyson.', 'tyson_seen', 'Constant(value=True)', 51);
+    createRouteEdge($this->version, 'scene', 'lunch', 'jump', 80, 'lionroute == True or wolfroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_10' && $edge['condition'] === 'boarroute == True or bearroute == True'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_50' && $edge['condition'] === 'lionroute == True or wolfroute == True'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'scene:menu_50'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'scene:menu_50'))->toBeFalse();
+});
+
+test('conditioned menu choices do not borrow the enclosing branch else exit', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'lunch', 100);
+    createRouteLabel($this->version, 'scene:ending', 110, true);
+
+    $branchCondition = 'crocroute == True or dragonroute == True';
+
+    createRouteChoice($this->version, 'scene', 'Sal', 10, condition: 'True', prompt: 'Cook with...?', menuLine: 9, enclosingCondition: $branchCondition, menuBranch: 'if:5:0');
+    createRouteChoice($this->version, 'scene', 'Orlando', 20, condition: 'True', prompt: 'Cook with...?', menuLine: 9, enclosingCondition: $branchCondition, menuBranch: 'if:5:0');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Sal', 'croclove', 'Constant(value=1)', 11);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Orlando', 'dragonlove', 'Constant(value=1)', 21);
+
+    createRouteEdge($this->version, 'scene', 'lunch', 'jump', 100, $branchCondition);
+    createRouteEdge($this->version, 'scene', 'scene:ending', 'return', 110, 'not (('.$branchCondition.'))');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'lunch'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'lunch'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'scene:ending'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'scene:ending'))->toBeFalse();
+});
+
+test('targetless choices do not repeat weaker continuation conditions already implied by the menu gate', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'dinner', 100);
+
+    $menuCondition = '(dragonroute == True) and (SENTENCE == True)';
+
+    createRouteChoice($this->version, 'scene', 'Yes.', 10, 'dinner', condition: 'True', prompt: 'Follow Orlando?', menuLine: 9, enclosingCondition: $menuCondition, menuBranch: 'if:5:0');
+    createRouteChoice($this->version, 'scene', 'No.', 20, condition: 'True', prompt: 'Follow Orlando?', menuLine: 9, enclosingCondition: $menuCondition, menuBranch: 'if:5:0');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Yes.', 'SENTENCE2', 'Constant(value=True)', 11);
+    createRouteEdge($this->version, 'scene', 'dinner', 'jump', 15, $menuCondition);
+    createRouteEdge($this->version, 'scene', 'dinner', 'flow', 50, 'dragonroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->first(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'dinner')['condition'])->toBeNull();
+});
+
+test('nested menu condition stacks share outer condition nodes with bypass flow', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'dinner', 100);
+
+    $stack = ['dragonroute == True', 'SENTENCE == True'];
+    $menuCondition = '(dragonroute == True) and (SENTENCE == True)';
+
+    createRouteChoice($this->version, 'scene', 'Yes.', 10, 'dinner', condition: 'True', prompt: 'Follow Orlando?', menuLine: 9, enclosingCondition: $menuCondition, menuBranch: 'if:5:0/if:8:0', menuConditionStack: $stack);
+    createRouteChoice($this->version, 'scene', 'No.', 20, condition: 'True', prompt: 'Follow Orlando?', menuLine: 9, enclosingCondition: $menuCondition, menuBranch: 'if:5:0/if:8:0', menuConditionStack: $stack);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Yes.', 'SENTENCE2', 'Constant(value=True)', 11);
+    createRouteEdge($this->version, 'scene', 'dinner', 'flow', 50, 'dragonroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes']);
+    $edges = collect($graph['edges']);
+    $outerConditionNode = $nodes->first(fn (array $node) => ($node['node_type'] ?? null) === 'condition' && ($node['label'] ?? null) === 'if dragonroute == True');
+    $innerConditionNode = $nodes->first(fn (array $node) => ($node['node_type'] ?? null) === 'condition' && ($node['label'] ?? null) === 'if SENTENCE == True');
+
+    expect($outerConditionNode)->not->toBeNull()
+        ->and($innerConditionNode)->not->toBeNull()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === $outerConditionNode['id'] && $edge['condition'] === null))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === $outerConditionNode['id'] && $edge['target'] === $innerConditionNode['id'] && $edge['condition'] === null))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === $innerConditionNode['id'] && $edge['target'] === 'scene:menu_10' && $edge['condition'] === null))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === $outerConditionNode['id'] && $edge['target'] === 'dinner' && $edge['condition'] === null))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_10'))->toBeFalse();
+});
+
+test('nested menus use their parent choice instead of splitting sibling choices', function () {
+    createRouteLabel($this->version, 'scene', 1);
+
+    createRouteChoice($this->version, 'scene', 'First.', 10, condition: 'True', prompt: 'Pick one.', menuLine: 9, enclosingCondition: 'route_a == True', menuBranch: 'if:5:0');
+    createRouteChoice($this->version, 'scene', 'Second.', 50, condition: 'True', prompt: 'Pick one.', menuLine: 9, enclosingCondition: 'route_a == True', menuBranch: 'if:5:0');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:First.', 'first_seen', 'Constant(value=True)', 11);
+
+    createRouteChoice($this->version, 'scene', 'Yes', 20, condition: 'True', prompt: 'Nested?', menuLine: 19, enclosingCondition: '(route_a == True) and (extra == True)', menuBranch: 'if:5:0/menu:9:choice:10/if:18:0', parentMenuLine: 9, parentChoiceLine: 10);
+    createRouteChoice($this->version, 'scene', 'No', 30, condition: 'True', prompt: 'Nested?', menuLine: 19, enclosingCondition: '(route_a == True) and (extra == True)', menuBranch: 'if:5:0/menu:9:choice:10/if:18:0', parentMenuLine: 9, parentChoiceLine: 10);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Yes', 'yes_seen', 'Constant(value=True)', 21);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes)->toHaveKey('scene:menu_10')
+        ->and($nodes)->toHaveKey('scene:menu_20')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:menu_10' && $edge['target'] === 'scene:choice_0'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:menu_10' && $edge['target'] === 'scene:choice_1'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'scene:menu_20' && $edge['condition'] === '(route_a == True) and (extra == True)'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'scene:menu_20'))->toBeFalse();
+});
+
+test('nested targetless menus keep their parent menu and resume the outer menu sequence', function () {
+    createRouteLabel($this->version, 'Day5Dinner', 1880);
+    createRouteLabel($this->version, 'startday6', 2600);
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Dean', 1980, condition: 'True', prompt: 'Who to sit next to?', menuLine: 1977);
+    createRouteChoice($this->version, 'Day5Dinner', 'Tyson', 2073, condition: 'True', prompt: 'Who to sit next to?', menuLine: 1977);
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Get Closer', 1987, condition: 'True', prompt: 'Whoops!', menuLine: 1985, enclosingCondition: 'bearroute == True', menuBranch: 'menu:1977:choice:1980/if:1984:0', parentMenuLine: 1977, parentChoiceLine: 1980, menuConditionStack: ['bearroute == True']);
+    createRouteChoice($this->version, 'Day5Dinner', 'Retreat', 2011, condition: 'True', prompt: 'Whoops!', menuLine: 1985, enclosingCondition: 'bearroute == True', menuBranch: 'menu:1977:choice:1980/if:1984:0', parentMenuLine: 1977, parentChoiceLine: 1980, menuConditionStack: ['bearroute == True']);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Get Closer', 'bearlove', 'Constant(value=1)', 1988);
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Horror', 2182, condition: 'True', prompt: 'What movie should we watch?', menuLine: 2179);
+    createRouteChoice($this->version, 'Day5Dinner', 'Comedy', 2195, condition: 'True', prompt: 'What movie should we watch?', menuLine: 2179);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Comedy', 'bearlove', 'Constant(value=2)', 2196);
+
+    createRouteEdge($this->version, 'Day5Dinner', 'startday6', 'jump', 2439, 'bearroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes)->toHaveKey('Day5Dinner:menu_1980')
+        ->and($nodes['Day5Dinner:menu_1980']['menu_prompt'])->toBe('Who to sit next to?')
+        ->and($nodes)->toHaveKey('Day5Dinner:menu_1987')
+        ->and($nodes['Day5Dinner:menu_1987']['menu_prompt'])->toBe('Whoops!')
+        ->and($nodes)->toHaveKey('Day5Dinner:menu_2182')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner' && $edge['target'] === 'Day5Dinner:menu_1987'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner:choice_0' && $edge['target'] === 'Day5Dinner:menu_1987' && $edge['condition'] === 'bearroute == True'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner:choice_0' && $edge['target'] === 'Day5Dinner:menu_2182' && $edge['condition'] === 'not ((bearroute == True))'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner:choice_2' && $edge['target'] === 'Day5Dinner:menu_2182'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner:choice_2' && $edge['target'] === 'startday6'))->toBeFalse();
+});
+
+test('day five dinner keeps sequential menus and final kiss gate in script order', function () {
+    createRouteLabel($this->version, 'Day5Dinner', 1880);
+    createRouteLabel($this->version, 'startday6', 2600);
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Dean', 1980, condition: 'True', prompt: 'Who to sit next to?', menuLine: 1977);
+    createRouteChoice($this->version, 'Day5Dinner', 'Sal', 2034, condition: 'crocroute == True or dragonroute == True', prompt: 'Who to sit next to?', menuLine: 1977);
+    createRouteChoice($this->version, 'Day5Dinner', 'Tyson', 2073, condition: 'True', prompt: 'Who to sit next to?', menuLine: 1977);
+    createRouteChoice($this->version, 'Day5Dinner', 'Hoss', 2114, condition: 'True', prompt: 'Who to sit next to?', menuLine: 1977);
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Get Closer', 1987, condition: 'True', prompt: 'Whoops!', menuLine: 1985, enclosingCondition: 'bearroute == True', menuBranch: 'menu:1977:choice:1980/if:1984:0', parentMenuLine: 1977, parentChoiceLine: 1980, menuConditionStack: ['bearroute == True']);
+    createRouteChoice($this->version, 'Day5Dinner', 'Retreat', 2011, condition: 'True', prompt: 'Whoops!', menuLine: 1985, enclosingCondition: 'bearroute == True', menuBranch: 'menu:1977:choice:1980/if:1984:0', parentMenuLine: 1977, parentChoiceLine: 1980, menuConditionStack: ['bearroute == True']);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Get Closer', 'bearlove', 'Num(n=1)', 1987, 'bearroute == True', ['bearroute == True'], '+=');
+
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Sal', 'croclove', 'Num(n=1)', 2045, '(crocroute == True or dragonroute == True) and (crocroute == True)', ['crocroute == True'], '+=');
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Tyson', 'wolflove', 'Num(n=1)', 2080, 'wolfroute == True', ['wolfroute == True'], '+=');
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Hoss', 'lionlove', 'Num(n=1)', 2122, 'lionroute == True', ['lionroute == True'], '+=');
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Horror', 2182, condition: 'True', prompt: 'What movie should we watch?', menuLine: 2179);
+    createRouteChoice($this->version, 'Day5Dinner', 'Comedy', 2195, condition: 'True', prompt: 'What movie should we watch?', menuLine: 2179);
+    createRouteChoice($this->version, 'Day5Dinner', 'Action', 2210, condition: 'True', prompt: 'What movie should we watch?', menuLine: 2179);
+    createRouteChoice($this->version, 'Day5Dinner', 'Romance', 2220, condition: 'True', prompt: 'What movie should we watch?', menuLine: 2179);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Horror', 'MovieType', "Str(s='Horror')", 2192);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Horror', 'wolflove', 'Num(n=1)', 2193, operation: '+=');
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Comedy', 'MovieType', "Str(s='Comedy')", 2203);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Comedy', 'bearlove', 'Num(n=2)', 2204, operation: '+=');
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Action', 'MovieType', "Str(s='Action')", 2213);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Action', 'croclove', 'Num(n=2)', 2214, operation: '+=');
+
+    createRouteChoice($this->version, 'Day5Dinner', 'Hold his hand', 2228, condition: 'True', prompt: "I didn't register it happening at the time, but I at some point became aware of Dean's hand touching mine.", menuLine: 2226, enclosingCondition: 'bearroute == True', menuBranch: 'menu:2179:choice:2220/if:2224:0', parentMenuLine: 2179, parentChoiceLine: 2220, menuConditionStack: ['bearroute == True']);
+    createRouteChoice($this->version, 'Day5Dinner', 'Do nothing', 2232, condition: 'True', prompt: "I didn't register it happening at the time, but I at some point became aware of Dean's hand touching mine.", menuLine: 2226, enclosingCondition: 'bearroute == True', menuBranch: 'menu:2179:choice:2220/if:2224:0', parentMenuLine: 2179, parentChoiceLine: 2220, menuConditionStack: ['bearroute == True']);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Hold his hand', 'bearlove', 'Num(n=1)', 2228, 'bearroute == True', ['bearroute == True'], '+=');
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Romance', 'wolflove', 'Num(n=1)', 2238, 'wolfroute == True', ['wolfroute == True'], '+=');
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Romance', 'MovieType', "Str(s='Romance')", 2240);
+
+    $kissCondition = '((bearroute == True) and (MovieType == "Romance")) and (bearlove >= 5)';
+    createRouteChoice($this->version, 'Day5Dinner', 'Yes', 2362, condition: 'True', prompt: 'Kiss Dean?', menuLine: 2359, enclosingCondition: $kissCondition, menuBranch: 'if:2271:0/if:2345:0/if:2355:0', menuConditionStack: ['bearroute == True', 'MovieType == "Romance"', 'bearlove >= 5']);
+    createRouteChoice($this->version, 'Day5Dinner', 'No', 2377, condition: 'True', prompt: 'Kiss Dean?', menuLine: 2359, enclosingCondition: $kissCondition, menuBranch: 'if:2271:0/if:2345:0/if:2355:0', menuConditionStack: ['bearroute == True', 'MovieType == "Romance"', 'bearlove >= 5']);
+    createRouteVariableChange($this->version, 'Day5Dinner', 'menu_choice:Yes', 'DeanKiss', "Name(id='True', ctx=Load())", 2362, $kissCondition, ['bearroute == True', 'MovieType == "Romance"', 'bearlove >= 5']);
+
+    createRouteEdge($this->version, 'Day5Dinner', 'startday6', 'jump', 2439, 'bearroute == True');
+    createRouteEdge($this->version, 'Day5Dinner', 'startday6', 'jump', 2522, 'boarroute == True');
+    createRouteEdge($this->version, 'Day5Dinner', 'startday6', 'jump', 2531, 'not ((boarroute == True))');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes['Day5Dinner:menu_1980']['menu_prompt'])->toBe('Who to sit next to?')
+        ->and($nodes['Day5Dinner:menu_2182']['menu_prompt'])->toBe('What movie should we watch?')
+        ->and($nodes['Day5Dinner:menu_2362']['menu_prompt'])->toBe('Kiss Dean?')
+        ->and($nodes['Day5Dinner:choice_1']['var_summary'])->toBe('if crocroute == True: croclove += 1')
+        ->and($nodes['Day5Dinner:choice_2']['var_summary'])->toBe('if wolfroute == True: wolflove += 1')
+        ->and($nodes['Day5Dinner:choice_3']['var_summary'])->toBe('if lionroute == True: lionlove += 1')
+        ->and($nodes['Day5Dinner:choice_9']['var_summary'])->toBe("if wolfroute == True: wolflove += 1, MovieType = 'Romance'")
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner' && $edge['target'] === 'Day5Dinner:menu_2362'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner:choice_9' && $edge['target'] === 'Day5Dinner:menu_2228' && $edge['condition'] === 'bearroute == True'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner:choice_10' && $edge['target'] !== 'startday6'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'Day5Dinner' && $edge['target'] === 'startday6'))->toBeFalse()
+        ->and($edges->first(fn (array $edge) => $edge['target'] === 'Day5Dinner:menu_2362')['source'])->not->toBe('Day5Dinner');
+});
+
+test('sequential repeated menu choices only inherit variable changes from their own block', function () {
+    createRouteLabel($this->version, 'scene', 1);
+
+    createRouteChoice($this->version, 'scene', 'No', 10, condition: 'True', prompt: 'First question?', menuLine: 9, enclosingCondition: 'crocroute == True');
+    createRouteChoice($this->version, 'scene', 'Yes', 20, condition: 'True', prompt: 'First question?', menuLine: 9, enclosingCondition: 'crocroute == True');
+    createRouteChoice($this->version, 'scene', 'No', 40, condition: 'True', prompt: 'Second question?', menuLine: 39, enclosingCondition: 'crocroute == True');
+    createRouteChoice($this->version, 'scene', 'Yes', 50, condition: 'True', prompt: 'Second question?', menuLine: 39, enclosingCondition: 'crocroute == True');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:No', 'first_seen', 'Constant(value=True)', 11);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Yes', 'croclove', 'Constant(value=1)', 51);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes)->toHaveKey('scene:menu_10')
+        ->and($nodes)->toHaveKey('scene:menu_40')
+        ->and($nodes['scene:choice_0']['choice_text'])->toBe('No')
+        ->and($nodes['scene:choice_0']['variable_changes'])->toHaveCount(1)
+        ->and($nodes['scene:choice_1']['variable_changes'])->toHaveCount(0)
+        ->and($nodes['scene:choice_2']['variable_changes'])->toHaveCount(0)
+        ->and($nodes['scene:choice_3']['variable_changes'])->toHaveCount(1)
+        ->and(collect($graph['nodes'])->filter(fn (array $node) => str_starts_with((string) ($node['var_summary'] ?? ''), 'croclove =')))->toHaveCount(1)
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_10' && $edge['condition'] === 'crocroute == True'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene' && $edge['target'] === 'scene:menu_40'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'scene:menu_40' && $edge['condition'] === null))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_1' && $edge['target'] === 'scene:menu_40' && $edge['condition'] === null))->toBeTrue();
+});
+
+test('unconditioned targetless flavor choices do not borrow later conditional exits', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'route_exit', 100);
+
+    createRouteChoice($this->version, 'scene', 'Medicine', 10, condition: 'True', prompt: 'What does Roswell need...?', menuLine: 9);
+    createRouteChoice($this->version, 'scene', 'Tea.', 20, condition: 'True', prompt: 'What does Roswell need...?', menuLine: 9);
+    createRouteEdge($this->version, 'scene', 'route_exit', 'jump', 80, 'boarroute == True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+
+    expect(collect($graph['nodes'])->pluck('label'))->not->toContain('Medicine')
+        ->and(collect($graph['edges'])->contains(fn (array $edge) => str_contains($edge['source'], ':choice_')))->toBeFalse();
+});
+
 test('targetless choices on ending labels route to a synthetic ending node', function () {
     createRouteLabel($this->version, 'start', 1, true);
 
-    createRouteChoice($this->version, 'start', 'Sword', 10);
-    createRouteChoice($this->version, 'start', 'Axe', 20);
+    createRouteChoice($this->version, 'start', 'Sword', 10, menuLine: 9);
+    createRouteChoice($this->version, 'start', 'Axe', 20, menuLine: 9);
     createRouteVariableChange($this->version, 'start', 'menu_choice:Sword', 'sword', 'Constant(value=1)', 11);
     createRouteVariableChange($this->version, 'start', 'menu_choice:Axe', 'axe', 'Constant(value=1)', 21);
 
@@ -173,22 +597,21 @@ test('targetless choices on ending labels route to a synthetic ending node', fun
         ->and($edges->contains(fn (array $edge) => $edge['source'] === 'start:choice_1' && $edge['target'] === 'start:ending' && $edge['edge_type'] === 'return'))->toBeTrue();
 });
 
-test('targetless choices with continuation edges are meaningful even without variable changes', function () {
+test('targetless choices with continuation edges are hidden without route effects', function () {
     createRouteLabel($this->version, 'town', 1);
     createRouteLabel($this->version, 'nap', 40);
 
-    createRouteChoice($this->version, 'town', 'Look around', 10);
-    createRouteChoice($this->version, 'town', 'Sleep it off', 30);
+    createRouteChoice($this->version, 'town', 'Look around', 10, menuLine: 9);
+    createRouteChoice($this->version, 'town', 'Sleep it off', 30, menuLine: 9);
     createRouteEdge($this->version, 'town', 'nap', 'jump', 35);
 
     $graph = app(RouteGraphService::class)->computeGraph($this->version);
     $edges = collect($graph['edges']);
     $nodesById = collect($graph['nodes'])->keyBy('id');
 
-    expect($nodesById)->toHaveKey('town:choice_0')
-        ->and($nodesById['town:choice_0']['choice_text'])->toBe('Sleep it off')
-        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'town:choice_0' && $edge['target'] === 'nap'))->toBeTrue()
-        ->and($nodesById->has('town:choice_1'))->toBeFalse();
+    expect($nodesById)->not->toHaveKey('town:choice_0')
+        ->and($nodesById)->not->toHaveKey('town:choice_1')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'town' && $edge['target'] === 'nap'))->toBeTrue();
 });
 
 test('disconnected route components are not bridged into false start paths', function () {
@@ -292,6 +715,28 @@ test('menu choice block jumps are not kept as extra label level routes', functio
         ->and($edges->contains(fn (array $edge) => $edge['source'] === 'chapter:choice_1' && $edge['target'] === 'branch_b'))->toBeTrue();
 });
 
+test('menu choices targeting inline labels suppress duplicate label-level flow edges', function () {
+    createRouteLabel($this->version, 'startday6', 1);
+    createRouteLabel($this->version, 'Day6VaultVisit', 316);
+    createRouteLabel($this->version, 'day6morning', 339);
+
+    $elseCondition = 'not ((boarroute == True))';
+
+    createRouteChoice($this->version, 'startday6', 'Visit the Vault.', 316, 'Day6VaultVisit', condition: 'True', prompt: 'After tossing and turning...', menuLine: 313, enclosingCondition: $elseCondition, menuBranch: 'if:21:1', menuConditionStack: [$elseCondition], edgeType: 'label');
+    createRouteChoice($this->version, 'startday6', 'Stay in Bed.', 323, condition: 'True', prompt: 'After tossing and turning...', menuLine: 313, enclosingCondition: $elseCondition, menuBranch: 'if:21:1', menuConditionStack: [$elseCondition]);
+    createRouteEdge($this->version, 'startday6', 'day6morning', 'jump', 305, 'boarroute == True');
+    createRouteEdge($this->version, 'startday6', 'Day6VaultVisit', 'menu_choice', 316, $elseCondition);
+    createRouteEdge($this->version, 'startday6', 'Day6VaultVisit', 'flow', 316, $elseCondition);
+    createRouteEdge($this->version, 'startday6', 'day6morning', 'jump', 339, $elseCondition);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['source'] === 'startday6' && $edge['target'] === 'Day6VaultVisit'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'startday6:choice_0' && $edge['target'] === 'Day6VaultVisit' && $edge['edge_type'] === 'choice_target'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'startday6:choice_1' && $edge['target'] === 'day6morning'))->toBeTrue();
+});
+
 test('missing route targets are surfaced as unresolved nodes', function () {
     createRouteLabel($this->version, 'start');
     createRouteEdge($this->version, 'start', 'missing_label', 'jump', 10);
@@ -310,7 +755,7 @@ test('expanded labels keep earlier returns to ending labels', function () {
     createRouteLabel($this->version, 'chapter_select', 61);
 
     createRouteChoice($this->version, 'chapter', 'Play scene', 50, condition: 'routev');
-    createRouteVariableChange($this->version, 'chapter', 'menu_choice:Play scene', 'scene_seen');
+    createRouteVariableChange($this->version, 'chapter', 'menu_choice:Play scene', 'scene_seen', line: 51);
 
     createRouteEdge($this->version, 'chapter', 'chapter:ending', 'return', 20, 'routea');
     createRouteEdge($this->version, 'chapter', 'next_chapter', 'jump', 60, 'routev');
@@ -371,4 +816,63 @@ test('unconditional jumps suppress later adjacent label fallthrough edges', func
     expect($edges->contains(fn (array $edge) => $edge['target'] === 'afterchoice6' && $edge['edge_type'] === 'jump'))->toBeTrue()
         ->and($edges->contains(fn (array $edge) => $edge['target'] === 'afterchoice5'))->toBeFalse()
         ->and($node['outgoing_count'])->toBe(1);
+});
+
+test('menu choice jumps do not suppress later targetless continuation choices', function () {
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'explore', 10);
+    createRouteLabel($this->version, 'vault', 40);
+    createRouteLabel($this->version, 'after_exploring', 100);
+
+    createRouteEdge($this->version, 'start', 'explore', 'jump', 5);
+
+    createRouteChoice($this->version, 'explore', 'Explore Basement.', 20, 'vault', 'basementnotexplored');
+    createRouteEdge($this->version, 'explore', 'vault', 'menu_choice', 20, 'basementnotexplored');
+    createRouteEdge($this->version, 'explore', 'vault', 'jump', 30);
+
+    createRouteChoice($this->version, 'explore', 'Finish Exploring.', 90);
+    createRouteEdge($this->version, 'explore', 'after_exploring', 'flow', 100);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+    $nodesById = collect($graph['nodes'])->keyBy('id');
+
+    expect($nodesById)->toHaveKey('after_exploring')
+        ->and($nodesById)->toHaveKey('explore:choice_1')
+        ->and($nodesById['explore:choice_1']['choice_text'])->toBe('Finish Exploring.')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'explore:choice_1' && $edge['target'] === 'after_exploring'))->toBeTrue();
+});
+
+test('empty input retry self loops are hidden from route graph flow', function () {
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'coffeename', 10);
+    createRouteLabel($this->version, 'waitforfriends', 200);
+
+    createRouteEdge($this->version, 'start', 'coffeename', 'jump', 5);
+    createRouteEdge($this->version, 'coffeename', 'coffeename', 'jump', 7, 'coffeename == ""');
+    createRouteEdge($this->version, 'coffeename', 'waitforfriends', 'jump', 203);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges'])->where('source', 'coffeename')->values();
+
+    expect($edges)->toHaveCount(1)
+        ->and($edges[0]['target'])->toBe('waitforfriends')
+        ->and($edges[0]['condition'])->toBeNull();
+});
+
+test('literal true conditions are omitted from graph output', function () {
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'menu', 10);
+    createRouteLabel($this->version, 'next', 30);
+
+    createRouteEdge($this->version, 'start', 'menu', 'jump', 5);
+    createRouteChoice($this->version, 'menu', 'Continue', 20, 'next', 'True');
+    createRouteEdge($this->version, 'menu', 'next', 'menu_choice', 20, 'True');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $choiceNode = collect($graph['nodes'])->firstWhere('id', 'menu:choice_0');
+    $choiceEdge = collect($graph['edges'])->first(fn (array $edge) => $edge['source'] === 'menu' && $edge['target'] === 'menu:choice_0');
+
+    expect($choiceNode['condition'])->toBeNull()
+        ->and($choiceEdge['condition'])->toBeNull();
 });

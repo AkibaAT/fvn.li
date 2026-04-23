@@ -1,8 +1,9 @@
 export interface RouteNode {
     id: string;
     label: string;
-    node_type: 'label' | 'choice' | 'hub';
+    node_type: 'label' | 'choice' | 'hub' | 'condition';
     is_ending: boolean;
+    returns_to_caller?: boolean;
     is_start: boolean;
     has_menu_choice: boolean;
     file_path: string | null;
@@ -35,6 +36,8 @@ export interface VariableChange {
     operation: string;
     value: string | null;
     context: string | null;
+    condition?: string | null;
+    condition_stack?: string[];
 }
 
 export interface RouteEdge {
@@ -61,9 +64,25 @@ export interface RoutePreference {
     value: string | null;
 }
 
+export interface RouteLayoutPosition {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface RouteGraphLayout {
+    engine: string;
+    revision: number;
+    width: number;
+    height: number;
+    nodes: Record<string, RouteLayoutPosition>;
+}
+
 export interface RouteGraphData {
     includes_unreachable?: boolean;
     available_languages?: string[];
+    layout: RouteGraphLayout;
     nodes: RouteNode[];
     edges: RouteEdge[];
     variables: RouteVariable[];
@@ -101,7 +120,7 @@ export interface RouteMapPageProps {
 
 export interface DisplayNode {
     id: string;
-    type: 'choice' | 'hub' | 'label' | undefined;
+    type: 'choice' | 'hub' | 'label' | 'condition' | undefined;
     data: RouteNode & {
         label?: string;
         choice_text?: string;
@@ -109,11 +128,19 @@ export interface DisplayNode {
         var_summary?: string | null;
         menu_prompt_translations?: Record<string, string> | null;
         chain_labels?: string[];
+        edgeIds?: string[];
+        targets_unresolved_node?: boolean;
         [key: string]: unknown;
     };
     position: { x: number; y: number };
     style?: string;
     class?: string;
+    draggable?: boolean;
+    selectable?: boolean;
+    connectable?: boolean;
+    focusable?: boolean;
+    ariaLabel?: string;
+    zIndex?: number;
 }
 
 export interface DisplayEdge {
