@@ -122,7 +122,6 @@ class Upload
                 $b->getVersion(),
                 $a->getVersion()
             ),
-            // Then fall back to other criteria
             fn ($a, $b) => $b->isLinux() <=> $a->isLinux(),
             fn ($a, $b) => $b->hasLinuxFileName() <=> $a->hasLinuxFileName(),
             fn ($a, $b) => $b->isWindows() <=> $a->isWindows(),
