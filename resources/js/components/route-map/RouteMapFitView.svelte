@@ -11,7 +11,7 @@
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                void fitView({ padding: 0.12, minZoom: 0.05, maxZoom: 1 });
+                void fitView({ padding: 0.12, minZoom: 0.01, maxZoom: 1 });
             });
         });
     });
