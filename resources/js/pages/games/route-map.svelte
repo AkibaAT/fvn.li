@@ -1,14 +1,14 @@
 <script lang="ts">
     import { SvelteFlow, Background, Controls, MiniMap } from '@xyflow/svelte';
     import '@xyflow/svelte/dist/style.css';
-    import ElkConstructor, { type ELK as ElkLayoutEngine, type ElkExtendedEdge, type ElkNode } from 'elkjs/lib/elk-api.js';
-    import elkWorkerUrl from 'elkjs/lib/elk-worker.min.js?url';
     import { Link } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import BranchEdge from '@/components/route-map/BranchEdge.svelte';
     import ChoiceNode from '@/components/route-map/ChoiceNode.svelte';
+    import ConditionNode from '@/components/route-map/ConditionNode.svelte';
     import HubNode from '@/components/route-map/HubNode.svelte';
     import LabelNode from '@/components/route-map/LabelNode.svelte';
+    import RouteMapMiniMapNode from '@/components/route-map/RouteMapMiniMapNode.svelte';
     import RouteMapFitView from '@/components/route-map/RouteMapFitView.svelte';
     import type {
         DisplayEdge,
@@ -29,25 +29,14 @@
         collapsed_edges: RouteEdge[];
     };
 
-    type RouteLayout = {
+    type RouteLayoutElements = {
         nodes: DisplayNode[];
+        edges: DisplayEdge[];
     };
 
-    const nodeTypes = { choice: ChoiceNode, hub: HubNode, label: LabelNode };
+    const nodeTypes = { choice: ChoiceNode, condition: ConditionNode, hub: HubNode, label: LabelNode };
     const edgeTypes = { branch: BranchEdge };
-    const TARGET_HANDLE_ID = 'in';
-    const SOURCE_HANDLE_ID = 'out';
-    const NODE_DIMENSIONS = {
-        choiceWidth: 184,
-        choiceBaseHeight: 34,
-        choiceVariableHeight: 16,
-        hubWidth: 140,
-        hubHeight: 54,
-        labelWidth: 220,
-        labelBaseHeight: 42,
-        promptLineHeight: 14,
-    };
-    let elkPromise: Promise<ElkLayoutEngine> | null = null;
+    const ROUTE_MAP_MIN_ZOOM = 0.01;
 
     let colorMode = $state<'light' | 'dark'>(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
 
@@ -79,7 +68,9 @@
     let isLoading = $state(false);
     let searchQuery = $state('');
     let showSidebar = $state(false);
-    let includeUnreachable = $state<boolean>((() => Boolean($state.snapshot(initialIncludeUnreachable) || ($state.snapshot(initialGraph) as RouteGraphData)?.includes_unreachable))());
+    let includeUnreachable = $state<boolean>(
+        (() => Boolean($state.snapshot(initialIncludeUnreachable) || ($state.snapshot(initialGraph) as RouteGraphData)?.includes_unreachable))(),
+    );
     let navigationTarget = $state<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('target') : null);
     let routePreferences = $state<RoutePreference[]>([]);
     let preferenceVariable = $state('');
@@ -94,8 +85,6 @@
     let isCalculatingPath = $state(false);
     let saveUploadError = $state<string | null>(null);
     let pathRequestSequence = 0;
-    let layoutNodes = $state<DisplayNode[]>([]);
-    let layoutRequestSequence = 0;
     let layoutVersion = $state(0);
 
     const seenNodeStyle =
@@ -105,15 +94,14 @@
     const pathNodeStyle = 'background:var(--rm-path-bg);border:2px solid var(--rm-path-border);border-radius:6px;';
     const choiceNodeStyle =
         'background:var(--xy-node-choice-bg, #fef3c7);border:2px solid var(--xy-node-choice-border, #f59e0b);border-radius:16px;font-size:12px;';
+    const selectedNodeStyle = 'box-shadow:0 0 0 3px rgba(14, 165, 233, 0.35);border:2px solid #0ea5e9;';
+    const connectedNodeStyle = 'box-shadow:0 0 0 2px rgba(14, 165, 233, 0.18);border:2px solid rgba(14, 165, 233, 0.75);';
     const dimmedNodeStyle = 'opacity:0.15;';
     const mutedNodeStyle = 'opacity:0.2;';
     const highlightedEdgeStyle = 'stroke:var(--rm-path-border);stroke-width:3;';
+    const connectedEdgeStyle = 'stroke:#0ea5e9;stroke-width:3;';
     const dimmedEdgeStyle = 'opacity:0.15;';
     const unresolvedEdgeStyle = 'stroke:#ef4444;stroke-width:2.5;stroke-dasharray:7 5;';
-    const edgeLabelStyle =
-        'background:var(--rm-edge-label-bg);color:var(--rm-edge-label-text);border:1px solid var(--rm-edge-label-border);border-radius:4px;padding:2px 6px;font-size:11px;line-height:1.2;white-space:pre-line;text-align:left;max-width:260px;box-shadow:0 1px 3px rgba(15,23,42,0.18);';
-    const unresolvedEdgeLabelStyle =
-        'background:#fef2f2;color:#b91c1c;border:1px solid #ef4444;border-radius:4px;padding:2px 6px;font-size:11px;line-height:1.2;white-space:pre-line;text-align:left;max-width:260px;box-shadow:0 1px 3px rgba(15,23,42,0.18);font-weight:600;';
     const UNKNOWN_VALUE = Symbol('unknown-value');
 
     // Debounce utility for search input
@@ -139,10 +127,25 @@
         ending: { fill: '#ef4444', stroke: '#b91c1c' },
         start: { fill: '#16a34a', stroke: '#166534' },
     };
+    const darkMinimapNodeStyles: Record<string, { fill: string; stroke: string }> = {
+        default: { fill: '#94a3b8', stroke: '#cbd5e1' },
+        choice: { fill: '#f59e0b', stroke: '#fbbf24' },
+        muted: { fill: '#334155', stroke: '#475569' },
+        seen: { fill: '#10b981', stroke: '#6ee7b7' },
+        partiallySeen: { fill: '#34d399', stroke: '#a7f3d0' },
+        path: { fill: '#60a5fa', stroke: '#bfdbfe' },
+        ending: { fill: '#f87171', stroke: '#fecaca' },
+        start: { fill: '#4ade80', stroke: '#bbf7d0' },
+    };
+
+    function isPathConditionNode(node: any): boolean {
+        const edgeIds = node.data?.edgeIds;
+        return Array.isArray(edgeIds) && edgeIds.some((edgeId: string) => displayPathEdgeIds.has(edgeId));
+    }
 
     function getMiniMapNodeCategory(node: any): string {
         if (navigationTarget && displayPathNodeIds.size > 0) {
-            return displayPathNodeIds.has(node.id) ? 'path' : 'muted';
+            return displayPathNodeIds.has(node.id) || isPathConditionNode(node) ? 'path' : 'muted';
         }
 
         if (filteredNodeIds && !filteredNodeIds.has(node.id)) {
@@ -173,11 +176,20 @@
     }
 
     function getMiniMapNodeColor(node: any): string {
-        return minimapNodeStyles[getMiniMapNodeCategory(node)]!.fill;
+        const styles = colorMode === 'dark' ? darkMinimapNodeStyles : minimapNodeStyles;
+
+        return styles[getMiniMapNodeCategory(node)]!.fill;
     }
 
     function getMiniMapNodeStrokeColor(node: any): string {
-        return minimapNodeStyles[getMiniMapNodeCategory(node)]!.stroke;
+        const styles = colorMode === 'dark' ? darkMinimapNodeStyles : minimapNodeStyles;
+
+        return styles[getMiniMapNodeCategory(node)]!.stroke;
+    }
+
+    function appendStyle(base: any, extra: string): string {
+        const baseStyle = typeof base === 'string' ? base.trim() : '';
+        return baseStyle ? `${baseStyle};${extra}` : extra;
     }
 
     type ResolvedValue = string | number | boolean | null;
@@ -217,135 +229,6 @@
 
     function getSeenNodeStyle(node: any) {
         return isFullySeenNode(node) ? seenNodeStyle : partiallySeenNodeStyle;
-    }
-
-    function getElkPortId(nodeId: string, handleId: string): string {
-        return `${nodeId}:${handleId}`;
-    }
-
-    function estimateNodeSize(node: DisplayNode): { width: number; height: number } {
-        const isChoice = node.data?.node_type === 'choice';
-        const varSummary = node.data?.var_summary ?? '';
-        const prompt = node.data?.menu_prompt ?? '';
-
-        if (isChoice) {
-            return {
-                width: NODE_DIMENSIONS.choiceWidth,
-                height: NODE_DIMENSIONS.choiceBaseHeight + (varSummary ? NODE_DIMENSIONS.choiceVariableHeight : 0),
-            };
-        }
-
-        if (node.data?.node_type === 'hub') {
-            return {
-                width: NODE_DIMENSIONS.hubWidth,
-                height: NODE_DIMENSIONS.hubHeight,
-            };
-        }
-
-        if (prompt) {
-            const estimatedLines = Math.ceil(prompt.length / 30);
-            return {
-                width: NODE_DIMENSIONS.labelWidth,
-                height: NODE_DIMENSIONS.labelBaseHeight + estimatedLines * NODE_DIMENSIONS.promptLineHeight,
-            };
-        }
-
-        return {
-            width: NODE_DIMENSIONS.labelWidth,
-            height: NODE_DIMENSIONS.labelBaseHeight,
-        };
-    }
-
-    async function getElk(): Promise<ElkLayoutEngine> {
-        elkPromise ??= import.meta.env.DEV
-            ? import('elkjs/lib/elk.bundled.js').then((module) => new module.default())
-            : Promise.resolve(new ElkConstructor({ workerUrl: elkWorkerUrl }));
-
-        return elkPromise;
-    }
-
-    async function computeLayout(nodes: DisplayNode[], edges: DisplayEdge[]): Promise<RouteLayout> {
-        const nodeIds = new Set(nodes.map((node) => node.id));
-        const layoutEdges = edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
-
-        const graph: ElkNode = {
-            id: 'route-map',
-            layoutOptions: {
-                'elk.algorithm': 'layered',
-                'elk.direction': 'DOWN',
-                'elk.edgeRouting': 'SPLINES',
-                'elk.layered.edgeRouting.splines.mode': 'CONSERVATIVE',
-                'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-                'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-                'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-                'elk.layered.spacing.edgeEdgeBetweenLayers': '36',
-                'elk.layered.spacing.edgeNodeBetweenLayers': '42',
-                'elk.spacing.nodeNode': '72',
-                'elk.spacing.edgeEdge': '26',
-                'elk.spacing.edgeNode': '38',
-                'elk.spacing.componentComponent': '90',
-                'elk.padding': '[top=40,left=40,bottom=40,right=40]',
-                'elk.separateConnectedComponents': 'true',
-            },
-            children: nodes.map((node) => {
-                const size = estimateNodeSize(node);
-
-                return {
-                    id: node.id,
-                    ...size,
-                    layoutOptions: {
-                        'elk.portConstraints': 'FIXED_POS',
-                    },
-                    ports: [
-                        {
-                            id: getElkPortId(node.id, TARGET_HANDLE_ID),
-                            width: 1,
-                            height: 1,
-                            x: size.width / 2,
-                            y: 0,
-                            layoutOptions: {
-                                'elk.port.side': 'NORTH',
-                            },
-                        },
-                        {
-                            id: getElkPortId(node.id, SOURCE_HANDLE_ID),
-                            width: 1,
-                            height: 1,
-                            x: size.width / 2,
-                            y: size.height,
-                            layoutOptions: {
-                                'elk.port.side': 'SOUTH',
-                            },
-                        },
-                    ],
-                };
-            }),
-            edges: layoutEdges.map((edge) => ({
-                id: edge.id,
-                source: edge.source,
-                sourcePort: getElkPortId(edge.source, SOURCE_HANDLE_ID),
-                target: edge.target,
-                targetPort: getElkPortId(edge.target, TARGET_HANDLE_ID),
-            })) as unknown as ElkExtendedEdge[],
-        };
-
-        const layout = await (await getElk()).layout(graph);
-        const positionedNodes = new Map((layout.children ?? []).map((node) => [node.id, node]));
-
-        return {
-            nodes: nodes.map((node) => {
-                const position = positionedNodes.get(node.id);
-                if (!position) return node;
-
-                return {
-                    ...node,
-                    position: {
-                        x: position.x ?? 0,
-                        y: position.y ?? 0,
-                    },
-                };
-            }),
-        };
     }
 
     function decodeQuotedString(raw: string): string {
@@ -491,6 +374,94 @@
         return lanes;
     }
 
+    function getConditionNodeId(edge: DisplayEdge, label: string): string {
+        return `condition:${encodeURIComponent(edge.source)}:${encodeURIComponent(label)}`;
+    }
+
+    function getLayoutPosition(nodeId: string): { x: number; y: number } {
+        const position = routeGraph?.layout?.nodes?.[nodeId];
+
+        if (!position) {
+            throw new Error(`Route map node [${nodeId}] has no stored layout position.`);
+        }
+
+        return { x: position.x, y: position.y };
+    }
+
+    function createConditionNode(edge: DisplayEdge, label: string): DisplayNode {
+        const id = getConditionNodeId(edge, label);
+
+        return {
+            id,
+            type: 'condition',
+            data: {
+                id,
+                label,
+                node_type: 'condition',
+                is_ending: false,
+                is_start: false,
+                has_menu_choice: false,
+                file_path: edge.data.file_path ?? null,
+                line_number: edge.data.line_number ?? 0,
+                outgoing_count: 1,
+                word_count: 0,
+                choices: [],
+                variable_changes: [],
+                edgeIds: edge.data.edgeIds,
+                targets_unresolved_node: edge.data.targets_unresolved_node,
+            },
+            position: getLayoutPosition(id),
+            selectable: false,
+            connectable: false,
+            focusable: false,
+            ariaLabel: `Route condition: ${label}`,
+            zIndex: 2,
+        };
+    }
+
+    function createSplitEdge(edge: DisplayEdge, idSuffix: string, source: string, target: string): DisplayEdge {
+        return {
+            ...edge,
+            id: `${edge.id}:${idSuffix}`,
+            source,
+            target,
+            label: undefined,
+            labelStyle: undefined,
+            zIndex: 0,
+        };
+    }
+
+    function buildRouteLayoutElements(nodes: DisplayNode[], edges: DisplayEdge[]): RouteLayoutElements {
+        const layoutNodes = [...nodes];
+        const layoutEdges: DisplayEdge[] = [];
+        const conditionNodes = new SvelteMap<string, DisplayNode>();
+
+        for (const edge of edges) {
+            const label = edge.label?.trim();
+
+            if (!label) {
+                layoutEdges.push(edge);
+                continue;
+            }
+
+            const conditionNodeId = getConditionNodeId(edge, label);
+            let conditionNode = conditionNodes.get(conditionNodeId);
+            if (!conditionNode) {
+                conditionNode = createConditionNode(edge, label);
+                conditionNodes.set(conditionNodeId, conditionNode);
+                layoutNodes.push(conditionNode);
+                layoutEdges.push(createSplitEdge(edge, 'condition-in', edge.source, conditionNode.id));
+            } else {
+                conditionNode.data.edgeIds = [...(conditionNode.data.edgeIds ?? []), ...edge.data.edgeIds];
+                conditionNode.data.targets_unresolved_node = Boolean(conditionNode.data.targets_unresolved_node || edge.data.targets_unresolved_node);
+            }
+
+            layoutEdges.push(createSplitEdge(edge, 'condition-out', conditionNode.id, edge.target));
+        }
+
+        return { nodes: layoutNodes, edges: layoutEdges };
+    }
+
     let currentEdges = $derived.by(() => {
         if (!routeGraph?.has_graph_data) return [];
 
@@ -529,7 +500,6 @@
                 type: 'branch',
                 animated: edge.edge_type === 'menu_choice',
                 label,
-                labelStyle: label ? (targetsUnresolvedNode ? unresolvedEdgeLabelStyle : edgeLabelStyle) : undefined,
                 interactionWidth: 20,
                 zIndex: label ? 1 : 0,
                 style: targetsUnresolvedNode ? unresolvedEdgeStyle : undefined,
@@ -537,8 +507,6 @@
             };
         });
     });
-
-    let activeEdges = $derived.by((): DisplayEdge[] => baseActiveEdges);
 
     function tr(text: string | null | undefined, translations: Record<string, string> | null | undefined): string {
         if (!selectedLanguage || !translations) return text ?? '';
@@ -572,7 +540,15 @@
     let layoutInputNodes = $derived.by((): DisplayNode[] => {
         return currentNodes.map((node: RouteNode) => {
             const nodeType: DisplayNode['type'] =
-                node.node_type === 'choice' ? 'choice' : node.node_type === 'hub' ? 'hub' : node.menu_prompt ? 'label' : undefined;
+                node.node_type === 'choice'
+                    ? 'choice'
+                    : node.node_type === 'condition'
+                      ? 'condition'
+                      : node.node_type === 'hub'
+                        ? 'hub'
+                        : node.node_type === 'label' && (node.menu_prompt || node.returns_to_caller || node.is_unresolved)
+                          ? 'label'
+                          : undefined;
             return {
                 id: node.id,
                 type: nodeType,
@@ -580,41 +556,41 @@
                     ...node,
                     label: node.label,
                 },
-                position: { x: 0, y: 0 },
+                position: getLayoutPosition(node.id),
                 style: node.node_type === 'choice' ? choiceNodeStyle : undefined,
             };
         });
     });
 
-    $effect(() => {
-        const nodes = layoutInputNodes;
-        const edges = baseActiveEdges;
-        const requestId = ++layoutRequestSequence;
+    let layoutElements = $derived.by((): RouteLayoutElements => buildRouteLayoutElements(layoutInputNodes, baseActiveEdges));
+    let activeEdges = $derived.by((): DisplayEdge[] => layoutElements.edges);
+    let activeNodes = $derived.by((): DisplayNode[] => layoutElements.nodes);
 
-        layoutNodes = nodes;
+    let selectedConnection = $derived.by(() => {
+        const edgeIds = new SvelteSet<string>();
+        const nodeIds = new SvelteSet<string>();
 
-        if (nodes.length === 0) return;
+        if (!selectedNodeId) {
+            return { edgeIds, nodeIds };
+        }
 
-        computeLayout(nodes, edges)
-            .then((layout) => {
-                if (requestId !== layoutRequestSequence) return;
+        nodeIds.add(selectedNodeId);
 
-                layoutNodes = layout.nodes;
-                layoutVersion += 1;
-            })
-            .catch((error) => {
-                if (requestId !== layoutRequestSequence) return;
-                console.error('Route map layout failed:', error);
-                layoutNodes = nodes;
-                layoutVersion += 1;
-            });
-    });
+        for (const edge of activeEdges) {
+            const originalSource = (edge.data?.source as string | undefined) ?? edge.source;
+            const originalTarget = (edge.data?.target as string | undefined) ?? edge.target;
+            const isConnected = originalSource === selectedNodeId || originalTarget === selectedNodeId;
 
-    let activeNodes = $derived.by((): DisplayNode[] => {
-        if (layoutNodes.length !== layoutInputNodes.length) return layoutInputNodes;
+            if (!isConnected) continue;
 
-        const inputNodeIds = new Set(layoutInputNodes.map((node) => node.id));
-        return layoutNodes.every((node) => inputNodeIds.has(node.id)) ? layoutNodes : layoutInputNodes;
+            edgeIds.add(edge.id);
+            nodeIds.add(edge.source);
+            nodeIds.add(edge.target);
+            nodeIds.add(originalSource);
+            nodeIds.add(originalTarget);
+        }
+
+        return { edgeIds, nodeIds };
     });
 
     // Pre-index nodes by id for O(1) lookup (rebuilt when graph changes)
@@ -767,6 +743,7 @@
             );
 
             routeGraph = res.data;
+            layoutVersion += 1;
             if (Array.isArray(res.data.available_languages)) {
                 visibleLanguages = res.data.available_languages;
                 if (selectedLanguage && !visibleLanguages.includes(selectedLanguage)) {
@@ -856,7 +833,7 @@
     let displayNodes = $derived.by(() => {
         if (navigationTarget && displayPathNodeIds.size > 0) {
             return activeNodes.map((node: DisplayNode) => {
-                if (displayPathNodeIds.has(node.id)) {
+                if (displayPathNodeIds.has(node.id) || isPathConditionNode(node)) {
                     return {
                         ...node,
                         style: pathNodeStyle,
@@ -897,6 +874,29 @@
             }));
         }
 
+        if (selectedNodeId) {
+            return activeNodes.map((node: DisplayNode) => {
+                if (node.id === selectedNodeId) {
+                    return {
+                        ...node,
+                        style: appendStyle(node.style, selectedNodeStyle),
+                    };
+                }
+
+                if (selectedConnection.nodeIds.has(node.id)) {
+                    return {
+                        ...node,
+                        style: appendStyle(node.style, connectedNodeStyle),
+                    };
+                }
+
+                return {
+                    ...node,
+                    style: appendStyle(node.style, dimmedNodeStyle),
+                };
+            });
+        }
+
         if (seenNodeIds.size > 0) {
             return activeNodes.map((node: DisplayNode) => {
                 if (isSeenNode(node)) {
@@ -913,21 +913,41 @@
     });
 
     let displayEdges = $derived.by(() => {
-        if (!navigationTarget || displayPathEdgeIds.size === 0) return activeEdges;
-
-        return activeEdges.map((edge: DisplayEdge) => {
-            if (edge.data.edgeIds.some((edgeId) => displayPathEdgeIds.has(edgeId))) {
+        if (navigationTarget && displayPathEdgeIds.size > 0) {
+            return activeEdges.map((edge: DisplayEdge) => {
+                if (edge.data.edgeIds.some((edgeId) => displayPathEdgeIds.has(edgeId))) {
+                    return {
+                        ...edge,
+                        style: edge.data.targets_unresolved_node ? `${highlightedEdgeStyle}${unresolvedEdgeStyle}` : highlightedEdgeStyle,
+                        animated: true,
+                    };
+                }
                 return {
                     ...edge,
-                    style: edge.data.targets_unresolved_node ? `${highlightedEdgeStyle}${unresolvedEdgeStyle}` : highlightedEdgeStyle,
-                    animated: true,
+                    style: edge.data.targets_unresolved_node ? `${dimmedEdgeStyle}${unresolvedEdgeStyle}` : dimmedEdgeStyle,
                 };
-            }
-            return {
-                ...edge,
-                style: edge.data.targets_unresolved_node ? `${dimmedEdgeStyle}${unresolvedEdgeStyle}` : dimmedEdgeStyle,
-            };
-        });
+            });
+        }
+
+        if (selectedNodeId && selectedConnection.edgeIds.size > 0) {
+            return activeEdges.map((edge: DisplayEdge) => {
+                if (selectedConnection.edgeIds.has(edge.id)) {
+                    return {
+                        ...edge,
+                        style: edge.data.targets_unresolved_node ? `${connectedEdgeStyle}${unresolvedEdgeStyle}` : connectedEdgeStyle,
+                        animated: true,
+                        zIndex: 3,
+                    };
+                }
+
+                return {
+                    ...edge,
+                    style: edge.data.targets_unresolved_node ? `${dimmedEdgeStyle}${unresolvedEdgeStyle}` : dimmedEdgeStyle,
+                };
+            });
+        }
+
+        return activeEdges;
     });
 </script>
 
@@ -1101,9 +1121,11 @@
                     {edgeTypes}
                     {colorMode}
                     fitView
-                    fitViewOptions={{ padding: 0.12, minZoom: 0.05, maxZoom: 1 }}
-                    minZoom={0.05}
+                    fitViewOptions={{ padding: 0.12, minZoom: ROUTE_MAP_MIN_ZOOM, maxZoom: 1 }}
+                    minZoom={ROUTE_MAP_MIN_ZOOM}
                     onnodeclick={(event: any) => {
+                        if (event.node?.data?.node_type === 'condition') return;
+
                         selectedNodeId = event.node?.id ?? null;
                         showSidebar = true;
                     }}
@@ -1116,14 +1138,14 @@
                         class="route-map-minimap"
                         width={260}
                         height={180}
-                        bgColor="#f8fafc"
-                        maskColor="rgba(15, 23, 42, 0.08)"
-                        maskStrokeColor="#2563eb"
+                        bgColor={colorMode === 'dark' ? '#0f172a' : '#f8fafc'}
+                        maskColor={colorMode === 'dark' ? 'rgba(15, 23, 42, 0.48)' : 'rgba(15, 23, 42, 0.08)'}
+                        maskStrokeColor={colorMode === 'dark' ? '#93c5fd' : '#2563eb'}
                         maskStrokeWidth={2}
                         nodeColor={getMiniMapNodeColor}
                         nodeStrokeColor={getMiniMapNodeStrokeColor}
-                        nodeStrokeWidth={3}
-                        nodeBorderRadius={3}
+                        nodeStrokeWidth={1.75}
+                        nodeComponent={RouteMapMiniMapNode}
                         pannable
                         zoomable
                         ariaLabel="Route map overview"
@@ -1404,6 +1426,14 @@
                                     </span>
                                 {/if}
 
+                                {#if selectedNodeData.returns_to_caller}
+                                    <span
+                                        class="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+                                    >
+                                        returns to caller
+                                    </span>
+                                {/if}
+
                                 {#if seenNodeIds.has(selectedNodeData.id)}
                                     <span
                                         class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
@@ -1464,6 +1494,10 @@
                                             <span class="font-mono">{vc.variable}</span>
                                             <span class="text-gray-400">{vc.operation}</span>
                                             <span class="font-mono">{vc.value}</span>
+                                            {#if vc.condition}
+                                                <span class="text-gray-400">if</span>
+                                                <span class="font-mono text-blue-600 dark:text-blue-400">{vc.condition}</span>
+                                            {/if}
                                         </div>
                                     {/each}
                                 </div>

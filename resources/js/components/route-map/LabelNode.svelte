@@ -4,9 +4,12 @@
     let { data }: { data: any } = $props();
 </script>
 
-<div class:unresolved={data.is_unresolved} class="label-node">
+<div class:returns-to-caller={data.returns_to_caller} class:unresolved={data.is_unresolved} class="label-node">
     <Handle type="target" position={Position.Top} />
     <div class="label-name">{data.label}</div>
+    {#if data.returns_to_caller}
+        <div class="return-label">returns</div>
+    {/if}
     {#if data.is_unresolved}
         <div class="unresolved-label">missing target</div>
     {/if}
@@ -40,8 +43,28 @@
         background: #fef2f2;
     }
 
+    .returns-to-caller {
+        border-color: #0ea5e9;
+        background: #f0f9ff;
+    }
+
     :global(.dark) .unresolved {
         background: rgba(127, 29, 29, 0.45);
+    }
+
+    :global(.dark) .returns-to-caller {
+        background: rgba(12, 74, 110, 0.45);
+    }
+
+    .return-label {
+        color: #0369a1;
+        font-size: 10px;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+
+    :global(.dark) .return-label {
+        color: #7dd3fc;
     }
 
     .unresolved-label {
