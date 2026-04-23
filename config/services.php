@@ -94,4 +94,8 @@ return [
         'enabled' => env('FLARESOLVERR_ENABLED', true),
     ],
 
+    'route_graph_layout' => [
+        'timeout' => env('ROUTE_GRAPH_LAYOUT_TIMEOUT', 300),
+    ],
+
 ];

@@ -1,0 +1,6 @@
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pipx \
+    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install unrpa \
+    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install rpycdec \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
