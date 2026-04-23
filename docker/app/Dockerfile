@@ -13,11 +13,13 @@ RUN apt-get update \
         curl \
         ffmpeg \
         gpg \
+        graphviz \
         imagemagick \
         libgl1 \
         libsodium-dev \
         nano \
         ncdu \
+        pipx \
         postgresql-client \
         procps \
         redis-tools \
@@ -25,6 +27,8 @@ RUN apt-get update \
         unzip \
         wget \
         git \
+    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install unrpa \
+    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install rpycdec \
     && (curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash) \
     && (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null) \
     && (echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list) \
