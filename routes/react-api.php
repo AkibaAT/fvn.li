@@ -182,10 +182,6 @@ Route::middleware(['web'])->group(function () {
         Route::delete('push-subscriptions',
             [PushSubscriptionController::class, 'destroy'])->name('react-api.push-subscriptions.destroy');
 
-        // Notifications (persistent)
-        Route::get('notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('react-api.notifications.index');
-        Route::post('notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('react-api.notifications.read');
-
         // User Reviews
         Route::get('user-reviews/{game}', [UserReviewController::class, 'show'])
             ->whereNumber('game')->name('react-api.user-reviews.show');

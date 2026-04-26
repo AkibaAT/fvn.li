@@ -180,6 +180,7 @@ return [
             '/telescope/.*', // Laravel Telescope requests
             '/_tt/.*', // Laravel Telescope toolbar
             '/_debugbar/.*', // Laravel DebugBar requests
+            '/_boost/.*', // Laravel Boost browser log requests
         ],
 
         // List of URIs that should be collected, any other URI will not be collected if not empty

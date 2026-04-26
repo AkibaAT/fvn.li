@@ -175,7 +175,7 @@
                 {safeStats.first_rating
                     ? new Date(safeStats.first_rating).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
                     : '\u2014'}
-                \u2013
+                -
                 {safeStats.latest_rating
                     ? new Date(safeStats.latest_rating).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
                     : '\u2014'}

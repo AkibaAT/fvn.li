@@ -7,6 +7,7 @@ namespace App\Observers;
 use App\Models\Game;
 use App\Services\GameFilterService;
 use App\Services\HomePageCacheService;
+use App\Services\RatingStatsCacheService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -110,6 +111,7 @@ class GameObserver
 
             // Clear home page cache when visibility changes
             HomePageCacheService::clearAll();
+            RatingStatsCacheService::clear();
             $this->bumpRecommendationCacheVersion();
         }
 

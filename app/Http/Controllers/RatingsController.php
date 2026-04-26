@@ -9,6 +9,7 @@ use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
 use App\Services\HtmlSanitizerService;
+use App\Services\RatingStatsCacheService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -62,17 +63,16 @@ class RatingsController extends Controller
                 ->where('raters.external_platform', $platform);
         }
 
-        // Count strategy: when filtering by a specific star rating, use cached COUNT with partial index support.
-        // Otherwise, separate COUNT remains fine.
-        if ($stars !== null) {
-            $cacheKey = sprintf('ratings_count_vis:%d_rev:%d_star:%d_listed:%d_plat:%s', 1, (int) $showOnlyReviews,
-                (int) $stars, (int) $showOnlyVisibleGames, $platform ?? 'all');
-            $total = cache()->remember($cacheKey, now()->addMinutes(5), function () use ($countQuery) {
-                return (int) ($countQuery->selectRaw('COUNT(*) as aggregate')->value('aggregate') ?? 0);
-            });
-        } else {
-            $total = (int) ($countQuery->selectRaw('COUNT(*) as aggregate')->value('aggregate') ?? 0);
-        }
+        $countCacheKey = RatingStatsCacheService::key(sprintf(
+            'ratings.count:rev:%d:star:%s:listed:%d:platform:%s',
+            (int) $showOnlyReviews,
+            $stars ?? 'all',
+            (int) $showOnlyVisibleGames,
+            $platform ?? 'all'
+        ));
+        $total = cache()->remember($countCacheKey, now()->addHour(), function () use ($countQuery) {
+            return (int) ($countQuery->selectRaw('COUNT(*) as aggregate')->value('aggregate') ?? 0);
+        });
 
         // Data query: includes joins needed for rendering
         $rows = (clone $ratingsFilter)
@@ -135,9 +135,9 @@ class RatingsController extends Controller
         ];
 
         $statsProp = $isPartialForThisPage
-            ? fn () => cache()->remember('global_rating_stats', now()->addMinutes(5),
+            ? fn () => cache()->rememberForever(RatingStatsCacheService::key('ratings.global_stats'),
                 fn () => $this->getGlobalRatingStats())
-            : cache()->remember('global_rating_stats', now()->addMinutes(5), fn () => $this->getGlobalRatingStats());
+            : cache()->rememberForever(RatingStatsCacheService::key('ratings.global_stats'), fn () => $this->getGlobalRatingStats());
 
         return Inertia::render('ratings/index', [
             'pageTitle' => 'Ratings',

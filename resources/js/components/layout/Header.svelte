@@ -4,7 +4,6 @@
     import Navigation from '@/components/layout/Navigation.svelte';
     import SearchBar from '@/components/layout/SearchBar.svelte';
     import MobileSearch from '@/components/layout/MobileSearch.svelte';
-    import NotificationsDropdown from '@/components/layout/NotificationsDropdown.svelte';
     import UserMenu from '@/components/layout/UserMenu.svelte';
     import AppearanceDropdown from '@/components/AppearanceDropdown.svelte';
 
@@ -58,7 +57,6 @@
 
             <!-- User Menu -->
             <div class="flex items-center space-x-3">
-                <NotificationsDropdown />
                 <UserMenu />
                 <AppearanceDropdown />
             </div>

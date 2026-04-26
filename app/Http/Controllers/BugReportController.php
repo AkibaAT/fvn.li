@@ -102,15 +102,6 @@ class BugReportController extends Controller
         // Mark admin replies as read
         $bugReport->markAdminRepliesAsRead();
 
-        // Also mark any related Laravel notifications as read
-        $user = User::find($authId);
-        if ($user) {
-            $user->unreadNotifications()
-                ->where('type', 'App\\Notifications\\BugReportAdminReplyNotification')
-                ->where('data', 'like', '%"bug_report_id":' . $bugReport->id . '%')
-                ->update(['read_at' => now()]);
-        }
-
         $comments = $bugReport->comments()
             ->with('user:id,name')
             ->get()

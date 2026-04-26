@@ -124,11 +124,6 @@ export interface PageProps {
         description: string;
         image?: string;
     };
-    indicators?: {
-        pending_invites: number;
-        unread_notifications: number;
-    };
-
     [key: string]: unknown;
 }
 

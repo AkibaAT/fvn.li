@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Games;
 
 use App\Http\Controllers\Controller;
-use App\Models\Character;
 use App\Models\ClickStat;
 use App\Models\Game;
-use App\Models\User;
+use App\Models\GameVersion;
 use App\Models\VnList;
 use App\Services\HtmlSanitizerService;
 use App\Services\SimilarGamesService;
@@ -31,8 +30,6 @@ class GamesDisplayController extends Controller
     public function show(Game $game): Response
     {
         $game->load([
-            'latestVersion.supportedLanguages.language',
-            'latestVersion.languageStats.language',
             'tags',
             'gameJams',
         ]);
@@ -64,41 +61,16 @@ class GamesDisplayController extends Controller
             ->orderBy('published_at', 'desc')
             ->paginate(5, ['*'], 'versionsPage');
 
-        $gameVersions->getCollection()->transform(function ($version) {
-            $version->supportedLanguages = $version->supportedLanguages
-                ->filter(fn ($sl) => $sl->is_available
-                    && $sl->language !== null
-                    && ! str_starts_with($sl->iso_code, 'q'))
-                ->map(fn ($sl) => [
-                    'iso_code' => $sl->iso_code,
-                    'language' => [
-                        'id' => $sl->language->id,
-                        'iso_code' => $sl->language->id,
-                        'ref_name' => $sl->language->ref_name,
-                        'flag_code' => $sl->language->flag_code,
-                    ],
-                    'is_available' => $sl->is_available,
-                ])
-                ->values();
-
-            // Transform languageStats to include language data
-            // Filter out placeholder 'q' codes and null language relationships
-            $version->languageStats = $version->languageStats
-                ->filter(fn ($ls) => $ls->language !== null
-                    && ! str_starts_with($ls->iso_code, 'q'))
-                ->map(fn ($ls) => [
-                    'words' => $ls->words,
-                    'language' => [
-                        'id' => $ls->language->id,
-                        'iso_code' => $ls->language->id,
-                        'ref_name' => $ls->language->ref_name,
-                        'flag_code' => $ls->language->flag_code,
-                    ],
-                ])
-                ->values();
-
-            return $version;
-        });
+        $latestVersion = $gameVersions->getCollection()->firstWhere('is_latest', true);
+        if ($latestVersion) {
+            $game->setRelation('latestVersion', $latestVersion);
+        } else {
+            $game->load([
+                'latestVersion.supportedLanguages.language',
+                'latestVersion.languageStats.language',
+            ]);
+            $latestVersion = $game->latestVersion;
+        }
 
         // Get English word count from latest version for game detail section
         $englishStats = null;
@@ -178,22 +150,8 @@ class GamesDisplayController extends Controller
         }
 
         // Get user's current VN lists to show list membership status
-        $userVnLists = [];
-        $gameListMembership = [];
         $userProgress = null;
         if (Auth::check()) {
-            $userVnLists = VnList::where('user_id', Auth::id())
-                ->where('type', 'custom')
-                ->orderBy('name')
-                ->get(['id', 'name', 'description', 'is_public']);
-
-            // Check which lists this game is already in
-            $gameListMembership = DB::table('vn_list_entries')
-                ->where('game_id', $game->id)
-                ->whereIn('vn_list_id', $userVnLists->pluck('id'))
-                ->pluck('vn_list_id')
-                ->toArray();
-
             // Load user progress for this game
             $userProgress = DB::table('user_game_progress')
                 ->where('user_id', Auth::id())
@@ -203,36 +161,13 @@ class GamesDisplayController extends Controller
 
             // Attach user data to game object (wrap in array to match Eloquent relationship format)
             $game->user_progress = $userProgress ? [$userProgress] : [];
-
-            // Also load list memberships in the format expected by the frontend
-            $userListMemberships = DB::table('vn_list_entries')
-                ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
-                ->where('vn_lists.user_id', Auth::id())
-                ->where('vn_list_entries.game_id', $game->id)
-                ->select('vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
-                ->get()
-                ->toArray();
-
-            $game->user_list_memberships = $userListMemberships;
         }
 
         // Prepare social meta tags
         $this->prepareSocialMetaTags($game, $reviews, $englishStats);
 
-        // Track page view
-        ClickStat::recordClick(
-            gameId: $game->id,
-            type: ClickStat::TYPE_PAGE_VIEW,
-            sessionId: session()->getId(),
-            userId: Auth::id(),
-            ipAddress: request()->ip(),
-            userAgent: request()->userAgent(),
-            referrer: request()->header('referer')
-        );
-
         // Calculate character counts for each version (for dialogue browser links)
         // Optimized: Use batch query instead of N+1
-        $latestVersion = $game->latestVersion;
         $versionCharacterCounts = [];
 
         // Collect all version IDs to query
@@ -269,62 +204,32 @@ class GamesDisplayController extends Controller
             $versionCharacterCounts = $characterCounts;
         }
 
-        // Check if file stats exist for each version (to show/hide file stats button)
-        // Optimized: Use batch query instead of N+1
         $versionHasFileStats = [];
-        if (! empty($versionIds)) {
-            $versionsWithFileStats = DB::table('version_file_categories')
-                ->whereIn('game_version_id', $versionIds)
-                ->distinct()
-                ->pluck('game_version_id')
-                ->toArray();
-
-            foreach ($versionIds as $versionId) {
-                $versionHasFileStats[$versionId] = in_array($versionId, $versionsWithFileStats);
-            }
-        }
-
-        // Check if dialogue lines exist for each version (to show/hide browse dialogue button)
-        // Optimized: Use batch query instead of N+1
         $versionHasDialogueLines = [];
-        if (! empty($versionIds)) {
-            $versionsWithDialogueLines = DB::table('version_dialogue_lines')
-                ->whereIn('game_version_id', $versionIds)
-                ->distinct()
-                ->pluck('game_version_id')
-                ->toArray();
-
-            foreach ($versionIds as $versionId) {
-                $versionHasDialogueLines[$versionId] = in_array($versionId, $versionsWithDialogueLines);
-            }
-        }
-
-        // Check if route data exists for each version (to show/hide route map links)
-        // A route map can be built either from cached graph data or raw route labels.
         $versionHasRouteData = [];
         if (! empty($versionIds)) {
-            $versionsWithCachedRouteGraphs = DB::table('game_versions')
+            $versionCapabilities = DB::table('game_versions')
                 ->whereIn('id', $versionIds)
-                ->whereNotNull('route_graph_data')
-                ->pluck('id')
-                ->toArray();
+                ->select('id')
+                ->selectRaw('EXISTS (SELECT 1 FROM version_file_categories WHERE version_file_categories.game_version_id = game_versions.id) as has_file_stats')
+                ->selectRaw('EXISTS (SELECT 1 FROM version_dialogue_lines WHERE version_dialogue_lines.game_version_id = game_versions.id) as has_dialogue_lines')
+                ->selectRaw('(
+                    game_versions.route_graph_data IS NOT NULL
+                    OR EXISTS (SELECT 1 FROM version_route_labels WHERE version_route_labels.game_version_id = game_versions.id)
+                ) as has_route_data')
+                ->get();
 
-            $versionsWithRouteLabels = DB::table('version_route_labels')
-                ->whereIn('game_version_id', $versionIds)
-                ->distinct()
-                ->pluck('game_version_id')
-                ->toArray();
-
-            $routeDataVersionIds = array_flip(array_merge($versionsWithCachedRouteGraphs, $versionsWithRouteLabels));
-            foreach ($versionIds as $versionId) {
-                $versionHasRouteData[$versionId] = isset($routeDataVersionIds[$versionId]);
+            foreach ($versionCapabilities as $version) {
+                $versionHasFileStats[$version->id] = (bool) $version->has_file_stats;
+                $versionHasDialogueLines[$version->id] = (bool) $version->has_dialogue_lines;
+                $versionHasRouteData[$version->id] = (bool) $version->has_route_data;
             }
         }
 
         // Determine edit permissions
         $user = Auth::user();
-        $isOwner = $user && $user->ownsGame($game);
         $isAdmin = $user && $user->is_admin;
+        $isOwner = $user && ! $isAdmin && $user->ownsGame($game);
         $canEdit = $isOwner || $isAdmin;
 
         // Get analytics data if user can see it
@@ -431,15 +336,45 @@ class GamesDisplayController extends Controller
                 $query->where('game_id', $game->id);
             });
 
-        $publicListsCount = $publicListsQuery->count();
-
         $publicLists = (clone $publicListsQuery)
+            ->select('vn_lists.*')
+            ->selectRaw('COUNT(*) OVER() as total_count')
             ->withCount('entries')
             ->with(['user:id,name,avatar'])
             ->orderByDesc('entries_count')
             ->limit(9)
-            ->get()
+            ->get();
+
+        $publicListsCount = (int) ($publicLists->first()?->total_count ?? 0);
+
+        $publicLists = $publicLists
             ->map(fn ($list) => $list->only(['id', 'user_id', 'name', 'description', 'type', 'created_at', 'entries_count', 'user']));
+
+        $supportedLanguages = $latestVersion
+            ? $this->formatSupportedLanguages($latestVersion)
+            : collect();
+
+        $gameVersions->getCollection()->transform(function ($version) {
+            $version->supportedLanguages = $this->formatSupportedLanguages($version);
+
+            // Transform languageStats to include language data
+            // Filter out placeholder 'q' codes and null language relationships
+            $version->languageStats = $version->languageStats
+                ->filter(fn ($ls) => $ls->language !== null
+                    && ! str_starts_with($ls->iso_code, 'q'))
+                ->map(fn ($ls) => [
+                    'words' => $ls->words,
+                    'language' => [
+                        'id' => $ls->language->id,
+                        'iso_code' => $ls->language->id,
+                        'ref_name' => $ls->language->ref_name,
+                        'flag_code' => $ls->language->flag_code,
+                    ],
+                ])
+                ->values();
+
+            return $version;
+        });
 
         $sanitizer = app(HtmlSanitizerService::class);
         $sanitizer->sanitizeGameModel($game);
@@ -454,6 +389,7 @@ class GamesDisplayController extends Controller
             'reviews' => $reviews,
             'availableRatings' => $availableRatings,
             'gameVersions' => $gameVersions,
+            'supportedLanguages' => $supportedLanguages,
             'englishStats' => $englishStats,
             'primaryStats' => $primaryStats,
             'primaryLanguageLabel' => $primaryLanguageLabel,
@@ -461,8 +397,6 @@ class GamesDisplayController extends Controller
             'versionHasFileStats' => $versionHasFileStats,
             'versionHasDialogueLines' => $versionHasDialogueLines,
             'versionHasRouteData' => $versionHasRouteData,
-            'userVnLists' => $userVnLists,
-            'gameListMembership' => $gameListMembership,
             'editPermissions' => [
                 'canEdit' => $canEdit,
                 'hasCustomPage' => (bool) $game->has_custom_page,
@@ -480,6 +414,25 @@ class GamesDisplayController extends Controller
             'estimatedReadingTime' => $estimatedReadingTime,
             'metaTags' => $this->getMetaTags(),
         ]);
+    }
+
+    private function formatSupportedLanguages(GameVersion $version)
+    {
+        return $version->supportedLanguages
+            ->filter(fn ($sl) => $sl->is_available
+                && $sl->language !== null
+                && ! str_starts_with($sl->iso_code, 'q'))
+            ->map(fn ($sl) => [
+                'iso_code' => $sl->iso_code,
+                'language' => [
+                    'id' => $sl->language->id,
+                    'iso_code' => $sl->language->id,
+                    'ref_name' => $sl->language->ref_name,
+                    'flag_code' => $sl->language->flag_code,
+                ],
+                'is_available' => $sl->is_available,
+            ])
+            ->values();
     }
 
     /**

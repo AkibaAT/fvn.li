@@ -114,7 +114,7 @@ class ClickStat extends Model
      */
     public static function getGameStats(int $gameId, ?Carbon $since = null): array
     {
-        $query = self::where('game_id', $gameId);
+        $query = DB::table('click_stats')->where('game_id', $gameId);
 
         if ($since) {
             $query->where('clicked_at', '>=', $since);
@@ -273,20 +273,14 @@ class ClickStat extends Model
      */
     public static function getDailyStats(int $gameId, int $days = 30): array
     {
-        $startDate = now()->subDays($days)->startOfDay();
-        $endDate = now()->endOfDay();
-
-        // Get all clicks for the period
-        $clicks = self::where('game_id', $gameId)
-            ->where('clicked_at', '>=', $startDate)
-            ->where('clicked_at', '<=', $endDate)
-            ->orderBy('clicked_at')
-            ->get();
+        $today = now();
+        $startDate = $today->copy()->subDays($days)->startOfDay();
+        $endDate = $today->copy()->endOfDay();
 
         // Initialize daily data structure
         $dailyData = [];
         for ($i = 0; $i < $days; $i++) {
-            $date = now()->subDays($days - 1 - $i)->format('Y-m-d');
+            $date = $today->copy()->subDays($days - 1 - $i)->format('Y-m-d');
             $dailyData[$date] = [
                 'date' => $date,
                 'page_views_total' => 0,
@@ -299,80 +293,83 @@ class ClickStat extends Model
             ];
         }
 
-        // Process clicks for total counts
-        foreach ($clicks as $click) {
-            $date = $click->clicked_at->format('Y-m-d');
+        $totalRows = DB::table('click_stats')
+            ->where('game_id', $gameId)
+            ->whereBetween('clicked_at', [$startDate, $endDate])
+            ->selectRaw('DATE(clicked_at) as date, type, link_id, COUNT(*) as total_clicks')
+            ->groupByRaw('DATE(clicked_at), type, link_id')
+            ->get();
 
-            if (! isset($dailyData[$date])) {
-                continue; // Skip if outside our range
-            }
-
-            if ($click->type === self::TYPE_PAGE_VIEW) {
-                $dailyData[$date]['page_views_total']++;
-            } elseif ($click->type === self::TYPE_EXTERNAL_PROJECT) {
-                $dailyData[$date]['external_project_total']++;
-            } elseif ($click->type === self::TYPE_CUSTOM_LINK && $click->link_id) {
-                $dailyData[$date]['custom_links_total']++;
-
-                if (! isset($dailyData[$date]['custom_links_breakdown'][$click->link_id])) {
-                    $dailyData[$date]['custom_links_breakdown'][$click->link_id] = [
-                        'total' => 0,
-                        'unique' => 0,
-                    ];
-                }
-                $dailyData[$date]['custom_links_breakdown'][$click->link_id]['total']++;
-            }
-        }
-
-        // Calculate unique counts using 24-hour deduplication
-        $seenFingerprints = [];
-
-        foreach ($clicks as $click) {
-            $date = $click->clicked_at->format('Y-m-d');
+        foreach ($totalRows as $row) {
+            $date = (string) $row->date;
+            $type = (string) $row->type;
+            $linkId = $row->link_id;
+            $totalClicks = (int) $row->total_clicks;
 
             if (! isset($dailyData[$date])) {
                 continue;
             }
 
-            // Create fingerprint for deduplication
-            $fingerprint = hash('sha256',
-                ($click->ip_address ?? 'unknown') . '|' .
-                ($click->user_agent ?? 'unknown') . '|' .
-                $click->type . '|' .
-                ($click->link_id ?? 'null')
-            );
+            if ($type === self::TYPE_PAGE_VIEW) {
+                $dailyData[$date]['page_views_total'] += $totalClicks;
+            } elseif ($type === self::TYPE_EXTERNAL_PROJECT) {
+                $dailyData[$date]['external_project_total'] += $totalClicks;
+            } elseif ($type === self::TYPE_CUSTOM_LINK && $linkId) {
+                $dailyData[$date]['custom_links_total'] += $totalClicks;
 
-            // Check if this is a unique click (within 24 hours)
-            $isUnique = true;
-            $clickTime = $click->clicked_at;
-
-            if (isset($seenFingerprints[$fingerprint])) {
-                foreach ($seenFingerprints[$fingerprint] as $previousTime) {
-                    if ($clickTime->diffInHours($previousTime) < 24) {
-                        $isUnique = false;
-                        break;
-                    }
+                if (! isset($dailyData[$date]['custom_links_breakdown'][$linkId])) {
+                    $dailyData[$date]['custom_links_breakdown'][$linkId] = [
+                        'total' => 0,
+                        'unique' => 0,
+                    ];
                 }
+                $dailyData[$date]['custom_links_breakdown'][$linkId]['total'] += $totalClicks;
+            }
+        }
+
+        $orderedClicks = DB::table('click_stats')
+            ->where('game_id', $gameId)
+            ->whereBetween('clicked_at', [$startDate, $endDate])
+            ->selectRaw("
+                DATE(clicked_at) as date,
+                type,
+                link_id,
+                clicked_at,
+                LAG(clicked_at) OVER (
+                    PARTITION BY ip_address, user_agent, type, COALESCE(link_id, '')
+                    ORDER BY clicked_at
+                ) as previous_clicked_at
+            ");
+
+        $uniqueRows = DB::query()
+            ->fromSub($orderedClicks, 'ordered_clicks')
+            ->where(function ($query) {
+                $query->whereNull('previous_clicked_at')
+                    ->orWhereRaw("clicked_at >= previous_clicked_at + INTERVAL '24 hours'");
+            })
+            ->selectRaw('date, type, link_id, COUNT(*) as unique_clicks')
+            ->groupBy('date', 'type', 'link_id')
+            ->get();
+
+        foreach ($uniqueRows as $row) {
+            $date = (string) $row->date;
+            $type = (string) $row->type;
+            $linkId = $row->link_id;
+            $uniqueClicks = (int) $row->unique_clicks;
+
+            if (! isset($dailyData[$date])) {
+                continue;
             }
 
-            if ($isUnique) {
-                // Record this fingerprint and time
-                if (! isset($seenFingerprints[$fingerprint])) {
-                    $seenFingerprints[$fingerprint] = [];
-                }
-                $seenFingerprints[$fingerprint][] = $clickTime;
+            if ($type === self::TYPE_PAGE_VIEW) {
+                $dailyData[$date]['page_views_unique'] += $uniqueClicks;
+            } elseif ($type === self::TYPE_EXTERNAL_PROJECT) {
+                $dailyData[$date]['external_project_unique'] += $uniqueClicks;
+            } elseif ($type === self::TYPE_CUSTOM_LINK && $linkId) {
+                $dailyData[$date]['custom_links_unique'] += $uniqueClicks;
 
-                // Count the unique click
-                if ($click->type === self::TYPE_PAGE_VIEW) {
-                    $dailyData[$date]['page_views_unique']++;
-                } elseif ($click->type === self::TYPE_EXTERNAL_PROJECT) {
-                    $dailyData[$date]['external_project_unique']++;
-                } elseif ($click->type === self::TYPE_CUSTOM_LINK && $click->link_id) {
-                    $dailyData[$date]['custom_links_unique']++;
-
-                    if (isset($dailyData[$date]['custom_links_breakdown'][$click->link_id])) {
-                        $dailyData[$date]['custom_links_breakdown'][$click->link_id]['unique']++;
-                    }
+                if (isset($dailyData[$date]['custom_links_breakdown'][$linkId])) {
+                    $dailyData[$date]['custom_links_breakdown'][$linkId]['unique'] += $uniqueClicks;
                 }
             }
         }
@@ -444,60 +441,50 @@ class ClickStat extends Model
      */
     private static function getUniqueClickStats(int $gameId, ?Carbon $since = null): array
     {
-        $query = self::where('game_id', $gameId);
+        $query = DB::table('click_stats')
+            ->where('game_id', $gameId)
+            ->selectRaw("
+                type,
+                link_id,
+                clicked_at,
+                LAG(clicked_at) OVER (
+                    PARTITION BY ip_address, user_agent, type, COALESCE(link_id, '')
+                    ORDER BY clicked_at
+                ) as previous_clicked_at
+            ");
 
         if ($since) {
             $query->where('clicked_at', '>=', $since);
         }
 
-        // Get all clicks for this game
-        $allClicks = $query->orderBy('clicked_at')->get();
+        $uniqueRows = DB::query()
+            ->fromSub($query, 'ordered_clicks')
+            ->where(function ($query) {
+                $query->whereNull('previous_clicked_at')
+                    ->orWhereRaw("clicked_at >= previous_clicked_at + INTERVAL '24 hours'");
+            })
+            ->selectRaw('type, link_id, COUNT(*) as unique_clicks')
+            ->groupBy('type', 'link_id')
+            ->get();
 
         $uniquePageViews = 0;
         $uniqueExternalProject = 0;
         $uniqueCustomLinks = [];
-        $seenFingerprints = [];
 
-        foreach ($allClicks as $click) {
-            // Create fingerprint for deduplication (IP + UserAgent + Type + LinkId)
-            $fingerprint = hash('sha256',
-                ($click->ip_address ?? 'unknown') . '|' .
-                ($click->user_agent ?? 'unknown') . '|' .
-                $click->type . '|' .
-                ($click->link_id ?? 'null')
-            );
+        foreach ($uniqueRows as $row) {
+            $type = (string) $row->type;
+            $linkId = $row->link_id;
+            $uniqueClicks = (int) $row->unique_clicks;
 
-            // Check if we've seen this fingerprint in the last 24 hours
-            $isUnique = true;
-            $clickTime = $click->clicked_at;
-
-            if (isset($seenFingerprints[$fingerprint])) {
-                foreach ($seenFingerprints[$fingerprint] as $previousTime) {
-                    if ($clickTime->diffInHours($previousTime) < 24) {
-                        $isUnique = false;
-                        break;
-                    }
+            if ($type === self::TYPE_PAGE_VIEW) {
+                $uniquePageViews += $uniqueClicks;
+            } elseif ($type === self::TYPE_EXTERNAL_PROJECT) {
+                $uniqueExternalProject += $uniqueClicks;
+            } elseif ($type === self::TYPE_CUSTOM_LINK && $linkId) {
+                if (! isset($uniqueCustomLinks[$linkId])) {
+                    $uniqueCustomLinks[$linkId] = ['unique_clicks' => 0];
                 }
-            }
-
-            if ($isUnique) {
-                // Record this fingerprint and time
-                if (! isset($seenFingerprints[$fingerprint])) {
-                    $seenFingerprints[$fingerprint] = [];
-                }
-                $seenFingerprints[$fingerprint][] = $clickTime;
-
-                // Count the unique click
-                if ($click->type === self::TYPE_PAGE_VIEW) {
-                    $uniquePageViews++;
-                } elseif ($click->type === self::TYPE_EXTERNAL_PROJECT) {
-                    $uniqueExternalProject++;
-                } elseif ($click->type === self::TYPE_CUSTOM_LINK && $click->link_id) {
-                    if (! isset($uniqueCustomLinks[$click->link_id])) {
-                        $uniqueCustomLinks[$click->link_id] = ['unique_clicks' => 0];
-                    }
-                    $uniqueCustomLinks[$click->link_id]['unique_clicks']++;
-                }
+                $uniqueCustomLinks[$linkId]['unique_clicks'] += $uniqueClicks;
             }
         }
 

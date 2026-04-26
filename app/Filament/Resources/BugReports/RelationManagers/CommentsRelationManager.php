@@ -6,7 +6,6 @@ namespace App\Filament\Resources\BugReports\RelationManagers;
 
 use App\Models\BugReportComment;
 use App\Models\User;
-use App\Notifications\BugReportAdminReplyNotification;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Hidden;
@@ -78,19 +77,9 @@ class CommentsRelationManager extends RelationManager
 
                         return $data;
                     })
-                    ->after(function (BugReportComment $record): void {
-                        // Get the bug report
-                        $bugReport = $record->bugReport;
-
-                        // Send notification to the user who submitted the bug report
-                        $reporter = $bugReport->user;
-                        if ($reporter && $reporter->id !== Auth::id()) {
-                            $reporter->notify(new BugReportAdminReplyNotification($bugReport, $record));
-                        }
-
+                    ->after(function (): void {
                         Notification::make()
                             ->title('Reply sent')
-                            ->body('The user will be notified.')
                             ->success()
                             ->send();
                     }),

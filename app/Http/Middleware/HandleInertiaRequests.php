@@ -73,22 +73,6 @@ class HandleInertiaRequests extends Middleware
                 'canonical' => canonical(),
             ],
 
-            // Global lightweight counts for UI indicators
-            'indicators' => function () use ($request) {
-                $user = $request->user();
-                if (! $user) {
-                    return [
-                        'pending_invites' => 0,
-                        'unread_notifications' => 0,
-                    ];
-                }
-                $unreadNotifications = $user->unreadNotifications()->count();
-
-                return [
-                    'pending_invites' => 0,
-                    'unread_notifications' => $unreadNotifications,
-                ];
-            },
         ];
     }
 }
