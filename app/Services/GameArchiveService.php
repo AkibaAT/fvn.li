@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 
 /**
@@ -125,7 +126,7 @@ readonly class GameArchiveService
         $itchClient = $this->getItchClient();
 
         // Get the download URL
-        $response = $itchClient->post($gameUrl . '/file/' . $uploadId);
+        $response = $itchClient->post($gameUrl.'/file/'.$uploadId);
         $downloadInfo = json_decode($response->getBody()->getContents(), true);
 
         if (! isset($downloadInfo['url'])) {
@@ -137,34 +138,38 @@ readonly class GameArchiveService
             'cdn_url' => parse_url($downloadInfo['url'], PHP_URL_HOST),
         ]);
 
-        // Create temporary directory and download with ORIGINAL filename
-        // This is critical - the extraction logic depends on the exact filename
-        $tempDir = sys_get_temp_dir() . '/game_' . uniqid();
+        $tempDir = sys_get_temp_dir().'/game_'.uniqid();
         if (! File::makeDirectory($tempDir, 0755, true)) {
             throw new RuntimeException('Could not create temporary directory');
         }
 
-        $tempFile = $tempDir . '/' . $filename;
+        $tempFile = $tempDir.'/download';
 
         Log::info('GameArchive: Starting download to temp', [
             'game_id' => $gameId,
             'temp_dir' => $tempDir,
             'temp_file' => $tempFile,
-            'original_filename' => $filename,
+            'api_filename' => $filename,
         ]);
 
-        // Download the file with its original name
         $downloadClient = new Client([
             'timeout' => 600,  // 10 minutes for the full download
             'connect_timeout' => 30,  // 30 seconds to establish connection
         ]);
-        $downloadClient->get($downloadInfo['url'], [
+        $downloadResponse = $downloadClient->get($downloadInfo['url'], [
             'sink' => $tempFile,
         ]);
+        $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
+        $namedTempFile = $tempDir.'/'.$downloadFilename;
+        if ($namedTempFile !== $tempFile) {
+            File::move($tempFile, $namedTempFile);
+            $tempFile = $namedTempFile;
+        }
 
         $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
         Log::info('GameArchive: Download to temp completed', [
             'game_id' => $gameId,
+            'filename' => $downloadFilename,
             'file_size_mb' => round($fileSize / 1024 / 1024, 2),
         ]);
 
@@ -183,7 +188,7 @@ readonly class GameArchiveService
             'temp_path' => $tempFile,
             'temp_dir' => $tempDir,  // Return this so we can clean up the whole directory
             'stats' => $stats,
-            'filename' => $filename,
+            'filename' => $downloadFilename,
             'upload_id' => $uploadId,
         ];
     }
@@ -259,7 +264,7 @@ readonly class GameArchiveService
         $itchClient = $this->getItchClient();
 
         // Get the download URL
-        $response = $itchClient->post($gameUrl . '/file/' . $uploadId);
+        $response = $itchClient->post($gameUrl.'/file/'.$uploadId);
         $downloadInfo = json_decode($response->getBody()->getContents(), true);
 
         if (! isset($downloadInfo['url'])) {
@@ -290,13 +295,15 @@ readonly class GameArchiveService
                 'timeout' => 600,  // 10 minutes for the full download
                 'connect_timeout' => 30,  // 30 seconds to establish connection
             ]);
-            $downloadClient->get($downloadInfo['url'], [
+            $downloadResponse = $downloadClient->get($downloadInfo['url'], [
                 'sink' => $tempFile,
             ]);
+            $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
 
             $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
             Log::info('GameArchive: Download completed', [
                 'game_id' => $gameId,
+                'filename' => $downloadFilename,
                 'file_size_mb' => round($fileSize / 1024 / 1024, 2),
             ]);
 
@@ -306,7 +313,7 @@ readonly class GameArchiveService
             // If force is true or the file exists but with a different name,
             // clear the directory first
             if ($force || ($this->archiveExists($gameId, $versionId) &&
-                    ! $this->archiveExists($gameId, $versionId, $filename))) {
+                    ! $this->archiveExists($gameId, $versionId, $downloadFilename))) {
                 // Delete all files in the directory
                 foreach (Storage::files($storagePath) as $file) {
                     Storage::delete($file);
@@ -320,9 +327,9 @@ readonly class GameArchiveService
             ]);
 
             Storage::makeDirectory($storagePath);
-            Storage::putFileAs($storagePath, $tempFile, $filename);
+            Storage::putFileAs($storagePath, $tempFile, $downloadFilename);
 
-            $finalPath = Storage::path("{$storagePath}/{$filename}");
+            $finalPath = Storage::path("{$storagePath}/{$downloadFilename}");
             Log::info('GameArchive: File stored successfully', [
                 'game_id' => $gameId,
                 'final_path' => $finalPath,
@@ -447,6 +454,28 @@ readonly class GameArchiveService
     private function getStoragePath(int $gameId, int $versionId): string
     {
         return "games/{$gameId}/{$versionId}";
+    }
+
+    private function getDownloadFilename(ResponseInterface $response, string $fallbackFilename): string
+    {
+        $contentDisposition = $response->getHeaderLine('Content-Disposition');
+        if (preg_match('/filename\\*=UTF-8\'\'([^;]+)/i', $contentDisposition, $matches)) {
+            return $this->sanitizeDownloadFilename(rawurldecode(trim($matches[1], " \t\"'")));
+        }
+
+        if (preg_match('/filename="([^"]+)"/i', $contentDisposition, $matches) ||
+            preg_match('/filename=([^;]+)/i', $contentDisposition, $matches)) {
+            return $this->sanitizeDownloadFilename(trim($matches[1], " \t\"'"));
+        }
+
+        return $this->sanitizeDownloadFilename($fallbackFilename);
+    }
+
+    private function sanitizeDownloadFilename(string $filename): string
+    {
+        $filename = basename(str_replace('\\', '/', $filename));
+
+        return $filename !== '' ? $filename : 'archive';
     }
 
     /**

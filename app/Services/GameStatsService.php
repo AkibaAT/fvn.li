@@ -981,13 +981,13 @@ readonly class GameStatsService
      */
     private function extractArchive(string $archivePath, string $extractPath): void
     {
-        $ext = strtolower(pathinfo($archivePath, PATHINFO_EXTENSION));
+        $archiveFormat = $this->detectArchiveFormat($archivePath);
 
         // Handle tar.gz and tar.bz2 files (even if they're missing the tar part)
-        if ($ext === 'gz' || $ext === 'bz2') {
+        if ($archiveFormat === 'tar.gz' || $archiveFormat === 'tar.bz2') {
             $process = new Process([
                 'tar',
-                '-x'.($ext === 'gz' ? 'z' : 'j'), // Add z for gzip, j for bzip2
+                '-x'.($archiveFormat === 'tar.gz' ? 'z' : 'j'),
                 '-f',
                 $archivePath,
                 '-C',
@@ -1005,7 +1005,7 @@ readonly class GameStatsService
         }
 
         // Handle zip files
-        if ($ext === 'zip') {
+        if ($archiveFormat === 'zip') {
             $zip = new ZipArchive;
             $result = $zip->open($archivePath);
 
@@ -1025,7 +1025,7 @@ readonly class GameStatsService
         }
 
         // Handle plain tar files
-        if ($ext === 'tar') {
+        if ($archiveFormat === 'tar') {
             $process = new Process([
                 'tar',
                 '-xf',
@@ -1044,7 +1044,48 @@ readonly class GameStatsService
             return;
         }
 
-        throw new RuntimeException("Unsupported archive format: {$ext}");
+        throw new RuntimeException("Unsupported archive format: {$archiveFormat}");
+    }
+
+    private function detectArchiveFormat(string $archivePath): string
+    {
+        $handle = fopen($archivePath, 'rb');
+        if ($handle === false) {
+            throw new RuntimeException("Failed to open archive: {$archivePath}");
+        }
+
+        try {
+            $header = fread($handle, 512);
+        } finally {
+            fclose($handle);
+        }
+
+        if (str_starts_with($header, "PK\x03\x04") || str_starts_with($header, "PK\x05\x06") || str_starts_with($header, "PK\x07\x08")) {
+            return 'zip';
+        }
+
+        if (str_starts_with($header, "\x1F\x8B")) {
+            return 'tar.gz';
+        }
+
+        if (str_starts_with($header, 'BZh')) {
+            return 'tar.bz2';
+        }
+
+        if (substr($header, 257, 5) === 'ustar') {
+            return 'tar';
+        }
+
+        $ext = strtolower(pathinfo($archivePath, PATHINFO_EXTENSION));
+
+        if ($ext === 'gz' || $ext === 'bz2') {
+            $basename = basename($archivePath, ".{$ext}");
+            if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
+                return "tar.{$ext}";
+            }
+        }
+
+        return $ext;
     }
 
     /**

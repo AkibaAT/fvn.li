@@ -87,15 +87,25 @@ class Upload
 
         $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
 
+        $isArchive = in_array($ext, self::PROCESSABLE_EXTENSIONS);
+
         // Special handling for tar.gz and tar.bz2
         if ($ext === 'gz' || $ext === 'bz2') {
             $basename = basename($this->filename, ".{$ext}");
             if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
-                return true;
+                $isArchive = true;
             }
         }
 
-        return in_array($ext, self::PROCESSABLE_EXTENSIONS);
+        if (! $isArchive) {
+            return false;
+        }
+
+        if ($this->isMac()) {
+            return false;
+        }
+
+        return true;
     }
 
     public function isWeb(): bool

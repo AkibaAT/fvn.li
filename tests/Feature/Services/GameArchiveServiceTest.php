@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -142,4 +143,32 @@ test('cleanup all old version downloads', function () {
     checkFileExists($game1->id, $game1v2->id, 'game1_v2.zip');
     checkFileNotExists($game2->id, $game2v1->id, 'game2_v1.zip');
     checkFileExists($game2->id, $game2v2->id, 'game2_v2.zip');
+});
+
+test('download filename is resolved from content disposition header', function () {
+    $method = new ReflectionMethod($this->archiveService, 'getDownloadFilename');
+
+    $filename = $method->invoke(
+        $this->archiveService,
+        new Response(200, [
+            'Content-Disposition' => 'attachment; filename="RivencliffSunbath-1.1.4-linux.tar.bz2"',
+        ]),
+        'rivencliff-sunbath-linux.zip'
+    );
+
+    expect($filename)->toBe('RivencliffSunbath-1.1.4-linux.tar.bz2');
+});
+
+test('download filename supports encoded content disposition filename', function () {
+    $method = new ReflectionMethod($this->archiveService, 'getDownloadFilename');
+
+    $filename = $method->invoke(
+        $this->archiveService,
+        new Response(200, [
+            'Content-Disposition' => "attachment; filename*=UTF-8''RivencliffSunbath-1.1.4-linux.tar.bz2",
+        ]),
+        'rivencliff-sunbath-linux.zip'
+    );
+
+    expect($filename)->toBe('RivencliffSunbath-1.1.4-linux.tar.bz2');
 });
