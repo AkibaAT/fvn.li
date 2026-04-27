@@ -3,7 +3,6 @@
     import MultiSelect from '@/components/MultiSelect.svelte';
     import { useGameFilters } from '@/hooks/useGameFilters.svelte';
     import type { CurrentFilters, FilterOptions } from '@/types';
-    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
         isOpen: boolean;
@@ -16,6 +15,7 @@
     let { isOpen, onClose, filters, currentFilters, onGamesPage = false }: Props = $props();
 
     let dialogEl: HTMLDialogElement;
+    let filterPanelEl: HTMLDivElement;
     let filterCloseBtnEl: HTMLButtonElement;
 
     const {
@@ -58,7 +58,7 @@
     }
 
     function handleBackdropClick(event: MouseEvent) {
-        if (isDialogBackdropClick(dialogEl, event)) {
+        if (event.target instanceof Node && !filterPanelEl?.contains(event.target)) {
             onClose();
         }
     }
@@ -84,7 +84,7 @@
         Use the options to filter games by content, platforms, languages, engine, tags, jams, and visibility.
     </p>
 
-    <div class="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-gray-900">
+    <div bind:this={filterPanelEl} class="ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-gray-900">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Filter Games</h2>
@@ -120,7 +120,7 @@
                         Content & Pricing
                     </h3>
                     <div class="space-y-3">
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.sfw || false}
@@ -129,7 +129,7 @@
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">Safe for Work</span>
                         </label>
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.nsfw || false}
@@ -138,7 +138,7 @@
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">NSFW Content</span>
                         </label>
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.showFree || false}
@@ -147,7 +147,7 @@
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">Free Games</span>
                         </label>
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.showPaid || false}
@@ -156,7 +156,7 @@
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">Paid Games</span>
                         </label>
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.showDemo || false}
@@ -165,7 +165,7 @@
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">Has Demo</span>
                         </label>
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.showSale || false}
@@ -174,7 +174,7 @@
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">On Sale</span>
                         </label>
-                        <label class="flex items-center">
+                        <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                             <input
                                 type="checkbox"
                                 checked={currentFilters.delisted || false}
@@ -375,7 +375,7 @@
                     </h3>
                     <div class="space-y-3">
                         {#each Object.entries(filters.readingTimeOptions || readingTimeDefaults) as [value, label] (value)}
-                            <label class="flex items-center">
+                            <label class="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
                                 <input
                                     type="radio"
                                     name="readingTime"

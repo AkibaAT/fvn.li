@@ -151,11 +151,20 @@
                         <div
                             class="flex cursor-pointer items-center px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:hover:bg-gray-600 dark:focus:bg-gray-600"
                             role="option"
+                            tabindex="0"
                             aria-selected={selectedItems.includes(value)}
+                            onclick={() => onToggle(value)}
+                            onkeydown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onToggle(value);
+                                }
+                            }}
                         >
                             <input
                                 type="checkbox"
                                 checked={selectedItems.includes(value)}
+                                onclick={(e) => e.stopPropagation()}
                                 onchange={() => onToggle(value)}
                                 class="mr-2 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
                                 aria-label="Select {getDisplayLabel(value, item)}"
