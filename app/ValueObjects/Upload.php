@@ -52,7 +52,7 @@ class Upload
 
         return new self(
             id: $id,
-            filename: $data['filename'],
+            filename: $data['filename'] ?? '',
             displayName: $data['display_name'] ?? null,
             md5Hash: $data['md5_hash'] ?? null,
             updatedAt: $data['updated_at'],

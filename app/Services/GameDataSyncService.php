@@ -134,10 +134,10 @@ class GameDataSyncService
 
         // Process uploads data to detect changes
         if (isset($uploadsData['uploads'])) {
-            echo '    [Version] Processing ' . count($uploadsData['uploads']) . " uploads\n";
+            echo '    [Version] Processing '.count($uploadsData['uploads'])." uploads\n";
             foreach ($uploadsData['uploads'] as $upload) {
                 $fileId = (int) $upload['id'];
-                $currentFilename = $upload['filename'];
+                $currentFilename = $upload['filename'] ?? '';
                 $currentDisplayName = $upload['display_name'] ?? null;
                 $currentMd5 = $upload['md5_hash'] ?? null;
                 $currentUpdatedAt = $upload['updated_at'];
@@ -149,10 +149,11 @@ class GameDataSyncService
                 // Always store upload info regardless of processability
                 $isNewOrChanged = (
                     ! isset($seenUploads[$fileId]) ||
-                    $seenUploads[$fileId]['md5_hash'] !== $currentMd5 ||
-                    $seenUploads[$fileId]['updated_at'] !== $currentUpdatedAt ||
-                    $seenUploads[$fileId]['build_id'] !== $currentBuildId ||
-                    $seenUploads[$fileId]['build_updated_at'] !== $currentBuildUpdatedAt
+                    ($seenUploads[$fileId]['filename'] ?? '') !== $currentFilename ||
+                    ($seenUploads[$fileId]['md5_hash'] ?? null) !== $currentMd5 ||
+                    ($seenUploads[$fileId]['updated_at'] ?? null) !== $currentUpdatedAt ||
+                    ($seenUploads[$fileId]['build_id'] ?? null) !== $currentBuildId ||
+                    ($seenUploads[$fileId]['build_updated_at'] ?? null) !== $currentBuildUpdatedAt
                 );
 
                 if ($isNewOrChanged || $force) {
@@ -191,7 +192,7 @@ class GameDataSyncService
                         $isAndroid = true;
                     }
                 }
-                if ($upload['type'] === 'html') {
+                if (($upload['type'] ?? '') === 'html') {
                     $isWeb = true;
                 }
             }
@@ -222,7 +223,7 @@ class GameDataSyncService
             $newVersion = $versionParserService->extractVersion($seenUploads[$bestUpload->id], true);
             $uploadTimestamp = $bestUpload->updatedAt;
 
-            echo '    [Version] Extracted version: ' . ($newVersion ?: '(empty)') . "\n";
+            echo '    [Version] Extracted version: '.($newVersion ?: '(empty)')."\n";
 
             // Check if this is a new version
             $existingVersion = $game->gameVersions()
@@ -235,7 +236,7 @@ class GameDataSyncService
             // When force is enabled and version exists, we should reprocess stats for that version
             $shouldReprocessExistingVersion = $force && $existingVersion;
 
-            echo '    [Version] Should create version: ' . ($shouldCreateVersion ? 'yes' : 'no') . ' (existing: ' . ($existingVersion ? 'yes' : 'no') . ', force: ' . ($force ? 'yes' : 'no') . ")\n";
+            echo '    [Version] Should create version: '.($shouldCreateVersion ? 'yes' : 'no').' (existing: '.($existingVersion ? 'yes' : 'no').', force: '.($force ? 'yes' : 'no').")\n";
             if ($shouldReprocessExistingVersion) {
                 echo "    [Version] Force mode: will reprocess stats for existing version\n";
             }
@@ -254,11 +255,11 @@ class GameDataSyncService
             ($shouldCreateVersion || $shouldReprocessExistingVersion) &&
             (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
 
-        echo "    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
-             ' (bestUpload: ' . ($bestUpload ? 'yes' : 'no') .
-             ', shouldCreate: ' . ($shouldCreateVersion ? 'yes' : 'no') .
-             ', shouldReprocess: ' . ($shouldReprocessExistingVersion ? 'yes' : 'no') .
-             ', engine: ' . ($game->game_engine ?: 'null') . ")\n";
+        echo "    [Version] Should process Ren'Py: ".($shouldProcessRenPy ? 'yes' : 'no').
+             ' (bestUpload: '.($bestUpload ? 'yes' : 'no').
+             ', shouldCreate: '.($shouldCreateVersion ? 'yes' : 'no').
+             ', shouldReprocess: '.($shouldReprocessExistingVersion ? 'yes' : 'no').
+             ', engine: '.($game->game_engine ?: 'null').")\n";
 
         if ($shouldProcessRenPy) {
             try {
@@ -729,7 +730,7 @@ class GameDataSyncService
      */
     private function getCachedResponse(Game $game, string $url, array $options = [], bool $anonymous = false): array
     {
-        $urlKey = md5($url . serialize($options) . ($anonymous ? 'anon' : 'auth'));
+        $urlKey = md5($url.serialize($options).($anonymous ? 'anon' : 'auth'));
 
         if (! isset(self::$httpCache[$game->id][$urlKey])) {
             $itchClient = App::make(ItchHttpClientService::class);

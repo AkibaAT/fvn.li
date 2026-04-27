@@ -233,7 +233,7 @@ test('extract version without date fallback', function (array $upload, string $_
 test('platform flags are updated on latest version when no new version is created', function () {
     // Create a game with a version
     $game = Game::factory()->create([
-        'game_id' => 12345,
+        'itch_id' => 12345,
         'uploads' => [
             '1' => [
                 'display_name' => 'Game v1.0',
@@ -281,7 +281,7 @@ test('platform flags are updated on latest version when no new version is create
     // Mock the HTTP client
     $mockClient = Mockery::mock(ItchHttpClientService::class);
     $mockClient->shouldReceive('get')
-        ->with("https://api.itch.io/games/{$game->game_id}/uploads")
+        ->with("https://api.itch.io/games/{$game->itch_id}/uploads")
         ->andReturn($mockResponse);
 
     $this->app->instance(ItchHttpClientService::class, $mockClient);
@@ -300,4 +300,68 @@ test('platform flags are updated on latest version when no new version is create
         ->and($version->is_web)->toBeFalse()
         ->and($game->gameVersions()->count())->toBe(1)
         ->and($version->is_latest)->toBeTrue();
+});
+
+test('refresh version tolerates browser uploads without filenames', function () {
+    $game = Game::factory()->create([
+        'itch_id' => 12345,
+        'uploads' => [],
+        'game_engine' => 'Unity',
+    ]);
+
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.0',
+        'is_latest' => true,
+        'is_windows' => true,
+        'is_linux' => false,
+        'is_mac' => false,
+        'is_android' => false,
+        'is_web' => false,
+    ]);
+
+    $mockResponse = new Response(200, [], json_encode([
+        'uploads' => [
+            [
+                'id' => 1,
+                'display_name' => 'Play in browser',
+                'md5_hash' => null,
+                'updated_at' => '2024-01-01T00:00:00Z',
+                'build_id' => null,
+                'build' => [],
+                'traits' => [],
+                'type' => 'html',
+            ],
+            [
+                'id' => 2,
+                'filename' => 'rivencliff-1.0-pc.zip',
+                'display_name' => 'Rivencliff 1.0 PC',
+                'md5_hash' => 'abc123',
+                'updated_at' => '2024-01-02T00:00:00Z',
+                'build_id' => null,
+                'build' => [],
+                'traits' => ['p_windows', 'p_linux'],
+                'type' => 'default',
+            ],
+        ],
+    ]));
+
+    $mockClient = Mockery::mock(ItchHttpClientService::class);
+    $mockClient->shouldReceive('get')
+        ->with("https://api.itch.io/games/{$game->itch_id}/uploads")
+        ->andReturn($mockResponse);
+
+    $this->app->instance(ItchHttpClientService::class, $mockClient);
+
+    $game->refreshVersion();
+
+    $version->refresh();
+
+    expect($game->uploads[1]['filename'])->toBe('')
+        ->and($game->uploads[1]['type'])->toBe('html')
+        ->and($game->uploads[2]['filename'])->toBe('rivencliff-1.0-pc.zip')
+        ->and($version->is_windows)->toBeTrue()
+        ->and($version->is_linux)->toBeTrue()
+        ->and($version->is_web)->toBeTrue()
+        ->and($game->gameVersions()->count())->toBe(1);
 });
