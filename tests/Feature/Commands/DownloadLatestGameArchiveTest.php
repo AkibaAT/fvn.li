@@ -143,6 +143,69 @@ test('download latest game archive prefers newer upload when version compare wou
     ]);
 });
 
+test('download latest game archive treats near timestamps as same release and prefers linux upload', function () {
+    $game = Game::factory()->create([
+        'name' => 'Release Batch Test',
+        'url' => ['itch_io' => 'https://creator.itch.io/release-batch-test'],
+        'uploads' => [
+            100 => [
+                'filename' => 'release-batch-linux.zip',
+                'display_name' => 'Linux',
+                'md5_hash' => 'linux',
+                'updated_at' => '2026-04-01 10:00:00',
+                'build_id' => null,
+                'build_updated_at' => '2026-04-01 10:00:00',
+                'user_version' => '1.1.4',
+                'traits' => ['p_linux'],
+                'type' => 'default',
+            ],
+            200 => [
+                'filename' => 'release-batch-win.zip',
+                'display_name' => 'Windows',
+                'md5_hash' => 'win',
+                'updated_at' => '2026-04-01 10:00:31',
+                'build_id' => null,
+                'build_updated_at' => '2026-04-01 10:00:31',
+                'user_version' => '1.1.4',
+                'traits' => ['p_windows'],
+                'type' => 'default',
+            ],
+        ],
+    ]);
+    $version = GameVersion::factory()->latest()->create([
+        'game_id' => $game->id,
+        'version' => '1.1.4',
+    ]);
+
+    $recorder = (object) [
+        'archiveExists' => false,
+        'archiveExistsCalls' => [],
+        'downloadAndStoreCalls' => [],
+    ];
+    $archiveService = new RecordingGameArchiveService($recorder);
+    $this->app->instance(GameArchiveService::class, $archiveService);
+
+    $this->artisan('games:download-latest', [
+        '--game-id' => $game->id,
+    ])
+        ->expectsOutputToContain('Selected upload from database file ID 100')
+        ->assertExitCode(0);
+
+    expect($recorder->archiveExistsCalls)->toBe([
+        [$game->id, $version->id, 'release-batch-linux.zip'],
+    ]);
+    expect($recorder->downloadAndStoreCalls)->toBe([
+        [
+            'https://creator.itch.io/release-batch-test',
+            'release-batch-linux.zip',
+            100,
+            $game->id,
+            $version->id,
+            false,
+        ],
+    ]);
+});
+
 test('download latest game archive skips already stored archive unless forced', function () {
     $game = Game::factory()->create([
         'name' => 'Already Stored',
