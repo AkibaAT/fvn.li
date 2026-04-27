@@ -136,14 +136,12 @@ class ReimportGameVersion extends Command
                             continue;
                         }
 
-                        $version->supportedLanguages()->delete();
-
                         // Process archive and extract statistics
                         $this->info('Processing game archive...');
                         try {
                             $stats = $this->archiveService->processArchive($storedArchive);
                         } catch (Exception $e) {
-                            $this->error('Failed to process archive: ' . $e->getMessage());
+                            $this->error('Failed to process archive: '.$e->getMessage());
                             DB::rollBack();
 
                             continue;
@@ -161,7 +159,7 @@ class ReimportGameVersion extends Command
 
                     } catch (Exception $e) {
                         DB::rollBack();
-                        $this->error("Error processing version {$version->version}: " . $e->getMessage());
+                        $this->error("Error processing version {$version->version}: ".$e->getMessage());
                         Log::error('Version reimport failed', [
                             'game_id' => $game->id,
                             'version' => $version->version,
@@ -177,7 +175,7 @@ class ReimportGameVersion extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error during reimport process: ' . $e->getMessage());
+            $this->error('Error during reimport process: '.$e->getMessage());
             Log::error('Version reimport process failed', ['exception' => $e]);
 
             return 1;

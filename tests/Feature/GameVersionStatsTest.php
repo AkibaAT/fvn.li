@@ -8,7 +8,9 @@ use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
+use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
+use App\Services\GameStatsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -769,6 +771,38 @@ describe('version comparison endpoint', function () {
 });
 
 describe('regression prevention', function () {
+    test('stats import clears stale language word counts before reindexing game data', function () {
+        VersionLanguageStats::create([
+            'game_version_id' => $this->version->id,
+            'iso_code' => 'eng',
+            'blocks' => 10,
+            'words' => 75000,
+            'menus' => 0,
+            'options' => 0,
+        ]);
+
+        app(GameStatsService::class)->saveVersionStats(
+            $this->version,
+            [
+                'languages' => [
+                    'fra' => [
+                        'blocks' => 3,
+                        'words' => 12000,
+                        'menus' => 0,
+                        'options' => 0,
+                        'characters' => [],
+                    ],
+                ],
+            ],
+            'eng',
+            $this->game
+        );
+
+        expect($this->version->languageStats()->where('iso_code', 'eng')->exists())->toBeFalse()
+            ->and($this->version->languageStats()->where('iso_code', 'fra')->value('words'))->toBe(12000)
+            ->and($this->game->fresh()->toSearchableArray()['english_word_count'])->toBeNull();
+    });
+
     test('character stats endpoint does not return 500 error', function () {
         // This test ensures the endpoint doesn't crash even with complex data
         $char1 = Character::create([

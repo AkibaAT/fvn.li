@@ -79,7 +79,7 @@ readonly class GameStatsService
         ]);
 
         // Create temporary directory for extraction
-        $extractPath = storage_path('app/temp/' . uniqid('game_', true));
+        $extractPath = storage_path('app/temp/'.uniqid('game_', true));
         File::makeDirectory($extractPath, 0755, true);
 
         try {
@@ -127,7 +127,7 @@ readonly class GameStatsService
             // Fall back to Ren'Py SDK
             Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
-            if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
+            if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
                 Log::error('Ren\'Py SDK path not configured or invalid', [
                     'sdk_path' => $sdkPath,
                 ]);
@@ -181,6 +181,8 @@ readonly class GameStatsService
         echo "    [Stats] Starting saveVersionStats\n";
         // If game is not explicitly provided, get it from the version
         $game = $game ?? $version->game;
+
+        $this->clearVersionAggregateStats($version);
 
         // Track all languages found in the stats to update supported languages
         echo "    [Stats] Processing language stats\n";
@@ -346,7 +348,38 @@ readonly class GameStatsService
         }
 
         Cache::forget('dialogue.games_list');
+        $this->scheduleGameSearchReindex($version);
         echo "    [Stats] Version stats processing complete\n";
+    }
+
+    private function clearVersionAggregateStats(GameVersion $version): void
+    {
+        echo "    [Stats] Clearing previous aggregate stats\n";
+        $version->languageStats()->delete();
+        $version->characterStats()->delete();
+        $version->supportedLanguages()->delete();
+    }
+
+    private function scheduleGameSearchReindex(GameVersion $version): void
+    {
+        if (! $version->is_latest) {
+            return;
+        }
+
+        $gameId = $version->game_id;
+
+        dispatch(function () use ($gameId) {
+            $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+            if (! $game) {
+                return;
+            }
+
+            if ($game->shouldBeSearchable()) {
+                $game->searchable();
+            } else {
+                $game->unsearchable();
+            }
+        })->afterCommit();
     }
 
     /**
@@ -538,7 +571,7 @@ readonly class GameStatsService
             // Process in chunks to avoid hitting PostgreSQL's parameter limit
             echo "    [Dialogue] Processing {$totalLines} lines for language {$isoCode}\n";
             foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
-                echo '    [Dialogue] Processing chunk ' . ($chunkIndex + 1) . "\n";
+                echo '    [Dialogue] Processing chunk '.($chunkIndex + 1)."\n";
                 // First, collect unique texts for this chunk
                 $uniqueTexts = [];
 
@@ -569,7 +602,7 @@ readonly class GameStatsService
                         'updated_at' => $now,
                     ];
                 }
-                echo '    [Dialogue] Collected ' . count($uniqueTexts) . " unique texts\n";
+                echo '    [Dialogue] Collected '.count($uniqueTexts)." unique texts\n";
 
                 // Create unique texts (no search indexing needed - UniqueDialogueText is not searchable)
                 // Use bulk upsert for performance instead of individual firstOrCreate() calls
@@ -592,7 +625,7 @@ readonly class GameStatsService
                 foreach ($texts as $text) {
                     $textIdMapping[$text->text_hash] = $text->id;
                 }
-                echo '    [Dialogue] Mapped ' . count($textIdMapping) . " text IDs\n";
+                echo '    [Dialogue] Mapped '.count($textIdMapping)." text IDs\n";
 
                 // Now process dialogue lines for this chunk
                 echo "    [Dialogue] Building dialogue batch...\n";
@@ -656,7 +689,7 @@ readonly class GameStatsService
                     $processedLines++;
                 }
 
-                echo '    [Dialogue] Dialogue batch built (' . count($dialogueBatch) . " lines)\n";
+                echo '    [Dialogue] Dialogue batch built ('.count($dialogueBatch)." lines)\n";
 
                 // Bulk insert dialogue lines for performance (skip observers during import)
                 // We'll update the search index once at the end instead of per-line
@@ -920,7 +953,7 @@ readonly class GameStatsService
                     '--force' => true, // Force recalculation since this is a fresh import
                 ]);
             } catch (Throwable $e) {
-                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: " . $e->getMessage());
+                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: ".$e->getMessage());
             }
         }
     }
@@ -954,7 +987,7 @@ readonly class GameStatsService
         if ($ext === 'gz' || $ext === 'bz2') {
             $process = new Process([
                 'tar',
-                '-x' . ($ext === 'gz' ? 'z' : 'j'), // Add z for gzip, j for bzip2
+                '-x'.($ext === 'gz' ? 'z' : 'j'), // Add z for gzip, j for bzip2
                 '-f',
                 $archivePath,
                 '-C',
@@ -965,7 +998,7 @@ readonly class GameStatsService
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
+                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
             }
 
             return;
@@ -1005,7 +1038,7 @@ readonly class GameStatsService
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
+                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
             }
 
             return;
@@ -1020,12 +1053,12 @@ readonly class GameStatsService
     private function findGameDirectory(string $basePath): ?string
     {
         // Check if the game directory is directly in the extracted path
-        if (File::isDirectory($basePath . '/game')) {
+        if (File::isDirectory($basePath.'/game')) {
             return $basePath;
         }
 
         // Check first-level subdirectories
-        return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir . '/game'));
+        return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir.'/game'));
     }
 
     /**
@@ -1079,7 +1112,7 @@ readonly class GameStatsService
         }
 
         // lib/
-        $lib = $dir . DIRECTORY_SEPARATOR . 'lib';
+        $lib = $dir.DIRECTORY_SEPARATOR.'lib';
         if (! File::isDirectory($lib)) {
             return;
         }
@@ -1136,7 +1169,7 @@ readonly class GameStatsService
             // Copy our analysis script to the game directory
             File::copy(
                 resource_path('renpy/json_stats.rpy'),
-                $gameDir . '/game/json_stats.rpy'
+                $gameDir.'/game/json_stats.rpy'
             );
         } catch (Exception $e) {
             Log::warning('Failed to copy analysis script', [
@@ -1165,7 +1198,7 @@ readonly class GameStatsService
         }
 
         // Check if the stats file was generated
-        $statsFile = $gameDir . '/stats.json';
+        $statsFile = $gameDir.'/stats.json';
         if (! File::exists($statsFile)) {
             Log::info('Stats file not generated by native executable');
 
@@ -1204,7 +1237,7 @@ readonly class GameStatsService
             // Copy our analysis script to the game directory
             File::copy(
                 resource_path('renpy/json_stats.rpy'),
-                $gameDir . '/game/json_stats.rpy'
+                $gameDir.'/game/json_stats.rpy'
             );
         } catch (Exception $e) {
             Log::warning('Failed to copy analysis script', [
@@ -1216,7 +1249,7 @@ readonly class GameStatsService
         }
 
         // Execute the script analysis using the SDK
-        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
+        $process = new Process([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir);
         $process->setTimeout(300); // 5 minute timeout
         $process->run();
 
@@ -1234,7 +1267,7 @@ readonly class GameStatsService
         }
 
         // Read and parse the stats file - this is the only real error condition
-        $statsFile = $gameDir . '/stats.json';
+        $statsFile = $gameDir.'/stats.json';
         if (! File::exists($statsFile)) {
             throw new RuntimeException('Stats file not generated');
         }
