@@ -496,12 +496,6 @@ class GameDataSyncService
         $originalThumbUrl = $game->thumb_url;
         $originalScreenshots = $game->screenshots;
 
-        // Check if price was already set from API data (more reliable than HTML scraping)
-        $preserveApiPrice = isset($game->priceSetFromApi) && $game->priceSetFromApi === true;
-
-        // Extract price information
-        $extractor->extractPriceInformation($game, $doc, $preserveApiPrice);
-
         // Check for demo availability
         $extractor->checkForDemo($game, $doc);
 

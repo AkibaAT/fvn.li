@@ -13,87 +13,6 @@ use Illuminate\Support\Facades\Storage;
 
 class ItchGameMetadataExtractor
 {
-    /**
-     * Extract price information from the game's HTML page
-     *
-     * @param  Game  $game  The game to extract price information for
-     * @param  HTMLDocument  $doc  The parsed HTML document
-     * @param  bool  $preserveApiPrice  If true, don't overwrite price if it was already set from API data
-     */
-    public function extractPriceInformation(Game $game, HTMLDocument $doc, bool $preserveApiPrice = false): void
-    {
-        $originalIsPaid = $game->is_paid;
-        $originalMinPrice = $game->min_price;
-        $originalIsOnSale = $game->is_on_sale;
-
-        // If we should preserve API price and the game is marked as paid with a price > 0,
-        // skip HTML price extraction as API data is more reliable
-        if ($preserveApiPrice && $game->is_paid && $game->min_price > 0) {
-            Log::info('Preserving price from API data (skipping HTML extraction)', [
-                'game_id' => $game->id,
-                'game_name' => $game->name,
-                'min_price' => $game->min_price,
-                'is_on_sale' => $game->is_on_sale,
-                'sale_discount_percent' => $game->sale_discount_percent,
-            ]);
-
-            return;
-        }
-
-        $buySection = $doc->querySelector('.buy_game_section');
-        if (! $buySection) {
-            // Only update price to 0 if we're not preserving API price
-            if (! $preserveApiPrice) {
-                $game->min_price = 0;
-                $game->is_on_sale = false;
-                if (! $originalIsPaid) {
-                    $game->is_paid = false;
-                }
-            }
-
-            Log::info('Game appears free (no buy section)', [
-                'game_id' => $game->id,
-                'game_name' => $game->name,
-                'original_is_paid' => $originalIsPaid,
-                'new_is_paid' => $game->is_paid,
-                'preserve_api_price' => $preserveApiPrice,
-            ]);
-
-            return;
-        }
-
-        $saleTag = $buySection->querySelector('.sale_tag');
-        $game->is_on_sale = $saleTag !== null;
-
-        $minPriceElement = $buySection->querySelector('.base_price');
-        $game->currency = 'USD';
-        if ($minPriceElement) {
-            $priceText = trim($minPriceElement->textContent);
-            preg_match('/\$?(\d+\.?\d*)/', $priceText, $matches);
-            $game->min_price = $matches[1] ?? 0;
-        } else {
-            $game->min_price = 0;
-        }
-
-        if (! $originalIsPaid) {
-            $game->is_paid = $game->min_price > 0;
-        }
-
-        Log::info('Extracted price information', [
-            'game_id' => $game->id,
-            'game_name' => $game->name,
-            'original_min_price' => $originalMinPrice,
-            'new_min_price' => $game->min_price,
-            'original_is_on_sale' => $originalIsOnSale,
-            'new_is_on_sale' => $game->is_on_sale,
-            'original_is_paid' => $originalIsPaid,
-            'new_is_paid' => $game->is_paid,
-            'price_element_found' => $minPriceElement !== null,
-            'price_text' => $minPriceElement ? trim($minPriceElement->textContent) : null,
-            'preserve_api_price' => $preserveApiPrice,
-        ]);
-    }
-
     public function checkForDemo(Game $game, HTMLDocument $doc): void
     {
         $game->has_demo = false;
@@ -206,7 +125,7 @@ class ItchGameMetadataExtractor
     {
         $customCss = '';
         if (preg_match('/<style[^>]*id="game_theme"[^>]*>([\s\S]*?)<\/style>/i', $html, $matches)) {
-            $customCss .= trim($matches[1]) . "\n\n";
+            $customCss .= trim($matches[1])."\n\n";
             Log::info('Found game theme CSS', ['css' => $matches[1]]);
         }
         if (preg_match('/<style[^>]*id="custom_css"[^>]*>([\s\S]*?)<\/style>/i', $html, $matches)) {
@@ -216,7 +135,7 @@ class ItchGameMetadataExtractor
         if (! empty($customCss)) {
             $processedCss = $cssProcessor->process($customCss);
             if (! empty($processedCss)) {
-                $customCss = ".game_description {\n" . $processedCss . "\n}";
+                $customCss = ".game_description {\n".$processedCss."\n}";
                 Log::info('Processed and scoped CSS', ['css' => $customCss]);
             } else {
                 $customCss = null;
@@ -272,7 +191,7 @@ class ItchGameMetadataExtractor
                     } elseif (str_starts_with($href, 'http')) {
                         $jamUrl = $href;
                     } else {
-                        $jamUrl = 'https://itch.io' . $href;
+                        $jamUrl = 'https://itch.io'.$href;
                     }
                     break;
                 }
