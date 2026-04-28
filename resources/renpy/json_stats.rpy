@@ -78,6 +78,7 @@ init 10000 python:
 
     # Store dialogue lines by language
     dialogue_lines = collections.defaultdict(list)
+    custom_text_assignments = []
 
     # Route graph data
     route_labels = collections.OrderedDict()
@@ -268,6 +269,22 @@ init 10000 python:
                             "line": linenumber,
                             "context": context_type,
                         })
+
+                        if (
+                            isinstance(literal_value, (str if sys.version_info[0] >= 3 else basestring)) and
+                            context_type == "label_block" and
+                            current_label and
+                            is_game_file(filename)
+                        ):
+                            cleaned_text = clean_text(literal_value)
+                            if cleaned_text:
+                                custom_text_assignments.append({
+                                    "character": target.id,
+                                    "text": cleaned_text,
+                                    "file": filename,
+                                    "line": linenumber,
+                                    "context": current_label,
+                                })
             elif isinstance(node, pyast.AugAssign):
                 if isinstance(node.target, pyast.Name):
                     if node.target.id in route_literal_variables[current_label]:
@@ -1114,6 +1131,18 @@ init 10000 python:
 
     def report_stats():
         """Generate a JSON report of the collected statistics."""
+        has_dialogue_blocks = any(
+            file_count.blocks > 0
+            for data in all_lang_stats.values()
+            for file_count in data["filestats"].values()
+        )
+
+        if not has_dialogue_blocks and custom_text_assignments:
+            for line in custom_text_assignments:
+                all_lang_stats["default"]["filestats"][line["file"]].add(line["text"])
+                all_lang_stats["default"]["characters"][line["character"]].add(line["text"])
+                dialogue_lines["default"].append(line)
+
         result = {
             "languages": {},
             "file_statistics": {},
