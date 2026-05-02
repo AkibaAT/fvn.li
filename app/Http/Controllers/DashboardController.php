@@ -610,7 +610,7 @@ class DashboardController extends Controller
                 ];
             })->values();
 
-        $ratings = (Rating::where('rater_id', $user->id)
+        $ratings = (Rating::where('user_id', $user->id)
             ->orderByDesc('published_at')
             ->get([
                 'id', 'game_id', 'rating', 'is_reviewed', 'published_at', 'created_at', 'updated_at', 'review',

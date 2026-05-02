@@ -178,8 +178,8 @@ class User extends Authenticatable
         $expectedDomain = strtolower($userUrl['host']);
 
         return Game::where(function ($query) use ($expectedDomain) {
-            $query->where('url', 'LIKE', "https://{$expectedDomain}/%")
-                ->orWhere('url', 'LIKE', "http://{$expectedDomain}/%");
+            $query->whereRaw("LOWER(url->>'itch_io') LIKE ?", ["https://{$expectedDomain}/%"])
+                ->orWhereRaw("LOWER(url->>'itch_io') LIKE ?", ["http://{$expectedDomain}/%"]);
         })
             ->where('is_visible', true)
             ->orderBy('name')

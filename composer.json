@@ -84,7 +84,15 @@
             "@php artisan key:generate --ansi"
         ],
         "test": "php artisan test --env=testing",
+        "test:php": "php artisan test --env=testing --testsuite=Unit,Feature",
+        "test:browser": "php artisan test --env=testing --testsuite=Browser",
+        "test:all": [
+            "@test:php",
+            "@test:browser"
+        ],
         "test:coverage": "php artisan test --env=testing --coverage",
+        "test:coverage:clover": "mkdir -p build/logs && php artisan test --env=testing --coverage-clover=build/logs/clover.xml",
+        "test:coverage:audit": "php scripts/audit-php-coverage.php build/logs/clover.xml",
         "test:parallel": "php artisan test --env=testing --parallel",
         "test:unit": "php artisan test --env=testing --testsuite=Unit",
         "test:feature": "php artisan test --env=testing --testsuite=Feature",

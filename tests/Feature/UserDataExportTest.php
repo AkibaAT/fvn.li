@@ -105,15 +105,17 @@ describe('exported data completeness', function () {
 
     test('export includes ratings and reviews', function () {
         $game = Game::factory()->create();
-        $rater = Rater::factory()->create(['user_id' => $this->user->id]);
+        $rater = Rater::factory()->create();
 
         Rating::create([
             'event_id' => 1,
             'game_id' => $game->id,
             'rater_id' => $rater->id,
+            'user_id' => $this->user->id,
             'rating' => 5,
             'is_reviewed' => true,
             'is_visible' => true,
+            'source_platform' => 'fvn_li',
             'review' => 'Amazing visual novel!',
             'published_at' => now(),
         ]);
@@ -293,17 +295,19 @@ describe('export with complex data', function () {
 
     test('export handles user with many ratings', function () {
         $games = Game::factory()->count(50)->create();
-        $rater = Rater::factory()->create(['user_id' => $this->user->id]);
+        $rater = Rater::factory()->create();
 
         foreach ($games as $index => $game) {
             Rating::create([
                 'event_id' => $index + 1,
                 'game_id' => $game->id,
                 'rater_id' => $rater->id,
+                'user_id' => $this->user->id,
                 'rating' => rand(1, 5),
                 'review' => '',
                 'is_visible' => true,
                 'is_reviewed' => false,
+                'source_platform' => 'fvn_li',
                 'published_at' => now(),
             ]);
         }

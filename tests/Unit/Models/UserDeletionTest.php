@@ -230,7 +230,7 @@ describe('GDPR-compliant deletion workflow', function () {
         // Create an addition request reviewed by this user
         DB::table('addition_requests')->insert([
             'game_id' => Game::factory()->create()->id,
-            'itch_url' => 'https://example.itch.io/game',
+            'game_url' => 'https://example.itch.io/game',
             'normalized_url' => 'example.itch.io/game',
             'reviewed_by' => $user->id,
             'status' => 'approved',

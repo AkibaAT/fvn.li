@@ -9,6 +9,7 @@ use App\Models\Tag;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -91,22 +92,26 @@ describe('Home Page Game Cards', function () {
 
     test('game cards include language information with correct structure', function () {
         // Create languages with all required fields for ISO 639-3
-        $english = Language::create([
+        DB::table('iso_639_3_languages')->insertOrIgnore([
             'id' => 'eng',
             'scope' => 'I',  // Individual language
             'type' => 'L',   // Living language
             'ref_name' => 'English',
             'part1' => 'en',
             'flag_code' => 'gb',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        $japanese = Language::create([
+        DB::table('iso_639_3_languages')->insertOrIgnore([
             'id' => 'jpn',
             'scope' => 'I',  // Individual language
             'type' => 'L',   // Living language
             'ref_name' => 'Japanese',
             'part1' => 'ja',
             'flag_code' => 'jp',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         // Create a game with a latest version
@@ -310,16 +315,16 @@ describe('Home Page Game Cards', function () {
             ]);
 
             // Create English language if it doesn't exist
-            Language::firstOrCreate(
-                ['id' => 'eng'],
-                [
-                    'scope' => 'I',
-                    'type' => 'L',
-                    'ref_name' => 'English',
-                    'part1' => 'en',
-                    'flag_code' => 'gb',
-                ]
-            );
+            DB::table('iso_639_3_languages')->insertOrIgnore([
+                'id' => 'eng',
+                'scope' => 'I',
+                'type' => 'L',
+                'ref_name' => 'English',
+                'part1' => 'en',
+                'flag_code' => 'gb',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             VersionSupportedLanguage::create([
                 'game_version_id' => $version->id,

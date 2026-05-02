@@ -104,8 +104,8 @@ test('ownsGame uses API data when available', function () {
         ]);
 
     $game = Game::factory()->create([
-        'game_id' => 12345,
-        'url' => 'https://studiofox.itch.io/my-visual-novel',
+        'itch_id' => 12345,
+        'url' => ['itch_io' => 'https://studiofox.itch.io/my-visual-novel'],
         'slug' => 'my-visual-novel',
         'name' => 'My VN',
         'is_visible' => true,
@@ -115,8 +115,8 @@ test('ownsGame uses API data when available', function () {
 
     // Different game ID should not match
     $otherGame = Game::factory()->create([
-        'game_id' => 99999,
-        'url' => 'https://another.itch.io/other',
+        'itch_id' => 99999,
+        'url' => ['itch_io' => 'https://another.itch.io/other'],
         'slug' => 'other',
         'name' => 'Other',
         'is_visible' => true,
@@ -136,7 +136,7 @@ test('ownsGame falls back to URL matching when no API data', function () {
         ]);
 
     $game = Game::factory()->create([
-        'url' => 'https://studiofox.itch.io/my-visual-novel',
+        'url' => ['itch_io' => 'https://studiofox.itch.io/my-visual-novel'],
         'slug' => 'my-visual-novel',
         'name' => 'My VN',
         'is_visible' => true,
@@ -146,7 +146,7 @@ test('ownsGame falls back to URL matching when no API data', function () {
 
     // Different domain should not match
     $otherGame = Game::factory()->create([
-        'url' => 'https://another.itch.io/other',
+        'url' => ['itch_io' => 'https://another.itch.io/other'],
         'slug' => 'other',
         'name' => 'Other',
         'is_visible' => true,
@@ -172,7 +172,7 @@ test('ownsGame handles case insensitive domain comparison in fallback mode', fun
         ]);
 
     $game = Game::factory()->create([
-        'url' => 'https://studiofox.itch.io/my-visual-novel',
+        'url' => ['itch_io' => 'https://studiofox.itch.io/my-visual-novel'],
         'slug' => 'my-visual-novel',
         'name' => 'My VN',
         'is_visible' => true,
@@ -192,7 +192,7 @@ test('ownsGame handles invalid urls gracefully in fallback mode', function () {
         ]);
 
     $game = Game::factory()->create([
-        'url' => 'invalid-game-url',
+        'url' => ['itch_io' => 'invalid-game-url'],
         'slug' => 'test',
         'name' => 'Test',
         'is_visible' => true,
@@ -210,14 +210,14 @@ test('getOwnedGames returns empty collection when no itchio url', function () {
 test('getOwnedGames returns games from API data when available', function () {
     // Create games
     $ownedGame = Game::factory()->create([
-        'game_id' => 12345,
-        'url' => 'https://testuser.itch.io/owned-game',
+        'itch_id' => 12345,
+        'url' => ['itch_io' => 'https://testuser.itch.io/owned-game'],
         'is_visible' => true,
     ]);
 
     Game::factory()->create([
-        'game_id' => 99999,
-        'url' => 'https://other.itch.io/other-game',
+        'itch_id' => 99999,
+        'url' => ['itch_io' => 'https://other.itch.io/other-game'],
         'is_visible' => true,
     ]);
 
@@ -240,13 +240,13 @@ test('getOwnedGames returns games from API data when available', function () {
 test('getOwnedGames falls back to URL matching when no API data', function () {
     // Create games with matching domain
     $ownedGame = Game::factory()->create([
-        'url' => 'https://testuser.itch.io/owned-game',
+        'url' => ['itch_io' => 'https://testuser.itch.io/owned-game'],
         'is_visible' => true,
     ]);
 
     // Create game with different domain
     Game::factory()->create([
-        'url' => 'https://other.itch.io/other-game',
+        'url' => ['itch_io' => 'https://other.itch.io/other-game'],
         'is_visible' => true,
     ]);
 
@@ -277,7 +277,7 @@ test('getOwnedGames excludes invisible games', function () {
 
     // Create invisible game only to test exclusion
     Game::factory()->create([
-        'url' => 'https://testuser.itch.io/invisible-game',
+        'url' => ['itch_io' => 'https://testuser.itch.io/invisible-game'],
         'is_visible' => false,
     ]);
 

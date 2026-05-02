@@ -18,6 +18,7 @@ it('loads rater game history using the numeric game id', function () {
         'is_reviewed' => true,
         'is_visible' => false,
         'review' => 'Earlier review.',
+        'source_platform' => 'itch_io',
         'published_at' => now()->subDay(),
     ]);
 
@@ -29,6 +30,7 @@ it('loads rater game history using the numeric game id', function () {
         'is_reviewed' => true,
         'is_visible' => true,
         'review' => 'Current review.',
+        'source_platform' => 'itch_io',
         'published_at' => now(),
     ]);
 

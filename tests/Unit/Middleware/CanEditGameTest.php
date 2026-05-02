@@ -21,7 +21,7 @@ describe('can edit game middleware', function () {
     test('allows admin to edit any game', function () {
         $admin = User::factory()->create(['is_admin' => true]);
         $game = Game::factory()->create([
-            'url' => 'https://somedev.itch.io/game',
+            'url' => ['itch_io' => 'https://somedev.itch.io/game'],
         ]);
 
         // Set the authenticated user
@@ -47,14 +47,14 @@ describe('can edit game middleware', function () {
     test('allows game owner via itch.io account to edit their game', function () {
         $user = User::factory()->create(['is_admin' => false]);
         $game = Game::factory()->create([
-            'url' => 'https://testdev.itch.io/test-game',
+            'url' => ['itch_io' => 'https://testdev.itch.io/test-game'],
         ]);
 
         // Create itch.io social account with matching game ID
         SocialAccount::factory()->create([
             'user_id' => $user->id,
             'provider_name' => 'itchio',
-            'itchio_game_ids' => [$game->game_id],
+            'itchio_game_ids' => [$game->itch_id],
         ]);
 
         // Set the authenticated user
@@ -79,7 +79,7 @@ describe('can edit game middleware', function () {
     test('blocks non-owner from editing game', function () {
         $user = User::factory()->create(['is_admin' => false]);
         $game = Game::factory()->create([
-            'url' => 'https://otherdev.itch.io/game',
+            'url' => ['itch_io' => 'https://otherdev.itch.io/game'],
         ]);
 
         // User has itch.io account but doesn't own this game
@@ -163,7 +163,7 @@ describe('ownership verification', function () {
     test('verifies ownership via URL matching fallback', function () {
         $user = User::factory()->create(['is_admin' => false]);
         $game = Game::factory()->create([
-            'url' => 'https://testdev.itch.io/test-game',
+            'url' => ['itch_io' => 'https://testdev.itch.io/test-game'],
         ]);
 
         // Create itch.io account without game IDs (fallback to URL matching)
@@ -218,8 +218,8 @@ describe('ownership verification', function () {
 
     test('handles multiple games owned by same user', function () {
         $user = User::factory()->create(['is_admin' => false]);
-        $game1 = Game::factory()->create(['game_id' => 100]);
-        $game2 = Game::factory()->create(['game_id' => 200]);
+        $game1 = Game::factory()->create(['itch_id' => 100]);
+        $game2 = Game::factory()->create(['itch_id' => 200]);
 
         SocialAccount::factory()->create([
             'user_id' => $user->id,

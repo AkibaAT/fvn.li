@@ -17,6 +17,10 @@ pest()->extend(Tests\TestCase::class);
 pest()->group('Feature')
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
+// Browser tests also run against isolated test data.
+pest()->group('Browser')
+    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class);
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

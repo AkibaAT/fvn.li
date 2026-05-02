@@ -282,19 +282,21 @@ describe('deletion does not affect other users', function () {
 
     test('does not delete shared game data', function () {
         $game = Game::factory()->create();
-        $rater1 = Rater::factory()->create(['user_id' => $this->user->id]);
+        $rater1 = Rater::factory()->create();
         $otherUser = User::factory()->create();
-        $rater2 = Rater::factory()->create(['user_id' => $otherUser->id]);
+        $rater2 = Rater::factory()->create();
 
         // Both users rate the same game
         Rating::create([
             'event_id' => 1,
             'game_id' => $game->id,
             'rater_id' => $rater1->id,
+            'user_id' => $this->user->id,
             'rating' => 5,
             'review' => '',
             'is_visible' => true,
             'is_reviewed' => false,
+            'source_platform' => 'fvn_li',
             'published_at' => now(),
         ]);
 
@@ -302,10 +304,12 @@ describe('deletion does not affect other users', function () {
             'event_id' => 2,
             'game_id' => $game->id,
             'rater_id' => $rater2->id,
+            'user_id' => $otherUser->id,
             'rating' => 4,
             'review' => '',
             'is_visible' => true,
             'is_reviewed' => false,
+            'source_platform' => 'fvn_li',
             'published_at' => now(),
         ]);
 

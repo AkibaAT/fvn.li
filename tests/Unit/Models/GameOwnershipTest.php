@@ -15,8 +15,8 @@ beforeEach(function () {
 });
 
 describe('game ownership via itch.io API data', function () {
-    test('user owns game when game_id is in itchio_game_ids', function () {
-        $game = Game::factory()->create(['game_id' => 12345]);
+    test('user owns game when itch_id is in itchio_game_ids', function () {
+        $game = Game::factory()->create(['itch_id' => 12345]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -27,8 +27,8 @@ describe('game ownership via itch.io API data', function () {
         expect($this->user->ownsGame($game))->toBeTrue();
     });
 
-    test('user does not own game when game_id is not in itchio_game_ids', function () {
-        $game = Game::factory()->create(['game_id' => 99999]);
+    test('user does not own game when itch_id is not in itchio_game_ids', function () {
+        $game = Game::factory()->create(['itch_id' => 99999]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -40,13 +40,13 @@ describe('game ownership via itch.io API data', function () {
     });
 
     test('user does not own game when no itch.io account exists', function () {
-        $game = Game::factory()->create(['game_id' => 12345]);
+        $game = Game::factory()->create(['itch_id' => 12345]);
 
         expect($this->user->ownsGame($game))->toBeFalse();
     });
 
     test('handles empty itchio_game_ids array', function () {
-        $game = Game::factory()->create(['game_id' => 12345]);
+        $game = Game::factory()->create(['itch_id' => 12345]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -61,7 +61,7 @@ describe('game ownership via itch.io API data', function () {
 describe('game ownership via URL fallback', function () {
     test('user owns game when URL matches itch.io profile', function () {
         $game = Game::factory()->create([
-            'url' => 'https://testdev.itch.io/my-game',
+            'url' => ['itch_io' => 'https://testdev.itch.io/my-game'],
         ]);
 
         SocialAccount::factory()->create([
@@ -76,7 +76,7 @@ describe('game ownership via URL fallback', function () {
 
     test('user does not own game when URL does not match', function () {
         $game = Game::factory()->create([
-            'url' => 'https://otherdev.itch.io/my-game',
+            'url' => ['itch_io' => 'https://otherdev.itch.io/my-game'],
         ]);
 
         SocialAccount::factory()->create([
@@ -91,7 +91,7 @@ describe('game ownership via URL fallback', function () {
 
     test('handles case insensitive domain comparison', function () {
         $game = Game::factory()->create([
-            'url' => 'https://TestDev.itch.io/my-game',
+            'url' => ['itch_io' => 'https://TestDev.itch.io/my-game'],
         ]);
 
         SocialAccount::factory()->create([
@@ -106,7 +106,7 @@ describe('game ownership via URL fallback', function () {
 
     test('handles invalid URLs gracefully', function () {
         $game = Game::factory()->create([
-            'url' => 'not-a-valid-url',
+            'url' => ['itch_io' => 'not-a-valid-url'],
         ]);
 
         SocialAccount::factory()->create([
@@ -128,7 +128,7 @@ describe('canUserEdit method', function () {
     });
 
     test('owner can edit their game via API data', function () {
-        $game = Game::factory()->create(['game_id' => 12345]);
+        $game = Game::factory()->create(['itch_id' => 12345]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -141,7 +141,7 @@ describe('canUserEdit method', function () {
 
     test('owner can edit their game via URL matching', function () {
         $game = Game::factory()->create([
-            'url' => 'https://testdev.itch.io/my-game',
+            'url' => ['itch_io' => 'https://testdev.itch.io/my-game'],
         ]);
 
         SocialAccount::factory()->create([
@@ -155,7 +155,7 @@ describe('canUserEdit method', function () {
     });
 
     test('non-owner cannot edit game', function () {
-        $game = Game::factory()->create(['game_id' => 99999]);
+        $game = Game::factory()->create(['itch_id' => 99999]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -181,9 +181,9 @@ describe('canUserEdit method', function () {
 
 describe('getOwnedGames method', function () {
     test('returns games owned via API data', function () {
-        $game1 = Game::factory()->create(['game_id' => 100, 'is_visible' => true]);
-        $game2 = Game::factory()->create(['game_id' => 200, 'is_visible' => true]);
-        $game3 = Game::factory()->create(['game_id' => 300, 'is_visible' => true]);
+        $game1 = Game::factory()->create(['itch_id' => 100, 'is_visible' => true]);
+        $game2 = Game::factory()->create(['itch_id' => 200, 'is_visible' => true]);
+        $game3 = Game::factory()->create(['itch_id' => 300, 'is_visible' => true]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -200,15 +200,15 @@ describe('getOwnedGames method', function () {
 
     test('returns games owned via URL matching', function () {
         $game1 = Game::factory()->create([
-            'url' => 'https://testdev.itch.io/game1',
+            'url' => ['itch_io' => 'https://testdev.itch.io/game1'],
             'is_visible' => true,
         ]);
         $game2 = Game::factory()->create([
-            'url' => 'https://testdev.itch.io/game2',
+            'url' => ['itch_io' => 'https://testdev.itch.io/game2'],
             'is_visible' => true,
         ]);
         $game3 = Game::factory()->create([
-            'url' => 'https://otherdev.itch.io/game3',
+            'url' => ['itch_io' => 'https://otherdev.itch.io/game3'],
             'is_visible' => true,
         ]);
 
@@ -227,8 +227,8 @@ describe('getOwnedGames method', function () {
     });
 
     test('excludes invisible games', function () {
-        $visibleGame = Game::factory()->create(['game_id' => 100, 'is_visible' => true]);
-        $invisibleGame = Game::factory()->create(['game_id' => 200, 'is_visible' => false]);
+        $visibleGame = Game::factory()->create(['itch_id' => 100, 'is_visible' => true]);
+        $invisibleGame = Game::factory()->create(['itch_id' => 200, 'is_visible' => false]);
 
         SocialAccount::factory()->create([
             'user_id' => $this->user->id,

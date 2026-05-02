@@ -55,7 +55,7 @@ test('find or create for url returns null for existing visible games', function 
 
     // Create a visible game with this URL
     Game::factory()->create([
-        'url' => $url,
+        'url' => ['itch_io' => $url],
         'is_visible' => true,
     ]);
 
@@ -69,7 +69,7 @@ test('find or create for url works for invisible games', function () {
 
     // Create an invisible game with this URL
     Game::factory()->create([
-        'url' => $url,
+        'url' => ['itch_io' => $url],
         'is_visible' => false,
     ]);
 

@@ -24,7 +24,7 @@ test('game has correct fillable attributes', function () {
     $game = new Game;
 
     expect($game->getFillable())->toContain(
-        'game_id',
+        'itch_id',
         'slug',
         'name',
         'status',
