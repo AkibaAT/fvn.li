@@ -128,7 +128,9 @@
         full_description?: string;
         custom_name?: string;
         custom_description?: string;
+        effective_description?: string;
         has_custom_page?: boolean;
+        view_mode?: 'custom' | 'original';
         thumb_url?: string;
         optimized_thumbnail_url?: string;
         rating?: number;
@@ -164,6 +166,8 @@
         latest_version?: GameVersion;
         additional_links?: AdditionalLink[];
         screenshots?: Screenshot[];
+        custom_screenshots?: Screenshot[] | null;
+        effective_screenshots?: Screenshot[];
         [key: string]: any;
     }
     interface PaginationMeta {
@@ -323,12 +327,34 @@
     let reportingReviewerName = $state('');
     let copiedReviewId = $state<number | null>(null);
     let currentThumbnail = $state<string | null>(null);
-    let currentScreenshots = $state<Screenshot[]>([]);
+    let customScreenshots = $state<Screenshot[]>([]);
+    let visitorScreenshots = $state<Screenshot[]>([]);
+    let visitorName = $state('');
+    let visitorDescription = $state('');
+    let visitorViewMode = $state<'custom' | 'original'>('original');
+    let previewingVisitorView = $state(false);
     let isUploadingThumbnail = $state(false);
     let editControlsContainer = $state<HTMLElement | undefined>(undefined);
+    let lastSyncedMediaKey: string | null = null;
+    const currentScreenshots = $derived(editPermissions.canEdit && !previewingVisitorView ? customScreenshots : visitorScreenshots);
+
+    function customScreenshotsForEditor(): Screenshot[] {
+        return game.custom_screenshots || game.effective_screenshots || game.screenshots || [];
+    }
+
     $effect(() => {
+        const nextMediaKey = `${game.id}:${game.custom_page_updated_at ?? game.updated_at ?? ''}`;
+        if (lastSyncedMediaKey === nextMediaKey) {
+            return;
+        }
+
+        lastSyncedMediaKey = nextMediaKey;
         currentThumbnail = game.optimized_thumbnail_url || game.thumb_url || null;
-        currentScreenshots = (game as any).custom_screenshots || game.screenshots || [];
+        customScreenshots = customScreenshotsForEditor();
+        visitorScreenshots = game.effective_screenshots || game.screenshots || [];
+        visitorName = game.effective_name;
+        visitorDescription = game.effective_description || game.full_description || game.description || '';
+        visitorViewMode = game.view_mode === 'custom' ? 'custom' : 'original';
     });
 
     // Async data state
@@ -667,8 +693,45 @@
     };
 
     const handleMediaUpdate = (newThumbnail: string | null, newScreenshots: any[]) => {
-        currentThumbnail = newThumbnail;
-        currentScreenshots = newScreenshots;
+        if (newThumbnail !== null) {
+            currentThumbnail = newThumbnail;
+        }
+        customScreenshots = newScreenshots;
+        if (visitorViewMode === 'custom') {
+            visitorScreenshots = newScreenshots;
+        }
+    };
+
+    const handleVisitorViewModeUpdate = (data: {
+        view_mode?: 'custom' | 'original';
+        effective_name?: string | null;
+        effective_description?: string | null;
+        effective_screenshots?: unknown[];
+    }) => {
+        if (data.view_mode) {
+            visitorViewMode = data.view_mode;
+        }
+        if (data.effective_name !== undefined && data.effective_name !== null) {
+            visitorName = data.effective_name;
+        }
+        if (data.effective_description !== undefined && data.effective_description !== null) {
+            visitorDescription = data.effective_description;
+        }
+        if (data.effective_screenshots) {
+            visitorScreenshots = data.effective_screenshots as Screenshot[];
+        }
+    };
+
+    const handleCustomNameUpdate = (newName: string) => {
+        if (visitorViewMode === 'custom') {
+            visitorName = newName;
+        }
+    };
+
+    const handleCustomContentUpdate = (newContent: string) => {
+        if (visitorViewMode === 'custom') {
+            visitorDescription = newContent;
+        }
     };
 
     const handleThumbnailUpload = async (file: File) => {
@@ -771,7 +834,7 @@
         {#if game.is_visible}
             <a href="#details" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Details</a>
         {/if}
-        {#if game.screenshots && game.screenshots.length > 0}
+        {#if currentScreenshots && currentScreenshots.length > 0}
             <a href="#screenshots" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Screenshots</a>
         {/if}
         {#if game.additional_links && game.additional_links.length > 0}
@@ -843,7 +906,7 @@
             <div class="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                 <div class="group min-w-0 flex-1">
                     {#if editPermissions.canEdit}
-                        <EditableGameName {game} />
+                        <EditableGameName {game} {previewingVisitorView} previewName={visitorName} onNameUpdate={handleCustomNameUpdate} />
                     {:else}
                         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{game.effective_name}</h1>
                     {/if}
@@ -913,7 +976,17 @@
 
             <div class="group">
                 {#if editPermissions.canEdit}
-                    <EditableGameContent {game} controlsTarget={editControlsContainer} />
+                    <EditableGameContent
+                        {game}
+                        controlsTarget={editControlsContainer}
+                        {previewingVisitorView}
+                        previewContent={visitorDescription}
+                        onPreviewingVisitorViewChange={(previewing) => {
+                            previewingVisitorView = previewing;
+                        }}
+                        onViewModeUpdate={handleVisitorViewModeUpdate}
+                        onContentUpdate={handleCustomContentUpdate}
+                    />
                 {:else if game.is_visible && (game.effective_description || game.full_description || game.description)}
                     <div class="game_description prose max-w-none dark:prose-invert">
                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -1082,12 +1155,12 @@
     </div>
 {/if}
 
-{#if (currentScreenshots && currentScreenshots.length > 0) || editPermissions.canEdit}
+{#if (currentScreenshots && currentScreenshots.length > 0) || (editPermissions.canEdit && !previewingVisitorView)}
     <ScreenshotsGallery
         screenshots={currentScreenshots}
         blur={!!game.is_nsfw}
         onOpenLightbox={openLightbox}
-        canEdit={editPermissions.canEdit}
+        canEdit={editPermissions.canEdit && !previewingVisitorView}
         gameSlug={game.slug}
         onUpdate={handleMediaUpdate}
     />

@@ -45,6 +45,7 @@ export default ts.config(
             'vendor',
             'node_modules',
             'public',
+            'storage',
             'bootstrap/ssr',
             'tailwind.config.js',
             'resources/js/ziggy.js',

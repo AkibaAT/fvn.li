@@ -41,7 +41,10 @@
 <div class="space-y-8">
     <div class="flex items-center justify-between">
         <h1 class="text-3xl font-bold text-blue-600">Manage My Games</h1>
-        <Link href={route('dashboard')} class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
+        <Link
+            href={route('dashboard')}
+            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
             </svg>
@@ -57,9 +60,14 @@
                 </div>
                 <div class="flex-1">
                     <div class="font-medium text-yellow-800 dark:text-yellow-300">Connect your itch.io account to manage your games</div>
-                    <div class="mt-1 text-xs text-yellow-700 dark:text-yellow-400">After connecting, we'll show your owned games here for quick editing and analytics.</div>
+                    <div class="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
+                        After connecting, we'll show your owned games here for quick editing and analytics.
+                    </div>
                 </div>
-                <Link href={route('auth.redirect', 'itchio')} class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">Connect itch.io</Link>
+                <a
+                    href={route('auth.redirect', { provider: 'itchio', intended: route('my-games.index') })}
+                    class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">Connect itch.io</a
+                >
             </div>
         </div>
     {/if}
@@ -84,12 +92,22 @@
             {@const totalViews = gameStats?.page_views_unique || 0}
             {@const totalDownloads = gameStats?.custom_link_clicks_unique || 0}
             {@const itchioVisits = gameStats?.external_project_unique || 0}
-            <div class="overflow-hidden rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+            <div
+                class="overflow-hidden rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70"
+            >
                 <Link href={route('games.show', g.slug)} class="block">
                     {#if g.thumb_url}
-                        <img src={g.thumb_url} alt={g.name} class="aspect-[4/3] w-full {g.platform === 'steam' ? 'object-contain' : 'object-cover'} transition-opacity hover:opacity-90" />
+                        <img
+                            src={g.thumb_url}
+                            alt={g.name}
+                            class="aspect-[4/3] w-full {g.platform === 'steam'
+                                ? 'object-contain'
+                                : 'object-cover'} transition-opacity hover:opacity-90"
+                        />
                     {:else}
-                        <div class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600">
+                        <div
+                            class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                        >
                             <div class="text-center">
                                 <div class="mb-2 text-3xl opacity-50">🎮</div>
                                 <div class="text-sm font-medium">No Image</div>
@@ -112,8 +130,18 @@
                                 {#if totalViews > 0}
                                     <div class="flex items-center gap-1">
                                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                            />
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                            />
                                         </svg>
                                         <span>{totalViews}</span>
                                     </div>
@@ -121,7 +149,12 @@
                                 {#if totalDownloads > 0}
                                     <div class="flex items-center gap-1">
                                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                            />
                                         </svg>
                                         <span>{totalDownloads}</span>
                                     </div>
@@ -129,7 +162,12 @@
                                 {#if itchioVisits > 0}
                                     <div class="flex items-center gap-1">
                                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                            />
                                         </svg>
                                         <span>{itchioVisits}</span>
                                     </div>
@@ -139,9 +177,17 @@
                     {/if}
 
                     <div class="pt-2">
-                        <Link href={route('my-games.edit', { game: g.slug })} class="inline-flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">
+                        <Link
+                            href={route('my-games.edit', { game: g.slug })}
+                            class="inline-flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                        >
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1 14v-4m0 0l-2-2m2 2l2-2M5 13a7 7 0 1114 0 7 7 0 01-14 0z" />
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M11 5h2m-1 14v-4m0 0l-2-2m2 2l2-2M5 13a7 7 0 1114 0 7 7 0 01-14 0z"
+                                />
                             </svg>
                             <span>Edit</span>
                         </Link>
@@ -152,8 +198,6 @@
     </div>
 
     {#if hasItchio && games.length === 0}
-        <div class="text-center text-gray-600 dark:text-gray-400">
-            No owned games were detected for your itch.io account.
-        </div>
+        <div class="text-center text-gray-600 dark:text-gray-400">No owned games were detected for your itch.io account.</div>
     {/if}
 </div>

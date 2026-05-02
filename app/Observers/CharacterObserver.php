@@ -17,10 +17,10 @@ class CharacterObserver
      */
     public function updated(Character $character): void
     {
-        echo "    [CharObserver] Character updated: {$character->character_id}\n";
+        Log::debug('Character updated', ['character_id' => $character->character_id]);
         // If display names changed, update related dialogue texts in search index
         if ($character->isDirty('display_names') || $character->isDirty('display_name_corrections')) {
-            echo "    [CharObserver] Display names changed, dispatching re-index job\n";
+            Log::debug('Character display names changed, dispatching re-index job', ['character_id' => $character->character_id]);
 
             // Dispatch re-indexing after the transaction commits to avoid holding locks
             // while doing expensive search indexing operations
@@ -38,7 +38,10 @@ class CharacterObserver
                         return;
                     }
 
-                    echo '    [CharObserver] Re-indexing dialogue texts for ' . $gameIds->count() . " games\n";
+                    Log::debug('Re-indexing dialogue texts for character change', [
+                        'character_id' => $characterId,
+                        'games_count' => $gameIds->count(),
+                    ]);
 
                     // Re-index dialogue texts for each affected game
                     foreach ($gameIds as $gameId) {
@@ -62,7 +65,7 @@ class CharacterObserver
                 }
             })->afterCommit();
 
-            echo "    [CharObserver] Re-index job dispatched\n";
+            Log::debug('Character re-index job dispatched', ['character_id' => $character->character_id]);
         }
     }
 
@@ -80,7 +83,7 @@ class CharacterObserver
     private function updateRelatedDialogueTexts(Character $character): void
     {
         try {
-            echo "    [CharObserver] Finding games with dialogue from this character\n";
+            Log::debug('Finding games with dialogue from deleted character', ['character_id' => $character->character_id]);
 
             // Find all games that have dialogue from this character
             $gameIds = DB::table('version_dialogue_lines')
@@ -90,12 +93,15 @@ class CharacterObserver
                 ->pluck('game_versions.game_id');
 
             if ($gameIds->isEmpty()) {
-                echo "    [CharObserver] No games found with dialogue from this character\n";
+                Log::debug('No games found with dialogue from deleted character', ['character_id' => $character->character_id]);
 
                 return;
             }
 
-            echo '    [CharObserver] Re-indexing dialogue texts for ' . $gameIds->count() . " games\n";
+            Log::debug('Re-indexing dialogue texts for deleted character', [
+                'character_id' => $character->character_id,
+                'games_count' => $gameIds->count(),
+            ]);
 
             // Re-index dialogue texts for each affected game
             $totalIndexed = 0;
@@ -109,7 +115,10 @@ class CharacterObserver
                 }
             }
 
-            echo "    [CharObserver] Re-indexed {$totalIndexed} dialogue text entries\n";
+            Log::debug('Re-indexed dialogue texts for deleted character', [
+                'character_id' => $character->character_id,
+                'entries_reindexed' => $totalIndexed,
+            ]);
 
             Log::info('Updated dialogue text search indexes for character deletion', [
                 'character_id' => $character->id,

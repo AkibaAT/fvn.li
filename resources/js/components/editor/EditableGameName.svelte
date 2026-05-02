@@ -5,6 +5,7 @@
     interface Game {
         id: number;
         effective_name: string;
+        custom_name?: string | null;
         has_custom_page?: boolean;
         [key: string]: any;
     }
@@ -13,12 +14,14 @@
         game: Game;
         class?: string;
         onNameUpdate?: (newName: string) => void;
+        previewingVisitorView?: boolean;
+        previewName?: string;
     }
 
-    let { game, class: className = '', onNameUpdate }: Props = $props();
+    let { game, class: className = '', onNameUpdate, previewingVisitorView = false, previewName = '' }: Props = $props();
 
     const gameId = $derived(game.id);
-    const name = $derived(game.effective_name);
+    const name = $derived(game.custom_name ?? game.effective_name);
     const canEdit = true;
 
     let isEditing = $state(false);
@@ -85,7 +88,7 @@
                 isEditing = false;
                 saveStatus = 'saved';
 
-                const updatedName = response.data.data.effective_name || trimmedName;
+                const updatedName = response.data.data.name || trimmedName;
                 displayName = updatedName;
 
                 if (onNameUpdate) {
@@ -118,6 +121,8 @@
     function focusOnMount(node: HTMLElement) {
         node.focus();
     }
+
+    const renderedName = $derived(previewingVisitorView ? previewName : displayName);
 </script>
 
 <div class="relative flex w-full min-w-0 flex-wrap items-center gap-2 {className}">
@@ -153,9 +158,9 @@
         {/if}
     {:else}
         <h1 class="min-w-0 text-2xl font-bold break-words text-gray-900 dark:text-gray-100">
-            {displayName}
+            {renderedName}
         </h1>
-        {#if canEdit}
+        {#if canEdit && !previewingVisitorView}
             <button
                 onclick={handleEdit}
                 class="rounded bg-blue-600 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-700"

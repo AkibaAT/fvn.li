@@ -5,6 +5,7 @@
 
     interface Game {
         id: number;
+        custom_description?: string | null;
         effective_description?: string;
         full_description?: string;
         description?: string;
@@ -16,13 +17,31 @@
         game: Game;
         class?: string;
         onContentUpdate?: (newContent: string) => void;
+        onViewModeUpdate?: (data: {
+            view_mode?: 'custom' | 'original';
+            effective_name?: string | null;
+            effective_description?: string | null;
+            effective_screenshots?: unknown[];
+        }) => void;
+        previewingVisitorView?: boolean;
+        previewContent?: string;
+        onPreviewingVisitorViewChange?: (previewing: boolean) => void;
         controlsTarget?: HTMLElement | null;
     }
 
-    let { game, class: className = '', onContentUpdate, controlsTarget = null }: Props = $props();
+    let {
+        game,
+        class: className = '',
+        onContentUpdate,
+        onViewModeUpdate,
+        previewingVisitorView = false,
+        previewContent = '',
+        onPreviewingVisitorViewChange,
+        controlsTarget = null,
+    }: Props = $props();
 
     const gameId = $derived(game.id);
-    const content = $derived(game.effective_description || game.full_description || game.description || '');
+    const content = $derived(game.custom_description ?? game.effective_description ?? game.full_description ?? game.description ?? '');
     const canEdit = true;
     const hasCustomPage = $derived(game.has_custom_page ?? false);
 
@@ -102,7 +121,7 @@
 
             if (response.data.success) {
                 viewMode = newMode;
-                window.location.reload();
+                onViewModeUpdate?.(response.data.data || {});
             }
         } catch (error) {
             console.error('Failed to update view mode:', error);
@@ -245,6 +264,8 @@
     function handleEditorUpdate(newContent: string) {
         editContent = newContent;
     }
+
+    const renderedContent = $derived(previewingVisitorView ? previewContent : displayContent);
 </script>
 
 <div class="{controlsTarget ? '' : 'relative'} {className}">
@@ -273,6 +294,14 @@
                         Custom
                     </button>
                 </div>
+            {/if}
+            {#if hasCustomPage && onPreviewingVisitorViewChange}
+                <button
+                    onclick={() => onPreviewingVisitorViewChange(!previewingVisitorView)}
+                    class="rounded bg-gray-700 px-2 py-1 text-xs text-white shadow-md hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500"
+                >
+                    {previewingVisitorView ? 'Exit preview' : 'Preview visitor view'}
+                </button>
             {/if}
             {#if hasCustomPage}
                 <div class="revert-menu-container relative">
@@ -341,7 +370,9 @@
                     {/if}
                 </div>
             {/if}
-            <button onclick={handleEdit} class="rounded bg-blue-600 px-2 py-1 text-xs text-white shadow-md hover:bg-blue-700"> Edit </button>
+            {#if !previewingVisitorView}
+                <button onclick={handleEdit} class="rounded bg-blue-600 px-2 py-1 text-xs text-white shadow-md hover:bg-blue-700"> Edit </button>
+            {/if}
         </div>
     {/if}
 
@@ -368,7 +399,7 @@
         {:else}
             <div class="inner_column size_very_large family_grandstander" id="inner_column">
                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                {@html displayContent || ''}
+                {@html renderedContent || ''}
             </div>
         {/if}
     </div>

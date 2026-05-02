@@ -24,7 +24,7 @@ class SocialAuthController extends Controller
     {
         // Only store the URL if it hasn't been set already by the auth middleware
         if (! session()->has('url.intended')) {
-            $previousUrl = url()->previous();
+            $previousUrl = $this->safeIntendedUrlFromRequest() ?? url()->previous();
             // Don't store the login page as the intended URL
             if (strpos($previousUrl, route('login')) === false) {
                 session()->put('url.intended', $previousUrl);
@@ -66,6 +66,35 @@ class SocialAuthController extends Controller
         }
     }
 
+    private function safeIntendedUrlFromRequest(): ?string
+    {
+        $intendedUrl = request('intended');
+        if (! is_string($intendedUrl) || $intendedUrl === '') {
+            return null;
+        }
+
+        if (Str::startsWith($intendedUrl, '/') && ! Str::startsWith($intendedUrl, ['//', '/\\'])) {
+            return url($intendedUrl);
+        }
+
+        $intendedHost = parse_url($intendedUrl, PHP_URL_HOST);
+        $allowedHosts = array_filter([
+            request()->getHost(),
+            parse_url((string) config('app.url'), PHP_URL_HOST),
+        ]);
+
+        if ($intendedHost && in_array($intendedHost, $allowedHosts, true)) {
+            return $intendedUrl;
+        }
+
+        Log::warning('Ignoring unsafe OAuth intended URL', [
+            'provider' => request()->route('provider'),
+            'intended' => $intendedUrl,
+        ]);
+
+        return null;
+    }
+
     /**
      * Handle provider callback.
      */
@@ -82,7 +111,7 @@ class SocialAuthController extends Controller
                 // Create a SocialiteUser instance from the Telegram data
                 $socialiteUser = new \Laravel\Socialite\Two\User;
                 $socialiteUser->id = $data['id'];
-                $socialiteUser->name = $data['first_name'] . (isset($data['last_name']) ? ' ' . $data['last_name'] : '');
+                $socialiteUser->name = $data['first_name'].(isset($data['last_name']) ? ' '.$data['last_name'] : '');
                 $socialiteUser->nickname = $data['username'] ?? null;
                 $socialiteUser->avatar = $data['photo_url'] ?? null;
 
@@ -105,7 +134,7 @@ class SocialAuthController extends Controller
                         throw new Exception('No access token found in hash fragment');
                     }
 
-                    Log::info('Received itch.io access token', ['token' => substr($accessToken, 0, 10) . '...']);
+                    Log::info('Received itch.io access token', ['token' => substr($accessToken, 0, 10).'...']);
 
                     // Create a SocialiteUser instance with the access token
                     $socialiteUser = Socialite::driver($provider)->userFromToken($accessToken);
@@ -204,13 +233,13 @@ class SocialAuthController extends Controller
             return redirect($redirectTo);
         } catch (Exception $e) {
             // Log the error for debugging
-            Log::error("Social auth error with {$provider}: " . $e->getMessage(), [
+            Log::error("Social auth error with {$provider}: ".$e->getMessage(), [
                 'exception' => $e,
                 'request_data' => request()->all(),
             ]);
 
             // Flash error message to session
-            session()->flash('error', 'Failed to authenticate with ' . $provider);
+            session()->flash('error', 'Failed to authenticate with '.$provider);
 
             return redirect(route('games.index'));
         }
@@ -288,18 +317,18 @@ class SocialAuthController extends Controller
                 return $userData['given_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
 
             case 'discord':
                 return $userData['global_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
 
             default:
                 return $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
         }
     }
 
@@ -327,7 +356,7 @@ class SocialAuthController extends Controller
         // Generate placeholder values as needed
         $name = $socialiteUser->getName()
             ?? $socialiteUser->getNickname()
-            ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+            ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
 
         $email = $socialiteUser->getEmail();
         $avatar = $socialiteUser->getAvatar();

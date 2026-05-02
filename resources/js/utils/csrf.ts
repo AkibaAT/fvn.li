@@ -51,13 +51,18 @@ export async function refreshCsrfToken(): Promise<string> {
  */
 export async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const makeRequest = (token: string): Promise<Response> => {
+        const defaultHeaders: Record<string, string> = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': token,
+        };
+        const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+        if (!isFormData) {
+            defaultHeaders['Content-Type'] = 'application/json';
+        }
+
         const defaultOptions: RequestInit = {
             credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': token,
-            },
+            headers: defaultHeaders,
         };
 
         const mergedOptions = {

@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { authenticatedFetch } from '@/utils/csrf';
+    import { toast } from '@/utils/toast';
+
     export interface Screenshot {
         url: string;
         thumbnail_url?: string;
@@ -21,62 +24,134 @@
     let { screenshots, blur = false, onOpenLightbox, canEdit = false, gameSlug, onUpdate }: Props = $props();
 
     const shouldBlur = $derived(blur && !canEdit);
+    let uploadingScreenshots = $state(false);
+    let deletingScreenshotIndex = $state<number | null>(null);
+    let displayedScreenshots = $derived(screenshots ?? []);
+
+    function normalizeScreenshots(value: unknown): Screenshot[] | null {
+        if (Array.isArray(value)) {
+            return value as Screenshot[];
+        }
+
+        if (value && typeof value === 'object') {
+            return Object.values(value) as Screenshot[];
+        }
+
+        return null;
+    }
 
     async function handleScreenshotUpload(files: FileList) {
         if (typeof window === 'undefined') return;
+        if (uploadingScreenshots) return;
         const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
         if (imageFiles.length === 0) {
             alert('Please upload image files');
             return;
         }
 
+        uploadingScreenshots = true;
         const formData = new FormData();
         imageFiles.forEach((file) => formData.append('screenshots[]', file));
 
         try {
-            const res = await (window as any).axios.post(route('react-api.my-games.screenshots.upload', { game: gameSlug }), formData);
-            if (res.data?.success) {
-                onUpdate?.(null, res.data.screenshots || []);
+            const res = await authenticatedFetch(route('react-api.my-games.screenshots.upload', { game: gameSlug }), {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data?.success === false) {
+                toast.error(data?.message || 'Failed to upload screenshots');
+                return;
             }
-        } catch (e) {
+            const responseScreenshots = normalizeScreenshots(data.screenshots);
+            const responseNewScreenshots = normalizeScreenshots(data.new_screenshots);
+            const updatedScreenshots =
+                responseScreenshots && responseScreenshots.length >= displayedScreenshots.length
+                    ? responseScreenshots
+                    : responseNewScreenshots
+                      ? [...displayedScreenshots, ...responseNewScreenshots]
+                      : displayedScreenshots;
+            displayedScreenshots = updatedScreenshots;
+            onUpdate?.(null, updatedScreenshots);
+            toast.success('Screenshots uploaded successfully');
+        } catch (e: unknown) {
             console.error('Failed to upload screenshots', e);
+            toast.error(e instanceof Error ? e.message : 'Failed to upload screenshots');
+        } finally {
+            uploadingScreenshots = false;
         }
     }
 
     async function handleScreenshotDelete(index: number) {
         if (typeof window === 'undefined') return;
+        if (uploadingScreenshots || deletingScreenshotIndex !== null) return;
         if (!confirm('Delete this screenshot?')) return;
 
+        deletingScreenshotIndex = index;
         try {
-            const res = await (window as any).axios.delete(route('react-api.my-games.screenshots.delete', { game: gameSlug }), { data: { index } });
-            if (res.data?.success) {
-                onUpdate?.(null, res.data.screenshots || []);
+            const res = await authenticatedFetch(route('react-api.my-games.screenshots.delete', { game: gameSlug }), {
+                method: 'DELETE',
+                body: JSON.stringify({ index }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data?.success === false) {
+                toast.error(data?.message || 'Failed to delete screenshot');
+                return;
             }
-        } catch (e) {
+            const expectedCount = Math.max(0, displayedScreenshots.length - 1);
+            const responseScreenshots = normalizeScreenshots(data.screenshots);
+            const updatedScreenshots =
+                responseScreenshots && responseScreenshots.length === expectedCount
+                    ? responseScreenshots
+                    : displayedScreenshots.filter((_, screenshotIndex) => screenshotIndex !== index);
+            displayedScreenshots = updatedScreenshots;
+            onUpdate?.(null, updatedScreenshots);
+            toast.success('Screenshot deleted successfully');
+        } catch (e: unknown) {
             console.error('Failed to delete screenshot', e);
+            toast.error(e instanceof Error ? e.message : 'Failed to delete screenshot');
+        } finally {
+            deletingScreenshotIndex = null;
         }
     }
 </script>
 
-{#if (screenshots && screenshots.length > 0) || canEdit}
+{#if (displayedScreenshots && displayedScreenshots.length > 0) || canEdit}
     <div id="screenshots" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Screenshots</h2>
             {#if canEdit}
                 <label
-                    class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                    aria-busy={uploadingScreenshots}
+                    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors {uploadingScreenshots
+                        ? 'cursor-wait bg-blue-500'
+                        : 'cursor-pointer bg-blue-600 hover:bg-blue-700'}"
                 >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span>Add Screenshots</span>
+                    {#if uploadingScreenshots}
+                        <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                        </svg>
+                        <span>Uploading...</span>
+                    {:else}
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Add Screenshots</span>
+                    {/if}
                     <input
                         type="file"
                         accept="image/*"
                         multiple
+                        disabled={uploadingScreenshots}
                         onchange={(e) => {
                             const input = e.target as HTMLInputElement;
                             if (input.files) handleScreenshotUpload(input.files);
+                            input.value = '';
                         }}
                         class="hidden"
                     />
@@ -102,9 +177,9 @@
             </div>
         {/if}
 
-        {#if screenshots && screenshots.length > 0}
+        {#if displayedScreenshots && displayedScreenshots.length > 0}
             <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4" id="screenshots-gallery">
-                {#each screenshots as screenshot, index (`${screenshot.url}-${index}`)}
+                {#each displayedScreenshots as screenshot, index (`${screenshot.url}-${index}`)}
                     {@const thumbnailUrl = getThumbnailUrl(screenshot)}
                     {@const fullUrl = screenshot.url}
                     <div class="group relative h-32 w-full">
@@ -128,17 +203,29 @@
                         {#if canEdit}
                             <button
                                 onclick={() => handleScreenshotDelete(index)}
-                                class="absolute top-2 right-2 z-10 rounded-full bg-red-600 p-2 text-white shadow-lg transition-colors hover:bg-red-700"
+                                disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
+                                class="absolute top-2 right-2 z-10 rounded-full bg-red-600 p-2 text-white shadow-lg transition-colors hover:bg-red-700 disabled:cursor-wait disabled:opacity-70"
                                 aria-label="Delete screenshot"
                             >
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    />
-                                </svg>
+                                {#if deletingScreenshotIndex === index}
+                                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path
+                                            class="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
+                                    </svg>
+                                {:else}
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                    </svg>
+                                {/if}
                             </button>
                         {/if}
                     </div>

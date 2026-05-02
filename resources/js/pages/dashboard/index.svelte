@@ -692,8 +692,9 @@
                             After connecting, we'll show your owned games here for quick editing and analytics.
                         </div>
                     </div>
-                    <Link href={route('auth.redirect', 'itchio')} class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-                        >Connect itch.io</Link
+                    <a
+                        href={route('auth.redirect', { provider: 'itchio', intended: `${route('dashboard')}#my-games` })}
+                        class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">Connect itch.io</a
                     >
                 </div>
             </div>

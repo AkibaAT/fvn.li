@@ -60,7 +60,7 @@ class GameObserver
 
     public function updated(Game $game): void
     {
-        echo "    [Observer] Game updated event triggered\n";
+        Log::debug('Game updated event triggered', ['game_id' => $game->id]);
 
         // Track when a game first becomes visible and log the visibility change
         if ($game->wasChanged('is_visible')) {
@@ -83,7 +83,7 @@ class GameObserver
             // Update search index when visibility changes
             if ($isVisible && ! empty(trim($game->name))) {
                 // Game is now visible - add to search index
-                echo "    [Observer] Adding game to search index\n";
+                Log::debug('Adding game to search index', ['game_id' => $game->id]);
 
                 // Defer indexing until after the transaction commits to ensure all relationships are saved
                 $gameId = $game->id;
@@ -101,7 +101,7 @@ class GameObserver
                 })->afterCommit();
             } elseif (! $isVisible) {
                 // Game is now hidden - remove from search index
-                echo "    [Observer] Removing game from search index\n";
+                Log::debug('Removing game from search index', ['game_id' => $game->id]);
                 $game->unsearchable();
                 Log::info('Removed game from search index', [
                     'game_id' => $game->id,
@@ -117,13 +117,13 @@ class GameObserver
 
         // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible', 'content_type'])) {
-            echo "    [Observer] Clearing filter cache\n";
+            Log::debug('Clearing filter cache after game update', ['game_id' => $game->id]);
             GameFilterService::clearCache();
         }
 
         // Clear home page teasers if fields that affect sorting/display changed
         if ($game->wasChanged(['first_visible_at', 'latest_version_published_at', 'trending_score', 'name', 'thumb_url'])) {
-            echo "    [Observer] Clearing home page teasers\n";
+            Log::debug('Clearing home page teasers after game update', ['game_id' => $game->id]);
             HomePageCacheService::clearTeasers();
         }
 
@@ -132,17 +132,17 @@ class GameObserver
         }
 
         // Process any pending associations
-        echo "    [Observer] Processing pending game jams\n";
+        Log::debug('Processing pending game jams after game update', ['game_id' => $game->id]);
         $hadPendingGameJams = ! empty($game->pendingGameJamId);
         $game->processPendingGameJams();
 
-        echo "    [Observer] Processing pending tags\n";
+        Log::debug('Processing pending tags after game update', ['game_id' => $game->id]);
         $hadPendingTags = ! empty($game->pendingTagIds);
         $game->processPendingTags();
 
         // If we processed any pending associations and the game is visible, re-index it
         if (($hadPendingGameJams || $hadPendingTags) && $game->is_visible) {
-            echo "    [Observer] Re-indexing game due to updated associations\n";
+            Log::debug('Re-indexing game due to updated associations', ['game_id' => $game->id]);
             $this->bumpRecommendationCacheVersion();
             $gameId = $game->id;
 
@@ -157,7 +157,7 @@ class GameObserver
             })->afterCommit();
         }
 
-        echo "    [Observer] Game updated event complete\n";
+        Log::debug('Game updated event complete', ['game_id' => $game->id]);
     }
 
     /**

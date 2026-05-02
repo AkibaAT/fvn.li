@@ -302,7 +302,7 @@ class GamesDisplayController extends Controller
             $similarGames = collect();
         }
 
-        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
+        $developerCacheKey = "game.{$game->id}.developer.".md5((string) $game->authors).".v{$recommendationCacheVersion}";
         $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
             ->map(fn (Game $g) => [
                 'id' => $g->id,
@@ -379,10 +379,15 @@ class GamesDisplayController extends Controller
         $sanitizer = app(HtmlSanitizerService::class);
         $sanitizer->sanitizeGameModel($game);
 
-        $game->screenshots = $game->getScreenshots();
-        if ($game->custom_screenshots) {
-            $game->custom_screenshots = $game->resolveScreenshots($game->custom_screenshots);
-        }
+        $originalScreenshots = $game->getScreenshots();
+        $customScreenshots = is_array($game->custom_screenshots)
+            ? $game->resolveScreenshots($game->custom_screenshots)
+            : null;
+        $effectiveScreenshots = $game->getEffectiveScreenshots();
+
+        $game->screenshots = $originalScreenshots;
+        $game->custom_screenshots = $customScreenshots;
+        $game->effective_screenshots = $effectiveScreenshots;
 
         return Inertia::render('games/show', [
             'game' => $game,
@@ -531,7 +536,7 @@ class GamesDisplayController extends Controller
             }
         }
         if (! empty($platforms)) {
-            $metaDescription .= ' - Available on: ' . implode(', ', $platforms);
+            $metaDescription .= ' - Available on: '.implode(', ', $platforms);
         }
 
         if ($reviews->total() > 0) {
