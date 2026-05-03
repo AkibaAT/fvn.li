@@ -1,4 +1,4 @@
 services:
   web:
     volumes:
-      - ${RENPY_SDK_HOST_PATH}:/opt/renpy-sdk
+      - ${RENPY_SDK_HOST_PATH:-/tmp/fvn-empty-renpy-sdk}:/opt/renpy-sdk:ro

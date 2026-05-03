@@ -13,6 +13,39 @@
 
 pest()->extend(Tests\TestCase::class);
 
+function useExternalPestBrowserServers(): void
+{
+    if (! class_exists(Pest\Browser\ServerManager::class)) {
+        return;
+    }
+
+    $baseUrl = getenv('PEST_BROWSER_BASE_URL') ?: null;
+    $playwrightHost = getenv('PEST_BROWSER_PLAYWRIGHT_HOST') ?: null;
+    $playwrightPort = (int) (getenv('PEST_BROWSER_PLAYWRIGHT_PORT') ?: 3000);
+
+    if (! $baseUrl && ! $playwrightHost) {
+        return;
+    }
+
+    $serverManager = Pest\Browser\ServerManager::instance();
+    $reflection = new ReflectionClass($serverManager);
+
+    if ($playwrightHost) {
+        $playwrightProperty = $reflection->getProperty('playwright');
+        $playwrightProperty->setValue(
+            $serverManager,
+            new Pest\Browser\Playwright\Servers\AlreadyStartedPlaywrightServer($playwrightHost, $playwrightPort),
+        );
+    }
+
+    if ($baseUrl) {
+        $httpProperty = $reflection->getProperty('http');
+        $httpProperty->setValue($serverManager, new Tests\Support\ExternalBrowserHttpServer($baseUrl));
+    }
+}
+
+useExternalPestBrowserServers();
+
 // Use RefreshDatabase for Feature tests
 pest()->group('Feature')
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class);

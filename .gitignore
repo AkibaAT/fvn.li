@@ -1,6 +1,7 @@
 /.phpunit.cache
 /.vera
 /bootstrap/ssr
+/build/
 /itchbot
 /node_modules
 /public/assets/tinymce

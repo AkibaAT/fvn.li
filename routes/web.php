@@ -16,7 +16,6 @@ use App\Http\Controllers\UserGameProgressController;
 use App\Http\Controllers\VnListController;
 use App\Models\Game;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -56,7 +55,7 @@ Route::get('csrf-token', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes (React/Inertia frontend)
+| Web Routes (Svelte/Inertia frontend)
 |--------------------------------------------------------------------------
 */
 
@@ -202,31 +201,14 @@ Route::get('auth/itchio/process', function () {
 Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])
     ->name('auth.callback');
 
-// Debug-only auth helpers (local/development only)
-if (app()->environment(['local', 'development'])) {
-    Route::get('__debug/login-7', function () {
-        Auth::loginUsingId(7);
-
-        return redirect('/my/games');
-    })->name('debug.login-7');
-
-    Route::get('__debug/logout', function () {
-        Auth::logout();
-        request()->session()->invalidate();
-        request()->session()->regenerateToken();
-
-        return redirect('/');
-    })->name('debug.logout');
-}
-
-// React/Inertia Dialogue Browser + JSON API
+// Svelte/Inertia Dialogue Browser + JSON API
 // gameId is now required - dialogue browser is only accessible from game detail page
 Route::get('dialogue/browser/{gameId}', [DialogueController::class, 'dialogueBrowser'])
     ->where(['gameId' => '[0-9]+'])
     ->name('dialogue.browser');
-// JSON endpoints moved to routes/react-api.php
+// JSON endpoints moved to routes/browser-api.php
 
-// Ratings domain (React/Inertia) scaffolds
+// Ratings domain (Svelte/Inertia) scaffolds
 Route::get('ratings', [RatingsController::class, 'ratingsIndex'])
     ->name('ratings.index');
 Route::get('reviews/{rating}', [RatingsController::class, 'reviewShow'])
@@ -239,22 +221,22 @@ Route::get('raters/{rater}', [RatingsController::class, 'raterShow'])
     ->whereNumber('rater')
     ->name('raters.show');
 
-// Rating history JSON for React modal
+// Rating history JSON for browser modal
 Route::get('raters/{rater}/games/{game}/history', [RatingsController::class, 'getRatingHistory'])
     ->whereNumber('rater')
     ->whereNumber('game')
     ->name('raters.games.history');
 
-// Manage My Games (React/Inertia pages)
+// Manage My Games (Svelte/Inertia pages)
 Route::middleware('auth')->group(function () {
     Route::get('my/games', [MyGamesController::class, 'myGamesIndex'])->name('my-games.index');
     Route::get('my/games/{game:slug}/edit', [MyGamesController::class, 'myGamesEdit'])->name('my-games.edit');
 });
 
-// Use slug for these endpoints to match Show.tsx paths
-// React API JSON for versions moved to react-api.php
+// Use slug for these endpoints to match Svelte game page paths
+// Browser API JSON for versions moved to browser-api.php
 
-// JSON list APIs moved to react-api.php
+// JSON list APIs moved to browser-api.php
 
 // RSS Feeds
 Route::get('feed/new', [FeedController::class, 'newGames'])->name('feed.new');
@@ -265,4 +247,4 @@ Route::get('track/link', [App\Http\Controllers\ClickTrackingController::class, '
     ->name('track.custom-link');
 Route::get('track/external', [App\Http\Controllers\ClickTrackingController::class, 'redirectExternalProject'])
     ->name('track.external-project');
-// Click tracking JSON moved to react-api.php
+// Click tracking JSON moved to browser-api.php

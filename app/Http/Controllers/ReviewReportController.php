@@ -19,6 +19,13 @@ class ReviewReportController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
         if (! $user->is_admin) {
             abort(403);
         }
@@ -48,6 +55,13 @@ class ReviewReportController extends Controller
 
         $rating = Rating::findOrFail($ratingId);
         $user = Auth::user();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
 
         // Cannot report own reviews
         if ($rating->user_id === $user->id) {
@@ -97,6 +111,13 @@ class ReviewReportController extends Controller
     public function resolve(Request $request, int $reportId): JsonResponse
     {
         $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
         if (! $user->is_admin) {
             abort(403);
         }

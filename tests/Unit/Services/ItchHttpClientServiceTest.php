@@ -2,252 +2,199 @@
 
 declare(strict_types=1);
 
+use App\Services\FlareSolverrClient;
+use App\Services\FlareSolverrSessionManager;
 use App\Services\ItchAuthService;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use GuzzleHttp\Client;
-use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
-    // Skip all tests in this file - they require actual itch.io credentials
-    $this->markTestSkipped('Requires actual itch.io credentials - cannot test without external authentication');
-
-    $this->factory = new ItchHttpClientFactory;
+    config(['services.flaresolverr.enabled' => false]);
 });
 
-describe('ItchHttpClientService request handling', function () {
-    test('successfully sends GET request', function () {
-        $mockHandler = new MockHandler([
-            new Response(200, [], '{"success": true}'),
-        ]);
+function itchClientServiceForResponses(array $responses, int $maxRetries = 0, int $baseCooldown = 0): ItchHttpClientService
+{
+    $client = new Client(['handler' => HandlerStack::create(new MockHandler($responses))]);
 
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
+    $factory = Mockery::mock(ItchHttpClientFactory::class);
+    $factory->shouldReceive('createClient')->andReturn($client);
 
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
+    return new ItchHttpClientService($factory, $maxRetries, $baseCooldown);
+}
 
-        $service = new ItchHttpClientService($factory);
+it('sends anonymous GET POST PUT and DELETE requests without throwing on 4xx responses', function () {
+    $service = itchClientServiceForResponses([
+        new Response(200, [], '{"ok":true}'),
+        new Response(201, [], '{"created":true}'),
+        new Response(204, [], ''),
+        new Response(404, [], 'Not found'),
+    ]);
 
-        $response = $service->get('https://api.itch.io/test');
-
-        expect($response->getStatusCode())->toBe(200)
-            ->and($response->getBody()->getContents())->toBe('{"success": true}');
-    });
-
-    test('successfully sends POST request', function () {
-        $mockHandler = new MockHandler([
-            new Response(201, [], '{"created": true}'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory);
-
-        $response = $service->post('https://api.itch.io/test', ['data' => 'value']);
-
-        expect($response->getStatusCode())->toBe(201);
-    });
-
-    test('handles 404 responses without throwing exception', function () {
-        $mockHandler = new MockHandler([
-            new Response(404, [], 'Not Found'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory);
-
-        $response = $service->get('https://api.itch.io/nonexistent');
-
-        expect($response->getStatusCode())->toBe(404);
-    });
-
-    test('handles 500 responses without throwing exception', function () {
-        $mockHandler = new MockHandler([
-            new Response(500, [], 'Internal Server Error'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory);
-
-        $response = $service->get('https://api.itch.io/error');
-
-        expect($response->getStatusCode())->toBe(500);
-    });
+    expect($service->get('https://api.itch.io/test', [], true)->getStatusCode())->toBe(200)
+        ->and($service->post('https://api.itch.io/test', ['json' => ['a' => 1]], true)->getStatusCode())->toBe(201)
+        ->and($service->put('https://api.itch.io/test', ['json' => ['a' => 2]], true)->getStatusCode())->toBe(204)
+        ->and($service->delete('https://api.itch.io/test', [], true)->getStatusCode())->toBe(404);
 });
 
-describe('ItchHttpClientService rate limiting', function () {
-    test('retries on 429 rate limit response', function () {
-        $mockHandler = new MockHandler([
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-            new Response(200, [], '{"success": true}'),
-        ]);
+it('retries server errors and returns the eventual response', function () {
+    $service = itchClientServiceForResponses([
+        new Response(500, [], 'Server error'),
+        new Response(502, [], 'Bad gateway'),
+        new Response(200, [], 'Recovered'),
+    ], maxRetries: 2, baseCooldown: 0);
 
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
+    $response = $service->get('https://api.itch.io/test', [], true);
 
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        // Use shorter cooldown for testing
-        $service = new ItchHttpClientService($factory, 5, 1);
-
-        $response = $service->get('https://api.itch.io/test');
-
-        expect($response->getStatusCode())->toBe(200);
-    });
-
-    test('respects Retry-After header', function () {
-        $mockHandler = new MockHandler([
-            new Response(429, ['Retry-After' => '2'], 'Too Many Requests'),
-            new Response(200, [], '{"success": true}'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory, 5, 1);
-
-        $startTime = microtime(true);
-        $response = $service->get('https://api.itch.io/test');
-        $endTime = microtime(true);
-
-        expect($response->getStatusCode())->toBe(200)
-            ->and($endTime - $startTime)->toBeGreaterThanOrEqual(1); // At least 1 second delay
-    });
-
-    test('throws exception after max retries on rate limit', function () {
-        $mockHandler = new MockHandler([
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-            new Response(429, ['Retry-After' => '1'], 'Too Many Requests'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory, 3, 1);
-
-        expect(fn () => $service->get('https://api.itch.io/test'))
-            ->toThrow(Exception::class);
-    });
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getBody()->getContents())->toBe('Recovered');
 });
 
-describe('ItchHttpClientService error handling', function () {
-    test('throws exception on network error', function () {
-        $mockHandler = new MockHandler([
-            new RequestException('Network error', new Request('GET', 'test')),
-        ]);
+it('returns the final server error response after retries are exhausted', function () {
+    $service = itchClientServiceForResponses([
+        new Response(500, [], 'Server error'),
+    ], maxRetries: 0, baseCooldown: 0);
 
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
+    $response = $service->get('https://api.itch.io/test', [], true);
 
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory);
-
-        expect(fn () => $service->get('https://api.itch.io/test'))
-            ->toThrow(RequestException::class);
-    });
-
-    test('uses anonymous client when specified', function () {
-        $mockHandler = new MockHandler([
-            new Response(200, [], '{"anonymous": true}'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $anonymousClient = new Client(['handler' => $handlerStack]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($anonymousClient);
-
-        $service = new ItchHttpClientService($factory);
-
-        $response = $service->get('https://api.itch.io/test', [], true);
-
-        expect($response->getStatusCode())->toBe(200);
-    });
-
-    test('uses authenticated client by default', function () {
-        $mockHandler = new MockHandler([
-            // Auth check
-            new Response(200, [], '<html><meta name="csrf_token" value="test"></html>'),
-            new Response(302, ['Location' => 'https://itch.io/dashboard']),
-            new Response(200, [], 'Dashboard'),
-            // Actual request
-            new Response(200, [], '{"authenticated": true}'),
-        ]);
-
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack, 'cookies' => new CookieJar]);
-
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
-        $factory->method('createCookieJar')->willReturn(new CookieJar);
-
-        $authService = $this->createMock(ItchAuthService::class);
-        $authService->method('getClient')->willReturn($client);
-
-        $service = new ItchHttpClientService($factory);
-
-        // This would normally use authenticated client
-        $response = $service->get('https://api.itch.io/test', [], false);
-
-        expect($response->getStatusCode())->toBe(200);
-    });
+    expect($response->getStatusCode())->toBe(500);
 });
 
-describe('ItchHttpClientService exponential backoff', function () {
-    test('implements exponential backoff on retries', function () {
-        $mockHandler = new MockHandler([
-            new Response(429, [], 'Too Many Requests'),
-            new Response(429, [], 'Too Many Requests'),
-            new Response(200, [], '{"success": true}'),
+it('throws immediately for exhausted 429 responses without sleeping', function () {
+    $service = itchClientServiceForResponses([
+        new Response(429, ['Retry-After' => '60'], 'Too many requests'),
+    ], maxRetries: 0, baseCooldown: 0);
+
+    expect(fn () => $service->get('https://api.itch.io/test', [], true))
+        ->toThrow(Exception::class, '429 Too Many Requests');
+});
+
+it('throws network exceptions that are not retryable rate limits', function () {
+    $service = itchClientServiceForResponses([
+        new RequestException('Network error', new Request('GET', 'https://api.itch.io/test')),
+    ]);
+
+    expect(fn () => $service->get('https://api.itch.io/test', [], true))
+        ->toThrow(RequestException::class, 'Network error');
+});
+
+it('uses the authenticated client by default and can invalidate Cloudflare-challenged auth', function () {
+    Cache::put('itch_cookies', ['stale' => true]);
+
+    $staleClient = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new Response(403, ['Server' => 'cloudflare'], 'Checking your browser'),
+    ]))]);
+    $freshClient = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new Response(200, [], 'Fresh auth response'),
+    ]))]);
+
+    $factory = Mockery::mock(ItchHttpClientFactory::class);
+    $factory->shouldReceive('createClient')->andReturn(new Client);
+
+    $authService = Mockery::mock(ItchAuthService::class);
+    $authService->shouldReceive('getClient')->twice()->andReturn($staleClient, $freshClient);
+    app()->instance(ItchAuthService::class, $authService);
+
+    $service = new ItchHttpClientService($factory, maxRetries: 0, baseCooldown: 0);
+    $response = $service->get('https://api.itch.io/test');
+
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getBody()->getContents())->toBe('Fresh auth response')
+        ->and(Cache::has('itch_cookies'))->toBeFalse();
+});
+
+it('routes non-API HTML requests through FlareSolverr when enabled', function () {
+    config(['services.flaresolverr.enabled' => true]);
+
+    $factory = Mockery::mock(ItchHttpClientFactory::class);
+    $factory->shouldReceive('createClient')->andReturn(new Client);
+
+    $flareSolverr = Mockery::mock(FlareSolverrClient::class);
+    $flareSolverr->shouldReceive('ensureSession')->once();
+    $flareSolverr->shouldReceive('request')
+        ->once()
+        ->with('https://creator.itch.io/game', 'GET', [], null, true)
+        ->andReturn([
+            'status' => 200,
+            'headers' => ['Content-Type' => 'text/html'],
+            'response' => '<html>ok</html>',
         ]);
 
-        $handlerStack = HandlerStack::create($mockHandler);
-        $client = new Client(['handler' => $handlerStack]);
+    $sessionManager = Mockery::mock(FlareSolverrSessionManager::class);
+    $sessionManager->shouldReceive('isSessionActive')->once()->andReturnFalse();
 
-        $factory = $this->createMock(ItchHttpClientFactory::class);
-        $factory->method('createClient')->willReturn($client);
+    app()->instance(FlareSolverrClient::class, $flareSolverr);
+    app()->instance(FlareSolverrSessionManager::class, $sessionManager);
 
-        $service = new ItchHttpClientService($factory, 5, 1);
+    $service = new ItchHttpClientService($factory);
+    $response = $service->get('https://creator.itch.io/game');
 
-        $startTime = microtime(true);
-        $response = $service->get('https://api.itch.io/test');
-        $endTime = microtime(true);
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getBody()->getContents())->toBe('<html>ok</html>');
+});
 
-        // Should have some delay due to backoff
-        expect($response->getStatusCode())->toBe(200)
-            ->and($endTime - $startTime)->toBeGreaterThan(0);
-    });
+it('does not route API-like URLs through FlareSolverr', function () {
+    config(['services.flaresolverr.enabled' => true]);
+
+    $client = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new Response(200, [], '{"api":true}'),
+    ]))]);
+
+    $factory = Mockery::mock(ItchHttpClientFactory::class);
+    $factory->shouldReceive('createClient')->andReturn($client);
+
+    $flareSolverr = Mockery::mock(FlareSolverrClient::class);
+    $flareSolverr->shouldNotReceive('request');
+    app()->instance(FlareSolverrClient::class, $flareSolverr);
+    app()->instance(FlareSolverrSessionManager::class, Mockery::mock(FlareSolverrSessionManager::class));
+
+    $service = new ItchHttpClientService($factory);
+    $response = $service->get('https://api.itch.io/games', [], true);
+
+    expect($response->getStatusCode())->toBe(200);
+});
+
+it('executes callbacks with success and error hooks', function () {
+    $service = itchClientServiceForResponses([]);
+    $success = [];
+    $errors = [];
+
+    expect($service->executeWithRetry(
+        fn () => 'done',
+        'sample operation',
+        function (string $operation) use (&$success) {
+            $success[] = $operation;
+        }
+    ))->toBe('done')
+        ->and($success)->toBe(['sample operation']);
+
+    try {
+        $service->executeWithRetry(
+            fn () => throw new RuntimeException('failed'),
+            'failing operation',
+            null,
+            function (string $operation, string $message) use (&$errors) {
+                $errors[] = [$operation, $message];
+            }
+        );
+
+        $this->fail('Expected the failing operation to throw.');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe('failed');
+    }
+
+    expect($errors)->toBe([['failing operation', 'failed']]);
+});
+
+it('allows retry configuration to be updated fluently', function () {
+    $service = itchClientServiceForResponses([]);
+
+    expect($service->setMaxRetries(2))->toBe($service)
+        ->and($service->setBaseCooldown(1))->toBe($service);
 });

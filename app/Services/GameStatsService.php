@@ -13,7 +13,6 @@ use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use Exception;
-use FilesystemIterator;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -22,8 +21,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Normalizer;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -40,14 +37,18 @@ readonly class GameStatsService
 
     private EssentialCharacterService $essentialCharacterService;
 
+    private RenpyStatsSandboxClient $sandboxClient;
+
     public function __construct(
         ?LanguageMappingService $languageMappingService = null,
         ?CharacterStatsCalculationService $characterStatsService = null,
-        ?EssentialCharacterService $essentialCharacterService = null
+        ?EssentialCharacterService $essentialCharacterService = null,
+        ?RenpyStatsSandboxClient $sandboxClient = null
     ) {
         $this->languageMappingService = $languageMappingService ?? app(LanguageMappingService::class);
         $this->characterStatsService = $characterStatsService ?? app(CharacterStatsCalculationService::class);
         $this->essentialCharacterService = $essentialCharacterService ?? app(EssentialCharacterService::class);
+        $this->sandboxClient = $sandboxClient ?? app(RenpyStatsSandboxClient::class);
     }
 
     /**
@@ -59,6 +60,8 @@ readonly class GameStatsService
             throw new RuntimeException('Temporary file no longer exists');
         }
 
+        $filename = $this->sanitizeArchiveFilename($filename);
+
         try {
             $storagePath = "games/{$gameId}/{$versionId}";
             Storage::makeDirectory($storagePath);
@@ -69,10 +72,58 @@ readonly class GameStatsService
         }
     }
 
+    private function sanitizeArchiveFilename(string $filename): string
+    {
+        $filename = trim($filename);
+
+        if ($filename === '') {
+            return 'archive';
+        }
+
+        if (
+            str_contains($filename, "\0") ||
+            str_contains($filename, '/') ||
+            str_contains($filename, '\\') ||
+            $filename === '.' ||
+            $filename === '..'
+        ) {
+            throw new RuntimeException('Archive filenames must not contain path separators or traversal segments.');
+        }
+
+        return $filename;
+    }
+
     /**
      * Extract statistics from a game archive
      */
     public function extractGameStats(string $archivePath): ?array
+    {
+        $mode = config('services.renpy.analysis_mode', 'sandbox');
+        if ($mode === 'sandbox') {
+            Log::info('GameStats: Delegating extraction to sandbox analyzer', [
+                'archive_path' => basename($archivePath),
+            ]);
+
+            return $this->sandboxClient->extract($archivePath);
+        }
+
+        if ($mode !== 'local_trusted') {
+            Log::warning('GameStats: Unknown RenPy analysis mode, skipping extraction', [
+                'mode' => $mode,
+                'archive_path' => basename($archivePath),
+            ]);
+
+            return null;
+        }
+
+        return $this->extractGameStatsLocally($archivePath);
+    }
+
+    /**
+     * Extract statistics locally. This mode is intended only for trusted local
+     * fixtures and explicit development fallback, never untrusted production input.
+     */
+    private function extractGameStatsLocally(string $archivePath): ?array
     {
         Log::info('GameStats: Starting extraction', [
             'archive_path' => basename($archivePath),
@@ -106,25 +157,6 @@ readonly class GameStatsService
                 'game_dir' => basename($gameDir),
             ]);
 
-            // First try to find and run a native Linux executable
-            Log::info('GameStats: Looking for Linux executable');
-            $linuxExecutable = $this->findLinuxExecutable($gameDir);
-            if ($linuxExecutable) {
-                Log::info('Found Linux executable, attempting to run it', [
-                    'executable' => $linuxExecutable,
-                ]);
-
-                $stats = $this->extractStatsWithNativeExecutable($gameDir, $linuxExecutable);
-                if ($stats) {
-                    Log::info('Successfully extracted stats using native Linux executable');
-
-                    return $stats;
-                }
-
-                Log::info('Failed to extract stats with native executable, falling back to Ren\'Py SDK');
-            }
-
-            // Fall back to Ren'Py SDK
             Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
             if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
@@ -1110,169 +1142,6 @@ readonly class GameStatsService
 
         // Check first-level subdirectories
         return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir.'/game'));
-    }
-
-    /**
-     * Find a Linux executable in the game directory
-     *
-     * @param  string  $gameDir  The game directory to search in
-     * @return string|null Path to the executable or null if none found
-     */
-    private function findLinuxExecutable(string $gameDir): ?string
-    {
-        $this->makeExecutables($gameDir);
-
-        // Get all files in the game directory and its subdirectories
-        $allFiles = $this->findAllFiles($gameDir);
-
-        // Filter to only include executable files
-        $executableFiles = array_filter($allFiles, function ($file) {
-            // Check if the file is executable
-            return is_file($file) && is_executable($file);
-        });
-
-        if (empty($executableFiles)) {
-            Log::info('No executable files found in game directory');
-
-            return null;
-        }
-
-        // First, try to find executables matching our priority patterns
-        foreach ($executableFiles as $file) {
-            $filename = basename($file);
-            if (preg_match('/\.sh$/i', $filename)) {
-                Log::info("Found bash script: {$filename}");
-
-                return $file;
-            }
-        }
-
-        // If no priority match, return the first executable found
-        $firstExecutable = reset($executableFiles);
-        $filename = basename($firstExecutable);
-        Log::info("Using first available executable: {$filename}");
-
-        return $firstExecutable;
-    }
-
-    private function makeExecutables(string $dir): void
-    {
-        // root
-        foreach (File::files($dir) as $file) {
-            chmod($file->getPathname(), 0755);
-        }
-
-        // lib/
-        $lib = $dir.DIRECTORY_SEPARATOR.'lib';
-        if (! File::isDirectory($lib)) {
-            return;
-        }
-
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY
-        );
-
-        foreach ($it as $file) {
-            if ($file->isFile()) {
-                chmod($file->getPathname(), 0755);
-            }
-        }
-    }
-
-    /**
-     * Find all files in a directory and its subdirectories
-     *
-     * @param  string  $dir  The directory to search in
-     * @return array Array of file paths
-     */
-    private function findAllFiles(string $dir): array
-    {
-        $files = [];
-
-        // Get all files in the current directory
-        foreach (File::files($dir) as $file) {
-            $files[] = $file->getPathname();
-        }
-
-        // Recursively search subdirectories
-        foreach (File::directories($dir) as $subdir) {
-            if (basename($subdir) === 'game') {
-                continue;
-            }
-
-            $files = array_merge($files, $this->findAllFiles($subdir));
-        }
-
-        return $files;
-    }
-
-    /**
-     * Extract statistics using a native Linux executable
-     *
-     * @param  string  $gameDir  The game directory
-     * @param  string  $executablePath  Path to the Linux executable
-     * @return array|null Stats array or null if extraction failed
-     */
-    private function extractStatsWithNativeExecutable(string $gameDir, string $executablePath): ?array
-    {
-        try {
-            // Copy our analysis script to the game directory
-            File::copy(
-                resource_path('renpy/json_stats.rpy'),
-                $gameDir.'/game/json_stats.rpy'
-            );
-        } catch (Exception $e) {
-            Log::warning('Failed to copy analysis script', [
-                'error' => $e->getMessage(),
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        // Execute the game with the native executable
-        $process = new Process([$executablePath, 'game', 'test'], dirname($executablePath));
-        $process->setTimeout(300); // 5 minute timeout
-        $process->run();
-
-        // Check for successful execution, but don't treat it as an error
-        if (! $process->isSuccessful()) {
-            $output = $process->getOutput();
-            $errorOutput = $process->getErrorOutput();
-            Log::warning('Native executable completed with non-zero exit code', [
-                'output' => $output,
-                'error_output' => $errorOutput,
-                'exit_code' => $process->getExitCode(),
-                'executable' => $executablePath,
-            ]);
-        }
-
-        // Check if the stats file was generated
-        $statsFile = $gameDir.'/stats.json';
-        if (! File::exists($statsFile)) {
-            Log::info('Stats file not generated by native executable');
-
-            return null;
-        }
-
-        // Read and parse the stats file
-        try {
-            $stats = json_decode(File::get($statsFile), true);
-            if (! $stats || ! isset($stats['languages'])) {
-                Log::warning('Invalid stats file format from native executable');
-
-                return null;
-            }
-
-            return $stats;
-        } catch (Exception $e) {
-            Log::warning('Error reading stats file from native executable', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return null;
-        }
     }
 
     /**

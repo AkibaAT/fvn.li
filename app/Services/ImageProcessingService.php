@@ -13,11 +13,19 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
+use Psr\Http\Message\ResponseInterface;
 
 class ImageProcessingService
 {
     private const SCREENSHOTS_PATH = 'screenshots';
+
     private const THUMBNAIL_PATH = 'thumbnails';
+
+    private const DOWNLOAD_OPTIONS = [
+        'timeout' => 30,
+        'connect_timeout' => 10,
+        'allow_redirects' => false,
+    ];
 
     private const SCREENSHOT_VARIANTS = [
         'small' => [
@@ -55,7 +63,8 @@ class ImageProcessingService
     private readonly ImageManager $imageManager;
 
     public function __construct(
-        private readonly Client $httpClient
+        private readonly Client $httpClient,
+        private readonly ImageDownloadUrlValidator $imageUrlValidator
     ) {
         $this->imageManager = new ImageManager(new Driver);
     }
@@ -179,7 +188,7 @@ class ImageProcessingService
             return;
         }
 
-        echo '    [Images] Processing ' . count($game->screenshots) . " screenshots\n";
+        echo '    [Images] Processing '.count($game->screenshots)." screenshots\n";
 
         $updatedScreenshots = [];
 
@@ -205,11 +214,7 @@ class ImageProcessingService
 
                 // Download the screenshot
                 echo "    [Images] Downloading screenshot...\n";
-                $response = $this->httpClient->get($sourceUrl, [
-                    'timeout' => 30,
-                    'connect_timeout' => 10,
-                    'verify' => false,
-                ]);
+                $response = $this->downloadImage($sourceUrl);
 
                 $content = $response->getBody()->getContents();
                 $tempFile = tempnam(sys_get_temp_dir(), 'screenshot_');
@@ -241,7 +246,7 @@ class ImageProcessingService
                 foreach (self::SCREENSHOT_VARIANTS as $variant => $config) {
                     echo "    [Images] Processing {$variant} variant...\n";
 
-                    $variantFilename = $baseFilename . "_{$variant}.webp";
+                    $variantFilename = $baseFilename."_{$variant}.webp";
                     $variantPath = $this->getStoragePath($variantFilename, self::SCREENSHOTS_PATH);
 
                     $dimensions = $this->processImageVariant($tempFile, $variantPath, $config, $quality);
@@ -311,11 +316,7 @@ class ImageProcessingService
 
         // Download the thumbnail
         echo "    [Images] Downloading thumbnail...\n";
-        $response = $this->httpClient->get($sourceUrl, [
-            'timeout' => 30,
-            'connect_timeout' => 10,
-            'verify' => false,
-        ]);
+        $response = $this->downloadImage($sourceUrl);
 
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
@@ -365,7 +366,7 @@ class ImageProcessingService
             foreach (self::THUMBNAIL_VARIANTS as $variant => $config) {
                 echo "    [Images] Processing {$variant} variant...\n";
 
-                $variantFilename = $baseFilename . "_{$variant}.webp";
+                $variantFilename = $baseFilename."_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH);
 
                 $dimensions = $this->processImageVariant($tempFile, $variantPath, $config, $quality);
@@ -386,6 +387,14 @@ class ImageProcessingService
                 unlink($tempFile);
             }
         }
+    }
+
+    private function downloadImage(string $sourceUrl): ResponseInterface
+    {
+        return $this->httpClient->get(
+            $this->imageUrlValidator->validate($sourceUrl),
+            self::DOWNLOAD_OPTIONS
+        );
     }
 
     /**
@@ -427,7 +436,7 @@ class ImageProcessingService
      */
     private function getStoragePath(string $filename, string $basePath): string
     {
-        return $basePath . '/' . $filename;
+        return $basePath.'/'.$filename;
     }
 
     /**

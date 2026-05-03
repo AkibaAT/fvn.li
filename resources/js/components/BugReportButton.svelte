@@ -87,7 +87,7 @@
         isSubmitting = true;
 
         try {
-            const response = await fetch(route('react-api.bug-reports.store'), {
+            const response = await fetch(route('browser-api.bug-reports.store'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

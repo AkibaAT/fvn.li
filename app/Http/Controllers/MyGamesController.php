@@ -113,7 +113,7 @@ class MyGamesController extends Controller
         }
         $user = User::findOrFail($authId);
 
-        if (! method_exists($user, 'ownsGame') || ! $user->ownsGame($game)) {
+        if (! $this->canEditGameMedia($user, $game)) {
             abort(403, 'You do not have permission to edit this game.');
         }
 

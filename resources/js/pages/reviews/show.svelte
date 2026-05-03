@@ -66,7 +66,7 @@
         editIsSubmitting = true;
         editError = null;
         try {
-            const response = await http.post(route('react-api.user-reviews.store', { game: review.game.id }), {
+            const response = await http.post(route('browser-api.user-reviews.store', { game: review.game.id }), {
                 rating: editRating,
                 review: editReviewText,
                 has_spoilers: editHasSpoilers,

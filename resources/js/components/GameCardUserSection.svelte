@@ -67,8 +67,8 @@
         if (!isAuthenticated) return;
         try {
             const [listsResponse, membershipsResponse] = await Promise.all([
-                http.get('/react-api/user/lists'),
-                http.get(`/react-api/games/${gameId}/lists`),
+                http.get('/browser-api/user/lists'),
+                http.get(`/browser-api/games/${gameId}/lists`),
             ]);
 
             if (listsResponse.data?.success) {
@@ -95,7 +95,7 @@
 
         loadingStates = { ...loadingStates, [listId]: true };
         try {
-            const response = await http.post(`/react-api/games/${gameId}/add-to-list`, { list_type: listType });
+            const response = await http.post(`/browser-api/games/${gameId}/add-to-list`, { list_type: listType });
 
             if (response.data?.success) {
                 const isRemoved = response.data.message.includes('removed');
@@ -125,7 +125,7 @@
     const handleCustomListToggle = async (listId: number) => {
         loadingStates = { ...loadingStates, [listId]: true };
         try {
-            const response = await http.post(`/react-api/lists/${listId}/add-game`, { game_id: gameId });
+            const response = await http.post(`/browser-api/lists/${listId}/add-game`, { game_id: gameId });
             if (response.data?.success) {
                 const isRemoved = response.data.message.includes('removed');
                 listStates = { ...listStates, [listId]: !isRemoved };
@@ -145,7 +145,7 @@
 
         isCreatingList = true;
         try {
-            const response = await http.post('/react-api/vn-lists', {
+            const response = await http.post('/browser-api/vn-lists', {
                 name: newListName.trim(),
                 is_public: newListIsPublic,
                 game_id: gameId,
@@ -173,7 +173,7 @@
         isTogglingNotifications = true;
         try {
             const newStatus = !notificationStatus;
-            const response = await http.patch(`/react-api/user-progress/${gameId}/toggle-updates`, {
+            const response = await http.patch(`/browser-api/user-progress/${gameId}/toggle-updates`, {
                 receive_updates: newStatus,
             });
             if (response.data?.success) {

@@ -104,7 +104,7 @@
         saving = true;
         try {
             const timezoneOffset = -new Date().getTimezoneOffset() / 60;
-            const res = await authenticatedFetch(route('react-api.my-games.update', { game: game.slug }), {
+            const res = await authenticatedFetch(route('browser-api.my-games.update', { game: game.slug }), {
                 method: 'PUT',
                 body: JSON.stringify({ links: sortedLinks, timezone_offset: timezoneOffset }),
             });
