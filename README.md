@@ -22,15 +22,15 @@ deployed to GitHub Pages.
 
 ## Tech Stack
 
-- **Backend**: Laravel 12 with PHP 8.4
-- **Frontend**: React 19 with TypeScript, Inertia.js 2.x, Tailwind CSS 4
-- **Build Tool**: Vite 7 with SSR support
+- **Backend**: Laravel 13.7 with PHP 8.5
+- **Frontend**: Svelte 5.55 with TypeScript, Inertia.js 2.3, Tailwind CSS 4.2
+- **Build Tool**: Vite 8 with SSR support
 - **Database**: PostgreSQL 17
 - **Search**: Meilisearch for full-text search
 - **Caching**: Redis
 - **Development**: DDEV for local development environment
-- **Visualization**: Chart.js for data visualization
-- **Testing**: Playwright for E2E and accessibility testing
+- **Visualization**: Chart.js with Svelte chart components for data visualization
+- **Testing**: PHPUnit/Pest, Vitest for Svelte units, and Playwright for E2E/accessibility testing through the DDEV Playwright sidecar
 - **Deployment**: Docker for containerized deployment
 - **API**: RESTful API endpoints for Discord bot integration
 
@@ -154,11 +154,11 @@ ddev artisan test --env=testing
 ddev composer test
 ```
 
-For coverage or parallel runs, use:
+For coverage, use:
 
 ```bash
-ddev composer test:coverage
-ddev composer test:parallel
+ddev composer test:coverage:clover
+ddev composer test:coverage:audit
 ```
 
 Reset the testing DB when needed:
@@ -167,17 +167,27 @@ Reset the testing DB when needed:
 ddev composer migrate:test
 ```
 
+### Frontend Tests
+
+Run Svelte unit tests with Vitest:
+
+```bash
+ddev bun test:js
+```
+
 ### Frontend E2E Tests (Playwright)
+
+Playwright runs against the official Playwright sidecar service configured in DDEV. Browser dependencies are not installed in the web container.
 
 ```bash
 # Run all E2E tests
-ddev bun test:e2e
+ddev playwright test
 
 # Run in UI mode (interactive)
-ddev bun test:e2e:ui
+ddev playwright test --ui
 
 # Run accessibility tests
-ddev bun test:a11y
+ddev playwright test tests/e2e/specs/accessibility.spec.ts --grep @accessibility
 
 # View test report
 ddev bun test:a11y:report
@@ -219,7 +229,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgements
 
 - [Laravel](https://laravel.com) - PHP web framework
-- [React](https://react.dev) - UI library
+- [Svelte](https://svelte.dev) - UI framework
 - [Inertia.js](https://inertiajs.com) - Modern monolith framework
 - [Vite](https://vitejs.dev) - Frontend build tool
 - [TypeScript](https://www.typescriptlang.org) - Typed JavaScript

@@ -102,7 +102,7 @@
 
     async function fetchViewMode() {
         try {
-            const response = await http.get(route('react-api.games.content.view', { game: gameId }));
+            const response = await http.get(route('browser-api.games.content.view', { game: gameId }));
             if (response.data.success) {
                 viewMode = response.data.data.current_view_mode || 'original';
             }
@@ -115,7 +115,7 @@
 
     async function handleViewModeChange(newMode: 'custom' | 'original') {
         try {
-            const response = await http.put(route('react-api.games.content.view-mode', { game: gameId }), {
+            const response = await http.put(route('browser-api.games.content.view-mode', { game: gameId }), {
                 view_mode: newMode,
             });
 
@@ -149,7 +149,7 @@
         saveStatus = 'saving';
 
         try {
-            const response = await http.put(route('react-api.games.content.update', { game: gameId }), {
+            const response = await http.put(route('browser-api.games.content.update', { game: gameId }), {
                 content: editContent,
             });
 
@@ -203,7 +203,7 @@
         saveStatus = 'saving';
 
         try {
-            const response = await http.post(route('react-api.games.content.revert', { game: gameId }), {
+            const response = await http.post(route('browser-api.games.content.revert', { game: gameId }), {
                 revert_name: name,
                 revert_screenshots: screenshots,
                 revert_thumbnail: thumbnail,

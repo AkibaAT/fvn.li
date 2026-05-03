@@ -40,7 +40,7 @@
 
         isSubmitting = true;
         try {
-            const response = await (window as any).axios.post(route('react-api.review-reports.store', { rating: ratingId }), {
+            const response = await (window as any).axios.post(route('browser-api.review-reports.store', { rating: ratingId }), {
                 reason,
                 details: details.trim() || null,
             });

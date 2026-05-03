@@ -27,6 +27,13 @@ class UserReviewController extends Controller
         $game = Game::findOrFail($gameId);
         $user = Auth::user();
 
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
         if ($user->is_review_banned) {
             return response()->json([
                 'success' => false,
@@ -35,6 +42,7 @@ class UserReviewController extends Controller
         }
 
         $reviewText = $request->input('review') ?? '';
+        $sanitizer = app(HtmlSanitizerService::class);
 
         // Strip image/media tags — reviews don't support image uploads
         $reviewText = preg_replace('/<img[^>]*>/i', '', $reviewText);
@@ -46,6 +54,7 @@ class UserReviewController extends Controller
         // Strip script/style tags for safety
         $reviewText = preg_replace('/<script[^>]*>.*?<\/script>/is', '', $reviewText);
         $reviewText = preg_replace('/<style[^>]*>.*?<\/style>/is', '', $reviewText);
+        $reviewText = $sanitizer->sanitizeReview($reviewText) ?? '';
 
         $hasReviewText = ! empty(trim(strip_tags($reviewText)));
 
@@ -79,6 +88,13 @@ class UserReviewController extends Controller
     {
         $user = Auth::user();
 
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
         $rating = Rating::where('user_id', $user->id)
             ->where('game_id', $gameId)
             ->first();
@@ -102,6 +118,13 @@ class UserReviewController extends Controller
     public function destroy(int $gameId): JsonResponse
     {
         $user = Auth::user();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
 
         $rating = Rating::where('user_id', $user->id)
             ->where('game_id', $gameId)

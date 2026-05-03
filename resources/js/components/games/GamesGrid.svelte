@@ -81,8 +81,8 @@
 
 {#if games.length === 0}
     <div class="py-12 text-center">
-        <div class="text-lg text-gray-400">No games found</div>
-        <p class="mt-2 text-gray-500">Try adjusting your search criteria or check back later.</p>
+        <div class="text-lg text-gray-700 dark:text-gray-300">No games found</div>
+        <p class="mt-2 text-gray-600 dark:text-gray-400">Try adjusting your search criteria or check back later.</p>
     </div>
 {:else}
     <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

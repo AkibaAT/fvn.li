@@ -24,7 +24,8 @@ class MultiServerNotificationService
         try {
             // Find all servers subscribed to this game
             $servers = $game->discordServers()
-                ->where('is_active', true)
+                ->where('discord_servers.is_active', true)
+                ->wherePivot('is_active', true)
                 ->get();
 
             foreach ($servers as $server) {
@@ -117,7 +118,10 @@ class MultiServerNotificationService
 
             foreach ($servers as $server) {
                 // Check if not already subscribed directly
-                if (! $server->games()->where('game_id', $game->id)->exists()) {
+                if (! $server->games()
+                    ->where('games.id', $game->id)
+                    ->wherePivot('is_active', true)
+                    ->exists()) {
                     $this->queueServerNotification($server, $game, $type);
                 }
             }

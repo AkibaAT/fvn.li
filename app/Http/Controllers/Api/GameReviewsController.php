@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\Rating;
+use App\Services\HtmlSanitizerService;
 use App\Services\ItchAuthService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -149,12 +150,14 @@ class GameReviewsController extends Controller
             // Get paginated results
             $ratings = $query->paginate($perPage, ['*'], 'page', $page);
 
+            $sanitizer = app(HtmlSanitizerService::class);
+
             // Format the reviews
-            $reviews = $ratings->map(function ($rating) {
+            $reviews = $ratings->map(function ($rating) use ($sanitizer) {
                 return [
                     'id' => $rating->id,
                     'rating' => $rating->rating,
-                    'review' => $rating->review,
+                    'review' => $sanitizer->sanitizeReview($rating->review),
                     'is_reviewed' => $rating->is_reviewed,
                     'published_at' => $rating->published_at->toISOString(),
                     'rater' => [
@@ -251,10 +254,10 @@ class GameReviewsController extends Controller
             $normalizedUrl = $this->normalizeUrl($url);
             $game = Game::where(function ($query) use ($url, $normalizedUrl) {
                 $query->byUrl($url)
-                    ->orByUrl('https://' . $normalizedUrl)
-                    ->orByUrl('http://' . $normalizedUrl)
-                    ->orByUrl('https://www.' . $normalizedUrl)
-                    ->orByUrl('http://www.' . $normalizedUrl);
+                    ->orByUrl('https://'.$normalizedUrl)
+                    ->orByUrl('http://'.$normalizedUrl)
+                    ->orByUrl('https://www.'.$normalizedUrl)
+                    ->orByUrl('http://www.'.$normalizedUrl);
             })
                 ->fromItchio()
                 ->first();
@@ -273,8 +276,8 @@ class GameReviewsController extends Controller
     {
         // Remove protocol, www, trailing slashes, and query parameters
         $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
-        $normalized = rtrim($normalized, '/');
         $normalized = strtok($normalized, '?'); // Remove query parameters
+        $normalized = rtrim($normalized, '/');
 
         return strtolower($normalized);
     }
@@ -315,13 +318,15 @@ class GameReviewsController extends Controller
         }
 
         // Get recent reviews (limit to 5 for desktop client)
+        $sanitizer = app(HtmlSanitizerService::class);
+
         $recentReviews = $ratings->where('is_reviewed', true)
             ->take(5)
-            ->map(function ($rating) {
+            ->map(function ($rating) use ($sanitizer) {
                 return [
                     'id' => $rating->id,
                     'rating' => $rating->rating,
-                    'review' => $rating->review,
+                    'review' => $sanitizer->sanitizeReview($rating->review),
                     'published_at' => $rating->published_at->toISOString(),
                     'rater' => [
                         'id' => $rating->rater->id,
