@@ -72,7 +72,7 @@ export async function fetchGameSearch({ query, filters = {}, page = 1, perPage =
 }
 
 export async function fetchDialogueEnhancedSearch({ query, filters = {}, page = 1, perPage = 20 }: SearchParams): Promise<SearchResponse> {
-  const response = await http.get(route('react-api.dialogue.search-enhanced'), {
+  const response = await http.get(route('browser-api.dialogue.search-enhanced'), {
     params: {
       q: query.trim(),
       page,

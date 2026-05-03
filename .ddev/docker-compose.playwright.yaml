@@ -1,0 +1,19 @@
+services:
+  playwright:
+    container_name: ddev-${DDEV_SITENAME}-playwright
+    image: mcr.microsoft.com/playwright:v1.59.1-noble
+    init: true
+    ipc: host
+    working_dir: /home/pwuser
+    user: pwuser
+    command:
+      - /bin/sh
+      - -c
+      - npx -y playwright@1.59.1 run-server --port 3000 --host 0.0.0.0
+    expose:
+      - "3000"
+    external_links:
+      - ddev-router:${DDEV_HOSTNAME}
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}

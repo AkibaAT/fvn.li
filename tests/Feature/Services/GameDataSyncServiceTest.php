@@ -1,0 +1,333 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Game;
+use App\Models\GameJam;
+use App\Models\GameVersion;
+use App\Models\Language;
+use App\Models\Tag;
+use App\Services\GameDataSyncService;
+use Dom\HTMLDocument;
+use GuzzleHttp\Psr7\Response;
+use App\Services\ItchHttpClientService;
+
+function invokeGameDataSyncMethod(GameDataSyncService $service, string $method, array $arguments = []): mixed
+{
+    $reflection = new ReflectionClass($service);
+    $methodReflection = $reflection->getMethod($method);
+    $methodReflection->setAccessible(true);
+
+    return $methodReflection->invokeArgs($service, $arguments);
+}
+
+function ensureSyncLanguage(string $id, string $name = 'Language'): void
+{
+    Language::withoutEvents(fn () => Language::firstOrCreate([
+        'id' => $id,
+    ], [
+        'part2b' => $id,
+        'part2t' => $id,
+        'part1' => substr($id, 0, 2),
+        'scope' => 'I',
+        'type' => 'L',
+        'ref_name' => $name,
+        'flag_code' => substr($id, 0, 2),
+    ]));
+}
+
+it('refreshes base itch metadata and rejects unsupported platforms', function () {
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 444,
+        'initially_published_at' => null,
+        'thumb_url' => null,
+    ]);
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/444')
+        ->andReturn(new Response(200, [], json_encode([
+            'game' => [
+                'published_at' => '2024-01-02T03:04:05Z',
+                'cover_url' => 'https://img.example/cover.jpg',
+            ],
+        ])));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    app(GameDataSyncService::class)->refreshBaseInfo($game);
+
+    expect($game->initially_published_at?->format('Y-m-d H:i:s'))->toBe('2024-01-02 03:04:05')
+        ->and($game->thumb_url)->toBe('https://img.example/cover.jpg');
+
+    $steamGame = Game::factory()->create(['platform' => 'steam']);
+    expect(fn () => app(GameDataSyncService::class)->refreshBaseInfo($steamGame))
+        ->toThrow(Exception::class, 'Cannot refresh base info for non-itch.io game');
+});
+
+it('caches HTTP responses by game url options and anonymous mode and can clear the cache', function () {
+    $game = Game::factory()->create();
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://creator.itch.io/game', ['headers' => ['A' => 'B']], true)
+        ->andReturn(new Response(200, [], 'cached body'));
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://creator.itch.io/game', ['headers' => ['A' => 'B']], true)
+        ->andReturn(new Response(200, [], 'fresh body'));
+    app()->instance(ItchHttpClientService::class, $client);
+    $service = app(GameDataSyncService::class);
+
+    expect(invokeGameDataSyncMethod($service, 'getCachedResponse', [$game, 'https://creator.itch.io/game', ['headers' => ['A' => 'B']], true])['body'])
+        ->toBe('cached body')
+        ->and(invokeGameDataSyncMethod($service, 'getCachedResponse', [$game, 'https://creator.itch.io/game', ['headers' => ['A' => 'B']], true])['body'])
+        ->toBe('cached body');
+
+    $service->clearHttpCache($game);
+
+    expect(invokeGameDataSyncMethod($service, 'getCachedResponse', [$game, 'https://creator.itch.io/game', ['headers' => ['A' => 'B']], true])['body'])
+        ->toBe('fresh body');
+});
+
+it('extracts devlog links and noindex metadata from itch HTML', function () {
+    $game = Game::factory()->create([
+        'url' => ['itch_io' => 'https://creator.itch.io/game'],
+    ]);
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->andReturn(new Response(200, [], <<<'HTML'
+            <html>
+                <head><meta name="robots" content="nofollow, noindex"></head>
+                <body><section id="devlog"><a href="https://creator.itch.io/game/devlog/1">Update</a></section></body>
+            </html>
+        HTML));
+    app()->instance(ItchHttpClientService::class, $client);
+    $service = app(GameDataSyncService::class);
+
+    expect(invokeGameDataSyncMethod($service, 'getDevlogLink', [$game]))
+        ->toBe('https://creator.itch.io/game/devlog/1');
+
+    $doc = HTMLDocument::createFromString('<meta name="robots" content="NOINDEX">', LIBXML_NOERROR);
+    expect(invokeGameDataSyncMethod($service, 'checkForNoindexTag', [$doc]))->toBeTrue();
+
+    $doc = HTMLDocument::createFromString('<meta name="robots" content="index">', LIBXML_NOERROR);
+    expect(invokeGameDataSyncMethod($service, 'checkForNoindexTag', [$doc]))->toBeFalse();
+});
+
+it('copies language support from previous versions or source language fallback', function () {
+    ensureSyncLanguage('eng', 'English');
+    ensureSyncLanguage('jpn', 'Japanese');
+    $game = Game::factory()->create(['source_language_id' => 'jpn']);
+    $previous = GameVersion::factory()->for($game)->create(['published_at' => now()->subDay()]);
+    $previous->addSupportedLanguage('eng', false);
+    $previous->addSupportedLanguage('jpn', true);
+    $target = GameVersion::factory()->for($game)->create(['published_at' => now()]);
+
+    invokeGameDataSyncMethod(app(GameDataSyncService::class), 'copyLanguageSupport', [$game, $target]);
+
+    expect($target->supportedLanguages()->pluck('is_available', 'iso_code')->all())->toBe([
+        'eng' => false,
+        'jpn' => true,
+    ]);
+
+    $otherGame = Game::factory()->create(['source_language_id' => 'jpn']);
+    $fallbackVersion = GameVersion::factory()->for($otherGame)->create();
+    invokeGameDataSyncMethod(app(GameDataSyncService::class), 'copyLanguageSupport', [$otherGame, $fallbackVersion]);
+
+    expect($fallbackVersion->supportedLanguages()->pluck('iso_code')->all())->toBe(['jpn']);
+});
+
+it('processes pending game jams and tags for saved games and leaves unsaved games untouched', function () {
+    $service = app(GameDataSyncService::class);
+    $game = Game::factory()->create();
+    $jam = GameJam::create(['name' => 'Jam', 'url' => 'https://itch.io/jam/test']);
+    $tag = Tag::create(['name' => 'Drama']);
+    $game->pendingGameJamId = [$jam->id];
+    $game->pendingTagIds = [$tag->id];
+
+    invokeGameDataSyncMethod($service, 'processPendingGameJams', [$game]);
+    invokeGameDataSyncMethod($service, 'processPendingTags', [$game]);
+
+    expect($game->gameJams()->whereKey($jam->id)->exists())->toBeTrue()
+        ->and($game->tags()->whereKey($tag->id)->exists())->toBeTrue()
+        ->and($game->pendingGameJamId)->toBe([])
+        ->and($game->pendingTagIds)->toBe([]);
+
+    $unsaved = new Game(['name' => 'Unsaved']);
+    $unsaved->pendingGameJamId = [$jam->id];
+    $unsaved->pendingTagIds = [$tag->id];
+    invokeGameDataSyncMethod($service, 'processPendingGameJams', [$unsaved]);
+    invokeGameDataSyncMethod($service, 'processPendingTags', [$unsaved]);
+
+    expect($unsaved->pendingGameJamId)->toBe([$jam->id])
+        ->and($unsaved->pendingTagIds)->toBe([$tag->id]);
+});
+
+it('compares screenshot source URLs while ignoring optimized variants', function () {
+    $service = app(GameDataSyncService::class);
+
+    $screenshotsA = [
+        ['url' => 'https://img.example/a.png', 'thumbnail_url' => 'cached-a.webp'],
+        ['url' => 'https://img.example/b.png', 'thumbnail_url' => 'cached-b.webp'],
+    ];
+    $screenshotsB = [
+        ['url' => 'https://img.example/a.png', 'thumbnail_url' => 'different-a.webp'],
+        ['url' => 'https://img.example/b.png', 'thumbnail_url' => 'different-b.webp'],
+    ];
+
+    expect(invokeGameDataSyncMethod($service, 'screenshotUrlsChanged', [$screenshotsA, $screenshotsB]))->toBeFalse()
+        ->and(invokeGameDataSyncMethod($service, 'screenshotUrlsChanged', [$screenshotsA, [['url' => 'https://img.example/c.png']]]))->toBeTrue()
+        ->and(invokeGameDataSyncMethod($service, 'extractScreenshotUrls', [null]))->toBe([])
+        ->and(invokeGameDataSyncMethod($service, 'extractScreenshotUrls', [$screenshotsA]))->toBe([
+            'https://img.example/a.png',
+            'https://img.example/b.png',
+        ]);
+});
+
+it('marks itch games invisible when version refresh receives a not found response', function () {
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 987,
+        'is_visible' => true,
+    ]);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/987/uploads')
+        ->andReturn(new Response(404, [], '{}'));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    app(GameDataSyncService::class)->refreshVersion($game);
+    $game->save();
+
+    expect($game->refresh()->is_visible)->toBeFalse()
+        ->and($game->gameVersions()->exists())->toBeFalse();
+});
+
+it('creates a fallback unknown version when a new itch game has no uploads', function () {
+    ensureSyncLanguage('eng', 'English');
+
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 654,
+        'url' => ['itch_io' => 'https://creator.itch.io/no-uploads'],
+        'source_language_id' => 'eng',
+        'initially_published_at' => '2024-02-03 04:05:06',
+    ]);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/654/uploads')
+        ->andReturn(new Response(200, [], '{}'));
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://creator.itch.io/no-uploads', [], true)
+        ->andReturn(new Response(200, [], '<section id="devlog"><a href="https://creator.itch.io/no-uploads/devlog/1">Update</a></section>'));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    app(GameDataSyncService::class)->refreshVersion($game);
+
+    $version = $game->gameVersions()->firstOrFail();
+
+    expect($version->version)->toBe('Unknown')
+        ->and($version->is_latest)->toBeTrue()
+        ->and($version->devlog)->toBe('https://creator.itch.io/no-uploads/devlog/1')
+        ->and($game->refresh()->uploads)->toBe([]);
+});
+
+it('creates an itch version from processable uploads and updates existing platform flags', function () {
+    ensureSyncLanguage('eng', 'English');
+
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 321,
+        'url' => ['itch_io' => 'https://creator.itch.io/versioned'],
+        'source_language_id' => 'eng',
+        'game_engine' => 'Unity',
+    ]);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/321/uploads')
+        ->andReturn(new Response(200, [], json_encode([
+            'uploads' => [
+                [
+                    'id' => 10,
+                    'filename' => 'Versioned-1.2-linux.tar.bz2',
+                    'display_name' => 'Versioned (1.2)',
+                    'md5_hash' => 'abc',
+                    'updated_at' => '2024-03-04T05:06:07Z',
+                    'build_id' => 77,
+                    'build' => [
+                        'user_version' => '1.2',
+                        'updated_at' => '2024-03-04T05:06:08Z',
+                    ],
+                    'traits' => ['p_linux', 'p_windows'],
+                    'type' => 'default',
+                ],
+                [
+                    'id' => 11,
+                    'filename' => 'Versioned-web.zip',
+                    'display_name' => 'Web build',
+                    'md5_hash' => 'web',
+                    'updated_at' => '2024-03-04T05:06:09Z',
+                    'traits' => [],
+                    'type' => 'html',
+                ],
+            ],
+        ])));
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://creator.itch.io/versioned', [], true)
+        ->andReturn(new Response(200, [], '<html><body>No devlog</body></html>'));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    app(GameDataSyncService::class)->refreshVersion($game);
+    $game->save();
+
+    $version = $game->gameVersions()->firstOrFail();
+
+    expect($version->version)->toBe('1.2')
+        ->and($version->is_latest)->toBeTrue()
+        ->and($version->is_linux)->toBeTrue()
+        ->and($version->is_windows)->toBeTrue()
+        ->and($version->is_web)->toBeTrue()
+        ->and($version->supportedLanguages()->pluck('iso_code')->all())->toBe(['eng'])
+        ->and($game->refresh()->uploads)->toHaveKeys(['10', '11']);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/321/uploads')
+        ->andReturn(new Response(200, [], json_encode([
+            'uploads' => [
+                [
+                    'id' => 10,
+                    'filename' => 'Versioned-1.2-linux.tar.bz2',
+                    'display_name' => 'Versioned (1.2)',
+                    'md5_hash' => 'abc',
+                    'updated_at' => '2024-03-04T05:06:07Z',
+                    'build_id' => 77,
+                    'build' => [
+                        'user_version' => '1.2',
+                        'updated_at' => '2024-03-04T05:06:08Z',
+                    ],
+                    'traits' => ['p_linux'],
+                    'type' => 'default',
+                ],
+            ],
+        ])));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    app(GameDataSyncService::class)->refreshVersion($game->refresh());
+    $game->save();
+
+    expect($version->refresh()->is_windows)->toBeFalse()
+        ->and($version->is_linux)->toBeTrue()
+        ->and($version->is_web)->toBeFalse();
+});

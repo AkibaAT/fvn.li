@@ -61,6 +61,25 @@
         tags?: string[];
     }
 
+    export function jsonForScriptTag(value: unknown): string {
+        return JSON.stringify(value).replace(/[<>&'"]/g, (character) => {
+            switch (character) {
+                case '<':
+                    return '\\u003C';
+                case '>':
+                    return '\\u003E';
+                case '&':
+                    return '\\u0026';
+                case "'":
+                    return '\\u0027';
+                case '"':
+                    return '\\u0022';
+            }
+
+            return character;
+        });
+    }
+
     function getBaseUrl(): string {
         if (typeof window === 'undefined') {
             try {
@@ -192,7 +211,7 @@
     const finalBrowserTitle = $derived(browserTitle || title || metaTitle);
     const finalSocialTitle = $derived(socialTitle || finalBrowserTitle);
 
-    const structuredDataJson = $derived(structuredData ? JSON.stringify({ '@context': 'https://schema.org', ...structuredData }) : null);
+    const structuredDataJson = $derived(structuredData ? jsonForScriptTag({ '@context': 'https://schema.org', ...structuredData }) : null);
     const structuredDataScript = $derived(
         structuredDataJson ? '<script' + ' type="application/ld+json">' + structuredDataJson + '</script' + '>' : null,
     );

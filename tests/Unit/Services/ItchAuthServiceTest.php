@@ -12,18 +12,37 @@ use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
-    // Skip all tests in this file - they require actual itch.io credentials
-    $this->markTestSkipped('Requires actual itch.io credentials - cannot test without external authentication');
-
     Cache::flush();
+    config([
+        'services.flaresolverr.enabled' => false,
+        'services.itch.username' => 'test-user',
+        'services.itch.password' => 'test-password',
+    ]);
     $this->factory = new ItchHttpClientFactory;
 });
+
+function itchioLoginFormHtml(string $csrf = 'test-csrf-token'): string
+{
+    return <<<HTML
+        <html>
+            <body>
+                <div class="login_form_widget">
+                    <form class="form">
+                        <input type="hidden" name="csrf_token" value="{$csrf}">
+                        <input type="text" name="username" value="">
+                        <input type="password" name="password" value="">
+                    </form>
+                </div>
+            </body>
+        </html>
+    HTML;
+}
 
 describe('ItchAuthService authentication', function () {
     test('successfully authenticates with valid credentials', function () {
         $mockHandler = new MockHandler([
-            // First request: get CSRF token
-            new Response(200, [], '<html><meta name="csrf_token" value="test-csrf-token"></html>'),
+            // First request: get login form
+            new Response(200, [], itchioLoginFormHtml()),
             // Second request: login
             new Response(302, ['Location' => 'https://itch.io/dashboard']),
             // Third request: verify login
@@ -48,8 +67,8 @@ describe('ItchAuthService authentication', function () {
 
     test('throws exception when authentication fails', function () {
         $mockHandler = new MockHandler([
-            // First request: get CSRF token
-            new Response(200, [], '<html><meta name="csrf_token" value="test-csrf-token"></html>'),
+            // First request: get login form
+            new Response(200, [], itchioLoginFormHtml()),
             // Second request: login fails
             new Response(401, [], 'Unauthorized'),
         ]);
@@ -121,8 +140,8 @@ describe('ItchAuthService authentication', function () {
         $mockHandler = new MockHandler([
             // Verify session - fails (redirect)
             new Response(302, ['Location' => 'https://itch.io/login']),
-            // Get CSRF token
-            new Response(200, [], '<html><meta name="csrf_token" value="test-csrf-token"></html>'),
+            // Get login form
+            new Response(200, [], itchioLoginFormHtml()),
             // Login
             new Response(302, ['Location' => 'https://itch.io/dashboard']),
             // Verify login

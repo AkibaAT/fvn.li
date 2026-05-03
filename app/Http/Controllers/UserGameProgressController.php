@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class UserGameProgressController extends Controller
 {
@@ -34,21 +35,7 @@ class UserGameProgressController extends Controller
         ]);
 
         try {
-            // Find or create the user's game progress record
-            $progress = UserGameProgress::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'game_id' => $game->id,
-                ],
-                [
-                    'game_version_id' => $validated['game_version_id'] ?? null,
-                    'status' => $validated['status'] ?? null,
-                    'personal_notes' => $validated['personal_notes'] ?? null,
-                    'progress' => $validated['progress'] ?? null,
-                ]
-            );
-
-            // If a game version is specified, ensure it belongs to the game
+            // If a game version is specified, ensure it belongs to the game before writing anything.
             if ($validated['game_version_id'] ?? null) {
                 $gameVersion = GameVersion::find($validated['game_version_id']);
                 if ($gameVersion && $gameVersion->game_id !== $game->id) {
@@ -57,6 +44,29 @@ class UserGameProgressController extends Controller
                     ], 422);
                 }
             }
+
+            $values = [];
+            if (array_key_exists('game_version_id', $validated)) {
+                $values['game_version_id'] = $validated['game_version_id'];
+            }
+            if (array_key_exists('status', $validated) && $validated['status'] !== null) {
+                $values['status'] = $validated['status'];
+            }
+            if (array_key_exists('personal_notes', $validated)) {
+                $values['personal_notes'] = $validated['personal_notes'];
+            }
+            if (Schema::hasColumn('user_game_progress', 'progress') && array_key_exists('progress', $validated)) {
+                $values['progress'] = $validated['progress'];
+            }
+
+            // Find or create the user's game progress record
+            $progress = UserGameProgress::updateOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'game_id' => $game->id,
+                ],
+                $values
+            );
 
             return response()->json([
                 'message' => 'Game progress updated successfully',
