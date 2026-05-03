@@ -150,7 +150,7 @@ export const getStatusClasses = (config: StatusConfig) => {
     return `${colorClasses[color]} ${patternClasses[pattern || 'solid']} ${shapeClasses[shape || 'rounded']} px-2 py-1 text-xs font-semibold inline-flex items-center gap-1`;
 };
 
-// Pure function to get badge configuration (replaces the React StatusBadge component)
+// Pure function to get badge configuration (replaces the legacy StatusBadge component)
 export interface StatusBadgeConfig {
     classes: string;
     icon: string;

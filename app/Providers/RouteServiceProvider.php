@@ -30,6 +30,10 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        RateLimiter::for('save-parser', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')
@@ -38,9 +42,9 @@ class RouteServiceProvider extends ServiceProvider
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
 
-            // React API routes remain under /react-api
-            Route::prefix('react-api')
-                ->group(base_path('routes/react-api.php'));
+            // Browser API routes remain under /browser-api
+            Route::prefix('browser-api')
+                ->group(base_path('routes/browser-api.php'));
         });
     }
 }

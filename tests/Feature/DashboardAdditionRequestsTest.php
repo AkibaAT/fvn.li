@@ -26,7 +26,7 @@ test('addition requests endpoint includes linked approved game for the authentic
     $otherRequest = AdditionRequest::withoutEvents(fn () => AdditionRequest::factory()->approved()->create());
     $otherRequest->users()->attach($otherUser->id);
 
-    $response = $this->actingAs($user)->getJson(route('react-api.dashboard.addition-requests.index'));
+    $response = $this->actingAs($user)->getJson(route('browser-api.dashboard.addition-requests.index'));
 
     $response->assertOk()
         ->assertJsonPath('success', true)

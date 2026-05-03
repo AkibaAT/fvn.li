@@ -125,7 +125,7 @@ class ItchCssProcessor
         foreach ($list->getContents() as $i => $rule) {
             if ($rule instanceof DeclarationBlock) { // Includes RuleSet and AtRuleSet
                 // Check if selector targets headers
-                if ($rule instanceof RuleSet && $this->targetsHeaders($rule)) {
+                if ($this->targetsHeaders($rule)) {
                     $rulesToRemove[] = $i;
 
                     continue;
@@ -155,13 +155,8 @@ class ItchCssProcessor
         }
     }
 
-    private function targetsHeaders(RuleSet $ruleSet): bool
+    private function targetsHeaders(DeclarationBlock $ruleSet): bool
     {
-        // Enhanced check for header selectors, including complex selectors
-        if (! $ruleSet instanceof DeclarationBlock) {
-            return false;
-        }
-
         $selectors = $ruleSet->getSelectors();
         foreach ($selectors as $selector) {
             if (! $selector instanceof Selector) {
@@ -172,7 +167,7 @@ class ItchCssProcessor
 
             foreach (self::HEADER_SELECTORS as $header) {
                 // Check for direct header tag (e.g., 'h1', 'h2')
-                if (preg_match('/^' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|$)/i', $selectorText)) {
+                if (preg_match('/(^|,)\s*' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
                     return true;
                 }
 
@@ -182,12 +177,12 @@ class ItchCssProcessor
                 }
 
                 // Check for header tag as part of a descendant selector (e.g., 'div h1', '.class h2')
-                if (preg_match('/[\s>+~]' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|$)/i', $selectorText)) {
+                if (preg_match('/[\s,>+~]' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
                     return true;
                 }
 
                 // Check for header tag as part of a complex selector (e.g., 'h1 > span', 'h2 + p')
-                if (preg_match('/^' . preg_quote($header, '/') . '\s*[>+~]/i', $selectorText)) {
+                if (preg_match('/(^|,)\s*' . preg_quote($header, '/') . '\s*[>+~]/i', $selectorText)) {
                     return true;
                 }
             }

@@ -16,7 +16,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 ## Tech Stack
 
 ### Backend
-- **Framework**: Laravel 12 with PHP 8.4
+- **Framework**: Laravel 13.7 with PHP 8.5
 - **Database**: PostgreSQL 17
 - **Caching**: Redis for session management and application caching
 - **Search**: Meilisearch for full-text search and filtering
@@ -24,17 +24,17 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 - **API**: RESTful API endpoints for Discord bot integration
 
 ### Frontend
-- **Framework**: React 19 with TypeScript
-- **Routing**: Inertia.js 2.x for seamless SPA experience
-- **Build Tool**: Vite 7 with Hot Module Replacement (HMR)
-- **Styling**: Tailwind CSS 4 with custom design system
-- **UI Components**: Custom component library built on Headless UI
-- **State Management**: React hooks and Inertia's built-in state
+- **Framework**: Svelte 5.55 with TypeScript
+- **Routing**: Inertia.js 2.3 for seamless SPA experience
+- **Build Tool**: Vite 8 with Hot Module Replacement (HMR)
+- **Styling**: Tailwind CSS 4.2 with custom design system
+- **UI Components**: Custom Svelte component library with Tailwind CSS
+- **State Management**: Svelte runes, `.svelte.ts` state helpers, and Inertia's shared data
 - **Forms**: Inertia form helpers with client-side validation
 - **Rich Text Editor**: TinyMCE 8 for content editing
-- **Charts**: Chart.js 4 with react-chartjs-2 for data visualization
-- **Icons**: Heroicons and custom SVG icons
-- **Drag & Drop**: dnd-kit for sortable lists and reordering
+- **Charts**: Chart.js 4 with Svelte chart components for data visualization
+- **Icons**: Custom SVG icons and component-level icon helpers
+- **Drag & Drop**: dnd-kit Svelte packages for sortable lists and reordering
 - **SSR**: Server-side rendering enabled for improved SEO and performance
 
 ### Development & Testing
@@ -57,8 +57,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 - [Docker](https://www.docker.com/get-started)
 - [DDEV](https://ddev.readthedocs.io/en/stable/)
 - [Composer](https://getcomposer.org/)
-- [Node.js](https://nodejs.org/) (v22+)
-- [npm](https://www.npmjs.com/)
+- [Bun](https://bun.sh/) through DDEV
 
 ### Local Development Setup
 
@@ -124,17 +123,17 @@ The build process:
 
 ## Frontend Architecture
 
-The application uses a modern React-based architecture with Inertia.js for seamless server-client communication.
+The application uses a modern Svelte 5 architecture with Inertia.js for seamless server-client communication.
 
 ### Project Structure
 
 ```
 resources/js/
-├── app.tsx                 # Main application entry point
-├── ssr.tsx                 # Server-side rendering entry point
-├── components/             # Reusable React components
-│   ├── ui/                # Base UI components (Button, Card, Modal, etc.)
-│   ├── layout/            # Layout components (Header, Navigation, Footer)
+├── app.ts                  # Main browser entry point
+├── ssr.ts                  # Server-side rendering entry point
+├── components/             # Reusable Svelte components
+│   ├── ui/                # Base UI components
+│   ├── dashboard/         # Dashboard widgets
 │   ├── games/             # Game-specific components
 │   ├── charts/            # Chart components
 │   └── editor/            # Rich text editor components
@@ -144,12 +143,12 @@ resources/js/
 │   ├── lists/            # Custom list management
 │   └── auth/             # Authentication pages
 ├── layouts/              # Page layouts
-│   ├── PersistentLayout.tsx  # Main layout with persistent header/footer
-│   └── SimpleLayout.tsx      # Minimal layout for auth pages
-├── hooks/                # Custom React hooks
-│   ├── useSearch.ts      # Search functionality
-│   ├── useGameFilters.ts # Game filtering logic
-│   └── useAccessibility.ts # Accessibility helpers
+│   ├── PersistentLayout.svelte  # Main layout with persistent header/footer
+│   └── SimpleLayout.svelte      # Minimal layout for auth pages
+├── hooks/                # Svelte and TypeScript reusable state helpers
+│   ├── useSearch.svelte.ts
+│   ├── useGameFilters.svelte.ts
+│   └── useAccessibility.svelte.ts
 ├── types/                # TypeScript type definitions
 └── utils/                # Utility functions
 ```
@@ -158,7 +157,7 @@ resources/js/
 
 **Persistent Layouts**: The application uses a persistent layout system where the header, navigation, and footer remain mounted across page transitions, providing a smooth SPA experience while maintaining Inertia's server-driven routing.
 
-**Component Composition**: UI components are built using composition patterns with Headless UI for accessibility and custom styling with Tailwind CSS.
+**Component Composition**: UI components are Svelte single-file components styled with Tailwind CSS.
 
 **Type Safety**: Full TypeScript coverage with strict mode enabled ensures type safety across the entire frontend codebase.
 
@@ -166,7 +165,7 @@ resources/js/
 
 **State Management**: Application state is managed through:
 - Inertia's shared data for global state (user, flash messages, etc.)
-- React hooks for component-local state
+- Svelte runes and `.svelte.ts` helpers for component-local state
 - URL parameters for filter and search state
 
 **Form Handling**: Forms use Inertia's form helpers for:
@@ -301,15 +300,13 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Meilisearch](https://www.meilisearch.com) - Fast, typo-tolerant search engine
 
 ### Frontend Technologies
-- [React](https://react.dev) - UI library
+- [Svelte](https://svelte.dev) - UI framework
 - [Inertia.js](https://inertiajs.com) - Modern monolith framework
 - [Vite](https://vitejs.dev) - Next-generation frontend build tool
 - [TypeScript](https://www.typescriptlang.org) - Typed JavaScript
 - [Tailwind CSS](https://tailwindcss.com) - Utility-first CSS framework
-- [Headless UI](https://headlessui.com) - Unstyled, accessible UI components
 - [Chart.js](https://www.chartjs.org) - Simple yet flexible charting library
 - [TinyMCE](https://www.tiny.cloud) - Rich text editor
-- [Heroicons](https://heroicons.com) - Beautiful hand-crafted SVG icons
 
 ### Development Tools
 - [DDEV](https://ddev.com) - Docker-based local development environment

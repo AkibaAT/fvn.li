@@ -12,6 +12,7 @@ use App\Http\Middleware\PerformanceMonitoring;
 use App\Http\Middleware\PreventRequestForgery;
 use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RedirectIfAuthenticated;
+use App\Http\Middleware\RequireSanctumTokenAbility;
 use App\Http\Middleware\TrackPageViews;
 use App\Http\Middleware\TrimStrings;
 use App\Http\Middleware\TrustProxies;
@@ -72,7 +73,7 @@ class Kernel extends HttpKernel
         'api' => [
             PerformanceMonitoring::class,
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            ThrottleRequests::class . ':api',
+            ThrottleRequests::class.':api',
             SubstituteBindings::class,
         ],
 
@@ -110,5 +111,6 @@ class Kernel extends HttpKernel
         'verified' => EnsureEmailIsVerified::class,
         'admin' => AdminPanelAccess::class,
         'track.page.views' => TrackPageViews::class,
+        'sanctum.token' => RequireSanctumTokenAbility::class,
     ];
 }

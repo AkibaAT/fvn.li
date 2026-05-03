@@ -150,7 +150,7 @@ class ReimportGameVersion extends Command
 
                         if ($stats) {
                             $this->info('Saving version statistics...');
-                            $this->statsService->saveVersionStats($version, $stats, $game->source_language_id);
+                            $this->statsService->saveVersionStats($version, $stats, $game->source_language_id ?? 'eng');
                             $this->info('✓ Statistics saved successfully');
                         } else {
                             $this->warn('No statistics could be extracted from the archive');

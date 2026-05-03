@@ -265,7 +265,7 @@
                     formData.append('file', blobInfo.blob(), blobInfo.filename());
                     formData.append('game_id', String(gid));
 
-                    fetch(`/react-api/upload-editor-image?t=${Date.now()}`, {
+                    fetch(`/browser-api/upload-editor-image?t=${Date.now()}`, {
                         method: 'POST',
                         body: formData,
                         headers: {
