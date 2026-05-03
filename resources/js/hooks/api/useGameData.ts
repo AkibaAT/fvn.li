@@ -63,7 +63,7 @@ export interface VersionComparisonData {
 }
 
 export async function fetchGameStats(): Promise<GameStats> {
-  const response = await fetch(route('react-api.dashboard.game-stats'));
+  const response = await fetch(route('browser-api.dashboard.game-stats'));
   const data = await response.json();
   if (!data.success) throw new Error('Failed to fetch game stats');
   return data.stats;
@@ -106,7 +106,7 @@ export async function toggleGameNotifications({
   gameId,
   receiveUpdates,
 }: ToggleNotificationsParams): Promise<{ success: boolean; receive_updates: boolean }> {
-  const response = await http.patch(`/react-api/user-progress/${gameId}/toggle-updates`, {
+  const response = await http.patch(`/browser-api/user-progress/${gameId}/toggle-updates`, {
     receive_updates: receiveUpdates,
   });
   return response.data;

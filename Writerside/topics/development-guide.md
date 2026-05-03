@@ -1,540 +1,152 @@
 # Development Guide
 
-This guide covers common development tasks and workflows for working with FVN.li's React + Inertia.js frontend.
+This guide covers day-to-day development for FVN.li's Laravel 13 + Svelte 5 + Inertia frontend.
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
-
-Ensure you have the following installed:
 - Docker and DDEV
-- Node.js 22+ (managed by DDEV)
-- Bun (installed via DDEV)
+- Composer through DDEV
+- Bun through DDEV
 
-### Initial Setup
+The web container currently runs PHP 8.5, and dependencies are managed from the repo lockfiles.
 
-1. Start DDEV environment:
-   ```bash
-   ddev start
-   ```
-
-2. Install dependencies:
-   ```bash
-   ddev composer install
-   ddev bun install
-   ```
-
-3. Set up environment:
-   ```bash
-   cp .env.example .env
-   ddev artisan key:generate
-   ddev artisan migrate
-   ```
-
-4. Start development server:
-   ```bash
-   ddev bun dev
-   ```
-
-5. Access the application at `https://fvn-li.ddev.site`
-
-## Development Workflow
-
-### Running the Dev Server
-
-The Vite development server provides hot module replacement (HMR) for instant feedback:
+## Initial Setup
 
 ```bash
-# Start Vite dev server
+ddev start
+ddev composer install
+ddev bun install
+cp .env.example .env
+ddev artisan key:generate
+ddev artisan migrate
+```
+
+Start the Vite dev server:
+
+```bash
 ddev bun dev
 ```
 
-Features:
-- **Hot Module Replacement**: Changes appear instantly without page reload
-- **Fast Refresh**: React state is preserved during updates
-- **Error Overlay**: Build errors appear in the browser
-- **Source Maps**: Debug with original TypeScript source
+Open the app at `https://fvn-li.ddev.site`.
 
-### Code Quality Tools
+## Frontend Stack
 
-#### Type Checking
+- Svelte page components live in `resources/js/pages/**/*.svelte`.
+- Reusable Svelte components live in `resources/js/components/`.
+- Inertia layouts live in `resources/js/layouts/`.
+- Reusable state helpers live in `resources/js/hooks/*.svelte.ts` or plain TypeScript modules.
+- Browser JSON endpoints use `/browser-api` and `browser-api.*` route names.
+- Stateless external APIs remain under `/api`.
 
-Run TypeScript compiler to check for type errors:
+## Creating Components
+
+Create Svelte components in `resources/js/components/`:
+
+```svelte
+<script lang="ts">
+    let {
+        title,
+        description = '',
+    }: {
+        title: string;
+        description?: string;
+    } = $props();
+</script>
+
+<section class="space-y-2">
+    <h2 class="text-lg font-semibold">{title}</h2>
+    {#if description}
+        <p class="text-sm text-gray-600 dark:text-gray-400">{description}</p>
+    {/if}
+</section>
+```
+
+Create Inertia pages in `resources/js/pages/` and return them from Laravel with `Inertia::render()`.
+
+## Browser API Calls
+
+Prefer Ziggy route names over hard-coded paths when the route is named:
+
+```ts
+import http from '@/utils/http';
+
+await http.put(route('browser-api.games.content.view-mode', { game: gameId }), {
+    show_custom: true,
+});
+```
+
+For file uploads, use `authenticatedFetch` helpers where the component needs native `FormData` handling or progress state.
+
+## Code Quality
 
 ```bash
 ddev bun types
-```
-
-This runs `tsc --noEmit` to check types without generating output files.
-
-#### Linting
-
-Check and fix code style issues:
-
-```bash
-# Check for issues
 ddev bun lint
-
-# Auto-fix issues
-ddev bun lint --fix
+ddev bun format:check
+ddev composer lint
 ```
 
-ESLint configuration includes:
-- React best practices
-- React Hooks rules
-- TypeScript-specific rules
-- Accessibility checks
+`ddev bun types` runs `svelte-check`; it is the primary frontend type gate.
 
-#### Formatting
+## Testing
 
-Format code with Prettier:
+Run PHP tests through DDEV:
 
 ```bash
-# Format all files
-ddev bun format
-
-# Check formatting without changes
-ddev bun format:check
+ddev composer test
 ```
 
-Prettier is configured to:
-- Sort imports automatically
-- Format Tailwind classes
-- Maintain consistent code style
+Run Svelte/TypeScript unit tests:
 
-### Building for Production
+```bash
+ddev bun test:js
+```
 
-#### Client-Side Only
+Run Playwright through the DDEV sidecar:
+
+```bash
+ddev playwright test
+ddev playwright test tests/e2e/specs/accessibility.spec.ts --grep @accessibility
+```
+
+Coverage:
+
+```bash
+ddev composer test:coverage:clover
+ddev composer test:coverage:audit
+```
+
+Do not run PHP feature tests concurrently against the shared `db_test` database unless each process has isolated database state.
+
+## Build
+
+Client build:
 
 ```bash
 ddev bun build
 ```
 
-This creates optimized production assets in `public/build/`.
-
-#### With SSR Support
+Client + SSR build:
 
 ```bash
 ddev bun build:ssr
 ```
 
-This builds both client and server bundles:
-- `public/build/` - Client-side assets
-- `bootstrap/ssr/ssr.mjs` - Server-side rendering bundle
-
-## Creating Components
-
-### Basic Component
-
-Create a new component in `resources/js/components/`:
-
-```typescript
-// resources/js/components/MyComponent.tsx
-import React from 'react';
-
-interface MyComponentProps {
-    title: string;
-    description?: string;
-}
-
-export default function MyComponent({ title, description }: MyComponentProps) {
-    return (
-        <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-            <h3 className="text-lg font-semibold">{title}</h3>
-            {description && (
-                <p className="mt-2 text-gray-600 dark:text-gray-400">
-                    {description}
-                </p>
-            )}
-        </div>
-    );
-}
-```
-
-### Page Component
-
-Create a new page in `resources/js/pages/`:
-
-```typescript
-// resources/js/pages/example/index.tsx
-import React from 'react';
-import { Head } from '@inertiajs/react';
-
-interface ExamplePageProps {
-    items: Array<{ id: number; name: string }>;
-}
-
-export default function ExamplePage({ items }: ExamplePageProps) {
-    return (
-        <>
-            <Head title="Example Page" />
-            
-            <div className="container mx-auto px-4 py-8">
-                <h1 className="text-3xl font-bold">Example Page</h1>
-                
-                <div className="mt-6 grid gap-4">
-                    {items.map((item) => (
-                        <div key={item.id} className="rounded-lg border p-4">
-                            {item.name}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </>
-    );
-}
-```
-
-### Custom Hook
-
-Create reusable logic in `resources/js/hooks/`:
-
-```typescript
-// resources/js/hooks/useLocalStorage.ts
-import { useState, useEffect } from 'react';
-
-export function useLocalStorage<T>(key: string, initialValue: T) {
-    const [value, setValue] = useState<T>(() => {
-        try {
-            const item = window.localStorage.getItem(key);
-            return item ? JSON.parse(item) : initialValue;
-        } catch {
-            return initialValue;
-        }
-    });
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-            console.error('Error saving to localStorage:', error);
-        }
-    }, [key, value]);
-
-    return [value, setValue] as const;
-}
-```
-
-## Working with Inertia
-
-### Navigation
-
-Use Inertia's `Link` component for navigation:
-
-```typescript
-import { Link } from '@inertiajs/react';
-
-<Link 
-    href={route('games.show', { game: gameId })}
-    className="text-blue-600 hover:underline"
->
-    View Game
-</Link>
-```
-
-### Forms
-
-Use Inertia's form helpers for form handling:
-
-```typescript
-import { useForm } from '@inertiajs/react';
-
-export default function CreateForm() {
-    const { data, setData, post, processing, errors } = useForm({
-        name: '',
-        description: '',
-    });
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        post(route('items.store'));
-    };
-
-    return (
-        <form onSubmit={handleSubmit}>
-            <div>
-                <label htmlFor="name">Name</label>
-                <input
-                    id="name"
-                    type="text"
-                    value={data.name}
-                    onChange={(e) => setData('name', e.target.value)}
-                />
-                {errors.name && <div className="text-red-600">{errors.name}</div>}
-            </div>
-
-            <button type="submit" disabled={processing}>
-                {processing ? 'Saving...' : 'Save'}
-            </button>
-        </form>
-    );
-}
-```
-
-### Shared Data
-
-Access shared data from the page props:
-
-```typescript
-import { usePage } from '@inertiajs/react';
-import type { PageProps } from '@/types';
-
-export default function MyComponent() {
-    const { auth, flash } = usePage<PageProps>().props;
-    
-    return (
-        <div>
-            {auth.user && <p>Welcome, {auth.user.name}!</p>}
-            {flash.message && <div className="alert">{flash.message}</div>}
-        </div>
-    );
-}
-```
-
-## Styling with Tailwind
-
-### Using Tailwind Classes
-
-```typescript
-<div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800">
-    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-        Title
-    </h2>
-    <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-        Action
-    </button>
-</div>
-```
-
-### Dark Mode
-
-Use Tailwind's dark mode classes:
-
-```typescript
-<div className="bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
-    Content adapts to dark mode
-</div>
-```
-
-The application automatically detects system preference and allows user override.
-
-### Responsive Design
-
-Use Tailwind's responsive prefixes:
-
-```typescript
-<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-    {/* Responsive grid */}
-</div>
-```
-
-## Testing
-
-### E2E Tests with Playwright
-
-Create tests in `tests/e2e/specs/`:
-
-```typescript
-// tests/e2e/specs/example.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('homepage loads correctly', async ({ page }) => {
-    await page.goto('/');
-    
-    await expect(page).toHaveTitle(/FVN.li/);
-    await expect(page.locator('h1')).toBeVisible();
-});
-
-test('search functionality works', async ({ page }) => {
-    await page.goto('/games');
-    
-    await page.fill('[placeholder="Search games..."]', 'visual novel');
-    await page.keyboard.press('Enter');
-    
-    await expect(page).toHaveURL(/search=visual\+novel/);
-});
-```
-
-Run tests:
-
-```bash
-# Run all tests
-ddev bun test:e2e
-
-# Run in UI mode
-ddev bun test:e2e:ui
-
-# Run specific test file
-ddev playwright test tests/e2e/specs/example.spec.ts
-```
-
-### Accessibility Testing
-
-```bash
-# Run accessibility tests
-ddev bun test:a11y
-
-# View accessibility report
-ddev bun test:a11y:report
-```
-
-## Common Tasks
-
-### Adding a New Route
-
-1. Create the page component:
-   ```typescript
-   // resources/js/pages/my-feature/index.tsx
-   export default function MyFeature() {
-       return <div>My Feature</div>;
-   }
-   ```
-
-2. Add the route in Laravel:
-   ```php
-   // routes/web.php
-   Route::get('/my-feature', [MyFeatureController::class, 'index'])
-       ->name('my-feature.index');
-   ```
-
-3. Create the controller:
-   ```php
-   // app/Http/Controllers/MyFeatureController.php
-   public function index()
-   {
-       return inertia('my-feature/index', [
-           'data' => MyModel::all(),
-       ]);
-   }
-   ```
-
-### Adding TypeScript Types
-
-Define types in `resources/js/types/index.ts`:
-
-```typescript
-export interface Game {
-    id: number;
-    title: string;
-    description: string;
-    rating: number;
-    created_at: string;
-}
-
-export interface PageProps {
-    auth: {
-        user: User | null;
-    };
-    flash: {
-        message?: string;
-        error?: string;
-    };
-}
-```
-
-### Using Environment Variables
-
-Access Vite environment variables:
-
-```typescript
-const appName = import.meta.env.VITE_APP_NAME;
-const apiUrl = import.meta.env.VITE_API_URL;
-```
-
-Define in `.env`:
-```
-VITE_APP_NAME="FVN.li"
-VITE_API_URL="https://api.fvn.li"
-```
+The SSR entry point is `resources/js/ssr.ts`, and the browser entry point is `resources/js/app.ts`.
 
 ## Debugging
 
-### Browser DevTools
+- Use browser DevTools for Svelte component output and network requests.
+- Inertia page props are visible in the page payload and browser globals during development.
+- Source maps are enabled in development.
+- Laravel logs are in `storage/logs/laravel.log`.
+- Browser API requests should hit `/browser-api`; do not add new endpoints under old framework-specific prefixes.
 
-- **React DevTools**: Install the React DevTools browser extension
-- **Inertia DevTools**: Available in development mode
-- **Vue DevTools**: Can also inspect Inertia state
+## Frontend Best Practices
 
-### Console Logging
-
-```typescript
-// Development only logging
-if (import.meta.env.DEV) {
-    console.log('Debug info:', data);
-}
-```
-
-### Source Maps
-
-Source maps are enabled in development, allowing you to debug TypeScript source directly in the browser.
-
-## Performance Optimization
-
-### Code Splitting
-
-Lazy load heavy components:
-
-```typescript
-import { lazy, Suspense } from 'react';
-
-const HeavyComponent = lazy(() => import('./HeavyComponent'));
-
-export default function Page() {
-    return (
-        <Suspense fallback={<div>Loading...</div>}>
-            <HeavyComponent />
-        </Suspense>
-    );
-}
-```
-
-### Memoization
-
-Use React.memo for expensive components:
-
-```typescript
-import { memo } from 'react';
-
-const ExpensiveComponent = memo(function ExpensiveComponent({ data }) {
-    // Expensive rendering logic
-    return <div>{/* ... */}</div>;
-});
-```
-
-### Image Optimization
-
-Use appropriate image formats and sizes:
-
-```typescript
-<img
-    src={game.thumbnail}
-    srcSet={`${game.thumbnail_2x} 2x`}
-    alt={game.title}
-    loading="lazy"
-    className="h-48 w-full object-cover"
-/>
-```
-
-## Troubleshooting
-
-### HMR Not Working
-
-1. Check that Vite dev server is running
-2. Verify DDEV configuration in `vite.config.ts`
-3. Clear browser cache
-4. Restart Vite dev server
-
-### Type Errors
-
-1. Run `ddev bun types` to see all type errors
-2. Check that types are properly imported
-3. Ensure `tsconfig.json` paths are correct
-4. Restart TypeScript server in your IDE
-
-### Build Failures
-
-1. Check for TypeScript errors: `ddev bun types`
-2. Check for linting errors: `ddev bun lint`
-3. Clear build cache: `rm -rf public/build`
-4. Reinstall dependencies: `ddev bun install`
-
+- Use Svelte runes for component-local state.
+- Keep shared reusable state in `.svelte.ts` helpers when it needs Svelte reactivity.
+- Keep plain deterministic logic in `.ts` utilities so it can be covered with Vitest.
+- Use `resources/js/utils/http.ts` for Axios calls that need CSRF retry behavior.
+- Prefer accessible native elements and shared dialog helpers.
+- Keep route names and docs aligned with the current Svelte/browser API naming.

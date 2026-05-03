@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\ImportState;
 use App\Models\Rater;
 use App\Models\Rating;
+use App\Services\HtmlSanitizerService;
 use App\Services\ItchAuthService;
 use DateMalformedStringException;
 use DateTime;
@@ -98,8 +99,8 @@ class ImportRatings extends Command
             // Return error code if there were any errors
             return ($errorCount > 0 || $individualRatingErrors > 0) ? 1 : 0;
         } catch (Exception $e) {
-            $this->error('Error importing ratings: ' . $e->getMessage());
-            Log::error('Ratings import failed: ' . $e->getMessage(), ['exception' => $e]);
+            $this->error('Error importing ratings: '.$e->getMessage());
+            Log::error('Ratings import failed: '.$e->getMessage(), ['exception' => $e]);
 
             return 1;
         }
@@ -113,7 +114,7 @@ class ImportRatings extends Command
     {
         $url = 'https://itch.io/feed?filter=ratings&format=json';
         if ($fromEventId) {
-            $url .= '&from_event=' . $fromEventId;
+            $url .= '&from_event='.$fromEventId;
         }
 
         $this->info("Fetching ratings from: {$url}");
@@ -176,7 +177,7 @@ class ImportRatings extends Command
 
                 // Get review text if present
                 $ratingBlurb = $review->querySelector('div.rating_blurb');
-                $reviewText = $ratingBlurb ? $ratingBlurb->ownerDocument->saveHTML($ratingBlurb) : '';
+                $reviewText = $ratingBlurb ? $this->sanitizeReview($ratingBlurb->ownerDocument->saveHTML($ratingBlurb)) : '';
 
                 $this->processRating(
                     $eventId,
@@ -233,6 +234,8 @@ class ImportRatings extends Command
         int $rating,
         string $reviewText
     ): void {
+        $reviewText = $this->sanitizeReview($reviewText);
+
         // Get or create rater
         $rater = Rater::firstOrNew(['itch_id' => $userId]);
         if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername || $rater->external_platform !== 'itch_io') {
@@ -280,5 +283,10 @@ class ImportRatings extends Command
         ]);
 
         UpdateGameRating::dispatch($game->id);
+    }
+
+    private function sanitizeReview(string $reviewText): string
+    {
+        return app(HtmlSanitizerService::class)->sanitizeReview($reviewText) ?? '';
     }
 }

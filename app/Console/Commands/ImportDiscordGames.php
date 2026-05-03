@@ -55,7 +55,7 @@ class ImportDiscordGames extends Command
                 }
 
                 $url = $data['Page_url'];
-                $game = Game::where('url', $url)->first();
+                $game = Game::byUrl($url)->first();
 
                 if ($game) {
                     // Update existing game with Discord metadata
@@ -88,10 +88,6 @@ class ImportDiscordGames extends Command
     private function updateGameWithDiscordData(Game $game, array $data, bool $dryRun): void
     {
         $updates = [
-            'discord_likes' => $data['Likes'] ?? [],
-            'discord_dislikes' => $data['Dislikes'] ?? [],
-            'abbreviations' => [$data['Name']], // At minimum, add the game name
-            'discord_updated_at' => now(),
         ];
 
         // Update description if Discord has one and fvn.li doesn't
@@ -138,11 +134,7 @@ class ImportDiscordGames extends Command
             'status' => $data['Project_Status'] ?? 'In development',
             'thumb_url' => $data['Thumbnail_url'] ?? null,
             'is_visible' => false, // Default to hidden, let user decide
-            'discord_likes' => $data['Likes'] ?? [],
-            'discord_dislikes' => $data['Dislikes'] ?? [],
-            'abbreviations' => [$data['Name']],
             'content_type' => $contentType,
-            'discord_updated_at' => now(),
             'slug' => str($data['Name'])->slug(),
             'itch_id' => 0, // Will be updated when synced with itch.io
         ];

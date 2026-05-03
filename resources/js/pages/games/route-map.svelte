@@ -740,7 +740,7 @@
 
         try {
             const res = await http.get(
-                route('react-api.games.version.route-graph', {
+                route('browser-api.games.version.route-graph', {
                     game: game.slug,
                     version: targetVersion,
                 }),
@@ -803,7 +803,7 @@
             formData.append('file', file);
 
             const res = await http.post(
-                route('react-api.games.version.parse-save', {
+                route('browser-api.games.version.parse-save', {
                     game: game.slug,
                     version: selectedVersionId,
                 }),

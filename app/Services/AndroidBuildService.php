@@ -31,7 +31,8 @@ class AndroidBuildService
 
     public function __construct(
         private readonly GameArchiveService $archiveService,
-        private readonly Client $httpClient
+        private readonly Client $httpClient,
+        private readonly ImageDownloadUrlValidator $imageUrlValidator
     ) {
         // Initialize ImageManager with GD driver using fully qualified class name
         $this->imageManager = new ImageManager(Driver::class);
@@ -117,12 +118,12 @@ class AndroidBuildService
 
         // Check if the Ren'Py SDK is configured
         $sdkPath = config('services.renpy.sdk_path');
-        if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
+        if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
             return false;
         }
 
         // Check if the Android SDK is configured within Ren'Py
-        if (! File::exists($sdkPath . '/rapt')) {
+        if (! File::exists($sdkPath.'/rapt')) {
             return false;
         }
 
@@ -312,7 +313,7 @@ class AndroidBuildService
             }
 
             // Create a temporary directory for extraction
-            $extractPath = storage_path('app/temp/android_build_' . $build->build_id);
+            $extractPath = storage_path('app/temp/android_build_'.$build->build_id);
             File::makeDirectory($extractPath, 0755, true);
 
             try {
@@ -382,7 +383,7 @@ class AndroidBuildService
         $keystoreDir = storage_path('app/keystores');
         File::makeDirectory($keystoreDir, 0755, true, true);
 
-        $keystorePath = $keystoreDir . '/' . $game->id . '.keystore';
+        $keystorePath = $keystoreDir.'/'.$game->id.'.keystore';
 
         // If keystore already exists, return it
         if (File::exists($keystorePath)) {
@@ -463,7 +464,7 @@ class AndroidBuildService
 
                 return $keystorePath;
             } catch (Exception $innerException) {
-                throw new RuntimeException('Failed to create keystore: ' . $e->getMessage() . ' and fallback also failed: ' . $innerException->getMessage());
+                throw new RuntimeException('Failed to create keystore: '.$e->getMessage().' and fallback also failed: '.$innerException->getMessage());
             }
         }
     }
@@ -538,17 +539,17 @@ class AndroidBuildService
         $sdkPath = config('services.renpy.sdk_path');
 
         // Prepare a clean package name based on the game slug
-        $packageName = 'li.fvn.' . preg_replace('/[^a-z0-9]/', '', strtolower($game->slug));
+        $packageName = 'li.fvn.'.preg_replace('/[^a-z0-9]/', '', strtolower($game->slug));
 
         // Create a temporary directory for the build output
-        $buildOutputDir = storage_path('app/temp/android_output_' . $build->build_id);
+        $buildOutputDir = storage_path('app/temp/android_output_'.$build->build_id);
         File::makeDirectory($buildOutputDir, 0755, true);
 
         // No need for a separate build directory, we'll use the game directory directly
 
         try {
             // Create a basic configuration file for the Android build
-            $configPath = $gameDir . '/android.json';
+            $configPath = $gameDir.'/android.json';
             $config = [
                 'package' => $packageName,
                 'name' => $game->name,
@@ -577,7 +578,7 @@ class AndroidBuildService
             $keystorePath = $this->getOrCreateKeystore($game);
 
             // Copy the keystore to the game directory with the filename android.keystore
-            $androidKeystorePath = $gameDir . '/android.keystore';
+            $androidKeystorePath = $gameDir.'/android.keystore';
             File::copy($keystorePath, $androidKeystorePath);
 
             Log::info('Copied keystore to game directory', [
@@ -585,18 +586,18 @@ class AndroidBuildService
                 'destination' => $androidKeystorePath,
             ]);
 
-            File::copy(resource_path('renpy/android-presplash.jpg'), $gameDir . '/android-presplash.jpg');
+            File::copy(resource_path('renpy/android-presplash.jpg'), $gameDir.'/android-presplash.jpg');
 
             // Create Android icon from game thumbnail
             $this->createAndroidIcon($game, $gameDir);
 
             // Create output directory for the APK
-            $outputDir = storage_path('app/temp/android_build_output_' . $build->id);
+            $outputDir = storage_path('app/temp/android_build_output_'.$build->id);
             File::makeDirectory($outputDir, 0755, true, true);
 
             // Run the Ren'Py Android build command with signing
             $process = new SymfonyProcess([
-                $sdkPath . '/renpy.sh',
+                $sdkPath.'/renpy.sh',
                 'launcher',
                 'android_build',
                 '--destination',
@@ -616,9 +617,9 @@ class AndroidBuildService
             // Run the process and capture output in real-time for logging
             $process->run(function ($type, $buffer) {
                 if ($type === SymfonyProcess::OUT) {
-                    Log::info('Android build output: ' . $buffer);
+                    Log::info('Android build output: '.$buffer);
                 } else { // SymfonyProcess::ERR
-                    Log::warning('Android build error: ' . $buffer);
+                    Log::warning('Android build error: '.$buffer);
                 }
             });
 
@@ -630,7 +631,7 @@ class AndroidBuildService
                     'exit_code' => $process->getExitCode(),
                 ]);
 
-                throw new RuntimeException('Failed to build Android APK: ' . $process->getErrorOutput());
+                throw new RuntimeException('Failed to build Android APK: '.$process->getErrorOutput());
             }
 
             Log::info('Android build process completed successfully');
@@ -639,7 +640,7 @@ class AndroidBuildService
             $apkPath = null;
 
             // Look for APK files in the output directory
-            $files = File::glob($outputDir . '/*.apk');
+            $files = File::glob($outputDir.'/*.apk');
 
             if (! empty($files)) {
                 // Use the first APK file found
@@ -651,7 +652,7 @@ class AndroidBuildService
             }
 
             if (! $apkPath || ! File::exists($apkPath)) {
-                throw new RuntimeException('APK file not found after build in output directory: ' . $outputDir);
+                throw new RuntimeException('APK file not found after build in output directory: '.$outputDir);
             }
 
             return $apkPath;
@@ -707,7 +708,7 @@ class AndroidBuildService
             ]);
 
             // Create temporary directory
-            $tempDir = storage_path('app/temp/android_icon_' . $game->id);
+            $tempDir = storage_path('app/temp/android_icon_'.$game->id);
             File::makeDirectory($tempDir, 0755, true, true);
 
             // Handle local vs external thumbnails
@@ -715,19 +716,22 @@ class AndroidBuildService
                 // Copy local cached thumbnail directly
                 $localPath = $this->getLocalThumbnailPath($thumbnailUrl);
                 if ($localPath && file_exists($localPath)) {
-                    $tempFile = $tempDir . '/thumbnail' . pathinfo($localPath, PATHINFO_EXTENSION);
+                    $tempFile = $tempDir.'/thumbnail'.pathinfo($localPath, PATHINFO_EXTENSION);
                     copy($localPath, $tempFile);
                 } else {
-                    throw new Exception('Local thumbnail not found: ' . $localPath);
+                    throw new Exception('Local thumbnail not found: '.$localPath);
                 }
             } else {
                 // Download external thumbnail
-                $tempFile = $tempDir . '/thumbnail.jpg';
-                $response = $this->httpClient->get($thumbnailUrl, [
-                    'timeout' => 30,
-                    'connect_timeout' => 10,
-                    'verify' => false,
-                ]);
+                $tempFile = $tempDir.'/thumbnail.jpg';
+                $response = $this->httpClient->get(
+                    $this->imageUrlValidator->validate($thumbnailUrl),
+                    [
+                        'timeout' => 30,
+                        'connect_timeout' => 10,
+                        'allow_redirects' => false,
+                    ]
+                );
 
                 if ($response->getStatusCode() !== 200) {
                     throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
@@ -748,7 +752,7 @@ class AndroidBuildService
             }
 
             // Create the foreground icon in the game directory
-            $foregroundPath = $gameDir . '/android-icon_foreground.png';
+            $foregroundPath = $gameDir.'/android-icon_foreground.png';
 
             // Load and process the image
             $image = $this->imageManager->decodePath($tempFile);

@@ -100,7 +100,7 @@ interface VersionsResponse {
 
 // API functions
 export async function fetchReviews(gameId: number, params: ReviewsParams): Promise<ReviewsResponse> {
-  const response = await http.get(route('react-api.games.reviews', { game: gameId }), {
+  const response = await http.get(route('browser-api.games.reviews', { game: gameId }), {
     params: {
       showAllRatings: params.showAllRatings,
       selectedRating: params.selectedRating,
@@ -128,7 +128,7 @@ export async function fetchReviews(gameId: number, params: ReviewsParams): Promi
 }
 
 export async function fetchVersions(gameId: number, page: number, perPage: number): Promise<VersionsResponse> {
-  const response = await http.get(route('react-api.games.versions', { game: gameId }), {
+  const response = await http.get(route('browser-api.games.versions', { game: gameId }), {
     params: { page, perPage },
   });
 
@@ -151,7 +151,7 @@ export async function fetchVersions(gameId: number, page: number, perPage: numbe
 
 export async function fetchCharacterStats(gameSlug: string, versionId: number): Promise<CharacterStatsData> {
   const response = await http.get(
-    route('react-api.games.version.character-stats', {
+    route('browser-api.games.version.character-stats', {
       game: gameSlug,
       version: versionId,
     })
@@ -166,7 +166,7 @@ export async function fetchCharacterStats(gameSlug: string, versionId: number): 
 
 export async function fetchFileStats(gameSlug: string, versionId: number): Promise<FileStatsData> {
   const response = await http.get(
-    route('react-api.games.version.file-stats', {
+    route('browser-api.games.version.file-stats', {
       game: gameSlug,
       version: versionId,
     })
@@ -189,7 +189,7 @@ export async function uploadThumbnail({ gameSlug, file }: UploadThumbnailParams)
   formData.append('thumbnail', file);
 
   const response = await http.post(
-    route('react-api.my-games.thumbnail.update', { game: gameSlug }),
+    route('browser-api.my-games.thumbnail.update', { game: gameSlug }),
     formData
   );
 
