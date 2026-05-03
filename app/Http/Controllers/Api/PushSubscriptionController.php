@@ -41,7 +41,7 @@ class PushSubscriptionController extends Controller
                     'user_id' => $user->id,
                     'p256dh' => $request->input('subscription.keys.p256dh'),
                     'auth' => $request->input('subscription.keys.auth'),
-                    'subscription_data' => json_encode($request->input('subscription')),
+                    'subscription_data' => $request->input('subscription'),
                 ]);
 
                 return response()->json([
@@ -66,7 +66,7 @@ class PushSubscriptionController extends Controller
                 'user_id' => $user->id,
                 'p256dh' => $request->input('subscription.keys.p256dh'),
                 'auth' => $request->input('subscription.keys.auth'),
-                'subscription_data' => json_encode($request->input('subscription')),
+                'subscription_data' => $request->input('subscription'),
             ]
         );
 

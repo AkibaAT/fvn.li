@@ -63,3 +63,40 @@ test('process preserves existing styles when adding height', function () {
     // The image should have both the original style and the height style
     expect($result)->toContain('style="border: 1px solid red; height: 200px"');
 });
+
+test('process upgrades headers lists tables links and image accessibility attributes', function () {
+    $processor = new ItchHtmlProcessor;
+
+    $html = <<<'HTML'
+<h1 class="existing">Main</h1>
+<h2>Section</h2>
+<h6>Tiny</h6>
+<ul><li>First</li></ul>
+<ol><li>Second</li></ol>
+<p>Paragraph</p>
+<table>
+    <tr><th>Header</th></tr>
+    <tr><td>Cell</td></tr>
+</table>
+<a href="https://example.com/path">External</a>
+<a href="/local">Local</a>
+<div><img src="missing-alt.jpg"></div>
+HTML;
+
+    $result = $processor->process($html);
+
+    expect($result)->toContain('<h2 class="existing font-semibold')
+        ->and($result)->toContain('<h3 class="font-semibold')
+        ->and($result)->toContain('<h6 class="font-semibold')
+        ->and($result)->toContain('list-disc')
+        ->and($result)->toContain('list-decimal')
+        ->and($result)->toContain('<li class="mb-1">')
+        ->and($result)->toContain('min-w-full')
+        ->and($result)->toContain('<th class="px-4 py-3')
+        ->and($result)->toContain('<td class="px-4 py-3')
+        ->and($result)->toContain('target="_blank"')
+        ->and($result)->toContain('rel="noopener"')
+        ->and($result)->toContain('href="/local"')
+        ->and($result)->toContain('alt="Game image"')
+        ->and($result)->toContain('loading="lazy"');
+});

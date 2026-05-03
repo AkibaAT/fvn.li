@@ -36,7 +36,7 @@
         formData.append('thumbnail', file);
 
         try {
-            const res = await authenticatedFetch(route('react-api.my-games.thumbnail.update', { game: gameSlug }), {
+            const res = await authenticatedFetch(route('browser-api.my-games.thumbnail.update', { game: gameSlug }), {
                 method: 'POST',
                 body: formData,
             });
@@ -59,7 +59,7 @@
 
     async function handleThumbnailDelete() {
         try {
-            const res = await authenticatedFetch(route('react-api.my-games.thumbnail.delete', { game: gameSlug }), { method: 'DELETE' });
+            const res = await authenticatedFetch(route('browser-api.my-games.thumbnail.delete', { game: gameSlug }), { method: 'DELETE' });
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok || data?.success === false) {
@@ -87,7 +87,7 @@
         imageFiles.forEach((file) => formData.append('screenshots[]', file));
 
         try {
-            const res = await authenticatedFetch(route('react-api.my-games.screenshots.upload', { game: gameSlug }), {
+            const res = await authenticatedFetch(route('browser-api.my-games.screenshots.upload', { game: gameSlug }), {
                 method: 'POST',
                 body: formData,
             });
@@ -110,7 +110,7 @@
 
     async function handleScreenshotDelete(index: number) {
         try {
-            const res = await authenticatedFetch(route('react-api.my-games.screenshots.delete', { game: gameSlug, index }), { method: 'DELETE' });
+            const res = await authenticatedFetch(route('browser-api.my-games.screenshots.delete', { game: gameSlug, index }), { method: 'DELETE' });
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok || data?.success === false) {

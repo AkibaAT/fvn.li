@@ -26,13 +26,13 @@ export async function fetchUserLists(): Promise<VnList[]> {
 }
 
 export async function fetchUserListsDetailed(): Promise<VnList[]> {
-  const response = await http.get('/react-api/user/lists');
+  const response = await http.get('/browser-api/user/lists');
   if (!response.data?.success) throw new Error('Failed to fetch lists');
   return response.data.lists || [];
 }
 
 export async function fetchGameListMemberships(gameId: number): Promise<number[]> {
-  const response = await http.get(`/react-api/games/${gameId}/lists`);
+  const response = await http.get(`/browser-api/games/${gameId}/lists`);
   return response.data?.list_ids || [];
 }
 
@@ -70,21 +70,21 @@ export async function addGameToList({ gameId, listId }: AddToListParams): Promis
 }
 
 export async function addGameToListByType({ gameId, listType }: AddToListByTypeParams): Promise<{ success: boolean; message: string }> {
-  const response = await http.post(`/react-api/games/${gameId}/add-to-list`, {
+  const response = await http.post(`/browser-api/games/${gameId}/add-to-list`, {
     list_type: listType,
   });
   return response.data;
 }
 
 export async function toggleCustomList({ listId, gameId }: ToggleCustomListParams): Promise<{ success: boolean; message: string }> {
-  const response = await http.post(`/react-api/lists/${listId}/add-game`, {
+  const response = await http.post(`/browser-api/lists/${listId}/add-game`, {
     game_id: gameId,
   });
   return response.data;
 }
 
 export async function createList({ name, isPublic, gameId }: CreateListParams): Promise<{ success: boolean; message: string; list: VnList }> {
-  const response = await http.post('/react-api/vn-lists', {
+  const response = await http.post('/browser-api/vn-lists', {
     name: name.trim(),
     is_public: isPublic,
     game_id: gameId,

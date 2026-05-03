@@ -89,7 +89,7 @@ class HomeController extends Controller
         // Load essential relationships for the frontend
         if ($paginator->count() > 0) {
             // Load relationships to prevent N+1 queries
-            $paginator->load([
+            $paginator->getCollection()->load([
                 'tags',
                 'sourceLanguage',
                 'latestVersion.supportedLanguages.language',

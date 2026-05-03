@@ -12,6 +12,8 @@ class DiscordNotificationHistory extends Model
 {
     use HasFactory;
 
+    protected $table = 'discord_notification_history';
+
     protected $fillable = [
         'discord_server_id',
         'game_id',

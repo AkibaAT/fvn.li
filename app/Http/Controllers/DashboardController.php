@@ -338,7 +338,7 @@ class DashboardController extends Controller
         $service = new AdditionRequestService;
 
         // Parse URLs from the request
-        $urls = $service->parseUrls($request->input('urls', ''));
+        $urls = $service->parseUrls((string) $request->input('urls', ''));
 
         if (empty($urls)) {
             return response()->json([
@@ -481,8 +481,7 @@ class DashboardController extends Controller
                 SUM(CASE WHEN status = 'reading' THEN 1 ELSE 0 END) as reading,
                 SUM(CASE WHEN status = 'plan_to_read' THEN 1 ELSE 0 END) as plan_to_read,
                 SUM(CASE WHEN status = 'on_hold' THEN 1 ELSE 0 END) as on_hold,
-                SUM(CASE WHEN status = 'dropped' THEN 1 ELSE 0 END) as dropped,
-                SUM(COALESCE(hours_played, 0)) as total_hours
+                SUM(CASE WHEN status = 'dropped' THEN 1 ELSE 0 END) as dropped
             ")
             ->first();
 
@@ -531,7 +530,7 @@ class DashboardController extends Controller
                     'plan_to_read' => (int) ($progressStats->plan_to_read ?? 0),
                     'on_hold' => (int) ($progressStats->on_hold ?? 0),
                     'dropped' => (int) ($progressStats->dropped ?? 0),
-                    'total_hours' => round((float) ($progressStats->total_hours ?? 0), 1),
+                    'total_hours' => 0.0,
                 ],
                 'reviewsCount' => $reviewsCount,
                 'monthlyCompletions' => $monthlyCompletions,
@@ -775,6 +774,7 @@ class DashboardController extends Controller
     public function deleteAccount(Request $request)
     {
         $user = Auth::user();
+        $userId = $user->id;
 
         // Validate password confirmation for non-AJAX requests only (SPA will handle confirmation UI)
         if (! ($request->expectsJson() || $request->ajax())) {
@@ -782,41 +782,42 @@ class DashboardController extends Controller
                 'password' => ['required', 'current_password'],
             ]);
         }
-        DB::transaction(function () use ($user) {
+        DB::transaction(function () use ($user, $userId) {
             // Anonymize audit logs (GDPR compliance - retain for legal purposes)
             try {
-                $anonymized = ChangeLog::anonymizeUserData($user->id);
+                $anonymized = ChangeLog::anonymizeUserData($userId);
                 Log::info('Anonymized audit logs during account deletion',
-                    ['user_id' => $user->id, 'anonymized_count' => $anonymized]);
+                    ['user_id' => $userId, 'anonymized_count' => $anonymized]);
             } catch (Throwable $e) {
-                Log::warning('Failed to anonymize audit logs', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+                Log::warning('Failed to anonymize audit logs', ['user_id' => $userId, 'error' => $e->getMessage()]);
             }
 
             // Anonymize click statistics (GDPR compliance - retain for analytics)
             try {
-                $ok = ClickStat::anonymizePersonalDataForUser($user->id);
+                $ok = ClickStat::anonymizePersonalDataForUser($userId);
                 Log::info('Anonymized click statistics during account deletion',
-                    ['user_id' => $user->id, 'anonymized' => $ok]);
+                    ['user_id' => $userId, 'anonymized' => $ok]);
             } catch (Throwable $e) {
-                Log::warning('Failed to anonymize click stats', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+                Log::warning('Failed to anonymize click stats', ['user_id' => $userId, 'error' => $e->getMessage()]);
             }
 
             // Reassign addition request reviews to anonymous system user (ID 1)
             DB::table('addition_requests')
-                ->where('reviewed_by', $user->id)
+                ->where('reviewed_by', $userId)
                 ->update(['reviewed_by' => 1]);
 
             // Reset custom game pages to itch.io synced state
             DB::table('games')
-                ->where('custom_page_updated_by', $user->id)
+                ->where('custom_page_updated_by', $userId)
                 ->update([
                     'custom_page_updated_by' => null,
                     'has_custom_page' => false,
+                    'custom_name' => null,
                     'custom_description' => null,
                     'custom_screenshots' => null,
                     'custom_assets' => null,
                     'custom_css' => null,
-                    'custom_tags' => null,
+                    'custom_tags' => [],
                     'custom_page_updated_at' => null,
                 ]);
 
@@ -834,8 +835,17 @@ class DashboardController extends Controller
             $user->notificationHistory()->delete();
             $user->ignoredGames()->detach(); // Remove all ignored games relationships
 
+            DB::table('vn_list_entries')
+                ->whereIn('vn_list_id', DB::table('vn_lists')->where('user_id', $userId)->select('id'))
+                ->delete();
+            DB::table('vn_lists')->where('user_id', $userId)->delete();
+            DB::table('user_game_progress')->where('user_id', $userId)->delete();
+            DB::table('notification_history')->where('user_id', $userId)->delete();
+            DB::table('user_ignored_games')->where('user_id', $userId)->delete();
+
             // Finally delete the user account
             $user->delete();
+            DB::table('users')->where('id', $userId)->delete();
         });
 
         // Logout the user
@@ -956,7 +966,7 @@ class DashboardController extends Controller
                         'description' => $notifications->isNotEmpty()
                             ? "Your notification digest for {$carbonDate->format('F j, Y')}"
                             : "No notifications for {$carbonDate->format('F j, Y')}",
-                        'url' => route('dashboard.digest', $date),
+                        'url' => route('user.notifications.digest', $date),
                     ],
                 ],
             ]);
@@ -1026,7 +1036,7 @@ class DashboardController extends Controller
                 switch ($account->provider_name) {
                     case 'discord':
                         $displayName = $account->provider_data['global_name'] ?? $account->provider_data['username'] ?? null;
-                        $avatar = isset($account->provider_data['avatar'])
+                        $avatar = isset($account->provider_data['id'], $account->provider_data['avatar'])
                             ? "https://cdn.discordapp.com/avatars/{$account->provider_data['id']}/{$account->provider_data['avatar']}.png"
                             : null;
                         break;

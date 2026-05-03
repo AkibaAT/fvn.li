@@ -117,7 +117,12 @@
         @php
             $structuredDataJson = json_encode(
                 array_merge(['@context' => 'https://schema.org'], $metaTags['structuredData']),
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                JSON_UNESCAPED_SLASHES
+                    | JSON_UNESCAPED_UNICODE
+                    | JSON_HEX_TAG
+                    | JSON_HEX_AMP
+                    | JSON_HEX_APOS
+                    | JSON_HEX_QUOT
             );
         @endphp
         <script type="application/ld+json">{!! $structuredDataJson !!}</script>

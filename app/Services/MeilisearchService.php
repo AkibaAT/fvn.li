@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
 use App\Models\UniqueDialogueText;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class MeilisearchService
@@ -24,6 +26,10 @@ class MeilisearchService
         string $sortDirection = 'desc',
         array $ignoredGameIds = []
     ): LengthAwarePaginator {
+        if (config('scout.driver') !== 'meilisearch') {
+            return $this->searchGamesFromDatabase($query, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
+        }
+
         $search = Game::search(trim($query));
 
         // Exclude ignored games
@@ -165,6 +171,109 @@ class MeilisearchService
         }
 
         return $search->paginate($perPage, 'page', $page);
+    }
+
+    private function searchGamesFromDatabase(
+        string $query,
+        array $filters,
+        int $perPage,
+        int $page,
+        string $sortField,
+        string $sortDirection,
+        array $ignoredGameIds
+    ): LengthAwarePaginator {
+        $games = Game::query();
+        $searchTerm = trim($query);
+
+        if ($searchTerm !== '' && $searchTerm !== '*') {
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm) . '%';
+            $games->where(function (Builder $builder) use ($like) {
+                $builder
+                    ->where('name', 'ilike', $like)
+                    ->orWhere('description', 'ilike', $like)
+                    ->orWhere('authors', 'ilike', $like);
+            });
+        }
+
+        if (! empty($ignoredGameIds)) {
+            $games->whereNotIn('id', $ignoredGameIds);
+        }
+
+        $this->applyDatabaseGameFilters($games, $filters);
+        $this->applyDatabaseGameSort($games, $sortField, $sortDirection);
+
+        return $games->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    private function applyDatabaseGameFilters(Builder $games, array $filters): void
+    {
+        foreach (['status', 'game_engine', 'platform'] as $field) {
+            if (empty($filters[$field])) {
+                continue;
+            }
+
+            is_array($filters[$field])
+                ? $games->whereIn($field, $filters[$field])
+                : $games->where($field, $filters[$field]);
+        }
+
+        foreach (['is_nsfw', 'is_paid', 'has_demo', 'is_on_sale', 'is_delisted'] as $field) {
+            if (isset($filters[$field])) {
+                $games->where($field, $filters[$field]);
+            }
+        }
+
+        if (isset($filters['is_visible'])) {
+            $games->where('is_visible', $filters['is_visible']);
+        } elseif (! isset($filters['show_hidden']) || ! $filters['show_hidden']) {
+            $games->where('is_visible', true);
+        }
+
+        foreach (['is_windows', 'is_linux', 'is_mac', 'is_android', 'is_web'] as $field) {
+            if (isset($filters[$field])) {
+                $games->whereHas('latestVersion', fn (Builder $version) => $version->where($field, $filters[$field]));
+            }
+        }
+
+        if (! empty($filters['tags'])) {
+            foreach ((array) $filters['tags'] as $tag) {
+                $games->whereHas('tags', fn (Builder $tagQuery) => $tagQuery->where('name', $tag));
+            }
+        }
+
+        if (! empty($filters['excluded_tags'])) {
+            $games->whereDoesntHave('tags', fn (Builder $tagQuery) => $tagQuery->whereIn('name', (array) $filters['excluded_tags']));
+        }
+
+        if (! empty($filters['game_jams'])) {
+            foreach ((array) $filters['game_jams'] as $gameJam) {
+                $games->whereHas('gameJams', fn (Builder $gameJamQuery) => $gameJamQuery->where('name', $gameJam));
+            }
+        }
+
+        if (! empty($filters['supported_languages'])) {
+            $languages = (array) $filters['supported_languages'];
+            $games->whereHas('latestVersion.supportedLanguages', fn (Builder $languageQuery) => $languageQuery->whereIn('iso_code', $languages));
+        }
+    }
+
+    private function applyDatabaseGameSort(Builder $games, string $sortField, string $sortDirection): void
+    {
+        $direction = strtolower($sortDirection) === 'asc' ? 'asc' : 'desc';
+
+        match ($sortField) {
+            'latest_version_published_at' => $games->orderBy(
+                GameVersion::query()
+                    ->select('published_at')
+                    ->whereColumn('game_versions.game_id', 'games.id')
+                    ->orderByDesc('published_at')
+                    ->limit(1),
+                $direction
+            ),
+            'rating_score', 'rating_count', 'name', 'created_at', 'first_visible_at', 'initially_published_at' => $games->orderBy($sortField, $direction),
+            'trending', 'trending_score' => $games->orderBy('rating_score', $direction)->orderBy('rating_count', $direction),
+            default => $games->orderBy('first_visible_at', 'desc'),
+        };
     }
 
     /**

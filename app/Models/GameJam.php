@@ -605,7 +605,7 @@ class GameJam extends Model
             $gameUrl = preg_replace('/\?.*$/', '', $gameUrl);
 
             // Find the game in our database
-            $game = Game::where('url', $gameUrl)->first();
+            $game = Game::byUrl($gameUrl)->first();
             if (! $game) {
                 Log::info('Game not found in database', ['url' => $gameUrl]);
 

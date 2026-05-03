@@ -260,7 +260,7 @@ class SteamReviewImportService
             // Update existing review if content has changed
             $needsUpdate = false;
 
-            if ($existing->rating !== $rating) {
+            if ((int) $existing->rating !== $rating) {
                 $existing->rating = $rating;
                 $needsUpdate = true;
             }
@@ -270,7 +270,7 @@ class SteamReviewImportService
                 $needsUpdate = true;
             }
 
-            if ($existing->external_metadata !== $metadata) {
+            if ($existing->external_metadata != $metadata) {
                 $existing->external_metadata = $metadata;
                 $needsUpdate = true;
             }

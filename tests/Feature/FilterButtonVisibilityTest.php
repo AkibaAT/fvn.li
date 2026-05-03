@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 it('correctly identifies games listing page from URL', function () {
-    // Test the URL matching logic used in app-layout.tsx
+    // Test the URL matching logic used by the Svelte app layout
 
     // Should match games listing page (updated regex to exclude /my/games pattern)
     expect('https://example.com/games')->toMatch('/(?<!\/my)\/games$/');
@@ -33,7 +33,7 @@ it('correctly identifies URL patterns that should show filter button', function 
     ];
 
     foreach ($testCases as [$url, $shouldShow]) {
-        // This mimics the logic from SearchBar.tsx and MobileSearch.tsx:
+        // This mimics the games-list filter visibility logic in the Svelte layout/search UI:
         // (currentUrl.endsWith('/games') && !currentUrl.includes('/my/games')) || currentUrl.includes('/games?')
         $isGamesPage = (str_ends_with($url, '/games') && ! str_contains($url, '/my/games')) || str_contains($url, '/games?');
 

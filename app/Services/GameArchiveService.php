@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use Throwable;
 use ZipArchive;
 
 /**
@@ -127,6 +128,8 @@ readonly class GameArchiveService
             'filename' => $filename,
         ]);
 
+        $this->sanitizeDownloadFilename($filename);
+
         $downloadUrl = $this->resolveItchDownloadUrl($gameUrl, $uploadId, $gameId);
 
         Log::info('GameArchive: Download URL obtained', [
@@ -134,61 +137,62 @@ readonly class GameArchiveService
             'cdn_url' => parse_url($downloadUrl, PHP_URL_HOST),
         ]);
 
-        // Create temporary directory and download with ORIGINAL filename
-        // This is critical - the extraction logic depends on the exact filename
-        $tempDir = sys_get_temp_dir().'/game_'.uniqid();
-        if (! File::makeDirectory($tempDir, 0755, true)) {
-            throw new RuntimeException('Could not create temporary directory');
-        }
+        $tempDir = $this->createDownloadTempDirectory();
 
-        $tempFile = $tempDir.'/'.$filename;
+        try {
+            $tempFile = $this->createDownloadTempFile($tempDir);
 
-        Log::info('GameArchive: Starting download to temp', [
-            'game_id' => $gameId,
-            'temp_dir' => $tempDir,
-            'temp_file' => $tempFile,
-            'api_filename' => $filename,
-        ]);
+            Log::info('GameArchive: Starting download to temp', [
+                'game_id' => $gameId,
+                'temp_dir' => $tempDir,
+                'temp_file' => $tempFile,
+                'api_filename' => $filename,
+            ]);
 
-        $downloadClient = new Client([
-            'timeout' => 600,  // 10 minutes for the full download
-            'connect_timeout' => 30,  // 30 seconds to establish connection
-        ]);
-        $downloadResponse = $downloadClient->get($downloadUrl, [
-            'sink' => $tempFile,
-        ]);
-        $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
-        $namedTempFile = $tempDir.'/'.$downloadFilename;
-        if ($namedTempFile !== $tempFile) {
+            $downloadClient = new Client([
+                'timeout' => 600,  // 10 minutes for the full download
+                'connect_timeout' => 30,  // 30 seconds to establish connection
+            ]);
+            $downloadResponse = $downloadClient->get($downloadUrl, [
+                'sink' => $tempFile,
+            ]);
+            $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
+            $namedTempFile = $this->tempPathForDownloadFilename($tempDir, $downloadFilename);
             File::move($tempFile, $namedTempFile);
             $tempFile = $namedTempFile;
+
+            $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
+            Log::info('GameArchive: Download to temp completed', [
+                'game_id' => $gameId,
+                'filename' => $downloadFilename,
+                'file_size_mb' => round($fileSize / 1024 / 1024, 2),
+            ]);
+
+            // Process the archive to get stats
+            Log::info('GameArchive: Starting archive processing from temp', [
+                'game_id' => $gameId,
+                'archive_path' => $tempFile,
+            ]);
+            $stats = $this->processArchive($tempFile);
+            Log::info('GameArchive: Archive processing from temp completed', [
+                'game_id' => $gameId,
+                'has_stats' => $stats !== null,
+            ]);
+
+            return [
+                'temp_path' => $tempFile,
+                'temp_dir' => $tempDir,  // Return this so we can clean up the whole directory
+                'stats' => $stats,
+                'filename' => $downloadFilename,
+                'upload_id' => $uploadId,
+            ];
+        } catch (Throwable $throwable) {
+            if (File::exists($tempDir)) {
+                File::deleteDirectory($tempDir);
+            }
+
+            throw $throwable;
         }
-
-        $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
-        Log::info('GameArchive: Download to temp completed', [
-            'game_id' => $gameId,
-            'filename' => $downloadFilename,
-            'file_size_mb' => round($fileSize / 1024 / 1024, 2),
-        ]);
-
-        // Process the archive to get stats
-        Log::info('GameArchive: Starting archive processing from temp', [
-            'game_id' => $gameId,
-            'archive_path' => $tempFile,
-        ]);
-        $stats = $this->processArchive($tempFile);
-        Log::info('GameArchive: Archive processing from temp completed', [
-            'game_id' => $gameId,
-            'has_stats' => $stats !== null,
-        ]);
-
-        return [
-            'temp_path' => $tempFile,
-            'temp_dir' => $tempDir,  // Return this so we can clean up the whole directory
-            'stats' => $stats,
-            'filename' => $downloadFilename,
-            'upload_id' => $uploadId,
-        ];
     }
 
     /**
@@ -207,6 +211,8 @@ readonly class GameArchiveService
         if (! File::exists($tempPath)) {
             throw new RuntimeException("Temp file not found: {$tempPath}");
         }
+
+        $filename = $this->sanitizeDownloadFilename($filename);
 
         // Get storage path and prepare directory
         $storagePath = $this->getStoragePath($gameId, $versionId);
@@ -258,6 +264,8 @@ readonly class GameArchiveService
             'upload_id' => $uploadId,
             'filename' => $filename,
         ]);
+
+        $this->sanitizeDownloadFilename($filename);
 
         $downloadUrl = $this->resolveItchDownloadUrl($gameUrl, $uploadId, $gameId);
 
@@ -344,6 +352,8 @@ readonly class GameArchiveService
         $storagePath = $this->getStoragePath($gameId, $versionId);
 
         if ($filename) {
+            $filename = $this->sanitizeDownloadFilename($filename);
+
             return Storage::exists("{$storagePath}/{$filename}");
         }
 
@@ -713,8 +723,61 @@ readonly class GameArchiveService
         return "games/{$gameId}/{$versionId}";
     }
 
+    private function createDownloadTempDirectory(): string
+    {
+        $tempDir = tempnam(sys_get_temp_dir(), 'game_');
+        if ($tempDir === false) {
+            throw new RuntimeException('Could not create temporary directory');
+        }
+
+        if (! File::delete($tempDir) || ! File::makeDirectory($tempDir, 0755)) {
+            throw new RuntimeException('Could not create temporary directory');
+        }
+
+        return $tempDir;
+    }
+
+    private function createDownloadTempFile(string $tempDir): string
+    {
+        $tempFile = tempnam($tempDir, 'download_');
+        if ($tempFile === false) {
+            throw new RuntimeException('Could not create temporary download file');
+        }
+
+        $this->ensurePathIsInsideDirectory($tempFile, $tempDir);
+
+        return $tempFile;
+    }
+
+    private function tempPathForDownloadFilename(string $tempDir, string $filename): string
+    {
+        $filename = $this->sanitizeDownloadFilename($filename);
+        $path = $tempDir.DIRECTORY_SEPARATOR.$filename;
+
+        $this->ensurePathIsInsideDirectory(dirname($path), $tempDir);
+
+        return $path;
+    }
+
+    private function ensurePathIsInsideDirectory(string $path, string $directory): void
+    {
+        $directoryRealPath = realpath($directory);
+        $pathRealPath = realpath($path);
+
+        if ($directoryRealPath === false || $pathRealPath === false) {
+            throw new RuntimeException('Could not verify temporary archive path');
+        }
+
+        if ($pathRealPath !== $directoryRealPath &&
+            ! str_starts_with($pathRealPath, $directoryRealPath.DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException('Temporary archive path escaped its working directory');
+        }
+    }
+
     private function getDownloadFilename(ResponseInterface $response, string $fallbackFilename): string
     {
+        $this->sanitizeDownloadFilename($fallbackFilename);
+
         $contentDisposition = $response->getHeaderLine('Content-Disposition');
         if (preg_match('/filename\\*=UTF-8\'\'([^;]+)/i', $contentDisposition, $matches)) {
             return $this->sanitizeDownloadFilename(rawurldecode(trim($matches[1], " \t\"'")));
@@ -730,9 +793,23 @@ readonly class GameArchiveService
 
     private function sanitizeDownloadFilename(string $filename): string
     {
-        $filename = basename(str_replace('\\', '/', $filename));
+        $filename = trim($filename);
 
-        return $filename !== '' ? $filename : 'archive';
+        if ($filename === '') {
+            return 'archive';
+        }
+
+        if (
+            str_contains($filename, "\0") ||
+            str_contains($filename, '/') ||
+            str_contains($filename, '\\') ||
+            $filename === '.' ||
+            $filename === '..'
+        ) {
+            throw new RuntimeException('Archive filenames must not contain path separators or traversal segments.');
+        }
+
+        return $filename;
     }
 
     /**

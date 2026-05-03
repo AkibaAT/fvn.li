@@ -4,8 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use LengthException;
+
 class RenpySaveParser
 {
+    public const MAX_UPLOAD_KIB = 2048;
+
+    public const MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024;
+
+    private const MAX_PICKLE_STRING_BYTES = 1048576;
+
     public function extractSeenLabels(string $rawData, array $knownLabels): array
     {
         $data = $this->decompress($rawData);
@@ -26,19 +34,58 @@ class RenpySaveParser
 
     public function decompress(string $data): string
     {
-        $decoded = @gzdecode($data);
-
-        if ($decoded !== false) {
-            return $decoded;
+        if ($this->isGzip($data)) {
+            return $this->decodeCompressedSave($data, 'gzdecode');
         }
 
-        $decoded = @gzuncompress($data);
-
-        if ($decoded !== false) {
-            return $decoded;
+        if ($this->isZlib($data)) {
+            return $this->decodeCompressedSave($data, 'gzuncompress');
         }
+
+        $this->ensurePayloadSizeIsAllowed($data);
 
         return $data;
+    }
+
+    private function decodeCompressedSave(string $data, string $decoder): string
+    {
+        $decoded = @$decoder($data, self::MAX_DECOMPRESSED_BYTES);
+
+        if ($decoded === false) {
+            throw new LengthException('Compressed Ren\'Py save files must be valid and no larger than 8 MiB after decompression.');
+        }
+
+        $this->ensurePayloadSizeIsAllowed($decoded);
+
+        return $decoded;
+    }
+
+    private function ensurePayloadSizeIsAllowed(string $data): void
+    {
+        if (strlen($data) > self::MAX_DECOMPRESSED_BYTES) {
+            throw new LengthException('Ren\'Py save files must be no larger than 8 MiB after decompression.');
+        }
+    }
+
+    private function isGzip(string $data): bool
+    {
+        return strlen($data) >= 2
+            && ord($data[0]) === 0x1F
+            && ord($data[1]) === 0x8B;
+    }
+
+    private function isZlib(string $data): bool
+    {
+        if (strlen($data) < 2) {
+            return false;
+        }
+
+        $compressionMethodAndFlags = ord($data[0]);
+        $flags = ord($data[1]);
+
+        return ($compressionMethodAndFlags & 0x0F) === 8
+            && ($compressionMethodAndFlags >> 4) <= 7
+            && (($compressionMethodAndFlags << 8) + $flags) % 31 === 0;
     }
 
     public function extractPickleStrings(string $data): array
@@ -62,7 +109,7 @@ class RenpySaveParser
 
             if ($byte === 0x58 && $i + 4 < $len) {
                 $strLen = unpack('V', substr($data, $i + 1, 4))[1];
-                if ($strLen > 0 && $strLen < 1048576 && $i + 5 + $strLen <= $len) {
+                if ($strLen > 0 && $strLen < self::MAX_PICKLE_STRING_BYTES && $i + 5 + $strLen <= $len) {
                     $strings[] = substr($data, $i + 5, $strLen);
                     $i += 5 + $strLen;
 
@@ -72,7 +119,7 @@ class RenpySaveParser
 
             if ($byte === 0x8D && $i + 8 < $len) {
                 $strLen = unpack('P', substr($data, $i + 1, 8))[1];
-                if ($strLen > 0 && $strLen < 1048576 && $i + 9 + $strLen <= $len) {
+                if ($strLen > 0 && $strLen < self::MAX_PICKLE_STRING_BYTES && $i + 9 + $strLen <= $len) {
                     $strings[] = substr($data, $i + 9, $strLen);
                     $i += 9 + $strLen;
 
@@ -92,7 +139,7 @@ class RenpySaveParser
 
             if ($byte === 0x54 && $i + 4 < $len) {
                 $strLen = unpack('V', substr($data, $i + 1, 4))[1];
-                if ($strLen > 0 && $strLen < 1048576 && $i + 5 + $strLen <= $len) {
+                if ($strLen > 0 && $strLen < self::MAX_PICKLE_STRING_BYTES && $i + 5 + $strLen <= $len) {
                     $strings[] = substr($data, $i + 5, $strLen);
                     $i += 5 + $strLen;
 
@@ -112,7 +159,7 @@ class RenpySaveParser
 
             if ($byte === 0x42 && $i + 4 < $len) {
                 $strLen = unpack('V', substr($data, $i + 1, 4))[1];
-                if ($strLen > 0 && $strLen < 1048576 && $i + 5 + $strLen <= $len) {
+                if ($strLen > 0 && $strLen < self::MAX_PICKLE_STRING_BYTES && $i + 5 + $strLen <= $len) {
                     $strings[] = substr($data, $i + 5, $strLen);
                     $i += 5 + $strLen;
 
