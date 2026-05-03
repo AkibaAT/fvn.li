@@ -163,6 +163,37 @@ test('optimize game archives preserves original tar gzip archive format', functi
         ->toContain('TarGame/game/script.rpy');
 });
 
+test('tar archive repacking treats option-like top level entries as filenames', function () {
+    $sourceDir = sys_get_temp_dir().'/archive_tar_option_source_'.bin2hex(random_bytes(4));
+    $targetPath = sys_get_temp_dir().'/archive_tar_option_target_'.bin2hex(random_bytes(4)).'.tar';
+    $sentinelName = 'PWNED_BY_TAR_OPTION_TEST_'.bin2hex(random_bytes(4));
+    $sentinelPath = base_path($sentinelName);
+
+    File::makeDirectory($sourceDir.'/GoodGame/game', 0755, true);
+    File::put($sourceDir.'/GoodGame/game/script.rpy', "label start:\n    return\n");
+    File::put($sourceDir.'/--checkpoint=1', '');
+    File::put($sourceDir.'/--checkpoint-action=exec=touch '.$sentinelName, '');
+
+    try {
+        $service = new GameArchiveOptimizationService(passingArchiveOptimizationStatsService());
+        $method = new ReflectionMethod($service, 'createArchiveFromDirectory');
+        $method->invoke($service, $sourceDir, $targetPath, 'malicious-original.tar');
+
+        expect(File::exists($sentinelPath))->toBeFalse();
+
+        $list = new Process(['tar', '-tf', $targetPath]);
+        $list->mustRun();
+
+        expect($list->getOutput())->toContain('--checkpoint=1')
+            ->toContain('--checkpoint-action=exec=touch '.$sentinelName)
+            ->toContain('GoodGame/game/script.rpy');
+    } finally {
+        File::deleteDirectory($sourceDir);
+        File::delete($targetPath);
+        File::delete($sentinelPath);
+    }
+});
+
 test('optimize game archives skips rpyc files that fail to decompile', function () {
     Storage::fake('local');
 

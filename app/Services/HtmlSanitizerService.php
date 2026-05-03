@@ -10,6 +10,22 @@ use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 class HtmlSanitizerService
 {
+    private const ALLOWED_INLINE_STYLE_PROPERTIES = [
+        'background-color',
+        'color',
+        'font-family',
+        'font-size',
+        'font-style',
+        'font-weight',
+        'line-height',
+        'list-style-type',
+        'text-align',
+        'text-decoration',
+        'text-decoration-line',
+        'vertical-align',
+        'white-space',
+    ];
+
     private HtmlSanitizer $reviewSanitizer;
 
     private HtmlSanitizer $descriptionSanitizer;
@@ -70,7 +86,86 @@ class HtmlSanitizerService
             return $html;
         }
 
-        return trim(preg_replace('/\s+/', ' ', str_replace("\u{00A0}", ' ', $sanitizer->sanitize($html))));
+        $html = $this->sanitizeInlineStyleAttributes($sanitizer->sanitize($html));
+
+        return trim(preg_replace('/\s+/', ' ', str_replace("\u{00A0}", ' ', $html)));
+    }
+
+    private function sanitizeInlineStyleAttributes(string $html): string
+    {
+        if (! str_contains(strtolower($html), 'style=')) {
+            return $html;
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div id="fvn-sanitizer-root">'.$html.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            return $html;
+        }
+
+        $xpath = new \DOMXPath($dom);
+        foreach ($xpath->query('//*[@style]') ?: [] as $element) {
+            if (! $element instanceof \DOMElement) {
+                continue;
+            }
+
+            $style = $this->sanitizeInlineCss($element->getAttribute('style'));
+            if ($style === '') {
+                $element->removeAttribute('style');
+
+                continue;
+            }
+
+            $element->setAttribute('style', $style);
+        }
+
+        $root = $dom->getElementById('fvn-sanitizer-root');
+        if (! $root) {
+            return $html;
+        }
+
+        $result = '';
+        foreach ($root->childNodes as $child) {
+            $result .= $dom->saveHTML($child);
+        }
+
+        return $result;
+    }
+
+    private function sanitizeInlineCss(string $css): string
+    {
+        $css = $this->sanitizeCss($css) ?? '';
+        $declarations = [];
+
+        foreach (explode(';', $css) as $declaration) {
+            if (! str_contains($declaration, ':')) {
+                continue;
+            }
+
+            [$property, $value] = explode(':', $declaration, 2);
+            $property = strtolower(trim($property));
+            $value = trim($value);
+
+            if (
+                $property === ''
+                || $value === ''
+                || ! in_array($property, self::ALLOWED_INLINE_STYLE_PROPERTIES, true)
+                || preg_match('/(?:url\s*\(|expression\s*\(|javascript\s*:|vbscript\s*:|data\s*:|@import|-moz-binding|behavior\s*:)/i', $value)
+            ) {
+                continue;
+            }
+
+            $declarations[] = "{$property}:{$value}";
+        }
+
+        return implode(';', $declarations);
     }
 
     private function createReviewSanitizer(): HtmlSanitizer

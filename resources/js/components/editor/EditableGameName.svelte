@@ -80,7 +80,7 @@
         saveStatus = 'saving';
 
         try {
-            const response = await http.put(route('react-api.games.name.update', { game: gameId }), {
+            const response = await http.put(route('browser-api.games.name.update', { game: gameId }), {
                 name: trimmedName,
             });
 

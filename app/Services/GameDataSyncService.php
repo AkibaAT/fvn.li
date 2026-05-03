@@ -213,6 +213,7 @@ class GameDataSyncService
 
         // Exit early if no changes detected and game already has versions
         if (! $hasChanges && ! $force && ! $hadNoVersions) {
+            $this->updateLatestVersionPlatformFlags($game, $isWindows, $isLinux, $isMac, $isAndroid, $isWeb);
             echo "    [Version] No changes detected\n";
 
             return;
@@ -426,42 +427,7 @@ class GameDataSyncService
             // Platform flags can change over time (e.g., Android build added later)
             // But we only update if we DIDN'T just create a new version
             if (! $shouldCreateVersion && ! $hadNoVersions) {
-                $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
-                if ($latestVersion) {
-                    $platformsChanged = false;
-
-                    if ($latestVersion->is_windows !== $isWindows) {
-                        $latestVersion->is_windows = $isWindows;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_linux !== $isLinux) {
-                        $latestVersion->is_linux = $isLinux;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_mac !== $isMac) {
-                        $latestVersion->is_mac = $isMac;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_android !== $isAndroid) {
-                        $latestVersion->is_android = $isAndroid;
-                        $platformsChanged = true;
-                    }
-
-                    if ($latestVersion->is_web !== $isWeb) {
-                        $latestVersion->is_web = $isWeb;
-                        $platformsChanged = true;
-                    }
-
-                    // Save the changes if any platform flags were updated
-                    if ($platformsChanged) {
-                        echo "    [Version] Platform flags changed on existing version, saving\n";
-                        $latestVersion->save();
-                        echo "    [Version] Platform flags updated\n";
-                    }
-                }
+                $this->updateLatestVersionPlatformFlags($game, $isWindows, $isLinux, $isMac, $isAndroid, $isWeb);
             }
 
             echo "    [Version] All version data saved\n";
@@ -479,6 +445,53 @@ class GameDataSyncService
                     ]);
                 }
             }
+        }
+    }
+
+    private function updateLatestVersionPlatformFlags(
+        Game $game,
+        bool $isWindows,
+        bool $isLinux,
+        bool $isMac,
+        bool $isAndroid,
+        bool $isWeb
+    ): void {
+        $latestVersion = $game->gameVersions()->where('is_latest', true)->first();
+        if (! $latestVersion) {
+            return;
+        }
+
+        $platformsChanged = false;
+
+        if ($latestVersion->is_windows !== $isWindows) {
+            $latestVersion->is_windows = $isWindows;
+            $platformsChanged = true;
+        }
+
+        if ($latestVersion->is_linux !== $isLinux) {
+            $latestVersion->is_linux = $isLinux;
+            $platformsChanged = true;
+        }
+
+        if ($latestVersion->is_mac !== $isMac) {
+            $latestVersion->is_mac = $isMac;
+            $platformsChanged = true;
+        }
+
+        if ($latestVersion->is_android !== $isAndroid) {
+            $latestVersion->is_android = $isAndroid;
+            $platformsChanged = true;
+        }
+
+        if ($latestVersion->is_web !== $isWeb) {
+            $latestVersion->is_web = $isWeb;
+            $platformsChanged = true;
+        }
+
+        if ($platformsChanged) {
+            echo "    [Version] Platform flags changed on existing version, saving\n";
+            $latestVersion->save();
+            echo "    [Version] Platform flags updated\n";
         }
     }
 

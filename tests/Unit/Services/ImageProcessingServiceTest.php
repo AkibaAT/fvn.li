@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+use App\Models\Game;
+use App\Services\ImageDownloadUrlValidator;
 use App\Services\ImageProcessingService;
 use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     Storage::fake('public');
-    $this->service = new ImageProcessingService(new Client);
+    $this->service = new ImageProcessingService(new Client, new ImageDownloadUrlValidator);
 });
 
 test('process image variant preserves aspect ratio', function () {
@@ -71,4 +77,193 @@ test('process image variant preserves aspect ratio', function () {
     if (file_exists($tempFile)) {
         unlink($tempFile);
     }
+});
+
+function createImageProcessingPayload(int $width = 800, int $height = 400): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
+
+    ob_start();
+    imagepng($image);
+    imagedestroy($image);
+
+    return (string) ob_get_clean();
+}
+
+function imageProcessingServiceForResponses(array $responses, ?array &$history = null): ImageProcessingService
+{
+    $mock = new MockHandler($responses);
+    $handlerStack = HandlerStack::create($mock);
+    if ($history !== null) {
+        $handlerStack->push(Middleware::history($history));
+    }
+
+    return new ImageProcessingService(new Client(['handler' => $handlerStack]), new ImageDownloadUrlValidator);
+}
+
+test('large screenshot variants keep original dimensions', function () {
+    $tempFile = tempnam(sys_get_temp_dir(), 'large_image_');
+    file_put_contents($tempFile, createImageProcessingPayload(800, 400));
+
+    $dimensions = $this->service->processImageVariant(
+        $tempFile,
+        'screenshots/1_screenshot_hash_large.webp',
+        ['width' => 1280, 'height' => 720],
+        80
+    );
+
+    expect($dimensions)->toBe(['width' => 800, 'height' => 400])
+        ->and(Storage::disk('public')->exists('screenshots/1_screenshot_hash_large.webp'))->toBeTrue();
+
+    if (file_exists($tempFile)) {
+        unlink($tempFile);
+    }
+});
+
+test('process game screenshots creates optimized variants and keeps optimized screenshots when not forced', function () {
+    $game = Game::factory()->create([
+        'screenshots' => [
+            ['url' => 'https://img.itch.zone/screenshot-a.png'],
+            [
+                'url' => 'https://img.itch.zone/already-optimized.png',
+                'optimized' => [
+                    'large' => ['path' => 'screenshots/existing_large.webp'],
+                ],
+            ],
+            ['caption' => 'missing URL'],
+        ],
+    ]);
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, ['Content-Type' => 'image/png'], createImageProcessingPayload()),
+    ]);
+
+    $service->processGameScreenshots($game, quality: 75, force: false);
+
+    expect($game->screenshots)->toHaveCount(2)
+        ->and($game->screenshots[0]['url'])->toBe('https://img.itch.zone/screenshot-a.png')
+        ->and($game->screenshots[0]['optimized'])->toHaveKeys(['small', 'default', 'large'])
+        ->and($game->screenshots[0]['optimized']['small']['mime_type'])->toBe('image/webp')
+        ->and(Storage::disk('public')->exists($game->screenshots[0]['optimized']['small']['path']))->toBeTrue()
+        ->and($game->screenshots[1]['url'])->toBe('https://img.itch.zone/already-optimized.png')
+        ->and($game->screenshots[1]['optimized']['large']['path'])->toBe('screenshots/existing_large.webp');
+});
+
+test('process game screenshots keeps original data when the download is not an image', function () {
+    $game = Game::factory()->create([
+        'screenshots' => [
+            ['url' => 'https://img.itch.zone/not-an-image.txt'],
+        ],
+    ]);
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, ['Content-Type' => 'text/plain'], 'not an image'),
+    ]);
+
+    $service->processGameScreenshots($game, force: true);
+
+    expect($game->screenshots)->toBe([
+        ['url' => 'https://img.itch.zone/not-an-image.txt'],
+    ]);
+});
+
+test('process game thumbnail creates variants from thumbnail URL', function () {
+    $game = Game::factory()->create([
+        'thumb_url' => 'https://img.itch.zone/thumb.png',
+        'optimized_thumbnails' => null,
+    ]);
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, ['Content-Type' => 'image/png'], createImageProcessingPayload()),
+    ]);
+
+    $service->processGameThumbnail($game, quality: 75, force: true);
+
+    expect($game->optimized_thumbnails)->toHaveKeys(['small', 'default'])
+        ->and($game->optimized_thumbnails['small']['mime_type'])->toBe('image/webp')
+        ->and($game->optimized_thumbnails['small']['animated'])->toBeFalse()
+        ->and(Storage::disk('public')->exists($game->optimized_thumbnails['small']['path']))->toBeTrue();
+});
+
+test('process game thumbnail skips existing optimized thumbnails unless forced', function () {
+    $game = Game::factory()->create([
+        'thumb_url' => 'https://img.itch.zone/thumb.png',
+        'optimized_thumbnails' => [
+            'small' => ['path' => 'thumbnails/existing.webp'],
+        ],
+    ]);
+
+    $this->service->processGameThumbnail($game, force: false);
+
+    expect($game->optimized_thumbnails)->toBe([
+        'small' => ['path' => 'thumbnails/existing.webp'],
+    ]);
+});
+
+test('process game thumbnail uses first screenshot as fallback and rejects invalid downloads', function () {
+    $game = Game::factory()->create([
+        'thumb_url' => null,
+        'screenshots' => [
+            ['url' => 'https://img.itch.zone/screenshot-fallback.png'],
+        ],
+    ]);
+
+    $service = imageProcessingServiceForResponses([
+        new Response(500, ['Content-Type' => 'text/plain'], 'server error'),
+    ]);
+
+    expect(fn () => $service->processGameThumbnail($game, force: true))
+        ->toThrow(Exception::class, '500 Internal Server Error');
+
+    $emptyGame = Game::factory()->create([
+        'thumb_url' => null,
+        'screenshots' => [],
+    ]);
+
+    expect(fn () => $this->service->processGameThumbnail($emptyGame, force: true))
+        ->toThrow(Exception::class, 'No thumbnail or screenshot available for processing');
+});
+
+test('image downloads keep TLS verification enabled and do not follow redirects', function () {
+    $game = Game::factory()->create([
+        'thumb_url' => 'https://img.itch.zone/thumb.png',
+        'optimized_thumbnails' => null,
+    ]);
+    $history = [];
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, ['Content-Type' => 'image/png'], createImageProcessingPayload()),
+    ], $history);
+
+    $service->processGameThumbnail($game, quality: 75, force: true);
+
+    expect($history)->toHaveCount(1)
+        ->and((string) $history[0]['request']->getUri())->toBe('https://img.itch.zone/thumb.png')
+        ->and($history[0]['options']['verify'] ?? true)->not->toBeFalse()
+        ->and($history[0]['options']['allow_redirects'])->toBeFalse();
+});
+
+test('image downloads reject untrusted screenshot and thumbnail urls before fetching', function () {
+    $game = Game::factory()->create([
+        'screenshots' => [
+            ['url' => 'https://127.0.0.1/internal.png'],
+        ],
+    ]);
+    $history = [];
+    $service = imageProcessingServiceForResponses([], $history);
+
+    $service->processGameScreenshots($game, force: true);
+
+    expect($game->screenshots)->toBe([
+        ['url' => 'https://127.0.0.1/internal.png'],
+    ])->and($history)->toBe([]);
+
+    $gameWithBadThumbnail = Game::factory()->create([
+        'thumb_url' => 'https://example.invalid/thumb.png',
+        'optimized_thumbnails' => null,
+    ]);
+
+    expect(fn () => $service->processGameThumbnail($gameWithBadThumbnail, force: true))
+        ->toThrow(InvalidArgumentException::class, 'Untrusted image host');
 });

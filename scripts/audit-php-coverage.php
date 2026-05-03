@@ -20,8 +20,11 @@ if (! $xml instanceof SimpleXMLElement) {
 
 $undercoveredClasses = [];
 $uncoveredFiles = [];
+$totalStatements = 0;
+$coveredStatements = 0;
+$minimumStatementCoverage = (float) ($argv[2] ?? 80.0);
 
-foreach ($xml->project->file as $file) {
+foreach ($xml->xpath('//file') as $file) {
     $path = (string) $file['name'];
     $metrics = $file->metrics;
 
@@ -30,11 +33,13 @@ foreach ($xml->project->file as $file) {
     }
 
     $statements = (int) $metrics['statements'];
-    $coveredStatements = (int) $metrics['coveredstatements'];
+    $fileCoveredStatements = (int) $metrics['coveredstatements'];
     $methods = (int) $metrics['methods'];
     $coveredMethods = (int) $metrics['coveredmethods'];
+    $totalStatements += $statements;
+    $coveredStatements += $fileCoveredStatements;
 
-    if ($statements > 0 && $coveredStatements === 0) {
+    if ($statements > 0 && $fileCoveredStatements === 0) {
         $uncoveredFiles[] = $path;
     }
 
@@ -49,6 +54,14 @@ foreach ($xml->project->file as $file) {
 
 echo "PHP coverage audit\n";
 echo "==================\n";
+$statementCoverage = $totalStatements > 0 ? ($coveredStatements / $totalStatements) * 100 : 0.0;
+echo sprintf(
+    "Statement coverage: %.2f%% (%d/%d), required: %.2f%%\n",
+    $statementCoverage,
+    $coveredStatements,
+    $totalStatements,
+    $minimumStatementCoverage,
+);
 echo 'Files with zero covered statements: ' . count($uncoveredFiles) . "\n";
 echo 'Files with uncovered methods: ' . count($undercoveredClasses) . "\n\n";
 
@@ -72,4 +85,13 @@ if ($undercoveredClasses !== []) {
     }
 }
 
-exit($undercoveredClasses === [] && $uncoveredFiles === [] ? 0 : 1);
+$passesStatementThreshold = $statementCoverage >= $minimumStatementCoverage;
+
+if (! $passesStatementThreshold) {
+    echo sprintf(
+        "Statement coverage is below the required %.2f%% threshold.\n",
+        $minimumStatementCoverage,
+    );
+}
+
+exit($passesStatementThreshold && $uncoveredFiles === [] ? 0 : 1);

@@ -92,7 +92,7 @@ export function useEnhancedSearch(getOptions: () => UseEnhancedSearchOptions) {
                 endpoint = route('api.games.search-enhanced');
                 break;
             case 'dialogue':
-                endpoint = route('react-api.dialogue.search-enhanced');
+                endpoint = route('browser-api.dialogue.search-enhanced');
                 break;
             case 'global':
                 endpoint = route('api.search.global');

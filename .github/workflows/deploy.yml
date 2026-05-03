@@ -14,7 +14,68 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Setup DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+
+      - name: Start DDEV
+        run: |
+          sudo mkdir -p /tmp/fvn-empty-renpy-sdk
+          ddev start -y
+          ddev describe
+
+      - name: Install Composer dependencies
+        run: ddev composer install --no-interaction --prefer-dist
+
+      - name: Install Bun dependencies
+        run: ddev bun install --frozen-lockfile
+
+      - name: Validate Composer config
+        run: ddev composer validate --no-check-publish
+
+      - name: Check patch whitespace
+        run: |
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^ HEAD
+          else
+            git diff --check
+          fi
+
+      - name: Type check frontend
+        run: ddev bun types
+
+      - name: Lint frontend
+        run: ddev bun lint:check
+
+      - name: Run test suite
+        run: ddev composer test
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          if-no-files-found: ignore
+          path: |
+            build/frontend-coverage
+            playwright-report
+            test-results
+            tests/e2e/reports
+            storage/logs
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'production' && 'production' || 'development' }}
     permissions:

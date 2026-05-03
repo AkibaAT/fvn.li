@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 
-test('Verify heading structure on games page', async ({ page }) => {
+test('Verify heading structure on games page @accessibility', async ({ page }) => {
   await page.goto('/games');
   await page.waitForLoadState('networkidle');
   
@@ -34,4 +34,3 @@ test('Verify heading structure on games page', async ({ page }) => {
     console.log(`  ... and ${h3s.length - 3} more`);
   }
 });
-

@@ -191,7 +191,7 @@
         notifPrefs = next;
         savingPrefs = true;
         try {
-            await jsonPost(route('react-api.dashboard.notifications.update'), next);
+            await jsonPost(route('browser-api.dashboard.notifications.update'), next);
         } catch {
             notifPrefs = { ...notifPrefs, browser_notifications_enabled: !next.browser_notifications_enabled };
         } finally {
@@ -204,7 +204,7 @@
         notifPrefs = next;
         savingPrefs = true;
         try {
-            await jsonPost(route('react-api.dashboard.notifications.update'), next);
+            await jsonPost(route('browser-api.dashboard.notifications.update'), next);
         } catch {
             notifPrefs = { ...notifPrefs, discord_notifications_enabled: !next.discord_notifications_enabled };
         } finally {
@@ -218,7 +218,7 @@
         notifPrefs = { ...notifPrefs, notification_digest: value };
         savingPrefs = true;
         try {
-            await jsonPost(route('react-api.dashboard.notifications.update'), { ...notifPrefs, notification_digest: value });
+            await jsonPost(route('browser-api.dashboard.notifications.update'), { ...notifPrefs, notification_digest: value });
         } catch {
             notifPrefs = { ...notifPrefs, notification_digest: prev };
         } finally {
@@ -227,7 +227,7 @@
     };
 
     const handleExportData = () => {
-        if (typeof window !== 'undefined') window.location.href = route('react-api.user.export');
+        if (typeof window !== 'undefined') window.location.href = route('browser-api.user.export');
     };
 
     // --- VN Additions tab state ---
@@ -260,7 +260,7 @@
             params.set('status', (opts?.status ?? requestStatus) as string);
             if ((opts?.search ?? requestSearch).trim() !== '') params.set('search', (opts?.search ?? requestSearch).trim());
             const res = await jsonGet<{ success: boolean; requests: AdditionRequest[] }>(
-                `${route('react-api.dashboard.addition-requests.index')}?${params.toString()}`,
+                `${route('browser-api.dashboard.addition-requests.index')}?${params.toString()}`,
             );
             if (res.success) requests = res.requests;
         } catch {
@@ -275,7 +275,7 @@
         if (!trimmed) return;
         submittingRequest = true;
         try {
-            const res = await authenticatedFetch(route('react-api.dashboard.addition-requests.submit'), {
+            const res = await authenticatedFetch(route('browser-api.dashboard.addition-requests.submit'), {
                 method: 'POST',
                 body: JSON.stringify({ urls: trimmed }),
             });
@@ -302,7 +302,7 @@
 
     const cancelRequest = async (id: number) => {
         try {
-            await jsonPost(route('react-api.dashboard.addition-requests.cancel', { request: id }), {});
+            await jsonPost(route('browser-api.dashboard.addition-requests.cancel', { request: id }), {});
             await loadRequests({ status: requestStatus, search: requestSearch });
         } catch {
             /* noop */

@@ -8,6 +8,7 @@ use App\Filament\Resources\ReviewReports\Pages\ListReviewReports;
 use App\Filament\Resources\ReviewReports\Pages\ViewReviewReport;
 use App\Models\Rating;
 use App\Models\ReviewReport;
+use App\Services\HtmlSanitizerService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -216,7 +217,7 @@ class ReviewReportResource extends Resource
 
                         Placeholder::make('review_rating')
                             ->label('Rating')
-                            ->content(fn (ReviewReport $record): string => $record->rating?->rating ? $record->rating->rating . '/5' : 'N/A'),
+                            ->content(fn (ReviewReport $record): string => $record->rating?->rating ? $record->rating->rating.'/5' : 'N/A'),
 
                         Placeholder::make('review_author')
                             ->label('Review Author')
@@ -228,7 +229,9 @@ class ReviewReportResource extends Resource
 
                         Placeholder::make('review_text')
                             ->label('Review Text')
-                            ->content(fn (ReviewReport $record): HtmlString => new HtmlString($record->rating?->review ?? 'No review text'))
+                            ->content(fn (ReviewReport $record): HtmlString => new HtmlString(
+                                app(HtmlSanitizerService::class)->sanitizeReview($record->rating?->review) ?: 'No review text'
+                            ))
                             ->columnSpanFull(),
                     ])->columns(2),
 
@@ -253,7 +256,7 @@ class ReviewReportResource extends Resource
                                         $statuses[] = 'Flagged as suspicious';
                                     }
 
-                                    return $statuses ? implode(', ', $statuses) . ' (external rater)' : 'Active (external rater)';
+                                    return $statuses ? implode(', ', $statuses).' (external rater)' : 'Active (external rater)';
                                 }
 
                                 return 'Unknown author';
@@ -288,9 +291,9 @@ class ReviewReportResource extends Resource
                                 $html = '<div class="space-y-3">';
                                 foreach ($reviews as $review) {
                                     $gameName = e($review->game?->name ?? 'Unknown');
-                                    $ratingText = $review->rating ? $review->rating . '/5' : 'N/A';
+                                    $ratingText = $review->rating ? $review->rating.'/5' : 'N/A';
                                     $visible = $review->is_visible ? '<span class="text-green-600">Visible</span>' : '<span class="text-red-600">Hidden</span>';
-                                    $excerpt = $review->review ? e(mb_substr(strip_tags($review->review), 0, 150)) . '...' : '<em>No text</em>';
+                                    $excerpt = $review->review ? e(mb_substr(strip_tags($review->review), 0, 150)).'...' : '<em>No text</em>';
                                     $isCurrent = $review->id === $record->rating_id ? ' <span class="text-yellow-600 font-bold">(reported)</span>' : '';
 
                                     $html .= '<div class="p-2 rounded border border-gray-200 dark:border-gray-700">';

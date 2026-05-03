@@ -35,6 +35,7 @@
             <div class="flex items-center space-x-2">
                 <span class="text-sm text-gray-700 dark:text-gray-300">Show:</span>
                 <select
+                    aria-label={`Number of ${label} per page`}
                     value={meta.per_page || perPageOptions[0]}
                     onchange={(e) => onPerPageChange(parseInt((e.target as HTMLSelectElement).value))}
                     disabled={isLoading}

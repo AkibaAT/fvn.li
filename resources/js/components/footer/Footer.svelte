@@ -120,7 +120,7 @@
                     >
                         <i class="icon-bookmark inline" aria-hidden="true"></i><span>FVN Ratings Link</span>
                     </a>
-                    <p class="text-xs text-gray-400 dark:text-zinc-500">Works on pages with URLs like "creator.itch.io/project-name"</p>
+                    <p class="text-xs text-gray-600 dark:text-zinc-400">Works on pages with URLs like "creator.itch.io/project-name"</p>
                 </div>
             </div>
         </div>

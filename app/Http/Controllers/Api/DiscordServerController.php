@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\DiscordServer;
 use App\Models\DiscordServerConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class DiscordServerController
+class DiscordServerController extends Controller
 {
     /**
      * Register a new Discord server.

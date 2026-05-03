@@ -12,13 +12,37 @@
             <directory>tests/Feature</directory>
         </testsuite>
         <testsuite name="Browser">
-            <directory>tests/Browser</directory>
+            <directory>tests/Browser/Pest</directory>
         </testsuite>
     </testsuites>
     <source>
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <directory>app/Filament</directory>
+            <directory>app/Providers/Filament</directory>
+            <file>app/Console/Commands/MeilisearchDebug.php</file>
+            <file>app/Console/Commands/MeilisearchReindex.php</file>
+            <file>app/Console/Commands/MeilisearchSetup.php</file>
+            <file>app/Console/Commands/GenerateWebPushKeys.php</file>
+            <file>app/Console/Commands/TestFlareSolverr.php</file>
+            <file>app/Console/Kernel.php</file>
+            <file>app/Exceptions/Handler.php</file>
+            <file>app/Http/Kernel.php</file>
+            <file>app/Http/Middleware/Authenticate.php</file>
+            <file>app/Http/Middleware/EncryptCookies.php</file>
+            <file>app/Http/Middleware/PreventRequestsDuringMaintenance.php</file>
+            <file>app/Http/Middleware/RedirectIfAuthenticated.php</file>
+            <file>app/Http/Middleware/TrimStrings.php</file>
+            <file>app/Http/Middleware/TrustHosts.php</file>
+            <file>app/Http/Middleware/TrustProxies.php</file>
+            <file>app/Http/Middleware/ValidateSignature.php</file>
+            <file>app/Providers/AuthServiceProvider.php</file>
+            <file>app/Providers/BroadcastServiceProvider.php</file>
+            <file>app/Providers/EventServiceProvider.php</file>
+            <file>app/Providers/RouteServiceProvider.php</file>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>

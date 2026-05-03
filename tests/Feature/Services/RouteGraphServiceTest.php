@@ -639,7 +639,7 @@ test('route graph endpoint only includes unreachable script nodes for admins and
     createRouteLabel($this->version, 'unfinished_end', 30, true);
     createRouteEdge($this->version, 'unfinished_intro', 'unfinished_end', 'jump', 25);
 
-    $url = route('react-api.games.version.route-graph', [
+    $url = route('browser-api.games.version.route-graph', [
         'game' => $this->game->slug,
         'version' => $this->version->id,
     ]).'?include_unreachable=1';

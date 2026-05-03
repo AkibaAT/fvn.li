@@ -28,7 +28,10 @@ class SocialAuthController extends Controller
             // Don't store the login page as the intended URL
             if (strpos($previousUrl, route('login')) === false) {
                 session()->put('url.intended', $previousUrl);
-                Log::info('Storing intended URL in redirectToProvider', ['url' => $previousUrl]);
+                Log::info('Storing intended URL in redirectToProvider', [
+                    'provider' => $provider,
+                    'has_intended' => true,
+                ]);
             } else {
                 // If coming from login page, try to redirect to games index
                 session()->put('url.intended', route('games.index'));
@@ -36,8 +39,8 @@ class SocialAuthController extends Controller
         }
 
         Log::info('Current session intended URL before OAuth redirect', [
+            'provider' => $provider,
             'has_intended' => session()->has('url.intended'),
-            'url' => session('url.intended'),
         ]);
 
         // Provider-specific scope configuration
@@ -89,7 +92,7 @@ class SocialAuthController extends Controller
 
         Log::warning('Ignoring unsafe OAuth intended URL', [
             'provider' => request()->route('provider'),
-            'intended' => $intendedUrl,
+            'intended_host' => parse_url($intendedUrl, PHP_URL_HOST),
         ]);
 
         return null;
@@ -101,22 +104,12 @@ class SocialAuthController extends Controller
     public function handleProviderCallback(string $provider)
     {
         try {
-            // Special handling for Telegram widget data
             if ($provider === 'telegram') {
-                $data = request()->all();
-                if (empty($data)) {
-                    throw new Exception('No data received from Telegram');
+                $socialiteUser = Socialite::driver($provider)->user();
+
+                if (! $socialiteUser->getId()) {
+                    throw new Exception('No authenticated Telegram user received');
                 }
-
-                // Create a SocialiteUser instance from the Telegram data
-                $socialiteUser = new \Laravel\Socialite\Two\User;
-                $socialiteUser->id = $data['id'];
-                $socialiteUser->name = $data['first_name'].(isset($data['last_name']) ? ' '.$data['last_name'] : '');
-                $socialiteUser->nickname = $data['username'] ?? null;
-                $socialiteUser->avatar = $data['photo_url'] ?? null;
-
-                // Store the raw data for provider_data
-                $socialiteUser->user = $data;
             } else {
                 // For itch.io, we need to handle the implicit flow response
                 if ($provider === 'itchio') {
@@ -129,24 +122,36 @@ class SocialAuthController extends Controller
                     // Parse the hash fragment
                     parse_str($hash, $hashParams);
                     $accessToken = $hashParams['access_token'] ?? null;
+                    $returnedState = $hashParams['state'] ?? null;
+                    $expectedState = session()->pull('state');
 
                     if (! $accessToken) {
                         throw new Exception('No access token found in hash fragment');
                     }
 
-                    Log::info('Received itch.io access token', ['token' => substr($accessToken, 0, 10).'...']);
+                    if (
+                        ! is_string($returnedState)
+                        || ! is_string($expectedState)
+                        || ! hash_equals($expectedState, $returnedState)
+                    ) {
+                        throw new Exception('Invalid OAuth state for itch.io callback');
+                    }
+
+                    Log::info('Received itch.io OAuth callback', [
+                        'provider' => $provider,
+                        'has_access_token' => true,
+                    ]);
 
                     // Create a SocialiteUser instance with the access token
                     $socialiteUser = Socialite::driver($provider)->userFromToken($accessToken);
 
-                    // Log the user data we received
-                    Log::info('Received itch.io user data', [
-                        'id' => $socialiteUser->getId(),
-                        'name' => $socialiteUser->getName(),
-                        'nickname' => $socialiteUser->getNickname(),
-                        'email' => $socialiteUser->getEmail(),
-                        'avatar' => $socialiteUser->getAvatar(),
-                        'raw' => $socialiteUser->user,
+                    Log::info('Received itch.io user profile', [
+                        'provider' => $provider,
+                        'has_provider_id' => $socialiteUser->getId() !== null,
+                        'has_name' => $socialiteUser->getName() !== null,
+                        'has_nickname' => $socialiteUser->getNickname() !== null,
+                        'has_email' => $socialiteUser->getEmail() !== null,
+                        'has_avatar' => $socialiteUser->getAvatar() !== null,
                     ]);
                 } else {
                     $socialiteUser = Socialite::driver($provider)->user();
@@ -192,8 +197,7 @@ class SocialAuthController extends Controller
             // Log the user creation/finding process
             Log::info('User lookup/creation result', [
                 'user_id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
+                'provider' => $provider,
             ]);
 
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
@@ -218,8 +222,6 @@ class SocialAuthController extends Controller
             // Log the session for debugging
             Log::info('Session data:', [
                 'has_intended' => session()->has('url.intended'),
-                'intended_url' => session('url.intended'),
-                'previous_url' => url()->previous(),
             ]);
 
             // Get the intended URL or fall back to games.index
@@ -233,9 +235,11 @@ class SocialAuthController extends Controller
             return redirect($redirectTo);
         } catch (Exception $e) {
             // Log the error for debugging
-            Log::error("Social auth error with {$provider}: ".$e->getMessage(), [
-                'exception' => $e,
-                'request_data' => request()->all(),
+            Log::error("Social auth error with {$provider}: ".$this->redactSensitiveText($e->getMessage()), [
+                'exception_class' => $e::class,
+                'exception_code' => $e->getCode(),
+                'request_keys' => $this->requestInputKeys(),
+                'has_oauth_hash' => request()->has('hash'),
             ]);
 
             // Flash error message to session
@@ -345,7 +349,6 @@ class SocialAuthController extends Controller
         if ($socialAccount) {
             Log::info('Found existing social account', [
                 'provider' => $provider,
-                'provider_id' => $socialiteUser->getId(),
                 'user_id' => $socialAccount->user_id,
             ]);
 
@@ -363,9 +366,8 @@ class SocialAuthController extends Controller
 
         Log::info('Creating/looking up user with data', [
             'provider' => $provider,
-            'provider_id' => $socialiteUser->getId(),
-            'name' => $name,
-            'email' => $email,
+            'has_name' => $name !== '',
+            'has_email' => ! empty($email),
             'has_avatar' => ! empty($avatar),
         ]);
 
@@ -407,7 +409,9 @@ class SocialAuthController extends Controller
             $data = json_decode($response->getBody()->getContents(), true);
 
             if (isset($data['errors'])) {
-                Log::error('itch.io API error when fetching games', ['errors' => $data['errors']]);
+                Log::error('itch.io API error when fetching games', [
+                    'error_count' => is_array($data['errors']) ? count($data['errors']) : 1,
+                ]);
 
                 return [];
             }
@@ -424,17 +428,39 @@ class SocialAuthController extends Controller
 
             Log::info('Fetched itch.io games for user', [
                 'game_count' => count($gameIds),
-                'game_ids' => $gameIds,
             ]);
 
             return $gameIds;
         } catch (Exception $e) {
             Log::error('Failed to fetch itch.io games', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'exception_class' => $e::class,
+                'exception_code' => $e->getCode(),
+                'error' => $this->redactSensitiveText($e->getMessage()),
             ]);
 
             return [];
         }
+    }
+
+    private function redactSensitiveText(string $value): string
+    {
+        $patterns = [
+            '/(access_token|refresh_token|id_token|token|code|state)=([^&\s]+)/i' => '$1=[redacted]',
+            '/(Bearer\s+)[A-Za-z0-9._~+\/=-]+/i' => '$1[redacted]',
+            '#(/api/1/)[^/\s]+(/my-games)#' => '$1[redacted]$2',
+        ];
+
+        return (string) preg_replace(array_keys($patterns), array_values($patterns), $value);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function requestInputKeys(): array
+    {
+        return array_values(array_unique(array_merge(
+            request()->query->keys(),
+            request()->request->keys(),
+        )));
     }
 }

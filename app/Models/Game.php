@@ -699,6 +699,7 @@ class Game extends Model
     {
         $this->update([
             'has_custom_page' => false,
+            'custom_name' => null,
             'custom_description' => null,
             'custom_screenshots' => null,
             'custom_assets' => null,

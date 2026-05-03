@@ -11,6 +11,7 @@ use App\Models\Game;
 use App\Models\GameDiscordSubscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DiscordSubscriptionController extends Controller
 {
@@ -34,7 +35,7 @@ class DiscordSubscriptionController extends Controller
         ])->first();
 
         if ($existing) {
-            // Reactivate if inactive
+            // Enable again if inactive
             if (! $existing->is_active) {
                 $existing->update(['is_active' => true]);
             }
@@ -202,6 +203,7 @@ class DiscordSubscriptionController extends Controller
             'game_id' => $game->id,
             'discord_server_id' => $server->id,
         ])->firstOrFail();
+        $metadata = $this->getOrCreateServerGameMetadata($server, $game);
 
         return response()->json([
             'id' => $game->id,
@@ -209,13 +211,14 @@ class DiscordSubscriptionController extends Controller
             'url' => $game->getPrimaryUrl(),
             'platform' => $game->platform,
             'content_type' => $game->content_type,
-            'discord_channel_id' => $subscription->discord_channel_id,
-            'discord_message_id' => $subscription->discord_message_id,
-            'discord_likes' => $subscription->discord_likes ?? [],
-            'discord_dislikes' => $subscription->discord_dislikes ?? [],
-            'abbreviations' => $subscription->abbreviations ?? [],
-            'discord_tags' => $subscription->discord_tags ?? [],
-            'discord_updated_at' => $subscription->discord_updated_at,
+            'subscription_id' => $subscription->id,
+            'discord_channel_id' => $metadata->discord_channel_id,
+            'discord_message_id' => $metadata->discord_message_id,
+            'discord_likes' => $this->decodeJsonArray($metadata->discord_likes),
+            'discord_dislikes' => $this->decodeJsonArray($metadata->discord_dislikes),
+            'abbreviations' => $this->decodeJsonArray($metadata->abbreviations),
+            'discord_tags' => $this->decodeJsonArray($metadata->discord_tags),
+            'discord_updated_at' => $metadata->discord_updated_at,
         ]);
     }
 
@@ -226,7 +229,7 @@ class DiscordSubscriptionController extends Controller
     {
         $this->authorize('update', $server);
 
-        $subscription = GameDiscordSubscription::where([
+        GameDiscordSubscription::where([
             'game_id' => $game->id,
             'discord_server_id' => $server->id,
         ])->firstOrFail();
@@ -250,8 +253,24 @@ class DiscordSubscriptionController extends Controller
                 unset($updates['content_type']);
             }
 
-            $updates['discord_updated_at'] = now();
-            $subscription->update($updates);
+            if (! empty($updates)) {
+                $metadataUpdates = [];
+                foreach ($updates as $key => $value) {
+                    $metadataUpdates[$key] = is_array($value) ? json_encode(array_values($value)) : $value;
+                }
+                $metadataUpdates['discord_updated_at'] = now();
+                $metadataUpdates['updated_at'] = now();
+
+                DB::table('discord_server_games')->updateOrInsert(
+                    [
+                        'discord_server_id' => $server->id,
+                        'game_id' => $game->id,
+                    ],
+                    $metadataUpdates + [
+                        'created_at' => now(),
+                    ]
+                );
+            }
         }
 
         return response()->json([
@@ -267,7 +286,7 @@ class DiscordSubscriptionController extends Controller
     {
         $this->authorize('update', $server);
 
-        $subscription = GameDiscordSubscription::where([
+        GameDiscordSubscription::where([
             'game_id' => $game->id,
             'discord_server_id' => $server->id,
         ])->firstOrFail();
@@ -280,8 +299,9 @@ class DiscordSubscriptionController extends Controller
         $userId = $validated['user_id'];
         $rating = $validated['rating'];
 
-        $likes = $subscription->discord_likes ?? [];
-        $dislikes = $subscription->discord_dislikes ?? [];
+        $metadata = $this->getOrCreateServerGameMetadata($server, $game);
+        $likes = $this->decodeJsonArray($metadata->discord_likes);
+        $dislikes = $this->decodeJsonArray($metadata->discord_dislikes);
 
         // Remove user from both arrays first
         $likes = array_filter($likes, fn ($id) => $id !== $userId);
@@ -294,16 +314,54 @@ class DiscordSubscriptionController extends Controller
             $dislikes[] = $userId;
         }
 
-        $subscription->update([
-            'discord_likes' => array_values($likes),
-            'discord_dislikes' => array_values($dislikes),
-            'discord_updated_at' => now(),
-        ]);
+        DB::table('discord_server_games')
+            ->where('discord_server_id', $server->id)
+            ->where('game_id', $game->id)
+            ->update([
+                'discord_likes' => json_encode(array_values($likes)),
+                'discord_dislikes' => json_encode(array_values($dislikes)),
+                'discord_updated_at' => now(),
+                'updated_at' => now(),
+            ]);
 
         return response()->json([
             'message' => 'Rating updated successfully',
-            'discord_likes' => $subscription->discord_likes,
-            'discord_dislikes' => $subscription->discord_dislikes,
+            'discord_likes' => array_values($likes),
+            'discord_dislikes' => array_values($dislikes),
         ]);
+    }
+
+    private function getOrCreateServerGameMetadata(DiscordServer $server, Game $game): object
+    {
+        DB::table('discord_server_games')->updateOrInsert(
+            [
+                'discord_server_id' => $server->id,
+                'game_id' => $game->id,
+            ],
+            [
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        return DB::table('discord_server_games')
+            ->where('discord_server_id', $server->id)
+            ->where('game_id', $game->id)
+            ->first();
+    }
+
+    private function decodeJsonArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return array_values($value);
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? array_values($decoded) : [];
+        }
+
+        return [];
     }
 }

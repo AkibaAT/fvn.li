@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Models\Character;
 use App\Models\Game;
+use App\Models\GameDialogueText;
 use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
@@ -74,6 +75,8 @@ class AppServiceProvider extends ServiceProvider
         Tag::observe(TagObserver::class);
         Rating::observe(RatingObserver::class);
 
+        $this->disableSearchSyncingForTests();
+
         // Register universal audit observer for all Eloquent models
         $this->registerUniversalAuditObserver();
 
@@ -101,6 +104,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Log slow database queries
         $this->registerSlowQueryLogging();
+    }
+
+    private function disableSearchSyncingForTests(): void
+    {
+        if (! $this->app->environment('testing')) {
+            return;
+        }
+
+        Game::disableSearchSyncing();
+        GameDialogueText::disableSearchSyncing();
+        Rating::disableSearchSyncing();
+        Tag::disableSearchSyncing();
     }
 
     /**
