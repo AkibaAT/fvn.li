@@ -553,9 +553,9 @@ class GameArchiveOptimizationService
         }
 
         $args = match ($extension) {
-            'tar' => ['tar', '-cf', $targetPath, '-C', $sourceDir, ...$entries],
-            'tar.gz', 'tgz' => ['tar', '-czf', $targetPath, '-C', $sourceDir, ...$entries],
-            'tar.bz2', 'tbz2' => ['tar', '-cjf', $targetPath, '-C', $sourceDir, ...$entries],
+            'tar' => ['tar', '-cf', $targetPath, '-C', $sourceDir, '--', ...$entries],
+            'tar.gz', 'tgz' => ['tar', '-czf', $targetPath, '-C', $sourceDir, '--', ...$entries],
+            'tar.bz2', 'tbz2' => ['tar', '-cjf', $targetPath, '-C', $sourceDir, '--', ...$entries],
             default => throw new RuntimeException("Unsupported archive format: {$extension}"),
         };
 

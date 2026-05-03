@@ -37,11 +37,11 @@ trait SortsVnLists
         if ($lists instanceof LengthAwarePaginator) {
             $sorted = $lists->getCollection()->sortBy(function ($list) {
                 if (isset($this->typeOrder[$list->type])) {
-                    return $this->typeOrder[$list->type];
+                    return sprintf('%04d-', $this->typeOrder[$list->type]);
                 }
 
                 // Custom lists come after standard types, ordered alphabetically
-                return 1000 . $list->name;
+                return '1000-' . $list->name;
             })->values();
 
             // Reindex keys to avoid sparse keys breaking JSON serialization/UI

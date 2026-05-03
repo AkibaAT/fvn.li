@@ -18,7 +18,7 @@ it('correctly identifies URL patterns that should show filter button', function 
     ];
 
     foreach ($testCases as [$url, $shouldShow]) {
-        // This mimics the logic from SearchBar.tsx and MobileSearch.tsx:
+        // This mimics the games-list filter visibility logic in the Svelte layout/search UI:
         // (currentUrl.endsWith('/games') && !currentUrl.includes('/my/games')) || currentUrl.includes('/games?')
         $isGamesPage = (str_ends_with($url, '/games') && ! str_contains($url, '/my/games')) || str_contains($url, '/games?');
 

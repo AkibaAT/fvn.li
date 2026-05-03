@@ -33,7 +33,7 @@ export async function fetchAdditionRequests({ status, search, page = 1 }: FetchR
   });
 
   const response = await fetch(
-    route('react-api.dashboard.addition-requests.index') + `?${params}`
+    route('browser-api.dashboard.addition-requests.index') + `?${params}`
   );
   const data = await response.json();
 
@@ -43,7 +43,7 @@ export async function fetchAdditionRequests({ status, search, page = 1 }: FetchR
 
 export async function cancelAdditionRequest(requestId: number): Promise<{ success: boolean; message: string }> {
   const response = await fetch(
-    route('react-api.dashboard.addition-requests.cancel', { request: requestId }),
+    route('browser-api.dashboard.addition-requests.cancel', { request: requestId }),
     {
       method: 'POST',
       headers: {
@@ -56,7 +56,7 @@ export async function cancelAdditionRequest(requestId: number): Promise<{ succes
 
 export async function submitAdditionRequests(urls: string): Promise<{ success: boolean; result: SubmissionResult; message?: string; errors?: Record<string, string[]> }> {
   const response = await fetch(
-    route('react-api.dashboard.addition-requests.submit'),
+    route('browser-api.dashboard.addition-requests.submit'),
     {
       method: 'POST',
       headers: {
