@@ -40,14 +40,18 @@ readonly class GameStatsService
 
     private EssentialCharacterService $essentialCharacterService;
 
+    private RenpyStatsSandboxClient $sandboxClient;
+
     public function __construct(
         ?LanguageMappingService $languageMappingService = null,
         ?CharacterStatsCalculationService $characterStatsService = null,
-        ?EssentialCharacterService $essentialCharacterService = null
+        ?EssentialCharacterService $essentialCharacterService = null,
+        ?RenpyStatsSandboxClient $sandboxClient = null
     ) {
         $this->languageMappingService = $languageMappingService ?? app(LanguageMappingService::class);
         $this->characterStatsService = $characterStatsService ?? app(CharacterStatsCalculationService::class);
         $this->essentialCharacterService = $essentialCharacterService ?? app(EssentialCharacterService::class);
+        $this->sandboxClient = $sandboxClient ?? app(RenpyStatsSandboxClient::class);
     }
 
     /**
@@ -59,6 +63,8 @@ readonly class GameStatsService
             throw new RuntimeException('Temporary file no longer exists');
         }
 
+        $filename = $this->sanitizeArchiveFilename($filename);
+
         try {
             $storagePath = "games/{$gameId}/{$versionId}";
             Storage::makeDirectory($storagePath);
@@ -69,10 +75,58 @@ readonly class GameStatsService
         }
     }
 
+    private function sanitizeArchiveFilename(string $filename): string
+    {
+        $filename = trim($filename);
+
+        if ($filename === '') {
+            return 'archive';
+        }
+
+        if (
+            str_contains($filename, "\0") ||
+            str_contains($filename, '/') ||
+            str_contains($filename, '\\') ||
+            $filename === '.' ||
+            $filename === '..'
+        ) {
+            throw new RuntimeException('Archive filenames must not contain path separators or traversal segments.');
+        }
+
+        return $filename;
+    }
+
     /**
      * Extract statistics from a game archive
      */
     public function extractGameStats(string $archivePath): ?array
+    {
+        $mode = config('services.renpy.analysis_mode', 'sandbox');
+        if ($mode === 'sandbox') {
+            Log::info('GameStats: Delegating extraction to sandbox analyzer', [
+                'archive_path' => basename($archivePath),
+            ]);
+
+            return $this->sandboxClient->extract($archivePath);
+        }
+
+        if ($mode !== 'local_trusted') {
+            Log::warning('GameStats: Unknown RenPy analysis mode, skipping extraction', [
+                'mode' => $mode,
+                'archive_path' => basename($archivePath),
+            ]);
+
+            return null;
+        }
+
+        return $this->extractGameStatsLocally($archivePath);
+    }
+
+    /**
+     * Extract statistics locally. This mode is intended only for trusted local
+     * fixtures and explicit development fallback, never untrusted production input.
+     */
+    private function extractGameStatsLocally(string $archivePath): ?array
     {
         Log::info('GameStats: Starting extraction', [
             'archive_path' => basename($archivePath),
@@ -106,25 +160,6 @@ readonly class GameStatsService
                 'game_dir' => basename($gameDir),
             ]);
 
-            // First try to find and run a native Linux executable
-            Log::info('GameStats: Looking for Linux executable');
-            $linuxExecutable = $this->findLinuxExecutable($gameDir);
-            if ($linuxExecutable) {
-                Log::info('Found Linux executable, attempting to run it', [
-                    'executable' => $linuxExecutable,
-                ]);
-
-                $stats = $this->extractStatsWithNativeExecutable($gameDir, $linuxExecutable);
-                if ($stats) {
-                    Log::info('Successfully extracted stats using native Linux executable');
-
-                    return $stats;
-                }
-
-                Log::info('Failed to extract stats with native executable, falling back to Ren\'Py SDK');
-            }
-
-            // Fall back to Ren'Py SDK
             Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
             if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {

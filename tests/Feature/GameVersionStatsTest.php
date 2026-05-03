@@ -90,19 +90,19 @@ afterEach(function () {
 
 describe('character stats endpoint', function () {
     test('returns 404 when game not found', function () {
-        $response = $this->getJson("/react-api/games/non-existent-game/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/non-existent-game/versions/{$this->version->id}/character-stats");
 
         $response->assertStatus(404);
     });
 
     test('returns 404 when version not found', function () {
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/99999/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/99999/character-stats");
 
         $response->assertStatus(404);
     });
 
     test('returns empty data when no character stats exist', function () {
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -155,7 +155,7 @@ describe('character stats endpoint', function () {
             'words' => 5000,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -214,7 +214,7 @@ describe('character stats endpoint', function () {
             ]);
         }
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         $data = $response->json('data');
         $characters = $data['characters'];
@@ -250,7 +250,7 @@ describe('character stats endpoint', function () {
             'words' => 100,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         $data = $response->json('data');
 
@@ -282,7 +282,7 @@ describe('character stats endpoint', function () {
             'words' => 5678,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         $data = $response->json('data');
         $wordCounts = $data['wordCounts'];
@@ -296,19 +296,19 @@ describe('character stats endpoint', function () {
 
 describe('file stats endpoint', function () {
     test('returns 404 when game not found', function () {
-        $response = $this->getJson("/react-api/games/non-existent-game/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/non-existent-game/versions/{$this->version->id}/file-stats");
 
         $response->assertStatus(404);
     });
 
     test('returns 404 when version not found', function () {
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/99999/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/99999/file-stats");
 
         $response->assertStatus(404);
     });
 
     test('returns empty data when no file stats exist', function () {
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -358,7 +358,7 @@ describe('file stats endpoint', function () {
             'size' => 75000000,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -420,7 +420,7 @@ describe('file stats endpoint', function () {
             'size' => 2500000,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         $data = $response->json('data');
         $imageCategory = collect($data['file_categories'])->firstWhere('category', 'image');
@@ -456,7 +456,7 @@ describe('file stats endpoint', function () {
             ]);
         }
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         $data = $response->json('data');
 
@@ -500,7 +500,7 @@ describe('file stats endpoint', function () {
             'size' => 12500000,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         $data = $response->json('data');
         $imageCategory = collect($data['file_categories'])->firstWhere('category', 'image');
@@ -640,7 +640,7 @@ describe('version comparison endpoint', function () {
         ]);
 
         $response = $this->getJson(
-            "/react-api/games/{$this->game->id}/compare-versions?fromVersionId={$newVersion->id}&toVersionId={$this->version->id}"
+            "/browser-api/games/{$this->game->id}/compare-versions?fromVersionId={$newVersion->id}&toVersionId={$this->version->id}"
         );
 
         $response->assertStatus(200);
@@ -755,7 +755,7 @@ describe('version comparison endpoint', function () {
         ])->each(fn (array $attributes) => VersionCharacterStats::create($attributes));
 
         $response = $this->getJson(
-            "/react-api/games/{$this->game->id}/compare-versions?fromVersionId={$olderVersion->id}&toVersionId={$newVersion->id}"
+            "/browser-api/games/{$this->game->id}/compare-versions?fromVersionId={$olderVersion->id}&toVersionId={$newVersion->id}"
         );
 
         $response->assertStatus(200);
@@ -841,7 +841,7 @@ describe('regression prevention', function () {
             'words' => 50,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         // Should not return 500
         $response->assertStatus(200);
@@ -886,7 +886,7 @@ describe('regression prevention', function () {
             'size' => 25000000,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         // Should not return 500
         $response->assertStatus(200);
@@ -915,7 +915,7 @@ describe('regression prevention', function () {
             'words' => 100,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/character-stats");
 
         $data = $response->json('data');
 
@@ -940,7 +940,7 @@ describe('regression prevention', function () {
             'size' => 1000000,
         ]);
 
-        $response = $this->getJson("/react-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
+        $response = $this->getJson("/browser-api/games/{$this->game->slug}/versions/{$this->version->id}/file-stats");
 
         // Should successfully load the relationship
         $response->assertStatus(200);

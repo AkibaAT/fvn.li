@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Console\Commands\ProcessGameScreenshots;
 use App\Models\Game;
+use App\Services\ImageDownloadUrlValidator;
 use App\Services\ImageProcessingService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -62,14 +63,14 @@ test('process screenshots command', function () {
         'is_visible' => true,
         'screenshots' => [
             [
-                'url' => 'https://example.com/test-image.png',
+                'url' => 'https://img.itch.zone/test-image.png',
             ],
         ],
     ]);
 
     // Create and run the command with our mocked client and image processing service
     $imageProcessingService = $this->app->make(ImageProcessingService::class);
-    $command = new ProcessGameScreenshots($client, $imageProcessingService);
+    $command = new ProcessGameScreenshots($client, $imageProcessingService, new ImageDownloadUrlValidator);
     $this->app->instance(ProcessGameScreenshots::class, $command);
 
     $this->artisan('games:process-screenshots', [

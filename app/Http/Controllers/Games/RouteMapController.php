@@ -11,7 +11,9 @@ use App\Services\RenpySaveParser;
 use App\Services\RouteGraphService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Response;
+use LengthException;
 
 class RouteMapController extends Controller
 {
@@ -74,8 +76,8 @@ class RouteMapController extends Controller
             'availableLanguages' => $availableLanguages,
             'currentLanguage' => $currentLanguage,
             'metaTags' => [
-                'title' => $game->name . ' - Route Map - FVN.li',
-                'description' => 'Interactive route map and branching visualization for ' . $game->name,
+                'title' => $game->name.' - Route Map - FVN.li',
+                'description' => 'Interactive route map and branching visualization for '.$game->name,
             ],
         ]);
     }
@@ -105,7 +107,7 @@ class RouteMapController extends Controller
     public function parseSaveFile(Game $game, GameVersion $version, Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:10240'],
+            'file' => ['required', 'file', 'max:'.RenpySaveParser::MAX_UPLOAD_KIB],
         ]);
 
         $knownLabels = $version->routeLabels()->pluck('name')->toArray();
@@ -116,7 +118,13 @@ class RouteMapController extends Controller
 
         $rawData = $request->file('file')->getContent();
 
-        $seenLabels = $this->renpySaveParser->extractSeenLabels($rawData, $knownLabels);
+        try {
+            $seenLabels = $this->renpySaveParser->extractSeenLabels($rawData, $knownLabels);
+        } catch (LengthException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'seen_labels' => $seenLabels,
@@ -138,8 +146,7 @@ class RouteMapController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $graphData
-     *
+     * @param  array<string, mixed>  $graphData
      * @return array<string, mixed>
      */
     private function withAvailableLanguages(array $graphData, GameVersion $version): array

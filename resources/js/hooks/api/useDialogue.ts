@@ -97,7 +97,7 @@ interface OptionsParams {
 }
 
 export async function fetchDialogueOptions({ gameId, versionId, language }: OptionsParams): Promise<DialogueOptions> {
-  const resp = await http.get(route('react-api.dialogue.options'), {
+  const resp = await http.get(route('browser-api.dialogue.options'), {
     params: {
       gameId,
       versionId: versionId ?? undefined,
@@ -116,7 +116,7 @@ export async function fetchDialogueOptions({ gameId, versionId, language }: Opti
 }
 
 export async function fetchDialogueVersionStats(versionId: number): Promise<DialogueVersionStats> {
-  const resp = await http.get(route('react-api.dialogue.version-stats'), {
+  const resp = await http.get(route('browser-api.dialogue.version-stats'), {
     params: { versionId },
   });
 
@@ -137,7 +137,7 @@ interface SearchResponse {
 }
 
 export async function fetchDialogueSearch(filters: DialogueSearchFilters): Promise<SearchResponse> {
-  const resp = await http.get(route('react-api.dialogue.search'), {
+  const resp = await http.get(route('browser-api.dialogue.search'), {
     params: {
       q: filters.q,
       language: filters.language,
@@ -175,7 +175,7 @@ interface DuplicatesParams {
 }
 
 export async function fetchDialogueDuplicates(params: DuplicatesParams): Promise<DuplicateItem[]> {
-  const resp = await http.get(route('react-api.dialogue.duplicates'), {
+  const resp = await http.get(route('browser-api.dialogue.duplicates'), {
     params: {
       language: params.language,
       gameId: params.gameId ?? undefined,
@@ -197,7 +197,7 @@ interface WordFrequencyParams {
 }
 
 export async function fetchWordFrequency({ versionId, language }: WordFrequencyParams): Promise<WordFrequencyItem[]> {
-  const resp = await http.get(route('react-api.dialogue.word-frequency'), {
+  const resp = await http.get(route('browser-api.dialogue.word-frequency'), {
     params: {
       versionId,
       language,

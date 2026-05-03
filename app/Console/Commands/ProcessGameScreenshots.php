@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
+use App\Services\ImageDownloadUrlValidator;
 use App\Services\ImageProcessingService;
 use Exception;
 use GuzzleHttp\Client;
@@ -19,6 +20,12 @@ class ProcessGameScreenshots extends Command
     use SelectsGames;
 
     private const SCREENSHOTS_PATH = 'screenshots';
+
+    private const DOWNLOAD_OPTIONS = [
+        'timeout' => 30,
+        'connect_timeout' => 10,
+        'allow_redirects' => false,
+    ];
 
     private const VALID_MIME_TYPES = [
         'image/jpeg',
@@ -58,7 +65,8 @@ class ProcessGameScreenshots extends Command
 
     public function __construct(
         private readonly Client $httpClient,
-        private readonly ImageProcessingService $imageProcessingService
+        private readonly ImageProcessingService $imageProcessingService,
+        private readonly ImageDownloadUrlValidator $imageUrlValidator
     ) {
         parent::__construct();
     }
@@ -143,7 +151,7 @@ class ProcessGameScreenshots extends Command
             return;
         }
 
-        $this->info('Processing ' . count($game->screenshots) . ' screenshots');
+        $this->info('Processing '.count($game->screenshots).' screenshots');
 
         $updatedScreenshots = [];
 
@@ -169,11 +177,10 @@ class ProcessGameScreenshots extends Command
 
                 // Download the screenshot
                 $this->info('Downloading screenshot...');
-                $response = $this->httpClient->get($sourceUrl, [
-                    'timeout' => 30,
-                    'connect_timeout' => 10,
-                    'verify' => false,
-                ]);
+                $response = $this->httpClient->get(
+                    $this->imageUrlValidator->validate($sourceUrl),
+                    self::DOWNLOAD_OPTIONS
+                );
 
                 // Get the content
                 $content = $response->getBody()->getContents();
@@ -211,7 +218,7 @@ class ProcessGameScreenshots extends Command
                 foreach (self::VARIANTS as $variant => $config) {
                     $this->info("Processing {$variant} variant...");
 
-                    $variantFilename = $baseFilename . "_{$variant}.webp";
+                    $variantFilename = $baseFilename."_{$variant}.webp";
                     $variantPath = $this->getStoragePath($variantFilename);
 
                     $dimensions = $this->processStaticVariant(
@@ -299,7 +306,7 @@ class ProcessGameScreenshots extends Command
      */
     private function getStoragePath(string $filename): string
     {
-        return self::SCREENSHOTS_PATH . '/' . $filename;
+        return self::SCREENSHOTS_PATH.'/'.$filename;
     }
 
     /**

@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\DiscordServerController;
 use App\Http\Controllers\Api\DiscordSubscriptionController;
 use App\Http\Controllers\Api\GameReviewsController;
+use App\Http\Controllers\Api\RenpyAnalyzerController;
+use App\Http\Controllers\Api\UserNotificationsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,20 +44,20 @@ Route::middleware('auth:sanctum')->prefix('bot')->group(function () {
 });
 
 // New Discord notification routes
-Route::middleware('auth:sanctum')->prefix('discord-notifications')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-notifications'])->prefix('discord-notifications')->group(function () {
     Route::get('pending', [DiscordNotificationsController::class, 'getPendingNotifications']);
     Route::get('addition-requests', [DiscordNotificationsController::class, 'getPendingAdditionRequests']);
     Route::get('review-reports', [DiscordNotificationsController::class, 'getPendingReviewReports']);
     Route::post('status', [DiscordNotificationsController::class, 'recordDeliveryStatus']);
 });
 
-// User notification routes
-Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
-    Route::post('subscribers', [App\Http\Controllers\Api\UserNotificationsController::class, 'getGameSubscribers']);
-    Route::post('record', [App\Http\Controllers\Api\UserNotificationsController::class, 'recordNotification']);
+// User notification service routes
+Route::middleware(['auth:sanctum', 'sanctum.token:notifications'])->prefix('notifications')->group(function () {
+    Route::post('subscribers', [UserNotificationsController::class, 'getGameSubscribers']);
+    Route::post('record', [UserNotificationsController::class, 'recordNotification']);
 });
 
-// Push notification subscription routes moved to react-api (session-based)
+// Push notification subscription routes moved to browser-api (session-based)
 
 // Multi-server Discord management routes
 Route::middleware('auth:sanctum')->prefix('discord-servers')->group(function () {
@@ -95,3 +97,5 @@ Route::middleware('auth:sanctum')->prefix('discord-servers')->group(function () 
 // Game reviews API for desktop client
 Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);
 Route::get('game-reviews/paginated', [GameReviewsController::class, 'getPaginatedReviews']);
+
+Route::post('renpy-analyzer/analyze', [RenpyAnalyzerController::class, 'analyze']);

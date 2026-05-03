@@ -73,7 +73,7 @@
 
         isSubmitting = true;
         try {
-            const response = await (window as any).axios.post(route('react-api.user-reviews.store', { game: gameId }), {
+            const response = await (window as any).axios.post(route('browser-api.user-reviews.store', { game: gameId }), {
                 rating,
                 review: reviewText,
                 has_spoilers: hasSpoilers,
@@ -92,7 +92,7 @@
     async function handleDelete() {
         isDeleting = true;
         try {
-            const response = await (window as any).axios.delete(route('react-api.user-reviews.destroy', { game: gameId }));
+            const response = await (window as any).axios.delete(route('browser-api.user-reviews.destroy', { game: gameId }));
             userReview = null;
             rating = 0;
             reviewText = '';

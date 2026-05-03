@@ -13,7 +13,17 @@ database:
 webimage_extra_packages: [ffmpeg, libgl1]
 use_dns_when_possible: true
 composer_version: '2'
-web_environment: []
+web_environment:
+    - PW_TEST_CONNECT_WS_ENDPOINT=ws://playwright:3000/
+    - PEST_BROWSER_PLAYWRIGHT_HOST=playwright
+    - PEST_BROWSER_PLAYWRIGHT_PORT=3000
+    - RENPY_ANALYSIS_MODE=sandbox
+    - RENPY_ANALYZER_URL=http://stats-runner:8080/api/renpy-analyzer/analyze
+    - RENPY_ANALYZER_TOKEN=ddev-renpy-analyzer
+    - RENPY_ANALYZER_TIMEOUT=300
+    - RENPY_ANALYZER_HOST_WORK_DIR=${DDEV_APPROOT}/.ddev/.renpy-analyzer
+    - RENPY_ANALYZER_CONTAINER_WORK_DIR=/runner-work
+    - RENPY_SDK_DOCKER_HOST_PATH=${RENPY_SDK_HOST_PATH:-/tmp/fvn-empty-renpy-sdk}
 corepack_enable: false
 web_extra_exposed_ports:
     - name: vite
@@ -22,7 +32,7 @@ web_extra_exposed_ports:
       https_port: 5273
 web_extra_daemons:
     - name: ssr-1
-      command: /var/www/html/artisan inertia:start-ssr --runtime=bun
+      command: bash -lc 'while [ ! -f vendor/autoload.php ] || [ ! -f bootstrap/ssr/ssr.mjs ]; do sleep 5; done; exec php artisan inertia:start-ssr --runtime=bun'
       directory: /var/www/html
 
 # Key features of DDEV's config.yaml:
