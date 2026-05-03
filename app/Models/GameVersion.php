@@ -224,7 +224,11 @@ class GameVersion extends Model
                     $size = $maxBigInt;
                 }
 
-                $totalSize += $size;
+                if ($totalSize > $maxBigInt - $size) {
+                    $totalSize = $maxBigInt;
+                } else {
+                    $totalSize += $size;
+                }
             }
 
             // Cap total in case the sum overflowed

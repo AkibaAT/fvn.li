@@ -118,12 +118,15 @@ class GamesSearchController extends Controller
         // Load essential relationships for the frontend
         if ($games->count() > 0) {
             // Load relationships to prevent N+1 queries
-            $games->load([
-                'tags',
-                'sourceLanguage',
-                'latestVersion.supportedLanguages.language',
-                'latestVersion.languageStats',
-            ]);
+            $collection = $games->getCollection();
+            if (method_exists($collection, 'load')) {
+                $collection->load([
+                    'tags',
+                    'sourceLanguage',
+                    'latestVersion.supportedLanguages.language',
+                    'latestVersion.languageStats',
+                ]);
+            }
 
             // Enhance models with data from loaded relationships only (no additional queries)
             foreach ($games as $game) {
@@ -291,7 +294,7 @@ class GamesSearchController extends Controller
             });
         }
 
-        $games = $query->limit(10)->get(['id', 'name', 'slug', 'cover_image']);
+        $games = $query->limit(10)->get(['id', 'name', 'slug', 'thumb_url']);
 
         return response()->json($games);
     }

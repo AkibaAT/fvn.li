@@ -10,7 +10,7 @@ import { join } from 'path';
  * Reports are generated in tests/e2e/reports/accessibility/
  */
 
-test.describe('Accessibility Scans', () => {
+test.describe('Accessibility Scans @accessibility', () => {
   const reportsDir = join(process.cwd(), 'tests/e2e/reports/accessibility');
   
   test.beforeAll(() => {
@@ -147,7 +147,7 @@ test.describe('Accessibility Scans', () => {
   });
 });
 
-test.describe('Accessibility - Keyboard Navigation', () => {
+test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
   test('Homepage keyboard navigation', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
@@ -180,13 +180,13 @@ test.describe('Accessibility - Keyboard Navigation', () => {
   });
 });
 
-test.describe('Accessibility - Screen Reader Support', () => {
+test.describe('Accessibility - Screen Reader Support @accessibility', () => {
   test('Homepage has proper ARIA landmarks', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     
     // Check for main landmark
-    const main = page.locator('main[role="main"]');
+    const main = page.getByRole('main');
     await expect(main).toBeVisible();
     
     // Check for navigation landmark
@@ -273,7 +273,7 @@ test.describe('Accessibility - Screen Reader Support', () => {
   });
 });
 
-test.describe('Accessibility - Color Contrast', () => {
+test.describe('Accessibility - Color Contrast @accessibility', () => {
   test('Homepage color contrast check', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
@@ -302,4 +302,3 @@ test.describe('Accessibility - Color Contrast', () => {
     expect(results.violations).toHaveLength(0);
   });
 });
-

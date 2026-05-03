@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
+use App\Services\ImageDownloadUrlValidator;
 use App\Services\ImageProcessingService;
 use Exception;
 use GuzzleHttp\Client;
@@ -19,6 +20,12 @@ class ProcessGameThumbnails extends Command
     use SelectsGames;
 
     private const THUMBNAIL_PATH = 'thumbnails';
+
+    private const DOWNLOAD_OPTIONS = [
+        'timeout' => 30,
+        'connect_timeout' => 10,
+        'allow_redirects' => false,
+    ];
 
     private const VALID_MIME_TYPES = [
         'image/jpeg',
@@ -52,7 +59,8 @@ class ProcessGameThumbnails extends Command
 
     public function __construct(
         private readonly Client $httpClient,
-        private readonly ImageProcessingService $imageProcessingService
+        private readonly ImageProcessingService $imageProcessingService,
+        private readonly ImageDownloadUrlValidator $imageUrlValidator
     ) {
         parent::__construct();
     }
@@ -115,7 +123,7 @@ class ProcessGameThumbnails extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error during thumbnail processing: ' . $e->getMessage());
+            $this->error('Error during thumbnail processing: '.$e->getMessage());
             Log::error('Thumbnail processing failed', ['exception' => $e]);
 
             return 1;
@@ -147,11 +155,10 @@ class ProcessGameThumbnails extends Command
 
         // Download the thumbnail
         $this->info('Downloading thumbnail...');
-        $response = $this->httpClient->get($sourceUrl, [
-            'timeout' => 30,
-            'connect_timeout' => 10,
-            'verify' => false,
-        ]);
+        $response = $this->httpClient->get(
+            $this->imageUrlValidator->validate($sourceUrl),
+            self::DOWNLOAD_OPTIONS
+        );
 
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
@@ -208,7 +215,7 @@ class ProcessGameThumbnails extends Command
                 'file_start' => $fileStart,
                 'file_size' => filesize($tempFile),
             ]);
-            throw new Exception('Invalid or corrupted image file: ' . $e->getMessage());
+            throw new Exception('Invalid or corrupted image file: '.$e->getMessage());
         }
 
         try {
@@ -226,7 +233,7 @@ class ProcessGameThumbnails extends Command
             foreach (self::VARIANTS as $variant => $config) {
                 $this->info("Processing {$variant} variant...");
 
-                $variantFilename = $baseFilename . "_{$variant}.webp";
+                $variantFilename = $baseFilename."_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename);
 
                 $dimensions = $this->processStaticVariant(
@@ -301,7 +308,7 @@ class ProcessGameThumbnails extends Command
      */
     private function getStoragePath(string $filename): string
     {
-        return self::THUMBNAIL_PATH . '/' . $filename;
+        return self::THUMBNAIL_PATH.'/'.$filename;
     }
 
     /**

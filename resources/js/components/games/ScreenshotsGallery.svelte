@@ -1,12 +1,7 @@
 <script lang="ts">
     import { authenticatedFetch } from '@/utils/csrf';
     import { toast } from '@/utils/toast';
-
-    export interface Screenshot {
-        url: string;
-        thumbnail_url?: string;
-        original_url?: string;
-    }
+    import { resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';
 
     function getThumbnailUrl(screenshot: Screenshot): string {
         return screenshot.thumbnail_url || screenshot.url;
@@ -28,18 +23,6 @@
     let deletingScreenshotIndex = $state<number | null>(null);
     let displayedScreenshots = $derived(screenshots ?? []);
 
-    function normalizeScreenshots(value: unknown): Screenshot[] | null {
-        if (Array.isArray(value)) {
-            return value as Screenshot[];
-        }
-
-        if (value && typeof value === 'object') {
-            return Object.values(value) as Screenshot[];
-        }
-
-        return null;
-    }
-
     async function handleScreenshotUpload(files: FileList) {
         if (typeof window === 'undefined') return;
         if (uploadingScreenshots) return;
@@ -54,7 +37,7 @@
         imageFiles.forEach((file) => formData.append('screenshots[]', file));
 
         try {
-            const res = await authenticatedFetch(route('react-api.my-games.screenshots.upload', { game: gameSlug }), {
+            const res = await authenticatedFetch(route('browser-api.my-games.screenshots.upload', { game: gameSlug }), {
                 method: 'POST',
                 body: formData,
             });
@@ -63,14 +46,7 @@
                 toast.error(data?.message || 'Failed to upload screenshots');
                 return;
             }
-            const responseScreenshots = normalizeScreenshots(data.screenshots);
-            const responseNewScreenshots = normalizeScreenshots(data.new_screenshots);
-            const updatedScreenshots =
-                responseScreenshots && responseScreenshots.length >= displayedScreenshots.length
-                    ? responseScreenshots
-                    : responseNewScreenshots
-                      ? [...displayedScreenshots, ...responseNewScreenshots]
-                      : displayedScreenshots;
+            const updatedScreenshots = resolveUploadedScreenshots(displayedScreenshots, data.screenshots, data.new_screenshots);
             displayedScreenshots = updatedScreenshots;
             onUpdate?.(null, updatedScreenshots);
             toast.success('Screenshots uploaded successfully');
@@ -89,7 +65,7 @@
 
         deletingScreenshotIndex = index;
         try {
-            const res = await authenticatedFetch(route('react-api.my-games.screenshots.delete', { game: gameSlug }), {
+            const res = await authenticatedFetch(route('browser-api.my-games.screenshots.delete', { game: gameSlug }), {
                 method: 'DELETE',
                 body: JSON.stringify({ index }),
             });
@@ -98,12 +74,7 @@
                 toast.error(data?.message || 'Failed to delete screenshot');
                 return;
             }
-            const expectedCount = Math.max(0, displayedScreenshots.length - 1);
-            const responseScreenshots = normalizeScreenshots(data.screenshots);
-            const updatedScreenshots =
-                responseScreenshots && responseScreenshots.length === expectedCount
-                    ? responseScreenshots
-                    : displayedScreenshots.filter((_, screenshotIndex) => screenshotIndex !== index);
+            const updatedScreenshots = resolveDeletedScreenshots(displayedScreenshots, index, data.screenshots);
             displayedScreenshots = updatedScreenshots;
             onUpdate?.(null, updatedScreenshots);
             toast.success('Screenshot deleted successfully');

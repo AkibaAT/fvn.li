@@ -45,7 +45,7 @@ return [
     'itchio' => [
         'client_id' => env('ITCHIO_CLIENT_ID'),
         'client_secret' => env('ITCHIO_CLIENT_SECRET'),
-        'redirect' => env('APP_URL') . '/auth/itchio/callback',
+        'redirect' => env('APP_URL').'/auth/itchio/callback',
     ],
 
     'discord' => [
@@ -81,11 +81,36 @@ return [
 
     'renpy' => [
         'sdk_path' => env('RENPY_SDK_PATH'),
+        'analysis_mode' => env('RENPY_ANALYSIS_MODE', 'sandbox'),
+        'analyzer_url' => env('RENPY_ANALYZER_URL'),
+        'analyzer_token' => env('RENPY_ANALYZER_TOKEN'),
+        'analyzer_server' => env('RENPY_ANALYZER_SERVER', false),
+        'analyzer_timeout' => (int) env('RENPY_ANALYZER_TIMEOUT', 300),
+        'analyzer_image' => env('RENPY_ANALYZER_IMAGE', env('DOCKER_IMAGE', 'fvn.li:latest')),
+        'analyzer_php_binary' => env('RENPY_ANALYZER_PHP_BINARY', 'php'),
+        'analyzer_container_work_dir' => env('RENPY_ANALYZER_CONTAINER_WORK_DIR', '/runner-work'),
+        'analyzer_host_work_dir' => env('RENPY_ANALYZER_HOST_WORK_DIR', '/var/lib/fvn-renpy-analyzer'),
+        'analyzer_memory' => env('RENPY_ANALYZER_MEMORY', '1g'),
+        'analyzer_cpus' => env('RENPY_ANALYZER_CPUS', '1'),
+        'analyzer_pids_limit' => (int) env('RENPY_ANALYZER_PIDS_LIMIT', 128),
+        'analyzer_tmp_size' => env('RENPY_ANALYZER_TMP_SIZE', '256m'),
+        'analyzer_work_size' => env('RENPY_ANALYZER_WORK_SIZE', '4g'),
+        'analyzer_stale_cleanup_seconds' => (int) env('RENPY_ANALYZER_STALE_CLEANUP_SECONDS', 7200),
+        'analyzer_shared_path' => env('RENPY_ANALYZER_SHARED_PATH', storage_path('app/renpy-analyzer-requests')),
+        'sdk_container_path' => env('RENPY_SDK_CONTAINER_PATH', '/opt/renpy-sdk'),
+        'sdk_host_path' => env('RENPY_SDK_DOCKER_HOST_PATH', env('RENPY_SDK_PATH')),
     ],
 
     'android' => [
         'keystore_password' => env('ANDROID_KEYSTORE_PASSWORD', 'fvnli'),
         'key_password' => env('ANDROID_KEY_PASSWORD', 'fvnli'),
+    ],
+
+    'image_downloads' => [
+        'allowed_hosts' => array_filter(array_map('trim', explode(',', env(
+            'IMAGE_DOWNLOAD_ALLOWED_HOSTS',
+            'img.itch.zone,img.itch.io,shared.akamai.steamstatic.com,cdn.akamai.steamstatic.com,shared.cloudflare.steamstatic.com,cdn.cloudflare.steamstatic.com,steamcdn-a.akamaihd.net'
+        )))),
     ],
 
     'flaresolverr' => [

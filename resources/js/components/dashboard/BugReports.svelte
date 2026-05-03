@@ -75,7 +75,7 @@
         loadingBugReport = true;
         dialogEl?.showModal();
         try {
-            const response = await fetch(route('react-api.bug-reports.show', { bugReport: reportId }), {
+            const response = await fetch(route('browser-api.bug-reports.show', { bugReport: reportId }), {
                 credentials: 'same-origin',
             });
             const data = await response.json();
@@ -108,7 +108,7 @@
         submittingComment = true;
         try {
             const response = await authenticatedFetch(
-                route('react-api.bug-reports.comments.store', { bugReport: selectedBugReport.id }),
+                route('browser-api.bug-reports.comments.store', { bugReport: selectedBugReport.id }),
                 {
                     method: 'POST',
                     body: JSON.stringify({ message: newComment.trim() }),
@@ -135,7 +135,7 @@
         closingTicket = true;
         try {
             const response = await authenticatedFetch(
-                route('react-api.bug-reports.close', { bugReport: selectedBugReport.id }),
+                route('browser-api.bug-reports.close', { bugReport: selectedBugReport.id }),
                 { method: 'POST' },
             );
             const data = await response.json();
