@@ -83,6 +83,64 @@ test('itchio redirect ignores unsafe external intended urls', function () {
     $response->assertSessionMissing('url.intended', 'https://example.com/phishing');
 });
 
+test('itchio redirect ignores unsafe scheme intended urls even for the app host', function () {
+    Socialite::shouldReceive('driver')
+        ->once()
+        ->with('itchio')
+        ->andReturn(new class
+        {
+            public function setScopes(array $scopes): static
+            {
+                return $this;
+            }
+
+            public function redirect()
+            {
+                return redirect()->away('https://itch.io/user/oauth');
+            }
+        });
+
+    $appHost = parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost';
+    $unsafeIntendedUrl = "javascript://{$appHost}/%0Aalert(document.domain)";
+
+    $response = $this->get(route('auth.redirect', [
+        'provider' => 'itchio',
+        'intended' => $unsafeIntendedUrl,
+    ]));
+
+    $response->assertRedirect('https://itch.io/user/oauth');
+    $response->assertSessionMissing('url.intended', $unsafeIntendedUrl);
+});
+
+test('itchio redirect ignores http intended urls even for the app host', function () {
+    Socialite::shouldReceive('driver')
+        ->once()
+        ->with('itchio')
+        ->andReturn(new class
+        {
+            public function setScopes(array $scopes): static
+            {
+                return $this;
+            }
+
+            public function redirect()
+            {
+                return redirect()->away('https://itch.io/user/oauth');
+            }
+        });
+
+    $appHost = parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost';
+    $unsafeIntendedUrl = "http://{$appHost}/dashboard";
+
+    $response = $this->get(route('auth.redirect', [
+        'provider' => 'itchio',
+        'intended' => $unsafeIntendedUrl,
+    ]));
+
+    $response->assertRedirect('https://itch.io/user/oauth');
+    $response->assertSessionMissing('url.intended', $unsafeIntendedUrl);
+});
+
 test('itchio process rejects access tokens without matching oauth state', function () {
     $victim = User::factory()->create();
 

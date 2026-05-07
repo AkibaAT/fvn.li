@@ -81,18 +81,26 @@ class SocialAuthController extends Controller
         }
 
         $intendedHost = parse_url($intendedUrl, PHP_URL_HOST);
+        $intendedScheme = parse_url($intendedUrl, PHP_URL_SCHEME);
         $allowedHosts = array_filter([
             request()->getHost(),
             parse_url((string) config('app.url'), PHP_URL_HOST),
         ]);
+        $allowedSchemes = ['https'];
 
-        if ($intendedHost && in_array($intendedHost, $allowedHosts, true)) {
+        if (
+            $intendedHost
+            && in_array($intendedHost, $allowedHosts, true)
+            && is_string($intendedScheme)
+            && in_array(strtolower($intendedScheme), $allowedSchemes, true)
+        ) {
             return $intendedUrl;
         }
 
         Log::warning('Ignoring unsafe OAuth intended URL', [
             'provider' => request()->route('provider'),
             'intended_host' => parse_url($intendedUrl, PHP_URL_HOST),
+            'intended_scheme' => parse_url($intendedUrl, PHP_URL_SCHEME),
         ]);
 
         return null;
