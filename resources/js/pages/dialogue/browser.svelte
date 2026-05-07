@@ -11,6 +11,7 @@
         type DialogueSearchResult,
         type DuplicateItem,
     } from '@/hooks/api';
+    import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
     import { Link, page } from '@inertiajs/svelte';
 
     type InitialProps = {
@@ -568,7 +569,7 @@
                             <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                                 <div class="mb-3 text-gray-900 dark:text-gray-100">
                                     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                    {@html line.highlighted_text}
+                                    {@html renderTrustedMarksOnly(line.highlighted_text)}
                                 </div>
                                 <div class="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                                     {#if line.character_name}

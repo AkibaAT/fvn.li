@@ -135,9 +135,8 @@ class RatingsController extends Controller
         ];
 
         $statsProp = $isPartialForThisPage
-            ? fn () => cache()->rememberForever(RatingStatsCacheService::key('ratings.global_stats'),
-                fn () => $this->getGlobalRatingStats())
-            : cache()->rememberForever(RatingStatsCacheService::key('ratings.global_stats'), fn () => $this->getGlobalRatingStats());
+            ? fn () => cache()->rememberForever(RatingStatsCacheService::GLOBAL_STATS_KEY, fn () => $this->getGlobalRatingStats())
+            : cache()->rememberForever(RatingStatsCacheService::GLOBAL_STATS_KEY, fn () => $this->getGlobalRatingStats());
 
         return Inertia::render('ratings/index', [
             'pageTitle' => 'Ratings',
@@ -155,9 +154,9 @@ class RatingsController extends Controller
             ],
             'metaTags' => [
                 'title' => 'Game Ratings & Reviews',
-                'description' => 'Browse community ratings and reviews for furry visual novels. ' .
-                    "Currently featuring {$total} ratings" .
-                    ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('score') ?: 0, 1) . ' stars' : '') .
+                'description' => 'Browse community ratings and reviews for furry visual novels. '.
+                    "Currently featuring {$total} ratings".
+                    ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('score') ?: 0, 1).' stars' : '').
                     '. Filter by star rating, review status, and sort by date or rating.',
                 'structuredData' => [
                     '@type' => 'CollectionPage',
@@ -240,7 +239,7 @@ class RatingsController extends Controller
                 'name' => $r->name,
                 'joined_at' => isset($r->created_at) ? (string) $r->created_at : null,
             ];
-            $metaTitle = $r->name . ' - Rater';
+            $metaTitle = $r->name.' - Rater';
         }
 
         // Defer expensive computations; they will only run on first load or when explicitly requested via partial reload
@@ -345,9 +344,9 @@ class RatingsController extends Controller
             'metaTags' => [
                 'title' => $metaTitle,
                 'description' => isset($raterPayload)
-                    ? "View ratings and reviews by {$raterPayload['name']}. " .
-                      "Currently showing {$total} ratings" .
-                      ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('rating') ?: 0, 1) . ' stars' : '') .
+                    ? "View ratings and reviews by {$raterPayload['name']}. ".
+                      "Currently showing {$total} ratings".
+                      ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('rating') ?: 0, 1).' stars' : '').
                       ' for various furry visual novels.'
                     : 'View rater profile and ratings.',
                 'noindex' => true, // Set noindex for all rater pages
@@ -558,7 +557,7 @@ class RatingsController extends Controller
             ],
             'metaTags' => [
                 'title' => "{$user->name}'s Reviews",
-                'description' => "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of " . round((float) ($stats->average_rating ?? 0), 1) . '/5.',
+                'description' => "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of ".round((float) ($stats->average_rating ?? 0), 1).'/5.',
             ],
         ]);
     }
@@ -804,7 +803,7 @@ class RatingsController extends Controller
             $allPhrases = [];
 
             // Use a unique boundary marker that cannot appear in user content
-            $boundaryMarker = '|||BOUNDARY_' . uniqid() . '|||';
+            $boundaryMarker = '|||BOUNDARY_'.uniqid().'|||';
 
             foreach ($reviews as $review) {
                 // Preprocess the review text.
@@ -883,9 +882,9 @@ class RatingsController extends Controller
                         }
                         $seenPhrases[$phrase] = true;
 
-                        $pattern = '/\b' . implode('[-\s]+', array_map(function ($word) {
+                        $pattern = '/\b'.implode('[-\s]+', array_map(function ($word) {
                             return preg_quote($word, '/');
-                        }, explode(' ', $phrase))) . '\b/';
+                        }, explode(' ', $phrase))).'\b/';
 
                         $matchingSentences = [];
                         // Limit to first 3 matching sentences to reduce memory and processing
