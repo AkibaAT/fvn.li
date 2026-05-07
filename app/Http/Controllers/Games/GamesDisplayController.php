@@ -44,6 +44,13 @@ class GamesDisplayController extends Controller
             ->orderByDesc('published_at')
             ->paginate(5);
 
+        $sanitizer = app(HtmlSanitizerService::class);
+        $reviews->getCollection()->transform(function ($rating) use ($sanitizer) {
+            $rating->review = $sanitizer->sanitizeReview($rating->review);
+
+            return $rating;
+        });
+
         $availableRatings = $game->ratings()
             ->where('is_visible', true)
             ->where('is_reviewed', true)
@@ -141,7 +148,7 @@ class GamesDisplayController extends Controller
                 $userReview = [
                     'id' => $existingReview->id,
                     'rating' => $existingReview->rating,
-                    'review' => $existingReview->review,
+                    'review' => $sanitizer->sanitizeReview($existingReview->review),
                     'has_spoilers' => $existingReview->has_spoilers,
                     'published_at' => $existingReview->published_at?->toISOString(),
                     'updated_at' => $existingReview->updated_at?->toISOString(),
@@ -376,7 +383,6 @@ class GamesDisplayController extends Controller
             return $version;
         });
 
-        $sanitizer = app(HtmlSanitizerService::class);
         $sanitizer->sanitizeGameModel($game);
 
         $originalScreenshots = $game->getScreenshots();
