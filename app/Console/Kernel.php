@@ -27,6 +27,7 @@ use App\Console\Commands\RefreshGames;
 use App\Console\Commands\RefreshSteamGames;
 use App\Console\Commands\RefreshTrendingScores;
 use App\Console\Commands\ReprocessCurrentGameArchive;
+use App\Console\Commands\SanitizeReviewHtml;
 use App\Console\Commands\UpdateWatchlist;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -58,6 +59,7 @@ class Kernel extends ConsoleKernel
         RefreshGames::class,
         RefreshSteamGames::class,
         RefreshTrendingScores::class,
+        SanitizeReviewHtml::class,
         UpdateWatchlist::class,
     ];
 
