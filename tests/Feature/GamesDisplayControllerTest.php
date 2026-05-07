@@ -159,6 +159,53 @@ test('game show preserves missing custom screenshot list as null', function () {
         ->and($gameProps['effective_screenshots'][0]['url'])->toBe('https://itch.example/original-a.jpg');
 });
 
+test('game show sanitizes stored review html in initial props', function () {
+    $viewer = User::factory()->create();
+    $game = Game::factory()->create([
+        'is_visible' => true,
+        'name' => 'Review Sanitized Game',
+    ]);
+    $rater = Rater::factory()->create(['name' => 'Imported Reviewer']);
+
+    Rating::create([
+        'game_id' => $game->id,
+        'rater_id' => $rater->id,
+        'rating' => 5,
+        'review' => '<div onmouseover="alert(1)">Public review</div><a href="javascript:alert(2)">bad link</a>',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'itch_io',
+        'published_at' => now(),
+    ]);
+
+    Rating::create([
+        'game_id' => $game->id,
+        'user_id' => $viewer->id,
+        'rating' => 4,
+        'review' => '<p style="color:red;position:absolute;background-image:url(javascript:alert(3))">Own review</p>',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'fvn_li',
+        'published_at' => now()->subMinute(),
+    ]);
+
+    $response = $this
+        ->actingAs($viewer)
+        ->withHeaders(gameShowInertiaHeaders())
+        ->get(route('games.show', $game));
+
+    $response->assertOk();
+
+    $reviews = collect($response->json('props.reviews.data'));
+    $publicReview = $reviews->firstWhere('rating', 5)['review'];
+
+    expect($publicReview)->toBe('<div>Public review</div><a rel="noopener">bad link</a>')
+        ->and($response->json('props.userReview.review'))->toBe('<p style="color:red">Own review</p>')
+        ->and($publicReview)->not->toContain('onmouseover')
+        ->and($response->json('props.userReview.review'))->not->toContain('javascript:')
+        ->and($response->json('props.userReview.review'))->not->toContain('position:absolute');
+});
+
 test('game show exposes rich version review progress analytics and recommendation props', function () {
     DB::table('iso_639_3_languages')->updateOrInsert(
         ['id' => 'eng'],

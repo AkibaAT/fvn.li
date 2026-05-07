@@ -2,6 +2,7 @@
     import { Link } from '@inertiajs/svelte';
     import { route } from 'ziggy-js';
     import type { SearchResult, SearchPagination } from '@/hooks/useEnhancedSearch.svelte';
+    import { highlightPlainText } from '@/utils/safe-highlight';
 
     interface Props {
         type: 'games' | 'dialogue' | 'global';
@@ -21,11 +22,7 @@
 
     let { type, results = [], globalResults, pagination, loading = false, query = '', onPageChange, class: className = '' }: Props = $props();
 
-    function highlightText(text: string): string {
-        if (!query) return text;
-        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        return text.replace(regex, '<mark>$1</mark>');
-    }
+    const highlightText = (text: string): string => highlightPlainText(text, query);
 </script>
 
 {#if loading}
