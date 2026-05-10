@@ -55,15 +55,20 @@ class DownloadLatestGameArchive extends Command
         $failed = 0;
         $processed = 0;
 
-        $query->orderBy('id')->chunkById(100, function (Collection $games) use (
-            $archiveService,
-            $totalGames,
-            &$processed,
-            &$downloaded,
-            &$skipped,
-            &$failed
-        ): void {
+        $lastId = 0;
+        do {
+            $games = (clone $query)
+                ->where('id', '>', $lastId)
+                ->orderBy('id', 'asc')
+                ->limit(100)
+                ->get();
+
+            if ($games->isEmpty()) {
+                break;
+            }
+
             foreach ($games as $game) {
+                $lastId = (int) $game->id;
                 $processed++;
                 $result = $this->processGame($archiveService, $game, $processed, $totalGames);
 
@@ -73,7 +78,7 @@ class DownloadLatestGameArchive extends Command
                     default => $skipped++,
                 };
             }
-        });
+        } while ($games->count() === 100);
 
         $this->newLine();
         $this->info("Download complete: {$downloaded} downloaded, {$skipped} skipped, {$failed} failed");
@@ -199,7 +204,7 @@ class DownloadLatestGameArchive extends Command
 
         return GameVersion::query()
             ->where('game_id', $game->id)
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->first();
     }
 

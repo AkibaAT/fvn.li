@@ -18,7 +18,7 @@ class FeedController extends Controller
         $games = Game::where('is_visible', true)
             ->publicContent()
             ->whereNotNull('slug')
-            ->orderByDesc('first_visible_at')
+            ->orderBy('first_visible_at', 'desc')
             ->limit(50)
             ->get();
 
@@ -43,11 +43,12 @@ class FeedController extends Controller
             ->whereNotNull('slug')
             ->whereHas('latestVersion')
             ->with('latestVersion:id,game_id,published_at')
-            ->orderByDesc(
+            ->orderBy(
                 GameVersion::select('published_at')
                     ->whereColumn('game_id', 'games.id')
                     ->where('is_latest', true)
-                    ->limit(1)
+                    ->limit(1),
+                'desc'
             )
             ->limit(50)
             ->get();
