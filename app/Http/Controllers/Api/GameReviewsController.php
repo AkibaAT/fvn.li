@@ -29,7 +29,7 @@ class GameReviewsController extends Controller
     public function getGameReviews(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'url' => 'nullable|string|url',
+            'url' => 'nullable|string|url:http,https',
             'game_id' => 'nullable|integer|min:1',
             'itch_game_id' => 'nullable|integer|min:1',
         ]);
@@ -96,7 +96,7 @@ class GameReviewsController extends Controller
     public function getPaginatedReviews(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'url' => 'nullable|string|url',
+            'url' => 'nullable|string|url:http,https',
             'game_id' => 'nullable|integer|min:1',
             'itch_game_id' => 'nullable|integer|min:1',
             'page' => 'nullable|integer|min:1',
@@ -234,20 +234,23 @@ class GameReviewsController extends Controller
                 return $game;
             }
 
-            // Try to extract itch.io game ID from URL and find by that
-            try {
-                $itchGameId = $this->itchAuthService->getGameId($url);
-                $game = Game::where('itch_id', $itchGameId)
-                    ->fromItchio()
-                    ->first();
-                if ($game) {
-                    return $game;
+            // Try to extract itch.io game ID from URL and find by that.
+            // This performs an outbound HTTP request, so keep it restricted to HTTPS itch.io hosts.
+            if ($this->isAllowedItchUrl($url)) {
+                try {
+                    $itchGameId = $this->itchAuthService->getGameId($url);
+                    $game = Game::where('itch_id', $itchGameId)
+                        ->fromItchio()
+                        ->first();
+                    if ($game) {
+                        return $game;
+                    }
+                } catch (Exception $e) {
+                    Log::debug('Could not extract game ID from URL', [
+                        'url' => $url,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
-            } catch (Exception $e) {
-                Log::debug('Could not extract game ID from URL', [
-                    'url' => $url,
-                    'error' => $e->getMessage(),
-                ]);
             }
 
             // Try normalized URL matching (similar to AdditionRequest logic)
@@ -267,6 +270,24 @@ class GameReviewsController extends Controller
         }
 
         return null;
+    }
+
+    private function isAllowedItchUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        if (! is_array($parts)) {
+            return false;
+        }
+
+        $scheme = strtolower($parts['scheme'] ?? '');
+        $host = strtolower($parts['host'] ?? '');
+
+        if ($scheme !== 'https' || $host === '') {
+            return false;
+        }
+
+        return $host === 'itch.io' || str_ends_with($host, '.itch.io');
     }
 
     /**

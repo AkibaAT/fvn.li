@@ -116,6 +116,40 @@ it('claims pending Discord notifications and formats bot payloads', function () 
         ->and($notification->meta_data['batch_key'])->toBe('batch-1');
 });
 
+it('stores SQL-looking batch keys as JSON data when claiming notifications', function () {
+    authenticateDiscordBot();
+    $subscriber = User::factory()->create();
+    SocialAccount::factory()->discord()->create([
+        'user_id' => $subscriber->id,
+        'provider_id' => 'discord-user-sql',
+    ]);
+    $game = Game::factory()->create(['name' => 'SQL Safe VN']);
+    $version = latestGameVersionFor($game);
+    $notification = NotificationQueue::create([
+        'user_id' => $subscriber->id,
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'channel' => 'discord',
+        'status' => 'pending',
+        'scheduled_at' => now()->subMinute(),
+        'payload' => ['title' => 'Queued'],
+        'meta_data' => ['digest' => false],
+    ]);
+
+    $batchKey = 'poc"\'::jsonb || to_jsonb((SELECT true FROM pg_sleep(5))) || \'"tail';
+
+    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key='.urlencode($batchKey))
+        ->assertOk()
+        ->assertJsonPath('batch_key', $batchKey)
+        ->assertJsonPath('notifications.0.notification_id', $notification->id);
+
+    $notification->refresh();
+
+    expect($notification->status)->toBe('processing')
+        ->and($notification->meta_data['batch_key'])->toBe($batchKey)
+        ->and($notification->meta_data['digest'])->toBeFalse();
+});
+
 it('returns an empty notification batch when nothing is due', function () {
     authenticateDiscordBot();
 
