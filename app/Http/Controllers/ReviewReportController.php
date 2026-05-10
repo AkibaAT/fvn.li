@@ -34,7 +34,7 @@ class ReviewReportController extends Controller
             ->when($request->input('status', 'pending'), function ($query, $status) {
                 $query->where('status', $status);
             })
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->paginate(20);
 
         return response()->json([

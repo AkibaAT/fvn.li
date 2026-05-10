@@ -41,7 +41,7 @@ class DiscordNotificationHistoryController extends Controller
         }
 
         $history = $query->with('game')
-            ->orderByDesc('sent_at')
+            ->orderBy('sent_at', 'desc')
             ->paginate(50);
 
         return response()->json($history);

@@ -267,7 +267,7 @@ class User extends Authenticatable
      */
     public function vnLists(): HasMany
     {
-        return $this->hasMany(VnList::class)->latest();
+        return $this->hasMany(VnList::class)->orderBy('created_at', 'desc');
     }
 
     /**

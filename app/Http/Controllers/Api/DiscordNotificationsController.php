@@ -86,7 +86,7 @@ class DiscordNotificationsController extends Controller
                 // Get the user's last read version
                 $lastReadVersion = $game->userProgress()
                     ->where('user_id', $user->id)
-                    ->orderByDesc('game_version_id')
+                    ->orderBy('game_version_id', 'desc')
                     ->first()?->gameVersion;
 
                 // Get version to compare against (previous version or last read version)

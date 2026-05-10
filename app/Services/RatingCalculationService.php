@@ -58,29 +58,31 @@ class RatingCalculationService
         $resetCount = 0;
 
         // Only iterate over visible games since we only care about those
-        Game::where('is_visible', true)->chunk(100, function ($games) use (&$updatedCount, &$resetCount) {
-            foreach ($games as $game) {
-                $ratingData = $this->calculateGameRating($game->id);
+        Game::where('is_visible', true)
+            ->orderBy('id')
+            ->chunk(100, function ($games) use (&$updatedCount, &$resetCount) {
+                foreach ($games as $game) {
+                    $ratingData = $this->calculateGameRating($game->id);
 
-                if ($ratingData['total_count'] > 0) {
-                    // Game has ratings - update with calculated values
-                    // Use updateQuietly to avoid triggering observers during bulk recalculation
-                    $game->updateQuietly([
-                        'rating_score' => $ratingData['average_rating'],
-                        'rating_count' => $ratingData['total_count'],
-                    ]);
-                    $updatedCount++;
-                } else {
-                    // Game has no ratings - reset to null/0
-                    // Use updateQuietly to avoid triggering observers during bulk recalculation
-                    $game->updateQuietly([
-                        'rating_score' => null,
-                        'rating_count' => 0,
-                    ]);
-                    $resetCount++;
+                    if ($ratingData['total_count'] > 0) {
+                        // Game has ratings - update with calculated values
+                        // Use updateQuietly to avoid triggering observers during bulk recalculation
+                        $game->updateQuietly([
+                            'rating_score' => $ratingData['average_rating'],
+                            'rating_count' => $ratingData['total_count'],
+                        ]);
+                        $updatedCount++;
+                    } else {
+                        // Game has no ratings - reset to null/0
+                        // Use updateQuietly to avoid triggering observers during bulk recalculation
+                        $game->updateQuietly([
+                            'rating_score' => null,
+                            'rating_count' => 0,
+                        ]);
+                        $resetCount++;
+                    }
                 }
-            }
-        });
+            });
 
         Log::info('Recalculated ratings for visible games', [
             'games_updated' => $updatedCount,

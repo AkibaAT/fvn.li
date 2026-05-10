@@ -20,7 +20,7 @@ class LatestGameVersions extends BaseWidget
     {
         return $table
             ->query(
-                GameVersion::query()->with('game')->latest()->limit(10)
+                GameVersion::query()->with('game')->orderBy('created_at', 'desc')->limit(10)
             )
             ->columns([
                 TextColumn::make('id')

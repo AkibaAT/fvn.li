@@ -300,7 +300,7 @@ test('fetch game jam details processes pending jams through the itch retry clien
     $itchClient
         ->shouldReceive('get')
         ->once()
-        ->with($jam->url, ['cookies' => false])
+        ->with($jam->url, ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new GuzzleResponse(200, [], $html));
     app()->instance(ItchHttpClientService::class, $itchClient);
 

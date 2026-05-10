@@ -143,7 +143,7 @@ class DialogueController extends Controller
                 ->where('gv3.game_id', '=', $gameId)
                 ->select('gv3.id', 'gv3.version', 'gv3.published_at')
                 ->distinct()
-                ->orderByDesc('gv3.published_at')
+                ->orderBy('gv3.published_at', 'desc')
                 ->get()
                 ->map(fn ($row) => [
                     'id' => (int) $row->id,
@@ -183,7 +183,7 @@ class DialogueController extends Controller
             ->selectRaw('SUM(vcs.words) as words')
             ->groupBy('vcs.game_version_id', 'c.id', 'c.character_id', 'c.display_names', 'l.id', 'l.ref_name',
                 'l.flag_code')
-            ->orderByDesc('words');
+            ->orderBy('words', 'desc');
 
         $countQuery = DB::query()->fromSub($itemsQuery, 'items_count');
         $total = (int) ($countQuery->count());
@@ -279,7 +279,7 @@ class DialogueController extends Controller
                     ->limit(1);
             })
             ->select('gv.id', 'gv.version', 'gv.published_at')
-            ->orderByDesc('gv.published_at')
+            ->orderBy('gv.published_at', 'desc')
             ->get()
             ->map(fn ($r) => [
                 'id' => (int) $r->id,

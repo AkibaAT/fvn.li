@@ -41,7 +41,7 @@ class GamesDisplayController extends Controller
             ->where('is_visible', true)
             ->where('is_reviewed', true)
             ->with(['rater', 'user:id,name,avatar'])
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->paginate(5);
 
         $sanitizer = app(HtmlSanitizerService::class);
@@ -348,7 +348,7 @@ class GamesDisplayController extends Controller
             ->selectRaw('COUNT(*) OVER() as total_count')
             ->withCount('entries')
             ->with(['user:id,name,avatar'])
-            ->orderByDesc('entries_count')
+            ->orderBy('entries_count', 'desc')
             ->limit(9)
             ->get();
 
