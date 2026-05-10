@@ -25,6 +25,27 @@ it('finds or creates game jams from canonical and rating URLs', function () {
         ->and($created->needs_details_fetch)->toBeTrue();
 });
 
+it('rejects non itch game jam URLs before storage or fetching', function () {
+    expect(fn () => GameJam::findOrCreateFromUrl('http://127.0.0.1:8765/jam/internal-admin', 'Internal'))
+        ->toThrow(InvalidArgumentException::class, 'Game jam URL must use HTTPS.');
+
+    expect(fn () => GameJam::findOrCreateFromUrl('https://evil.example/jam/redirect', 'External'))
+        ->toThrow(InvalidArgumentException::class, 'Game jam URL host must be itch.io.');
+
+    expect(GameJam::count())->toBe(0);
+
+    $jam = GameJam::create([
+        'name' => 'Stored Unsafe Jam',
+        'url' => 'http://127.0.0.1:8765/jam/internal-admin',
+    ]);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldNotReceive('get');
+    $this->app->instance(ItchHttpClientService::class, $client);
+
+    expect($jam->fetchDetailsFromUrl())->toBeFalse();
+});
+
 it('reports game jam timing and duration from dates', function () {
     $this->travelTo(now()->setDate(2026, 5, 3)->setTime(12, 0));
 
@@ -73,7 +94,11 @@ it('fetches and parses game jam details from itch html', function () {
 <!doctype html>
 <html>
 <body>
-    <div class="formatted_description"><p>Make something small.</p></div>
+    <div class="formatted_description">
+        <p>Make something small.</p>
+        <script>alert(1)</script>
+        <img src="https://img.example/jam.png" onerror="alert(1)">
+    </div>
     <span class="date_format">2026-05-01 10:00:00</span>
     <span class="date_format">2026-05-03 18:00:00</span>
     <div class="jam_host_header"><a>Jam Host</a></div>
@@ -85,7 +110,7 @@ HTML;
     $client = Mockery::mock(ItchHttpClientService::class);
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/detail-jam', ['cookies' => false])
+        ->with('https://itch.io/jam/detail-jam', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $html));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -94,6 +119,9 @@ HTML;
     $jam->refresh();
 
     expect($jam->description)->toContain('Make something small.')
+        ->and($jam->description)->toContain('https://img.example/jam.png')
+        ->and(strtolower($jam->description))->not->toContain('<script')
+        ->and(strtolower($jam->description))->not->toContain('onerror')
         ->and($jam->start_date?->format('Y-m-d H:i:s'))->toBe('2026-05-01 10:00:00')
         ->and($jam->end_date?->format('Y-m-d H:i:s'))->toBe('2026-05-03 18:00:00')
         ->and($jam->host)->toBe('Jam Host')
@@ -121,7 +149,7 @@ HTML;
     $client = Mockery::mock(ItchHttpClientService::class);
     $client->shouldReceive('get')
         ->once()
-        ->with($jam->url, ['cookies' => false])
+        ->with($jam->url, ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $html));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -153,7 +181,7 @@ HTML;
     $client = Mockery::mock(ItchHttpClientService::class);
     $client->shouldReceive('get')
         ->once()
-        ->with($jam->url, ['cookies' => false])
+        ->with($jam->url, ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $html));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -192,7 +220,7 @@ HTML;
     $client = Mockery::mock(ItchHttpClientService::class);
     $client->shouldReceive('get')
         ->once()
-        ->with($jam->url, ['cookies' => false])
+        ->with($jam->url, ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $html));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -226,7 +254,7 @@ HTML;
     $client = Mockery::mock(ItchHttpClientService::class);
     $client->shouldReceive('get')
         ->once()
-        ->with($jam->url, ['cookies' => false])
+        ->with($jam->url, ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $html));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -248,11 +276,11 @@ it('returns false for non-rate-limit detail fetch failures and rethrows rate lim
     $client = Mockery::mock(ItchHttpClientService::class);
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/broken', ['cookies' => false])
+        ->with('https://itch.io/jam/broken', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(500, [], 'Server error'));
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/rate-limited', ['cookies' => false])
+        ->with('https://itch.io/jam/rate-limited', ['cookies' => false, 'allow_redirects' => false])
         ->andThrow(new RuntimeException('429 Too Many Requests'));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -296,7 +324,7 @@ HTML;
     $client->shouldReceive('setBaseCooldown')->once()->with(0);
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/ranking-jam/results', ['cookies' => false])
+        ->with('https://itch.io/jam/ranking-jam/results', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $html));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -365,11 +393,11 @@ HTML;
     $client->shouldReceive('setBaseCooldown')->twice()->with(0);
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/paged-ranking-jam/results', ['cookies' => false])
+        ->with('https://itch.io/jam/paged-ranking-jam/results', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $firstPage));
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/paged-ranking-jam/results?page=2', ['cookies' => false])
+        ->with('https://itch.io/jam/paged-ranking-jam/results?page=2', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], $secondPage));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -397,7 +425,7 @@ it('returns false when ranking pages contain no usable game rankings', function 
     $client->shouldReceive('setBaseCooldown')->once()->with(0);
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/empty-ranking-jam/results', ['cookies' => false])
+        ->with('https://itch.io/jam/empty-ranking-jam/results', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(200, [], '<html><body><div>No rankings yet</div></body></html>'));
     $this->app->instance(ItchHttpClientService::class, $client);
 
@@ -415,7 +443,7 @@ it('throws when the first ranking page cannot be fetched', function () {
     $client->shouldReceive('setBaseCooldown')->once()->with(0);
     $client->shouldReceive('get')
         ->once()
-        ->with('https://itch.io/jam/missing-ranking-jam/results', ['cookies' => false])
+        ->with('https://itch.io/jam/missing-ranking-jam/results', ['cookies' => false, 'allow_redirects' => false])
         ->andReturn(new Response(404, [], 'Not found'));
     $this->app->instance(ItchHttpClientService::class, $client);
 

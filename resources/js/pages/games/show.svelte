@@ -20,6 +20,7 @@
     import SeoHead, { createGameMetaTags } from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
     import { formatLocalDate } from '@/utils/date-formatting';
+    import { escapeStyleElementText } from '@/utils/style-html';
     import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail, fetchVersionComparison } from '@/hooks/api';
 
     // Types (abbreviated - same as TSX version)
@@ -808,13 +809,17 @@
             }, 500);
         }
     });
+
+    const customCssStyleHtml = $derived(
+        game.custom_css ? `<style>.game_description img { display: initial; } ${escapeStyleElementText(game.custom_css)}</style>` : '',
+    );
 </script>
 
 <SeoHead metaTags={gameMetaTags} />
 
-{#if game.custom_css}
+{#if customCssStyleHtml}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html `<style>.game_description img { display: initial; } ${game.custom_css}</style>`}
+    {@html customCssStyleHtml}
 {/if}
 
 <!-- Sticky Navigation -->
