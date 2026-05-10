@@ -33,7 +33,7 @@ function assignmentLine(GameVersion $version, ?Character $character, int $line, 
 }
 
 it('reports no null character assignments when dialogue is already assigned', function () {
-    $service = new CharacterNullAssignmentService(new EssentialCharacterService());
+    $service = new CharacterNullAssignmentService(new EssentialCharacterService);
 
     expect($service->fixNullCharacterAssignments())->toBe([
         'lines_updated' => 0,
@@ -49,7 +49,7 @@ it('dry-runs and fixes null character assignments per game', function () {
     $otherGame = Game::factory()->create();
     $otherVersion = GameVersion::factory()->for($otherGame)->create();
     assignmentLine($otherVersion, null, 1);
-    $service = new CharacterNullAssignmentService(new EssentialCharacterService());
+    $service = new CharacterNullAssignmentService(new EssentialCharacterService);
 
     expect($service->fixNullCharacterAssignments($game->id, true))->toBe([
         'lines_updated' => 1,
@@ -83,7 +83,7 @@ it('reassigns extend lines to the previous character and falls back to narrator'
     $extendLine = assignmentLine($version, $extend, 11);
     $fallbackLine = assignmentLine($version, $extend, 1, 'opening.rpy');
 
-    $result = (new CharacterSpecialAssignmentService(new EssentialCharacterService()))
+    $result = (new CharacterSpecialAssignmentService(new EssentialCharacterService))
         ->fixSpecialCharacterAssignments($game->id, 'extend');
 
     expect($result['lines_reassigned'])->toBe(2)
@@ -101,7 +101,7 @@ it('dry-runs and applies narrator special character reassignments', function () 
         'display_names' => ['eng' => 'centered'],
     ]);
     $line = assignmentLine($version, $centered, 5);
-    $service = new CharacterSpecialAssignmentService(new EssentialCharacterService());
+    $service = new CharacterSpecialAssignmentService(new EssentialCharacterService);
 
     $dryRun = $service->fixSpecialCharacterAssignments($game->id, 'centered', true);
 

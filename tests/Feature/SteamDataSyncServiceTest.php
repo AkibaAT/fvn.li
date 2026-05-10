@@ -16,7 +16,7 @@ uses(RefreshDatabase::class);
 
 function makeSteamService(?Client $httpClient = null): SteamDataSyncService
 {
-    $service = new SteamDataSyncService();
+    $service = new SteamDataSyncService;
 
     if ($httpClient) {
         setSteamProperty($service, 'httpClient', $httpClient);

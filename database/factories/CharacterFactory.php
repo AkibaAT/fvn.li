@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\Character;
 use App\Models\Game;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Character>
+ * @extends Factory<Character>
  */
 class CharacterFactory extends Factory
 {
@@ -37,7 +38,7 @@ class CharacterFactory extends Factory
 
         return [
             'game_id' => Game::factory(),
-            'character_id' => fake()->randomElement($characterNames) . '_' . fake()->unique()->numberBetween(1, 1000),
+            'character_id' => fake()->randomElement($characterNames).'_'.fake()->unique()->numberBetween(1, 1000),
             'display_names' => fake()->randomElement($displayNames),
             'first_seen_in_version_id' => null,
             'last_seen_in_version_id' => null,

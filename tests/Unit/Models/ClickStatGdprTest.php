@@ -21,7 +21,7 @@ describe('click statistics anonymization for GDPR', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -42,7 +42,7 @@ describe('click statistics anonymization for GDPR', function () {
                 'game_id' => $this->game->id,
                 'user_id' => $this->user->id,
                 'type' => ClickStat::TYPE_PAGE_VIEW,
-                'session_id' => 'test-session-' . $i,
+                'session_id' => 'test-session-'.$i,
                 'ip_address' => "192.168.1.{$i}",
                 'clicked_at' => now(),
             ]);
@@ -91,7 +91,7 @@ describe('click statistics anonymization for GDPR', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_EXTERNAL_PROJECT,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -110,7 +110,7 @@ describe('click statistics anonymization for GDPR', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => $timestamp,
         ]);
@@ -126,7 +126,7 @@ describe('click statistics anonymization for GDPR', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -164,7 +164,7 @@ describe('click statistics export for GDPR', function () {
             'game_id' => $ownedGame->id,
             'user_id' => null,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -183,7 +183,7 @@ describe('click statistics export for GDPR', function () {
             'game_id' => $otherGame->id,
             'user_id' => null,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -202,7 +202,7 @@ describe('IP anonymization in click stats', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => $originalIp,
             'clicked_at' => now(),
         ]);
@@ -223,7 +223,7 @@ describe('IP anonymization in click stats', function () {
                 'game_id' => $this->game->id,
                 'user_id' => $this->user->id,
                 'type' => ClickStat::TYPE_PAGE_VIEW,
-                'session_id' => 'test-session-' . $i,
+                'session_id' => 'test-session-'.$i,
                 'ip_address' => $ip,
                 'clicked_at' => now(),
             ]);
@@ -243,7 +243,7 @@ describe('IP anonymization in click stats', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => null,
             'clicked_at' => now(),
         ]);
@@ -301,7 +301,7 @@ describe('analytics preservation after anonymization', function () {
                 'game_id' => $this->game->id,
                 'user_id' => $this->user->id,
                 'type' => ClickStat::TYPE_PAGE_VIEW,
-                'session_id' => 'test-session-' . $index,
+                'session_id' => 'test-session-'.$index,
                 'ip_address' => '192.168.1.100',
                 'clicked_at' => $date,
             ]);
@@ -331,7 +331,7 @@ describe('edge cases and error handling', function () {
             'game_id' => $this->game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);

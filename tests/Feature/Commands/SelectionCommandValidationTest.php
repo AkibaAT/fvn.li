@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
-use App\Services\GameVersionStatsImportService;
+use App\Models\Game;
+use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\Services\GameVersionStatsImportService;
 use App\Services\ImageProcessingService;
 use App\Services\PlatformDetectionService;
 use App\Services\SteamDataSyncService;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Storage;
 
 it('validates thumbnail processing game selection options', function () {
     $this->mock(Client::class);
@@ -123,25 +126,25 @@ it('validates version reimport command parameters before processing archives', f
 });
 
 it('reimports stored archive statistics and handles missing archives and invalid timestamps', function () {
-    $game = \App\Models\Game::factory()->create([
+    $game = Game::factory()->create([
         'name' => 'Reimport Target',
         'is_visible' => true,
         'game_engine' => "Ren'Py",
     ]);
-    $oldVersion = \App\Models\GameVersion::factory()->for($game)->create([
+    $oldVersion = GameVersion::factory()->for($game)->create([
         'version' => '1.0',
         'is_latest' => false,
         'published_at' => now()->subMonth(),
     ]);
-    $latestVersion = \App\Models\GameVersion::factory()->for($game)->create([
+    $latestVersion = GameVersion::factory()->for($game)->create([
         'version' => '2.0',
         'is_latest' => true,
         'published_at' => now(),
     ]);
 
-    \Illuminate\Support\Facades\Storage::fake('local');
-    \Illuminate\Support\Facades\Storage::put("games/{$game->id}/{$latestVersion->id}/archive.zip", 'zip');
-    $archivePath = \Illuminate\Support\Facades\Storage::path("games/{$game->id}/{$latestVersion->id}/archive.zip");
+    Storage::fake('local');
+    Storage::put("games/{$game->id}/{$latestVersion->id}/archive.zip", 'zip');
+    $archivePath = Storage::path("games/{$game->id}/{$latestVersion->id}/archive.zip");
 
     $statsService = new readonly class extends GameStatsService
     {
@@ -151,10 +154,10 @@ it('reimports stored archive statistics and handles missing archives and invalid
         }
 
         public function saveVersionStats(
-            \App\Models\GameVersion $version,
+            GameVersion $version,
             array $stats,
             string $defaultLanguage = 'eng',
-            ?\App\Models\Game $game = null
+            ?Game $game = null
         ): void {
             $version->forceFill(['devlog' => 'stats-saved'])->save();
         }
