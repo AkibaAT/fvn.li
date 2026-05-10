@@ -6,18 +6,18 @@ use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
 
-it('loads rater game history using the numeric game id', function () {
+it('loads public rater game history by numeric game id without hidden ratings', function () {
     $game = Game::factory()->create();
     $rater = Rater::factory()->create();
 
-    $previousRating = Rating::create([
+    $hiddenRating = Rating::create([
         'event_id' => 1001,
         'game_id' => $game->id,
         'rater_id' => $rater->id,
         'rating' => 3,
         'is_reviewed' => true,
         'is_visible' => false,
-        'review' => 'Earlier review.',
+        'review' => 'Hidden moderated review.',
         'source_platform' => 'itch_io',
         'published_at' => now()->subDay(),
     ]);
@@ -41,5 +41,6 @@ it('loads rater game history using the numeric game id', function () {
         ->assertOk()
         ->assertJsonPath('game.id', $game->id)
         ->assertJsonPath('ratings.0.id', $currentRating->id)
-        ->assertJsonPath('ratings.1.id', $previousRating->id);
+        ->assertJsonCount(1, 'ratings')
+        ->assertJsonMissing(['review' => 'Hidden moderated review.']);
 });

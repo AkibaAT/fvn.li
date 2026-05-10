@@ -14,6 +14,7 @@ use App\Models\UserGameProgress;
 use App\Models\UserNotificationPreferences;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Support\SystemAuditUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -194,7 +195,7 @@ describe('GDPR-compliant deletion workflow', function () {
 
         expect(User::find($userId))->toBeNull()
             ->and(ChangeLog::where('user_id', $userId)->exists())->toBeFalse()
-            ->and(ChangeLog::where('user_id', 1)->exists())->toBeTrue(); // Reassigned to system user
+            ->and(ChangeLog::where('user_id', SystemAuditUser::id())->exists())->toBeTrue();
     });
 
     test('anonymizes click statistics before deletion', function () {
@@ -249,7 +250,7 @@ describe('GDPR-compliant deletion workflow', function () {
             // Reassign addition request reviews to system user
             DB::table('addition_requests')
                 ->where('reviewed_by', $user->id)
-                ->update(['reviewed_by' => 1]);
+                ->update(['reviewed_by' => SystemAuditUser::id()]);
 
             // Reset custom game pages
             DB::table('games')
@@ -261,7 +262,7 @@ describe('GDPR-compliant deletion workflow', function () {
 
         expect(User::find($userId))->toBeNull()
             ->and(DB::table('addition_requests')->where('reviewed_by', $userId)->exists())->toBeFalse()
-            ->and(DB::table('addition_requests')->where('reviewed_by', 1)->exists())->toBeTrue()
+            ->and(DB::table('addition_requests')->where('reviewed_by', SystemAuditUser::id())->exists())->toBeTrue()
             ->and(DB::table('games')->where('custom_page_updated_by', $userId)->exists())->toBeFalse();
     });
 });

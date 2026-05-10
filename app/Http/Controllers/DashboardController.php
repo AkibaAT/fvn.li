@@ -18,6 +18,7 @@ use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Services\AdditionRequestService;
 use App\Services\GameFilterService;
+use App\Support\SystemAuditUser;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -802,10 +803,11 @@ class DashboardController extends Controller
                 Log::warning('Failed to anonymize click stats', ['user_id' => $userId, 'error' => $e->getMessage()]);
             }
 
-            // Reassign addition request reviews to anonymous system user (ID 1)
+            // Reassign addition request reviews to the anonymous system user.
+            $systemAuditUserId = SystemAuditUser::id();
             DB::table('addition_requests')
                 ->where('reviewed_by', $userId)
-                ->update(['reviewed_by' => 1]);
+                ->update(['reviewed_by' => $systemAuditUserId]);
 
             // Reset custom game pages to itch.io synced state
             DB::table('games')

@@ -36,6 +36,8 @@ class RatingsController extends Controller
         'steam',
     ];
 
+    private const string ALL_RATING_PLATFORMS_CACHE_VALUE = '__all_platforms__';
+
     public function ratingsIndex(Request $request): Response
     {
         $page = max(1, (int) $request->input('page', 1));
@@ -87,7 +89,7 @@ class RatingsController extends Controller
             (int) $showOnlyReviews,
             $stars ?? 'all',
             (int) $showOnlyVisibleGames,
-            $platform ?? 'all'
+            $platform ?? self::ALL_RATING_PLATFORMS_CACHE_VALUE
         ));
         $total = cache()->remember($countCacheKey, now()->addHour(), function () use ($countQuery) {
             return (int) ($countQuery->selectRaw('COUNT(*) as aggregate')->value('aggregate') ?? 0);
@@ -232,36 +234,29 @@ class RatingsController extends Controller
             $sortField = 'published_at';
         }
 
-        // Detect Inertia partial reloads; only fetch the rater on full loads or when explicitly requested
+        // Detect Inertia partial reloads; expensive props remain closure-backed below.
         $isInertia = (bool) $request->headers->get('X-Inertia');
         $partialDataHeader = $request->headers->get('X-Inertia-Partial-Data');
         $partialComponent = $request->headers->get('X-Inertia-Partial-Component');
         $requestedProps = $partialDataHeader ? array_filter(array_map('trim', explode(',', $partialDataHeader))) : [];
         $isPartialForThisPage = $isInertia && $partialComponent === 'raters/show' && ! empty($requestedProps);
-        $needsRater = ! $isPartialForThisPage || in_array('rater', $requestedProps, true) || in_array('metaTags',
-            $requestedProps, true);
+        $includeRaterProp = ! $isPartialForThisPage || in_array('rater', $requestedProps, true);
 
-        $raterPayload = null;
-        $metaTitle = 'Rater';
-        if ($needsRater) {
-            $r = DB::table('raters')
-                ->where('id', $rater)
-                ->select(['id', 'name', 'created_at'])
-                ->first();
+        $r = DB::table('raters')
+            ->where('id', $rater)
+            ->select(['id', 'name', 'created_at'])
+            ->first();
 
-            if (! $r) {
-                abort(404);
-            }
-
-            $raterPayload = [
-                'id' => (int) $r->id,
-                'name' => $r->name,
-                'joined_at' => isset($r->created_at) ? (string) $r->created_at : null,
-            ];
-            $metaTitle = $r->name.' - Rater';
+        if (! $r) {
+            abort(404);
         }
 
-        // Defer expensive computations; they will only run on first load or when explicitly requested via partial reload
+        $raterPayload = [
+            'id' => (int) $r->id,
+            'name' => $r->name,
+            'joined_at' => isset($r->created_at) ? (string) $r->created_at : null,
+        ];
+        $metaTitle = $r->name.' - Rater';
 
         // Ratings list (visible ratings by default)
         $ratingsBase = DB::table('ratings')
@@ -414,7 +409,7 @@ class RatingsController extends Controller
             ],
         ];
 
-        if ($needsRater && $raterPayload !== null) {
+        if ($includeRaterProp) {
             $props['rater'] = $raterPayload;
         }
 
@@ -590,6 +585,7 @@ class RatingsController extends Controller
         $ratings = DB::table('ratings')
             ->where('rater_id', $rater->id)
             ->where('game_id', $game->id)
+            ->where('is_visible', true)
             ->orderBy('published_at', 'desc')
             ->select(['id', 'rating', 'published_at', 'is_visible', 'review', 'event_id'])
             ->get()

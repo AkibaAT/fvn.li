@@ -22,24 +22,31 @@ class DialogueController extends Controller
 
     private const WORD_FREQUENCY_MAX_CHARACTERS = 2000000;
 
-    public function dialogueBrowser(Request $request, int $gameId): Response
+    public function dialogueBrowser(Request $request, Game $game): Response
     {
-        // Verify game exists
-        $game = Game::findOrFail($gameId);
-        $version = $game->gameVersions()
+        $versionId = $request->route('versionId') ?? $request->input('versionId');
+
+        $versionQuery = $game->gameVersions()
             ->whereExists(function ($query) {
                 $query->select('id')
                     ->from('version_dialogue_lines')
                     ->whereColumn('version_dialogue_lines.game_version_id', 'game_versions.id')
                     ->limit(1);
-            })
-            ->orderByDesc('is_latest')
-            ->orderByDesc('published_at')
-            ->orderByDesc('id')
-            ->firstOrFail();
+            });
+
+        if ($versionId !== null) {
+            $versionQuery->whereKey((int) $versionId);
+        } else {
+            $versionQuery
+                ->orderByDesc('is_latest')
+                ->orderByDesc('published_at')
+                ->orderByDesc('id');
+        }
+
+        $version = $versionQuery->firstOrFail();
 
         $initial = [
-            'gameId' => $gameId,
+            'gameId' => $game->id,
             'gameName' => $game->name,
             'gameSlug' => $game->slug,
             'versionId' => $version->id,

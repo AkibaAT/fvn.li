@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Validator;
 
 class GameReviewsController extends Controller
 {
+    private const int REVIEW_CACHE_VERSION = 2;
+
     public function __construct(
         private readonly ItchAuthService $itchAuthService
     ) {}
@@ -57,7 +59,7 @@ class GameReviewsController extends Controller
             }
 
             // Check cache first (6 hour cache)
-            $cacheKey = "game_reviews_{$game->id}";
+            $cacheKey = sprintf('game_reviews_v%d_%d', self::REVIEW_CACHE_VERSION, $game->id);
             $reviewData = Cache::remember($cacheKey, 6 * 60 * 60, function () use ($game) {
                 return $this->buildReviewData($game);
             });
@@ -132,6 +134,7 @@ class GameReviewsController extends Controller
 
             // Build the query
             $query = Rating::where('game_id', $game->id)
+                ->where('is_visible', true)
                 ->with(['rater']);
 
             // Apply rating filter
@@ -308,8 +311,10 @@ class GameReviewsController extends Controller
      */
     private function buildReviewData(Game $game): array
     {
-        // Get all ratings for this game
+        // Get all public ratings for this game. Historical/moderation-hidden rows
+        // are exposed only through explicit history flows, not broad review APIs.
         $ratings = Rating::where('game_id', $game->id)
+            ->where('is_visible', true)
             ->with(['rater:id,name'])
             ->orderBy('published_at', 'desc')
             ->get();

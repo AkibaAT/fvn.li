@@ -146,7 +146,7 @@ class ItchGameMetadataExtractor
         if (! empty($customCss)) {
             $processedCss = $cssProcessor->process($customCss);
             if (! empty($processedCss)) {
-                $customCss = ".game_description {\n".$processedCss."\n}";
+                $customCss = $processedCss;
                 Log::info('Processed and scoped CSS', ['css' => $customCss]);
             } else {
                 $customCss = null;

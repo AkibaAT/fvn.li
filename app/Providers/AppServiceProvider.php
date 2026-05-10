@@ -23,6 +23,7 @@ use App\Services\FlareSolverrSessionManager;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\ItchIoProvider;
+use App\Services\ItchUrlSafetyValidator;
 use App\Services\LanguageMappingService;
 use App\Support\Diagnostics\DiagnosticLogManager;
 use Illuminate\Database\Eloquent\Model;
@@ -63,6 +64,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ItchHttpClientService::class, function () {
             return new ItchHttpClientService(
                 App::make(ItchHttpClientFactory::class),
+                App::make(ItchUrlSafetyValidator::class),
                 config('services.itch.max_retries'),
                 config('services.itch.retry_cooldown')
             );
