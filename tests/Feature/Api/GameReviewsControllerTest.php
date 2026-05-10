@@ -80,6 +80,48 @@ it('returns aggregate review data by game id', function () {
         ->assertJsonPath('review_data.recent_reviews.0.rater.platform', 'itch_io');
 });
 
+it('resolves hidden games but excludes non-visible ratings from broad review API responses', function () {
+    [$game, , $visibleReview] = createGameReviewApiFixture([
+        'name' => 'Hidden Reviewed API Game',
+        'is_visible' => false,
+    ]);
+    $rater = Rater::factory()->create([
+        'name' => 'Hidden API Reviewer',
+        'external_platform' => 'itch_io',
+    ]);
+    $hiddenReview = Rating::create([
+        'event_id' => 2001,
+        'game_id' => $game->id,
+        'rater_id' => $rater->id,
+        'rating' => 1,
+        'review' => 'Moderation-hidden API review text.',
+        'is_visible' => false,
+        'is_reviewed' => true,
+        'has_spoilers' => false,
+        'source_platform' => 'itch_io',
+        'published_at' => now()->addMinute(),
+    ]);
+
+    $this->getJson('/api/game-reviews?game_id='.$game->id)
+        ->assertOk()
+        ->assertJsonPath('game.id', $game->id)
+        ->assertJsonPath('game.name', 'Hidden Reviewed API Game')
+        ->assertJsonPath('review_data.total_reviews', 2)
+        ->assertJsonPath('review_data.recent_reviews.0.id', $visibleReview->id)
+        ->assertJsonMissing(['id' => $hiddenReview->id])
+        ->assertJsonMissing(['review' => 'Moderation-hidden API review text.']);
+
+    $this->getJson('/api/game-reviews/paginated?'.http_build_query([
+        'game_id' => $game->id,
+        'show_all_ratings' => 'true',
+        'per_page' => 10,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('pagination.total', 2)
+        ->assertJsonMissing(['id' => $hiddenReview->id])
+        ->assertJsonMissing(['review' => 'Moderation-hidden API review text.']);
+});
+
 it('finds games by itch id, direct URL, normalized URL, and extracted itch game id', function () {
     [$game] = createGameReviewApiFixture();
     $fallbackGame = Game::factory()->create([

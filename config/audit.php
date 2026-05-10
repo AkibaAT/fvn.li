@@ -168,11 +168,11 @@ return [
     ],
 
     /**
-     * System user for anonymized audit logs
-     * This user ID will be assigned to audit logs when user data is anonymized
-     * to preserve audit trail integrity while removing personal identifiers
+     * Optional system user override for anonymized audit logs. The override is
+     * only honored when it points at the dedicated system audit account; otherwise
+     * the application resolves or creates that account by email.
      */
-    'system_user_id' => env('AUDIT_SYSTEM_USER_ID', 1),
+    'system_user_id' => env('AUDIT_SYSTEM_USER_ID'),
 
     /**
      * Privacy and compliance settings
@@ -301,7 +301,7 @@ return [
     | AUDIT_RETENTION_DAYS=2555               # General retention (7 years)
     | AUDIT_SENSITIVE_RETENTION_DAYS=90       # Sensitive data retention (3 months)
     | AUDIT_IP_RETENTION_DAYS=365             # IP address retention (1 year)
-    | AUDIT_SYSTEM_USER_ID=1                  # System user for anonymized logs
+    | AUDIT_SYSTEM_USER_ID=1                  # Optional explicit system user id
     | AUDIT_ENABLE_DATA_EXPORT=true           # Enable data export features
     | AUDIT_ENABLE_DATA_DELETION=true         # Enable data deletion features
     |

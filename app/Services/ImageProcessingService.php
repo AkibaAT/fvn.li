@@ -14,6 +14,7 @@ use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 class ImageProcessingService
 {
@@ -25,7 +26,14 @@ class ImageProcessingService
         'timeout' => 30,
         'connect_timeout' => 10,
         'allow_redirects' => false,
+        'stream' => true,
     ];
+
+    private const MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024;
+
+    private const MAX_IMAGE_PIXELS = 40_000_000;
+
+    private const DOWNLOAD_CHUNK_BYTES = 8192;
 
     private const SCREENSHOT_VARIANTS = [
         'small' => [
@@ -216,7 +224,7 @@ class ImageProcessingService
                 echo "    [Images] Downloading screenshot...\n";
                 $response = $this->downloadImage($sourceUrl);
 
-                $content = $response->getBody()->getContents();
+                $content = $this->readDownloadContent($response);
                 $tempFile = tempnam(sys_get_temp_dir(), 'screenshot_');
                 file_put_contents($tempFile, $content);
 
@@ -236,6 +244,8 @@ class ImageProcessingService
                 if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
                     throw new Exception("Unsupported image type: {$mimeType}");
                 }
+
+                $this->assertAcceptableImageDimensions($imageInfo);
 
                 echo "    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n";
 
@@ -322,7 +332,7 @@ class ImageProcessingService
             throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
         }
 
-        $content = $response->getBody()->getContents();
+        $content = $this->readDownloadContent($response);
         if (empty($content)) {
             throw new Exception('Downloaded content is empty');
         }
@@ -348,6 +358,8 @@ class ImageProcessingService
             if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
                 throw new Exception("Invalid image mime type: {$mimeType}");
             }
+
+            $this->assertAcceptableImageDimensions($imageInfo);
 
             echo "    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n";
 
@@ -395,6 +407,55 @@ class ImageProcessingService
             $this->imageUrlValidator->validate($sourceUrl),
             self::DOWNLOAD_OPTIONS
         );
+    }
+
+    private function readDownloadContent(ResponseInterface $response): string
+    {
+        $contentLength = $response->getHeaderLine('Content-Length');
+
+        if ($contentLength !== '' && ctype_digit($contentLength) && (int) $contentLength > self::MAX_DOWNLOAD_BYTES) {
+            throw new Exception(sprintf(
+                'Downloaded image is too large: %d bytes exceeds %d byte limit',
+                (int) $contentLength,
+                self::MAX_DOWNLOAD_BYTES
+            ));
+        }
+
+        return $this->readLimitedBody($response->getBody());
+    }
+
+    private function readLimitedBody(StreamInterface $body): string
+    {
+        $content = '';
+
+        while (! $body->eof()) {
+            $content .= $body->read(self::DOWNLOAD_CHUNK_BYTES);
+
+            if (strlen($content) > self::MAX_DOWNLOAD_BYTES) {
+                throw new Exception(sprintf(
+                    'Downloaded image exceeds maximum size of %d bytes',
+                    self::MAX_DOWNLOAD_BYTES
+                ));
+            }
+        }
+
+        return $content;
+    }
+
+    private function assertAcceptableImageDimensions(array $imageInfo): void
+    {
+        $width = (int) ($imageInfo[0] ?? 0);
+        $height = (int) ($imageInfo[1] ?? 0);
+        $pixels = $width * $height;
+
+        if ($width <= 0 || $height <= 0 || $pixels > self::MAX_IMAGE_PIXELS) {
+            throw new Exception(sprintf(
+                'Image dimensions are too large: %dx%d exceeds %d pixel limit',
+                $width,
+                $height,
+                self::MAX_IMAGE_PIXELS
+            ));
+        }
     }
 
     /**

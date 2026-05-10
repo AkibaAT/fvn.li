@@ -123,7 +123,11 @@ return [
     'flaresolverr' => [
         'url' => env('FLARESOLVERR_URL', 'http://flaresolverr:8191'),
         'max_timeout' => env('FLARESOLVERR_MAX_TIMEOUT', 60000),
-        'enabled' => env('FLARESOLVERR_ENABLED', true),
+        'enabled' => env('FLARESOLVERR_ENABLED', false),
+        'allowed_itch_hosts' => array_filter(array_map('trim', explode(',', env(
+            'FLARESOLVERR_ALLOWED_ITCH_HOSTS',
+            'itch.io'
+        )))),
     ],
 
     'route_graph_layout' => [
