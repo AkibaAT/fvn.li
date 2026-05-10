@@ -36,6 +36,19 @@ test('guest login renders the Svelte login page and stores the intended URL', fu
         ->assertSessionHas('url.intended', $previousUrl);
 });
 
+test('guest login ignores external referer URLs as intended destinations', function () {
+    $response = $this
+        ->withHeaders([
+            ...controllerCoverageInertiaHeaders(),
+            'Referer' => 'https://evil.example/phish?after=login',
+        ])
+        ->get(route('login'));
+
+    $response->assertOk()
+        ->assertJsonPath('component', 'auth/login')
+        ->assertSessionMissing('url.intended');
+});
+
 test('authenticated login route returns the home page instead of login', function () {
     $user = User::factory()->create();
 

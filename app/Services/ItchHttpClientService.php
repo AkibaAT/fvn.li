@@ -15,6 +15,8 @@ use Psr\Http\Message\ResponseInterface;
 
 class ItchHttpClientService
 {
+    private const MAX_RETRY_COOLDOWN_SECONDS = 300;
+
     private ?Client $authenticatedClient = null;
 
     private Client $anonymousClient;
@@ -28,6 +30,7 @@ class ItchHttpClientService
      */
     public function __construct(
         private readonly ItchHttpClientFactory $clientFactory,
+        private readonly ItchUrlSafetyValidator $urlSafetyValidator,
         private int $maxRetries = 5,
         private int $baseCooldown = 30
     ) {
@@ -54,6 +57,8 @@ class ItchHttpClientService
      */
     public function get(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
+        $this->urlSafetyValidator->validate($url);
+
         // Route HTML requests through FlareSolverr (Cloudflare-protected)
         // Skip API requests - they're not Cloudflare-protected
         if ($this->shouldUseFlareSolverr($url)) {
@@ -81,6 +86,8 @@ class ItchHttpClientService
         array $options = [],
         bool $anonymous = false
     ): ResponseInterface {
+        $this->urlSafetyValidator->validate($url);
+
         // Set http_errors to false to prevent exceptions for 4xx/5xx responses
         $options['http_errors'] = false;
 
@@ -174,6 +181,8 @@ class ItchHttpClientService
      */
     public function post(string $url, array $options = [], bool $anonymous = false): ResponseInterface
     {
+        $this->urlSafetyValidator->validate($url);
+
         // Route HTML requests through FlareSolverr (Cloudflare-protected)
         // Skip API requests - they're not Cloudflare-protected
         if ($this->shouldUseFlareSolverr($url)) {
@@ -407,8 +416,7 @@ class ItchHttpClientService
      */
     private function isApiRequest(string $url): bool
     {
-        // Official API requests
-        if (str_contains($url, 'api.itch.io')) {
+        if ($this->urlSafetyValidator->isApiRequest($url)) {
             return true;
         }
 
@@ -519,12 +527,8 @@ class ItchHttpClientService
             throw new Exception("429 Too Many Requests - Rate limit exceeded after {$this->maxRetries} retries");
         }
 
-        // Calculate cooldown time, respecting Retry-After header if present
         $retryAfter = $response->getHeaderLine('Retry-After');
-        $cooldownTime = $retryAfter ? (int) $retryAfter : $this->baseCooldown * $retryCount;
-
-        // Ensure minimum cooldown of 30 seconds
-        $cooldownTime = max($cooldownTime, 30 * $retryCount);
+        $cooldownTime = $this->calculateRateLimitCooldown($response, $retryCount);
 
         Log::warning('Rate limited when accessing itch.io, retrying', [
             'url' => $url,
@@ -539,6 +543,17 @@ class ItchHttpClientService
         sleep($cooldownTime);
 
         return true;
+    }
+
+    private function calculateRateLimitCooldown(ResponseInterface $response, int $retryCount): int
+    {
+        $retryAfter = $response->getHeaderLine('Retry-After');
+        $cooldownTime = $retryAfter ? (int) $retryAfter : $this->baseCooldown * $retryCount;
+
+        // Ensure minimum cooldown of 30 seconds, but do not let remote Retry-After stall workers indefinitely.
+        $cooldownTime = max($cooldownTime, 30 * $retryCount);
+
+        return min($cooldownTime, self::MAX_RETRY_COOLDOWN_SECONDS);
     }
 
     /**

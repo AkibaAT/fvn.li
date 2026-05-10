@@ -14,6 +14,7 @@ use App\Models\VnListEntry;
 use App\Services\MeilisearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -493,5 +494,60 @@ describe('Home Page Game Cards', function () {
             ->and($firstGame['supported_languages'][0]['ref_name'])->toBe('English')
             ->and($firstGame['user_progress'][0]->receive_updates)->toBeTrue()
             ->and($firstGame['user_list_memberships'][0]->name)->toBe('Home List');
+    });
+
+    test('home teaser cache does not leak authenticated user data to later guests', function () {
+        Cache::flush();
+
+        $victim = User::factory()->create();
+        $game = Game::factory()->create([
+            'name' => 'Cached Teaser Privacy VN',
+            'slug' => 'cached-teaser-privacy-vn',
+            'is_visible' => true,
+        ]);
+
+        DB::table('user_game_progress')->insert([
+            'user_id' => $victim->id,
+            'game_id' => $game->id,
+            'status' => 'reading',
+            'receive_updates' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $list = VnList::factory()->create([
+            'user_id' => $victim->id,
+            'name' => 'Victim Private Wishlist',
+            'type' => 'custom',
+            'is_default' => false,
+        ]);
+        VnListEntry::factory()->create([
+            'vn_list_id' => $list->id,
+            'game_id' => $game->id,
+        ]);
+
+        $search = Mockery::mock(MeilisearchService::class);
+        $search
+            ->shouldReceive('searchGames')
+            ->times(3)
+            ->andReturnUsing(fn () => new LengthAwarePaginator($game->newCollection([$game->fresh()]), 1, 4, 1));
+
+        app()->instance(MeilisearchService::class, $search);
+
+        $victimResponse = $this->actingAs($victim)->get(route('home'));
+        $victimResponse->assertOk();
+        $victimGame = $victimResponse->viewData('page')['props']['teasers']['recentlyAdded'][0];
+
+        Auth::logout();
+
+        $guestResponse = $this->get(route('home'));
+        $guestResponse->assertOk();
+        $guestGame = $guestResponse->viewData('page')['props']['teasers']['recentlyAdded'][0];
+
+        expect($victimGame['user_progress'][0]->receive_updates)->toBeTrue()
+            ->and($victimGame['user_list_memberships'][0]->name)->toBe('Victim Private Wishlist')
+            ->and($guestGame['id'])->toBe($game->id)
+            ->and($guestGame['user_progress'])->toBe([])
+            ->and($guestGame['user_list_memberships'])->toBe([]);
     });
 });

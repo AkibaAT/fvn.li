@@ -150,13 +150,51 @@ it('ignores unrecognized ratings platform filters before querying or caching cou
         $response->assertOk();
         $props = $response->viewData('page')['props'];
 
-        $safeCountKey = RatingStatsCacheService::key('ratings.count:rev:1:star:all:listed:1:platform:all');
+        $safeCountKey = RatingStatsCacheService::key('ratings.count:rev:1:star:all:listed:1:platform:__all_platforms__');
         $unsafeCountKey = RatingStatsCacheService::key("ratings.count:rev:1:star:all:listed:1:platform:{$platform}");
 
         expect($props['filters']['platform'])->toBeNull()
             ->and($props['ratings']['total'])->toBe(2)
             ->and(Cache::has($safeCountKey))->toBeTrue()
             ->and(Cache::has($unsafeCountKey))->toBeFalse();
+    } finally {
+        Model::setEventDispatcher($dispatcher);
+    }
+});
+
+it('does not let platform all poison the all-platform ratings count cache', function () {
+    Cache::flush();
+    $dispatcher = Model::getEventDispatcher();
+    Model::unsetEventDispatcher();
+
+    try {
+        $itchRater = Rater::factory()->create(['external_platform' => 'itch_io']);
+        $steamRater = Rater::factory()->create(['external_platform' => 'steam']);
+        createRatingRecord(['rater' => $itchRater, 'rating' => 5]);
+        createRatingRecord(['rater' => $steamRater, 'rating' => 5]);
+
+        $poisonAttempt = $this->get(route('ratings.index', [
+            'stars' => 5,
+            'platform' => 'all',
+        ]));
+
+        $poisonAttempt->assertOk();
+        $poisonProps = $poisonAttempt->viewData('page')['props'];
+
+        $normalResponse = $this->get(route('ratings.index', ['stars' => 5]));
+
+        $normalResponse->assertOk();
+        $normalProps = $normalResponse->viewData('page')['props'];
+
+        $allPlatformKey = RatingStatsCacheService::key('ratings.count:rev:1:star:5:listed:1:platform:__all_platforms__');
+        $legacyCollidingKey = RatingStatsCacheService::key('ratings.count:rev:1:star:5:listed:1:platform:all');
+
+        expect($poisonProps['filters']['platform'])->toBeNull()
+            ->and($poisonProps['ratings']['total'])->toBe(2)
+            ->and($normalProps['filters']['platform'])->toBeNull()
+            ->and($normalProps['ratings']['total'])->toBe(2)
+            ->and(Cache::has($allPlatformKey))->toBeTrue()
+            ->and(Cache::has($legacyCollidingKey))->toBeFalse();
     } finally {
         Model::setEventDispatcher($dispatcher);
     }
@@ -255,6 +293,24 @@ it('returns a 404 for a missing rater on a full rater page load', function () {
     $this->get(route('raters.show', ['rater' => 999999]))->assertNotFound();
 });
 
+it('returns a 404 for a missing rater before resolving partial phrase props', function () {
+    $missingRaterId = 999998;
+    $cacheKey = "rater_phrases_v2_{$missingRaterId}";
+    $manifest = public_path('build/manifest.json');
+
+    Cache::forget($cacheKey);
+
+    $this->withHeaders([
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => file_exists($manifest) ? hash_file('xxh128', $manifest) : '',
+        'X-Inertia-Partial-Component' => 'raters/show',
+        'X-Inertia-Partial-Data' => 'phrases',
+    ])->get(route('raters.show', ['rater' => $missingRaterId]))
+        ->assertNotFound();
+
+    expect(Cache::has($cacheKey))->toBeFalse();
+});
+
 it('renders a single review detail with relationships and sanitized content', function () {
     $user = User::factory()->create(['name' => 'Local Reviewer']);
     $game = Game::factory()->create([
@@ -336,14 +392,15 @@ it('renders user review listings with pagination and aggregate stats', function 
         ->and($props['filters']['sortField'])->toBe('rating');
 });
 
-it('returns chronological visible and hidden history for a rater game pair', function () {
+it('returns chronological visible history for a rater game pair', function () {
     $game = Game::factory()->create(['name' => 'History Game']);
     $rater = Rater::factory()->create();
-    $older = createRatingRecord([
+    $hidden = createRatingRecord([
         'game' => $game,
         'rater' => $rater,
         'rating' => 2,
         'is_visible' => false,
+        'review' => 'Hidden moderated review.',
         'published_at' => now()->subDays(2),
     ]);
     $newer = createRatingRecord([
@@ -360,5 +417,6 @@ it('returns chronological visible and hidden history for a rater game pair', fun
     ]))->assertOk()
         ->assertJsonPath('game.name', 'History Game')
         ->assertJsonPath('ratings.0.id', $newer->id)
-        ->assertJsonPath('ratings.1.id', $older->id);
+        ->assertJsonCount(1, 'ratings')
+        ->assertJsonMissing(['review' => 'Hidden moderated review.']);
 });

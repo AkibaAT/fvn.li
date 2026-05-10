@@ -5,11 +5,25 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
+it('restricts system status to admins', function () {
+    $this->get(route('system.status'))
+        ->assertRedirect(route('login'));
+
+    $regularUser = User::factory()->create(['is_admin' => false]);
+
+    $this->actingAs($regularUser)
+        ->get(route('system.status'))
+        ->assertForbidden();
+});
+
 it('renders system status metrics and scheduled task health', function () {
     Cache::flush();
+
+    $admin = User::factory()->create(['is_admin' => true]);
 
     $visibleGame = Game::factory()->create([
         'name' => 'Visible Status Game',
@@ -93,7 +107,7 @@ it('renders system status metrics and scheduled task health', function () {
         ],
     ]);
 
-    $response = $this->get(route('system.status'));
+    $response = $this->actingAs($admin)->get(route('system.status'));
 
     $response->assertOk();
     $page = $response->viewData('page');
@@ -133,7 +147,9 @@ it('renders system status metrics and scheduled task health', function () {
 it('renders empty system status metrics without division errors', function () {
     Cache::flush();
 
-    $response = $this->get(route('system.status'));
+    $admin = User::factory()->create(['is_admin' => true]);
+
+    $response = $this->actingAs($admin)->get(route('system.status'));
 
     $response->assertOk();
     $props = $response->viewData('page')['props'];

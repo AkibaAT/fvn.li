@@ -139,6 +139,27 @@ it('normalizes ordinary text but strips excessive combining marks', function () 
         ->and(invokeGameStatsServiceMethod($service, 'processText', [$zalgo]))->toBe('a');
 });
 
+it('bounds zalgo detection memory for very long combining mark text', function () {
+    $service = app(GameStatsService::class);
+    $zalgo = 'a'.str_repeat("\u{0301}", 100000);
+
+    $before = memory_get_usage(true);
+    $processed = invokeGameStatsServiceMethod($service, 'processText', [$zalgo]);
+    $after = memory_get_usage(true);
+
+    expect($processed)->toBe('a')
+        ->and($after - $before)->toBeLessThan(8 * 1024 * 1024);
+});
+
+it('truncates oversized ordinary dialogue text before storage processing', function () {
+    $service = app(GameStatsService::class);
+    $text = str_repeat('a', 70000);
+
+    $processed = invokeGameStatsServiceMethod($service, 'processText', [$text]);
+
+    expect(strlen($processed))->toBe(65536);
+});
+
 it('creates new characters with all relevant display languages and preserves existing names', function () {
     $game = Game::factory()->create();
     $service = app(GameStatsService::class);

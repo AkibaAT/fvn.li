@@ -13,6 +13,14 @@ use Illuminate\Support\Facades\Auth;
 
 class BugReportController extends Controller
 {
+    private const int MAX_REQUEST_PARAMETER_COUNT = 25;
+
+    private const int MAX_REQUEST_PARAMETER_KEY_LENGTH = 80;
+
+    private const int MAX_REQUEST_PARAMETER_VALUE_LENGTH = 500;
+
+    private const int MAX_USER_AGENT_LENGTH = 1024;
+
     /**
      * Get the authenticated user's bug reports.
      */
@@ -62,18 +70,19 @@ class BugReportController extends Controller
             'page_url' => 'required|string|max:2048',
             'page_title' => 'nullable|string|max:255',
             'description' => 'required|string|min:10|max:5000',
-            'request_parameters' => 'nullable|array',
+            'request_parameters' => 'nullable|array|max:'.self::MAX_REQUEST_PARAMETER_COUNT,
         ]);
 
         $user = User::findOrFail($authId);
+        $requestParameters = $this->sanitizeRequestParameters($validated['request_parameters'] ?? null);
 
         $bugReport = BugReport::create([
             'user_id' => $user->id,
             'page_url' => $validated['page_url'],
             'page_title' => $validated['page_title'] ?? null,
             'description' => $validated['description'],
-            'request_parameters' => $validated['request_parameters'] ?? null,
-            'user_agent' => $request->userAgent(),
+            'request_parameters' => $requestParameters,
+            'user_agent' => $this->truncateNullableString($request->userAgent(), self::MAX_USER_AGENT_LENGTH),
             'status' => BugReport::STATUS_OPEN,
         ]);
 
@@ -82,6 +91,55 @@ class BugReportController extends Controller
             'message' => 'Thank you for your bug report! We will review it shortly.',
             'report_id' => $bugReport->id,
         ]);
+    }
+
+    /**
+     * @param  array<mixed>|null  $parameters
+     * @return array<string, string>|null
+     */
+    private function sanitizeRequestParameters(?array $parameters): ?array
+    {
+        if ($parameters === null || $parameters === []) {
+            return null;
+        }
+
+        $sanitized = [];
+        foreach ($parameters as $key => $value) {
+            if (count($sanitized) >= self::MAX_REQUEST_PARAMETER_COUNT) {
+                break;
+            }
+
+            if (! is_scalar($value) && $value !== null) {
+                continue;
+            }
+
+            $key = $this->truncateNullableString((string) $key, self::MAX_REQUEST_PARAMETER_KEY_LENGTH);
+            if ($key === null || $key === '') {
+                continue;
+            }
+
+            $sanitized[$key] = $this->truncateNullableString($this->stringifyRequestParameterValue($value), self::MAX_REQUEST_PARAMETER_VALUE_LENGTH) ?? '';
+        }
+
+        return $sanitized === [] ? null : $sanitized;
+    }
+
+    private function stringifyRequestParameterValue(mixed $value): string
+    {
+        return match (true) {
+            $value === null => '',
+            is_bool($value) => $value ? 'true' : 'false',
+            default => (string) $value,
+        };
+    }
+
+    private function truncateNullableString(?string $value, int $maxLength): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return mb_substr($value, 0, $maxLength);
     }
 
     /**
@@ -127,7 +185,6 @@ class BugReportController extends Controller
                 'status_label' => $bugReport->status_label,
                 'status_color' => $bugReport->status_color,
                 'is_closed' => $bugReport->is_closed,
-                'admin_notes' => $bugReport->admin_notes,
                 'created_at' => $bugReport->created_at->toISOString(),
                 'resolved_at' => $bugReport->resolved_at?->toISOString(),
             ],
