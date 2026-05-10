@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\HtmlSanitizerService;
 use App\Services\ItchHttpClientService;
 use DateTime;
 use Dom\HTMLDocument;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 class GameJam extends Model
@@ -48,10 +50,7 @@ class GameJam extends Model
      */
     public static function findOrCreateFromUrl(string $url, ?string $name = null): self
     {
-        // Clean up the URL
-        if (preg_match('|(https?://[^/]+/jam/[^/]+)/rate/|', $url, $matches)) {
-            $url = $matches[1];
-        }
+        $url = self::normalizeAndValidateJamUrl($url);
 
         // Check if we already have this game jam
         $gameJam = self::where('url', $url)->first();
@@ -72,6 +71,36 @@ class GameJam extends Model
         }
 
         return $gameJam;
+    }
+
+    public static function normalizeAndValidateJamUrl(string $url): string
+    {
+        if (preg_match('|(https?://[^/]+/jam/[^/]+)/rate/|', $url, $matches)) {
+            $url = $matches[1];
+        }
+
+        $parts = parse_url($url);
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'], $parts['path'])) {
+            throw new InvalidArgumentException('Invalid game jam URL.');
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        $host = strtolower($parts['host']);
+        $path = rtrim($parts['path'], '/');
+
+        if ($scheme !== 'https') {
+            throw new InvalidArgumentException('Game jam URL must use HTTPS.');
+        }
+
+        if ($host !== 'itch.io' && ! str_ends_with($host, '.itch.io')) {
+            throw new InvalidArgumentException('Game jam URL host must be itch.io.');
+        }
+
+        if (! preg_match('#^/jam/[^/]+$#', $path)) {
+            throw new InvalidArgumentException('Game jam URL path is invalid.');
+        }
+
+        return sprintf('https://%s%s', $host, $path);
     }
 
     /**
@@ -153,8 +182,11 @@ class GameJam extends Model
                 'game_jam_name' => $this->name,
             ]);
 
-            $response = $itchClient->get($this->url, [
+            $safeUrl = self::normalizeAndValidateJamUrl($this->url);
+
+            $response = $itchClient->get($safeUrl, [
                 'cookies' => false,
+                'allow_redirects' => false,
             ]);
 
             $statusCode = $response->getStatusCode();
@@ -170,7 +202,7 @@ class GameJam extends Model
             // Extract description
             $descriptionElement = $doc->querySelector('.formatted_description');
             if ($descriptionElement) {
-                $this->description = $descriptionElement->innerHTML;
+                $this->description = app(HtmlSanitizerService::class)->sanitizeDescription($descriptionElement->innerHTML);
             }
 
             // Extract dates
@@ -511,9 +543,9 @@ class GameJam extends Model
 
         try {
             // Construct the results page URL with page number
-            $resultsUrl = rtrim($this->url, '/') . '/results';
+            $resultsUrl = self::normalizeAndValidateJamUrl($this->url).'/results';
             if ($pageNumber > 1) {
-                $resultsUrl .= '?page=' . $pageNumber;
+                $resultsUrl .= '?page='.$pageNumber;
             }
 
             Log::info('Fetching game jam results page', [
@@ -526,6 +558,7 @@ class GameJam extends Model
             // Fetch the results page - the ItchHttpClientService will handle retries for 429 errors
             $response = $itchClient->get($resultsUrl, [
                 'cookies' => false,
+                'allow_redirects' => false,
             ]);
 
             $statusCode = $response->getStatusCode();

@@ -36,6 +36,7 @@ Route::middleware(['web'])->group(function () {
     Route::get('dialogue/options', [DialogueController::class, 'getDialogueOptions'])
         ->name('browser-api.dialogue.options');
     Route::get('dialogue/search', [DialogueController::class, 'searchDialogue'])
+        ->middleware('throttle:60,1')
         ->name('browser-api.dialogue.search');
     Route::get('dialogue/search-enhanced', [DialogueController::class, 'searchDialogueEnhanced'])
         ->name('browser-api.dialogue.search-enhanced');
@@ -44,6 +45,7 @@ Route::middleware(['web'])->group(function () {
     Route::get('dialogue/version-stats', [DialogueController::class, 'versionStats'])
         ->name('browser-api.dialogue.version-stats');
     Route::get('dialogue/word-frequency', [DialogueController::class, 'getWordFrequency'])
+        ->middleware('throttle:20,1')
         ->name('browser-api.dialogue.word-frequency');
 
     // Game search/filter and details (keep legacy api.* names)

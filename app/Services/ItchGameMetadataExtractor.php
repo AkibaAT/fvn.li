@@ -81,9 +81,9 @@ class ItchGameMetadataExtractor
         if ($descriptionElement) {
             $htmlContent = $descriptionElement->innerHTML;
             $processedHtml = $htmlProcessor->process($htmlContent);
-            $game->full_description = $processedHtml;
+            $game->full_description = app(HtmlSanitizerService::class)->sanitizeDescription($processedHtml);
             if (empty($game->description)) {
-                $game->description = strip_tags($processedHtml);
+                $game->description = trim(strip_tags($game->full_description ?? ''));
             }
         }
     }
@@ -200,7 +200,20 @@ class ItchGameMetadataExtractor
         if (empty($jamUrl) || empty($jamName)) {
             return;
         }
-        $gameJam = GameJam::findOrCreateFromUrl($jamUrl, $jamName);
+        try {
+            $safeJamUrl = GameJam::normalizeAndValidateJamUrl($jamUrl);
+            $gameJam = GameJam::findOrCreateFromUrl($safeJamUrl, $jamName);
+        } catch (\InvalidArgumentException $e) {
+            Log::warning('Discarded non-itch game jam URL', [
+                'game_id' => $game->id,
+                'game_name' => $game->name,
+                'jam_url' => $jamUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
         $pendingJams = $game->pendingGameJamId ?? [];
         if (! in_array($gameJam->id, $pendingJams)) {
             $pendingJams[] = $gameJam->id;

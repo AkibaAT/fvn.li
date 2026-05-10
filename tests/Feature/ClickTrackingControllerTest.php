@@ -95,6 +95,28 @@ it('redirects custom links only when the link exists', function () {
     ]))->assertRedirect(route('games.show', $game->slug));
 });
 
+it('does not redirect unsafe stored custom links', function () {
+    $game = trackedGame([
+        'additional_links' => [
+            [
+                'id' => 'windows',
+                'name' => 'Windows',
+                'url' => 'javascript://example.com/%0Aalert(1)',
+                'sort_order' => 1,
+            ],
+        ],
+    ]);
+
+    $this->get(route('track.custom-link', [
+        'game_id' => $game->id,
+        'link_id' => 'windows',
+    ]))->assertRedirect(route('games.show', $game->slug));
+
+    expect(ClickStat::where('game_id', $game->id)
+        ->where('type', ClickStat::TYPE_CUSTOM_LINK)
+        ->exists())->toBeFalse();
+});
+
 it('tracks custom links through the JSON endpoint', function () {
     $game = trackedGame();
 
@@ -125,6 +147,28 @@ it('tracks custom links through the JSON endpoint', function () {
         'game_id' => $game->id,
         'link_id' => 'windows',
         'url' => 'not-a-url',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonPath('success', false)
+        ->assertJsonValidationErrors(['url']);
+});
+
+it('rejects unsafe custom link URLs through the JSON endpoint', function () {
+    $game = trackedGame([
+        'additional_links' => [
+            [
+                'id' => 'windows',
+                'name' => 'Windows',
+                'url' => 'javascript://example.com/%0Aalert(1)',
+                'sort_order' => 1,
+            ],
+        ],
+    ]);
+
+    $this->postJson(route('browser-api.track.custom-link'), [
+        'game_id' => $game->id,
+        'link_id' => 'windows',
+        'url' => 'javascript://example.com/%0Aalert(1)',
     ])
         ->assertUnprocessable()
         ->assertJsonPath('success', false)
