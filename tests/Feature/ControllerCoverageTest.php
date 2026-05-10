@@ -3,8 +3,8 @@
 use App\Http\Controllers\EditorUploadController;
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\Rating;
 use App\Models\Rater;
+use App\Models\Rating;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;

@@ -1,11 +1,13 @@
 <?php
 
+use App\Models\Character;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\GameVersion;
 use App\Models\Tag;
 use App\Models\User;
+use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use App\Services\GameStatsService;
@@ -302,7 +304,7 @@ test('game stats service saves language character and supported language aggrega
         ->menus->toBe(2)
         ->options->toBe(4);
 
-    $character = \App\Models\Character::where('game_id', $game->id)
+    $character = Character::where('game_id', $game->id)
         ->where('character_id', 'hero')
         ->firstOrFail();
 
@@ -310,7 +312,7 @@ test('game stats service saves language character and supported language aggrega
         ->and($character->species)->toBe('fox')
         ->and($character->first_seen_in_version_id)->toBe($version->id)
         ->and($character->last_seen_in_version_id)->toBe($version->id)
-        ->and(\App\Models\VersionCharacterStats::where('character_id', $character->id)->where('iso_code', 'eng')->value('words'))->toBe(300)
+        ->and(VersionCharacterStats::where('character_id', $character->id)->where('iso_code', 'eng')->value('words'))->toBe(300)
         ->and(VersionSupportedLanguage::where('game_version_id', $version->id)->where('iso_code', 'eng')->exists())->toBeTrue()
         ->and($version->fileCategories()->where('category', 'scripts')->first()?->total_size)->toBe(2048)
         ->and($version->routeLabels()->count())->toBe(2)

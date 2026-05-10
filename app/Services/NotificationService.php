@@ -29,8 +29,8 @@ class NotificationService
         }
 
         $payload = [
-            'title' => $game->name . ' - New Update Available',
-            'body' => 'Version ' . $gameVersion->version . ' is now available.',
+            'title' => $game->name.' - New Update Available',
+            'body' => 'Version '.$gameVersion->version.' is now available.',
             'data' => [
                 'url' => route('games.show', $game->slug),
                 'game_id' => $game->id,
@@ -139,7 +139,7 @@ class NotificationService
             $title = 'Weekly Game Updates';
         }
 
-        $body = count($games) . ' games you follow have been updated.';
+        $body = count($games).' games you follow have been updated.';
 
         $payload = [
             'title' => $title,

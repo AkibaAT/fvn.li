@@ -8,7 +8,7 @@ use App\Models\AdditionRequest;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\AdditionRequest>
+ * @extends Factory<AdditionRequest>
  */
 class AdditionRequestFactory extends Factory
 {
@@ -19,7 +19,7 @@ class AdditionRequestFactory extends Factory
      */
     public function definition(): array
     {
-        $url = 'https://' . $this->faker->userName() . '.itch.io/' . $this->faker->slug();
+        $url = 'https://'.$this->faker->userName().'.itch.io/'.$this->faker->slug();
 
         return [
             'game_url' => $url,

@@ -6,10 +6,11 @@ namespace Database\Factories;
 
 use App\Models\Character;
 use App\Models\GameVersion;
+use App\Models\VersionCharacterStats;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\VersionCharacterStats>
+ * @extends Factory<VersionCharacterStats>
  */
 class VersionCharacterStatsFactory extends Factory
 {

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 namespace App\Console\Commands {
-    if (! function_exists(__NAMESPACE__ . '\\sleep')) {
+    if (! function_exists(__NAMESPACE__.'\\sleep')) {
         function sleep(int $seconds): int
         {
             return 0;
@@ -149,7 +149,7 @@ namespace {
         $this->mock(SteamDataSyncService::class, function ($mock) {
             $mock->shouldReceive('loadFullDetails')
                 ->once()
-                ->with(\Mockery::on(function (Game $game): bool {
+                ->with(Mockery::on(function (Game $game): bool {
                     $game->forceFill([
                         'name' => 'Fresh Steam VN',
                         'developer' => 'Steam Dev',

@@ -79,14 +79,14 @@ class RefreshSteamGames extends Command
             $this->info("Starting refresh for games matching name: \"{$this->option('game-name')}\"");
         }
 
-        $this->info('Force mode: ' . ($force ? 'Yes' : 'No'));
+        $this->info('Force mode: '.($force ? 'Yes' : 'No'));
         $this->info('Options selected:');
-        $this->info('- Game Data: ' . ($this->option('update-data') ? 'Yes' : 'No'));
-        $this->info('- Reviews: ' . ($this->option('update-reviews') ? 'Yes (upsert available reviews)' : 'No'));
+        $this->info('- Game Data: '.($this->option('update-data') ? 'Yes' : 'No'));
+        $this->info('- Reviews: '.($this->option('update-reviews') ? 'Yes (upsert available reviews)' : 'No'));
         if ($this->option('update-reviews')) {
             $this->info('  Reviews will be synced without deleting local reviews missing from the Steam API response');
         }
-        $this->info('Sleep time between games: ' . $sleepTime . ' seconds');
+        $this->info('Sleep time between games: '.$sleepTime.' seconds');
 
         // Build query for Steam games
         $query = Game::query()
