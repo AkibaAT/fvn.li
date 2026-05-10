@@ -67,6 +67,7 @@ class HtmlSanitizerService
         $css = preg_replace('#@import#i', '', $css);
         $css = preg_replace('#behavior\s*:#i', '', $css);
         $css = preg_replace('/url\s*\(\s*["\']?\s*javascript\s*:/i', 'url(', $css);
+        $css = str_replace(['<', '>'], ['\\3C ', '\\3E '], $css);
 
         return $css;
     }
