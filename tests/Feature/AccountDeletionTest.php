@@ -237,7 +237,7 @@ describe('GDPR compliance during deletion', function () {
             'game_id' => $game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -257,7 +257,7 @@ describe('GDPR compliance during deletion', function () {
             'game_id' => $game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -390,7 +390,7 @@ describe('edge cases', function () {
         // Create multiple lists with unique names
         for ($i = 0; $i < 5; $i++) {
             $list = VnList::factory()->for($this->user)->create([
-                'name' => 'Test List ' . $i,
+                'name' => 'Test List '.$i,
             ]);
             foreach ($games as $game) {
                 VnListEntry::create([

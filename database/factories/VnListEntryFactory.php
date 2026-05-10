@@ -6,10 +6,11 @@ namespace Database\Factories;
 
 use App\Models\Game;
 use App\Models\VnList;
+use App\Models\VnListEntry;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\VnListEntry>
+ * @extends Factory<VnListEntry>
  */
 class VnListEntryFactory extends Factory
 {

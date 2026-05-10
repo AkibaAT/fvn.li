@@ -22,7 +22,9 @@ use Throwable;
 class SteamDataSyncService
 {
     private Client $httpClient;
+
     private array $parsedLanguageIsoCodes = [];
+
     private array $parsedPlatforms = [];
 
     public function __construct()

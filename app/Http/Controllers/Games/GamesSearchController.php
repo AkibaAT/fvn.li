@@ -678,7 +678,7 @@ class GamesSearchController extends Controller
             }, $platforms);
             if (count($platformLabels) > 0) {
                 $titleParts[] = implode(', ', $platformLabels);
-                $descriptionParts[] = 'Available on ' . implode(', ', $platformLabels);
+                $descriptionParts[] = 'Available on '.implode(', ', $platformLabels);
             }
         }
 
@@ -690,7 +690,7 @@ class GamesSearchController extends Controller
             }, $languages);
             if (count($languageLabels) > 0 && count($languageLabels) <= 3) {
                 $titleParts[] = implode(', ', $languageLabels);
-                $descriptionParts[] = 'In ' . implode(', ', $languageLabels);
+                $descriptionParts[] = 'In '.implode(', ', $languageLabels);
             }
         }
 
@@ -727,7 +727,7 @@ class GamesSearchController extends Controller
             }
             if (count($tagLabels) > 0) {
                 $titleParts[] = implode(', ', $tagLabels);
-                $descriptionParts[] = 'Tagged: ' . implode(', ', $tagLabels);
+                $descriptionParts[] = 'Tagged: '.implode(', ', $tagLabels);
             }
         }
 
@@ -761,7 +761,7 @@ class GamesSearchController extends Controller
 
         // Build social media title with detailed filter information
         $socialTitle = count($titleParts) > 0
-            ? implode(' - ', array_slice($titleParts, 0, 3)) . ' Visual Novels'
+            ? implode(' - ', array_slice($titleParts, 0, 3)).' Visual Novels'
             : 'Visual Novels';
 
         // Browser title is always simple and static
@@ -769,7 +769,7 @@ class GamesSearchController extends Controller
 
         // Build description
         $description = count($descriptionParts) > 0
-            ? implode(' • ', $descriptionParts) . ' - Browse and discover visual novels on FVN.li'
+            ? implode(' • ', $descriptionParts).' - Browse and discover visual novels on FVN.li'
             : 'Browse and discover visual novels on FVN.li';
 
         // Add total count to description
@@ -785,7 +785,7 @@ class GamesSearchController extends Controller
                 ->toArray();
 
             if (count($gameNames) > 0) {
-                $description .= '. Including: ' . implode(', ', $gameNames);
+                $description .= '. Including: '.implode(', ', $gameNames);
                 if ($totalGames > count($gameNames)) {
                     $description .= ', and more';
                 }
