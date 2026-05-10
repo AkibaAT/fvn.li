@@ -6,6 +6,7 @@ use App\Models\ChangeLog;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\User;
+use App\Support\SystemAuditUser;
 use Illuminate\Support\Facades\Storage;
 
 function createPrivacyAuditLog(User $user, array $context = []): ChangeLog
@@ -65,7 +66,6 @@ it('deletes audit logs for a user when forced', function () {
 });
 
 it('anonymizes audit logs and click statistics for a user when forced', function () {
-    config(['audit.system_user_id' => User::factory()->create()->id]);
     $user = User::factory()->create();
     $game = Game::factory()->create();
     createPrivacyAuditLog($user);
@@ -90,7 +90,7 @@ it('anonymizes audit logs and click statistics for a user when forced', function
         ->first();
     $click = ClickStat::query()->first();
 
-    expect($log->user_id)->toBe(config('audit.system_user_id'))
+    expect($log->user_id)->toBe(SystemAuditUser::id())
         ->and($log->context['anonymized'])->toBeTrue()
         ->and($click->user_id)->toBeNull()
         ->and($click->ip_address)->not->toBe('203.0.113.20')

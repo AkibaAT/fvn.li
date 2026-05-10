@@ -2,7 +2,9 @@
 
 use App\Models\SocialAccount;
 use App\Models\User;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
@@ -51,10 +53,12 @@ test('itchio redirect uses a normal external redirect and stores explicit intend
     $response = $this->get(route('auth.redirect', [
         'provider' => 'itchio',
         'intended' => $intendedUrl,
+        'remember' => '1',
     ]));
 
     $response->assertRedirect('https://itch.io/user/oauth');
     $response->assertSessionHas('url.intended', $intendedUrl);
+    $response->assertSessionHas('auth.remember', true);
 });
 
 test('itchio redirect ignores unsafe external intended urls', function () {
@@ -280,6 +284,8 @@ test('default log stack keeps nightwatch opt in', function () {
 });
 
 test('provider callback creates a new user and social account', function () {
+    Event::fake([Login::class]);
+
     Socialite::shouldReceive('driver->user')
         ->once()
         ->andReturn(fakeSocialiteUser(
@@ -301,6 +307,50 @@ test('provider callback creates a new user and social account', function () {
             ->where('provider_name', 'google')
             ->where('provider_id', 'google-1')
             ->exists())->toBeTrue();
+
+    Event::assertDispatched(Login::class, fn (Login $event) => $event->user->is($user)
+        && $event->remember === false);
+});
+
+test('provider callback ignores unsafe session intended urls', function () {
+    Socialite::shouldReceive('driver->user')
+        ->once()
+        ->andReturn(fakeSocialiteUser(
+            id: 'google-open-redirect',
+            name: 'Redirect User',
+            email: 'redirect@example.com'
+        ));
+
+    $this->withSession(['url.intended' => 'https://evil.example/phish?after=trusted-oauth'])
+        ->get(route('auth.callback', ['provider' => 'google']))
+        ->assertRedirect(route('games.index'))
+        ->assertSessionMissing('url.intended');
+});
+
+test('provider callback only creates a persistent login when remember was requested', function () {
+    Event::fake([Login::class]);
+
+    Socialite::shouldReceive('driver->user')
+        ->once()
+        ->andReturn(fakeSocialiteUser(
+            id: 'google-remember',
+            name: 'Remembered Google User',
+            email: 'remembered@example.com',
+            raw: ['given_name' => 'Remembered']
+        ));
+
+    $this->withSession([
+        'auth.remember' => true,
+        'url.intended' => route('dashboard'),
+    ])
+        ->get(route('auth.callback', ['provider' => 'google']))
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionMissing('auth.remember');
+
+    $user = User::where('email', 'remembered@example.com')->firstOrFail();
+
+    Event::assertDispatched(Login::class, fn (Login $event) => $event->user->is($user)
+        && $event->remember === true);
 });
 
 test('provider callback links to an existing user by email and updates token data', function () {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\SystemAuditUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
@@ -133,9 +134,8 @@ class ChangeLog extends Model
             return 0;
         }
 
-        // Update logs to remove user identification while preserving system audit integrity
-        // Assign to system user (ID 1) instead of null to maintain audit trail integrity
-        $systemUserId = config('audit.system_user_id', 1);
+        // Update logs to remove user identification while preserving system audit integrity.
+        $systemUserId = SystemAuditUser::id();
 
         // Use a safer approach with parameter binding
         DB::table('change_logs')

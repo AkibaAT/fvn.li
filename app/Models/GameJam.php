@@ -22,6 +22,10 @@ use Throwable;
 
 class GameJam extends Model
 {
+    private const MAX_RESULTS_PAGES = 50;
+
+    private const MAX_RESULTS_PAGE_DELAY_SECONDS = 5;
+
     protected $fillable = [
         'name',
         'url',
@@ -263,8 +267,15 @@ class GameJam extends Model
      * @throws Exception If there was a critical error fetching rankings
      * @throws Throwable
      */
-    public function fetchResultsPage(int $maxRetries = 5, int $retryDelay = 30): bool
-    {
+    public function fetchResultsPage(
+        int $maxRetries = 5,
+        int $retryDelay = 30,
+        int $maxPages = self::MAX_RESULTS_PAGES,
+        int $pageDelaySeconds = 1
+    ): bool {
+        $maxPages = max(1, $maxPages);
+        $pageDelaySeconds = max(0, min($pageDelaySeconds, self::MAX_RESULTS_PAGE_DELAY_SECONDS));
+
         $currentPage = 1;
         $hasMorePages = true;
         $rankingsFound = 0;
@@ -299,9 +310,21 @@ class GameJam extends Model
                 if (! $nextPageLink) {
                     $hasMorePages = false;
                 } else {
+                    if ($currentPage >= $maxPages) {
+                        Log::warning('Stopped fetching game jam rankings after reaching page limit', [
+                            'game_jam_id' => $this->id,
+                            'game_jam_name' => $this->name,
+                            'pages_processed' => $pagesProcessed,
+                            'max_pages' => $maxPages,
+                        ]);
+
+                        return false;
+                    }
+
                     $currentPage++;
-                    // Add a small delay between page requests to be nice to the server
-                    sleep(1);
+                    if ($pageDelaySeconds > 0) {
+                        sleep($pageDelaySeconds);
+                    }
                 }
             }
 
