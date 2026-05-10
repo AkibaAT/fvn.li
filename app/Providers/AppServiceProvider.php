@@ -137,7 +137,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $modelFiles = glob($modelPath . '/*.php');
+        $modelFiles = glob($modelPath.'/*.php');
 
         foreach ($modelFiles as $file) {
             $fileName = basename($file, '.php');

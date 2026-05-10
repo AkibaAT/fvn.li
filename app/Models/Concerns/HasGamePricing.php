@@ -61,10 +61,10 @@ trait HasGamePricing
             'JPY' => '¥',
         ];
 
-        $symbol = $symbols[$currency] ?? $currency . ' ';
+        $symbol = $symbols[$currency] ?? $currency.' ';
         $decimals = $currency === 'JPY' ? 0 : 2;
 
-        return $symbol . number_format($price, $decimals);
+        return $symbol.number_format($price, $decimals);
     }
 
     /**

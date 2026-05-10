@@ -97,7 +97,7 @@ test('dark and light theme consistency', function () {
 
     // Switch back to light theme
     $page->click('[data-testid="theme-toggle"]')
-        ->waitFor(2, fn () => ! document . documentElement . classList . contains('dark'))
+        ->waitFor(2, fn () => ! document.documentElement.classList.contains('dark'))
         ->screenshot('games-light-switched')
         ->assertNotHasClass('html', 'dark');
 });
@@ -194,7 +194,7 @@ test('real-time features and websockets', function () {
 
     // Simulate receiving a notification
     $page->evaluate('() => {
-        window.Echo?.channel("user.' . $this->user->id . '")
+        window.Echo?.channel("user.'.$this->user->id.'")
             ?.listen("NotificationReceived", (e) => {
                 document.querySelector("[data-testid=notification-bell]")
                     ?.classList.add("has-notification");
@@ -225,7 +225,7 @@ test('advanced form interactions and validation', function () {
 
     // Test file upload
     $page->uploadFile('[data-testid="avatar-upload"]', [
-        __DIR__ . '/fixtures/test-avatar.jpg',
+        __DIR__.'/fixtures/test-avatar.jpg',
     ])->wait(2)
         ->wait(2)
         ->assertSee('Avatar uploaded successfully');

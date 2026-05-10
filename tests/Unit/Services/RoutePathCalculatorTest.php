@@ -57,7 +57,7 @@ it('stores shortest route paths with menu choice metadata', function () {
         'line_number' => 10,
     ]);
 
-    (new RoutePathCalculator())->calculateAndStore($version);
+    (new RoutePathCalculator)->calculateAndStore($version);
 
     $good = VersionRoutePath::where('game_version_id', $version->id)
         ->where('ending_label', 'ending_good')
@@ -93,7 +93,7 @@ it('clears existing paths when start or endings are missing', function () {
     ]);
     routePathLabel($version, 'start');
 
-    (new RoutePathCalculator())->calculateAndStore($version);
+    (new RoutePathCalculator)->calculateAndStore($version);
 
     expect($version->routePaths()->count())->toBe(0);
 });
@@ -112,7 +112,7 @@ it('replaces stale paths and accepts labels.start as start label', function () {
     routePathLabel($version, 'ending', true);
     routePathEdge($version, 'labels.start', 'ending');
 
-    (new RoutePathCalculator())->calculateAndStore($version);
+    (new RoutePathCalculator)->calculateAndStore($version);
 
     expect($version->routePaths()->count())->toBe(1)
         ->and($version->routePaths()->first()->path_labels)->toBe(['labels.start', 'ending']);

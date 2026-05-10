@@ -46,7 +46,7 @@ class ItchHtmlProcessor
             return trim($doc->saveHTML());
         } catch (Exception $e) {
             // Log the error
-            Log::error('HTML Processing failed: ' . $e->getMessage(), ['html' => $html]);
+            Log::error('HTML Processing failed: '.$e->getMessage(), ['html' => $html]);
 
             return $html; // Return original HTML on error
         }
@@ -327,7 +327,7 @@ class ItchHtmlProcessor
                 if (! empty($currentStyle)) {
                     $newStyle .= '; ';
                 }
-                $newStyle .= 'height: ' . $height . 'px';
+                $newStyle .= 'height: '.$height.'px';
 
                 $image->setAttribute('style', $newStyle);
             } else {

@@ -46,13 +46,13 @@ class GenerateWebPushKeys extends Command
             $this->newLine();
 
             $this->info('Add these keys to your .env file:');
-            $this->line('VAPID_PUBLIC_KEY=' . $keysArray['publicKey']);
-            $this->line('VAPID_PRIVATE_KEY=' . $keysArray['privateKey']);
+            $this->line('VAPID_PUBLIC_KEY='.$keysArray['publicKey']);
+            $this->line('VAPID_PRIVATE_KEY='.$keysArray['privateKey']);
             $this->line('VAPID_SUBJECT=mailto:your-email@example.com');
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Failed to generate VAPID keys: ' . $e->getMessage());
+            $this->error('Failed to generate VAPID keys: '.$e->getMessage());
 
             return 1;
         }

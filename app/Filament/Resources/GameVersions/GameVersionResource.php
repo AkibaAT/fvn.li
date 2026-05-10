@@ -198,7 +198,7 @@ class GameVersionResource extends Resource
                                 $result = [];
                                 foreach ($languages as $language) {
                                     $status = $language['is_available'] ? '✅ Available' : '❌ Not Available';
-                                    $result[] = $language['name'] . ' - ' . $status;
+                                    $result[] = $language['name'].' - '.$status;
                                 }
 
                                 return implode('<br>', $result);
@@ -308,7 +308,7 @@ class GameVersionResource extends Resource
                         $data['supported_languages'] = $supportedLanguages;
 
                         // Generate a filename
-                        $filename = 'version_' . $record->id . '_' . $record->version . '.json';
+                        $filename = 'version_'.$record->id.'_'.$record->version.'.json';
 
                         // Create a response with the JSON data
                         $response = response()->streamDownload(
@@ -318,7 +318,7 @@ class GameVersionResource extends Resource
                             $filename,
                             [
                                 'Content-Type' => 'application/json',
-                                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
                             ]
                         );
 
