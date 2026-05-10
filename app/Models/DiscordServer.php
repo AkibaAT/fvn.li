@@ -108,7 +108,7 @@ class DiscordServer extends Model
     {
         return $this->notificationHistory()
             ->where('sent_at', '>=', now()->subDays(30))
-            ->orderByDesc('sent_at');
+            ->orderBy('sent_at', 'desc');
     }
 
     /**

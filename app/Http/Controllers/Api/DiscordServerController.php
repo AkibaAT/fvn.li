@@ -68,7 +68,7 @@ class DiscordServerController extends Controller
                 'config',
                 'gameSubscriptions.game',
                 'members',
-                'notificationHistory' => fn ($q) => $q->latest()->limit(50),
+                'notificationHistory' => fn ($q) => $q->orderBy('created_at', 'desc')->limit(50),
             ]),
         ]);
     }

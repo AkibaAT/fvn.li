@@ -63,7 +63,7 @@ class AndroidBuildService
             ->where('game_id', $game->id)
             ->where('game_version_id', $version->id)
             ->where('status', 'completed')
-            ->latest()
+            ->orderBy('created_at', 'desc')
             ->first();
 
         if ($completedBuild) {

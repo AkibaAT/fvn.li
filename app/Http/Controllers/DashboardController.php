@@ -150,7 +150,7 @@ class DashboardController extends Controller
             ->withCount(['comments as unread_count' => function ($query) {
                 $query->where('is_from_admin', true)->where('is_read', false);
             }])
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($report) {
                 return [
@@ -179,7 +179,7 @@ class DashboardController extends Controller
         if ($hasDiscordAccount) {
             $lastNotification = NotificationQueue::where('user_id', $user->id)
                 ->where('channel', 'discord')
-                ->orderByDesc('created_at')
+                ->orderBy('created_at', 'desc')
                 ->first();
 
             if ($lastNotification) {
@@ -264,7 +264,7 @@ class DashboardController extends Controller
         if ($hasDiscordAccount) {
             $lastNotification = NotificationQueue::where('user_id', $user->id)
                 ->where('channel', 'discord')
-                ->orderByDesc('created_at')
+                ->orderBy('created_at', 'desc')
                 ->first();
 
             if ($lastNotification) {
@@ -512,7 +512,7 @@ class DashboardController extends Controller
                 ->whereIn('game_tag.game_id', $userGameIds)
                 ->selectRaw('tags.name, COUNT(*) as count')
                 ->groupBy('tags.name')
-                ->orderByDesc('count')
+                ->orderBy('count', 'desc')
                 ->limit(10)
                 ->pluck('count', 'name')
                 ->toArray();
@@ -580,7 +580,7 @@ class DashboardController extends Controller
                     $q->orderBy('sort_order');
                 },
             ])
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get())->map(function ($l) {
                 return [
                     'id' => $l->id,
@@ -611,7 +611,7 @@ class DashboardController extends Controller
             })->values();
 
         $ratings = (Rating::where('user_id', $user->id)
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->get([
                 'id', 'game_id', 'rating', 'is_reviewed', 'published_at', 'created_at', 'updated_at', 'review',
             ]))->map(function ($r) {
@@ -679,7 +679,7 @@ class DashboardController extends Controller
 
         // Notification history
         $notificationHistory = NotificationHistory::where('user_id', $user->id)
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($notification) {
                 return [
@@ -693,7 +693,7 @@ class DashboardController extends Controller
 
         // Ignored games
         $ignoredGames = $user->ignoredGames()
-            ->orderByDesc('user_ignored_games.created_at')
+            ->orderBy('user_ignored_games.created_at', 'desc')
             ->get()
             ->map(function ($game) {
                 return [

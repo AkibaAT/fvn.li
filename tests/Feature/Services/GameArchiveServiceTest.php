@@ -351,6 +351,52 @@ test('download URL helper parsing and error formatting are deterministic', funct
         ->toBe('Missing URL');
 });
 
+test('itch browser download control URLs stay on the original itch origin', function () {
+    expect(fn () => invokeGameArchiveServiceMethod(
+        $this->archiveService,
+        'validateItchControlUrl',
+        ['https://127.0.0.1:8765/generate', 'https://creator.itch.io/game', 'itch.io download URL endpoint']
+    ))->toThrow(RuntimeException::class, 'Untrusted itch.io download URL endpoint host: 127.0.0.1')
+        ->and(fn () => invokeGameArchiveServiceMethod(
+            $this->archiveService,
+            'validateItchControlUrl',
+            ['https://other.itch.io/game/download_url', 'https://creator.itch.io/game', 'itch.io download URL endpoint']
+        ))->toThrow(RuntimeException::class, 'Unexpected itch.io download URL endpoint host: other.itch.io')
+        ->and(fn () => invokeGameArchiveServiceMethod(
+            $this->archiveService,
+            'validateItchControlUrl',
+            ['http://creator.itch.io/game/download_url', 'https://creator.itch.io/game', 'itch.io download URL endpoint']
+        ))->toThrow(RuntimeException::class, 'must use HTTPS')
+        ->and(fn () => invokeGameArchiveServiceMethod(
+            $this->archiveService,
+            'validateItchControlUrl',
+            ['https://user:pass@creator.itch.io/game/download_url', 'https://creator.itch.io/game', 'itch.io download URL endpoint']
+        ))->toThrow(RuntimeException::class, 'must not contain credentials');
+});
+
+test('itch file download URLs are limited to configured public CDN hosts', function () {
+    config(['services.itch_downloads.allowed_download_hosts' => ['93.184.216.34']]);
+
+    expect(invokeGameArchiveServiceMethod(
+        $this->archiveService,
+        'validateItchFileDownloadUrl',
+        ['https://93.184.216.34/game.zip', 'https://creator.itch.io/game', 'itch.io file download URL']
+    ))->toBe('https://93.184.216.34/game.zip')
+        ->and(fn () => invokeGameArchiveServiceMethod(
+            $this->archiveService,
+            'validateItchFileDownloadUrl',
+            ['https://127.0.0.1:8765/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
+        ))->toThrow(RuntimeException::class, 'Untrusted itch.io file download URL host: 127.0.0.1');
+
+    config(['services.itch_downloads.allowed_download_hosts' => ['127.0.0.1']]);
+
+    expect(fn () => invokeGameArchiveServiceMethod(
+        $this->archiveService,
+        'validateItchFileDownloadUrl',
+        ['https://127.0.0.1:8765/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
+    ))->toThrow(RuntimeException::class, 'cannot resolve to a private or reserved IP address');
+});
+
 test('download filename sanitization rejects paths and falls back for empty names', function () {
     expect(fn () => invokeGameArchiveServiceMethod($this->archiveService, 'sanitizeDownloadFilename', ['../Windows\\game.zip']))
         ->toThrow(RuntimeException::class, 'path separators')
