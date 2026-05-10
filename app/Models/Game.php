@@ -609,7 +609,7 @@ class Game extends Model
      */
     public function gameVersions(): HasMany
     {
-        return $this->hasMany(GameVersion::class)->orderByDesc('published_at');
+        return $this->hasMany(GameVersion::class)->orderBy('published_at', 'desc');
     }
 
     /**
@@ -1016,7 +1016,7 @@ class Game extends Model
         $previousVersion = $this->gameVersions()
             ->where('id', '!=', $gameVersion->id)
             ->whereHas('supportedLanguages')
-            ->latest('published_at')
+            ->orderBy('published_at', 'desc')
             ->first();
 
         if ($previousVersion) {
