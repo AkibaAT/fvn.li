@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Services\AccountMergeService;
+use App\Support\SafeRedirectUrl;
 use Exception;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Auth;
@@ -22,11 +23,13 @@ class SocialAuthController extends Controller
      */
     public function redirectToProvider(string $provider)
     {
+        session()->put('auth.remember', request()->boolean('remember'));
+
         // Only store the URL if it hasn't been set already by the auth middleware
         if (! session()->has('url.intended')) {
-            $previousUrl = $this->safeIntendedUrlFromRequest() ?? url()->previous();
+            $previousUrl = $this->safeIntendedUrlFromRequest() ?? SafeRedirectUrl::intended(url()->previous(), request());
             // Don't store the login page as the intended URL
-            if (strpos($previousUrl, route('login')) === false) {
+            if ($previousUrl && strpos($previousUrl, route('login')) === false) {
                 session()->put('url.intended', $previousUrl);
                 Log::info('Storing intended URL in redirectToProvider', [
                     'provider' => $provider,
@@ -76,34 +79,7 @@ class SocialAuthController extends Controller
             return null;
         }
 
-        if (Str::startsWith($intendedUrl, '/') && ! Str::startsWith($intendedUrl, ['//', '/\\'])) {
-            return url($intendedUrl);
-        }
-
-        $intendedHost = parse_url($intendedUrl, PHP_URL_HOST);
-        $intendedScheme = parse_url($intendedUrl, PHP_URL_SCHEME);
-        $allowedHosts = array_filter([
-            request()->getHost(),
-            parse_url((string) config('app.url'), PHP_URL_HOST),
-        ]);
-        $allowedSchemes = ['https'];
-
-        if (
-            $intendedHost
-            && in_array($intendedHost, $allowedHosts, true)
-            && is_string($intendedScheme)
-            && in_array(strtolower($intendedScheme), $allowedSchemes, true)
-        ) {
-            return $intendedUrl;
-        }
-
-        Log::warning('Ignoring unsafe OAuth intended URL', [
-            'provider' => request()->route('provider'),
-            'intended_host' => parse_url($intendedUrl, PHP_URL_HOST),
-            'intended_scheme' => parse_url($intendedUrl, PHP_URL_SCHEME),
-        ]);
-
-        return null;
+        return SafeRedirectUrl::intended($intendedUrl, request());
     }
 
     /**
@@ -209,7 +185,7 @@ class SocialAuthController extends Controller
             ]);
 
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
-            Auth::login($user, remember: true);
+            Auth::login($user, remember: (bool) session()->pull('auth.remember', false));
 
             // Ensure user has default lists (fallback if UserObserver failed)
             if ($user->vnLists()->count() === 0) {
@@ -233,12 +209,11 @@ class SocialAuthController extends Controller
             ]);
 
             // Get the intended URL or fall back to games.index
-            $redirectTo = session()->pull('url.intended', route('games.index'));
-
-            // If the redirectTo is the login page, redirect to dashboard instead
-            if (strpos($redirectTo, route('login')) !== false) {
-                $redirectTo = route('dashboard');
-            }
+            $redirectTo = SafeRedirectUrl::intendedOrDefault(
+                session()->pull('url.intended'),
+                route('games.index'),
+                request()
+            );
 
             return redirect($redirectTo);
         } catch (Exception $e) {

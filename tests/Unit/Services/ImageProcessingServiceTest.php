@@ -263,7 +263,42 @@ test('image downloads keep TLS verification enabled and do not follow redirects'
     expect($history)->toHaveCount(1)
         ->and((string) $history[0]['request']->getUri())->toBe('https://img.itch.zone/thumb.png')
         ->and($history[0]['options']['verify'] ?? true)->not->toBeFalse()
-        ->and($history[0]['options']['allow_redirects'])->toBeFalse();
+        ->and($history[0]['options']['allow_redirects'])->toBeFalse()
+        ->and($history[0]['options']['stream'])->toBeTrue();
+});
+
+test('image downloads reject oversized thumbnail responses before processing', function () {
+    $game = Game::factory()->create([
+        'thumb_url' => 'https://img.itch.zone/thumb.png',
+        'optimized_thumbnails' => null,
+    ]);
+    $history = [];
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, ['Content-Length' => (string) (10 * 1024 * 1024 + 1)], ''),
+    ], $history);
+
+    expect(fn () => $service->processGameThumbnail($game, force: true))
+        ->toThrow(Exception::class, 'too large');
+
+    expect($history)->toHaveCount(1)
+        ->and($game->refresh()->optimized_thumbnails)->toBeNull();
+});
+
+test('image downloads stop reading thumbnail bodies over the byte limit', function () {
+    $game = Game::factory()->create([
+        'thumb_url' => 'https://img.itch.zone/thumb.png',
+        'optimized_thumbnails' => null,
+    ]);
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, [], str_repeat('x', 10 * 1024 * 1024 + 1)),
+    ]);
+
+    expect(fn () => $service->processGameThumbnail($game, force: true))
+        ->toThrow(Exception::class, 'exceeds maximum size');
+
+    expect($game->refresh()->optimized_thumbnails)->toBeNull();
 });
 
 test('image downloads reject untrusted screenshot and thumbnail urls before fetching', function () {

@@ -235,6 +235,36 @@ it('returns aggregate and daily analytics only to the owning developer', functio
         ->assertJsonPath('link_stats.0.unique_clicks', 1);
 });
 
+it('does not authorize analytics when the itch username is only a URL substring', function (string $url) {
+    $attacker = User::factory()->create();
+    connectItchioAccount($attacker, 'dev');
+    $game = trackedGame([
+        'url' => ['itch_io' => $url],
+    ]);
+
+    ClickStat::create([
+        'game_id' => $game->id,
+        'type' => ClickStat::TYPE_PAGE_VIEW,
+        'session_id' => 'victim-session',
+        'ip_address' => 'hash-victim',
+        'user_agent' => 'Victim Browser',
+        'clicked_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($attacker)
+        ->getJson(route('api.games.stats', $game))
+        ->assertForbidden()
+        ->assertJsonPath('success', false);
+
+    $this->actingAs($attacker)
+        ->getJson(route('api.games.analytics', $game))
+        ->assertForbidden()
+        ->assertJsonPath('success', false);
+})->with([
+    'substring host' => ['https://gamedev.itch.io/victim-game'],
+    'path substring' => ['https://example.test/redirect/dev.itch.io/victim-game'],
+]);
+
 it('aggregates multiple game stats and empty link stats', function () {
     $firstGame = trackedGame();
     $secondGame = trackedGame([

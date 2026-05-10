@@ -175,7 +175,7 @@ it('extracts and scopes custom CSS or clears it when processing returns empty', 
 <style id="custom_css">.custom { color: blue; }</style>
 HTML, $cssProcessor);
 
-    expect($game->custom_css)->toBe(".game_description {\n.theme { color: red; }\n}");
+    expect($game->custom_css)->toBe('.theme { color: red; }');
 
     $cssProcessor->shouldReceive('process')
         ->once()

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Games\GamesDisplayController;
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
@@ -14,6 +15,7 @@ use App\Models\VersionSupportedLanguage;
 use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\SimilarGamesService;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 function gameShowInertiaHeaders(): array
@@ -25,6 +27,28 @@ function gameShowInertiaHeaders(): array
         'X-Inertia-Version' => file_exists($manifest) ? hash_file('xxh128', $manifest) : '',
     ];
 }
+
+test('game social meta tags format numeric string word counts without crashing', function () {
+    $game = Game::factory()->create([
+        'name' => 'String Word Count Game',
+        'slug' => 'string-word-count-game',
+        'description' => 'A detail page with imported stats.',
+        'authors' => 'Stat Author',
+        'status' => 'released',
+        'is_visible' => true,
+    ]);
+
+    $controller = app(GamesDisplayController::class);
+    $method = new ReflectionMethod($controller, 'prepareSocialMetaTags');
+    $method->setAccessible(true);
+
+    $method->invoke($controller, $game, new LengthAwarePaginator([], 0, 5), [
+        'words' => '12345',
+    ]);
+
+    expect($controller->getMetaTags()['description'])
+        ->toContain('12,345 words');
+});
 
 test('game show exposes itch screenshots as effective screenshots in original view mode', function () {
     $game = Game::factory()->create([

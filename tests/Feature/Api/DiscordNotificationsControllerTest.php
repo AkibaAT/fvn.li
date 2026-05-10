@@ -150,6 +150,50 @@ it('stores SQL-looking batch keys as JSON data when claiming notifications', fun
         ->and($notification->meta_data['digest'])->toBeFalse();
 });
 
+it('does not let batch keys alter the pending notification update predicate', function () {
+    authenticateDiscordBot();
+    $subscriber = User::factory()->create();
+    SocialAccount::factory()->discord()->create([
+        'user_id' => $subscriber->id,
+        'provider_id' => 'discord-user-predicate',
+    ]);
+    $game = Game::factory()->create(['name' => 'Predicate Safe VN']);
+    $version = latestGameVersionFor($game);
+    $otherGame = Game::factory()->create(['name' => 'Other Predicate Safe VN']);
+    $otherVersion = latestGameVersionFor($otherGame);
+
+    NotificationQueue::create([
+        'user_id' => $subscriber->id,
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'channel' => 'discord',
+        'status' => 'pending',
+        'scheduled_at' => now()->subMinute(),
+        'payload' => ['title' => 'First queued'],
+        'meta_data' => ['digest' => false],
+    ]);
+    NotificationQueue::create([
+        'user_id' => $subscriber->id,
+        'game_id' => $otherGame->id,
+        'game_version_id' => $otherVersion->id,
+        'channel' => 'discord',
+        'status' => 'pending',
+        'scheduled_at' => now()->subMinute(),
+        'payload' => ['title' => 'Second queued'],
+        'meta_data' => ['digest' => false],
+    ]);
+
+    $batchKey = 'ok"\') WHERE 1=1 --';
+
+    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key='.urlencode($batchKey))
+        ->assertOk()
+        ->assertJsonPath('batch_key', $batchKey);
+
+    expect(NotificationQueue::where('status', 'processing')->count())->toBe(1)
+        ->and(NotificationQueue::where('status', 'pending')->count())->toBe(1)
+        ->and(NotificationQueue::where('status', 'processing')->first()->meta_data['batch_key'])->toBe($batchKey);
+});
+
 it('returns an empty notification batch when nothing is due', function () {
     authenticateDiscordBot();
 

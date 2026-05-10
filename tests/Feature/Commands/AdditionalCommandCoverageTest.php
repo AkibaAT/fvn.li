@@ -321,6 +321,35 @@ test('fetch game jam details processes pending jams through the itch retry clien
         ->and($jam->host)->toBe('Jam Host');
 });
 
+test('fetch game jam details rejects unsafe queued jam URLs before HTTP requests', function () {
+    $jam = GameJam::create([
+        'name' => 'Queued Internal Jam',
+        'url' => 'http://127.0.0.1:8765/jam/internal-admin',
+        'needs_details_fetch' => true,
+    ]);
+
+    $itchClient = Mockery::mock(ItchHttpClientService::class);
+    $itchClient->shouldReceive('setMaxRetries')->once()->with(3)->andReturnSelf();
+    $itchClient->shouldReceive('setBaseCooldown')->once()->with(0)->andReturnSelf();
+    $itchClient
+        ->shouldReceive('executeWithRetry')
+        ->once()
+        ->with(Mockery::type('callable'), 'Game jam details', Mockery::type('callable'), Mockery::type('callable'))
+        ->andReturnUsing(fn (callable $callback) => $callback());
+    $itchClient->shouldNotReceive('get');
+    app()->instance(ItchHttpClientService::class, $itchClient);
+
+    $this
+        ->artisan('game-jams:fetch-details --retry-cooldown=0')
+        ->expectsOutput('Found 1 game jam(s):')
+        ->expectsOutput("- {$jam->name} (ID: {$jam->id})")
+        ->expectsOutput('⚠ Failed to fetch details')
+        ->expectsOutputToContain('Processing complete: 0 succeeded, 1 failed')
+        ->assertExitCode(1);
+
+    expect($jam->refresh()->needs_details_fetch)->toBeTrue();
+});
+
 test('cleanup game downloads validates selection and cleans all or selected games', function () {
     $this
         ->artisan('games:cleanup-downloads --all')

@@ -95,7 +95,7 @@ it('renders the dialogue browser with selected game and version context', functi
     [$game, $version] = makeDialogueFixture();
 
     $response = $this->get(route('dialogue.browser', [
-        'gameId' => $game->id,
+        'game' => $game->slug,
         'versionId' => $version->id,
     ]));
 
@@ -105,7 +105,47 @@ it('renders the dialogue browser with selected game and version context', functi
     expect($page['component'])->toBe('dialogue/browser')
         ->and($page['props']['initial']['gameId'])->toBe($game->id)
         ->and($page['props']['initial']['gameName'])->toBe('Dialogue Test Game')
+        ->and($page['props']['initial']['gameSlug'])->toBe($game->slug)
         ->and($page['props']['initial']['versionId'])->toBe($version->id);
+});
+
+it('does not expose a hidden game slug through a numeric dialogue browser id', function () {
+    $hiddenGame = Game::factory()->create([
+        'name' => 'Unlisted Dialogue Game',
+        'slug' => 'unlisted-dialogue-game',
+        'is_visible' => false,
+    ]);
+    $version = GameVersion::factory()->create([
+        'game_id' => $hiddenGame->id,
+        'version' => '1.0',
+        'published_at' => now(),
+    ]);
+
+    $this->get("/dialogue/browser/{$hiddenGame->id}/{$version->id}")
+        ->assertNotFound();
+
+    $response = $this->get(route('dialogue.browser', [
+        'game' => $hiddenGame->slug,
+        'versionId' => $version->id,
+    ]));
+
+    $response->assertOk();
+    $page = $response->viewData('page');
+
+    expect($page['props']['initial']['gameId'])->toBe($hiddenGame->id)
+        ->and($page['props']['initial']['gameSlug'])->toBe($hiddenGame->slug);
+});
+
+it('does not open the dialogue browser with a version from another game', function () {
+    [$game] = makeDialogueFixture();
+    $otherVersion = GameVersion::factory()->create([
+        'game_id' => Game::factory()->create()->id,
+    ]);
+
+    $this->get(route('dialogue.browser', [
+        'game' => $game->slug,
+        'versionId' => $otherVersion->id,
+    ]))->assertNotFound();
 });
 
 it('returns dialogue summary data filtered by available language and character search', function () {
