@@ -156,10 +156,11 @@
             if (response.data.success) {
                 isEditing = false;
                 saveStatus = 'saved';
-                displayContent = editContent;
+                const savedContent = response.data.data?.content ?? editContent;
+                displayContent = savedContent;
 
                 if (onContentUpdate) {
-                    onContentUpdate(editContent);
+                    onContentUpdate(savedContent);
                 }
 
                 setTimeout(() => {

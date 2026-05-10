@@ -45,6 +45,33 @@ test('process handles CSSString values without errors', function () {
     expect($result)->toContain('font-family');
 });
 
+test('process escapes html delimiters emitted from css strings', function () {
+    $processor = new ItchCssProcessor;
+    $css = '.test::before { content: "</style><script>alert(1)</script>"; margin: 10px; }';
+
+    $result = $processor->process($css);
+
+    expect($result)->not->toBeNull();
+    expect(strtolower($result))->not->toContain('</style');
+    expect(strtolower($result))->not->toContain('<script');
+    expect($result)->toContain('\\3C /style\\3E ');
+    expect($result)->toContain('margin');
+});
+
+test('process keeps escaped css payloads escaped for style element output', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+.test::before { content: "\3C /style\3E \3C script\3E alert(1)\3C /script\3E"; margin: 10px; }
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)->not->toBeNull();
+    expect(strtolower($result))->not->toContain('</style');
+    expect(strtolower($result))->not->toContain('<script');
+    expect($result)->toContain('margin');
+});
+
 test('process handles quoted string values in various properties', function () {
     $processor = new ItchCssProcessor;
     $css = '
