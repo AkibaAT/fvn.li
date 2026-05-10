@@ -163,6 +163,7 @@ Route::get('lists/create', [VnListController::class, 'listCreate'])
 
 // Public VN Lists routes (no auth required) - place before dynamic {vnList} routes
 Route::get('lists/public', [VnListController::class, 'publicLists'])
+    ->middleware('throttle:30,1')
     ->name('lists.public');
 Route::get('users/{user}/lists', [VnListController::class, 'userPublicLists'])
     ->name('lists.user-public');
@@ -178,6 +179,7 @@ Route::get('lists/{vnList}', [VnListController::class, 'listShow'])
 
 // System Status
 Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
+    ->middleware(['auth', 'admin'])
     ->name('system.status');
 
 // Social Authentication Routes
@@ -205,9 +207,9 @@ Route::get('auth/{provider}/callback', [SocialAuthController::class, 'handleProv
     ->name('auth.callback');
 
 // Svelte/Inertia Dialogue Browser + JSON API
-// gameId is now required - dialogue browser is only accessible from game detail page
-Route::get('dialogue/browser/{gameId}', [DialogueController::class, 'dialogueBrowser'])
-    ->where(['gameId' => '[0-9]+'])
+// game slug is required so public dialogue browsing does not expose an ID-to-slug lookup.
+Route::get('dialogue/browser/{game:slug}/{versionId?}', [DialogueController::class, 'dialogueBrowser'])
+    ->where(['versionId' => '[0-9]+'])
     ->name('dialogue.browser');
 // JSON endpoints moved to routes/browser-api.php
 

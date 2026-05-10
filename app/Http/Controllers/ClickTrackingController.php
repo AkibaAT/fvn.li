@@ -244,10 +244,7 @@ class ClickTrackingController extends Controller
                 ], 401);
             }
 
-            // Check if user owns this game (based on itch.io username)
-            $itchioUsername = $user->getItchioUsername();
-            $itchioUrl = $game->getUrlForPlatform('itch_io');
-            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername.'.itch.io')) {
+            if (! $user->ownsGame($game)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view stats for this game',
@@ -294,10 +291,7 @@ class ClickTrackingController extends Controller
                 ], 401);
             }
 
-            // Check if user owns this game
-            $itchioUsername = $user->getItchioUsername();
-            $itchioUrl = $game->getUrlForPlatform('itch_io');
-            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername.'.itch.io')) {
+            if (! $user->ownsGame($game)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view analytics for this game',

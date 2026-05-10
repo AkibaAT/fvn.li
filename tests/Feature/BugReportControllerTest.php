@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\BugReport;
 use App\Models\BugReportComment;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 function bugReportFor(User $user, array $attributes = []): BugReport
 {
@@ -54,6 +55,55 @@ it('stores a bug report for the authenticated user', function () {
         ->and($report->request_parameters)->toBe(['tab' => 'my-games'])
         ->and($report->user_agent)->toBe('Feature Test Browser')
         ->and($report->status)->toBe(BugReport::STATUS_OPEN);
+});
+
+it('bounds stored bug report metadata and user agent', function () {
+    $user = User::factory()->create();
+    $longKey = str_repeat('k', 120);
+
+    $response = $this->actingAs($user)
+        ->withHeader('User-Agent', str_repeat('A', 2048))
+        ->postJson(route('browser-api.bug-reports.store'), [
+            'page_url' => 'https://fvn.li/games/example?'.str_repeat('q', 100),
+            'page_title' => 'Example',
+            'description' => 'The route map modal freezes after this action.',
+            'request_parameters' => [
+                $longKey => str_repeat('v', 700),
+                'nested' => ['secret' => str_repeat('x', 1000)],
+                'enabled' => true,
+                'page' => 12,
+                'empty' => null,
+            ],
+        ])
+        ->assertOk();
+
+    $report = BugReport::findOrFail($response->json('report_id'));
+    $truncatedKey = str_repeat('k', 80);
+
+    expect($report->user_agent)->toHaveLength(1024)
+        ->and($report->request_parameters)->toHaveKey($truncatedKey)
+        ->and($report->request_parameters[$truncatedKey])->toHaveLength(500)
+        ->and($report->request_parameters)->not->toHaveKey('nested')
+        ->and($report->request_parameters['enabled'])->toBe('true')
+        ->and($report->request_parameters['page'])->toBe('12')
+        ->and($report->request_parameters['empty'])->toBe('');
+});
+
+it('rejects excessive bug report metadata keys and throttles creation route', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson(route('browser-api.bug-reports.store'), [
+            'page_url' => 'https://fvn.li/dashboard',
+            'page_title' => 'Dashboard',
+            'description' => 'Submitting with too many metadata keys should fail.',
+            'request_parameters' => array_fill_keys(range(1, 26), 'value'),
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['request_parameters']);
+
+    expect(Route::getRoutes()->getByName('browser-api.bug-reports.store')->gatherMiddleware())
+        ->toContain('throttle:10,1');
 });
 
 it('validates bug report submission payloads', function () {
@@ -118,7 +168,9 @@ it('lists only the current user reports with unread admin reply counts', functio
 it('shows an owned report with comments and marks admin replies read', function () {
     $user = User::factory()->create(['name' => 'Reporter']);
     $admin = User::factory()->create(['name' => 'Admin']);
-    $report = bugReportFor($user);
+    $report = bugReportFor($user, [
+        'admin_notes' => 'Internal security triage note that must not leak.',
+    ]);
 
     $adminReply = BugReportComment::create([
         'bug_report_id' => $report->id,
@@ -137,7 +189,9 @@ it('shows an owned report with comments and marks admin replies read', function 
         ->assertJsonPath('comments.0.id', $adminReply->id)
         ->assertJsonPath('comments.0.message', 'Can you try again?')
         ->assertJsonPath('comments.0.is_from_admin', true)
-        ->assertJsonPath('comments.0.user.name', 'Admin');
+        ->assertJsonPath('comments.0.user.name', 'Admin')
+        ->assertJsonMissingPath('report.admin_notes')
+        ->assertJsonMissing(['admin_notes' => 'Internal security triage note that must not leak.']);
 
     expect($adminReply->fresh()->is_read)->toBeTrue();
 });

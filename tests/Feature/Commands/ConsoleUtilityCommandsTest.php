@@ -287,6 +287,7 @@ it('processes selected game thumbnails through the command wrapper', function ()
             'timeout' => 30,
             'connect_timeout' => 10,
             'allow_redirects' => false,
+            'stream' => true,
         ])
         ->andReturn(new Response(200, [], consoleUtilityPngPayload()));
     $this->app->instance(GuzzleClient::class, $client);
@@ -318,6 +319,42 @@ it('processes selected game thumbnails through the command wrapper', function ()
     expect($game->optimized_thumbnails)->toHaveKeys(['small', 'default'])
         ->and(Storage::disk('public')->exists($game->optimized_thumbnails['small']['path']))->toBeTrue()
         ->and(Storage::disk('public')->exists($game->optimized_thumbnails['default']['path']))->toBeTrue();
+});
+
+it('thumbnail command rejects oversized downloads before image processing', function () {
+    Storage::fake('public');
+
+    $game = Game::factory()->create([
+        'name' => 'Oversized Thumbnail Target',
+        'is_visible' => true,
+        'thumb_url' => 'https://img.itch.zone/huge.png',
+        'optimized_thumbnails' => null,
+    ]);
+
+    $client = Mockery::mock(GuzzleClient::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://img.itch.zone/huge.png', [
+            'timeout' => 30,
+            'connect_timeout' => 10,
+            'allow_redirects' => false,
+            'stream' => true,
+        ])
+        ->andReturn(new Response(200, ['Content-Length' => (string) (10 * 1024 * 1024 + 1)], ''));
+    $this->app->instance(GuzzleClient::class, $client);
+
+    $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('processImageVariant')->never();
+    $this->app->instance(ImageProcessingService::class, $imageService);
+
+    $this->artisan('games:process-thumbnails', [
+        '--game-id' => $game->id,
+        '--force' => true,
+    ])
+        ->expectsOutputToContain('Error processing thumbnail: Downloaded thumbnail is too large')
+        ->assertExitCode(0);
+
+    expect($game->refresh()->optimized_thumbnails)->toBeNull();
 });
 
 it('thumbnail command reports empty selections', function () {

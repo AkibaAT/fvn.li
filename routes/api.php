@@ -29,7 +29,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 // Legacy Discord bot routes
-Route::middleware('auth:sanctum')->prefix('discord')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('discord')->group(function () {
     Route::post('search', [DiscordBotController::class, 'searchGames']);
     Route::post('updates', [DiscordBotController::class, 'getUpdates']);
     Route::post('subscribe', [DiscordBotController::class, 'subscribe']);
@@ -37,7 +37,7 @@ Route::middleware('auth:sanctum')->prefix('discord')->group(function () {
 });
 
 // Bot API routes (for migration and ongoing integration)
-Route::middleware('auth:sanctum')->prefix('bot')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot')->group(function () {
     Route::post('find-by-url', [DiscordBotController::class, 'findByUrl']);
     Route::post('bulk-find-by-url', [DiscordBotController::class, 'bulkFindByUrl']);
     Route::get('games/{id}', [DiscordBotController::class, 'getGame']);
