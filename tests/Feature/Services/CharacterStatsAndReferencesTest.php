@@ -35,7 +35,7 @@ function statsLine(GameVersion $version, ?Character $character, string $text, st
 
 it('classifies version data levels and safety gates', function () {
     $version = GameVersion::factory()->create();
-    $service = new CharacterStatsCalculationService();
+    $service = new CharacterStatsCalculationService;
 
     expect($service->getVersionDataLevel($version->id))->toBe(CharacterStatsCalculationService::DATA_LEVEL_NONE)
         ->and($service->isVersionSafeToUpdate($version->id))->toBeFalse()
@@ -76,7 +76,7 @@ it('calculates saves filters and updates character stats from dialogue', functio
     $alice = Character::factory()->for($game)->create(['character_id' => 'alice']);
     $bob = Character::factory()->for($game)->create(['character_id' => 'bob']);
     $alt = Character::factory()->for($game)->create(['character_id' => 'alt']);
-    $service = new CharacterStatsCalculationService();
+    $service = new CharacterStatsCalculationService;
 
     statsLine($version, $alice, 'hello there', 'eng', 1);
     statsLine($version, $alice, '  extra   spaces  count ', 'eng', 2);
@@ -141,7 +141,7 @@ it('finds stats with issues by character type and zero counts', function () {
     VersionCharacterStats::factory()->for($version, 'gameVersion')->for($normal)->create(['blocks' => 2, 'words' => 2]);
     VersionCharacterStats::factory()->for($otherVersion, 'gameVersion')->for($other)->create(['blocks' => 2, 'words' => 2]);
 
-    $ids = (new CharacterStatsCalculationService())->getStatsWithIssues($game->id)->pluck('id')->all();
+    $ids = (new CharacterStatsCalculationService)->getStatsWithIssues($game->id)->pluck('id')->all();
 
     expect($ids)->toContain($issueA->id, $issueB->id)
         ->and($ids)->toHaveCount(2);

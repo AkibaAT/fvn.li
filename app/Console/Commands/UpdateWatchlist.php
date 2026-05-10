@@ -71,7 +71,7 @@ class UpdateWatchlist extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error updating watchlist: ' . $e->getMessage());
+            $this->error('Error updating watchlist: '.$e->getMessage());
             Log::error('Watchlist update failed', ['exception' => $e]);
 
             return 1;
@@ -170,7 +170,7 @@ class UpdateWatchlist extends Command
             // Parse custom tags (e.g. "tag:ai-assets tag:kinetic-novel")
             if (preg_match_all('/\btag:([\w-]+)/', $blurb, $tagMatches)) {
                 $blurbTags = $tagMatches[1];
-                $this->info('  - Tags from blurb: ' . implode(', ', $blurbTags));
+                $this->info('  - Tags from blurb: '.implode(', ', $blurbTags));
             }
         }
 
@@ -185,10 +185,10 @@ class UpdateWatchlist extends Command
             $discountPercent = $isOnSale ? (int) $gameData['sale']['rate'] : null;
             $saleInfo = '';
             if ($isOnSale) {
-                $saleInfo = ' (on sale: ' . $discountPercent . '% off)';
+                $saleInfo = ' (on sale: '.$discountPercent.'% off)';
             }
 
-            $this->info('  - Price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
+            $this->info('  - Price from collection: $'.number_format($priceInDollars, 2).$saleInfo);
         }
 
         DB::beginTransaction();
@@ -243,10 +243,10 @@ class UpdateWatchlist extends Command
 
                     $saleInfo = '';
                     if ($game->is_on_sale) {
-                        $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
+                        $saleInfo = ' (on sale: '.$game->sale_discount_percent.'% off)';
                     }
 
-                    $this->info('  - Updated price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
+                    $this->info('  - Updated price from collection: $'.number_format($priceInDollars, 2).$saleInfo);
                 }
             } else {
                 // Create new game - START AS INVISIBLE until all data is loaded
@@ -280,10 +280,10 @@ class UpdateWatchlist extends Command
 
                     $saleInfo = '';
                     if ($game->is_on_sale) {
-                        $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
+                        $saleInfo = ' (on sale: '.$game->sale_discount_percent.'% off)';
                     }
 
-                    $this->info('  - Set price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
+                    $this->info('  - Set price from collection: $'.number_format($priceInDollars, 2).$saleInfo);
                 }
 
                 $shouldRefreshVersion = true;
@@ -420,7 +420,7 @@ class UpdateWatchlist extends Command
 
         } catch (Exception $e) {
             DB::rollBack();
-            $this->error("Failed to process game {$gameId}: " . $e->getMessage());
+            $this->error("Failed to process game {$gameId}: ".$e->getMessage());
             Log::error('Failed to process game in watchlist', [
                 'game_id' => $gameId,
                 'error' => $e->getMessage(),

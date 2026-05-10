@@ -104,7 +104,7 @@ it('renders the game index with meilisearch filters, defaults, ignored games, an
         'receive_updates' => true,
     ]);
 
-    $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($includedGame, $ignoredGame, $tag, $excludedTag, $jam) {
+    $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($includedGame, $ignoredGame) {
         $mock->shouldReceive('searchGames')
             ->once()
             ->with(

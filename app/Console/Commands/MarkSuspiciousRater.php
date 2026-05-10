@@ -35,6 +35,6 @@ class MarkSuspiciousRater extends Command
                 'marked_suspicious_at' => $unmark ? null : now(),
             ]);
 
-        $this->info("Rater {$raterId} " . ($unmark ? 'unmarked' : 'marked') . ' as suspicious');
+        $this->info("Rater {$raterId} ".($unmark ? 'unmarked' : 'marked').' as suspicious');
     }
 }

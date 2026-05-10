@@ -48,7 +48,7 @@ class ProcessAuditLog implements ShouldQueue
             ChangeLog::create($this->auditData);
         } catch (Throwable $e) {
             // Log the actual error BEFORE attempting fallback
-            Log::warning('Audit log creation failed on attempt ' . $this->attempts(), [
+            Log::warning('Audit log creation failed on attempt '.$this->attempts(), [
                 'audit_data' => $this->auditData,
                 'error' => $e->getMessage(),
                 'error_code' => $e->getCode(),

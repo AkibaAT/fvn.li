@@ -311,7 +311,7 @@ describe('GameObserver edge cases', function () {
         for ($i = 0; $i < 5; $i++) {
             $games[] = Game::factory()->create([
                 'platform' => 'itch_io',
-                'url' => ['itch_io' => 'https://dev' . $i . '.itch.io/same-game'],
+                'url' => ['itch_io' => 'https://dev'.$i.'.itch.io/same-game'],
             ]);
         }
 

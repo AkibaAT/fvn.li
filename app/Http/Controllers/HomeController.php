@@ -43,7 +43,7 @@ class HomeController extends Controller
         // Use versioning for cache invalidation instead of time-based expiry
         // This ensures cache stays fresh indefinitely until games actually change
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
+        $cacheKey = "home.teasers.v{$teaserVersion}.".md5(implode(',', $ignoredGameIds));
 
         $teasers = Cache::rememberForever($cacheKey, function () use ($ignoredGameIds) {
             return [

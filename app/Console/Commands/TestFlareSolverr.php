@@ -24,7 +24,7 @@ class TestFlareSolverr extends Command
 
         // Check if FlareSolverr is enabled
         $enabled = config('services.flaresolverr.enabled', false);
-        $this->info('FlareSolverr Enabled: ' . ($enabled ? 'Yes' : 'No'));
+        $this->info('FlareSolverr Enabled: '.($enabled ? 'Yes' : 'No'));
 
         if (! $enabled) {
             $this->warn('FlareSolverr is disabled in configuration');
@@ -59,16 +59,16 @@ class TestFlareSolverr extends Command
 
             if ($result['status'] === 200) {
                 $this->info('✓ Successfully fetched itch.io homepage');
-                $this->info('  Status: ' . $result['status']);
-                $this->info('  User Agent: ' . $result['userAgent']);
-                $this->info('  Cookies: ' . count($result['cookies']));
+                $this->info('  Status: '.$result['status']);
+                $this->info('  User Agent: '.$result['userAgent']);
+                $this->info('  Cookies: '.count($result['cookies']));
             } else {
-                $this->error('✗ Unexpected status code: ' . $result['status']);
+                $this->error('✗ Unexpected status code: '.$result['status']);
 
                 return 1;
             }
         } catch (Exception $e) {
-            $this->error('✗ Request failed: ' . $e->getMessage());
+            $this->error('✗ Request failed: '.$e->getMessage());
 
             return 1;
         }
@@ -87,12 +87,12 @@ class TestFlareSolverr extends Command
                 if ($response->getStatusCode() === 200) {
                     $this->info('✓ Successfully accessed dashboard');
                 } else {
-                    $this->error('✗ Failed to access dashboard: ' . $response->getStatusCode());
+                    $this->error('✗ Failed to access dashboard: '.$response->getStatusCode());
 
                     return 1;
                 }
             } catch (Exception $e) {
-                $this->error('✗ Authentication failed: ' . $e->getMessage());
+                $this->error('✗ Authentication failed: '.$e->getMessage());
 
                 return 1;
             }

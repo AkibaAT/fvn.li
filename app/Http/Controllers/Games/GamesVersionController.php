@@ -155,7 +155,7 @@ class GamesVersionController extends Controller
             ];
         })->filter()->sortBy(function ($language) {
             // English first, then sort alphabetically by ISO code
-            return $language['id'] === 'eng' ? '0' : '1' . $language['id'];
+            return $language['id'] === 'eng' ? '0' : '1'.$language['id'];
         })->values()->toArray();
 
         // Build word counts matrix: character -> language -> word count
