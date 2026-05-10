@@ -273,12 +273,12 @@ class ReviewReportResource extends Resource
                                 if ($user) {
                                     $reviews = Rating::where('user_id', $user->id)
                                         ->with('game:id,name,slug')
-                                        ->orderByDesc('created_at')
+                                        ->orderBy('created_at', 'desc')
                                         ->get();
                                 } elseif ($rater) {
                                     $reviews = Rating::where('rater_id', $rater->id)
                                         ->with('game:id,name,slug')
-                                        ->orderByDesc('created_at')
+                                        ->orderBy('created_at', 'desc')
                                         ->get();
                                 } else {
                                     return new HtmlString('<em>No author found for this review.</em>');

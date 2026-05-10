@@ -61,7 +61,7 @@ class LanguageMappingService
 
         // Generate a new placeholder code in the qaa-qtz range
         $highestPlaceholder = LanguageMapping::where('iso_code', 'like', 'q%')
-            ->orderByDesc('iso_code')
+            ->orderBy('iso_code', 'desc')
             ->value('iso_code');
 
         $newCode = $highestPlaceholder
@@ -92,9 +92,9 @@ class LanguageMappingService
                 throw new RuntimeException('No more placeholder codes available');
             }
 
-            return 'q' . chr(ord($middleChar) + 1) . 'a';
+            return 'q'.chr(ord($middleChar) + 1).'a';
         }
 
-        return substr($current, 0, -1) . chr(ord($lastChar) + 1);
+        return substr($current, 0, -1).chr(ord($lastChar) + 1);
     }
 }

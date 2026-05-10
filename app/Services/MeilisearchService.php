@@ -8,7 +8,6 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
-use App\Models\UniqueDialogueText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -186,7 +185,7 @@ class MeilisearchService
         $searchTerm = trim($query);
 
         if ($searchTerm !== '' && $searchTerm !== '*') {
-            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm) . '%';
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm).'%';
             $games->where(function (Builder $builder) use ($like) {
                 $builder
                     ->where('name', 'ilike', $like)
@@ -266,7 +265,7 @@ class MeilisearchService
                 GameVersion::query()
                     ->select('published_at')
                     ->whereColumn('game_versions.game_id', 'games.id')
-                    ->orderByDesc('published_at')
+                    ->orderBy('published_at', 'desc')
                     ->limit(1),
                 $direction
             ),
@@ -285,33 +284,7 @@ class MeilisearchService
         int $perPage = 20,
         int $page = 1
     ): LengthAwarePaginator {
-        $search = UniqueDialogueText::search(trim($query));
-
-        if (! empty($filters['language'])) {
-            $search->where('languages', $filters['language']);
-        }
-
-        if (! empty($filters['game_id'])) {
-            $search->where('game_ids', (int) $filters['game_id']);
-        }
-
-        if (! empty($filters['game_names'])) {
-            foreach ((array) $filters['game_names'] as $gameName) {
-                $search->where('game_names', $gameName);
-            }
-        }
-
-        if (! empty($filters['version_id'])) {
-            $search->where('version_ids', (int) $filters['version_id']);
-        }
-
-        if (! empty($filters['character_names'])) {
-            foreach ((array) $filters['character_names'] as $characterName) {
-                $search->where('character_names', $characterName);
-            }
-        }
-
-        return $search->paginate($perPage, 'page', $page);
+        return app(DialogueSearchService::class)->search($query, $filters, $perPage, $page);
     }
 
     /**

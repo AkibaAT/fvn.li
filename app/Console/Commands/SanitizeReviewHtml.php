@@ -9,7 +9,6 @@ use App\Services\HtmlSanitizerService;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 class SanitizeReviewHtml extends Command
 {
@@ -70,10 +69,22 @@ class SanitizeReviewHtml extends Command
             'errors' => 0,
         ];
 
-        $query->chunkById($batchSize, function (Collection $ratings) use ($sanitizer, $apply, &$stats) {
+        $lastId = 0;
+        do {
+            $ratings = (clone $query)
+                ->where('id', '>', $lastId)
+                ->orderBy('id', 'asc')
+                ->limit($batchSize)
+                ->get();
+
+            if ($ratings->isEmpty()) {
+                break;
+            }
+
             foreach ($ratings as $rating) {
                 try {
                     $stats['scanned']++;
+                    $lastId = (int) $rating->id;
 
                     $original = (string) $rating->review;
                     $sanitized = $sanitizer->sanitizeReview($original) ?? '';
@@ -107,7 +118,7 @@ class SanitizeReviewHtml extends Command
                     $this->error("Failed to process rating {$rating->id}: {$e->getMessage()}");
                 }
             }
-        });
+        } while ($ratings->count() === $batchSize);
 
         $this->table(
             ['Scanned', 'Changed', 'Unchanged', 'Emptied', 'Errors'],

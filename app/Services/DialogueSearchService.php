@@ -191,7 +191,7 @@ class DialogueSearchService
             ->whereRaw('LENGTH(unique_dialogue_texts.text_content) >= ?', [$minLength])
             ->groupBy('unique_dialogue_texts.id', 'unique_dialogue_texts.text_content')
             ->having(DB::raw('COUNT(version_dialogue_lines.id)'), '>=', $minCount)
-            ->orderByDesc('usage_count');
+            ->orderBy('usage_count', 'desc');
 
         // Apply filters
         if (! empty($filters['game_id'])) {
@@ -291,7 +291,7 @@ class DialogueSearchService
                     DB::raw('COUNT(*) as line_count'),
                 ])
                 ->groupBy('iso_code')
-                ->orderByDesc('line_count')
+                ->orderBy('line_count', 'desc')
                 ->get();
 
             return [
@@ -370,7 +370,7 @@ class DialogueSearchService
             ])
             ->groupBy('g.id', 'g.name')
             ->having(DB::raw('COUNT(vdl.id)'), '>', 100) // Only consider games with significant dialogue
-            ->orderByDesc('duplication_ratio')
+            ->orderBy('duplication_ratio', 'desc')
             ->limit($limit)
             ->get();
     }

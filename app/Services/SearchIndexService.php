@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameDialogueText;
+use App\Models\Rating;
 use App\Models\Tag;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class SearchIndexService
         $stats = [
             'games' => 0,
             'dialogue_texts' => 0,
+            'reviews' => 0,
             'tags' => 0,
             'errors' => [],
         ];
@@ -27,6 +29,7 @@ class SearchIndexService
             // Reindex games
             Game::where('is_visible', true)
                 ->with(['tags', 'gameJams', 'gameVersions'])
+                ->orderBy('id')
                 ->chunk(100, function ($games) use (&$stats, $progressCallback) {
                     $games->searchable();
                     $stats['games'] += $games->count();
@@ -46,14 +49,29 @@ class SearchIndexService
 
             $stats['dialogue_texts'] += $this->reindexDialogueForGameIds($gameIds, $progressCallback, $stats['errors']);
 
+            // Reindex reviews
+            Rating::where('is_visible', true)
+                ->where('is_reviewed', true)
+                ->whereRaw("trim(review) != ''")
+                ->orderBy('id')
+                ->chunk(100, function ($reviews) use (&$stats, $progressCallback) {
+                    $reviews->searchable();
+                    $stats['reviews'] += $reviews->count();
+                    if ($progressCallback) {
+                        $progressCallback($reviews->count());
+                    }
+                });
+
             // Reindex tags
-            Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats, $progressCallback) {
-                $tags->searchable();
-                $stats['tags'] += $tags->count();
-                if ($progressCallback) {
-                    $progressCallback($tags->count());
-                }
-            });
+            Tag::whereRaw("trim(name) != ''")
+                ->orderBy('id')
+                ->chunk(100, function ($tags) use (&$stats, $progressCallback) {
+                    $tags->searchable();
+                    $stats['tags'] += $tags->count();
+                    if ($progressCallback) {
+                        $progressCallback($tags->count());
+                    }
+                });
 
             Log::info('Full search reindex completed', $stats);
         } catch (Exception $e) {
@@ -77,6 +95,7 @@ class SearchIndexService
         try {
             Game::where('is_visible', true)
                 ->with(['tags', 'gameJams', 'gameVersions'])
+                ->orderBy('id')
                 ->chunk(100, function ($games) use (&$stats, $progressCallback) {
                     $games->searchable();
                     $stats['count'] += $games->count();
@@ -128,6 +147,38 @@ class SearchIndexService
     }
 
     /**
+     * Reindex only reviews.
+     */
+    public function reindexReviews(?callable $progressCallback = null): array
+    {
+        $stats = ['count' => 0, 'errors' => []];
+
+        try {
+            Rating::where('is_visible', true)
+                ->where('is_reviewed', true)
+                ->whereRaw("trim(review) != ''")
+                ->orderBy('id')
+                ->chunk(100, function ($reviews) use (&$stats, $progressCallback) {
+                    $reviews->searchable();
+                    $stats['count'] += $reviews->count();
+                    if ($progressCallback) {
+                        $progressCallback($reviews->count());
+                    }
+                });
+
+            Log::info('Reviews reindexed', $stats);
+        } catch (Exception $e) {
+            $stats['errors'][] = $e->getMessage();
+            Log::error('Reviews reindex failed', [
+                'error' => $e->getMessage(),
+                'stats' => $stats,
+            ]);
+        }
+
+        return $stats;
+    }
+
+    /**
      * Reindex only tags.
      */
     public function reindexTags(?callable $progressCallback = null): array
@@ -135,13 +186,15 @@ class SearchIndexService
         $stats = ['count' => 0, 'errors' => []];
 
         try {
-            Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats, $progressCallback) {
-                $tags->searchable();
-                $stats['count'] += $tags->count();
-                if ($progressCallback) {
-                    $progressCallback($tags->count());
-                }
-            });
+            Tag::whereRaw("trim(name) != ''")
+                ->orderBy('id')
+                ->chunk(100, function ($tags) use (&$stats, $progressCallback) {
+                    $tags->searchable();
+                    $stats['count'] += $tags->count();
+                    if ($progressCallback) {
+                        $progressCallback($tags->count());
+                    }
+                });
 
             Log::info('Tags reindexed', $stats);
         } catch (Exception $e) {
@@ -195,7 +248,7 @@ class SearchIndexService
             $client = app(Client::class);
 
             $stats = [];
-            $indexes = ['games', 'game_dialogue_texts', 'tags'];
+            $indexes = ['games', 'game_dialogue_texts', 'reviews', 'tags'];
 
             foreach ($indexes as $indexName) {
                 try {
