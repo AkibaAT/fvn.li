@@ -87,7 +87,7 @@ it('aggregates dialogue texts per game for search indexing', function () {
 });
 
 it('exposes dialogue search payloads and searchability metadata', function () {
-    $model = new GameDialogueText();
+    $model = new GameDialogueText;
     $model->id = 123;
     $model->text_id = 1;
     $model->game_id = 2;

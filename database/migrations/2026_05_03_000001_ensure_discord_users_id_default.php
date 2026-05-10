@@ -28,7 +28,7 @@ END
 $$;
 SQL);
 
-        DB::statement("ALTER SEQUENCE discord_users_id_seq OWNED BY discord_users.id");
+        DB::statement('ALTER SEQUENCE discord_users_id_seq OWNED BY discord_users.id');
         DB::statement("ALTER TABLE discord_users ALTER COLUMN id SET DEFAULT nextval('discord_users_id_seq')");
         DB::statement("SELECT setval('discord_users_id_seq', COALESCE((SELECT MAX(id) FROM discord_users), 0) + 1, false)");
     }

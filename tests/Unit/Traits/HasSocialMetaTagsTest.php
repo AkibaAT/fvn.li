@@ -107,7 +107,7 @@ function socialMetaPaginator(Collection $games, int $total): LengthAwarePaginato
 
 it('stores explicit social meta tags and returns configured fallback image', function () {
     config(['social.images.default' => 'images/social-default.png']);
-    $harness = new SocialMetaTagsHarness();
+    $harness = new SocialMetaTagsHarness;
 
     $harness->setMetaTags(['title' => 'First', 'description' => 'Description']);
     $harness->setMetaTags(['title' => 'Second']);
@@ -120,7 +120,7 @@ it('stores explicit social meta tags and returns configured fallback image', fun
 });
 
 it('builds filtered game list meta titles and descriptions', function () {
-    $harness = new SocialMetaTagsHarness();
+    $harness = new SocialMetaTagsHarness;
     $harness->games = socialMetaPaginator(collect([
         new Game(['name' => 'First VN']),
         new Game(['name' => 'Second VN']),
@@ -143,8 +143,8 @@ it('builds filtered game list meta titles and descriptions', function () {
 
 it('builds simple fallback title and description variants', function () {
     config(['app.description' => 'Configured app description']);
-    $fallbackHarness = new NoGamesMetaTagsHarness();
-    $harness = new SocialMetaTagsHarness();
+    $fallbackHarness = new NoGamesMetaTagsHarness;
+    $harness = new SocialMetaTagsHarness;
 
     expect($fallbackHarness->description())->toBe('Configured app description')
         ->and($harness->activeFilters())->toBeFalse();
@@ -158,7 +158,7 @@ it('builds simple fallback title and description variants', function () {
 });
 
 it('builds table heading meta titles with singular pluralization', function () {
-    $harness = new HeadingMetaTagsHarness();
+    $harness = new HeadingMetaTagsHarness;
 
     expect($harness->title())->toBe('1 game');
 });

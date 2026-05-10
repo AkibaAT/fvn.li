@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\SocialAccount>
+ * @extends Factory<SocialAccount>
  */
 class SocialAccountFactory extends Factory
 {
@@ -93,7 +94,7 @@ class SocialAccountFactory extends Factory
             ],
             'itchio' => [
                 'username' => fake()->userName(),
-                'url' => 'https://' . fake()->userName() . '.itch.io',
+                'url' => 'https://'.fake()->userName().'.itch.io',
                 'display_name' => fake()->name(),
             ],
             default => [],

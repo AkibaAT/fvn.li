@@ -1,8 +1,10 @@
 <?php
 
 declare(strict_types=1);
+use App\Providers\Filament\AdminPanelProvider;
+use SocialiteProviders\Manager\ServiceProvider;
 
 return [
-    App\Providers\Filament\AdminPanelProvider::class,
-    SocialiteProviders\Manager\ServiceProvider::class,
+    AdminPanelProvider::class,
+    ServiceProvider::class,
 ];

@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Character;
+use App\Models\DialogueLine;
 use App\Models\GameVersion;
 use App\Models\UniqueDialogueText;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\DialogueLine>
+ * @extends Factory<DialogueLine>
  */
 class DialogueLineFactory extends Factory
 {

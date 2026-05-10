@@ -41,7 +41,7 @@ trait SortsVnLists
                 }
 
                 // Custom lists come after standard types, ordered alphabetically
-                return '1000-' . $list->name;
+                return '1000-'.$list->name;
             })->values();
 
             // Reindex keys to avoid sparse keys breaking JSON serialization/UI
