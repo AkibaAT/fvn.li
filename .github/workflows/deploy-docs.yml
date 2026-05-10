@@ -77,7 +77,7 @@ jobs:
           path: artifacts
 
       - name: Test documentation
-        uses: JetBrains/writerside-checker-action@752492e4c8310baf6a95b3398be9e92d779614b9 # v1
+        uses: JetBrains/writerside-checker-action@79ff89902dcd3d5c5a3f26a79bc35830377f38c5 # v1
         with:
           instance: 'Writerside/in'
 
