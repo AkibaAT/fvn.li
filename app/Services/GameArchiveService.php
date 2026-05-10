@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use Dom\HTMLDocument;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
@@ -700,11 +701,26 @@ readonly class GameArchiveService
 
     private function extractDownloadUrlEndpoint(string $html): ?string
     {
-        if (! preg_match('/"generate_download_url"\s*:\s*"([^"]+)"/', $html, $matches)) {
+        try {
+            $document = HTMLDocument::createFromString($html, LIBXML_NOERROR | LIBXML_COMPACT);
+        } catch (Throwable) {
             return null;
         }
 
-        return str_replace('\\/', '/', stripcslashes($matches[1]));
+        foreach ($document->getElementsByTagName('script') as $script) {
+            $scriptText = $script->textContent;
+            if (! str_contains($scriptText, '"generate_download_url"')) {
+                continue;
+            }
+
+            if (preg_match('/(?:^|[,{])\s*"generate_download_url"\s*:\s*("(?:(?:\\\\.)|[^"\\\\])*")/s', $scriptText, $matches)) {
+                $endpoint = json_decode($matches[1]);
+
+                return is_string($endpoint) && $endpoint !== '' ? $endpoint : null;
+            }
+        }
+
+        return null;
     }
 
     private function validateItchControlUrl(string $url, string $gameUrl, string $description): string

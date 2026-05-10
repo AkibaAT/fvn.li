@@ -18,6 +18,13 @@ class VersionLanguageStats extends Model
         'options',
     ];
 
+    protected $casts = [
+        'blocks' => 'integer',
+        'words' => 'integer',
+        'menus' => 'integer',
+        'options' => 'integer',
+    ];
+
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);

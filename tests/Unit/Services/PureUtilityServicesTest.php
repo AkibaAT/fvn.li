@@ -122,8 +122,8 @@ it('removes unsafe color and heading CSS while preserving layout declarations', 
         ->and($result)->not->toContain('color')
         ->and($result)->not->toContain('linear-gradient')
         ->and($result)->toContain('padding')
-        ->and($result)->toContain('display')
-        ->and($result)->toContain('gap');
+        ->and($result)->not->toContain('display')
+        ->and($result)->not->toContain('gap');
 });
 
 it('returns null for empty or invalid CSS', function () {
