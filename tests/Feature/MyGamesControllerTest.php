@@ -237,13 +237,31 @@ test('rejects unsafe additional link urls and impossible release dates', functio
             'links' => [
                 [
                     'name' => 'Localhost',
-                    'url' => 'http://localhost/build.zip',
+                    'url' => 'javascript://example.com/%0Aalert(1)',
                     'release_at' => now()->addYears(11)->format('Y-m-d\TH:i'),
                 ],
             ],
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['links.0.url', 'links.0.release_at']);
+});
+
+test('rejects localhost additional link urls', function () {
+    $user = User::factory()->create(['is_admin' => true]);
+    $game = Game::factory()->create();
+
+    $this
+        ->actingAs($user)
+        ->putJson(route('browser-api.my-games.update', $game), [
+            'links' => [
+                [
+                    'name' => 'Localhost',
+                    'url' => 'http://localhost/build.zip',
+                ],
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['links.0.url']);
 });
 
 test('blocks link updates for users without edit rights', function () {
