@@ -39,13 +39,14 @@ class HomeController extends Controller
         $teaserVersion = HomePageCacheService::getTeaserVersion();
         $cacheKey = "home.teasers.v{$teaserVersion}.".md5(implode(',', $ignoredGameIds));
 
-        $teasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
+        $sharedTeasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
             return [
                 'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),
                 'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', 4, $ignoredGameIds),
                 'mostPopular' => $this->getGameTeasers('trending_score', 'desc', 4, $ignoredGameIds),
             ];
         });
+        $teasers = $this->withCurrentUserTeaserData($sharedTeasers);
 
         $metaTags = [
             'title' => 'Furry Visual Novel Database',
@@ -166,38 +167,52 @@ class HomeController extends Controller
             }
         }
 
-        // Load user-specific data if authenticated
-        if (Auth::check() && $games->isNotEmpty()) {
-            $gameIds = $games->pluck('id')->toArray();
+        return $games->all();
+    }
 
-            if (! empty($gameIds)) {
-                // Load user progress
-                $userProgress = DB::table('user_game_progress')
-                    ->where('user_id', Auth::id())
-                    ->whereIn('game_id', $gameIds)
-                    ->select('game_id', 'receive_updates')
-                    ->get()
-                    ->keyBy('game_id');
+    private function withCurrentUserTeaserData(array $teasers): array
+    {
+        $gameIds = collect($teasers)
+            ->flatten(1)
+            ->pluck('id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
-                // Load list memberships
-                $userListMemberships = DB::table('vn_list_entries')
-                    ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
-                    ->where('vn_lists.user_id', Auth::id())
-                    ->whereIn('vn_list_entries.game_id', $gameIds)
-                    ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
-                    ->get()
-                    ->groupBy('game_id');
+        $userProgress = collect();
+        $userListMemberships = collect();
 
-                // Attach user data to each game object
-                foreach ($games as $game) {
-                    // Wrap user_progress in array to match Eloquent relationship format
+        if (Auth::check() && ! empty($gameIds)) {
+            $userProgress = DB::table('user_game_progress')
+                ->where('user_id', Auth::id())
+                ->whereIn('game_id', $gameIds)
+                ->select('game_id', 'receive_updates')
+                ->get()
+                ->keyBy('game_id');
+
+            $userListMemberships = DB::table('vn_list_entries')
+                ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
+                ->where('vn_lists.user_id', Auth::id())
+                ->whereIn('vn_list_entries.game_id', $gameIds)
+                ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
+                ->get()
+                ->groupBy('game_id');
+        }
+
+        foreach ($teasers as $section => $games) {
+            $teasers[$section] = collect($games)
+                ->map(function ($game) use ($userProgress, $userListMemberships) {
+                    $game = clone $game;
                     $progress = $userProgress->get($game->id);
                     $game->user_progress = $progress ? [$progress] : [];
                     $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
-                }
-            }
+
+                    return $game;
+                })
+                ->all();
         }
 
-        return $games->all();
+        return $teasers;
     }
 }

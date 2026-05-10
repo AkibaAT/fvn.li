@@ -1256,7 +1256,7 @@
             <div class="mb-4 flex gap-3">
                 {#if canBrowseLatestDialogue}
                     <a
-                        href={route('dialogue.browser', { gameId: game.id })}
+                        href={route('dialogue.browser', { game: game.slug, versionId: game.latest_version.id })}
                         class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
                     >
                         <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

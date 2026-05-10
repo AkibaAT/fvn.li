@@ -31,6 +31,8 @@ use ZipArchive;
  */
 readonly class GameStatsService
 {
+    private const MAX_DIALOGUE_TEXT_BYTES = 65536;
+
     private LanguageMappingService $languageMappingService;
 
     private CharacterStatsCalculationService $characterStatsService;
@@ -735,6 +737,8 @@ readonly class GameStatsService
      */
     protected function processText(string $text): string
     {
+        $text = $this->truncateUtf8Bytes($text, self::MAX_DIALOGUE_TEXT_BYTES);
+
         if ($this->isZalgo($text)) {
             // Zalgo text: remove all diacritical marks.
             return $this->stripDiacritics($text);
@@ -753,13 +757,28 @@ readonly class GameStatsService
      */
     protected function isZalgo(string $text, float $threshold = 0.9): bool
     {
+        $text = $this->truncateUtf8Bytes($text, self::MAX_DIALOGUE_TEXT_BYTES);
+
         // Normalize to decomposed form so that diacritical marks are separate characters
         $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-        // Total number of characters in decomposed string
-        $totalLength = mb_strlen($decomposed, 'UTF-8');
-        // Count all combining diacritical marks (Unicode category Mn)
-        preg_match_all('/\p{Mn}/u', $decomposed, $matches);
-        $diacriticCount = count($matches[0]);
+        if (! is_string($decomposed) || $decomposed === '') {
+            return false;
+        }
+
+        $totalLength = 0;
+        $diacriticCount = 0;
+        $offset = 0;
+        $byteLength = strlen($decomposed);
+
+        while ($offset < $byteLength && preg_match('/\p{Mn}|./us', $decomposed, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
+            $character = $match[0][0];
+            $offset = $match[0][1] + strlen($character);
+            $totalLength++;
+
+            if (preg_match('/^\p{Mn}$/u', $character) === 1) {
+                $diacriticCount++;
+            }
+        }
 
         // Avoid division by zero, and check if ratio exceeds threshold
         return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
@@ -773,11 +792,28 @@ readonly class GameStatsService
      */
     protected function stripDiacritics(string $text): string
     {
+        $text = $this->truncateUtf8Bytes($text, self::MAX_DIALOGUE_TEXT_BYTES);
+
         // Normalize to decomposed form (so diacritics are separate)
         $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
 
         // Remove all combining diacritical marks
         return preg_replace('/\p{Mn}/u', '', $decomposed);
+    }
+
+    private function truncateUtf8Bytes(string $text, int $maxBytes): string
+    {
+        if (strlen($text) <= $maxBytes) {
+            return $text;
+        }
+
+        $truncated = substr($text, 0, $maxBytes);
+
+        while ($truncated !== '' && ! mb_check_encoding($truncated, 'UTF-8')) {
+            $truncated = substr($truncated, 0, -1);
+        }
+
+        return $truncated;
     }
 
     /**

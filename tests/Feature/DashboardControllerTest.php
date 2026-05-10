@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Support\SystemAuditUser;
 use Illuminate\Support\Facades\DB;
 
 it('renders the dashboard with connected account, owned games, ignored games, and notification state', function () {
@@ -424,7 +425,7 @@ it('deletes the authenticated account and anonymizes retained data', function ()
         ->assertOk()
         ->assertJsonPath('success', true);
 
-    expect($reviewerRequest->refresh()->reviewed_by)->toBe(1)
+    expect($reviewerRequest->refresh()->reviewed_by)->toBe(SystemAuditUser::id())
         ->and($game->refresh()->has_custom_page)->toBeFalse()
         ->and($game->custom_name)->toBeNull()
         ->and($game->custom_description)->toBeNull()

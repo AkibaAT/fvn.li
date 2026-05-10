@@ -15,7 +15,7 @@ uses(RefreshDatabase::class);
 function actAsDiscordBotApiUser(): User
 {
     $user = User::factory()->create();
-    Sanctum::actingAs($user);
+    Sanctum::actingAs($user, ['discord-bot']);
 
     return $user;
 }
@@ -41,6 +41,19 @@ function createDiscordBotGame(array $attributes = [], array $versionAttributes =
 it('requires authentication for Discord bot routes', function () {
     $this->postJson('/api/discord/search', ['name' => 'match'])
         ->assertUnauthorized();
+});
+
+it('requires a Discord bot token ability for Discord bot routes', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/discord/search', ['name' => 'match'])
+        ->assertUnauthorized();
+
+    Sanctum::actingAs($user, ['profile']);
+
+    $this->postJson('/api/discord/search', ['name' => 'match'])
+        ->assertForbidden();
 });
 
 it('searches visible itch games for the Discord bot', function () {
@@ -93,15 +106,26 @@ it('subscribes, detects existing subscriptions, polls updates, and unsubscribes 
         'published_at' => now()->subMinutes(10),
     ]);
 
-    $this->postJson('/api/discord/updates')
+    $originalDueProcessedAt = DiscordUser::where('discord_id', 'needs-update')->first()->processed_at;
+    $originalFreshProcessedAt = DiscordUser::where('discord_id', 'fresh-user')->first()->processed_at;
+
+    $this->postJson('/api/discord/updates', [
+        'discord_id' => 'needs-update',
+        'after' => now()->subMinutes(30)->toIso8601String(),
+    ])
         ->assertOk()
-        ->assertJsonPath('discord_users.0', 'needs-update')
+        ->assertJsonMissingPath('discord_users')
         ->assertJsonPath('updates.0.name', 'Updated Game')
         ->assertJsonPath('updates.0.version', '2.0')
         ->assertJsonPath('updates.0.url.itch_io', 'https://developer.itch.io/discord-bot-match')
         ->assertJsonPath('updates.0.devlog', 'https://developer.itch.io/discord-bot-match/devlog/2');
 
-    expect(DiscordUser::where('discord_id', 'needs-update')->first()->processed_at->greaterThan(now()->subMinute()))->toBeTrue();
+    expect(DiscordUser::where('discord_id', 'needs-update')->first()->processed_at->equalTo($originalDueProcessedAt))->toBeTrue()
+        ->and(DiscordUser::where('discord_id', 'fresh-user')->first()->processed_at->equalTo($originalFreshProcessedAt))->toBeTrue();
+
+    $this->postJson('/api/discord/updates')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['discord_id', 'after'], 'error');
 
     $this->postJson('/api/discord/subscribe', ['discord_id' => 'new-user'])
         ->assertOk()
@@ -141,6 +165,19 @@ it('finds games by URL, slug fallback, bulk URL lookup, and id', function () {
         'version' => '3.0',
         'published_at' => now()->subDay(),
     ]);
+    $hiddenByUrl = createDiscordBotGame([
+        'name' => 'Hidden URL Lookup Game',
+        'url' => ['itch_io' => 'https://hidden.itch.io/hidden-url-only'],
+        'is_visible' => false,
+        'description' => 'Hidden URL description',
+    ]);
+    $hiddenBySlug = createDiscordBotGame([
+        'name' => 'Hidden Slug Lookup Game',
+        'slug' => 'hidden-slug-game',
+        'url' => ['itch_io' => 'https://hidden.itch.io/original'],
+        'is_visible' => false,
+        'description' => 'Hidden slug description',
+    ]);
 
     $this->postJson('/api/bot/find-by-url', ['url' => 'https://lookup.itch.io/url-game'])
         ->assertOk()
@@ -154,6 +191,14 @@ it('finds games by URL, slug fallback, bulk URL lookup, and id', function () {
         ->assertJsonPath('found', true)
         ->assertJsonPath('game.id', $game->id);
 
+    $this->postJson('/api/bot/find-by-url', ['url' => 'https://hidden.itch.io/hidden-url-only'])
+        ->assertNotFound()
+        ->assertJsonPath('found', false);
+
+    $this->postJson('/api/bot/find-by-url', ['url' => 'https://someone.itch.io/hidden-slug-game'])
+        ->assertNotFound()
+        ->assertJsonPath('found', false);
+
     $this->postJson('/api/bot/find-by-url', ['url' => 'not-a-url'])
         ->assertUnprocessable()
         ->assertJsonPath('error.url.0', 'The url field must be a valid URL.');
@@ -165,15 +210,19 @@ it('finds games by URL, slug fallback, bulk URL lookup, and id', function () {
     $bulkResponse = $this->postJson('/api/bot/bulk-find-by-url', [
         'urls' => [
             'https://lookup.itch.io/url-game',
+            'https://hidden.itch.io/hidden-url-only',
+            'https://someone.itch.io/hidden-slug-game',
             'https://missing.itch.io/nope',
         ],
     ]);
 
     $bulkResponse->assertOk()
         ->assertJsonPath('matched', 1)
-        ->assertJsonPath('unmatched', 1);
+        ->assertJsonPath('unmatched', 3);
 
     expect($bulkResponse->json('results')['https://lookup.itch.io/url-game']['found'])->toBeTrue()
+        ->and($bulkResponse->json('results')['https://hidden.itch.io/hidden-url-only']['found'])->toBeFalse()
+        ->and($bulkResponse->json('results')['https://someone.itch.io/hidden-slug-game']['found'])->toBeFalse()
         ->and($bulkResponse->json('results')['https://missing.itch.io/nope']['found'])->toBeFalse();
 
     $this->getJson('/api/bot/games/'.$game->id)
@@ -183,8 +232,15 @@ it('finds games by URL, slug fallback, bulk URL lookup, and id', function () {
         ->assertJsonPath('game.latest_version.version', '3.0')
         ->assertJsonPath('game.fvn_li_url', config('app.url').'/games/'.$game->slug);
 
+    $this->getJson('/api/bot/games/'.$hiddenByUrl->id)
+        ->assertNotFound()
+        ->assertJsonPath('found', false)
+        ->assertJsonMissing(['description' => 'Hidden URL description']);
+
     $this->getJson('/api/bot/games/999999')
         ->assertNotFound()
         ->assertJsonPath('found', false)
         ->assertJsonPath('message', 'Game not found');
+
+    expect($hiddenBySlug->exists)->toBeTrue();
 });
