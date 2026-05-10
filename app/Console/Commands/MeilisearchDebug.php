@@ -78,7 +78,7 @@ class MeilisearchDebug extends Command
             $stats = $index->stats();
 
             $this->line("   Total documents: {$stats['numberOfDocuments']}");
-            $this->line('   Is indexing: ' . ($stats['isIndexing'] ? 'Yes' : 'No'));
+            $this->line('   Is indexing: '.($stats['isIndexing'] ? 'Yes' : 'No'));
 
             if ($stats['numberOfDocuments'] === 0) {
                 $this->warn('   ⚠️  Index is empty!');
@@ -141,12 +141,12 @@ class MeilisearchDebug extends Command
             }
 
             foreach ($hits as $i => $doc) {
-                $this->line('   Document ' . ($i + 1) . ':');
+                $this->line('   Document '.($i + 1).':');
                 $this->line("     ID: {$doc['id']}");
                 $this->line("     Name: {$doc['name']}");
-                $this->line('     Is Visible: ' . json_encode($doc['is_visible']));
+                $this->line('     Is Visible: '.json_encode($doc['is_visible']));
                 $this->line("     Status: {$doc['status']}");
-                $this->line('     First Visible At: ' . ($doc['first_visible_at'] ?? 'null'));
+                $this->line('     First Visible At: '.($doc['first_visible_at'] ?? 'null'));
                 $this->newLine();
             }
 
@@ -203,7 +203,7 @@ class MeilisearchDebug extends Command
             ]);
 
             $this->line("     Total hits: {$directResults->getEstimatedTotalHits()}");
-            $this->line('     Returned: ' . count($directResults->getHits()));
+            $this->line('     Returned: '.count($directResults->getHits()));
 
             $hits = $directResults->getHits();
             if (! empty($hits)) {

@@ -7,10 +7,11 @@ namespace Database\Factories;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\User;
+use App\Models\UserGameProgress;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\UserGameProgress>
+ * @extends Factory<UserGameProgress>
  */
 class UserGameProgressFactory extends Factory
 {

@@ -122,7 +122,7 @@ class GameFilterService
                 ->orderBy('name')
                 ->get()
                 ->mapWithKeys(fn ($tag) => [
-                    (string) $tag->id => $tag->name . ' (' . $tag->games_count . ')',
+                    (string) $tag->id => $tag->name.' ('.$tag->games_count.')',
                 ]);
 
             return [

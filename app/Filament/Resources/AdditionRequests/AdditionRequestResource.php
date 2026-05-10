@@ -109,7 +109,7 @@ class AdditionRequestResource extends Resource
                         $platformUrl = $record->game->getPrimaryUrl();
                         $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
 
-                        return $state . ' (' . $urlDisplay . ')';
+                        return $state.' ('.$urlDisplay.')';
                     })
                     ->searchable()
                     ->sortable()
@@ -380,7 +380,7 @@ class AdditionRequestResource extends Resource
                                 $platformUrl = $record->getPrimaryUrl();
                                 $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
 
-                                return $record->name . ' (' . $urlDisplay . ')';
+                                return $record->name.' ('.$urlDisplay.')';
                             })
                             ->getSearchResultsUsing(function (string $search): array {
                                 $search = trim($search);
@@ -484,20 +484,20 @@ class AdditionRequestResource extends Resource
             $gameSlug = trim($path, '/');
 
             if ($gameSlug) {
-                return $subdomain . '/' . $gameSlug;
+                return $subdomain.'/'.$gameSlug;
             }
 
-            return $subdomain . '.itch.io';
+            return $subdomain.'.itch.io';
         }
 
         // Extract Steam App ID from Steam URLs
         if (str_contains($host, 'steampowered.com') || str_contains($host, 'store.steampowered.com')) {
             if (preg_match('/\/app\/(\d+)/', $path, $matches)) {
-                return 'Steam App ' . $matches[1];
+                return 'Steam App '.$matches[1];
             }
         }
 
         // For other URLs, return the host and path
-        return $host . $path;
+        return $host.$path;
     }
 }
