@@ -38,7 +38,7 @@ class GamesReviewController extends Controller
             ->when(! $showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->when($selectedRating !== null, fn ($query) => $query->where('rating', $selectedRating))
             ->with(['rater', 'user:id,name,avatar'])
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->paginate($perPage);
 
         $reviews->through(function ($rating) use ($sanitizer) {

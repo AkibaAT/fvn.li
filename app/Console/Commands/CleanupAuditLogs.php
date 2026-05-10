@@ -120,22 +120,33 @@ class CleanupAuditLogs extends Command
         $batchSize = 1000;
         $processed = 0;
 
-        ChangeLog::where('timestamp', '<', $cutoffDate)
-            ->whereRaw("context->'ip_address' IS NOT NULL")
-            ->chunkById($batchSize, function ($logs) use (&$processed) {
-                $ids = $logs->pluck('id')->toArray();
+        $lastId = 0;
+        do {
+            $logs = ChangeLog::where('timestamp', '<', $cutoffDate)
+                ->whereRaw("context->'ip_address' IS NOT NULL")
+                ->where('id', '>', $lastId)
+                ->orderBy('id', 'asc')
+                ->limit($batchSize)
+                ->get();
 
-                // Update the context to remove IP addresses
-                DB::table('change_logs')
-                    ->whereIn('id', $ids)
-                    ->update([
-                        'context' => DB::raw("context - 'ip_address'"),
-                        'updated_at' => now(),
-                    ]);
+            if ($logs->isEmpty()) {
+                break;
+            }
 
-                $processed += count($ids);
-                $this->info("Processed {$processed} entries...");
-            });
+            $lastId = (int) $logs->last()->id;
+            $ids = $logs->pluck('id')->toArray();
+
+            // Update the context to remove IP addresses
+            DB::table('change_logs')
+                ->whereIn('id', $ids)
+                ->update([
+                    'context' => DB::raw("context - 'ip_address'"),
+                    'updated_at' => now(),
+                ]);
+
+            $processed += count($ids);
+            $this->info("Processed {$processed} entries...");
+        } while ($logs->count() === $batchSize);
 
         $this->info("Anonymized IP addresses in {$processed} entries.");
 

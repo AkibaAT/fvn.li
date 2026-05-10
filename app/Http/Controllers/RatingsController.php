@@ -31,6 +31,11 @@ class RatingsController extends Controller
 
     private const int RATER_PHRASES_COMPARISON_LIMIT = 75;
 
+    private const array ALLOWED_RATING_PLATFORMS = [
+        'itch_io',
+        'steam',
+    ];
+
     public function ratingsIndex(Request $request): Response
     {
         $page = max(1, (int) $request->input('page', 1));
@@ -39,7 +44,7 @@ class RatingsController extends Controller
         // Filters and sorting (similar to rater page)
         $showOnlyReviews = filter_var($request->input('showOnlyReviews', true), FILTER_VALIDATE_BOOLEAN);
         $showOnlyVisibleGames = filter_var($request->input('showOnlyVisibleGames', true), FILTER_VALIDATE_BOOLEAN);
-        $platform = $request->input('platform');
+        $platform = $this->normalizeRatingPlatform($request->input('platform'));
         $stars = $request->has('stars') ? (int) $request->input('stars') : null;
         if ($stars !== null && ($stars < 1 || $stars > 5)) {
             $stars = null;
@@ -585,7 +590,7 @@ class RatingsController extends Controller
         $ratings = DB::table('ratings')
             ->where('rater_id', $rater->id)
             ->where('game_id', $game->id)
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->select(['id', 'rating', 'published_at', 'is_visible', 'review', 'event_id'])
             ->get()
             ->map(function ($row) {
@@ -807,8 +812,8 @@ class RatingsController extends Controller
                     'ratings.rating as game_rating',
                 ])
                 ->join('games', 'games.id', '=', 'ratings.game_id')
-                ->orderByDesc('ratings.published_at')
-                ->orderByDesc('ratings.id')
+                ->orderBy('ratings.published_at', 'desc')
+                ->orderBy('ratings.id', 'desc')
                 ->limit(self::RATER_PHRASES_MAX_REVIEWS)
                 ->get();
 
@@ -1126,5 +1131,16 @@ class RatingsController extends Controller
         }
 
         return true;
+    }
+
+    private function normalizeRatingPlatform(mixed $platform): ?string
+    {
+        if (! is_string($platform)) {
+            return null;
+        }
+
+        $platform = trim($platform);
+
+        return in_array($platform, self::ALLOWED_RATING_PLATFORMS, true) ? $platform : null;
     }
 }

@@ -71,7 +71,7 @@ class SimilarGamesService
                     // where the HTML wrapper differs but the name is the same
                     ->orWhereRaw("REPLACE(REPLACE(REPLACE(authors, '<a', ''), '</a>', ''), '>', '') LIKE ?", ["%{$plainAuthors}%"]);
             })
-            ->orderByDesc('rating_score')
+            ->orderBy('rating_score', 'desc')
             ->limit($limit)
             ->get();
     }
