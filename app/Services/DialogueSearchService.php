@@ -38,20 +38,22 @@ class DialogueSearchService
             $filterParts[] = "language = '{$safeLanguage}'";
         }
         if (! empty($filters['game_id'])) {
-            $filterParts[] = 'game_id = ' . (int) $filters['game_id'];
+            $filterParts[] = 'game_id = '.(int) $filters['game_id'];
         }
         if (! empty($filters['version_id'])) {
             // Filter by version_ids array
-            $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
+            $filterParts[] = 'version_ids = '.(int) $filters['version_id'];
         }
         if (! empty($filters['character_id'])) {
-            // Filter by character_ids array
-            $filterParts[] = 'character_ids = ' . (int) $filters['character_id'];
+            // Filter by character_ids array when callers pass the database id.
+            if (is_numeric($filters['character_id'])) {
+                $filterParts[] = 'character_ids = '.(int) $filters['character_id'];
+            }
         }
 
         // If exact match is requested, wrap the search term in quotes for phrase matching
         // This ensures whole word matching rather than substring matching
-        $actualSearchTerm = $exactMatch ? '"' . addslashes($searchTerm) . '"' : $searchTerm;
+        $actualSearchTerm = $exactMatch ? '"'.addslashes($searchTerm).'"' : $searchTerm;
 
         // Execute search with highlighting
         $searchParams = [
@@ -104,12 +106,24 @@ class DialogueSearchService
         if (! empty($filters['language'])) {
             $query->where('iso_code', $filters['language']);
         }
+        if (! empty($filters['character_id'])) {
+            if (is_numeric($filters['character_id'])) {
+                $query->where('character_id', (int) $filters['character_id']);
+            } else {
+                $query->whereHas('character', function ($q) use ($filters) {
+                    $q->where('character_id', $filters['character_id']);
+                });
+            }
+        }
         if (! empty($filters['context'])) {
             $query->where('context', $filters['context']);
         }
 
-        // Get all matching dialogue lines
-        $dialogueLines = $query->get();
+        $dialogueLines = $query
+            ->orderBy('text_id')
+            ->orderBy('id')
+            ->limit($perPage)
+            ->get();
 
         // Group by text_id to maintain search result order
         $linesByTextId = $dialogueLines->groupBy('text_id');

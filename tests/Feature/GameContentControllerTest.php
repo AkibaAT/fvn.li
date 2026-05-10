@@ -39,19 +39,23 @@ test('saving content in original visitor mode keeps editing the custom descripti
         'view_mode' => 'original',
         'custom_description' => '<p>Existing custom text</p>',
     ]);
+    $content = '<p>Edited custom text <img src="x" onerror="alert(1)"></p>';
 
     $response = $this
         ->actingAs($user)
         ->putJson(route('browser-api.games.content.update', $game), [
-            'content' => '<p>Edited custom text</p>',
+            'content' => $content,
         ]);
 
-    $response->assertOk()
-        ->assertJsonPath('data.content', '<p>Edited custom text</p>');
+    $response->assertOk();
+
+    expect($response->json('data.content'))
+        ->toContain('<img')
+        ->not->toContain('onerror');
 
     $game->refresh();
 
-    expect($game->custom_description)->toBe('<p>Edited custom text</p>')
+    expect($game->custom_description)->toBe($content)
         ->and($game->view_mode)->toBe('original')
         ->and($game->getEffectiveDescription())->toBe('<p>Original itch.io text</p>');
 });
@@ -83,8 +87,11 @@ test('saving content enables custom page and removes unused editor images', func
         ]);
 
     $response->assertOk()
-        ->assertJsonPath('data.has_custom_page', true)
-        ->assertJsonPath('data.content', $content);
+        ->assertJsonPath('data.has_custom_page', true);
+
+    expect($response->json('data.content'))
+        ->toContain('<img')
+        ->not->toContain('background-image');
 
     Storage::disk('public')->assertExists("editor/{$game->id}/used.png");
     Storage::disk('public')->assertExists("editor/{$game->id}/nested/background.webp");
@@ -126,7 +133,7 @@ test('developer can fetch original custom and effective content for preview swit
         'has_custom_page' => true,
         'view_mode' => 'custom',
         'custom_name' => 'Custom Name',
-        'custom_description' => '<p>Custom text</p>',
+        'custom_description' => '<p>Custom text <img src="x" onerror="alert(1)"></p>',
         'screenshots' => [
             ['url' => 'https://itch.example/original.jpg'],
         ],
@@ -144,9 +151,14 @@ test('developer can fetch original custom and effective content for preview swit
         ->assertJsonPath('data.original_content.name', 'Original itch.io Name')
         ->assertJsonPath('data.original_content.description', '<p>Original itch.io text</p>')
         ->assertJsonPath('data.custom_content.name', 'Custom Name')
-        ->assertJsonPath('data.custom_content.description', '<p>Custom text</p>')
-        ->assertJsonPath('data.effective_content.name', 'Custom Name')
-        ->assertJsonPath('data.effective_content.description', '<p>Custom text</p>');
+        ->assertJsonPath('data.effective_content.name', 'Custom Name');
+
+    expect($response->json('data.custom_content.description'))
+        ->toContain('<img')
+        ->not->toContain('onerror')
+        ->and($response->json('data.effective_content.description'))
+        ->toContain('<img')
+        ->not->toContain('onerror');
 });
 
 test('developer can switch visitor mode between itch io and custom content', function () {
@@ -157,7 +169,7 @@ test('developer can switch visitor mode between itch io and custom content', fun
         'has_custom_page' => true,
         'view_mode' => 'original',
         'custom_name' => 'Custom Name',
-        'custom_description' => '<p>Custom text</p>',
+        'custom_description' => '<p>Custom text <img src="x" onerror="alert(1)"></p>',
         'screenshots' => [
             ['url' => 'https://itch.example/original.jpg'],
         ],
@@ -175,8 +187,11 @@ test('developer can switch visitor mode between itch io and custom content', fun
     $customResponse->assertOk()
         ->assertJsonPath('data.view_mode', 'custom')
         ->assertJsonPath('data.effective_name', 'Custom Name')
-        ->assertJsonPath('data.effective_description', '<p>Custom text</p>')
         ->assertJsonPath('data.effective_screenshots.0.url', 'https://custom.example/custom.jpg');
+
+    expect($customResponse->json('data.effective_description'))
+        ->toContain('<img')
+        ->not->toContain('onerror');
 
     $originalResponse = $this
         ->actingAs($user)
@@ -193,7 +208,7 @@ test('developer can switch visitor mode between itch io and custom content', fun
     $game->refresh();
     expect($game->view_mode)->toBe('original')
         ->and($game->custom_name)->toBe('Custom Name')
-        ->and($game->custom_description)->toBe('<p>Custom text</p>');
+        ->and($game->custom_description)->toBe('<p>Custom text <img src="x" onerror="alert(1)"></p>');
 });
 
 test('developer cannot switch visitor mode before custom page exists', function () {

@@ -20,12 +20,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 2
 
       - name: Setup DDEV
-        uses: ddev/github-action-setup-ddev@v1
+        uses: ddev/github-action-setup-ddev@fdf2f5c97943bae638f31df6df86f1defa6210c0 # v1
         with:
           autostart: false
 
@@ -63,7 +63,7 @@ jobs:
 
       - name: Upload test artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-artifacts
           if-no-files-found: ignore
@@ -77,12 +77,12 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'production' && 'production' || 'development' }}
     permissions:
       contents: read
-      packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 2 # Needed to check for file changes
 
@@ -115,20 +115,20 @@ jobs:
       # Build and push Docker images if Dockerfile or related files changed
       - name: Set up Docker Buildx
         if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
         with:
           driver-opts: image=moby/buildkit:latest
 
       - name: Log in to Docker Hub
         if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
-        uses: docker/login-action@v4
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/fvn.li
           tags: |
@@ -137,7 +137,7 @@ jobs:
 
       - name: Build and push Docker image
         if: steps.vars.outputs.dockerfile_changed == 'true'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         with:
           context: .
           file: docker/app/Dockerfile
@@ -155,7 +155,7 @@ jobs:
 
       - name: Build and push social images generator Docker image
         if: steps.vars.outputs.social_images_changed == 'true'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         with:
           context: docker/social-images
           file: docker/social-images/Dockerfile
@@ -173,7 +173,7 @@ jobs:
 
       # Always run these steps for code deployment
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@accd6127cb78bee3e8082180cb391013d204ef9f # v2
         with:
           php-version: '8.5'
           extensions: mbstring, bcmath, pdo_mysql, pdo_pgsql, exif, pcntl, gd, intl, zip
@@ -184,7 +184,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -193,7 +193,7 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         name: Install Bun
 
       - name: Install dependencies
@@ -209,7 +209,7 @@ jobs:
         run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
-        uses: burnett01/rsync-deployments@8.0.4
+        uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
           switches: -avz --delete --dirs  --exclude-from=scripts/rsync-exclude.txt --rsync-path="sudo rsync" --chown=www-data:www-data
           path: ./
@@ -219,7 +219,7 @@ jobs:
           remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
 
       - name: Execute deployment script
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}

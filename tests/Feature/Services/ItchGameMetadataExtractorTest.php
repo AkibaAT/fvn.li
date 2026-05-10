@@ -93,6 +93,29 @@ it('extracts full descriptions and fills short descriptions only when missing', 
     expect($existingDescription->description)->toBe('Already short');
 });
 
+it('sanitizes imported full descriptions before storing them', function () {
+    $extractor = new ItchGameMetadataExtractor;
+    $game = Game::factory()->make(['description' => null]);
+
+    $extractor->extractFullDescription(
+        $game,
+        itchMetadataDocument(<<<'HTML'
+<div class="formatted_description">
+    <p>Safe text</p>
+    <img src="https://img.example/safe.png" onerror="alert(1)">
+    <script>window.__xss = 1</script>
+</div>
+HTML),
+        new ItchHtmlProcessor
+    );
+
+    expect($game->full_description)->toContain('Safe text')
+        ->and($game->full_description)->toContain('https://img.example/safe.png')
+        ->and(strtolower($game->full_description))->not->toContain('<script')
+        ->and(strtolower($game->full_description))->not->toContain('onerror')
+        ->and($game->description)->toBe('Safe text');
+});
+
 it('extracts screenshots from multiple itch carousel shapes and cleans optimized files removed from order', function () {
     Storage::fake('public');
 
@@ -198,4 +221,17 @@ HTML));
     expect($fallbackJam)->not->toBeNull()
         ->and($fallbackJam->name)->toBe('Fallback Jam')
         ->and($fallback->pendingGameJamId)->toBe([$fallbackJam->id]);
+});
+
+it('discards non itch game jam links from imported pages', function () {
+    $extractor = new ItchGameMetadataExtractor;
+    $game = Game::factory()->make(['pendingGameJamId' => []]);
+
+    $extractor->extractGameJamInfo($game, itchMetadataDocument(<<<'HTML'
+<title>Internal Admin - itch.io</title>
+<a href="http://127.0.0.1:8765/jam/internal-admin">Submission to Internal Admin</a>
+HTML));
+
+    expect(GameJam::where('url', 'http://127.0.0.1:8765/jam/internal-admin')->exists())->toBeFalse()
+        ->and($game->pendingGameJamId)->toBe([]);
 });

@@ -23,14 +23,14 @@ class ClickTrackingController extends Controller
         try {
             $validated = $request->validate([
                 'game_id' => 'required|integer|exists:games,id',
-                'url' => 'nullable|url|max:2048', // Optional URL parameter for transparency
+                'url' => 'nullable|url:http,https|max:2048', // Optional URL parameter for transparency
             ]);
 
             // Get the game to verify it exists
             $game = Game::findOrFail($validated['game_id']);
 
             $primaryUrl = $game->getPrimaryUrl();
-            if (! $primaryUrl) {
+            if (! $primaryUrl || ! $this->isSafeExternalUrl($primaryUrl)) {
                 // If no URL, redirect to game page on our site
                 return redirect()->route('games.show', $game->slug);
             }
@@ -88,7 +88,7 @@ class ClickTrackingController extends Controller
             $validated = $request->validate([
                 'game_id' => 'required|integer|exists:games,id',
                 'link_id' => 'required|string|max:255',
-                'url' => 'nullable|url|max:2048', // Optional URL parameter for transparency
+                'url' => 'nullable|url:http,https|max:2048', // Optional URL parameter for transparency
             ]);
 
             // Get the game to verify it exists and has the link
@@ -98,7 +98,7 @@ class ClickTrackingController extends Controller
             $targetLink = collect($game->additional_links)
                 ->firstWhere('id', $validated['link_id']);
 
-            if (! $targetLink) {
+            if (! $targetLink || ! $this->isSafeExternalUrl((string) ($targetLink['url'] ?? ''))) {
                 // If link not found, redirect to game page
                 return redirect()->route('games.show', $game->slug);
             }
@@ -156,21 +156,28 @@ class ClickTrackingController extends Controller
             $validated = $request->validate([
                 'game_id' => 'required|integer|exists:games,id',
                 'link_id' => 'required|string|max:255',
-                'url' => 'required|url|max:2048',
+                'url' => 'required|url:http,https|max:2048',
             ]);
 
             // Get the game to verify it exists and has the link
             $game = Game::findOrFail($validated['game_id']);
 
             // Verify the link exists in the game's additional_links
-            $linkExists = collect($game->additional_links)
-                ->contains('id', $validated['link_id']);
+            $targetLink = collect($game->additional_links)
+                ->firstWhere('id', $validated['link_id']);
 
-            if (! $linkExists) {
+            if (! $targetLink) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Link not found for this game',
                 ], 404);
+            }
+
+            if (! $this->isSafeExternalUrl((string) ($targetLink['url'] ?? ''))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Link URL is not safe.',
+                ], 422);
             }
 
             // Get session ID for deduplication
@@ -199,7 +206,7 @@ class ClickTrackingController extends Controller
             return response()->json([
                 'success' => true,
                 'recorded' => $recorded, // false if already recorded for this session
-                'redirect_url' => $validated['url'],
+                'redirect_url' => $targetLink['url'],
             ]);
 
         } catch (ValidationException $e) {
@@ -240,7 +247,7 @@ class ClickTrackingController extends Controller
             // Check if user owns this game (based on itch.io username)
             $itchioUsername = $user->getItchioUsername();
             $itchioUrl = $game->getUrlForPlatform('itch_io');
-            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername . '.itch.io')) {
+            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername.'.itch.io')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view stats for this game',
@@ -290,7 +297,7 @@ class ClickTrackingController extends Controller
             // Check if user owns this game
             $itchioUsername = $user->getItchioUsername();
             $itchioUrl = $game->getUrlForPlatform('itch_io');
-            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername . '.itch.io')) {
+            if (! $itchioUsername || ! $itchioUrl || ! str_contains($itchioUrl, $itchioUsername.'.itch.io')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to view analytics for this game',
@@ -321,5 +328,13 @@ class ClickTrackingController extends Controller
                 'message' => 'Failed to retrieve analytics',
             ], 500);
         }
+    }
+
+    private function isSafeExternalUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        return isset($parts['scheme'])
+            && in_array(strtolower($parts['scheme']), ['http', 'https'], true);
     }
 }
