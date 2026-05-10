@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Games\GamesVersionController;
 use App\Models\AdditionRequest;
 use App\Models\BugReport;
 use App\Models\ChangeLog;
@@ -149,7 +150,7 @@ class DashboardController extends Controller
             ->withCount(['comments as unread_count' => function ($query) {
                 $query->where('is_from_admin', true)->where('is_read', false);
             }])
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($report) {
                 return [
@@ -178,7 +179,7 @@ class DashboardController extends Controller
         if ($hasDiscordAccount) {
             $lastNotification = NotificationQueue::where('user_id', $user->id)
                 ->where('channel', 'discord')
-                ->orderByDesc('created_at')
+                ->orderBy('created_at', 'desc')
                 ->first();
 
             if ($lastNotification) {
@@ -263,7 +264,7 @@ class DashboardController extends Controller
         if ($hasDiscordAccount) {
             $lastNotification = NotificationQueue::where('user_id', $user->id)
                 ->where('channel', 'discord')
-                ->orderByDesc('created_at')
+                ->orderBy('created_at', 'desc')
                 ->first();
 
             if ($lastNotification) {
@@ -371,7 +372,7 @@ class DashboardController extends Controller
         }
 
         if (! empty($result['errors'])) {
-            $message .= ' Errors: ' . implode(', ', $result['errors']);
+            $message .= ' Errors: '.implode(', ', $result['errors']);
         }
 
         return response()->json([
@@ -511,7 +512,7 @@ class DashboardController extends Controller
                 ->whereIn('game_tag.game_id', $userGameIds)
                 ->selectRaw('tags.name, COUNT(*) as count')
                 ->groupBy('tags.name')
-                ->orderByDesc('count')
+                ->orderBy('count', 'desc')
                 ->limit(10)
                 ->pluck('count', 'name')
                 ->toArray();
@@ -579,7 +580,7 @@ class DashboardController extends Controller
                     $q->orderBy('sort_order');
                 },
             ])
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get())->map(function ($l) {
                 return [
                     'id' => $l->id,
@@ -610,7 +611,7 @@ class DashboardController extends Controller
             })->values();
 
         $ratings = (Rating::where('user_id', $user->id)
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->get([
                 'id', 'game_id', 'rating', 'is_reviewed', 'published_at', 'created_at', 'updated_at', 'review',
             ]))->map(function ($r) {
@@ -678,7 +679,7 @@ class DashboardController extends Controller
 
         // Notification history
         $notificationHistory = NotificationHistory::where('user_id', $user->id)
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($notification) {
                 return [
@@ -692,7 +693,7 @@ class DashboardController extends Controller
 
         // Ignored games
         $ignoredGames = $user->ignoredGames()
-            ->orderByDesc('user_ignored_games.created_at')
+            ->orderBy('user_ignored_games.created_at', 'desc')
             ->get()
             ->map(function ($game) {
                 return [
@@ -704,8 +705,8 @@ class DashboardController extends Controller
                 ];
             })->values();
 
-        $filename = 'user-data-' . ($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
-            strtolower($user->name)) : 'export') . '-' . now()->format('Ymd-His') . '.zip';
+        $filename = 'user-data-'.($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
+            strtolower($user->name)) : 'export').'-'.now()->format('Ymd-His').'.zip';
 
         return new StreamedResponse(function () use (
             $profile,
@@ -762,7 +763,7 @@ class DashboardController extends Controller
             fclose($tmp);
         }, 200, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'no-store, no-cache, must-revalidate',
             'Pragma' => 'no-cache',
         ]);
@@ -909,19 +910,19 @@ class DashboardController extends Controller
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Successfully disconnected ' . ucfirst($provider) . ' account.',
+                'message' => 'Successfully disconnected '.ucfirst($provider).' account.',
                 'provider' => $provider,
             ]);
         }
 
         return redirect()->route('dashboard')
-            ->with('success', 'Successfully disconnected ' . ucfirst($provider) . ' account.');
+            ->with('success', 'Successfully disconnected '.ucfirst($provider).' account.');
     }
 
     /**
      * Show digest notifications for a specific date
      *
-     * @return \Inertia\Response
+     * @return Response
      */
     public function showDigestNotifications(string $date)
     {
@@ -957,7 +958,7 @@ class DashboardController extends Controller
                 'metaTags' => [
                     'title' => "Notification Digest - {$carbonDate->format('F j, Y')}",
                     'description' => $notifications->isNotEmpty()
-                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. " .
+                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. ".
                           "Contains {$notifications->count()} notifications about your tracked visual novels."
                         : "No notifications found for {$carbonDate->format('F j, Y')}.",
                     'structuredData' => [
@@ -1020,7 +1021,7 @@ class DashboardController extends Controller
         }
 
         // Use the existing GamesVersionController method to get the comparison data
-        $versionController = app(\App\Http\Controllers\Games\GamesVersionController::class);
+        $versionController = app(GamesVersionController::class);
         $comparisonData = $versionController->compareVersions($request, $game);
 
         return $comparisonData;
@@ -1049,8 +1050,8 @@ class DashboardController extends Controller
                         $avatar = $account->provider_data['avatarfull'] ?? null;
                         break;
                     case 'telegram':
-                        $displayName = $account->provider_data['first_name'] .
-                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
+                        $displayName = $account->provider_data['first_name'].
+                            (isset($account->provider_data['last_name']) ? ' '.$account->provider_data['last_name'] : '');
                         $avatar = $account->provider_data['photo_url'] ?? null;
                         break;
                     case 'itchio':

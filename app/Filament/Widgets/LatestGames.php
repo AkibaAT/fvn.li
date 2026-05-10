@@ -21,7 +21,7 @@ class LatestGames extends BaseWidget
     {
         return $table
             ->query(
-                Game::query()->latest()->limit(10)
+                Game::query()->orderBy('created_at', 'desc')->limit(10)
             )
             ->columns([
                 TextColumn::make('id')

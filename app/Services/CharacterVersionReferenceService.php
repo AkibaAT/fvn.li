@@ -33,7 +33,7 @@ class CharacterVersionReferenceService
             $characterQuery->where('game_id', $gameId);
         }
 
-        $characterQuery->chunk(100,
+        $characterQuery->orderBy('id')->chunk(100,
             function ($characters) use (&$charactersUpdated, &$charactersProcessed, &$statsEntriesCreated, $dryRun) {
                 foreach ($characters as $character) {
                     $charactersProcessed++;
