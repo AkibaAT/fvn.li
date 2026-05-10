@@ -6,8 +6,8 @@ use App\Console\Commands\UpdateWatchlist;
 use App\Models\Game;
 use App\Models\Language;
 use App\Services\ItchAuthService;
-use Symfony\Component\Console\Input\ArrayInput;
 use Illuminate\Console\OutputStyle;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 function watchlistCommandForTesting(): UpdateWatchlist

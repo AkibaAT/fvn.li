@@ -29,7 +29,7 @@ class ViewGameVersion extends ViewRecord
         $languages = $this->loadSupportedLanguages($gameVersion);
 
         // Debug the languages
-        Log::info('Languages for game version ' . $gameVersion->id, [
+        Log::info('Languages for game version '.$gameVersion->id, [
             'languages' => $languages,
         ]);
 

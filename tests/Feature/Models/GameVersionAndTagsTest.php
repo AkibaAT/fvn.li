@@ -6,10 +6,8 @@ use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\GameVersion;
 use App\Models\Language;
-use App\Models\Tag;
 use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
-use App\Models\VersionSupportedLanguage;
 use Illuminate\Support\Facades\Cache;
 
 function gameVersionTagsLanguage(string $id, string $name, ?string $part1 = null, ?string $flag = null): Language
@@ -143,7 +141,7 @@ it('processes pending game jam associations only after the game exists', functio
 });
 
 it('normalizes custom tags to an empty string instead of null', function () {
-    $game = new Game();
+    $game = new Game;
     $game->custom_tags = null;
 
     expect($game->custom_tags)->toBe('');
