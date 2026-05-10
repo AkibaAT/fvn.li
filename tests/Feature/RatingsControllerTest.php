@@ -6,6 +6,8 @@ use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
+use App\Services\RatingStatsCacheService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
 function createRatingRecord(array $attributes = []): Rating
@@ -129,6 +131,35 @@ it('normalizes invalid ratings index filters to safe defaults', function () {
         ->and($props['filters']['sortDirection'])->toBe('desc')
         ->and($props['ratings']['current_page'])->toBe(1)
         ->and($props['ratings']['per_page'])->toBe(100);
+});
+
+it('ignores unrecognized ratings platform filters before querying or caching counts', function () {
+    Cache::flush();
+    $dispatcher = Model::getEventDispatcher();
+    Model::unsetEventDispatcher();
+
+    try {
+        $itchRater = Rater::factory()->create(['external_platform' => 'itch_io']);
+        $steamRater = Rater::factory()->create(['external_platform' => 'steam']);
+        createRatingRecord(['rater' => $itchRater]);
+        createRatingRecord(['rater' => $steamRater]);
+
+        $platform = str_repeat('x', 2048);
+        $response = $this->get(route('ratings.index', ['platform' => $platform]));
+
+        $response->assertOk();
+        $props = $response->viewData('page')['props'];
+
+        $safeCountKey = RatingStatsCacheService::key('ratings.count:rev:1:star:all:listed:1:platform:all');
+        $unsafeCountKey = RatingStatsCacheService::key("ratings.count:rev:1:star:all:listed:1:platform:{$platform}");
+
+        expect($props['filters']['platform'])->toBeNull()
+            ->and($props['ratings']['total'])->toBe(2)
+            ->and(Cache::has($safeCountKey))->toBeTrue()
+            ->and(Cache::has($unsafeCountKey))->toBeFalse();
+    } finally {
+        Model::setEventDispatcher($dispatcher);
+    }
 });
 
 it('renders a rater page with filtered ratings, previous hidden counts, stats, and phrases', function () {

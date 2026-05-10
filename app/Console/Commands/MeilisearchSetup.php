@@ -178,6 +178,7 @@ class MeilisearchSetup extends Command
             $errors = [];
             Game::where('is_visible', true)
                 ->with(['tags', 'gameJams', 'gameVersions'])
+                ->orderBy('id')
                 ->chunk(100, function ($games) use ($bar, &$errors) {
                     try {
                         $games->searchable();
@@ -270,6 +271,7 @@ class MeilisearchSetup extends Command
                 Rating::where('is_visible', true)
                     ->where('is_reviewed', true)
                     ->whereRaw("trim(review) != ''")
+                    ->orderBy('id')
                     ->chunk(100, function ($reviews) use ($bar, &$errors) {
                         try {
                             $reviews->searchable();
@@ -305,15 +307,17 @@ class MeilisearchSetup extends Command
             $bar->start();
 
             $errors = [];
-            Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use ($bar, &$errors) {
-                try {
-                    $tags->searchable();
-                    $bar->advance($tags->count());
-                } catch (Exception $e) {
-                    $errors[] = "Tags chunk error: {$e->getMessage()}";
-                    $bar->advance($tags->count());
-                }
-            });
+            Tag::whereRaw("trim(name) != ''")
+                ->orderBy('id')
+                ->chunk(100, function ($tags) use ($bar, &$errors) {
+                    try {
+                        $tags->searchable();
+                        $bar->advance($tags->count());
+                    } catch (Exception $e) {
+                        $errors[] = "Tags chunk error: {$e->getMessage()}";
+                        $bar->advance($tags->count());
+                    }
+                });
 
             $bar->finish();
             $this->newLine();

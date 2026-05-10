@@ -25,7 +25,7 @@ class SystemStatusController extends Controller
                 'total' => Game::count(),
                 'visible' => Game::where('is_visible', true)->count(),
                 'latest_update' => Game::where('is_visible', true)
-                    ->orderByDesc('updated_at')
+                    ->orderBy('updated_at', 'desc')
                     ->value('updated_at'),
             ];
             $stats['listing_rate'] = $stats['total'] > 0
@@ -75,7 +75,7 @@ class SystemStatusController extends Controller
             $visibleGameAverageRating = (clone $visibleGameRatingsQuery)->avg('rating');
 
             $latestVisibleRatingAt = (clone $visibleRatingsQuery)
-                ->orderByDesc('published_at')
+                ->orderBy('published_at', 'desc')
                 ->value('published_at');
 
             // Monthly trends (DB-driver aware)
@@ -92,7 +92,7 @@ class SystemStatusController extends Controller
             }
 
             $monthlyTrend = (clone $visibleRatingsQuery)
-                ->selectRaw($monthExpr . ' as month, COUNT(*) as count')
+                ->selectRaw($monthExpr.' as month, COUNT(*) as count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get()
@@ -103,7 +103,7 @@ class SystemStatusController extends Controller
                 ->all();
 
             $visibleGamesMonthlyTrend = (clone $visibleGameRatingsQuery)
-                ->selectRaw($monthExpr . ' as month, COUNT(*) as count')
+                ->selectRaw($monthExpr.' as month, COUNT(*) as count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get()
@@ -165,7 +165,11 @@ class SystemStatusController extends Controller
                 ? Carbon::parse((string) $scheduledTask->nextRunAt())->toIso8601String()
                 : null;
 
-            $latestLog = $task->logItems()->first();
+            $latestLog = $task->getMonitoredScheduleTaskLogItemModel()
+                ->newQuery()
+                ->where('monitored_scheduled_task_id', $task->id)
+                ->orderBy('id', 'desc')
+                ->first();
 
             // Old logic: last 24h = Active, last failure newer than finished = Failed, otherwise Inactive/Never Run
             $lastFailedAt = $task->last_failed_at;

@@ -27,7 +27,7 @@ class BugReportController extends Controller
             ->withCount(['comments as unread_count' => function ($query) {
                 $query->where('is_from_admin', true)->where('is_read', false);
             }])
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn ($report) => [
                 'id' => $report->id,

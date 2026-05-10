@@ -109,7 +109,7 @@ class ReimportGameVersion extends Command
 
                                 // If updating published_at, we need to re-evaluate is_latest
                                 $latestVersion = $game->gameVersions()
-                                    ->orderByDesc('published_at')
+                                    ->orderBy('published_at', 'desc')
                                     ->first();
 
                                 if ($latestVersion) {

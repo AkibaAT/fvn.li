@@ -334,7 +334,7 @@ class GameDataSyncService
                     ->whereHas('supportedLanguages', function ($query) {
                         $query->where('is_available', false);
                     })
-                    ->latest('published_at')
+                    ->orderBy('published_at', 'desc')
                     ->first();
 
                 if ($previousVersion) {
@@ -760,7 +760,7 @@ class GameDataSyncService
         $previousVersion = $game->gameVersions()
             ->where('id', '!=', $gameVersion->id)
             ->whereHas('supportedLanguages')
-            ->latest('published_at')
+            ->orderBy('published_at', 'desc')
             ->first();
 
         if ($previousVersion) {

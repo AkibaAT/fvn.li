@@ -42,6 +42,13 @@ return [
         'retry_cooldown' => env('ITCH_RETRY_COOLDOWN', 30),
     ],
 
+    'itch_downloads' => [
+        'allowed_download_hosts' => env('ITCH_DOWNLOAD_ALLOWED_HOSTS', [
+            'w3g3a5v6.ssl.hwcdn.net',
+            'v6p9d9t4.ssl.hwcdn.net',
+        ]),
+    ],
+
     'itchio' => [
         'client_id' => env('ITCHIO_CLIENT_ID'),
         'client_secret' => env('ITCHIO_CLIENT_SECRET'),
