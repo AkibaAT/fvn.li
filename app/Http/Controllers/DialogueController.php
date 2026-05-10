@@ -18,6 +18,10 @@ use Inertia\Response;
 
 class DialogueController extends Controller
 {
+    private const WORD_FREQUENCY_MAX_ROWS = 10000;
+
+    private const WORD_FREQUENCY_MAX_CHARACTERS = 2000000;
+
     public function dialogueBrowser(Request $request, int $gameId): Response
     {
         // Verify game exists
@@ -45,7 +49,7 @@ class DialogueController extends Controller
 
         return Inertia::render('dialogue/browser', [
             'initial' => $initial,
-            'metaTags' => ['title' => 'Dialogue Browser - ' . $game->name],
+            'metaTags' => ['title' => 'Dialogue Browser - '.$game->name],
         ]);
     }
 
@@ -151,7 +155,7 @@ class DialogueController extends Controller
 
         $itemsQuery = clone $base;
         if ($q !== '') {
-            $like = '%' . str_replace('%', '\\%', $q) . '%';
+            $like = '%'.str_replace('%', '\\%', $q).'%';
             $driver = DB::getDriverName();
             if ($driver === 'pgsql') {
                 // Search within JSON display_names and character_id for Postgres
@@ -568,21 +572,37 @@ class DialogueController extends Controller
             }
         }
 
-        // Fetch all dialogue texts for this version and language
-        $dialogueTexts = DB::table('version_dialogue_lines as vdl')
+        $baseQuery = DB::table('version_dialogue_lines as vdl')
             ->join('unique_dialogue_texts as udt', 'udt.id', '=', 'vdl.text_id')
             ->where('vdl.game_version_id', '=', $versionId)
             ->where('vdl.iso_code', '=', $language)
-            ->whereNotNull('udt.text_content')
-            ->select('udt.text_content')
-            ->pluck('text_content');
+            ->whereNotNull('udt.text_content');
 
-        if ($dialogueTexts->isEmpty()) {
+        $corpusStats = (clone $baseQuery)
+            ->selectRaw('COUNT(*) as row_count, COALESCE(SUM(CHAR_LENGTH(udt.text_content)), 0) as total_characters')
+            ->first();
+
+        $rowCount = (int) ($corpusStats?->row_count ?? 0);
+        $totalCharacters = (int) ($corpusStats?->total_characters ?? 0);
+
+        if ($rowCount === 0) {
             return response()->json([
                 'success' => true,
                 'data' => [],
             ]);
         }
+
+        if ($rowCount > self::WORD_FREQUENCY_MAX_ROWS || $totalCharacters > self::WORD_FREQUENCY_MAX_CHARACTERS) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Requested dialogue corpus is too large to process on demand.',
+            ], 422);
+        }
+
+        $dialogueTexts = (clone $baseQuery)
+            ->select('udt.text_content')
+            ->orderBy('vdl.id')
+            ->cursor();
 
         // Common English stop words to filter out
         $stopWords = [
@@ -661,9 +681,9 @@ class DialogueController extends Controller
         $phraseCounts = [];
 
         // Process each dialogue text
-        foreach ($dialogueTexts as $text) {
+        foreach ($dialogueTexts as $row) {
             // Convert to lowercase and remove special characters, keeping spaces
-            $cleaned = strtolower((string) $text);
+            $cleaned = strtolower((string) $row->text_content);
             $cleaned = preg_replace('/[^\p{L}\p{N}\s\-\']/u', ' ', $cleaned);
             $cleaned = preg_replace('/\s+/', ' ', $cleaned);
             $cleaned = trim($cleaned);
@@ -684,7 +704,7 @@ class DialogueController extends Controller
             if ($includePhrases && count($words) >= 2) {
                 // Bigrams (2-word phrases)
                 for ($i = 0; $i < count($words) - 1; $i++) {
-                    $phrase = $words[$i] . ' ' . $words[$i + 1];
+                    $phrase = $words[$i].' '.$words[$i + 1];
                     // Only count if phrase is meaningful (not all stop words)
                     if (! (in_array($words[$i], $stopWords, true) && in_array($words[$i + 1], $stopWords, true))) {
                         $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
@@ -693,7 +713,7 @@ class DialogueController extends Controller
 
                 // Trigrams (3-word phrases)
                 for ($i = 0; $i < count($words) - 2; $i++) {
-                    $phrase = $words[$i] . ' ' . $words[$i + 1] . ' ' . $words[$i + 2];
+                    $phrase = $words[$i].' '.$words[$i + 1].' '.$words[$i + 2];
                     $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
                 }
             }
