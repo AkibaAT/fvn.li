@@ -12,6 +12,7 @@ use App\Models\VersionSupportedLanguage;
 use App\Services\DialogueSearchService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Mockery\MockInterface;
 
 function makeDialogueFixture(): array
@@ -225,4 +226,40 @@ it('calculates word frequencies from dialogue lines and validates missing versio
     $this->getJson(route('browser-api.dialogue.word-frequency'))
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['versionId']);
+});
+
+it('rejects oversized uncached word frequency corpora before tokenizing them', function () {
+    [, $version, $character] = makeDialogueFixture();
+    $text = str_repeat('expensive ', 250001);
+    $uniqueText = UniqueDialogueText::factory()->create([
+        'text_content' => $text,
+        'text_hash' => md5($text),
+    ]);
+
+    DialogueLine::factory()->create([
+        'game_version_id' => $version->id,
+        'character_id' => $character->id,
+        'iso_code' => 'eng',
+        'text_id' => $uniqueText->id,
+        'context' => 'large-corpus',
+        'file_path' => 'large.rpy',
+        'line_number' => 99,
+    ]);
+
+    $this->getJson(route('browser-api.dialogue.word-frequency', [
+        'versionId' => $version->id,
+        'language' => 'eng',
+        'limit' => 10,
+        'includePhrases' => 'true',
+        'minWordLength' => 1,
+    ]))->assertUnprocessable()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', 'Requested dialogue corpus is too large to process on demand.');
+});
+
+it('rate limits expensive public dialogue endpoints', function () {
+    expect(Route::getRoutes()->getByName('browser-api.dialogue.word-frequency')->gatherMiddleware())
+        ->toContain('throttle:20,1')
+        ->and(Route::getRoutes()->getByName('browser-api.dialogue.search')->gatherMiddleware())
+        ->toContain('throttle:60,1');
 });
