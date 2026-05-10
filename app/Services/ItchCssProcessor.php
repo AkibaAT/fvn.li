@@ -109,14 +109,20 @@ class ItchCssProcessor
             $this->filterRules($document);
 
             $output = $document->render(OutputFormat::createCompact());
+            $output = $this->escapeHtmlDelimiters($output);
 
             return ! empty($output) ? $output : null;
         } catch (Exception $e) {
             // Log the error or handle it appropriately
-            Log::error('CSS Parsing/Processing failed: ' . $e->getMessage(), ['css' => $css]);
+            Log::error('CSS Parsing/Processing failed: '.$e->getMessage(), ['css' => $css]);
 
             return null; // Return null or original CSS on error? Returning null for now.
         }
+    }
+
+    private function escapeHtmlDelimiters(string $css): string
+    {
+        return str_replace(['<', '>'], ['\\3C ', '\\3E '], $css);
     }
 
     private function filterRules(CSSList $list): void
@@ -167,22 +173,22 @@ class ItchCssProcessor
 
             foreach (self::HEADER_SELECTORS as $header) {
                 // Check for direct header tag (e.g., 'h1', 'h2')
-                if (preg_match('/(^|,)\s*' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
+                if (preg_match('/(^|,)\s*'.preg_quote($header, '/').'(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
                     return true;
                 }
 
                 // Check for header tag with class/id/attribute (e.g., 'h1.class', 'h2#id')
-                if (preg_match('/\b' . preg_quote($header, '/') . '(\.|\#|\:|\[)/i', $selectorText)) {
+                if (preg_match('/\b'.preg_quote($header, '/').'(\.|\#|\:|\[)/i', $selectorText)) {
                     return true;
                 }
 
                 // Check for header tag as part of a descendant selector (e.g., 'div h1', '.class h2')
-                if (preg_match('/[\s,>+~]' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
+                if (preg_match('/[\s,>+~]'.preg_quote($header, '/').'(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
                     return true;
                 }
 
                 // Check for header tag as part of a complex selector (e.g., 'h1 > span', 'h2 + p')
-                if (preg_match('/(^|,)\s*' . preg_quote($header, '/') . '\s*[>+~]/i', $selectorText)) {
+                if (preg_match('/(^|,)\s*'.preg_quote($header, '/').'\s*[>+~]/i', $selectorText)) {
                     return true;
                 }
             }
@@ -305,7 +311,7 @@ class ItchCssProcessor
 
         // Check for word boundaries to avoid matching substrings (e.g., 'red' in 'bored')
         foreach ($colorNames as $color) {
-            if (preg_match('/\b' . preg_quote($color, '/') . '\b/i', $value)) {
+            if (preg_match('/\b'.preg_quote($color, '/').'\b/i', $value)) {
                 return true;
             }
         }

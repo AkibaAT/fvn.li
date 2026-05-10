@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Services\GameDataSyncService;
+use App\Services\HtmlSanitizerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class GameContentController extends Controller
     /**
      * Update game custom content
      */
-    public function updateContent(Game $game, Request $request): JsonResponse
+    public function updateContent(Game $game, Request $request, HtmlSanitizerService $sanitizer): JsonResponse
     {
         if (! $this->canEdit($game)) {
             return response()->json([
@@ -50,7 +51,7 @@ class GameContentController extends Controller
             'success' => true,
             'message' => 'Content updated successfully.',
             'data' => [
-                'content' => $validated['content'],
+                'content' => $sanitizer->sanitizeDescription($validated['content']),
                 'has_custom_page' => true,
             ],
         ]);
@@ -101,7 +102,7 @@ class GameContentController extends Controller
     /**
      * Get both custom and original content for view switching
      */
-    public function getContentForView(Game $game): JsonResponse
+    public function getContentForView(Game $game, HtmlSanitizerService $sanitizer): JsonResponse
     {
         return response()->json([
             'success' => true,
@@ -110,17 +111,17 @@ class GameContentController extends Controller
                 'current_view_mode' => $game->view_mode,
                 'custom_content' => [
                     'name' => $game->custom_name,
-                    'description' => $game->custom_description,
+                    'description' => $sanitizer->sanitizeDescription($game->custom_description),
                     'screenshots' => $game->custom_screenshots ? $game->resolveScreenshots($game->custom_screenshots) : [],
                 ],
                 'original_content' => [
                     'name' => $game->name,
-                    'description' => $game->full_description,
+                    'description' => $sanitizer->sanitizeDescription($game->full_description),
                     'screenshots' => $game->getScreenshots(),
                 ],
                 'effective_content' => [
                     'name' => $game->getEffectiveName(),
-                    'description' => $game->getEffectiveDescription(),
+                    'description' => $sanitizer->sanitizeDescription($game->getEffectiveDescription()),
                     'screenshots' => $game->getEffectiveScreenshots(),
                 ],
             ],
@@ -130,7 +131,7 @@ class GameContentController extends Controller
     /**
      * Set the view mode for this game (what all visitors see)
      */
-    public function setViewMode(Game $game, Request $request): JsonResponse
+    public function setViewMode(Game $game, Request $request, HtmlSanitizerService $sanitizer): JsonResponse
     {
         if (! $this->canEdit($game)) {
             return response()->json([
@@ -161,7 +162,7 @@ class GameContentController extends Controller
             'data' => [
                 'view_mode' => $game->view_mode,
                 'effective_name' => $game->getEffectiveName(),
-                'effective_description' => $game->getEffectiveDescription(),
+                'effective_description' => $sanitizer->sanitizeDescription($game->getEffectiveDescription()),
                 'effective_screenshots' => $game->getEffectiveScreenshots(),
             ],
         ]);
@@ -170,7 +171,7 @@ class GameContentController extends Controller
     /**
      * Revert game content to original itch.io synced version
      */
-    public function revertContent(Game $game, Request $request): JsonResponse
+    public function revertContent(Game $game, Request $request, HtmlSanitizerService $sanitizer): JsonResponse
     {
         if (! $this->canEdit($game)) {
             return response()->json([
@@ -204,7 +205,7 @@ class GameContentController extends Controller
                 'data' => [
                     'name' => $game->name,
                     'effective_name' => $game->effective_name,
-                    'content' => $game->full_description,
+                    'content' => $sanitizer->sanitizeDescription($game->full_description),
                     'screenshots' => $game->getScreenshots(),
                     'thumbnail_url' => $thumbnailUrl,
                     'has_custom_page' => false,
@@ -258,7 +259,7 @@ class GameContentController extends Controller
             'data' => [
                 'name' => $revertName ? $game->name : null,
                 'effective_name' => $revertName ? $game->effective_name : null,
-                'content' => $game->full_description,
+                'content' => $sanitizer->sanitizeDescription($game->full_description),
                 'screenshots' => $revertScreenshots ? $game->getScreenshots() : null,
                 'thumbnail_url' => $thumbnailUrl,
                 'has_custom_page' => true,

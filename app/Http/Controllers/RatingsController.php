@@ -17,6 +17,20 @@ use Inertia\Response;
 
 class RatingsController extends Controller
 {
+    private const int RATER_PHRASES_CACHE_VERSION = 2;
+
+    private const int RATER_PHRASES_MAX_REVIEWS = 80;
+
+    private const int RATER_PHRASES_MAX_REVIEW_CHARS = 5000;
+
+    private const int RATER_PHRASES_MAX_TOTAL_WORDS = 12000;
+
+    private const int RATER_PHRASES_MAX_SENTENCES = 20;
+
+    private const int RATER_PHRASES_MAX_CANDIDATES = 750;
+
+    private const int RATER_PHRASES_COMPARISON_LIMIT = 75;
+
     public function ratingsIndex(Request $request): Response
     {
         $page = max(1, (int) $request->input('page', 1));
@@ -780,8 +794,7 @@ class RatingsController extends Controller
 
     protected function getCommonPhrases(int $raterId): array
     {
-        // Cache the result for 1 hour since phrase analysis is expensive
-        return cache()->remember("rater_phrases_{$raterId}", now()->addHour(), function () use ($raterId) {
+        return cache()->remember($this->raterPhrasesCacheKey($raterId), now()->addHour(), function () use ($raterId) {
             $reviews = DB::table('ratings')
                 ->where('rater_id', $raterId)
                 ->where('ratings.is_visible', true)
@@ -794,6 +807,9 @@ class RatingsController extends Controller
                     'ratings.rating as game_rating',
                 ])
                 ->join('games', 'games.id', '=', 'ratings.game_id')
+                ->orderByDesc('ratings.published_at')
+                ->orderByDesc('ratings.id')
+                ->limit(self::RATER_PHRASES_MAX_REVIEWS)
                 ->get();
 
             if ($reviews->isEmpty()) {
@@ -801,13 +817,18 @@ class RatingsController extends Controller
             }
 
             $allPhrases = [];
+            $processedWords = 0;
 
             // Use a unique boundary marker that cannot appear in user content
             $boundaryMarker = '|||BOUNDARY_'.uniqid().'|||';
 
             foreach ($reviews as $review) {
+                if ($processedWords >= self::RATER_PHRASES_MAX_TOTAL_WORDS) {
+                    break;
+                }
+
                 // Preprocess the review text.
-                $rawReview = $review->review;
+                $rawReview = mb_substr((string) $review->review, 0, self::RATER_PHRASES_MAX_REVIEW_CHARS);
 
                 // Decode HTML entities first
                 $decodedReview = html_entity_decode($rawReview, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -850,6 +871,8 @@ class RatingsController extends Controller
                     continue;
                 }
 
+                $processedWords += $actualWordCount;
+
                 $wordsCount = count($allWords); // Total count including markers for iteration
                 $seenPhrases = [];
 
@@ -859,6 +882,7 @@ class RatingsController extends Controller
                 $sentenceText = preg_replace('/<\/(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)>/i', '. ', $sentenceText);
                 $sentenceText = preg_replace('/<(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)[^>]*>/i', ' ', $sentenceText);
                 $sentences = preg_split('/(?<=[.!?])\s+/', strip_tags($sentenceText));
+                $sentences = array_slice(array_filter($sentences), 0, self::RATER_PHRASES_MAX_SENTENCES);
                 $lowerSentences = array_map('strtolower', $sentences);
 
                 for ($length = 4; $length >= 2; $length--) {
@@ -900,6 +924,10 @@ class RatingsController extends Controller
                         }
 
                         if (! isset($allPhrases[$phrase])) {
+                            if (count($allPhrases) >= self::RATER_PHRASES_MAX_CANDIDATES) {
+                                continue;
+                            }
+
                             $allPhrases[$phrase] = [
                                 'count' => 1,
                                 'length' => $length,
@@ -959,7 +987,7 @@ class RatingsController extends Controller
             });
 
             // Optimized filtering: only process top phrases to reduce O(n²) comparisons
-            $topPhrases = array_slice($allPhrases, 0, 100, true);
+            $topPhrases = array_slice($allPhrases, 0, self::RATER_PHRASES_COMPARISON_LIMIT, true);
             $filteredPhrases = [];
 
             foreach ($topPhrases as $phrase => $data) {
@@ -1004,6 +1032,11 @@ class RatingsController extends Controller
 
             return array_slice($filteredPhrases, 0, 10, true);
         });
+    }
+
+    protected function raterPhrasesCacheKey(int $raterId): string
+    {
+        return sprintf('rater_phrases_v%d_%d', self::RATER_PHRASES_CACHE_VERSION, $raterId);
     }
 
     /**

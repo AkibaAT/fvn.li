@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 function createRatingRecord(array $attributes = []): Rating
 {
@@ -186,6 +187,37 @@ it('renders a rater page with filtered ratings, previous hidden counts, stats, a
         ->and($props['stats']['all_games']['total_ratings'])->toBe(2)
         ->and($props['stats']['visible_games']['total_ratings'])->toBe(1)
         ->and($props['filters']['sortField'])->toBe('rating');
+});
+
+it('bounds rater phrase mining to a recent cached review sample', function () {
+    $rater = Rater::factory()->create(['name' => 'Bounded Phrase Rater']);
+
+    for ($i = 0; $i < 80; $i++) {
+        createRatingRecord([
+            'rater' => $rater,
+            'review' => str_repeat('Modern route scene. ', 20),
+            'published_at' => now()->subMinutes($i),
+        ]);
+    }
+
+    createRatingRecord([
+        'rater' => $rater,
+        'review' => str_repeat('Ancient willow lantern. ', 20),
+        'published_at' => now()->subDays(30),
+    ]);
+    createRatingRecord([
+        'rater' => $rater,
+        'review' => str_repeat('Ancient willow lantern. ', 20),
+        'published_at' => now()->subDays(31),
+    ]);
+
+    $response = $this->get(route('raters.show', ['rater' => $rater->id]));
+
+    $response->assertOk();
+    $props = $response->viewData('page')['props'];
+
+    expect(array_key_exists('ancient willow lantern', $props['phrases']))->toBeFalse()
+        ->and(Cache::has("rater_phrases_v2_{$rater->id}"))->toBeTrue();
 });
 
 it('returns a 404 for a missing rater on a full rater page load', function () {
