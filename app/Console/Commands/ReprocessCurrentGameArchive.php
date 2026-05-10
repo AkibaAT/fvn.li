@@ -105,7 +105,7 @@ class ReprocessCurrentGameArchive extends Command
         }
 
         return $game->gameVersions()
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->first();
     }
 }

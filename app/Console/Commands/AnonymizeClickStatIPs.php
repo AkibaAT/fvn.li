@@ -112,6 +112,7 @@ class AnonymizeClickStatIPs extends Command
         ClickStat::whereNotNull('ip_address')
             ->where('ip_address', '!=', '')
             ->whereNotIn('ip_address', ['127.0.0.1', '::1'])
+            ->orderBy('id')
             ->chunk($batchSize, function ($records) use (&$processed, &$errors, $progressBar) {
                 foreach ($records as $record) {
                     try {
@@ -133,7 +134,7 @@ class AnonymizeClickStatIPs extends Command
                     } catch (Exception $e) {
                         $errors++;
                         $this->line(''); // New line to not interfere with progress bar
-                        $this->error("Error processing record {$record->id}: " . $e->getMessage());
+                        $this->error("Error processing record {$record->id}: ".$e->getMessage());
                     }
                 }
             });

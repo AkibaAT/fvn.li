@@ -58,6 +58,10 @@ jobs:
       - name: Lint frontend
         run: ddev bun lint:check
 
+      - name: Wait for Meilisearch
+        run: |
+          ddev exec bash -lc 'for i in {1..30}; do curl -fsS http://meilisearch:7700/health && exit 0; sleep 2; done; exit 1'
+
       - name: Run test suite
         run: ddev composer test
 

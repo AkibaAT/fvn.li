@@ -49,7 +49,7 @@ class RouteMapController extends Controller
 
         $gameVersions = $game->gameVersions()
             ->whereHas('routeLabels')
-            ->orderByDesc('published_at')
+            ->orderBy('published_at', 'desc')
             ->get(['id', 'version', 'published_at']);
 
         $availableLanguages = $this->getAvailableLanguageCodes($version);

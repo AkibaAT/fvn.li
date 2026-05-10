@@ -39,6 +39,7 @@ class TagObserver
             // Update search index for all games that use this tag
             $tag->games()
                 ->where('is_visible', true)
+                ->orderBy('games.id')
                 ->chunk(100, function ($games) {
                     $games->searchable();
                 });

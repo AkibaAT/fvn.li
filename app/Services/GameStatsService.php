@@ -327,7 +327,7 @@ readonly class GameStatsService
             ->whereHas('supportedLanguages', function ($query) {
                 $query->where('is_available', false);
             })
-            ->latest('published_at')
+            ->orderBy('published_at', 'desc')
             ->first();
 
         // Copy language availability settings from previous version if it exists
