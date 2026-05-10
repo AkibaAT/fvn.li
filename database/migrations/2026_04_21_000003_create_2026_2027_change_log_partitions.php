@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\SystemAuditUser;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -34,20 +35,32 @@ return new class extends Migration
 
     private function ensureSystemAuditUser(): void
     {
-        $systemUserId = (int) config('audit.system_user_id', 1);
+        $systemUserId = config('audit.system_user_id');
 
-        if (DB::table('users')->where('id', $systemUserId)->exists()) {
+        if (
+            is_numeric($systemUserId)
+            && DB::table('users')->where('id', (int) $systemUserId)->exists()
+        ) {
             return;
         }
 
-        DB::table('users')->insert([
-            'id' => $systemUserId,
-            'name' => 'System',
-            'email' => 'system@fvn.li',
+        if (DB::table('users')->whereIn('email', [SystemAuditUser::EMAIL, SystemAuditUser::LEGACY_EMAIL])->exists()) {
+            return;
+        }
+
+        $user = [
+            'name' => SystemAuditUser::NAME,
+            'email' => SystemAuditUser::EMAIL,
             'password' => '',
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+
+        if (is_numeric($systemUserId)) {
+            $user['id'] = (int) $systemUserId;
+        }
+
+        DB::table('users')->insert($user);
 
         DB::statement(
             "SELECT setval(

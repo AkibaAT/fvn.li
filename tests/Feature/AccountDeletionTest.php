@@ -213,8 +213,6 @@ describe('cascade deletion of user data', function () {
 
 describe('GDPR compliance during deletion', function () {
     test('anonymizes audit logs', function () {
-        config(['audit.system_user_id' => 1]);
-
         ChangeLog::create([
             'user_id' => $this->user->id,
             'event_type' => 'created',

@@ -204,7 +204,9 @@ Route::middleware(['web'])->group(function () {
             ->whereNumber('report')->name('browser-api.review-reports.resolve');
 
         // Bug Reports
-        Route::post('bug-reports', [BugReportController::class, 'store'])->name('browser-api.bug-reports.store');
+        Route::post('bug-reports', [BugReportController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('browser-api.bug-reports.store');
         Route::get('bug-reports', [BugReportController::class, 'index'])->name('browser-api.bug-reports.index');
         Route::get('bug-reports/{bugReport}', [BugReportController::class, 'show'])->name('browser-api.bug-reports.show');
         Route::post('bug-reports/{bugReport}/comments', [BugReportController::class, 'addComment'])->name('browser-api.bug-reports.comments.store');

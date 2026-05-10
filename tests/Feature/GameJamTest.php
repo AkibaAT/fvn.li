@@ -414,6 +414,37 @@ HTML;
         ]);
 });
 
+it('stops ranking pagination at a fixed page limit', function () {
+    $jam = GameJam::create([
+        'name' => 'Endless Ranking Jam',
+        'url' => 'https://itch.io/jam/endless-ranking-jam',
+    ]);
+
+    $pageWithNext = <<<'HTML'
+<!doctype html>
+<html>
+<body>
+    <a class="next_page" href="?page=next">Next</a>
+</body>
+</html>
+HTML;
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('setMaxRetries')->twice()->with(1);
+    $client->shouldReceive('setBaseCooldown')->twice()->with(0);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://itch.io/jam/endless-ranking-jam/results', ['cookies' => false, 'allow_redirects' => false])
+        ->andReturn(new Response(200, [], $pageWithNext));
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://itch.io/jam/endless-ranking-jam/results?page=2', ['cookies' => false, 'allow_redirects' => false])
+        ->andReturn(new Response(200, [], $pageWithNext));
+    $this->app->instance(ItchHttpClientService::class, $client);
+
+    expect($jam->fetchResultsPage(1, 0, 2, 0))->toBeFalse();
+});
+
 it('returns false when ranking pages contain no usable game rankings', function () {
     $jam = GameJam::create([
         'name' => 'Empty Ranking Jam',

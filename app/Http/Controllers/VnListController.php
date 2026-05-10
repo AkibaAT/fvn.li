@@ -33,6 +33,32 @@ class VnListController extends Controller
 {
     use SortsVnLists;
 
+    private const int PUBLIC_LISTS_DEFAULT_PER_PAGE = 8;
+
+    private const int PUBLIC_LISTS_MAX_PER_PAGE = 24;
+
+    private const int PUBLIC_LISTS_MAX_SEARCH_LENGTH = 80;
+
+    private const int PUBLIC_LISTS_MIN_SEARCH_LENGTH = 2;
+
+    private const array PUBLIC_LIST_TYPES = [
+        'all',
+        'plan_to_read',
+        'reading',
+        'completed',
+        'on_hold',
+        'dropped',
+        'custom',
+    ];
+
+    private const array PUBLIC_LIST_SORTS = [
+        'default',
+        'newest',
+        'oldest',
+        'most_entries',
+        'recently_updated',
+    ];
+
     public function listsIndex(Request $request): Response
     {
         $authId = Auth::id();
@@ -296,12 +322,15 @@ class VnListController extends Controller
 
     public function publicLists(Request $request): Response
     {
-        $perPage = (int) $request->input('per_page', 8);
-        $type = $request->input('type', 'all');
-        $page = (int) $request->input('page', 1);
-        $search = $request->input('search', '');
-        $sort = $request->input('sort', 'default'); // default, newest, oldest, most_entries
-        $gameId = $request->input('game') ? (int) $request->input('game') : null;
+        $perPage = min(
+            self::PUBLIC_LISTS_MAX_PER_PAGE,
+            max(1, (int) $request->input('per_page', self::PUBLIC_LISTS_DEFAULT_PER_PAGE))
+        );
+        $type = $this->normalizePublicListType($request->input('type', 'all'));
+        $page = max(1, (int) $request->input('page', 1));
+        $search = $this->normalizePublicListSearch($request->input('search', ''));
+        $sort = $this->normalizePublicListSort($request->input('sort', 'default'));
+        $gameId = $this->normalizePublicListGameId($request->input('game'));
 
         // Load game if filtering by game
         $filterGame = null;
@@ -649,6 +678,48 @@ class VnListController extends Controller
             'user' => $user,
             'metaTags' => $metaTags,
         ]);
+    }
+
+    private function normalizePublicListType(mixed $type): string
+    {
+        return is_string($type) && in_array($type, self::PUBLIC_LIST_TYPES, true) ? $type : 'all';
+    }
+
+    private function normalizePublicListSort(mixed $sort): string
+    {
+        return is_string($sort) && in_array($sort, self::PUBLIC_LIST_SORTS, true) ? $sort : 'default';
+    }
+
+    private function normalizePublicListGameId(mixed $game): ?int
+    {
+        if ($game === null || $game === '') {
+            return null;
+        }
+
+        if (! is_numeric($game)) {
+            return null;
+        }
+
+        $gameId = (int) $game;
+
+        return $gameId > 0 ? $gameId : null;
+    }
+
+    private function normalizePublicListSearch(mixed $search): string
+    {
+        if (! is_string($search)) {
+            return '';
+        }
+
+        $search = trim(preg_replace('/\s+/', ' ', $search) ?? '');
+        if ($search === '') {
+            return '';
+        }
+
+        $search = mb_substr($search, 0, self::PUBLIC_LISTS_MAX_SEARCH_LENGTH);
+        $meaningfulSearch = preg_replace('/[%_\s]+/', '', $search) ?? '';
+
+        return mb_strlen($meaningfulSearch) >= self::PUBLIC_LISTS_MIN_SEARCH_LENGTH ? $search : '';
     }
 
     public function storeVnList(StoreVnListRequest $request): JsonResponse

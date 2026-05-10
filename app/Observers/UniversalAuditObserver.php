@@ -8,6 +8,7 @@ use App\Jobs\ProcessAuditLog;
 use App\Models\ChangeLog;
 use App\Models\User;
 use App\Services\IpAnonymizationService;
+use App\Support\SystemAuditUser;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -245,7 +246,7 @@ class UniversalAuditObserver
             $model instanceof User &&
             $user &&
             $user->id === $model->id) {
-            $userId = config('audit.system_user_id', 1);
+            $userId = SystemAuditUser::id();
 
             // Add context about the self-deletion
             $context['self_deletion'] = true;

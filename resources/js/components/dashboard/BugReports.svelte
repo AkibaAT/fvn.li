@@ -35,7 +35,6 @@
         status_label: string;
         status_color: string;
         is_closed: boolean;
-        admin_notes?: string;
         created_at: string;
         resolved_at?: string;
     }
@@ -107,13 +106,10 @@
 
         submittingComment = true;
         try {
-            const response = await authenticatedFetch(
-                route('browser-api.bug-reports.comments.store', { bugReport: selectedBugReport.id }),
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ message: newComment.trim() }),
-                },
-            );
+            const response = await authenticatedFetch(route('browser-api.bug-reports.comments.store', { bugReport: selectedBugReport.id }), {
+                method: 'POST',
+                body: JSON.stringify({ message: newComment.trim() }),
+            });
             const data = await response.json();
             if (data.success) {
                 bugReportComments = [...bugReportComments, data.comment];
@@ -134,10 +130,9 @@
 
         closingTicket = true;
         try {
-            const response = await authenticatedFetch(
-                route('browser-api.bug-reports.close', { bugReport: selectedBugReport.id }),
-                { method: 'POST' },
-            );
+            const response = await authenticatedFetch(route('browser-api.bug-reports.close', { bugReport: selectedBugReport.id }), {
+                method: 'POST',
+            });
             const data = await response.json();
             if (data.success) {
                 bugReports = bugReports.filter((r) => r.id !== selectedBugReport!.id);
@@ -174,7 +169,12 @@
             <div class="mb-4 flex items-center justify-between">
                 <h2 class="flex items-center gap-2 text-lg font-semibold text-amber-800 dark:text-amber-300">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
                     </svg>
                     Your Bug Reports
                     {#if totalUnread > 0}
@@ -198,11 +198,17 @@
                         <div class="flex items-start justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="mb-2 flex items-center gap-2">
-                                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(report.status_color)}">
+                                    <span
+                                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(
+                                            report.status_color,
+                                        )}"
+                                    >
                                         {report.status_label}
                                     </span>
                                     {#if report.unread_count > 0}
-                                        <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                        <span
+                                            class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                        >
                                             {report.unread_count} new {report.unread_count === 1 ? 'reply' : 'replies'}
                                         </span>
                                     {/if}
@@ -266,7 +272,11 @@
                 <!-- Report Details -->
                 <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
                     <div class="mb-3 flex items-center gap-2">
-                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(selectedBugReport.status_color)}">
+                        <span
+                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(
+                                selectedBugReport.status_color,
+                            )}"
+                        >
                             {selectedBugReport.status_label}
                         </span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">
@@ -284,13 +294,6 @@
                             {selectedBugReport.page_title || selectedBugReport.page_url}
                         </a>
                     </div>
-
-                    {#if selectedBugReport.admin_notes}
-                        <div class="mt-3 rounded border-l-4 border-blue-500 bg-blue-50 p-3 dark:bg-blue-900/20">
-                            <div class="text-xs font-medium text-blue-700 dark:text-blue-400">Admin Notes:</div>
-                            <p class="mt-1 text-sm text-blue-600 dark:text-blue-300">{selectedBugReport.admin_notes}</p>
-                        </div>
-                    {/if}
                 </div>
 
                 <!-- Comments Section -->
@@ -300,9 +303,7 @@
                     </h4>
 
                     {#if bugReportComments.length === 0}
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            No comments yet. Add additional information below.
-                        </p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">No comments yet. Add additional information below.</p>
                     {:else}
                         <div class="space-y-3">
                             {#each bugReportComments as comment (comment.id)}
@@ -312,19 +313,28 @@
                                         : 'border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'}"
                                 >
                                     <div class="mb-1 flex items-center gap-2">
-                                        <span class="text-sm font-medium {comment.is_from_admin ? 'text-blue-700 dark:text-blue-400' : 'text-gray-900 dark:text-white'}">
+                                        <span
+                                            class="text-sm font-medium {comment.is_from_admin
+                                                ? 'text-blue-700 dark:text-blue-400'
+                                                : 'text-gray-900 dark:text-white'}"
+                                        >
                                             {comment.user.name}
                                         </span>
                                         {#if comment.is_from_admin}
-                                            <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                            <span
+                                                class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                            >
                                                 Staff
                                             </span>
                                         {/if}
                                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                                            {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString(
+                                                [],
+                                                { hour: '2-digit', minute: '2-digit' },
+                                            )}
                                         </span>
                                     </div>
-                                    <p class="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
+                                    <p class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">
                                         {comment.message}
                                     </p>
                                 </div>
@@ -336,9 +346,7 @@
                 <!-- Add Comment Form -->
                 {#if !selectedBugReport.is_closed}
                     <div>
-                        <label for="new-comment" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Add Information
-                        </label>
+                        <label for="new-comment" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"> Add Information </label>
                         <textarea
                             id="new-comment"
                             bind:value={newComment}
@@ -357,7 +365,9 @@
                         </div>
                     </div>
                 {:else}
-                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400">
+                    <div
+                        class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400"
+                    >
                         You have closed this report.
                     </div>
                 {/if}

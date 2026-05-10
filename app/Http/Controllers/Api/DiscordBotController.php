@@ -48,33 +48,27 @@ class DiscordBotController extends Controller
         ]);
     }
 
-    public function getUpdates(): JsonResponse
+    public function getUpdates(Request $request): JsonResponse
     {
-        // Get all subscribed users that need updates
-        $users = DiscordUser::query()
-            ->where('processed_at', '<', now()->subMinutes(25)) // Give some buffer before 30min mark
-            ->get();
+        $validator = Validator::make($request->all(), [
+            'discord_id' => 'required|string',
+            'after' => 'required|date',
+        ]);
 
-        if ($users->isEmpty()) {
-            return response()->json(['updates' => []]);
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
         }
 
-        // Get games updated since last processed timestamp
         $games = Game::query()
             ->with('latestVersion')
             ->where('is_visible', true)
-            ->whereHas('latestVersion', function ($query) use ($users) {
-                $query->where('created_at', '>', $users->min('processed_at'));
+            ->whereHas('latestVersion', function ($query) use ($request) {
+                $query->where('created_at', '>', $request->input('after'));
             })
             ->orderBy('name')
             ->get();
 
-        // Update processed_at timestamp for all fetched users
-        DiscordUser::whereIn('id', $users->pluck('id'))
-            ->update(['processed_at' => now()]);
-
         return response()->json([
-            'discord_users' => $users->pluck('discord_id'),
             'updates' => $games->map(fn ($game) => [
                 'name' => $game->name,
                 'version' => $game->latestVersion?->version,
@@ -144,6 +138,7 @@ class DiscordBotController extends Controller
 
         // Try exact match first
         $game = Game::query()
+            ->where('is_visible', true)
             ->where(function ($query) use ($url, $normalizedUrl) {
                 // Search in JSONB url field for all platforms
                 $query->whereRaw("url->>'itch_io' = ?", [$url])
@@ -161,6 +156,7 @@ class DiscordBotController extends Controller
             $slug = $this->extractSlugFromUrl($url);
             if ($slug) {
                 $game = Game::query()
+                    ->where('is_visible', true)
                     ->where(function ($query) use ($slug) {
                         $query->whereRaw("url->>'itch_io' ILIKE ?", ["%/{$slug}"])
                             ->orWhere('slug', $slug);
@@ -195,7 +191,10 @@ class DiscordBotController extends Controller
      */
     public function getGame(int $id): JsonResponse
     {
-        $game = Game::with('latestVersion')->find($id);
+        $game = Game::query()
+            ->with('latestVersion')
+            ->where('is_visible', true)
+            ->find($id);
 
         if (! $game) {
             return response()->json([
@@ -253,6 +252,7 @@ class DiscordBotController extends Controller
             $slug = $this->extractSlugFromUrl($url);
 
             $game = Game::query()
+                ->where('is_visible', true)
                 ->where(function ($query) use ($url, $normalizedUrl) {
                     $query->whereRaw("url->>'itch_io' = ?", [$url])
                         ->orWhereRaw("url->>'steam' = ?", [$url])
@@ -266,6 +266,7 @@ class DiscordBotController extends Controller
             // Try slug match if no URL match
             if (! $game && $slug) {
                 $game = Game::query()
+                    ->where('is_visible', true)
                     ->where(function ($query) use ($slug) {
                         $query->whereRaw("url->>'itch_io' ILIKE ?", ["%/{$slug}"])
                             ->orWhere('slug', $slug);

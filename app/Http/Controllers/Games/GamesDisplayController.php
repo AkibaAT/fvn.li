@@ -104,7 +104,7 @@ class GamesDisplayController extends Controller
 
             if ($englishLanguageStats && $englishLanguageStats->language !== null) {
                 $englishStats = [
-                    'words' => $englishLanguageStats->words,
+                    'words' => (int) $englishLanguageStats->words,
                     'language' => [
                         'id' => $englishLanguageStats->language->id,
                         'iso_code' => $englishLanguageStats->language->id,
@@ -123,7 +123,7 @@ class GamesDisplayController extends Controller
 
                 if ($primaryLanguageStats && $primaryLanguageStats->language !== null) {
                     $primaryStats = [
-                        'words' => $primaryLanguageStats->words,
+                        'words' => (int) $primaryLanguageStats->words,
                         'language' => [
                             'id' => $primaryLanguageStats->language->id,
                             'iso_code' => $primaryLanguageStats->language->id,
@@ -517,8 +517,8 @@ class GamesDisplayController extends Controller
         }
 
         // Add word count information
-        if ($englishStats && isset($englishStats['words']) && $englishStats['words']) {
-            $wordCount = number_format($englishStats['words']);
+        if ($englishStats && isset($englishStats['words']) && is_numeric($englishStats['words']) && (int) $englishStats['words'] > 0) {
+            $wordCount = number_format((int) $englishStats['words']);
             $metaDescription .= " - {$wordCount} words";
         }
 

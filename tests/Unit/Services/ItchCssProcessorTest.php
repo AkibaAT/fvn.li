@@ -18,6 +18,7 @@ test('process handles basic CSS content', function () {
     $css = '.test { margin: 10px; }';
     $result = $processor->process($css);
 
+    expect($result)->toContain('.game_description .test');
     expect($result)->toContain('margin');
     expect($result)->toContain('10px');
 });
@@ -39,10 +40,9 @@ test('process handles CSSString values without errors', function () {
     $css = '.test { content: "Hello World"; font-family: "Arial", sans-serif; }';
     $result = $processor->process($css);
 
-    // Should not throw an error and should process successfully
     expect($result)->not->toBeNull();
-    expect($result)->toContain('content');
     expect($result)->toContain('font-family');
+    expect($result)->not->toContain('content');
 });
 
 test('process escapes html delimiters emitted from css strings', function () {
@@ -51,11 +51,10 @@ test('process escapes html delimiters emitted from css strings', function () {
 
     $result = $processor->process($css);
 
-    expect($result)->not->toBeNull();
     expect(strtolower($result))->not->toContain('</style');
     expect(strtolower($result))->not->toContain('<script');
-    expect($result)->toContain('\\3C /style\\3E ');
     expect($result)->toContain('margin');
+    expect($result)->not->toContain('content');
 });
 
 test('process keeps escaped css payloads escaped for style element output', function () {
@@ -66,10 +65,10 @@ CSS;
 
     $result = $processor->process($css);
 
-    expect($result)->not->toBeNull();
     expect(strtolower($result))->not->toContain('</style');
     expect(strtolower($result))->not->toContain('<script');
     expect($result)->toContain('margin');
+    expect($result)->not->toContain('content');
 });
 
 test('process handles quoted string values in various properties', function () {
@@ -85,6 +84,9 @@ test('process handles quoted string values in various properties', function () {
 
     // Should process without errors
     expect($result)->not->toBeNull();
+    expect($result)->not->toContain('content');
+    expect($result)->not->toContain('background-image');
+    expect($result)->not->toContain('url(');
 });
 
 test('process removes gradients with color values', function () {
@@ -153,7 +155,47 @@ test('process handles complex CSS with mixed value types', function () {
     expect($result)->toContain('font-family');
     expect($result)->toContain('font-size');
     // Color-related properties should be removed
+    expect($result)->not->toContain('content');
     expect($result)->not->toContain('color');
     expect($result)->not->toContain('background');
     expect($result)->not->toContain('border');
+});
+
+test('process scopes selectors and removes page overlay primitives', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+body::before { position: fixed; inset: 0; z-index: 99999; content: "Login"; }
+.panel, p.note { margin: 10px; position: fixed; }
+.game_description .kept { padding: 8px; }
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)->toContain('.game_description .panel')
+        ->toContain('.game_description p.note')
+        ->toContain('.game_description .kept')
+        ->toContain('margin')
+        ->toContain('padding')
+        ->not->toContain('body')
+        ->not->toContain('position')
+        ->not->toContain('z-index')
+        ->not->toContain('content');
+});
+
+test('process removes remote resource loading CSS', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+.track { list-style-image: url("https://attacker.example/pixel"); margin: 1rem; }
+@import url("https://attacker.example/import.css");
+@font-face { font-family: x; src: url("https://attacker.example/font.woff2"); }
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)->toContain('margin')
+        ->not->toContain('url(')
+        ->not->toContain('attacker.example')
+        ->not->toContain('@import')
+        ->not->toContain('@font-face')
+        ->not->toContain('list-style-image');
 });
