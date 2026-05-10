@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\ChangeLog;
 use App\Models\User;
+use App\Support\SystemAuditUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -108,6 +109,34 @@ describe('GDPR data export', function () {
             ->and($export['audit_logs'][0]['entity_id'])->toBe(1);
     });
 
+    test('export does not include anonymized victim logs when a real user occupies configured system id', function () {
+        config(['audit.system_user_id' => $this->user->id]);
+        $victim = User::factory()->create();
+
+        ChangeLog::create([
+            'user_id' => $victim->id,
+            'event_type' => 'updated',
+            'entity_type' => User::class,
+            'entity_id' => $victim->id,
+            'timestamp' => now(),
+            'old_values' => ['email' => 'victim-old@example.test'],
+            'new_values' => ['email' => 'victim-new@example.test'],
+            'context' => ['request_id' => 'victim-request'],
+        ]);
+
+        ChangeLog::anonymizeUserData($victim->id);
+
+        $realUserExport = ChangeLog::exportUserData($this->user->id);
+        $systemUser = User::query()->where('email', SystemAuditUser::EMAIL)->firstOrFail();
+        $systemExport = ChangeLog::exportUserData($systemUser->id);
+
+        expect($realUserExport['audit_logs'])->toBeEmpty()
+            ->and($systemUser->id)->not->toBe($this->user->id)
+            ->and($systemExport['audit_logs'])->toHaveCount(1)
+            ->and($systemExport['audit_logs'][0]['old_values'])->toBe(['email' => 'victim-old@example.test'])
+            ->and($systemExport['audit_logs'][0]['new_values'])->toBe(['email' => 'victim-new@example.test']);
+    });
+
     test('export orders logs by timestamp descending', function () {
         $oldTimestamp = now()->subDays(2);
         $newTimestamp = now();
@@ -193,8 +222,6 @@ describe('GDPR data deletion', function () {
 
 describe('GDPR data anonymization', function () {
     test('anonymizes user audit logs by reassigning to system user', function () {
-        config(['audit.system_user_id' => 1]);
-
         ChangeLog::create([
             'user_id' => $this->user->id,
             'event_type' => 'created',
@@ -209,7 +236,7 @@ describe('GDPR data anonymization', function () {
         expect($anonymizedCount)->toBe(1);
 
         $log = ChangeLog::where('entity_id', 1)->first();
-        expect($log->user_id)->toBe(1); // System user
+        expect($log->user_id)->toBe(SystemAuditUser::id());
     });
 
     test('returns zero when user has no audit logs to anonymize', function () {
@@ -219,8 +246,6 @@ describe('GDPR data anonymization', function () {
     });
 
     test('anonymizes multiple logs for same user', function () {
-        config(['audit.system_user_id' => 1]);
-
         for ($i = 1; $i <= 5; $i++) {
             ChangeLog::create([
                 'user_id' => $this->user->id,
@@ -235,11 +260,10 @@ describe('GDPR data anonymization', function () {
 
         expect($anonymizedCount)->toBe(5)
             ->and(ChangeLog::where('user_id', $this->user->id)->count())->toBe(0)
-            ->and(ChangeLog::where('user_id', 1)->count())->toBe(5);
+            ->and(ChangeLog::where('user_id', SystemAuditUser::id())->count())->toBe(5);
     });
 
     test('does not affect other users logs during anonymization', function () {
-        config(['audit.system_user_id' => 1]);
         $otherUser = User::factory()->create();
 
         ChangeLog::create([
@@ -261,6 +285,27 @@ describe('GDPR data anonymization', function () {
         ChangeLog::anonymizeUserData($this->user->id);
 
         expect(ChangeLog::where('user_id', $otherUser->id)->count())->toBe(1);
+    });
+
+    test('does not reassign anonymized logs to a real user occupying the default id', function () {
+        config(['audit.system_user_id' => $this->user->id]);
+
+        ChangeLog::create([
+            'user_id' => $this->user->id,
+            'event_type' => 'created',
+            'entity_type' => 'VnList',
+            'entity_id' => 1,
+            'timestamp' => now(),
+        ]);
+
+        ChangeLog::anonymizeUserData($this->user->id);
+
+        $systemUser = User::query()->where('email', SystemAuditUser::EMAIL)->first();
+
+        expect($systemUser)->not->toBeNull()
+            ->and($systemUser->id)->not->toBe($this->user->id)
+            ->and(ChangeLog::where('user_id', $systemUser->id)->count())->toBe(1)
+            ->and(ChangeLog::where('user_id', $this->user->id)->count())->toBe(0);
     });
 });
 

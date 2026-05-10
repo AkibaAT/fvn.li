@@ -14,6 +14,8 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 class ProcessGameThumbnails extends Command
 {
@@ -25,7 +27,14 @@ class ProcessGameThumbnails extends Command
         'timeout' => 30,
         'connect_timeout' => 10,
         'allow_redirects' => false,
+        'stream' => true,
     ];
+
+    private const MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024;
+
+    private const MAX_IMAGE_PIXELS = 40_000_000;
+
+    private const DOWNLOAD_CHUNK_BYTES = 8192;
 
     private const VALID_MIME_TYPES = [
         'image/jpeg',
@@ -165,7 +174,8 @@ class ProcessGameThumbnails extends Command
         }
 
         // Get content and check if it's empty
-        $content = $response->getBody()->getContents();
+        $this->assertAcceptableContentLength($response);
+        $content = $this->readLimitedBody($response->getBody());
         if (empty($content)) {
             throw new Exception('Downloaded content is empty');
         }
@@ -200,6 +210,8 @@ class ProcessGameThumbnails extends Command
             if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
                 throw new Exception("Invalid image mime type: {$mimeType}");
             }
+
+            $this->assertAcceptableImageDimensions($imageInfo);
 
             $this->info("Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}");
 
@@ -262,6 +274,53 @@ class ProcessGameThumbnails extends Command
             if (file_exists($tempFile)) {
                 unlink($tempFile);
             }
+        }
+    }
+
+    private function assertAcceptableContentLength(ResponseInterface $response): void
+    {
+        $contentLength = $response->getHeaderLine('Content-Length');
+
+        if ($contentLength !== '' && ctype_digit($contentLength) && (int) $contentLength > self::MAX_DOWNLOAD_BYTES) {
+            throw new Exception(sprintf(
+                'Downloaded thumbnail is too large: %d bytes exceeds %d byte limit',
+                (int) $contentLength,
+                self::MAX_DOWNLOAD_BYTES
+            ));
+        }
+    }
+
+    private function readLimitedBody(StreamInterface $body): string
+    {
+        $content = '';
+
+        while (! $body->eof()) {
+            $content .= $body->read(self::DOWNLOAD_CHUNK_BYTES);
+
+            if (strlen($content) > self::MAX_DOWNLOAD_BYTES) {
+                throw new Exception(sprintf(
+                    'Downloaded thumbnail exceeds maximum size of %d bytes',
+                    self::MAX_DOWNLOAD_BYTES
+                ));
+            }
+        }
+
+        return $content;
+    }
+
+    private function assertAcceptableImageDimensions(array $imageInfo): void
+    {
+        $width = (int) ($imageInfo[0] ?? 0);
+        $height = (int) ($imageInfo[1] ?? 0);
+        $pixels = $width * $height;
+
+        if ($width <= 0 || $height <= 0 || $pixels > self::MAX_IMAGE_PIXELS) {
+            throw new Exception(sprintf(
+                'Image dimensions are too large: %dx%d exceeds %d pixel limit',
+                $width,
+                $height,
+                self::MAX_IMAGE_PIXELS
+            ));
         }
     }
 

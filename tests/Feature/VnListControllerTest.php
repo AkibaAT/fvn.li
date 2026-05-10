@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use Illuminate\Support\Facades\Route;
 
 function makeListWithEntry(User $user, array $listAttributes = [], array $gameAttributes = []): array
 {
@@ -104,6 +105,62 @@ it('renders public list discovery with search, type, game filter, and newest sor
         ->and($props['lists']['data'][0]['id'])->toBe($matchingList->id)
         ->and($props['counts']['all'])->toBe(1)
         ->and($props['counts']['custom'])->toBe(1);
+});
+
+it('normalizes public list discovery filters to bounded safe values', function () {
+    $owner = User::factory()->create(['name' => 'Wildcard Owner']);
+    makeListWithEntry($owner, [
+        'name' => 'Bounded Public List',
+        'type' => 'reading',
+        'is_public' => true,
+    ], [
+        'name' => 'Bounded Game',
+    ]);
+
+    $response = $this->get(route('lists.public', [
+        'type' => 'invalid-type',
+        'search' => '%',
+        'game' => '-20',
+        'sort' => 'unknown-sort',
+        'page' => '-5',
+        'per_page' => '100000',
+    ]));
+
+    $response->assertOk();
+    $props = $response->viewData('page')['props'];
+
+    expect($props['type'])->toBe('all')
+        ->and($props['search'])->toBe('')
+        ->and($props['sort'])->toBe('default')
+        ->and($props['filterGame'])->toBeNull()
+        ->and($props['lists']['current_page'])->toBe(1)
+        ->and($props['lists']['per_page'])->toBe(24);
+});
+
+it('bounds public list search length and keeps meaningful searches', function () {
+    $owner = User::factory()->create(['name' => 'Long Search Owner']);
+    makeListWithEntry($owner, [
+        'name' => 'Long Search Public List',
+        'type' => 'custom',
+        'is_public' => true,
+    ], [
+        'name' => 'Alpha '.str_repeat('x', 120),
+    ]);
+
+    $response = $this->get(route('lists.public', [
+        'search' => 'Alpha '.str_repeat('x', 120),
+    ]));
+
+    $response->assertOk();
+    $props = $response->viewData('page')['props'];
+
+    expect($props['search'])->toHaveLength(80)
+        ->and($props['lists']['data'])->toHaveCount(1);
+});
+
+it('throttles public list discovery route', function () {
+    expect(Route::getRoutes()->getByName('lists.public')->gatherMiddleware())
+        ->toContain('throttle:30,1');
 });
 
 it('renders public owner lists and hides private lists from other users', function () {

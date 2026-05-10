@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\ChangeLog;
+use App\Support\SystemAuditUser;
 use DateTime;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
@@ -60,7 +61,7 @@ class ProcessAuditLog implements ShouldQueue
             $targetsUserFk = is_string($message) && (str_contains($message,
                 'change_logs_user_id_fkey') || str_contains($message, 'user_id'));
 
-            $systemUserId = (int) config('audit.system_user_id', 1);
+            $systemUserId = SystemAuditUser::id();
             $canRetryWithSystem = $isFkViolation && $targetsUserFk && isset($this->auditData['user_id']) && (int) $this->auditData['user_id'] !== $systemUserId;
 
             if ($canRetryWithSystem) {

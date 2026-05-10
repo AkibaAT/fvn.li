@@ -7,8 +7,13 @@ namespace App\Services;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Sabberworm\CSS\CSSList\CSSList;
+use Sabberworm\CSS\CSSList\KeyFrame;
 use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parser as CssParser;
+use Sabberworm\CSS\Property\AtRule;
+use Sabberworm\CSS\Property\Charset;
+use Sabberworm\CSS\Property\CSSNamespace;
+use Sabberworm\CSS\Property\Import;
 use Sabberworm\CSS\Property\Selector;
 use Sabberworm\CSS\Rule\Rule;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
@@ -21,7 +26,55 @@ use Sabberworm\CSS\Value\Size;
 
 class ItchCssProcessor
 {
+    private const SCOPE_SELECTOR = '.game_description';
+
     private const array HEADER_SELECTORS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
+    private const array DISALLOWED_PROPERTIES = [
+        'all',
+        'animation',
+        'animation-delay',
+        'animation-direction',
+        'animation-duration',
+        'animation-fill-mode',
+        'animation-iteration-count',
+        'animation-name',
+        'animation-play-state',
+        'animation-timing-function',
+        'backdrop-filter',
+        'behavior',
+        'bottom',
+        'clip-path',
+        'content',
+        'cursor',
+        'display',
+        'filter',
+        'inset',
+        'inset-block',
+        'inset-block-end',
+        'inset-block-start',
+        'inset-inline',
+        'inset-inline-end',
+        'inset-inline-start',
+        'left',
+        'mask',
+        'mask-border',
+        'mask-border-source',
+        'mask-image',
+        'opacity',
+        'pointer-events',
+        'position',
+        'right',
+        'top',
+        'transform',
+        'transition',
+        'transition-delay',
+        'transition-duration',
+        'transition-property',
+        'transition-timing-function',
+        'visibility',
+        'z-index',
+    ];
 
     private const array COLOR_PROPERTIES = [
         // Basic color properties
@@ -107,6 +160,7 @@ class ItchCssProcessor
             $document = $parser->parse();
 
             $this->filterRules($document);
+            $this->scopeSelectors($document);
 
             $output = $document->render(OutputFormat::createCompact());
             $output = $this->escapeHtmlDelimiters($output);
@@ -129,6 +183,18 @@ class ItchCssProcessor
     {
         $rulesToRemove = [];
         foreach ($list->getContents() as $i => $rule) {
+            if (
+                $rule instanceof Import
+                || $rule instanceof Charset
+                || $rule instanceof CSSNamespace
+                || $rule instanceof AtRule
+                || $rule instanceof KeyFrame
+            ) {
+                $rulesToRemove[] = $i;
+
+                continue;
+            }
+
             if ($rule instanceof DeclarationBlock) { // Includes RuleSet and AtRuleSet
                 // Check if selector targets headers
                 if ($this->targetsHeaders($rule)) {
@@ -159,6 +225,67 @@ class ItchCssProcessor
         foreach (array_reverse($rulesToRemove) as $index) {
             $list->remove($list->getContents()[$index]);
         }
+    }
+
+    private function scopeSelectors(CSSList $list): void
+    {
+        $rulesToRemove = [];
+
+        foreach ($list->getContents() as $i => $rule) {
+            if ($rule instanceof DeclarationBlock) {
+                $scopedSelectors = [];
+
+                foreach ($rule->getSelectors() as $selector) {
+                    if (! $selector instanceof Selector) {
+                        continue;
+                    }
+
+                    $scopedSelector = $this->scopeSelector($selector->getSelector());
+                    if ($scopedSelector !== null) {
+                        $scopedSelectors[] = $scopedSelector;
+                    }
+                }
+
+                if (empty($scopedSelectors)) {
+                    $rulesToRemove[] = $i;
+
+                    continue;
+                }
+
+                $rule->setSelectors($scopedSelectors, $list);
+            } elseif ($rule instanceof CSSList) {
+                $this->scopeSelectors($rule);
+
+                if (empty($rule->getContents())) {
+                    $rulesToRemove[] = $i;
+                }
+            }
+        }
+
+        foreach (array_reverse($rulesToRemove) as $index) {
+            $list->remove($list->getContents()[$index]);
+        }
+    }
+
+    private function scopeSelector(string $selector): ?string
+    {
+        $selector = trim($selector);
+        if ($selector === '') {
+            return null;
+        }
+
+        if (preg_match('/(^|[\s>+~,(])(?:html|body|:root)(?=$|[\s>+~.#[(:])/i', $selector)) {
+            return null;
+        }
+
+        if (
+            str_starts_with($selector, self::SCOPE_SELECTOR)
+            || preg_match('/^'.preg_quote(self::SCOPE_SELECTOR, '/').'(?=$|[\s>+~.#[(:])/i', $selector)
+        ) {
+            return $selector;
+        }
+
+        return self::SCOPE_SELECTOR.' '.$selector;
     }
 
     private function targetsHeaders(DeclarationBlock $ruleSet): bool
@@ -204,6 +331,12 @@ class ItchCssProcessor
             if ($declaration instanceof Rule) {
                 $propertyName = strtolower($declaration->getRule());
 
+                if (in_array($propertyName, self::DISALLOWED_PROPERTIES, true)) {
+                    $declarationsToRemove[] = $declaration;
+
+                    continue;
+                }
+
                 // Check if the property is a color property OR if it's a shorthand potentially containing color
                 if (in_array($propertyName, self::COLOR_PROPERTIES)) {
                     $declarationsToRemove[] = $declaration;
@@ -236,6 +369,13 @@ class ItchCssProcessor
                     $valueString = $value->render(OutputFormat::createCompact());
                 } else {
                     $valueString = (string) $value;
+                }
+
+                if (preg_match('/(?:url\s*\(|(?:java|vb)script\s*:|data\s*:|https?:\/\/|\/\/|@import|-moz-binding|expression\s*\(|behavior\s*:)/i',
+                    $valueString)) {
+                    $declarationsToRemove[] = $declaration;
+
+                    continue;
                 }
 
                 // Check for hex colors, rgb/rgba/hsl/hsla functions
