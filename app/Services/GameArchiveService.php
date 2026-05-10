@@ -28,6 +28,11 @@ readonly class GameArchiveService
 {
     private const OPTIMIZATION_METADATA_FILENAME = '.fvn-archive-metadata.json';
 
+    private const DEFAULT_ITCH_DOWNLOAD_HOSTS = [
+        'w3g3a5v6.ssl.hwcdn.net',
+        'v6p9d9t4.ssl.hwcdn.net',
+    ];
+
     public function __construct(
         private GameStatsService $statsService
     ) {}
@@ -152,6 +157,7 @@ readonly class GameArchiveService
             $downloadClient = new Client([
                 'timeout' => 600,  // 10 minutes for the full download
                 'connect_timeout' => 30,  // 30 seconds to establish connection
+                'allow_redirects' => false,
             ]);
             $downloadResponse = $downloadClient->get($downloadUrl, [
                 'sink' => $tempFile,
@@ -292,6 +298,7 @@ readonly class GameArchiveService
             $downloadClient = new Client([
                 'timeout' => 600,  // 10 minutes for the full download
                 'connect_timeout' => 30,  // 30 seconds to establish connection
+                'allow_redirects' => false,
             ]);
             $downloadResponse = $downloadClient->get($downloadUrl, [
                 'sink' => $tempFile,
@@ -375,7 +382,7 @@ readonly class GameArchiveService
             if (! $latestVersion) {
                 // If no latest version is found, try to get the most recently published version
                 $latestVersion = GameVersion::where('game_id', $gameId)
-                    ->orderByDesc('published_at')
+                    ->orderBy('published_at', 'desc')
                     ->first();
 
                 if (! $latestVersion) {
@@ -553,11 +560,12 @@ readonly class GameArchiveService
      */
     private function resolveItchDownloadUrl(string $gameUrl, int $uploadId, int $gameId): string
     {
+        $gameUrl = $this->validateItchControlUrl($gameUrl, $gameUrl, 'itch.io game URL');
         $legacyResponse = $this->getItchClient()->post($this->uploadDownloadEndpoint($gameUrl, $uploadId));
         $legacyDownloadInfo = $this->decodeDownloadInfo($legacyResponse->getBody()->getContents());
 
         if (isset($legacyDownloadInfo['url'])) {
-            return $legacyDownloadInfo['url'];
+            return $this->validateItchFileDownloadUrl((string) $legacyDownloadInfo['url'], $gameUrl, 'itch.io file download URL');
         }
 
         Log::info('GameArchive: Legacy itch.io download URL endpoint did not return a URL, trying browser download flow', [
@@ -576,7 +584,11 @@ readonly class GameArchiveService
             throw new RuntimeException("Could not load itch.io game page before download: HTTP {$gamePageResponse['status']}");
         }
 
-        $downloadEndpoint = $this->extractDownloadUrlEndpoint($gamePage) ?? rtrim($gameUrl, '/').'/download_url';
+        $downloadEndpoint = $this->validateItchControlUrl(
+            $this->extractDownloadUrlEndpoint($gamePage) ?? rtrim($gameUrl, '/').'/download_url',
+            $gameUrl,
+            'itch.io download URL endpoint'
+        );
         $csrfToken = $this->extractCsrfToken($gamePage);
 
         if ($csrfToken === null) {
@@ -599,6 +611,7 @@ readonly class GameArchiveService
             throw new RuntimeException($this->downloadUrlErrorMessage('Could not get itch.io download page URL', $downloadPageInfo));
         }
 
+        $downloadPageUrl = $this->validateItchControlUrl($downloadPageUrl, $gameUrl, 'itch.io download page URL');
         $downloadPageResponse = $this->flareSolverrDownloadRequest($flareSolverr, 'GET', $downloadPageUrl, cookieJar: $cookieJar);
         $downloadPage = $downloadPageResponse['response'] ?? '';
         if (($downloadPageResponse['status'] ?? 500) >= 400) {
@@ -621,7 +634,7 @@ readonly class GameArchiveService
         $fileDownloadInfo = $this->decodeDownloadInfo($fileResponse->getBody()->getContents());
 
         if (isset($fileDownloadInfo['url'])) {
-            return $fileDownloadInfo['url'];
+            return $this->validateItchFileDownloadUrl((string) $fileDownloadInfo['url'], $gameUrl, 'itch.io file download URL');
         }
 
         throw new RuntimeException($this->downloadUrlErrorMessage('Could not get itch.io file download URL', $fileDownloadInfo));
@@ -650,6 +663,7 @@ readonly class GameArchiveService
             'timeout' => 30,
             'connect_timeout' => 10,
             'http_errors' => false,
+            'allow_redirects' => false,
             'headers' => [
                 'User-Agent' => $userAgent ?: 'Mozilla/5.0',
             ],
@@ -691,6 +705,162 @@ readonly class GameArchiveService
         }
 
         return str_replace('\\/', '/', stripcslashes($matches[1]));
+    }
+
+    private function validateItchControlUrl(string $url, string $gameUrl, string $description): string
+    {
+        $url = $this->normalizeRelativeUrl($url, $gameUrl);
+        $parts = $this->validatedUrlParts($url, $description);
+        $host = $this->normalizeHost((string) $parts['host']);
+        $gameHost = $this->normalizeHost((string) parse_url($gameUrl, PHP_URL_HOST));
+
+        if (! $this->isItchHost($host)) {
+            throw new RuntimeException("Untrusted {$description} host: {$host}");
+        }
+
+        if ($host !== $gameHost && $host !== 'itch.io') {
+            throw new RuntimeException("Unexpected {$description} host: {$host}");
+        }
+
+        $this->assertPubliclyRoutableHost($host, $description);
+
+        return $url;
+    }
+
+    private function validateItchFileDownloadUrl(string $url, string $gameUrl, string $description): string
+    {
+        $url = $this->normalizeRelativeUrl($url, $gameUrl);
+        $parts = $this->validatedUrlParts($url, $description);
+        $host = $this->normalizeHost((string) $parts['host']);
+
+        if (! $this->isItchHost($host) && ! in_array($host, $this->allowedItchDownloadHosts(), true)) {
+            throw new RuntimeException("Untrusted {$description} host: {$host}");
+        }
+
+        $this->assertPubliclyRoutableHost($host, $description);
+
+        return $url;
+    }
+
+    /**
+     * @return array{scheme: string, host: string}
+     */
+    private function validatedUrlParts(string $url, string $description): array
+    {
+        $url = trim($url);
+        $parts = parse_url($url);
+
+        if ($url === '' || ! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+            throw new RuntimeException("Invalid {$description}");
+        }
+
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            throw new RuntimeException("The {$description} must not contain credentials");
+        }
+
+        $scheme = strtolower((string) $parts['scheme']);
+        if ($scheme !== 'https') {
+            throw new RuntimeException("The {$description} must use HTTPS");
+        }
+
+        $host = $this->normalizeHost((string) $parts['host']);
+        if ($host === '') {
+            throw new RuntimeException("The {$description} is missing a host");
+        }
+
+        return [
+            'scheme' => $scheme,
+            'host' => $host,
+        ];
+    }
+
+    private function normalizeRelativeUrl(string $url, string $baseUrl): string
+    {
+        $url = trim($url);
+        if ($url === '' || parse_url($url, PHP_URL_SCHEME) !== null) {
+            return $url;
+        }
+
+        $baseParts = parse_url($baseUrl);
+        if (! is_array($baseParts) || ! isset($baseParts['scheme'], $baseParts['host'])) {
+            throw new RuntimeException('Invalid itch.io game URL');
+        }
+
+        $origin = strtolower((string) $baseParts['scheme']).'://'.$this->normalizeHost((string) $baseParts['host']);
+        if (str_starts_with($url, '//')) {
+            return strtolower((string) $baseParts['scheme']).':'.$url;
+        }
+
+        if (str_starts_with($url, '/')) {
+            return $origin.$url;
+        }
+
+        $basePath = (string) ($baseParts['path'] ?? '/');
+        $directory = preg_replace('#/[^/]*$#', '/', $basePath) ?: '/';
+
+        return $origin.$directory.$url;
+    }
+
+    private function isItchHost(string $host): bool
+    {
+        return $host === 'itch.io' || str_ends_with($host, '.itch.io');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedItchDownloadHosts(): array
+    {
+        $configuredHosts = config('services.itch_downloads.allowed_download_hosts', null);
+        if (is_string($configuredHosts)) {
+            $configuredHosts = explode(',', $configuredHosts);
+        }
+
+        if (! is_array($configuredHosts) || $configuredHosts === []) {
+            $configuredHosts = self::DEFAULT_ITCH_DOWNLOAD_HOSTS;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $host): string => $this->normalizeHost((string) $host),
+            $configuredHosts
+        ))));
+    }
+
+    private function assertPubliclyRoutableHost(string $host, string $description): void
+    {
+        if (in_array($host, ['localhost', 'localhost.localdomain'], true)) {
+            throw new RuntimeException("The {$description} cannot point to localhost");
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            $this->assertPubliclyRoutableIp($host, $description);
+
+            return;
+        }
+
+        $records = dns_get_record($host, DNS_A + DNS_AAAA);
+        if ($records === false || $records === []) {
+            throw new RuntimeException("Could not resolve {$description} host: {$host}");
+        }
+
+        foreach ($records as $record) {
+            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+            if (is_string($ip) && $ip !== '') {
+                $this->assertPubliclyRoutableIp($ip, $description);
+            }
+        }
+    }
+
+    private function assertPubliclyRoutableIp(string $ip, string $description): void
+    {
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            throw new RuntimeException("The {$description} cannot resolve to a private or reserved IP address");
+        }
+    }
+
+    private function normalizeHost(string $host): string
+    {
+        return rtrim(strtolower(trim($host)), '.');
     }
 
     /**
