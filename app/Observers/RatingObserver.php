@@ -94,6 +94,7 @@ class RatingObserver
 
         // Clear the phrase analysis cache for this rater
         Cache::forget("rater_phrases_{$rating->rater_id}");
+        Cache::forget("rater_phrases_v2_{$rating->rater_id}");
 
         Log::debug('Cleared rater cache', [
             'rating_id' => $rating->id,

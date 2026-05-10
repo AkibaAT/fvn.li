@@ -64,7 +64,8 @@ function makeDialogueSearchFixture(): array
 
 function bindDialogueMeilisearch(array $hits, int $total, callable $assertSearch): void
 {
-    $index = new class($hits, $total, $assertSearch) {
+    $index = new class($hits, $total, $assertSearch)
+    {
         public function __construct(
             private readonly array $hits,
             private readonly int $total,
@@ -75,7 +76,8 @@ function bindDialogueMeilisearch(array $hits, int $total, callable $assertSearch
         {
             ($this->assertSearch)($term, $params);
 
-            return new class($this->hits, $this->total) {
+            return new class($this->hits, $this->total)
+            {
                 public function __construct(
                     private readonly array $hits,
                     private readonly int $total
@@ -94,7 +96,8 @@ function bindDialogueMeilisearch(array $hits, int $total, callable $assertSearch
         }
     };
 
-    app()->instance(Client::class, new class($index) {
+    app()->instance(Client::class, new class($index)
+    {
         public function __construct(private readonly object $index) {}
 
         public function index(string $name): object
@@ -138,6 +141,74 @@ it('searches meilisearch, preserves hit order, and attaches highlighted dialogue
         ->and($results->items()[0]->highlighted_text)->toBe('<mark>Moonlight</mark> reveals the hidden archive clue.')
         ->and($results->items()[0]->relationLoaded('text'))->toBeTrue()
         ->and($results->items()[0]->relationLoaded('character'))->toBeTrue();
+});
+
+it('bounds expanded dialogue rows to the requested page size', function () {
+    [$game, $version, $character, $text] = makeDialogueSearchFixture();
+
+    DialogueLine::factory()->count(5)->create([
+        'game_version_id' => $version->id,
+        'character_id' => $character->id,
+        'iso_code' => 'eng',
+        'text_id' => $text->id,
+        'context' => 'chapter-one',
+    ]);
+
+    bindDialogueMeilisearch([
+        [
+            'text_id' => $text->id,
+            'text_content' => $text->text_content,
+            '_formatted' => ['text_content' => '<mark>Moonlight</mark> reveals the hidden archive clue.'],
+        ],
+    ], 1, function (string $term, array $params) use ($game) {
+        expect($term)->toBe('moonlight')
+            ->and($params['limit'])->toBe(1)
+            ->and($params['filter'])->toBe("language = 'eng' AND game_id = {$game->id}");
+    });
+
+    $results = app(DialogueSearchService::class)->search('moonlight', [
+        'language' => 'eng',
+        'game_id' => $game->id,
+        'context' => 'chapter-one',
+    ], 1, 1);
+
+    expect($results->items())->toHaveCount(1);
+});
+
+it('reapplies character key filters when expanding meilisearch hits', function () {
+    [$game, $version, $character, $text] = makeDialogueSearchFixture();
+    $otherCharacter = Character::factory()->for($game)->create([
+        'character_id' => 'blair',
+        'display_names' => ['eng' => 'Blair'],
+    ]);
+    DialogueLine::factory()->create([
+        'game_version_id' => $version->id,
+        'character_id' => $otherCharacter->id,
+        'iso_code' => 'eng',
+        'text_id' => $text->id,
+        'context' => 'chapter-one',
+    ]);
+
+    bindDialogueMeilisearch([
+        [
+            'text_id' => $text->id,
+            'text_content' => $text->text_content,
+            '_formatted' => ['text_content' => '<mark>Moonlight</mark> reveals the hidden archive clue.'],
+        ],
+    ], 1, function (string $term, array $params) use ($game) {
+        expect($term)->toBe('moonlight')
+            ->and($params['filter'])->toBe("language = 'eng' AND game_id = {$game->id}");
+    });
+
+    $results = app(DialogueSearchService::class)->search('moonlight', [
+        'language' => 'eng',
+        'game_id' => $game->id,
+        'character_id' => 'alex',
+        'context' => 'chapter-one',
+    ], 10, 1);
+
+    expect($results->items())->toHaveCount(1)
+        ->and($results->items()[0]->character_id)->toBe($character->id);
 });
 
 it('returns an empty paginator when meilisearch finds no dialogue hits', function () {

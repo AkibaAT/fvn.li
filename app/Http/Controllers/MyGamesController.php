@@ -190,11 +190,17 @@ class MyGamesController extends Controller
             'links.*.name' => 'required|string|max:100',
             'links.*.url' => [
                 'required',
-                'url',
+                'url:http,https',
                 'max:255',
                 function (string $attribute, $value, $fail) {
                     if ($value) {
                         $parsedUrl = parse_url($value);
+
+                        if (! isset($parsedUrl['scheme']) || ! in_array(strtolower($parsedUrl['scheme']), ['http', 'https'], true)) {
+                            $fail('The URL must use http or https.');
+
+                            return;
+                        }
 
                         if (isset($parsedUrl['host'])) {
                             $host = $parsedUrl['host'];
@@ -265,6 +271,7 @@ class MyGamesController extends Controller
 
             $linkId = $link['id'] ?? uniqid();
             $existingLink = $existingLinksById->get($linkId);
+            $url = $this->sanitizeAdditionalLinkUrl($link['url']);
 
             // Handle release_at datetime - convert from user's local time to UTC
             $releaseAt = null;
@@ -299,14 +306,14 @@ class MyGamesController extends Controller
             // Check if the link has been modified
             $hasChanged = ! $existingLink ||
                 $existingLink['name'] !== trim($link['name']) ||
-                $existingLink['url'] !== filter_var(trim($link['url']), FILTER_SANITIZE_URL) ||
+                $existingLink['url'] !== $url ||
                 ($existingLink['platform'] ?? null) !== ($link['platform'] ?? null) ||
                 ($existingLink['release_at'] ?? null) !== $releaseAt;
 
             $processedLinks[] = [
                 'id' => $linkId,
                 'name' => trim($link['name']),
-                'url' => filter_var(trim($link['url']), FILTER_SANITIZE_URL),
+                'url' => $url,
                 'platform' => $link['platform'] ?? null,
                 'sort_order' => $index,
                 'release_at' => $releaseAt,
@@ -323,6 +330,11 @@ class MyGamesController extends Controller
             'message' => 'Links updated successfully.',
             'links' => $processedLinks,
         ]);
+    }
+
+    private function sanitizeAdditionalLinkUrl(string $url): string
+    {
+        return filter_var(trim($url), FILTER_SANITIZE_URL);
     }
 
     /**
