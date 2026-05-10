@@ -8,9 +8,9 @@ use App\Models\GameVersion;
 use App\Models\Language;
 use App\Models\Tag;
 use App\Services\GameDataSyncService;
+use App\Services\ItchHttpClientService;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
-use App\Services\ItchHttpClientService;
 
 function invokeGameDataSyncMethod(GameDataSyncService $service, string $method, array $arguments = []): mixed
 {

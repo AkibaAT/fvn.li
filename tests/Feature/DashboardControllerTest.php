@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Models\AdditionRequest;
+use App\Models\ChangeLog;
+use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\AdditionRequest;
 use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
-use App\Models\ClickStat;
-use App\Models\ChangeLog;
-use App\Models\Rating;
 use App\Models\Rater;
+use App\Models\Rating;
 use App\Models\SocialAccount;
 use App\Models\Tag;
 use App\Models\User;

@@ -28,7 +28,7 @@ trait HandlesLocalImages
             // Extract the storage path from the URL
             if (str_contains($url, '/storage/')) {
                 $storagePath = substr($url, strpos($url, '/storage/') + 9);
-                $fullPath = storage_path('app/public/' . $storagePath);
+                $fullPath = storage_path('app/public/'.$storagePath);
 
                 return $fullPath;
             }
@@ -39,7 +39,7 @@ trait HandlesLocalImages
                 $relativePath = substr($url, strlen($appUrl));
                 if (str_starts_with($relativePath, '/storage/')) {
                     $storagePath = substr($relativePath, 9);
-                    $fullPath = storage_path('app/public/' . $storagePath);
+                    $fullPath = storage_path('app/public/'.$storagePath);
 
                     return $fullPath;
                 }

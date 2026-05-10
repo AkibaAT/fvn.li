@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -59,7 +60,7 @@ describe('default list initialization', function () {
         // Calling again should throw a unique constraint violation
         // because the database prevents duplicate (user_id, name) combinations
         expect(fn () => $this->user->initializeDefaultLists())
-            ->toThrow(\Illuminate\Database\UniqueConstraintViolationException::class);
+            ->toThrow(UniqueConstraintViolationException::class);
     });
 });
 
