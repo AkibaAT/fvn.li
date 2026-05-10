@@ -6,6 +6,7 @@ use App\Http\Requests\AddGameToCustomListRequest;
 use App\Http\Requests\ToggleAllUpdatesRequest;
 use App\Models\DiscordServerMember;
 use App\Models\DiscordServerTag;
+use App\Models\Game;
 use App\Models\LanguageMapping;
 use App\Models\NotificationHistory;
 use App\Models\ProcessedEvent;
@@ -26,7 +27,6 @@ use App\Traits\SortsVnLists;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 
 function invokeSmokeMethod(object $object, string $method, array $arguments = []): mixed
 {
@@ -128,7 +128,7 @@ it('covers route graph relation models and casts', function () {
 });
 
 it('covers language mapping lookup precedence and unique dialogue text metadata accessors', function () {
-    $game = \App\Models\Game::factory()->create();
+    $game = Game::factory()->create();
     LanguageMapping::create([
         'game_id' => null,
         'game_language_key' => 'default',

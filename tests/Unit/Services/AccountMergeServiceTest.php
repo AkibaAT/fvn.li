@@ -280,7 +280,7 @@ describe('Account Merge Service', function () {
                 // Force an error by trying to delete a user that doesn't exist
                 User::findOrFail(99999)->delete();
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Expected to fail
         }
 

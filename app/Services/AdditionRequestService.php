@@ -91,7 +91,7 @@ class AdditionRequestService
                 DB::commit();
             } catch (Exception $e) {
                 DB::rollBack();
-                $results['errors'][] = "Error processing {$normalizedUrl}: " . $e->getMessage();
+                $results['errors'][] = "Error processing {$normalizedUrl}: ".$e->getMessage();
                 Log::error('Error submitting addition request', [
                     'user_id' => $user->id,
                     'url' => $normalizedUrl,
@@ -146,7 +146,7 @@ class AdditionRequestService
         $parsed = parse_url($url);
 
         // Rebuild without query string and fragment
-        $normalized = $parsed['scheme'] . '://';
+        $normalized = $parsed['scheme'].'://';
 
         // Remove www. from host
         $host = $parsed['host'] ?? '';
@@ -157,7 +157,7 @@ class AdditionRequestService
         if (isset($parsed['port']) &&
             ! (($parsed['scheme'] === 'http' && $parsed['port'] === 80) ||
               ($parsed['scheme'] === 'https' && $parsed['port'] === 443))) {
-            $normalized .= ':' . $parsed['port'];
+            $normalized .= ':'.$parsed['port'];
         }
 
         // Add path, removing trailing slashes

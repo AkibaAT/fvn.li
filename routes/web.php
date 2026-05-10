@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ClickTrackingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\FeedController;
@@ -11,8 +12,10 @@ use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
 use App\Http\Controllers\RatingsController;
+use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\SystemStatusController;
 use App\Http\Controllers\UserGameProgressController;
+use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VnListController;
 use App\Models\Game;
 use Illuminate\Http\Request;
@@ -128,25 +131,25 @@ Route::middleware(['auth'])->group(function () {
         ->name('user-progress.update');
 
     // User Preferences - Language Preferences
-    Route::get('user/language-preferences', [\App\Http\Controllers\UserPreferencesController::class, 'getLanguagePreferences'])
+    Route::get('user/language-preferences', [UserPreferencesController::class, 'getLanguagePreferences'])
         ->name('user.language-preferences.index');
-    Route::put('user/language-preferences', [\App\Http\Controllers\UserPreferencesController::class, 'updateLanguagePreferences'])
+    Route::put('user/language-preferences', [UserPreferencesController::class, 'updateLanguagePreferences'])
         ->name('user.language-preferences.update');
 
     // User Preferences - Excluded Tags
-    Route::get('user/excluded-tags', [\App\Http\Controllers\UserPreferencesController::class, 'getExcludedTags'])
+    Route::get('user/excluded-tags', [UserPreferencesController::class, 'getExcludedTags'])
         ->name('user.excluded-tags.index');
-    Route::put('user/excluded-tags', [\App\Http\Controllers\UserPreferencesController::class, 'updateExcludedTags'])
+    Route::put('user/excluded-tags', [UserPreferencesController::class, 'updateExcludedTags'])
         ->name('user.excluded-tags.update');
 
     // User Preferences - Ignored Games
-    Route::get('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'getIgnoredGames'])
+    Route::get('user/ignored-games', [UserPreferencesController::class, 'getIgnoredGames'])
         ->name('user.ignored-games.index');
-    Route::post('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'ignoreGame'])
+    Route::post('user/ignored-games', [UserPreferencesController::class, 'ignoreGame'])
         ->name('user.ignored-games.store');
-    Route::delete('user/ignored-games', [\App\Http\Controllers\UserPreferencesController::class, 'unignoreGame'])
+    Route::delete('user/ignored-games', [UserPreferencesController::class, 'unignoreGame'])
         ->name('user.ignored-games.destroy');
-    Route::post('user/ignored-games/toggle', [\App\Http\Controllers\UserPreferencesController::class, 'toggleIgnoreGame'])
+    Route::post('user/ignored-games/toggle', [UserPreferencesController::class, 'toggleIgnoreGame'])
         ->name('user.ignored-games.toggle');
 });
 
@@ -184,7 +187,7 @@ Route::get('auth/telegram', function () {
     ]);
 })->name('auth.telegram');
 
-Route::get('auth/{provider}/redirect', [App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])
+Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirectToProvider'])
     ->name('auth.redirect');
 
 // Special routes for itch.io
@@ -195,10 +198,10 @@ Route::get('auth/itchio/callback', function () {
 })->name('auth.itchio.callback');
 
 Route::get('auth/itchio/process', function () {
-    return app()->make(\App\Http\Controllers\SocialAuthController::class)->handleProviderCallback('itchio');
+    return app()->make(SocialAuthController::class)->handleProviderCallback('itchio');
 })->name('auth.itchio.process');
 
-Route::get('auth/{provider}/callback', [App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])
+Route::get('auth/{provider}/callback', [SocialAuthController::class, 'handleProviderCallback'])
     ->name('auth.callback');
 
 // Svelte/Inertia Dialogue Browser + JSON API
@@ -243,8 +246,8 @@ Route::get('feed/new', [FeedController::class, 'newGames'])->name('feed.new');
 Route::get('feed/updates', [FeedController::class, 'updatedGames'])->name('feed.updates');
 
 // Click tracking routes (public)
-Route::get('track/link', [App\Http\Controllers\ClickTrackingController::class, 'redirectCustomLink'])
+Route::get('track/link', [ClickTrackingController::class, 'redirectCustomLink'])
     ->name('track.custom-link');
-Route::get('track/external', [App\Http\Controllers\ClickTrackingController::class, 'redirectExternalProject'])
+Route::get('track/external', [ClickTrackingController::class, 'redirectExternalProject'])
     ->name('track.external-project');
 // Click tracking JSON moved to browser-api.php

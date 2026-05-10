@@ -124,7 +124,7 @@ class CreateChangeLogPartitions extends Command
 
             return 'created';
         } catch (Exception $e) {
-            $this->error("  Failed to create {$partitionName}: " . $e->getMessage());
+            $this->error("  Failed to create {$partitionName}: ".$e->getMessage());
 
             Log::error('Failed to create change_logs partition', [
                 'partition' => $partitionName,

@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AddGameToCustomListRequest;
+use App\Http\Requests\AddGameToListRequest;
+use App\Http\Requests\MoveListEntryRequest;
+use App\Http\Requests\ReorderListEntriesRequest;
+use App\Http\Requests\StoreVnListRequest;
+use App\Http\Requests\ToggleAllUpdatesRequest;
+use App\Http\Requests\ToggleUserProgressUpdatesRequest;
+use App\Http\Requests\UpdateListEntryRequest;
+use App\Http\Requests\UpdateUserProgressRequest;
+use App\Http\Requests\UpdateVnListRequest;
 use App\Models\Game;
 use App\Models\User;
 use App\Models\UserGameProgress;
@@ -103,11 +113,11 @@ class VnListController extends Controller
 
         $metaTags = [
             'title' => 'Your Visual Novel Lists',
-            'description' => 'Manage your ' . ($visibility === 'all' ? '' : $visibility . ' ') .
-                'visual novel lists. ' .
-                "Currently managing {$lists->total()} lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} (" . $list->entries->count() . ' games)';
+            'description' => 'Manage your '.($visibility === 'all' ? '' : $visibility.' ').
+                'visual novel lists. '.
+                "Currently managing {$lists->total()} lists".
+                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
+                    return "{$list->name} (".$list->entries->count().' games)';
                 })->implode(', ') : ''),
             'structuredData' => [
                 '@type' => 'WebPage',
@@ -211,7 +221,7 @@ class VnListController extends Controller
         }
 
         $metaTags = [
-            'title' => $vnList->name . ' - Visual Novel List',
+            'title' => $vnList->name.' - Visual Novel List',
             'description' => $vnList->description ?:
                 "A visual novel list by {$vnList->user->name} containing {$vnList->entries->count()} games.",
             'image' => asset(config('social.images.list_detail', config('social.images.default'))),
@@ -272,12 +282,12 @@ class VnListController extends Controller
         return Inertia::render('lists/edit', [
             'vnList' => $vnList,
             'metaTags' => [
-                'title' => 'Edit List - ' . $vnList->name,
-                'description' => 'Edit your visual novel list: ' . $vnList->name . '. Update the description, visibility, and manage your game entries.',
+                'title' => 'Edit List - '.$vnList->name,
+                'description' => 'Edit your visual novel list: '.$vnList->name.'. Update the description, visibility, and manage your game entries.',
                 'structuredData' => [
                     '@type' => 'WebPage',
-                    'name' => 'Edit List - ' . $vnList->name,
-                    'description' => 'Edit your visual novel list: ' . $vnList->name,
+                    'name' => 'Edit List - '.$vnList->name,
+                    'description' => 'Edit your visual novel list: '.$vnList->name,
                     'url' => route('lists.edit', $vnList),
                 ],
             ],
@@ -450,10 +460,10 @@ class VnListController extends Controller
 
         $metaTags = [
             'title' => 'Public Visual Novel Lists',
-            'description' => 'Browse public visual novel lists shared by the community. ' .
-                "Currently featuring {$lists->total()} public lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
+            'description' => 'Browse public visual novel lists shared by the community. '.
+                "Currently featuring {$lists->total()} public lists".
+                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
+                    return "{$list->name} by {$list->user->name} (".$list->entries->count().' games)';
                 })->implode(', ') : ''),
             'image' => asset(config('social.images.public_lists', config('social.images.default'))),
             'structuredData' => [
@@ -551,8 +561,8 @@ class VnListController extends Controller
         // Apply search filter if provided
         if (! empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('description', 'like', '%' . $search . '%');
+                $q->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('description', 'like', '%'.$search.'%');
             });
         }
 
@@ -596,10 +606,10 @@ class VnListController extends Controller
 
         $metaTags = [
             'title' => "{$user->name}'s Visual Novel Lists",
-            'description' => "Browse {$user->name}'s public visual novel lists. " .
-                "Currently featuring {$lists->total()} public lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} (" . $list->entries->count() . ' games)';
+            'description' => "Browse {$user->name}'s public visual novel lists. ".
+                "Currently featuring {$lists->total()} public lists".
+                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
+                    return "{$list->name} (".$list->entries->count().' games)';
                 })->implode(', ') : ''),
             'image' => ($lists->isNotEmpty() && $lists->first()->entries->isNotEmpty())
                 ? ($lists->first()->entries->first()->game?->getThumbnailUrl('default') ?? asset(config('social.images.default')))
@@ -641,7 +651,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function storeVnList(\App\Http\Requests\StoreVnListRequest $request): JsonResponse
+    public function storeVnList(StoreVnListRequest $request): JsonResponse
     {
 
         $isPublic = $request->boolean('is_public', false);
@@ -677,7 +687,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function updateVnList(\App\Http\Requests\UpdateVnListRequest $request, VnList $vnList): JsonResponse
+    public function updateVnList(UpdateVnListRequest $request, VnList $vnList): JsonResponse
     {
         $this->authorize('update', $vnList);
 
@@ -747,7 +757,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function toggleAllUpdates(\App\Http\Requests\ToggleAllUpdatesRequest $request, VnList $vnList): JsonResponse
+    public function toggleAllUpdates(ToggleAllUpdatesRequest $request, VnList $vnList): JsonResponse
     {
         $this->authorize('update', $vnList);
 
@@ -809,7 +819,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function addGameToList(\App\Http\Requests\AddGameToListRequest $request, Game $game): JsonResponse
+    public function addGameToList(AddGameToListRequest $request, Game $game): JsonResponse
     {
 
         // Handle both list_id and list_type parameters
@@ -825,7 +835,7 @@ class VnListController extends Controller
             if (! $vnList) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Default list not found for type: ' . $request->list_type,
+                    'message' => 'Default list not found for type: '.$request->list_type,
                 ], 404);
             }
         } else {
@@ -900,7 +910,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function addGameToCustomList(\App\Http\Requests\AddGameToCustomListRequest $request, VnList $vnList): JsonResponse
+    public function addGameToCustomList(AddGameToCustomListRequest $request, VnList $vnList): JsonResponse
     {
         $this->authorize('update', $vnList);
 
@@ -945,7 +955,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function updateUserProgress(\App\Http\Requests\UpdateUserProgressRequest $request, Game $game): JsonResponse
+    public function updateUserProgress(UpdateUserProgressRequest $request, Game $game): JsonResponse
     {
 
         $updateData = [
@@ -989,7 +999,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function toggleUserProgressUpdates(\App\Http\Requests\ToggleUserProgressUpdatesRequest $request, int $game): JsonResponse
+    public function toggleUserProgressUpdates(ToggleUserProgressUpdatesRequest $request, int $game): JsonResponse
     {
 
         $receiveUpdates = $request->boolean('receive_updates');
@@ -1085,7 +1095,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function updateListEntry(\App\Http\Requests\UpdateListEntryRequest $request, VnListEntry $entry): JsonResponse
+    public function updateListEntry(UpdateListEntryRequest $request, VnListEntry $entry): JsonResponse
     {
         $this->authorize('update', $entry->list);
 
@@ -1119,7 +1129,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function moveListEntry(\App\Http\Requests\MoveListEntryRequest $request, VnListEntry $entry): JsonResponse
+    public function moveListEntry(MoveListEntryRequest $request, VnListEntry $entry): JsonResponse
     {
         $this->authorize('update', $entry->list);
 
@@ -1174,7 +1184,7 @@ class VnListController extends Controller
         ]);
     }
 
-    public function reorderListEntries(\App\Http\Requests\ReorderListEntriesRequest $request, VnList $vnList): JsonResponse
+    public function reorderListEntries(ReorderListEntriesRequest $request, VnList $vnList): JsonResponse
     {
         $this->authorize('update', $vnList);
 

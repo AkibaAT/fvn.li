@@ -53,7 +53,7 @@ class GameDialogueText extends Model
             ->distinct()
             ->pluck('gv.game_id');
 
-        echo 'Found ' . $gameIds->count() . " games with dialogue to index\n";
+        echo 'Found '.$gameIds->count()." games with dialogue to index\n";
 
         // Process each game's dialogue texts
         return $gameIds->map(function ($gameId) {
@@ -108,7 +108,7 @@ class GameDialogueText extends Model
             }
 
             $model = new static;
-            $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
+            $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
             $model->text_id = $row->text_id;
             $model->game_id = $row->game_id;
             $model->text_content = $row->text_content;
@@ -179,7 +179,7 @@ class GameDialogueText extends Model
             }
 
             $model = new static;
-            $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
+            $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
             $model->text_id = $row->text_id;
             $model->game_id = $row->game_id;
             $model->text_content = $row->text_content;

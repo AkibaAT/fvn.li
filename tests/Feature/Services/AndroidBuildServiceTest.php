@@ -16,9 +16,9 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     $this->sdkPath = storage_path('app/testing-renpy-sdk');
     File::deleteDirectory($this->sdkPath);
-    File::makeDirectory($this->sdkPath . '/rapt', 0755, true, true);
-    File::put($this->sdkPath . '/renpy.sh', "#!/bin/sh\nmkdir -p \"$4\"\nprintf apk > \"$4/fvn-test.apk\"\n");
-    chmod($this->sdkPath . '/renpy.sh', 0755);
+    File::makeDirectory($this->sdkPath.'/rapt', 0755, true, true);
+    File::put($this->sdkPath.'/renpy.sh', "#!/bin/sh\nmkdir -p \"$4\"\nprintf apk > \"$4/fvn-test.apk\"\n");
+    chmod($this->sdkPath.'/renpy.sh', 0755);
     config(['services.renpy.sdk_path' => $this->sdkPath]);
 });
 
@@ -63,7 +63,7 @@ it('checks Android build eligibility from engine version and SDK configuration',
     $game->forceFill(['game_engine' => 'Unity'])->save();
     expect($service->isEligibleForAndroidBuild($game, $version))->toBeFalse();
 
-    File::delete($this->sdkPath . '/renpy.sh');
+    File::delete($this->sdkPath.'/renpy.sh');
     $game->forceFill(['game_engine' => "Ren'Py"])->save();
     $version->forceFill(['is_android' => false])->save();
     expect($service->isEligibleForAndroidBuild($game, $version))->toBeFalse();
@@ -141,7 +141,7 @@ it('marks builds as failed when no local archive or downloadable upload exists',
 
     $keystoreDir = storage_path('app/keystores');
     File::makeDirectory($keystoreDir, 0755, true, true);
-    File::put($keystoreDir . '/' . $game->id . '.keystore', 'existing-keystore');
+    File::put($keystoreDir.'/'.$game->id.'.keystore', 'existing-keystore');
 
     expect(fn () => $service->processBuild($build))
         ->toThrow(Exception::class, 'No uploads found for this game.');

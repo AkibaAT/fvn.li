@@ -1,5 +1,11 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Pest\Browser\Playwright\Servers\AlreadyStartedPlaywrightServer;
+use Pest\Browser\ServerManager;
+use Tests\Support\ExternalBrowserHttpServer;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,11 +17,11 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class);
+pest()->extend(TestCase::class);
 
 function useExternalPestBrowserServers(): void
 {
-    if (! class_exists(Pest\Browser\ServerManager::class)) {
+    if (! class_exists(ServerManager::class)) {
         return;
     }
 
@@ -27,20 +33,20 @@ function useExternalPestBrowserServers(): void
         return;
     }
 
-    $serverManager = Pest\Browser\ServerManager::instance();
+    $serverManager = ServerManager::instance();
     $reflection = new ReflectionClass($serverManager);
 
     if ($playwrightHost) {
         $playwrightProperty = $reflection->getProperty('playwright');
         $playwrightProperty->setValue(
             $serverManager,
-            new Pest\Browser\Playwright\Servers\AlreadyStartedPlaywrightServer($playwrightHost, $playwrightPort),
+            new AlreadyStartedPlaywrightServer($playwrightHost, $playwrightPort),
         );
     }
 
     if ($baseUrl) {
         $httpProperty = $reflection->getProperty('http');
-        $httpProperty->setValue($serverManager, new Tests\Support\ExternalBrowserHttpServer($baseUrl));
+        $httpProperty->setValue($serverManager, new ExternalBrowserHttpServer($baseUrl));
     }
 }
 
@@ -48,11 +54,11 @@ useExternalPestBrowserServers();
 
 // Use RefreshDatabase for Feature tests
 pest()->group('Feature')
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class);
+    ->use(RefreshDatabase::class);
 
 // Browser tests also run against isolated test data.
 pest()->group('Browser')
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class);
+    ->use(RefreshDatabase::class);
 
 /*
 |--------------------------------------------------------------------------
