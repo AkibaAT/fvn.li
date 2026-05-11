@@ -84,6 +84,15 @@ it('aggregates dialogue texts per game for search indexing', function () {
     $allTexts = GameDialogueText::getAllGameDialogueTexts();
 
     expect($allTexts->pluck('text_content')->all())->toContain('Shared line', 'Narration only', 'Other game line');
+
+    $chunkedRecords = collect();
+    $chunkedCount = GameDialogueText::chunkForGame($game->id, 1, function ($chunk) use ($chunkedRecords) {
+        expect($chunk)->toHaveCount(1);
+        $chunkedRecords->push(...$chunk);
+    });
+
+    expect($chunkedCount)->toBe(2)
+        ->and($chunkedRecords->keyBy('text_content')['Shared line']->character_names)->toContain('Alice', 'bob');
 });
 
 it('exposes dialogue search payloads and searchability metadata', function () {
