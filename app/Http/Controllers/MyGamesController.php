@@ -687,7 +687,7 @@ class MyGamesController extends Controller
 
         foreach ($sizes as $variant => [$width, $height]) {
             try {
-                $image = $manager->decode($file);
+                $image = $manager->decodePath($file->getRealPath());
                 $image->cover($width, $height);
                 $encoded = $image->encode(new WebpEncoder(quality: 80));
 
@@ -728,7 +728,7 @@ class MyGamesController extends Controller
 
         foreach ($sizes as $variant => [$width, $height]) {
             try {
-                $image = $manager->decode($file);
+                $image = $manager->decodePath($file->getRealPath());
                 $image->scale($width, $height);
                 $encoded = $image->encode(new WebpEncoder(quality: 80));
 

@@ -354,9 +354,6 @@ class SteamDataSyncService
             // Steam content descriptor IDs: 3 = Nudity or Sexual Content, 4 = Adult Only Sexual Content
             $game->is_nsfw = in_array(3, $appData['content_descriptors']['ids']) ||
                             in_array(4, $appData['content_descriptors']['ids']);
-        } else {
-            // No content descriptors means SFW game
-            $game->is_nsfw = false;
         }
 
         // Determine status based on release date
@@ -668,11 +665,17 @@ class SteamDataSyncService
     {
         $imageService = app(ImageProcessingService::class);
 
-        // Process screenshots if they changed (compare only source URLs, not optimized data)
-        if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots) && ! empty($game->screenshots)) {
+        // Process screenshots if they changed or if optimized variants are missing.
+        $needsScreenshotProcessing = $this->needsScreenshotProcessing($game->screenshots, $originalScreenshots);
+
+        if ($needsScreenshotProcessing) {
             try {
-                echo "    [Steam] Screenshots changed, processing...\n";
-                $imageService->processGameScreenshots($game);
+                echo "    [Steam] Screenshots need processing...\n";
+                if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
+                    $imageService->processGameScreenshots($game);
+                } else {
+                    $imageService->processGameScreenshots($game, 80, true);
+                }
                 echo "    [Steam] Screenshots processed successfully\n";
             } catch (Exception $e) {
                 Log::error('Failed to process Steam screenshots', [
@@ -738,6 +741,37 @@ class SteamDataSyncService
         $urls2 = $this->extractScreenshotUrls($screenshots2);
 
         return $urls1 !== $urls2;
+    }
+
+    private function needsScreenshotProcessing(?array $screenshots, ?array $originalScreenshots): bool
+    {
+        if (empty($screenshots)) {
+            return false;
+        }
+
+        return $this->screenshotUrlsChanged($screenshots, $originalScreenshots)
+            || $this->screenshotsMissingOptimizedVariants($screenshots);
+    }
+
+    private function screenshotsMissingOptimizedVariants(?array $screenshots): bool
+    {
+        if (empty($screenshots)) {
+            return false;
+        }
+
+        foreach ($screenshots as $screenshot) {
+            if (empty($screenshot['url'])) {
+                continue;
+            }
+
+            foreach (['small', 'default', 'large'] as $variant) {
+                if (empty($screenshot['optimized'][$variant]['path'])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
