@@ -9,6 +9,8 @@ use Exception;
 
 class GameVersionParser
 {
+    private const MAX_VERSION_LENGTH = 20;
+
     /**
      * Parse a version string into a normalized format.
      * Returns [array<int,int> $parts, string $suffix] or null.
@@ -40,6 +42,10 @@ class GameVersionParser
     public function isProbableVersion(string $version): bool
     {
         if (empty($version)) {
+            return false;
+        }
+
+        if (strlen($version) > self::MAX_VERSION_LENGTH) {
             return false;
         }
 
