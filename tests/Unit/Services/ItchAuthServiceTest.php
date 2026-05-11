@@ -204,9 +204,9 @@ describe('ItchAuthService game ID extraction', function () {
 });
 
 describe('ItchAuthService CSRF token extraction', function () {
-    test('extracts CSRF token from page', function () {
+    test('extracts CSRF token from meta content attribute', function () {
         $mockHandler = new MockHandler([
-            new Response(200, [], '<html><meta name="csrf_token" value="test-csrf-123"></html>'),
+            new Response(200, [], '<html><meta name="csrf_token" content="test-csrf-123"></html>'),
         ]);
 
         $handlerStack = HandlerStack::create($mockHandler);
@@ -219,6 +219,23 @@ describe('ItchAuthService CSRF token extraction', function () {
         $service = new ItchAuthService($factory);
 
         expect($service->getCsrfToken())->toBe('test-csrf-123');
+    });
+
+    test('falls back to CSRF token meta value attribute', function () {
+        $mockHandler = new MockHandler([
+            new Response(200, [], '<html><meta name="csrf_token" value="fallback-csrf-123"></html>'),
+        ]);
+
+        $handlerStack = HandlerStack::create($mockHandler);
+        $client = new Client(['handler' => $handlerStack]);
+
+        $factory = $this->createMock(ItchHttpClientFactory::class);
+        $factory->method('createCookieJar')->willReturn(new CookieJar);
+        $factory->method('createClient')->willReturn($client);
+
+        $service = new ItchAuthService($factory);
+
+        expect($service->getCsrfToken())->toBe('fallback-csrf-123');
     });
 
     test('returns null when CSRF token not found', function () {

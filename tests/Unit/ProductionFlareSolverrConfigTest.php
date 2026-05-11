@@ -24,6 +24,15 @@ test('production flaresolverr is isolated from the application data network', fu
         ->and($flareSolverrService)->not->toContain('      - web');
 });
 
+test('production redis save command passes interval and change count separately', function () {
+    $compose = file_get_contents(base_path('docker/production/docker-compose.yml'));
+    $redisService = dockerComposeServiceBlock($compose, 'redis');
+
+    expect($compose)->not->toBeFalse()
+        ->and($redisService)->toContain("    command:\n      - \"redis-server\"\n      - \"--save\"\n      - \"60\"\n      - \"1\"")
+        ->and($redisService)->not->toContain('- "60 1"');
+});
+
 function dockerComposeServiceBlock(string $compose, string $service): string
 {
     $matched = preg_match(

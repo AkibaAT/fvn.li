@@ -85,8 +85,13 @@ class ItchAuthService
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
         $csrfToken = $doc->querySelector('meta[name="csrf_token"]');
 
-        return $csrfToken?->getAttribute('value');
+        if (! $csrfToken) {
+            return null;
+        }
 
+        $token = $csrfToken->getAttribute('content') ?: $csrfToken->getAttribute('value');
+
+        return $token !== '' ? $token : null;
     }
 
     /**

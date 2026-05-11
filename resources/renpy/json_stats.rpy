@@ -156,8 +156,10 @@ init 10000 python:
         Safely decode Unicode escape sequences, handling both Python 2 and 3.
         Also handles cases where the input is already Unicode.
         """
+        original = s
         if not isinstance(s, str if sys.version_info[0] >= 3 else unicode):
             s = str(s)
+            original = s
 
         try:
             if sys.version_info[0] >= 3:
@@ -172,7 +174,7 @@ init 10000 python:
                 return s.encode('utf-8').decode('string-escape').decode('utf-8')
         except Exception as e:
             # If decoding fails, return original string
-            return s
+            return original
 
     # Precompile regexes for character extraction
     CHARACTER_TRANSLATED_REGEX = re.compile(
@@ -1114,8 +1116,8 @@ init 10000 python:
                         all_lang_stats[lang]["characters"][say.who].add(say.what)
                     else:
                         all_lang_stats[lang]["characters"]["narrator"].add(say.what)
-            elif has_translate_say and isinstance(node, renpy.ast.Say):
-                if isinstance(node, renpy.ast.TranslateSay) and node.language:
+            elif isinstance(node, renpy.ast.Say):
+                if has_translate_say and isinstance(node, renpy.ast.TranslateSay) and node.language:
                     lang = node.language
                 else:
                     lang = "default"

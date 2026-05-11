@@ -16,40 +16,41 @@
 
     const getPlatformLabel = (p: string) => {
         switch (p) {
-            case 'itch_io': return 'Visit on itch.io';
-            case 'steam': return 'Visit on Steam';
-            default: return 'Visit Game Page';
+            case 'itch_io':
+                return 'Visit on itch.io';
+            case 'steam':
+                return 'Visit on Steam';
+            default:
+                return 'Visit Game Page';
         }
     };
 
     const getPlatformColor = (p: string) => {
         switch (p) {
-            case 'itch_io': return 'text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300';
-            case 'steam': return 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300';
-            default: return 'text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300';
+            case 'itch_io':
+                return 'text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300';
+            case 'steam':
+                return 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300';
+            default:
+                return 'text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300';
         }
     };
 
     const label = $derived(getPlatformLabel(platform));
     const defaultClassName = $derived(`inline-flex items-center gap-2 font-medium transition-colors ${getPlatformColor(platform)}`);
 
-    const trackingUrl = $derived((() => {
-        try {
-            return route('track.external-project', { game_id: gameId, url });
-        } catch {
-            return url;
-        }
-    })());
+    const trackingUrl = $derived(
+        (() => {
+            try {
+                return route('track.external-project', { game_id: gameId, url });
+            } catch {
+                return url;
+            }
+        })(),
+    );
 </script>
 
-<a
-    href={trackingUrl}
-    target="_blank"
-    rel="noopener"
-    class={className || defaultClassName}
-    title={label}
-    aria-label="{label} - opens in new window"
->
+<a href={trackingUrl} target="_blank" rel="noopener" class={className || defaultClassName} title={label} aria-label="{label} - opens in new window">
     {#if platform === 'itch_io'}
         <Itchio class="h-4 w-4" />
     {:else if platform === 'steam'}

@@ -26,10 +26,29 @@
 <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700 {className}">
     <div class="grid grid-cols-1 items-center gap-4 sm:grid-cols-3">
         <div class="justify-self-start">
-            <Pagination {meta} {label} noDivider variant="info" alwaysShow onChange={onPageChange} loading={isLoading} focusOnUpdate={false} {buildPageUrl} />
+            <Pagination
+                {meta}
+                {label}
+                noDivider
+                variant="info"
+                alwaysShow
+                onChange={onPageChange}
+                loading={isLoading}
+                focusOnUpdate={false}
+                {buildPageUrl}
+            />
         </div>
         <div class="justify-self-center">
-            <Pagination {meta} noDivider variant="controls" alwaysShow onChange={onPageChange} loading={isLoading} focusOnUpdate={true} {buildPageUrl} />
+            <Pagination
+                {meta}
+                noDivider
+                variant="controls"
+                alwaysShow
+                onChange={onPageChange}
+                loading={isLoading}
+                focusOnUpdate={true}
+                {buildPageUrl}
+            />
         </div>
         <div class="justify-self-end">
             <div class="flex items-center space-x-2">

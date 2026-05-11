@@ -45,9 +45,8 @@ Writerside/
 ├── images/                    # Documentation images
 ├── topics/                    # Documentation content
 │   ├── README.md             # Main landing page
-│   └── docs/
-│       ├── fix-commands.md   # Fix commands overview
-│       └── commands/         # Individual command docs
+│   ├── commands-overview.md  # Commands overview
+│   └── *-commands-*.md       # Individual command docs
 ├── in.tree                   # Navigation structure
 ├── writerside.cfg           # Project configuration
 └── README.md                # This file
@@ -74,7 +73,7 @@ You can manually trigger the deployment workflow:
 
 ### Adding New Pages
 
-1. Create a new `.md` file in the appropriate `topics/` subdirectory
+1. Create a new `.md` file in `topics/`
 2. Add the page to the navigation in `in.tree`
 3. Use Writerside markup for enhanced formatting
 

@@ -42,7 +42,7 @@ Open the app at `https://fvn-li.ddev.site`.
 
 Create Svelte components in `resources/js/components/`:
 
-```svelte
+```html
 <script lang="ts">
     let {
         title,
