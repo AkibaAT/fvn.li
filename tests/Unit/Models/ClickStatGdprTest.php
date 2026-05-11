@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\User;
-use App\Services\IpAnonymizationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -32,8 +31,7 @@ describe('click statistics anonymization for GDPR', function () {
 
         $clickStat->refresh();
         expect($clickStat->user_id)->toBeNull()
-            ->and($clickStat->ip_address)->toStartWith('hash_')
-            ->and($clickStat->ip_address)->not->toContain('192.168');
+            ->and($clickStat->ip_address)->toBeNull();
     });
 
     test('anonymizes multiple click stats for same user', function () {
@@ -54,7 +52,7 @@ describe('click statistics anonymization for GDPR', function () {
 
         foreach ($stats as $stat) {
             expect($stat->user_id)->toBeNull()
-                ->and($stat->ip_address)->toStartWith('hash_');
+                ->and($stat->ip_address)->toBeNull();
         }
     });
 
@@ -195,7 +193,7 @@ describe('click statistics export for GDPR', function () {
 });
 
 describe('IP anonymization in click stats', function () {
-    test('uses hash method for anonymization', function () {
+    test('erases IP addresses during user anonymization', function () {
         $originalIp = '203.0.113.45';
 
         $clickStat = ClickStat::create([
@@ -210,12 +208,10 @@ describe('IP anonymization in click stats', function () {
         ClickStat::anonymizePersonalDataForUser($this->user->id);
 
         $clickStat->refresh();
-        $expectedHash = IpAnonymizationService::anonymize($originalIp, 'hash');
-
-        expect($clickStat->ip_address)->toBe($expectedHash);
+        expect($clickStat->ip_address)->toBeNull();
     });
 
-    test('consistent hash for same IP across multiple records', function () {
+    test('removes linkable IP identifiers across multiple records', function () {
         $ip = '192.168.1.100';
 
         for ($i = 0; $i < 3; $i++) {
@@ -232,10 +228,11 @@ describe('IP anonymization in click stats', function () {
         ClickStat::anonymizePersonalDataForUser($this->user->id);
 
         $stats = ClickStat::where('game_id', $this->game->id)->get();
-        $hashes = $stats->pluck('ip_address')->unique();
+        expect($stats)->toHaveCount(3);
 
-        // All should have the same hash since they had the same IP
-        expect($hashes)->toHaveCount(1);
+        foreach ($stats as $stat) {
+            expect($stat->ip_address)->toBeNull();
+        }
     });
 
     test('handles null IP addresses during anonymization', function () {
@@ -340,16 +337,15 @@ describe('edge cases and error handling', function () {
         ClickStat::anonymizePersonalDataForUser($this->user->id);
         $clickStat->refresh();
 
-        // After anonymization, user_id should be null and IP should be hashed
+        // After anonymization, user_id and IP-derived identifiers should be removed
         expect($clickStat->user_id)->toBeNull()
-            ->and($clickStat->ip_address)->toStartWith('hash_');
+            ->and($clickStat->ip_address)->toBeNull();
 
         // Anonymizing again should be idempotent (no error, no change since user_id is already null)
-        $firstHash = $clickStat->ip_address;
         ClickStat::anonymizePersonalDataForUser($this->user->id);
         $clickStat->refresh();
 
         // Should remain the same since there are no more records for this user
-        expect($clickStat->ip_address)->toBe($firstHash);
+        expect($clickStat->ip_address)->toBeNull();
     });
 });

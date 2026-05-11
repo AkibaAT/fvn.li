@@ -354,9 +354,6 @@ class SteamDataSyncService
             // Steam content descriptor IDs: 3 = Nudity or Sexual Content, 4 = Adult Only Sexual Content
             $game->is_nsfw = in_array(3, $appData['content_descriptors']['ids']) ||
                             in_array(4, $appData['content_descriptors']['ids']);
-        } else {
-            // No content descriptors means SFW game
-            $game->is_nsfw = false;
         }
 
         // Determine status based on release date
@@ -668,13 +665,17 @@ class SteamDataSyncService
     {
         $imageService = app(ImageProcessingService::class);
 
-        $screenshotsChanged = $this->screenshotUrlsChanged($game->screenshots, $originalScreenshots);
+        // Process screenshots if they changed or if optimized variants are missing.
+        $needsScreenshotProcessing = $this->needsScreenshotProcessing($game->screenshots, $originalScreenshots);
 
-        // Process screenshots if source URLs changed, or if existing rows never got optimized.
-        if (! empty($game->screenshots) && ($screenshotsChanged || $this->hasUnoptimizedScreenshots($game->screenshots))) {
+        if ($needsScreenshotProcessing) {
             try {
                 echo "    [Steam] Screenshots need processing...\n";
-                $imageService->processGameScreenshots($game);
+                if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
+                    $imageService->processGameScreenshots($game);
+                } else {
+                    $imageService->processGameScreenshots($game, 80, true);
+                }
                 echo "    [Steam] Screenshots processed successfully\n";
             } catch (Exception $e) {
                 Log::error('Failed to process Steam screenshots', [
@@ -707,7 +708,7 @@ class SteamDataSyncService
                 ]);
                 // Continue anyway
             }
-        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $screenshotsChanged) {
+        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
             // No thumbnail but have screenshots - process first screenshot as thumbnail
             try {
                 echo "    [Steam] No thumbnail, processing first screenshot as fallback...\n";
@@ -742,18 +743,31 @@ class SteamDataSyncService
         return $urls1 !== $urls2;
     }
 
-    /**
-     * @param  array<int, array<string, mixed>>|null  $screenshots
-     */
-    private function hasUnoptimizedScreenshots(?array $screenshots): bool
+    private function needsScreenshotProcessing(?array $screenshots, ?array $originalScreenshots): bool
+    {
+        if (empty($screenshots)) {
+            return false;
+        }
+
+        return $this->screenshotUrlsChanged($screenshots, $originalScreenshots)
+            || $this->screenshotsMissingOptimizedVariants($screenshots);
+    }
+
+    private function screenshotsMissingOptimizedVariants(?array $screenshots): bool
     {
         if (empty($screenshots)) {
             return false;
         }
 
         foreach ($screenshots as $screenshot) {
-            if (empty($screenshot['optimized'])) {
-                return true;
+            if (empty($screenshot['url'])) {
+                continue;
+            }
+
+            foreach (['small', 'default', 'large'] as $variant) {
+                if (empty($screenshot['optimized'][$variant]['path'])) {
+                    return true;
+                }
             }
         }
 

@@ -186,6 +186,39 @@ it('compares screenshot source URLs while ignoring optimized variants', function
         ]);
 });
 
+it('retries screenshot processing when optimized variants are missing or incomplete', function () {
+    $service = app(GameDataSyncService::class);
+
+    $completeScreenshots = [
+        [
+            'url' => 'https://img.example/a.png',
+            'optimized' => [
+                'small' => ['path' => 'screens/a-small.webp'],
+                'default' => ['path' => 'screens/a-default.webp'],
+                'large' => ['path' => 'screens/a-large.webp'],
+            ],
+        ],
+    ];
+
+    $missingOptimizedScreenshots = [
+        ['url' => 'https://img.example/a.png'],
+    ];
+
+    $partialOptimizedScreenshots = [
+        [
+            'url' => 'https://img.example/a.png',
+            'optimized' => [
+                'default' => ['path' => 'screens/a-default.webp'],
+            ],
+        ],
+    ];
+
+    expect(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$completeScreenshots, $completeScreenshots]))->toBeFalse()
+        ->and(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$missingOptimizedScreenshots, $missingOptimizedScreenshots]))->toBeTrue()
+        ->and(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$partialOptimizedScreenshots, $partialOptimizedScreenshots]))->toBeTrue()
+        ->and(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$completeScreenshots, [['url' => 'https://img.example/old.png']]]))->toBeTrue();
+});
+
 it('marks itch games invisible when version refresh receives a not found response', function () {
     $game = Game::factory()->create([
         'platform' => 'itch_io',
@@ -330,4 +363,51 @@ it('creates an itch version from processable uploads and updates existing platfo
     expect($version->refresh()->is_windows)->toBeFalse()
         ->and($version->is_linux)->toBeTrue()
         ->and($version->is_web)->toBeFalse();
+});
+
+it('does not persist overlong itch upload user versions', function () {
+    ensureSyncLanguage('eng', 'English');
+
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 432,
+        'url' => ['itch_io' => 'https://creator.itch.io/overlong-version'],
+        'source_language_id' => 'eng',
+        'game_engine' => 'Unity',
+    ]);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/432/uploads')
+        ->andReturn(new Response(200, [], json_encode([
+            'uploads' => [
+                [
+                    'id' => 12,
+                    'filename' => 'overlong-linux.tar.bz2',
+                    'display_name' => 'Linux Build',
+                    'md5_hash' => 'def',
+                    'updated_at' => '2024-03-04T05:06:07Z',
+                    'build_id' => 88,
+                    'build' => [
+                        'user_version' => '1.1.1.1.1.1.1.1.1.1.1',
+                        'updated_at' => '2024-03-04T05:06:08Z',
+                    ],
+                    'traits' => ['p_linux'],
+                    'type' => 'default',
+                ],
+            ],
+        ])));
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://creator.itch.io/overlong-version', [], true)
+        ->andReturn(new Response(200, [], '<html><body>No devlog</body></html>'));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    app(GameDataSyncService::class)->refreshVersion($game);
+
+    $version = $game->gameVersions()->firstOrFail();
+
+    expect($version->version)->toBe('2024.03.04')
+        ->and(strlen($version->version))->toBeLessThanOrEqual(20);
 });

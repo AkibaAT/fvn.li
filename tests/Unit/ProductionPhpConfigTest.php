@@ -42,6 +42,20 @@ test('production docker image applies global php config to cli entrypoints', fun
     }
 });
 
+test('production docker base image is pinned to an immutable php patch image digest', function () {
+    $dockerfile = file_get_contents(productionDockerFile('docker/app/Dockerfile'));
+
+    expect($dockerfile)->not->toBeFalse();
+
+    preg_match('/^FROM\s+([^\s]+)$/m', $dockerfile, $matches);
+    $baseImage = $matches[1] ?? '';
+
+    expect($baseImage)
+        ->toMatch('/^dunglas\/frankenphp:\d+\.\d+\.\d+-php8\.5\.\d+@sha256:[a-f0-9]{64}$/')
+        ->toContain('@sha256:')
+        ->not->toMatch('/^dunglas\/frankenphp:php8\.5(@|$)/');
+});
+
 test('frankenphp web override remains bounded separately from global cli config', function () {
     $caddyfile = file_get_contents(productionDockerFile('docker/app/Caddyfile'));
 

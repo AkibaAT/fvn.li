@@ -168,6 +168,51 @@ JSON));
         ->and(getSteamProperty($service, 'parsedLanguageIsoCodes'))->toBe(['eng', 'fra', 'zho']);
 });
 
+it('preserves existing Steam NSFW classification when content descriptors are missing', function (array $descriptorData) {
+    $game = Game::factory()->create([
+        'platform' => 'steam',
+        'is_nsfw' => true,
+    ]);
+    $httpClient = Mockery::mock(Client::class);
+    $httpClient->shouldReceive('get')
+        ->once()
+        ->andReturn(new Response(200, [], json_encode([
+            '123456' => [
+                'success' => true,
+                'data' => array_merge([
+                    'name' => 'Steam VN',
+                    'release_date' => ['coming_soon' => false],
+                ], $descriptorData),
+            ],
+        ])));
+    $service = makeSteamService($httpClient);
+
+    invokeSteamMethod($service, 'refreshFromSteamApi', $game, '123456');
+
+    expect($game->is_nsfw)->toBeTrue();
+})->with([
+    'missing content_descriptors' => [[]],
+    'missing descriptor ids' => [['content_descriptors' => []]],
+]);
+
+it('updates Steam NSFW classification when content descriptor ids are present', function () {
+    $game = Game::factory()->create([
+        'platform' => 'steam',
+        'is_nsfw' => true,
+    ]);
+    $httpClient = Mockery::mock(Client::class);
+    $httpClient->shouldReceive('get')
+        ->once()
+        ->andReturn(new Response(200, [], <<<'JSON'
+{"123456":{"success":true,"data":{"name":"Steam VN","release_date":{"coming_soon":false},"content_descriptors":{"ids":[]}}}}
+JSON));
+    $service = makeSteamService($httpClient);
+
+    invokeSteamMethod($service, 'refreshFromSteamApi', $game, '123456');
+
+    expect($game->is_nsfw)->toBeFalse();
+});
+
 it('throws when the Steam API response is unsuccessful', function () {
     $game = Game::factory()->create([
         'platform' => 'steam',
@@ -272,5 +317,24 @@ it('processes changed Steam images through the image processing service', functi
 
     invokeSteamMethod($service, 'processImages', $game, 'https://cdn.example/old-header.jpg', [
         ['url' => 'https://cdn.example/old-shot.jpg'],
+    ]);
+});
+
+it('retries Steam screenshot processing when optimized variants are missing', function () {
+    $service = makeSteamService();
+    $game = Game::factory()->create([
+        'thumb_url' => null,
+        'screenshots' => [
+            ['url' => 'https://cdn.example/shot.jpg'],
+        ],
+    ]);
+
+    $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('processGameScreenshots')->once()->with($game, 80, true);
+    $imageService->shouldReceive('processGameThumbnail')->never();
+    $this->app->instance(ImageProcessingService::class, $imageService);
+
+    invokeSteamMethod($service, 'processImages', $game, null, [
+        ['url' => 'https://cdn.example/shot.jpg'],
     ]);
 });

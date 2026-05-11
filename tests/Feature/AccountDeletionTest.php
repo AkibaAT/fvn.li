@@ -245,7 +245,7 @@ describe('GDPR compliance during deletion', function () {
         // Click stats should be anonymized
         $stat = ClickStat::where('game_id', $game->id)->first();
         expect($stat->user_id)->toBeNull()
-            ->and($stat->ip_address)->toStartWith('hash_');
+            ->and($stat->ip_address)->toBeNull();
     });
 
     test('preserves analytics data while removing personal information', function () {
