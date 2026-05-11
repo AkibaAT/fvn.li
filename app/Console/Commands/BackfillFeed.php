@@ -316,7 +316,7 @@ class BackfillFeed extends Command
             // Record that we processed this event
             ProcessedEvent::create([
                 'event_id' => $eventId,
-                'game_id' => $game->id,
+                'game_id' => $gameId,
             ]);
 
             $gameElapsed = round(microtime(true) - $gameStartTime, 2);

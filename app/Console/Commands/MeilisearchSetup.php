@@ -16,6 +16,10 @@ use Meilisearch\Client;
 
 class MeilisearchSetup extends Command
 {
+    private const SEARCH_VERIFICATION_ATTEMPTS = 10;
+
+    private const SEARCH_VERIFICATION_RETRY_DELAY_MICROSECONDS = 250_000;
+
     /**
      * The name and signature of the console command.
      *
@@ -345,30 +349,55 @@ class MeilisearchSetup extends Command
     /**
      * Verify that the setup actually worked by testing a search.
      */
-    private function verifySetup(): bool
+    protected function verifySetup(): bool
     {
         try {
             $this->info('🔍 Verifying setup...');
 
-            // Try to search for games
-            $testResults = Game::search('*')->take(1)->get();
+            $gameCount = $this->visibleGameCount();
+            if ($gameCount === 0) {
+                $this->info('    ✅ Search verification successful');
 
-            if ($testResults->isEmpty()) {
-                $gameCount = Game::where('is_visible', true)->count();
-                if ($gameCount > 0) {
-                    $this->warn('    ⚠️  Search returned no results but database has games. Index may be empty.');
+                return true;
+            }
 
-                    return false;
+            // Meilisearch document updates are asynchronous. Give submitted Scout
+            // tasks a short window to become searchable before failing setup.
+            for ($attempt = 1; $attempt <= self::SEARCH_VERIFICATION_ATTEMPTS; $attempt++) {
+                if ($this->hasSearchableGameResult()) {
+                    $this->info('    ✅ Search verification successful');
+
+                    return true;
+                }
+
+                if ($attempt < self::SEARCH_VERIFICATION_ATTEMPTS) {
+                    $this->line('    Waiting for indexed games to become searchable...');
+                    $this->sleepBeforeSearchRetry();
                 }
             }
 
-            $this->info('    ✅ Search verification successful');
+            $this->warn("    ⚠️  Search returned no results but database has {$gameCount} visible game(s). Index may still be processing.");
 
-            return true;
+            return false;
         } catch (Exception $e) {
             $this->error("    ❌ Verification failed: {$e->getMessage()}");
 
             return false;
         }
+    }
+
+    protected function visibleGameCount(): int
+    {
+        return Game::where('is_visible', true)->count();
+    }
+
+    protected function hasSearchableGameResult(): bool
+    {
+        return ! Game::search('*')->take(1)->get()->isEmpty();
+    }
+
+    protected function sleepBeforeSearchRetry(): void
+    {
+        usleep(self::SEARCH_VERIFICATION_RETRY_DELAY_MICROSECONDS);
     }
 }

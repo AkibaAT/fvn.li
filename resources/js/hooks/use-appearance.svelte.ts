@@ -18,9 +18,7 @@ const setCookie = (name: string, value: string, days = 365) => {
 };
 
 const applyTheme = (appearance: Appearance) => {
-    const isDark =
-        appearance === 'dark' ||
-        (appearance === 'system' && prefersDark());
+    const isDark = appearance === 'dark' || (appearance === 'system' && prefersDark());
 
     document.documentElement.classList.toggle('dark', isDark);
 };
@@ -39,8 +37,7 @@ const handleSystemThemeChange = () => {
 };
 
 export function initializeAppearance() {
-    const savedAppearance =
-        (localStorage.getItem('appearance') as Appearance) || 'system';
+    const savedAppearance = (localStorage.getItem('appearance') as Appearance) || 'system';
 
     applyTheme(savedAppearance);
 
@@ -49,9 +46,7 @@ export function initializeAppearance() {
 }
 
 export function useAppearance() {
-    const saved = typeof localStorage !== 'undefined'
-        ? (localStorage.getItem('appearance') as Appearance | null)
-        : null;
+    const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem('appearance') as Appearance | null) : null;
     let appearance = $state<Appearance>(saved || 'system');
 
     const updateAppearance = (mode: Appearance) => {
@@ -70,15 +65,13 @@ export function useAppearance() {
         // Apply the current theme on mount
         applyTheme(appearance);
 
-        return () =>
-            mediaQuery()?.removeEventListener(
-                'change',
-                handleSystemThemeChange,
-            );
+        return () => mediaQuery()?.removeEventListener('change', handleSystemThemeChange);
     });
 
     return {
-        get appearance() { return appearance; },
+        get appearance() {
+            return appearance;
+        },
         updateAppearance,
     };
 }

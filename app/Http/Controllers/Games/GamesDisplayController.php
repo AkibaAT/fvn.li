@@ -202,7 +202,9 @@ class GamesDisplayController extends Controller
                     $query->where('version_character_stats.iso_code', $game->source_language_id);
                 })
                 ->select('version_character_stats.game_version_id')
-                ->selectRaw("COUNT(DISTINCT characters.display_names->>'eng') as count")
+                ->selectRaw(
+                    "COUNT(DISTINCT COALESCE(characters.display_name_corrections->>'eng', characters.display_names->>'eng', characters.character_id)) as count"
+                )
                 ->groupBy('version_character_stats.game_version_id')
                 ->get()
                 ->pluck('count', 'game_version_id')
