@@ -202,7 +202,6 @@ class GameAssetService
                     mkdir($directory, 0755, true);
                 }
 
-                // Resize and save using Intervention Image v4 API
                 $image = $this->imageManager->decodePath($fullPath);
                 $image->scaleDown(width: $width);
                 $image->save($variantFullPath, quality: 85);

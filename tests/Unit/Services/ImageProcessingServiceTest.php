@@ -121,6 +121,54 @@ test('large screenshot variants keep original dimensions', function () {
     }
 });
 
+test('gif conversion failures clean up temporary frame files', function () {
+    $sourcePath = tempnam(sys_get_temp_dir(), 'gif_source_');
+    file_put_contents($sourcePath, base64_decode('R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='));
+
+    $fakeBinDir = sys_get_temp_dir().'/fake-convert-'.uniqid();
+    mkdir($fakeBinDir);
+    $fakeConvert = $fakeBinDir.'/convert';
+    file_put_contents($fakeConvert, "#!/bin/sh\nexit 1\n");
+    chmod($fakeConvert, 0755);
+
+    $originalPath = getenv('PATH') ?: '';
+    $before = glob(sys_get_temp_dir().'/image_frame_*') ?: [];
+
+    putenv("PATH={$fakeBinDir}");
+
+    try {
+        expect(fn () => $this->service->processImageVariant(
+            $sourcePath,
+            'test/failed_gif.webp',
+            ['width' => 100, 'height' => 100],
+            80
+        ))->toThrow(Exception::class, 'Failed to process image: Failed to extract first frame from GIF');
+    } finally {
+        putenv("PATH={$originalPath}");
+
+        if (file_exists($sourcePath)) {
+            unlink($sourcePath);
+        }
+        if (file_exists($fakeConvert)) {
+            unlink($fakeConvert);
+        }
+        if (is_dir($fakeBinDir)) {
+            rmdir($fakeBinDir);
+        }
+    }
+
+    $after = glob(sys_get_temp_dir().'/image_frame_*') ?: [];
+    $newTempFiles = array_values(array_diff($after, $before));
+
+    foreach ($newTempFiles as $newTempFile) {
+        if (is_file($newTempFile)) {
+            unlink($newTempFile);
+        }
+    }
+
+    expect($newTempFiles)->toBe([]);
+});
+
 test('process game screenshots creates optimized variants and keeps optimized screenshots when not forced', function () {
     $game = Game::factory()->create([
         'screenshots' => [

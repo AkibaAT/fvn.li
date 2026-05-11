@@ -102,6 +102,7 @@
                             href="https://bsky.app/profile/akiba.at"
                             class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
                             target="_blank"
+                            rel="noopener"
                             title="Contact on Bluesky"
                         >
                             <i class="icon-bluesky w-5 text-center"></i>
@@ -113,6 +114,7 @@
                             href="https://discord.com/users/akiba.at"
                             class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
                             target="_blank"
+                            rel="noopener"
                             title="Contact on Discord"
                         >
                             <i class="icon-discord w-5 text-center"></i>
@@ -124,6 +126,7 @@
                             href="https://t.me/AkibaAT"
                             class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
                             target="_blank"
+                            rel="noopener"
                             title="Contact on Telegram"
                         >
                             <i class="icon-telegram w-5 text-center"></i>

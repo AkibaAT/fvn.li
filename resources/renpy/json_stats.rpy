@@ -68,6 +68,13 @@ init 10000 python:
             text = text[1:-1]
         return text
 
+    def normalize_dialogue_character(character_id, cleaned_text):
+        """Keep extracted character IDs within the database-backed import limit."""
+        if len(character_id) > 50:
+            return "narrator", character_id + " " + cleaned_text
+
+        return character_id, cleaned_text
+
     def first_statement_line(block, fallback_line):
         """Return the first executable line for a menu choice block."""
         for stmt in statement_block_items(block):
@@ -345,8 +352,9 @@ init 10000 python:
                         ):
                             cleaned_text = clean_text(literal_value)
                             if cleaned_text:
+                                character_id, cleaned_text = normalize_dialogue_character(target.id, cleaned_text)
                                 custom_text_assignments.append({
-                                    "character": target.id,
+                                    "character": character_id,
                                     "text": cleaned_text,
                                     "file": filename,
                                     "line": linenumber,
@@ -1091,9 +1099,7 @@ init 10000 python:
                         last_character[lang] = character_id
 
                     # Try to rescue broken game lines
-                    if len(character_id) > 50:
-                        cleaned_text = character_id + " " + cleaned_text
-                        character_id = "narrator"
+                    character_id, cleaned_text = normalize_dialogue_character(character_id, cleaned_text)
 
                     # Add to dialogue lines
                     dialogue_lines[lang].append({
@@ -1130,9 +1136,7 @@ init 10000 python:
                     last_character[lang] = character_id
 
                 # Try to rescue broken game lines
-                if len(character_id) > 50:
-                    cleaned_text = character_id + " " + cleaned_text
-                    character_id = "narrator"
+                character_id, cleaned_text = normalize_dialogue_character(character_id, cleaned_text)
 
                 # Add to dialogue lines with character, text, file, and line number
                 dialogue_lines[lang].append({

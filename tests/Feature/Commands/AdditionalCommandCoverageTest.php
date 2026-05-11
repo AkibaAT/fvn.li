@@ -5,6 +5,7 @@ use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\ImportState;
 use App\Models\ProcessedEvent;
+use App\Services\GameDataSyncService;
 use App\Services\ItchAuthService;
 use App\Services\ItchHttpClientService;
 use App\Services\SteamDataSyncService;
@@ -266,6 +267,43 @@ test('refresh itch games configures retry service and records per-game failures'
                 && $context['exception'] instanceof RuntimeException
         ))
         ->once();
+});
+
+test('refresh itch games clears cached HTTP responses after every game', function () {
+    $games = Game::factory()->count(2)->create([
+        'platform' => 'itch_io',
+        'is_visible' => true,
+        'status' => 'Released',
+    ]);
+
+    $itchClient = Mockery::mock(ItchHttpClientService::class);
+    $itchClient->shouldReceive('setMaxRetries')->once()->with(3)->andReturnSelf();
+    $itchClient->shouldReceive('setBaseCooldown')->once()->with(0)->andReturnSelf();
+    $itchClient
+        ->shouldReceive('executeWithRetry')
+        ->twice()
+        ->with(Mockery::type('callable'), 'Version information', Mockery::type('callable'), Mockery::type('callable'))
+        ->andReturnUsing(function (callable $callback) {
+            $callback();
+        });
+    app()->instance(ItchHttpClientService::class, $itchClient);
+
+    $syncService = Mockery::mock(GameDataSyncService::class);
+    foreach ($games as $game) {
+        $syncService->shouldReceive('refreshVersion')->once()->with(Mockery::on(
+            fn (Game $refreshedGame) => $refreshedGame->id === $game->id
+        ), false);
+        $syncService->shouldReceive('clearHttpCache')->once()->with(Mockery::on(
+            fn (Game $refreshedGame) => $refreshedGame->id === $game->id
+        ));
+    }
+    app()->instance(GameDataSyncService::class, $syncService);
+
+    $this
+        ->artisan('games:refresh --all --update-version --retry-cooldown=0')
+        ->expectsOutput('Starting refresh for all visible games')
+        ->expectsOutputToContain('Refresh process completed')
+        ->assertExitCode(0);
 });
 
 test('fetch game jam details processes pending jams through the itch retry client', function () {
