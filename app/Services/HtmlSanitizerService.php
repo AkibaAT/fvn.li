@@ -17,13 +17,17 @@ class HtmlSanitizerService
         'font-size',
         'font-style',
         'font-weight',
+        'height',
         'line-height',
         'list-style-type',
+        'max-height',
+        'max-width',
         'text-align',
         'text-decoration',
         'text-decoration-line',
         'vertical-align',
         'white-space',
+        'width',
     ];
 
     private HtmlSanitizer $reviewSanitizer;
