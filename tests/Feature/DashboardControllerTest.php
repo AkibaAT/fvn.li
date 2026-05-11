@@ -436,7 +436,7 @@ it('deletes the authenticated account and anonymizes retained data', function ()
         ->and(NotificationHistory::where('user_id', $user->id)->exists())->toBeFalse()
         ->and(DB::table('user_ignored_games')->where('user_id', $user->id)->exists())->toBeFalse()
         ->and(ClickStat::first()->user_id)->toBeNull()
-        ->and(ClickStat::first()->ip_address)->not->toBe('203.0.113.99');
+        ->and(ClickStat::first()->ip_address)->toBeNull();
 });
 
 it('renders digest notifications for dates with and without user notifications', function () {
