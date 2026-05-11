@@ -21,10 +21,7 @@ type ZiggyGlobal = typeof globalThis & {
 function normalizeZiggyConfig(ziggy: SharedZiggyConfig): ZiggyConfig {
     return {
         ...ziggy,
-        location:
-            typeof ziggy.location === 'string'
-                ? new URL(ziggy.location, ziggy.url)
-                : ziggy.location,
+        location: typeof ziggy.location === 'string' ? new URL(ziggy.location, ziggy.url) : ziggy.location,
     };
 }
 
@@ -48,10 +45,7 @@ createServer((page) => {
     return createInertiaApp({
         page,
         resolve: (name) => {
-            const pages = import.meta.glob<ResolvedComponent>(
-                './pages/**/*.svelte',
-                { eager: true },
-            );
+            const pages = import.meta.glob<ResolvedComponent>('./pages/**/*.svelte', { eager: true });
             const resolved = pages[`./pages/${name}.svelte`] as any;
 
             return { ...resolved, layout: resolved?.layout || PersistentLayout };

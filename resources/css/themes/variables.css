@@ -1,27 +1,27 @@
 /* Base theme CSS variables */
 :root {
     /* Brand colors */
-    --color-itchio: #FA5C5C;
+    --color-itchio: #fa5c5c;
     --color-steam-primary: #144b7e;
     --color-steam-secondary: #fff;
 
     /* Platform colors */
-    --color-platform-windows: #00A4EF;
+    --color-platform-windows: #00a4ef;
     --color-platform-linux-light: #000000;
-    --color-platform-linux-dark: #F0B90B;
+    --color-platform-linux-dark: #f0b90b;
     --color-platform-mac-light: #555555;
     --color-platform-mac-dark: #e5e7eb;
-    --color-platform-android: #3DDC84;
-    --color-platform-web: #4285F4;
+    --color-platform-android: #3ddc84;
+    --color-platform-web: #4285f4;
 
     /* Progress colors */
-    --color-progress-primary: #4F46E5;
+    --color-progress-primary: #4f46e5;
 
     /* Chart colors */
     --color-chart-primary: #3b82f6;
     --color-chart-secondary: #8b5cf6;
     --color-chart-success: #10b981;
-    --color-chart-warning: #EAB308;
+    --color-chart-warning: #eab308;
 
     /* Chart background colors with alpha */
     --color-chart-primary-bg: rgba(59, 130, 246, 0.1);
@@ -82,8 +82,8 @@
     /* Tooltip colors */
     --color-tooltip-background: rgba(17, 24, 39, 0.95);
     --color-tooltip-border: rgba(55, 65, 81, 1);
-    --color-tooltip-title: #E5E7EB;
-    --color-tooltip-body: #E5E7EB;
+    --color-tooltip-title: #e5e7eb;
+    --color-tooltip-body: #e5e7eb;
 
     /* Editor colors */
     --color-editor-background: #1f2937;

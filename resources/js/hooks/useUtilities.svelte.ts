@@ -4,11 +4,17 @@
 export function useToggle(initialValue: boolean = false) {
     let value = $state(initialValue);
 
-    const toggle = () => { value = !value; };
+    const toggle = () => {
+        value = !value;
+    };
 
     return {
-        get value() { return value; },
-        set value(v: boolean) { value = v; },
+        get value() {
+            return value;
+        },
+        set value(v: boolean) {
+            value = v;
+        },
         toggle,
     };
 }
@@ -45,7 +51,9 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     };
 
     return {
-        get value() { return storedValue; },
+        get value() {
+            return storedValue;
+        },
         setValue,
     };
 }
@@ -70,8 +78,12 @@ export function useWindowSize() {
     });
 
     return {
-        get width() { return width; },
-        get height() { return height; },
+        get width() {
+            return width;
+        },
+        get height() {
+            return height;
+        },
     };
 }
 
@@ -101,7 +113,7 @@ export function useClickOutside(getElement: () => HTMLElement | null, handler: (
 export function useKeyboardShortcut(
     key: string,
     callback: () => void,
-    options: { ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean } = {}
+    options: { ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean } = {},
 ) {
     $effect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -136,7 +148,9 @@ export function useCopyToClipboard() {
         try {
             await navigator.clipboard.writeText(text);
             isCopied = true;
-            setTimeout(() => { isCopied = false; }, 2000);
+            setTimeout(() => {
+                isCopied = false;
+            }, 2000);
         } catch (error) {
             console.error('Failed to copy text: ', error);
             isCopied = false;
@@ -144,7 +158,9 @@ export function useCopyToClipboard() {
     };
 
     return {
-        get isCopied() { return isCopied; },
+        get isCopied() {
+            return isCopied;
+        },
         copyToClipboard,
     };
 }
@@ -167,6 +183,8 @@ export function useDebounce<T>(getValue: () => T, delay: number) {
     });
 
     return {
-        get value() { return debouncedValue; },
+        get value() {
+            return debouncedValue;
+        },
     };
 }

@@ -373,25 +373,37 @@ class CharacterStatsCalculationService
             ->groupBy('version_character_stats.iso_code')
             ->get();
 
+        $existingStats = VersionLanguageStats::where('game_version_id', $versionId)
+            ->get()
+            ->keyBy('iso_code');
+        $characterLanguages = DB::table('version_character_stats')
+            ->where('game_version_id', $versionId)
+            ->distinct()
+            ->pluck('iso_code');
+        $languageCodes = $existingStats->keys()
+            ->merge($characterLanguages)
+            ->merge($languageTotals->pluck('iso_code'))
+            ->unique()
+            ->values();
+        $languageTotalsByCode = $languageTotals->keyBy('iso_code');
         $languageStatsUpdated = 0;
 
-        foreach ($languageTotals as $langTotal) {
+        foreach ($languageCodes as $isoCode) {
+            $langTotal = $languageTotalsByCode->get($isoCode);
             // Update or create language stats, preserving menus and options if they exist
-            $existingStats = VersionLanguageStats::where('game_version_id', $versionId)
-                ->where('iso_code', $langTotal->iso_code)
-                ->first();
+            $existingLanguageStats = $existingStats->get($isoCode);
 
             VersionLanguageStats::updateOrCreate(
                 [
                     'game_version_id' => $versionId,
-                    'iso_code' => $langTotal->iso_code,
+                    'iso_code' => $isoCode,
                 ],
                 [
-                    'blocks' => $langTotal->total_blocks,
-                    'words' => $langTotal->total_words,
+                    'blocks' => (int) ($langTotal->total_blocks ?? 0),
+                    'words' => (int) ($langTotal->total_words ?? 0),
                     // Preserve existing menu/option counts if they exist
-                    'menus' => $existingStats?->menus,
-                    'options' => $existingStats?->options,
+                    'menus' => $existingLanguageStats?->menus,
+                    'options' => $existingLanguageStats?->options,
                 ]
             );
             $languageStatsUpdated++;

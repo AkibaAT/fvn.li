@@ -327,7 +327,7 @@ class VnListController extends Controller
             max(1, (int) $request->input('per_page', self::PUBLIC_LISTS_DEFAULT_PER_PAGE))
         );
         $type = $this->normalizePublicListType($request->input('type', 'all'));
-        $page = max(1, (int) $request->input('page', 1));
+        $page = $this->normalizePublicListPage($request->input('page', 1));
         $search = $this->normalizePublicListSearch($request->input('search', ''));
         $sort = $this->normalizePublicListSort($request->input('sort', 'default'));
         $gameId = $this->normalizePublicListGameId($request->input('game'));
@@ -472,7 +472,7 @@ class VnListController extends Controller
                 break;
         }
 
-        $lists = $query->paginate($perPage);
+        $lists = $query->paginate($perPage, ['*'], 'page', $page);
 
         // Get first list for meta tag image using optimized thumbnail helper
         // Normalize game thumbnails to optimized URLs for client/preload
@@ -703,6 +703,19 @@ class VnListController extends Controller
         $gameId = (int) $game;
 
         return $gameId > 0 ? $gameId : null;
+    }
+
+    private function normalizePublicListPage(mixed $page): int
+    {
+        if (is_int($page)) {
+            return max(1, $page);
+        }
+
+        if (! is_string($page) || ! ctype_digit($page)) {
+            return 1;
+        }
+
+        return max(1, (int) $page);
     }
 
     private function normalizePublicListSearch(mixed $search): string
@@ -1070,8 +1083,14 @@ class VnListController extends Controller
         ]);
     }
 
-    public function toggleUserProgressUpdates(ToggleUserProgressUpdatesRequest $request, int $game): JsonResponse
+    public function toggleUserProgressUpdates(ToggleUserProgressUpdatesRequest $request, Game $game): JsonResponse
     {
+        if ($game->is_paid) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Notifications are not available for paid games.',
+            ], 400);
+        }
 
         $receiveUpdates = $request->boolean('receive_updates');
 
@@ -1080,7 +1099,7 @@ class VnListController extends Controller
         UserGameProgress::updateOrCreate(
             [
                 'user_id' => Auth::id(),
-                'game_id' => $game,
+                'game_id' => $game->id,
             ],
             [
                 'receive_updates' => $receiveUpdates,

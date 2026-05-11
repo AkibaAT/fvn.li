@@ -215,7 +215,7 @@ jobs:
       - name: Deploy to server using rsync
         uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
         with:
-          switches: -avz --delete --dirs  --exclude-from=scripts/rsync-exclude.txt --rsync-path="sudo rsync" --chown=www-data:www-data
+          switches: -rlptvz --delete --dirs --exclude-from=scripts/rsync-exclude.txt --chmod=D2775,F664,F+X
           path: ./
           remote_path: ${{ env.DEPLOY_PATH }}
           remote_host: ${{ secrets.DEPLOY_HOST }}
@@ -230,4 +230,4 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd ${{ env.DEPLOY_PATH }}
-            ./scripts/deploy.sh
+            bash ./scripts/deploy.sh

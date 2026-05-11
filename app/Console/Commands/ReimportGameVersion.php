@@ -106,6 +106,7 @@ class ReimportGameVersion extends Command
                             try {
                                 $publishedAt = new DateTime($timestamp);
                                 $version->published_at = $publishedAt;
+                                $version->save();
 
                                 // If updating published_at, we need to re-evaluate is_latest
                                 $latestVersion = $game->gameVersions()

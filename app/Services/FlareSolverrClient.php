@@ -47,7 +47,8 @@ class FlareSolverrClient
         string $method = 'GET',
         array $postData = [],
         ?CookieJar $cookieJar = null,
-        bool $useSession = true
+        bool $useSession = true,
+        ?string $sessionId = null
     ): array {
         $payload = [
             'cmd' => 'request.'.strtolower($method),
@@ -56,8 +57,9 @@ class FlareSolverrClient
         ];
 
         // Use session if available and requested
-        if ($useSession && $this->sessionId !== null) {
-            $payload['session'] = $this->sessionId;
+        $resolvedSessionId = $sessionId ?? $this->sessionId;
+        if ($useSession && $resolvedSessionId !== null) {
+            $payload['session'] = $resolvedSessionId;
         }
 
         // Add cookies if provided
