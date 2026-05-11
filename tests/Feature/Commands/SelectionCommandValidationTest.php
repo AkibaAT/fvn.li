@@ -177,6 +177,25 @@ it('reimports stored archive statistics and handles missing archives and invalid
 
     expect($latestVersion->refresh()->devlog)->toBe('stats-saved');
 
+    Storage::put("games/{$game->id}/{$oldVersion->id}/archive.zip", 'zip');
+
+    $this->artisan('games:reimport-version', [
+        '--game-id' => $game->id,
+        '--game-version' => '1.0',
+        '--timestamp' => '2030-01-02 03:04:05',
+    ])
+        ->expectsOutput("Processing version: {$oldVersion->version}")
+        ->expectsOutput('Processing game archive...')
+        ->expectsOutput('Saving version statistics...')
+        ->expectsOutputToContain('Reimport process completed')
+        ->assertExitCode(0);
+
+    expect($oldVersion->refresh()->published_at?->format('Y-m-d H:i:s'))->toBe('2030-01-02 03:04:05')
+        ->and($oldVersion->is_latest)->toBeTrue()
+        ->and($latestVersion->refresh()->is_latest)->toBeFalse();
+
+    Storage::delete("games/{$game->id}/{$oldVersion->id}/archive.zip");
+
     $realStatsService = new GameStatsService;
     $this->app->instance(GameStatsService::class, $realStatsService);
     $this->app->instance(GameArchiveService::class, new GameArchiveService($realStatsService));

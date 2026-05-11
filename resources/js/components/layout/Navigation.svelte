@@ -2,7 +2,6 @@
     import { useStableRoutes } from '@/hooks/useStableRoutes.svelte';
     import { router } from '@inertiajs/svelte';
 
-
     const routes = useStableRoutes();
 </script>
 

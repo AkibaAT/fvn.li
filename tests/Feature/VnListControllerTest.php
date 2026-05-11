@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
 function makeListWithEntry(User $user, array $listAttributes = [], array $gameAttributes = []): array
@@ -135,6 +136,41 @@ it('normalizes public list discovery filters to bounded safe values', function (
         ->and($props['filterGame'])->toBeNull()
         ->and($props['lists']['current_page'])->toBe(1)
         ->and($props['lists']['per_page'])->toBe(24);
+});
+
+it('does not let malformed public list page values poison another page cache entry', function () {
+    Cache::flush();
+
+    $owner = User::factory()->create(['name' => 'Cache Owner']);
+    foreach (range(1, 10) as $index) {
+        makeListWithEntry($owner, [
+            'name' => "Cache Public List {$index}",
+            'type' => 'reading',
+            'is_public' => true,
+            'created_at' => now()->subMinutes($index),
+        ], [
+            'name' => "Cache Game {$index}",
+        ]);
+    }
+
+    $malformedResponse = $this->get('/lists/public?per_page=4&page=2abc');
+    $malformedResponse->assertOk();
+    $malformedProps = $malformedResponse->viewData('page')['props'];
+
+    expect($malformedProps['lists']['current_page'])->toBe(1)
+        ->and($malformedProps['lists']['data'])->toHaveCount(4);
+
+    $legitimateResponse = $this->get(route('lists.public', [
+        'per_page' => 4,
+        'page' => 2,
+    ]));
+    $legitimateResponse->assertOk();
+    $legitimateProps = $legitimateResponse->viewData('page')['props'];
+
+    expect($legitimateProps['lists']['current_page'])->toBe(2)
+        ->and($legitimateProps['lists']['data'])->toHaveCount(4)
+        ->and(collect($legitimateProps['lists']['data'])->pluck('id')->all())
+        ->not->toBe(collect($malformedProps['lists']['data'])->pluck('id')->all());
 });
 
 it('bounds public list search length and keeps meaningful searches', function () {
@@ -403,4 +439,19 @@ it('tracks list membership and progress status for the current user', function (
         ->assertJsonPath('receive_updates', true);
 
     expect(UserGameProgress::where('user_id', $user->id)->where('game_id', $game->id)->first()?->receive_updates)->toBeTrue();
+});
+
+it('rejects notification toggles for paid games', function () {
+    $user = User::factory()->create();
+    $game = Game::factory()->create([
+        'is_paid' => true,
+    ]);
+
+    $this->actingAs($user)->patchJson(route('api.user-progress.toggle-updates', $game), [
+        'receive_updates' => true,
+    ])->assertStatus(400)
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', 'Notifications are not available for paid games.');
+
+    expect(UserGameProgress::where('user_id', $user->id)->where('game_id', $game->id)->exists())->toBeFalse();
 });

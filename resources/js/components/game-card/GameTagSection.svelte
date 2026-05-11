@@ -26,7 +26,7 @@
         return {
             destroy() {
                 setTagRef(index)(null);
-            }
+            },
         };
     }
 </script>
@@ -36,7 +36,9 @@
         <div class="flex items-center gap-1.5">
             <div
                 bind:this={tagContainerRef}
-                class="relative flex flex-1 flex-wrap items-start gap-1.5 transition-all duration-300 {tagsExpanded ? 'max-h-none' : 'h-15 overflow-hidden'}"
+                class="relative flex flex-1 flex-wrap items-start gap-1.5 transition-all duration-300 {tagsExpanded
+                    ? 'max-h-none'
+                    : 'h-15 overflow-hidden'}"
             >
                 {#each orderedTags as tag, index (tag.id)}
                     {@const isActive = selectedTags.includes(String(tag.id))}

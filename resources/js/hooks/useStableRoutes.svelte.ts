@@ -39,15 +39,15 @@ function computeRoutes(currentUrl?: string): Routes {
     return {
         games: {
             path: gamesPath,
-            isActive: currentPath === gamesPath || currentPath.startsWith(gamesPath + '/')
+            isActive: currentPath === gamesPath || currentPath.startsWith(gamesPath + '/'),
         },
         lists: {
             path: listsPath,
-            isActive: currentPath === listsPath || currentPath.startsWith(listsPath + '/')
+            isActive: currentPath === listsPath || currentPath.startsWith(listsPath + '/'),
         },
         ratings: {
             path: ratingsPath,
-            isActive: currentPath === ratingsPath || currentPath.startsWith(ratingsPath + '/')
+            isActive: currentPath === ratingsPath || currentPath.startsWith(ratingsPath + '/'),
         },
     };
 }
@@ -64,8 +64,14 @@ export function useStableRoutes() {
     });
 
     return {
-        get games() { return routes.games; },
-        get lists() { return routes.lists; },
-        get ratings() { return routes.ratings; },
+        get games() {
+            return routes.games;
+        },
+        get lists() {
+            return routes.lists;
+        },
+        get ratings() {
+            return routes.ratings;
+        },
     };
 }

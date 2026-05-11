@@ -54,6 +54,7 @@ it('queues browser and discord notifications only for opted-in recipients', func
     $service = app(UnifiedNotificationService::class);
     $game = Game::factory()->create([
         'name' => 'Notification Game',
+        'is_paid' => false,
     ]);
     $version = unifiedNotificationVersion($game, [
         'version' => '2.0',
@@ -78,9 +79,29 @@ it('queues browser and discord notifications only for opted-in recipients', func
         ->and($notifications->firstWhere('channel', 'discord')->payload['devlog'])->toBe('Patch notes');
 });
 
+it('does not queue notifications for paid games with stale subscriptions', function () {
+    $service = app(UnifiedNotificationService::class);
+    $game = Game::factory()->create([
+        'name' => 'Paid Notification Game',
+        'is_paid' => true,
+    ]);
+    $version = unifiedNotificationVersion($game, [
+        'version' => '2.0',
+    ]);
+    $game->setRelation('latestVersion', $version);
+    unifiedNotificationUser($game, browser: true, discord: true, hasDiscordAccount: true, receiveUpdates: true);
+
+    $service->queueGameUpdate($game, $version);
+
+    expect(NotificationQueue::query()->count())->toBe(0);
+});
+
 it('records manual discord updates and marks pending notifications as processed', function () {
     $service = app(UnifiedNotificationService::class);
-    $game = Game::factory()->create(['name' => 'Manual Update Game']);
+    $game = Game::factory()->create([
+        'name' => 'Manual Update Game',
+        'is_paid' => false,
+    ]);
     unifiedNotificationVersion($game, ['version' => '1.0']);
     $game->refresh();
     $discordUser = unifiedNotificationUser($game, browser: false, discord: true, hasDiscordAccount: true);

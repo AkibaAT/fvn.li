@@ -948,4 +948,35 @@ describe('regression prevention', function () {
         expect($data['file_categories'])->toHaveCount(1);
         expect($data['file_categories'][0]['category'])->toBe('image');
     });
+
+    test('paginated versions include file stats availability for loaded page', function () {
+        $olderVersion = GameVersion::withoutEvents(fn () => GameVersion::create([
+            'game_id' => $this->game->id,
+            'version' => '0.9.0',
+            'published_at' => now()->subDay(),
+            'is_latest' => false,
+        ]));
+
+        VersionFileCategory::create([
+            'game_version_id' => $olderVersion->id,
+            'category' => 'script',
+            'total_count' => 3,
+            'total_size' => 1024,
+        ]);
+
+        $response = $this->getJson("/browser-api/games/{$this->game->id}/versions?page=2&perPage=1");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('versions.data.0.id', $olderVersion->id)
+            ->assertJsonPath("versionHasFileStats.{$olderVersion->id}", true);
+    });
+
+    test('compare versions route rejects nonnumeric game ids before model binding', function () {
+        $response = $this->getJson(
+            "/browser-api/games/not-a-number/compare-versions?fromVersionId={$this->version->id}&toVersionId={$this->version->id}"
+        );
+
+        $response->assertNotFound();
+    });
 });

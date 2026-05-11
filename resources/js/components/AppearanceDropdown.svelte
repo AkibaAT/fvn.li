@@ -56,13 +56,18 @@
     </button>
 
     {#if showMenu}
-        <div class="absolute top-full right-0 z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <div
+            class="absolute top-full right-0 z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+        >
             <div class="p-2">
                 <div class="space-y-1">
                     {#each options as opt (opt.mode)}
                         <button
                             onclick={() => onSelectAppearance(opt.mode)}
-                            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 {appearanceState.appearance === opt.mode ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}"
+                            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 {appearanceState.appearance ===
+                            opt.mode
+                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                                : 'text-gray-700 dark:text-gray-300'}"
                             type="button"
                         >
                             <i class="{opt.icon} text-lg" aria-hidden="true"></i>

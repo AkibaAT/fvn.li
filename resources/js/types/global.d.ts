@@ -1,6 +1,6 @@
-import {AxiosInstance} from 'axios';
-import type {Config, route as routeFn} from 'ziggy-js';
-import type {MonthlyTrendData} from './system';
+import { AxiosInstance } from 'axios';
+import type { Config, route as routeFn } from 'ziggy-js';
+import type { MonthlyTrendData } from './system';
 
 declare global {
     interface Window {

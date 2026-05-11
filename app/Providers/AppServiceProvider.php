@@ -59,8 +59,8 @@ class AppServiceProvider extends ServiceProvider
             return new ItchHttpClientService(
                 App::make(ItchHttpClientFactory::class),
                 App::make(ItchUrlSafetyValidator::class),
-                config('services.itch.max_retries'),
-                config('services.itch.retry_cooldown')
+                (int) config('services.itch.max_retries'),
+                (int) config('services.itch.retry_cooldown')
             );
         });
     }

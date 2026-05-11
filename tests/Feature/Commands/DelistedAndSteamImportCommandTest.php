@@ -132,7 +132,7 @@ namespace {
             'url' => 'https://store.steampowered.com/app/654321/New_Game/',
             '--content-type' => 'bad-type',
         ])
-            ->expectsOutput('Invalid content type: bad-type. Valid options: visual_novel, adjacent_game, other_content')
+            ->expectsOutput('Invalid content type: bad-type. Valid options: visual_novel, adjacent, other (aliases: adjacent_game, other_content)')
             ->assertExitCode(1);
     });
 
@@ -182,5 +182,41 @@ namespace {
             ->and($game->is_visible)->toBeFalse()
             ->and($game->content_type)->toBe('visual_novel')
             ->and($game->getUrlForPlatform('steam'))->toBe('https://store.steampowered.com/app/987654/Fresh_Game/');
+    });
+
+    it('normalizes Steam import content type aliases to canonical game values', function () {
+        Queue::fake();
+
+        $this->mock(PlatformDetectionService::class, function ($mock) {
+            $mock->shouldReceive('extractSteamAppId')
+                ->once()
+                ->with('https://store.steampowered.com/app/111111/Adjacent_Game/')
+                ->andReturn('111111');
+            $mock->shouldReceive('extractSteamAppId')
+                ->once()
+                ->with('https://store.steampowered.com/app/222222/Other_Content/')
+                ->andReturn('222222');
+        });
+
+        $this->mock(SteamDataSyncService::class, function ($mock) {
+            $mock->shouldReceive('loadFullDetails')
+                ->twice()
+                ->with(Mockery::type(Game::class));
+        });
+
+        $this->artisan('games:import-steam', [
+            'url' => 'https://store.steampowered.com/app/111111/Adjacent_Game/',
+            '--content-type' => 'adjacent',
+            '--no-reviews' => true,
+        ])->assertExitCode(0);
+
+        $this->artisan('games:import-steam', [
+            'url' => 'https://store.steampowered.com/app/222222/Other_Content/',
+            '--content-type' => 'other_content',
+            '--no-reviews' => true,
+        ])->assertExitCode(0);
+
+        expect(Game::where('steam_app_id', '111111')->firstOrFail()->content_type)->toBe('adjacent')
+            ->and(Game::where('steam_app_id', '222222')->firstOrFail()->content_type)->toBe('other');
     });
 }

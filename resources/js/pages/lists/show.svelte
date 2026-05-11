@@ -991,7 +991,9 @@
                             >
                                 <option value="">Not started</option>
                                 {#each game.game_versions || [] as version (version.id)}
-                                    <option value={String(version.id)}>{version.version} ({new Date(version.published_at).toLocaleDateString()})</option>
+                                    <option value={String(version.id)}
+                                        >{version.version} ({new Date(version.published_at).toLocaleDateString()})</option
+                                    >
                                 {/each}
                             </select>
                         </div>
