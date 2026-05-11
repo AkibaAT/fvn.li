@@ -34,7 +34,9 @@ export function useFocusTrap(getIsActive: () => boolean) {
     });
 
     return {
-        setContainer(el: HTMLDivElement | null) { container = el; },
+        setContainer(el: HTMLDivElement | null) {
+            container = el;
+        },
     };
 }
 
@@ -53,7 +55,7 @@ export function useAria() {
         expanded?: boolean,
         selected?: boolean,
         checked?: boolean,
-        disabled?: boolean
+        disabled?: boolean,
     ) => {
         const props: Record<string, string> = {};
 
@@ -82,7 +84,7 @@ export function useAccessibilityKeyboardNavigation(
     onArrowDown?: () => void,
     onArrowLeft?: () => void,
     onArrowRight?: () => void,
-    onTab?: (e: KeyboardEvent) => void
+    onTab?: (e: KeyboardEvent) => void,
 ) {
     const handleKeyDown = (e: KeyboardEvent) => {
         switch (e.key) {
@@ -200,7 +202,9 @@ export function useTabs(initialTab: string = '') {
     };
 
     return {
-        get activeTab() { return activeTab; },
+        get activeTab() {
+            return activeTab;
+        },
         setActiveTab: activateTab,
         registerTab,
         handleTabKeyDown,
@@ -274,7 +278,7 @@ export function useRouteAccessibility() {
         announceNavigation: (message: string) => {
             announce(message, 'polite');
             navigationAnnounced = true;
-        }
+        },
     };
 }
 
@@ -312,8 +316,12 @@ export function useFormSubmission() {
         announceSubmission,
         announceSuccess,
         announceError,
-        get isSubmitting() { return formState === 'submitting'; },
-        get formState() { return formState; },
+        get isSubmitting() {
+            return formState === 'submitting';
+        },
+        get formState() {
+            return formState;
+        },
     };
 }
 
@@ -367,6 +375,8 @@ export function useProgressTracking() {
         updateProgress,
         completeProgress,
         failProgress,
-        get isActive() { return progressData !== null; },
+        get isActive() {
+            return progressData !== null;
+        },
     };
 }

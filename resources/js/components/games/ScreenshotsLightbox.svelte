@@ -29,9 +29,7 @@
         }
     });
 
-    const currentImage = $derived(
-        !isOpen || !screenshots || screenshots.length === 0 ? '' : screenshots[index]?.url || '',
-    );
+    const currentImage = $derived(!isOpen || !screenshots || screenshots.length === 0 ? '' : screenshots[index]?.url || '');
 
     function navigate(direction: 'prev' | 'next') {
         if (!screenshots || screenshots.length === 0) return;

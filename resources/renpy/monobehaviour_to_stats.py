@@ -17,14 +17,16 @@ from typing import Dict, List, Any
 
 try:
     import yaml
-    from yaml import Loader
 except ImportError:
     print("Error: PyYAML is required. Install it with: pip install pyyaml")
     sys.exit(1)
 
 
+SafeUnityBaseLoader = getattr(yaml, 'CSafeLoader', yaml.SafeLoader)
+
+
 # Custom YAML loader for Unity files
-class UnityLoader(Loader):
+class UnityLoader(SafeUnityBaseLoader):
     """Custom YAML loader that handles Unity's custom tags."""
     pass
 

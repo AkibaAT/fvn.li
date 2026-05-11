@@ -11,6 +11,10 @@ class GameVersionParser
 {
     private const MAX_VERSION_LENGTH = 20;
 
+    private const PRIORITY_AUTHORITATIVE_VERSION = 4;
+
+    private const PRIORITY_PARENTHESIZED_DISPLAY_NAME = 3;
+
     /**
      * Parse a version string into a normalized format.
      * Returns [array<int,int> $parts, string $suffix] or null.
@@ -81,14 +85,14 @@ class GameVersionParser
         if (! empty($upload['build']['user_version'])) {
             $version = $upload['build']['user_version'];
             if ($this->isProbableVersion($version)) {
-                $candidates[] = [$version, 3];
+                $candidates[] = [$version, self::PRIORITY_AUTHORITATIVE_VERSION];
             }
         }
 
         if (! empty($upload['user_version'])) {
             $version = $upload['user_version'];
             if ($this->isProbableVersion($version)) {
-                $candidates[] = [$version, 3];
+                $candidates[] = [$version, self::PRIORITY_AUTHORITATIVE_VERSION];
             }
         }
 
@@ -97,7 +101,7 @@ class GameVersionParser
             // Look for version in parentheses first (highest priority for display name)
             if (preg_match('/\(([0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)\)/', $upload['display_name'], $matches)) {
                 if ($this->isProbableVersion($matches[1])) {
-                    $candidates[] = [$matches[1], 3];
+                    $candidates[] = [$matches[1], self::PRIORITY_PARENTHESIZED_DISPLAY_NAME];
                 }
             }
 

@@ -141,7 +141,7 @@ it('routes non-API HTML requests through FlareSolverr when enabled', function ()
     $flareSolverr->shouldReceive('ensureSession')->once();
     $flareSolverr->shouldReceive('request')
         ->once()
-        ->with('https://creator.itch.io/game', 'GET', [], null, true)
+        ->with('https://creator.itch.io/game', 'GET', [], null, true, null)
         ->andReturn([
             'status' => 200,
             'headers' => ['Content-Type' => 'text/html'],
@@ -163,6 +163,41 @@ it('routes non-API HTML requests through FlareSolverr when enabled', function ()
 
     expect($response->getStatusCode())->toBe(200)
         ->and($response->getBody()->getContents())->toBe('<html>ok</html>');
+});
+
+it('passes the active command FlareSolverr session to HTML requests', function () {
+    config(['services.flaresolverr.enabled' => true]);
+
+    $factory = Mockery::mock(ItchHttpClientFactory::class);
+    $factory->shouldReceive('createClient')->andReturn(new Client);
+
+    $flareSolverr = Mockery::mock(FlareSolverrClient::class);
+    $flareSolverr->shouldNotReceive('ensureSession');
+    $flareSolverr->shouldReceive('request')
+        ->once()
+        ->with('https://creator.itch.io/game', 'GET', [], null, true, 'games_refresh')
+        ->andReturn([
+            'status' => 200,
+            'headers' => ['Content-Type' => 'text/html'],
+            'response' => '<html>session ok</html>',
+        ]);
+
+    $sessionManager = Mockery::mock(FlareSolverrSessionManager::class);
+    $sessionManager->shouldReceive('isSessionActive')->once()->andReturnTrue();
+    $sessionManager->shouldReceive('getActiveSessionId')->once()->andReturn('games_refresh');
+
+    app()->instance(FlareSolverrClient::class, $flareSolverr);
+    app()->instance(FlareSolverrSessionManager::class, $sessionManager);
+
+    $urlSafetyValidator = Mockery::mock(ItchUrlSafetyValidator::class);
+    $urlSafetyValidator->shouldReceive('validate')->with('https://creator.itch.io/game')->once();
+    $urlSafetyValidator->shouldReceive('isApiRequest')->with('https://creator.itch.io/game')->once()->andReturnFalse();
+
+    $service = new ItchHttpClientService($factory, $urlSafetyValidator);
+    $response = $service->get('https://creator.itch.io/game');
+
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getBody()->getContents())->toBe('<html>session ok</html>');
 });
 
 it('does not route API-like URLs through FlareSolverr', function () {
@@ -257,4 +292,20 @@ it('allows retry configuration to be updated fluently', function () {
 
     expect($service->setMaxRetries(2))->toBe($service)
         ->and($service->setBaseCooldown(1))->toBe($service);
+});
+
+it('resolves with string retry configuration from environment-backed config', function () {
+    config([
+        'services.flaresolverr.enabled' => false,
+        'services.itch.max_retries' => '7',
+        'services.itch.retry_cooldown' => '45',
+    ]);
+    app()->forgetInstance(ItchHttpClientService::class);
+
+    $service = app(ItchHttpClientService::class);
+    $reflection = new ReflectionClass($service);
+
+    expect($service)->toBeInstanceOf(ItchHttpClientService::class)
+        ->and($reflection->getProperty('maxRetries')->getValue($service))->toBe(7)
+        ->and($reflection->getProperty('baseCooldown')->getValue($service))->toBe(45);
 });

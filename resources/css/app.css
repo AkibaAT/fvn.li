@@ -6,7 +6,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@source "../views";
+@source '../views';
 
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
@@ -26,7 +26,7 @@
     }
 
     button,
-    [role="button"],
+    [role='button'],
     a[href],
     summary {
         cursor: pointer;
@@ -93,7 +93,9 @@
 /* Ensure editor container has enough space */
 .game-page-editor .tox-tinymce {
     border-radius: 0.5rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    box-shadow:
+        0 1px 3px 0 rgba(0, 0, 0, 0.1),
+        0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
 /* Dark mode adjustments */
@@ -118,7 +120,7 @@
 }
 
 /* Calendar icon pointer cursor */
-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
     cursor: pointer;
 }
 

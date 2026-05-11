@@ -214,6 +214,7 @@ class QueueGameUpdateNotifications extends Command
             ])
             ->join('users', 'user_game_progress.user_id', '=', 'users.id')
             ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
+            ->join('games', 'user_game_progress.game_id', '=', 'games.id')
             ->leftJoin('notification_history', function ($join) use ($gameId, $gameVersionId) {
                 $join->on('notification_history.user_id', '=', 'users.id')
                     ->where('notification_history.game_id', '=', $gameId)
@@ -221,6 +222,7 @@ class QueueGameUpdateNotifications extends Command
             })
             ->where('user_game_progress.game_id', '=', $gameId)
             ->where('user_game_progress.receive_updates', '=', true)
+            ->where('games.is_paid', '=', false)
             ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
             // Ensure user has at least one notification channel enabled
             ->where(function ($query) {

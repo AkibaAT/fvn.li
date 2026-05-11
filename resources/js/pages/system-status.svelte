@@ -104,9 +104,7 @@
     </div>
 
     <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            System Status
-        </h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">System Status</h1>
     </div>
 
     <StatsOverview {gameStats} {ratingStats} />
