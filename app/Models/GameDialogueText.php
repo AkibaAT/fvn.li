@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Laravel\Scout\Searchable;
@@ -137,8 +138,48 @@ class GameDialogueText extends Model
      */
     public static function getForGame(int $gameId): Collection
     {
-        $results = DB::select('
-            SELECT
+        $characterNamesById = static::getCharacterNamesByIdForGame($gameId);
+
+        return static::hydrateDialogueRows(
+            static::queryAggregatedRowsForGame($gameId)->get(),
+            $characterNamesById
+        );
+    }
+
+    /**
+     * Stream dialogue texts for a specific game in bounded chunks.
+     *
+     * @param  callable(Collection<int, static>): void  $callback
+     */
+    public static function chunkForGame(int $gameId, int $chunkSize, callable $callback): int
+    {
+        $total = 0;
+        $characterNamesById = static::getCharacterNamesByIdForGame($gameId);
+
+        static::queryAggregatedRowsForGame($gameId)
+            ->orderBy('udt.id')
+            ->orderBy('vdl.iso_code')
+            ->chunk($chunkSize, function (Collection $rows) use ($callback, $characterNamesById, &$total) {
+                $dialogueTexts = static::hydrateDialogueRows($rows, $characterNamesById);
+                $total += $dialogueTexts->count();
+
+                if ($dialogueTexts->isNotEmpty()) {
+                    $callback($dialogueTexts);
+                }
+            });
+
+        return $total;
+    }
+
+    protected static function queryAggregatedRowsForGame(int $gameId): Builder
+    {
+        return DB::table('unique_dialogue_texts as udt')
+            ->join('version_dialogue_lines as vdl', 'udt.id', '=', 'vdl.text_id')
+            ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
+            ->join('games as g', 'gv.game_id', '=', 'g.id')
+            ->where('gv.game_id', $gameId)
+            ->groupBy('udt.id', 'gv.game_id', 'udt.text_content', 'vdl.iso_code', 'g.name')
+            ->selectRaw('
                 udt.id as text_id,
                 gv.game_id,
                 udt.text_content,
@@ -146,16 +187,17 @@ class GameDialogueText extends Model
                 g.name as game_name,
                 ARRAY_AGG(DISTINCT vdl.game_version_id ORDER BY vdl.game_version_id) as version_ids,
                 ARRAY_AGG(DISTINCT vdl.character_id ORDER BY vdl.character_id) FILTER (WHERE vdl.character_id IS NOT NULL) as character_ids
-            FROM unique_dialogue_texts udt
-            INNER JOIN version_dialogue_lines vdl ON udt.id = vdl.text_id
-            INNER JOIN game_versions gv ON vdl.game_version_id = gv.id
-            INNER JOIN games g ON gv.game_id = g.id
-            WHERE gv.game_id = ?
-            GROUP BY udt.id, gv.game_id, udt.text_content, vdl.iso_code, g.name
-        ', [$gameId]);
+            ');
+    }
 
-        return collect($results)->map(function ($row) {
-            // Parse PostgreSQL arrays first
+    /**
+     * @param  Collection<int, object>  $rows
+     * @param  array<int, string>  $characterNamesById
+     * @return Collection<int, static>
+     */
+    protected static function hydrateDialogueRows(Collection $rows, array $characterNamesById): Collection
+    {
+        return $rows->map(function ($row) use ($characterNamesById) {
             $versionIds = is_array($row->version_ids)
                 ? $row->version_ids
                 : static::parsePostgresArray($row->version_ids);
@@ -163,20 +205,6 @@ class GameDialogueText extends Model
             $characterIds = is_array($row->character_ids)
                 ? $row->character_ids
                 : static::parsePostgresArray($row->character_ids);
-
-            // Get character names for the character IDs
-            $characterNames = [];
-            if (! empty($characterIds)) {
-                $characters = Character::whereIn('id', $characterIds)->get();
-                foreach ($characters as $character) {
-                    $displayNames = $character->display_names;
-                    if (is_array($displayNames) && ! empty($displayNames)) {
-                        $characterNames[] = reset($displayNames);
-                    } else {
-                        $characterNames[] = $character->character_id;
-                    }
-                }
-            }
 
             $model = new static;
             $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
@@ -187,11 +215,44 @@ class GameDialogueText extends Model
             $model->game_name = $row->game_name;
             $model->version_ids = $versionIds;
             $model->character_ids = $characterIds;
-            $model->character_names = $characterNames;
+            $model->character_names = collect($characterIds)
+                ->map(fn ($characterId) => $characterNamesById[(int) $characterId] ?? null)
+                ->filter()
+                ->values()
+                ->all();
             $model->exists = true;
 
             return $model;
         });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function getCharacterNamesByIdForGame(int $gameId): array
+    {
+        return DB::table('characters')
+            ->where('game_id', $gameId)
+            ->get(['id', 'character_id', 'display_names'])
+            ->mapWithKeys(function ($character) {
+                return [(int) $character->id => static::displayNameForCharacterRow($character)];
+            })
+            ->all();
+    }
+
+    protected static function displayNameForCharacterRow(object $character): string
+    {
+        $displayNames = $character->display_names;
+
+        if (is_string($displayNames)) {
+            $displayNames = json_decode($displayNames, true) ?: [];
+        }
+
+        if (is_array($displayNames) && ! empty($displayNames)) {
+            return (string) reset($displayNames);
+        }
+
+        return (string) $character->character_id;
     }
 
     /**

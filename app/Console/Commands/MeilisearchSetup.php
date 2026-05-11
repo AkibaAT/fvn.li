@@ -225,16 +225,11 @@ class MeilisearchSetup extends Command
 
             foreach ($gameIds as $gameId) {
                 try {
-                    $dialogueTexts = GameDialogueText::getForGame($gameId);
-
-                    if ($dialogueTexts->isNotEmpty()) {
-                        // Push to Meilisearch in chunks
-                        $dialogueTexts->chunk(500)->each(function ($chunk) {
-                            $chunk->searchable();
-                        });
-
-                        $totalIndexed += $dialogueTexts->count();
-                    }
+                    $totalIndexed += GameDialogueText::chunkForGame(
+                        (int) $gameId,
+                        500,
+                        fn ($dialogueTexts) => $dialogueTexts->searchable()
+                    );
                 } catch (Exception $e) {
                     $errors[] = "Game {$gameId}: {$e->getMessage()}";
                 }
