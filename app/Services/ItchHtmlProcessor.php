@@ -318,18 +318,24 @@ class ItchHtmlProcessor
             if ($image->hasAttribute('height')) {
                 // For images with height attribute, add inline style to preserve height
                 // This overrides any CSS that might set height:auto
-                $height = $image->getAttribute('height');
-                $currentStyle = $image->getAttribute('style') ?: '';
+                $height = $this->parseImageHeight($image->getAttribute('height'));
 
-                // Clean up the style string to avoid double semicolons
-                $currentStyle = rtrim($currentStyle, ' ;');
-                $newStyle = $currentStyle;
-                if (! empty($currentStyle)) {
-                    $newStyle .= '; ';
+                if ($height !== null) {
+                    $currentStyle = $image->getAttribute('style') ?: '';
+
+                    // Clean up the style string to avoid double semicolons
+                    $currentStyle = rtrim($currentStyle, ' ;');
+                    $newStyle = $currentStyle;
+                    if (! empty($currentStyle)) {
+                        $newStyle .= '; ';
+                    }
+                    $newStyle .= 'height: '.$height.'px';
+
+                    $image->setAttribute('style', $newStyle);
+                } else {
+                    $image->removeAttribute('height');
+                    $imageClasses[] = 'h-auto';
                 }
-                $newStyle .= 'height: '.$height.'px';
-
-                $image->setAttribute('style', $newStyle);
             } else {
                 // Only add h-auto class if no height attribute exists
                 $imageClasses[] = 'h-auto';
@@ -357,6 +363,21 @@ class ItchHtmlProcessor
 
             $image->setAttribute('class', implode(' ', $classArray));
         }
+    }
+
+    private function parseImageHeight(string $height): ?int
+    {
+        $height = trim($height);
+        if (! preg_match('/^\d{1,5}$/', $height)) {
+            return null;
+        }
+
+        $height = (int) $height;
+        if ($height < 1 || $height > 10000) {
+            return null;
+        }
+
+        return $height;
     }
 
     /**

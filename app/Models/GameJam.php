@@ -736,7 +736,7 @@ class GameJam extends Model
             $finalRanking = null;
             if (! empty($criteriaRankings)) {
                 foreach (array_keys($criteriaRankings) as $criteriaName) {
-                    if (strtolower($criteriaName) === 'overall') {
+                    if (strtolower((string) $criteriaName) === 'overall') {
                         $finalRanking = $ranking;
                         break;
                     }
