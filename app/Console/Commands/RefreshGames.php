@@ -8,6 +8,7 @@ use App\Console\Traits\ManagesFlareSolverrSession;
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\GameArchiveService;
+use App\Services\GameDataSyncService;
 use App\Services\ItchHttpClientService;
 use Exception;
 use Illuminate\Console\Command;
@@ -134,6 +135,7 @@ class RefreshGames extends Command
         $itchClient->setMaxRetries((int) $this->option('max-retries'));
         $itchClient->setBaseCooldown((int) $this->option('retry-cooldown'));
         $this->info('ItchHttpClientService configured successfully');
+        $syncService = App::make(GameDataSyncService::class);
 
         foreach ($games as $game) {
             $this->info("\nProcessing game: {$game->name}");
@@ -236,6 +238,8 @@ class RefreshGames extends Command
 
                 $game->error = $exception->getMessage();
                 $game->save();
+            } finally {
+                $syncService->clearHttpCache($game);
             }
         }
 

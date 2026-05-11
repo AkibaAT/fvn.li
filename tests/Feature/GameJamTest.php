@@ -343,6 +343,60 @@ HTML;
         ]);
 });
 
+it('handles numeric criteria names in ranking results', function () {
+    $jam = GameJam::create([
+        'name' => 'Numeric Criteria Jam',
+        'url' => 'https://itch.io/jam/numeric-criteria-jam',
+    ]);
+    $game = Game::factory()->create([
+        'name' => 'Numeric Criteria Game',
+        'url' => ['itch_io' => 'https://developer.itch.io/numeric-criteria-game'],
+    ]);
+
+    $html = <<<'HTML'
+<!doctype html>
+<html>
+<body>
+    <div class="game_rank">
+        <a class="game_cover" href="https://developer.itch.io/numeric-criteria-game"></a>
+        <div class="game_summary">
+            <h2><a>Numeric Criteria Game</a></h2>
+            <h3>Ranked <strong class="ordinal_rank">4th</strong> with 7 ratings</h3>
+        </div>
+        <table>
+            <tr><th>Criteria</th><th>Rank</th><th>Score</th></tr>
+            <tr><td>1</td><td>4th</td><td>3.9</td></tr>
+            <tr><td>Overall</td><td>4th</td><td>4.0</td></tr>
+        </table>
+    </div>
+</body>
+</html>
+HTML;
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('setMaxRetries')->once()->with(1);
+    $client->shouldReceive('setBaseCooldown')->once()->with(0);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://itch.io/jam/numeric-criteria-jam/results', ['cookies' => false, 'allow_redirects' => false])
+        ->andReturn(new Response(200, [], $html));
+    $this->app->instance(ItchHttpClientService::class, $client);
+
+    expect($jam->fetchResultsPage(1, 0))->toBeTrue();
+
+    $pivot = DB::table('game_game_jam')
+        ->where('game_id', $game->id)
+        ->where('game_jam_id', $jam->id)
+        ->first();
+
+    expect($pivot)->not->toBeNull()
+        ->and($pivot->ranking)->toBe('4th')
+        ->and(json_decode($pivot->criteria_rankings, true))->toBe([
+            '1' => ['rank' => '4th', 'score' => '3.9'],
+            'Overall' => ['rank' => '4th', 'score' => '4.0'],
+        ]);
+});
+
 it('updates existing ranking relationships and follows result pagination', function () {
     $jam = GameJam::create([
         'name' => 'Paged Ranking Jam',

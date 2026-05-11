@@ -64,6 +64,19 @@ test('process preserves existing styles when adding height', function () {
     expect($result)->toContain('style="border: 1px solid red; height: 200px"');
 });
 
+test('process ignores non numeric image height attributes', function () {
+    $processor = new ItchHtmlProcessor;
+
+    $html = '<img src="test.jpg" height="1px; position:fixed; inset:0; width:100vw; height:100vh; z-index:9999" alt="Test">';
+    $result = $processor->process($html);
+
+    expect($result)->toContain('h-auto')
+        ->and($result)->not->toContain('position:fixed')
+        ->and($result)->not->toContain('inset:0')
+        ->and($result)->not->toContain('z-index:9999')
+        ->and($result)->not->toContain('style="height:');
+});
+
 test('process upgrades headers lists tables links and image accessibility attributes', function () {
     $processor = new ItchHtmlProcessor;
 

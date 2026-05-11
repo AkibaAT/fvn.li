@@ -96,6 +96,8 @@ class ImageProcessingService
         int $quality,
         string $diskName = 'public'
     ): array {
+        $tempJpg = null;
+
         try {
             // For GIFs, first extract the first frame using ImageMagick to reduce memory usage
             $imageInfo = getimagesize($sourcePath);
@@ -103,6 +105,10 @@ class ImageProcessingService
 
             if ($mimeType === 'image/gif') {
                 $tempJpg = tempnam(sys_get_temp_dir(), 'image_frame_');
+                if ($tempJpg === false) {
+                    throw new Exception('Failed to create temporary frame file');
+                }
+
                 // Extract first frame and convert to JPG
                 $command = sprintf(
                     'convert %s[0] -background white -flatten %s',
@@ -119,62 +125,60 @@ class ImageProcessingService
                 $sourcePath = $tempJpg;
             }
 
-            try {
-                // Load source image
-                $image = $this->imageManager->decodePath($sourcePath);
+            // Load source image
+            $image = $this->imageManager->decodePath($sourcePath);
 
-                // Verify we got a valid image
-                if ($image->width() === 0 || $image->height() === 0) {
-                    throw new Exception('Invalid image dimensions');
-                }
-
-                // Special handling for the "large" variant - keep original resolution
-                $variantName = basename(dirname($targetPath)) === 'screenshots' ?
-                    basename($targetPath, '.webp') : '';
-
-                // Check if this is the large variant (ends with _large.webp)
-                $isLargeVariant = str_ends_with($variantName, '_large');
-
-                // For large variant, keep the original resolution, just convert to WebP
-                if ($isLargeVariant) {
-                    // No resizing for large variant - keep original resolution
-                } else {
-                    // For other variants, scale to fit within target dimensions
-                    $widthRatio = $config['width'] / $image->width();
-                    $heightRatio = $config['height'] / $image->height();
-
-                    // Use the smaller ratio to ensure the image fits within the target dimensions
-                    $ratio = min($widthRatio, $heightRatio);
-
-                    $newWidth = intval($image->width() * $ratio);
-                    $newHeight = intval($image->height() * $ratio);
-
-                    // Resize the image while maintaining aspect ratio
-                    $image->resize($newWidth, $newHeight);
-                }
-
-                // Capture dimensions before encoding
-                $finalWidth = $image->width();
-                $finalHeight = $image->height();
-
-                // Save as WebP
-                Storage::disk($diskName)->put(
-                    $targetPath,
-                    (string) $image->encode(new WebpEncoder(quality: $quality))
-                );
-
-                return [
-                    'width' => $finalWidth,
-                    'height' => $finalHeight,
-                ];
-            } finally {
-                // Clean up temporary frame file if it exists
-                if (isset($tempJpg) && file_exists($tempJpg)) {
-                    unlink($tempJpg);
-                }
+            // Verify we got a valid image
+            if ($image->width() === 0 || $image->height() === 0) {
+                throw new Exception('Invalid image dimensions');
             }
+
+            // Special handling for the "large" variant - keep original resolution
+            $variantName = basename(dirname($targetPath)) === 'screenshots' ?
+                basename($targetPath, '.webp') : '';
+
+            // Check if this is the large variant (ends with _large.webp)
+            $isLargeVariant = str_ends_with($variantName, '_large');
+
+            // For large variant, keep the original resolution, just convert to WebP
+            if ($isLargeVariant) {
+                // No resizing for large variant - keep original resolution
+            } else {
+                // For other variants, scale to fit within target dimensions
+                $widthRatio = $config['width'] / $image->width();
+                $heightRatio = $config['height'] / $image->height();
+
+                // Use the smaller ratio to ensure the image fits within the target dimensions
+                $ratio = min($widthRatio, $heightRatio);
+
+                $newWidth = intval($image->width() * $ratio);
+                $newHeight = intval($image->height() * $ratio);
+
+                // Resize the image while maintaining aspect ratio
+                $image->resize($newWidth, $newHeight);
+            }
+
+            // Capture dimensions before encoding
+            $finalWidth = $image->width();
+            $finalHeight = $image->height();
+
+            // Save as WebP
+            Storage::disk($diskName)->put(
+                $targetPath,
+                (string) $image->encode(new WebpEncoder(quality: $quality))
+            );
+
+            return [
+                'width' => $finalWidth,
+                'height' => $finalHeight,
+            ];
         } catch (Exception $e) {
             throw new Exception("Failed to process image: {$e->getMessage()}");
+        } finally {
+            // Clean up temporary frame file if it exists, including convert failures.
+            if (is_string($tempJpg) && file_exists($tempJpg)) {
+                unlink($tempJpg);
+            }
         }
     }
 
