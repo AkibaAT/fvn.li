@@ -1,10 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { normalizeScreenshots, resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';
 
-const currentScreenshots: Screenshot[] = [
-    { url: 'https://example.com/old-a.jpg' },
-    { url: 'https://example.com/old-b.jpg' },
-];
+const currentScreenshots: Screenshot[] = [{ url: 'https://example.com/old-a.jpg' }, { url: 'https://example.com/old-b.jpg' }];
 
 describe('screenshot state reconciliation', () => {
     test('normalizes object keyed screenshot payloads into arrays', () => {

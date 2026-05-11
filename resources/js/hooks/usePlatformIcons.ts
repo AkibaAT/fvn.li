@@ -46,14 +46,14 @@ export function usePlatformIcons() {
     const getSupportedPlatforms = (game: Record<string, unknown>): GameCardPlatform[] => {
         const platforms = getAllPlatforms();
         const supported: GameCardPlatform[] = [];
-        
+
         for (const platform of platforms) {
             const platformKey = `is_${platform}` as keyof typeof game;
             if (game[platformKey]) {
                 supported.push(platform);
             }
         }
-        
+
         return supported;
     };
 

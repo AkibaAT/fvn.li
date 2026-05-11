@@ -7,7 +7,7 @@
  */
 export const announceToScreenReader = (message: string, priority: 'polite' | 'assertive' = 'polite') => {
     if (typeof document === 'undefined') return;
-    
+
     const announcement = document.createElement('div');
     announcement.setAttribute('aria-live', priority);
     announcement.setAttribute('aria-atomic', 'true');
@@ -17,10 +17,10 @@ export const announceToScreenReader = (message: string, priority: 'polite' | 'as
     announcement.style.width = '1px';
     announcement.style.height = '1px';
     announcement.style.overflow = 'hidden';
-    
+
     document.body.appendChild(announcement);
     announcement.textContent = message;
-    
+
     // Remove after announcement
     setTimeout(() => {
         if (document.body.contains(announcement)) {
@@ -34,19 +34,19 @@ export const announceToScreenReader = (message: string, priority: 'polite' | 'as
  */
 export const trapFocus = (container: HTMLElement) => {
     if (typeof document === 'undefined') return () => {};
-    
+
     const focusableElements = container.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     ) as NodeListOf<HTMLElement>;
-    
+
     if (focusableElements.length === 0) return () => {};
-    
+
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key !== 'Tab') return;
-        
+
         if (e.shiftKey) {
             if (document.activeElement === firstElement) {
                 e.preventDefault();
@@ -59,12 +59,12 @@ export const trapFocus = (container: HTMLElement) => {
             }
         }
     };
-    
+
     container.addEventListener('keydown', handleKeyDown);
-    
+
     // Focus first element
     firstElement.focus();
-    
+
     // Return cleanup function
     return () => {
         container.removeEventListener('keydown', handleKeyDown);
@@ -83,7 +83,7 @@ export const setExpanded = (element: HTMLElement, expanded: boolean) => {
  */
 export const isVisible = (element: HTMLElement) => {
     if (typeof window === 'undefined') return false;
-    
+
     const rect = element.getBoundingClientRect();
     return (
         rect.width > 0 &&
@@ -236,26 +236,27 @@ export const setBusy = (element: HTMLElement, busy: boolean) => {
  * Create and manage a progress bar (SSR-safe)
  */
 export const createProgressBar = (container: HTMLElement, minValue: number = 0, maxValue: number = 100) => {
-    if (typeof document === 'undefined') return {
-        update: () => {},
-        complete: () => {},
-        remove: () => {}
-    };
-    
+    if (typeof document === 'undefined')
+        return {
+            update: () => {},
+            complete: () => {},
+            remove: () => {},
+        };
+
     const progressBar = document.createElement('div');
     progressBar.setAttribute('role', 'progressbar');
     progressBar.setAttribute('aria-valuemin', minValue.toString());
     progressBar.setAttribute('aria-valuemax', maxValue.toString());
     progressBar.setAttribute('aria-valuenow', minValue.toString());
     progressBar.className = 'sr-only'; // Hidden visually but available to screen readers
-    
+
     container.appendChild(progressBar);
-    
+
     return {
         update: (value: number, message?: string) => {
             const clampedValue = Math.max(minValue, Math.min(maxValue, value));
             progressBar.setAttribute('aria-valuenow', clampedValue.toString());
-            
+
             if (message) {
                 // Update message for screen readers
                 const existingMessage = progressBar.querySelector('.sr-only-message');
@@ -275,7 +276,7 @@ export const createProgressBar = (container: HTMLElement, minValue: number = 0, 
         },
         remove: () => {
             progressBar.remove();
-        }
+        },
     };
 };
 
@@ -285,10 +286,10 @@ export const createProgressBar = (container: HTMLElement, minValue: number = 0, 
 export const createLoadingManager = () => {
     let loadingCount = 0;
     let loadingRegion: HTMLElement | null = null;
-    
+
     const ensureLoadingRegion = () => {
         if (typeof document === 'undefined') return null;
-        
+
         if (!loadingRegion) {
             loadingRegion = document.createElement('div');
             loadingRegion.setAttribute('aria-live', 'polite');
@@ -298,7 +299,7 @@ export const createLoadingManager = () => {
         }
         return loadingRegion;
     };
-    
+
     return {
         start: (message?: string) => {
             loadingCount++;
@@ -321,7 +322,7 @@ export const createLoadingManager = () => {
             if (loadingCount === 0 && loadingRegion) {
                 loadingRegion.textContent = message || 'Loading complete';
                 announceComplete(message || 'Loading complete');
-                
+
                 // Clear after a delay
                 setTimeout(() => {
                     if (loadingCount === 0 && loadingRegion) {
@@ -330,7 +331,7 @@ export const createLoadingManager = () => {
                 }, 1000);
             }
         },
-        isLoading: () => loadingCount > 0
+        isLoading: () => loadingCount > 0,
     };
 };
 
@@ -340,7 +341,7 @@ export const createLoadingManager = () => {
 export const createAjaxTracker = () => {
     const operations = new Map<string, { startTime: number; message: string }>();
     const loadingManager = createLoadingManager();
-    
+
     return {
         start: (id: string, message: string = 'Processing...') => {
             operations.set(id, { startTime: Date.now(), message });
@@ -369,7 +370,7 @@ export const createAjaxTracker = () => {
                 loadingManager.stop();
                 announceError(`${operation.message} failed: ${error}`);
             }
-        }
+        },
     };
 };
 

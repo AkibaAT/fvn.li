@@ -12,56 +12,56 @@ export const listStatusConfig: Record<string, StatusConfig> = {
         icon: '📖',
         label: 'Reading',
         pattern: 'solid',
-        shape: 'rounded'
+        shape: 'rounded',
     },
     completed: {
         color: 'green',
         icon: '✅',
         label: 'Completed',
         pattern: 'solid',
-        shape: 'rounded'
+        shape: 'rounded',
     },
     plan_to_read: {
         color: 'yellow',
         icon: '📋',
         label: 'Plan to Read',
         pattern: 'dashed',
-        shape: 'rounded'
+        shape: 'rounded',
     },
     on_hold: {
         color: 'orange',
         icon: '⏸️',
         label: 'On Hold',
         pattern: 'dotted',
-        shape: 'rounded'
+        shape: 'rounded',
     },
     dropped: {
         color: 'red',
         icon: '❌',
         label: 'Dropped',
         pattern: 'solid',
-        shape: 'square'
+        shape: 'square',
     },
     custom: {
         color: 'gray',
         icon: '📝',
         label: 'Custom',
         pattern: 'solid',
-        shape: 'rounded'
-    }
+        shape: 'rounded',
+    },
 };
 
 export const notificationStatusConfig = {
     enabled: {
         color: 'blue' as const,
         icon: '🔔',
-        label: 'Notifications enabled'
+        label: 'Notifications enabled',
     },
     disabled: {
         color: 'gray' as const,
         icon: '🔕',
-        label: 'Notifications disabled'
-    }
+        label: 'Notifications disabled',
+    },
 };
 
 export const gameStatusConfig = {
@@ -70,57 +70,57 @@ export const gameStatusConfig = {
         icon: '🔞',
         label: 'NSFW Content',
         pattern: 'solid' as const,
-        shape: 'pill' as const
+        shape: 'pill' as const,
     },
     paid: {
         color: 'indigo' as const,
         icon: '💰',
         label: 'Paid Game',
         pattern: 'solid' as const,
-        shape: 'pill' as const
+        shape: 'pill' as const,
     },
     demo: {
         color: 'blue' as const,
         icon: '🎮',
         label: 'Demo Available',
         pattern: 'dashed' as const,
-        shape: 'pill' as const
+        shape: 'pill' as const,
     },
     update_available: {
         color: 'yellow' as const,
         icon: '🆙',
         label: 'Update Available',
         pattern: 'solid' as const,
-        shape: 'rounded' as const
-    }
+        shape: 'rounded' as const,
+    },
 };
 
 export const alertStatusConfig = {
     success: {
         color: 'green' as const,
         icon: '✅',
-        label: 'Success'
+        label: 'Success',
     },
     error: {
         color: 'red' as const,
         icon: '❌',
-        label: 'Error'
+        label: 'Error',
     },
     warning: {
         color: 'yellow' as const,
         icon: '⚠️',
-        label: 'Warning'
+        label: 'Warning',
     },
     info: {
         color: 'blue' as const,
         icon: 'ℹ️',
-        label: 'Information'
-    }
+        label: 'Information',
+    },
 };
 
 // Utility function to get color classes with better contrast and patterns
 export const getStatusClasses = (config: StatusConfig) => {
-    const {color, pattern, shape} = config;
+    const { color, pattern, shape } = config;
 
     // Base color classes with enhanced contrast
     const colorClasses = {
@@ -130,21 +130,21 @@ export const getStatusClasses = (config: StatusConfig) => {
         orange: 'bg-orange-100 text-orange-900 border-orange-300 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-600',
         red: 'bg-red-100 text-red-900 border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-600',
         gray: 'bg-gray-100 text-gray-900 border-gray-300 dark:bg-gray-900/30 dark:text-gray-200 dark:border-gray-600',
-        indigo: 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-200 dark:border-indigo-600'
+        indigo: 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-200 dark:border-indigo-600',
     };
 
     // Pattern classes for better distinction
     const patternClasses = {
         solid: 'border-2',
         dashed: 'border-2 border-dashed',
-        dotted: 'border-2 border-dotted'
+        dotted: 'border-2 border-dotted',
     };
 
     // Shape classes
     const shapeClasses = {
         rounded: 'rounded-md',
         square: 'rounded-none',
-        pill: 'rounded-full'
+        pill: 'rounded-full',
     };
 
     return `${colorClasses[color]} ${patternClasses[pattern || 'solid']} ${shapeClasses[shape || 'rounded']} px-2 py-1 text-xs font-semibold inline-flex items-center gap-1`;
@@ -161,7 +161,7 @@ export interface StatusBadgeConfig {
 export const getStatusBadgeConfig = (
     status: string,
     config: Record<string, StatusConfig>,
-    options?: { size?: 'sm' | 'md' | 'lg' }
+    options?: { size?: 'sm' | 'md' | 'lg' },
 ): StatusBadgeConfig | null => {
     const statusConfig = config[status];
     if (!statusConfig) return null;
@@ -169,7 +169,7 @@ export const getStatusBadgeConfig = (
     const sizeClasses = {
         sm: 'text-xs px-1.5 py-0.5',
         md: 'text-xs px-2 py-1',
-        lg: 'text-sm px-3 py-1.5'
+        lg: 'text-sm px-3 py-1.5',
     };
 
     const size = options?.size ?? 'md';

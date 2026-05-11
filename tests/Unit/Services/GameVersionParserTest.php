@@ -24,3 +24,22 @@ test('storage length validation still accepts maximum length versions', function
         ->and($parser->isProbableVersion($version))->toBeTrue()
         ->and($parser->extractVersion(['user_version' => $version]))->toBe($version);
 });
+
+test('authoritative upload versions beat parenthesized display name versions', function () {
+    $parser = new GameVersionParser;
+
+    expect($parser->extractVersion([
+        'build' => ['user_version' => '2.0.0'],
+        'user_version' => null,
+        'display_name' => 'Game build (1.0)',
+        'filename' => 'game.zip',
+        'updated_at' => '2026-05-11T10:00:00Z',
+    ]))->toBe('2.0.0')
+        ->and($parser->extractVersion([
+            'build' => [],
+            'user_version' => '2.0.0',
+            'display_name' => 'Game build (1.0)',
+            'filename' => 'game.zip',
+            'updated_at' => '2026-05-11T10:00:00Z',
+        ]))->toBe('2.0.0');
+});

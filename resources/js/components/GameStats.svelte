@@ -63,121 +63,127 @@
         return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || fallback;
     };
 
-    const chartData = $derived((() => {
-        if (!dailyStats || dailyStats.length === 0) return null;
+    const chartData = $derived(
+        (() => {
+            if (!dailyStats || dailyStats.length === 0) return null;
 
-        const labels = dailyStats.map(d => {
-            const date = new Date(d.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
+            const labels = dailyStats.map((d) => {
+                const date = new Date(d.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
 
-        const overviewData = {
-            labels,
-            datasets: [
-                {
-                    label: 'Page Views (Unique)',
-                    data: dailyStats.map(d => d.page_views_unique),
-                    borderColor: getCSSVariable('--color-chart-primary', '#3b82f6'),
-                    backgroundColor: getCSSVariable('--color-chart-primary-bg', 'rgba(59, 130, 246, 0.1)'),
-                    tension: 0.4,
-                },
-                {
-                    label: 'itch.io Visits (Unique)',
-                    data: dailyStats.map(d => d.external_project_unique),
-                    borderColor: getCSSVariable('--color-chart-secondary', '#8b5cf6'),
-                    backgroundColor: getCSSVariable('--color-chart-secondary-bg', 'rgba(139, 92, 246, 0.1)'),
-                    tension: 0.4,
-                },
-                {
-                    label: 'Downloads (Unique)',
-                    data: dailyStats.map(d => d.custom_links_unique),
-                    borderColor: getCSSVariable('--color-chart-success', '#10b981'),
-                    backgroundColor: getCSSVariable('--color-chart-success-bg', 'rgba(16, 185, 129, 0.1)'),
-                    tension: 0.4,
-                },
-            ],
-        };
+            const overviewData = {
+                labels,
+                datasets: [
+                    {
+                        label: 'Page Views (Unique)',
+                        data: dailyStats.map((d) => d.page_views_unique),
+                        borderColor: getCSSVariable('--color-chart-primary', '#3b82f6'),
+                        backgroundColor: getCSSVariable('--color-chart-primary-bg', 'rgba(59, 130, 246, 0.1)'),
+                        tension: 0.4,
+                    },
+                    {
+                        label: 'itch.io Visits (Unique)',
+                        data: dailyStats.map((d) => d.external_project_unique),
+                        borderColor: getCSSVariable('--color-chart-secondary', '#8b5cf6'),
+                        backgroundColor: getCSSVariable('--color-chart-secondary-bg', 'rgba(139, 92, 246, 0.1)'),
+                        tension: 0.4,
+                    },
+                    {
+                        label: 'Downloads (Unique)',
+                        data: dailyStats.map((d) => d.custom_links_unique),
+                        borderColor: getCSSVariable('--color-chart-success', '#10b981'),
+                        backgroundColor: getCSSVariable('--color-chart-success-bg', 'rgba(16, 185, 129, 0.1)'),
+                        tension: 0.4,
+                    },
+                ],
+            };
 
-        const pageViewsData = {
-            labels,
-            datasets: [
-                {
-                    label: 'Unique Views',
-                    data: dailyStats.map(d => d.page_views_unique),
-                    borderColor: getCSSVariable('--color-chart-primary', '#3b82f6'),
-                    backgroundColor: getCSSVariable('--color-chart-primary-bg', 'rgba(59, 130, 246, 0.1)'),
-                    tension: 0.4,
-                },
-                {
-                    label: 'Total Views',
-                    data: dailyStats.map(d => d.page_views_total),
-                    borderColor: getCSSVariable('--color-chart-primary-light', '#93c5fd'),
-                    backgroundColor: getCSSVariable('--color-chart-primary-light-bg', 'rgba(147, 197, 253, 0.1)'),
-                    tension: 0.4,
-                },
-            ],
-        };
+            const pageViewsData = {
+                labels,
+                datasets: [
+                    {
+                        label: 'Unique Views',
+                        data: dailyStats.map((d) => d.page_views_unique),
+                        borderColor: getCSSVariable('--color-chart-primary', '#3b82f6'),
+                        backgroundColor: getCSSVariable('--color-chart-primary-bg', 'rgba(59, 130, 246, 0.1)'),
+                        tension: 0.4,
+                    },
+                    {
+                        label: 'Total Views',
+                        data: dailyStats.map((d) => d.page_views_total),
+                        borderColor: getCSSVariable('--color-chart-primary-light', '#93c5fd'),
+                        backgroundColor: getCSSVariable('--color-chart-primary-light-bg', 'rgba(147, 197, 253, 0.1)'),
+                        tension: 0.4,
+                    },
+                ],
+            };
 
-        const externalData = {
-            labels,
-            datasets: [
-                {
-                    label: 'Unique Visits',
-                    data: dailyStats.map(d => d.external_project_unique),
-                    borderColor: getCSSVariable('--color-chart-secondary', '#8b5cf6'),
-                    backgroundColor: getCSSVariable('--color-chart-secondary-bg', 'rgba(139, 92, 246, 0.1)'),
-                    tension: 0.4,
-                },
-                {
-                    label: 'Total Visits',
-                    data: dailyStats.map(d => d.external_project_total),
-                    borderColor: getCSSVariable('--color-chart-secondary-light', '#c4b5fd'),
-                    backgroundColor: getCSSVariable('--color-chart-secondary-light-bg', 'rgba(196, 181, 253, 0.1)'),
-                    tension: 0.4,
-                },
-            ],
-        };
+            const externalData = {
+                labels,
+                datasets: [
+                    {
+                        label: 'Unique Visits',
+                        data: dailyStats.map((d) => d.external_project_unique),
+                        borderColor: getCSSVariable('--color-chart-secondary', '#8b5cf6'),
+                        backgroundColor: getCSSVariable('--color-chart-secondary-bg', 'rgba(139, 92, 246, 0.1)'),
+                        tension: 0.4,
+                    },
+                    {
+                        label: 'Total Visits',
+                        data: dailyStats.map((d) => d.external_project_total),
+                        borderColor: getCSSVariable('--color-chart-secondary-light', '#c4b5fd'),
+                        backgroundColor: getCSSVariable('--color-chart-secondary-light-bg', 'rgba(196, 181, 253, 0.1)'),
+                        tension: 0.4,
+                    },
+                ],
+            };
 
-        return { overviewData, pageViewsData, externalData };
-    })());
+            return { overviewData, pageViewsData, externalData };
+        })(),
+    );
 
-    const downloadsChartData = $derived((() => {
-        if (!dailyStats || dailyStats.length === 0) return null;
+    const downloadsChartData = $derived(
+        (() => {
+            if (!dailyStats || dailyStats.length === 0) return null;
 
-        const labels = dailyStats.map(d => {
-            const date = new Date(d.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
+            const labels = dailyStats.map((d) => {
+                const date = new Date(d.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
 
-        return {
-            labels,
-            datasets: [
-                {
-                    label: 'Unique Downloads',
-                    data: dailyStats.map(d => d.custom_links_unique),
-                    borderColor: getCSSVariable('--color-chart-success', '#10b981'),
-                    backgroundColor: getCSSVariable('--color-chart-success-bg', 'rgba(16, 185, 129, 0.1)'),
-                    tension: 0.4,
-                },
-                {
-                    label: 'Total Downloads',
-                    data: dailyStats.map(d => d.custom_links_total),
-                    borderColor: getCSSVariable('--color-chart-success-light', '#6ee7b7'),
-                    backgroundColor: getCSSVariable('--color-chart-success-light-bg', 'rgba(110, 231, 183, 0.1)'),
-                    tension: 0.4,
-                },
-            ],
-        };
-    })());
+            return {
+                labels,
+                datasets: [
+                    {
+                        label: 'Unique Downloads',
+                        data: dailyStats.map((d) => d.custom_links_unique),
+                        borderColor: getCSSVariable('--color-chart-success', '#10b981'),
+                        backgroundColor: getCSSVariable('--color-chart-success-bg', 'rgba(16, 185, 129, 0.1)'),
+                        tension: 0.4,
+                    },
+                    {
+                        label: 'Total Downloads',
+                        data: dailyStats.map((d) => d.custom_links_total),
+                        borderColor: getCSSVariable('--color-chart-success-light', '#6ee7b7'),
+                        backgroundColor: getCSSVariable('--color-chart-success-light-bg', 'rgba(110, 231, 183, 0.1)'),
+                        tension: 0.4,
+                    },
+                ],
+            };
+        })(),
+    );
 
-    const activeChartData = $derived((() => {
-        if (activeTab === 'overview') return chartData?.overviewData;
-        if (activeTab === 'pageviews') return chartData?.pageViewsData;
-        if (activeTab === 'external') return chartData?.externalData;
-        if (activeTab === 'downloads') return downloadsChartData;
+    const activeChartData = $derived(
+        (() => {
+            if (activeTab === 'overview') return chartData?.overviewData;
+            if (activeTab === 'pageviews') return chartData?.pageViewsData;
+            if (activeTab === 'external') return chartData?.externalData;
+            if (activeTab === 'downloads') return downloadsChartData;
 
-        return null;
-    })());
+            return null;
+        })(),
+    );
 
     const hasChartData = $derived(Boolean(chartData || downloadsChartData));
 
@@ -223,34 +229,40 @@
     );
 
     // Computed stats
-    const downloadsUnique = $derived((() => {
-        if (dailyStats && dailyStats.length > 0) {
-            return dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
-        }
-        if (Array.isArray(clickStats?.custom_links)) {
-            return clickStats!.custom_links!.reduce((sum, link) => sum + link.unique_clicks, 0);
-        }
-        return 0;
-    })());
+    const downloadsUnique = $derived(
+        (() => {
+            if (dailyStats && dailyStats.length > 0) {
+                return dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
+            }
+            if (Array.isArray(clickStats?.custom_links)) {
+                return clickStats!.custom_links!.reduce((sum, link) => sum + link.unique_clicks, 0);
+            }
+            return 0;
+        })(),
+    );
 
-    const downloadsTotal = $derived((() => {
-        if (dailyStats && dailyStats.length > 0) {
-            return dailyStats.reduce((sum, day) => sum + day.custom_links_total, 0);
-        }
-        if (Array.isArray(clickStats?.custom_links)) {
-            return clickStats!.custom_links!.reduce((sum, link) => sum + link.total_clicks, 0);
-        }
-        return 0;
-    })());
+    const downloadsTotal = $derived(
+        (() => {
+            if (dailyStats && dailyStats.length > 0) {
+                return dailyStats.reduce((sum, day) => sum + day.custom_links_total, 0);
+            }
+            if (Array.isArray(clickStats?.custom_links)) {
+                return clickStats!.custom_links!.reduce((sum, link) => sum + link.total_clicks, 0);
+            }
+            return 0;
+        })(),
+    );
 
-    const insights = $derived((() => {
-        if (!dailyStats || dailyStats.length === 0) return null;
-        const recentDays = dailyStats.slice(-7);
-        const avgDailyViews = recentDays.reduce((sum, day) => sum + day.page_views_unique, 0) / recentDays.length;
-        const totalViews = dailyStats.reduce((sum, day) => sum + day.page_views_unique, 0);
-        const totalDownloads = dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
-        return { avgDailyViews, totalViews, totalDownloads, userTimezone: getUserTimezone() };
-    })());
+    const insights = $derived(
+        (() => {
+            if (!dailyStats || dailyStats.length === 0) return null;
+            const recentDays = dailyStats.slice(-7);
+            const avgDailyViews = recentDays.reduce((sum, day) => sum + day.page_views_unique, 0) / recentDays.length;
+            const totalViews = dailyStats.reduce((sum, day) => sum + day.page_views_unique, 0);
+            const totalDownloads = dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
+            return { avgDailyViews, totalViews, totalDownloads, userTimezone: getUserTimezone() };
+        })(),
+    );
 
     onMount(() => {
         if (!hasChartData) return;
@@ -306,13 +318,19 @@
                     {#if insights}
                         <div>&#8226; Total unique views: <strong>{insights.totalViews}</strong></div>
                         {#if insights.avgDailyViews > 0}
-                            <div>&#8226; Averaging <strong>{Math.round(insights.avgDailyViews * 10) / 10}</strong> unique views per day this week</div>
+                            <div>
+                                &#8226; Averaging <strong>{Math.round(insights.avgDailyViews * 10) / 10}</strong> unique views per day this week
+                            </div>
                         {/if}
                         {#if insights.totalDownloads > 0}
                             <div>&#8226; Total downloads: <strong>{insights.totalDownloads}</strong></div>
                         {/if}
                         {#if clickStats.last_page_view}
-                            <div>&#8226; Last page view: <strong>{formatDateTimeWithTimezone(clickStats.last_page_view, false) || clickStats.last_page_view}</strong></div>
+                            <div>
+                                &#8226; Last page view: <strong
+                                    >{formatDateTimeWithTimezone(clickStats.last_page_view, false) || clickStats.last_page_view}</strong
+                                >
+                            </div>
                         {/if}
                         <div class="mt-3 border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-500">
                             All times shown in your local timezone ({insights.userTimezone})
@@ -331,8 +349,8 @@
             <nav class="flex space-x-8 px-6" aria-label="Tabs">
                 {#each tabs as tab (tab.id)}
                     <button
-                        onclick={() => activeTab = tab.id}
-                        class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === tab.id
+                        onclick={() => (activeTab = tab.id)}
+                        class="border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap {activeTab === tab.id
                             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
                     >
@@ -347,9 +365,7 @@
                 {#if ChartComponent}
                     <ChartComponent data={activeChartData} options={chartOptions} style="height: 320px;" />
                 {:else}
-                    <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">
-                        Loading chart...
-                    </div>
+                    <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">Loading chart...</div>
                 {/if}
             {:else}
                 <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">

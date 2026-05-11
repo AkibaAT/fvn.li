@@ -76,12 +76,24 @@
             content_css: isDarkMode() ? 'dark' : 'default',
 
             plugins: [
-                'advlist', 'autolink', 'lists', 'link',
+                'advlist',
+                'autolink',
+                'lists',
+                'link',
                 ...(disableImages ? [] : ['image']),
-                'charmap', 'preview',
-                'searchreplace', 'visualblocks', 'fullscreen', 'insertdatetime',
+                'charmap',
+                'preview',
+                'searchreplace',
+                'visualblocks',
+                'fullscreen',
+                'insertdatetime',
                 ...(disableImages ? [] : ['media']),
-                'table', 'help', 'wordcount', 'code', 'codesample', 'autoresize',
+                'table',
+                'help',
+                'wordcount',
+                'code',
+                'codesample',
+                'autoresize',
             ],
             toolbar: disableImages
                 ? 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | link | code | fullscreen | help'

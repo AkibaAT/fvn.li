@@ -221,12 +221,7 @@
         </div>
 
         {#if currentGame}
-            <div
-                class="group relative mt-4"
-                role="region"
-                aria-roledescription="carousel"
-                aria-label="Games in {list.name}"
-            >
+            <div class="group relative mt-4" role="region" aria-roledescription="carousel" aria-label="Games in {list.name}">
                 <span class="sr-only" aria-live="polite">
                     {currentGame?.effective_name} - slide {index + 1} of {total}
                 </span>
