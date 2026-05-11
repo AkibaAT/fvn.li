@@ -194,14 +194,14 @@ class CharacterVersionReferenceService
     }
 
     /**
-     * Delete characters that don't have any version_dialogue_lines assigned to them
+     * Delete characters that don't have dialogue lines or character stats.
      */
     private function deleteOrphanedCharacters(?int $gameId = null, bool $dryRun = false): int
     {
         Log::info('Checking for orphaned characters...');
 
-        // Find characters that don't have any dialogue lines assigned to them
-        $orphanedQuery = Character::whereDoesntHave('dialogueLines');
+        $orphanedQuery = Character::whereDoesntHave('dialogueLines')
+            ->whereDoesntHave('versionStats');
 
         if ($gameId) {
             $orphanedQuery->where('game_id', $gameId);

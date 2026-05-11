@@ -114,9 +114,7 @@
         </fieldset>
 
         <div class="mb-4">
-            <label for="report-details" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >Additional details (optional)</label
-            >
+            <label for="report-details" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Additional details (optional)</label>
             <textarea
                 id="report-details"
                 bind:value={details}

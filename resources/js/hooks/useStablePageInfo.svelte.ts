@@ -30,8 +30,12 @@ export function useStablePageInfo() {
     });
 
     return {
-        get currentPath() { return currentPath; },
-        get pendingInvites() { return pendingInvites; },
+        get currentPath() {
+            return currentPath;
+        },
+        get pendingInvites() {
+            return pendingInvites;
+        },
         updatePageInfo,
     };
 }

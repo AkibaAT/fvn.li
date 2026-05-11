@@ -430,6 +430,10 @@
         }
         fetchVersions(game.id, page, perPage)
             .then((data) => {
+                versionHasFileStats = {
+                    ...versionHasFileStats,
+                    ...data.versionHasFileStats,
+                };
                 versionsData = data;
             })
             .catch(() => {});

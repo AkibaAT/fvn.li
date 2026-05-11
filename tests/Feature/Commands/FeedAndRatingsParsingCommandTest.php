@@ -11,6 +11,7 @@ use App\Models\ImportState;
 use App\Models\ProcessedEvent;
 use App\Models\Rater;
 use App\Models\Rating;
+use App\Services\GameDataSyncService;
 use App\Services\ItchAuthService;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
@@ -392,6 +393,57 @@ HTML,
         ->and(ProcessedEvent::query()->where('event_id', 6002)->exists())->toBeFalse()
         ->and($visibleGame->fresh()->error)->toBeNull()
         ->and($alreadySeenGame->fresh()->error)->toBeNull();
+});
+
+it('backfill feed records processed events with external itch game ids for later skips', function () {
+    $game = Game::factory()->create([
+        'itch_id' => 12345,
+        'is_visible' => true,
+    ]);
+    expect($game->id)->not->toBe(12345);
+
+    $syncService = Mockery::mock(GameDataSyncService::class);
+    $syncService->shouldReceive('refreshVersion')
+        ->once()
+        ->with(Mockery::on(fn (Game $refreshedGame): bool => $refreshedGame->id === $game->id), false);
+    app()->instance(GameDataSyncService::class, $syncService);
+
+    $auth = Mockery::mock(ItchAuthService::class);
+    $client = Mockery::mock(Client::class);
+    $feedPayload = [
+        'content' => <<<'HTML'
+<div class="event_row">
+    <span class="like_btn" data-like_url="https://itch.io/post/8100/like"></span>
+    <a class="event_time" title="2026-01-02 12:00:00">new</a>
+    <div class="game_cell" data-game_id="12345"><a class="game_link" href="https://dev.itch.io/visible"></a></div>
+    <div class="object_short_summary"><a href="https://dev.itch.io/visible">Visible Game</a></div>
+</div>
+HTML,
+    ];
+    $client->shouldReceive('get')
+        ->twice()
+        ->with('https://itch.io/my-feed?filter=posts&format=json')
+        ->andReturn(feedRatingsCommandResponse($feedPayload), feedRatingsCommandResponse($feedPayload));
+
+    $firstCommand = new BackfillFeed($auth);
+    $firstCommand->setLaravel(app());
+    attachFeedRatingsCommandOutput($firstCommand);
+    setFeedRatingsCommandProperty($firstCommand, 'cutoffDate', Carbon::parse('2026-01-01 00:00:00'));
+    setFeedRatingsCommandProperty($firstCommand, 'latestEventPerGame', []);
+
+    expect(invokeFeedRatingsCommandMethod($firstCommand, 'processFeedPage', [$client, null]))
+        ->toBe([null, false])
+        ->and(ProcessedEvent::query()->where('event_id', 8100)->where('game_id', 12345)->count())->toBe(1);
+
+    $secondCommand = new BackfillFeed($auth);
+    $secondCommand->setLaravel(app());
+    attachFeedRatingsCommandOutput($secondCommand);
+    setFeedRatingsCommandProperty($secondCommand, 'cutoffDate', Carbon::parse('2026-01-01 00:00:00'));
+    invokeFeedRatingsCommandMethod($secondCommand, 'buildLatestEventMap');
+
+    expect(invokeFeedRatingsCommandMethod($secondCommand, 'processFeedPage', [$client, null]))
+        ->toBe([null, false])
+        ->and(ProcessedEvent::query()->where('event_id', 8100)->count())->toBe(1);
 });
 
 it('backfill feed summary fallback resolves game ids and skips failures', function () {

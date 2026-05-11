@@ -27,7 +27,10 @@
     function getNotificationIconPath(type: string): { d: string; color: string } {
         switch (type) {
             case 'game_update':
-                return { d: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', color: 'text-blue-500' };
+                return {
+                    d: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+                    color: 'text-blue-500',
+                };
             case 'new_game':
                 return { d: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'text-green-500' };
             case 'system':
@@ -51,9 +54,7 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-3xl font-bold text-blue-600">
-                Notification Digest
-            </h1>
+            <h1 class="text-3xl font-bold text-blue-600">Notification Digest</h1>
             <p class="mt-2 text-gray-600 dark:text-gray-400">
                 Notifications for {formattedDate}
             </p>
@@ -75,9 +76,7 @@
     <div class="rounded-xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
         {#if hasNotifications}
             <div class="space-y-4">
-                <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-                    Your Notifications
-                </h2>
+                <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-white">Your Notifications</h2>
                 {#each notifications as notification (notification.id)}
                     {@const iconInfo = getNotificationIconPath(notification.type)}
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
@@ -100,9 +99,7 @@
                                     {notification.message}
                                 </p>
                                 {#if notification.data}
-                                    <div class="mt-2 text-sm text-gray-500 dark:text-gray-500">
-                                        Additional details available
-                                    </div>
+                                    <div class="mt-2 text-sm text-gray-500 dark:text-gray-500">Additional details available</div>
                                 {/if}
                             </div>
                         </div>
@@ -112,15 +109,16 @@
         {:else}
             <div class="py-12 text-center">
                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                    />
                 </svg>
-                <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">
-                    No Notifications
-                </h3>
+                <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">No Notifications</h3>
                 <p class="mt-1 text-gray-500 dark:text-gray-400">
-                    {hasAnyNotifications
-                        ? "You don't have any notifications for this date."
-                        : 'There are no notifications available for this date.'}
+                    {hasAnyNotifications ? "You don't have any notifications for this date." : 'There are no notifications available for this date.'}
                 </p>
             </div>
         {/if}
@@ -128,10 +126,7 @@
 
     <!-- Navigation -->
     <div class="flex items-center justify-between">
-        <Link
-            href={route('dashboard')}
-            class="inline-flex items-center space-x-2 text-blue-600 transition-colors hover:text-blue-700"
-        >
+        <Link href={route('dashboard')} class="inline-flex items-center space-x-2 text-blue-600 transition-colors hover:text-blue-700">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>

@@ -39,85 +39,64 @@
 <div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
     <!-- Game Stats -->
     <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Games
-        </h2>
+        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Games</h2>
         <dl class="grid grid-cols-2 gap-4">
             <div>
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Total Games
-                </dt>
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Games</dt>
                 <dd class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                     {formatNumber(gameStats.total)}
                 </dd>
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Listed Games
-                </dt>
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Listed Games</dt>
                 <dd class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                     {formatNumber(gameStats.visible)}
                 </dd>
                 <dd class="text-sm text-gray-500 dark:text-gray-400">
-                    Listing rate: {gameStats.listing_rate
-                        ? gameStats.listing_rate.toFixed(1)
-                        : '0.0'}%
+                    Listing rate: {gameStats.listing_rate ? gameStats.listing_rate.toFixed(1) : '0.0'}%
                 </dd>
             </div>
         </dl>
         {#if gameLatestUpdate}
             <div class="mt-4 text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Latest Update:</span><span class="ml-1 text-gray-900 dark:text-gray-100">{gameLatestUpdate.timeAgo} <span class="text-xs text-gray-500 dark:text-gray-400">({gameLatestUpdate.formattedDate} {userTimezone})</span></span>
+                <span class="text-gray-500 dark:text-gray-400">Latest Update:</span><span class="ml-1 text-gray-900 dark:text-gray-100"
+                    >{gameLatestUpdate.timeAgo}
+                    <span class="text-xs text-gray-500 dark:text-gray-400">({gameLatestUpdate.formattedDate} {userTimezone})</span></span
+                >
             </div>
         {/if}
     </div>
 
     <!-- Rating Stats -->
     <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Ratings
-        </h2>
+        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Ratings</h2>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             <!-- All Ratings -->
             <div>
-                <h3 class="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">
-                    All Ratings
-                </h3>
+                <h3 class="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">All Ratings</h3>
                 <dl class="grid grid-cols-2 gap-4">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Ratings
-                        </dt>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Ratings</dt>
                         <dd class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                             {formatNumber(ratingStats.total)}
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Reviews
-                        </dt>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Reviews</dt>
                         <dd class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                             {formatNumber(ratingStats.reviews.total)}
                         </dd>
                         <dd class="text-sm text-gray-500 dark:text-gray-400">
-                            Review rate: {ratingStats.reviews.review_rate
-                                ? ratingStats.reviews.review_rate.toFixed(1)
-                                : '0.0'}%
+                            Review rate: {ratingStats.reviews.review_rate ? ratingStats.reviews.review_rate.toFixed(1) : '0.0'}%
                         </dd>
                     </div>
                     <div class="col-span-2">
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Average Rating
-                        </dt>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Average Rating</dt>
                         <dd class="mt-1 flex items-center gap-2">
                             <span class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                                {ratingStats.average_rating
-                                    ? Number(ratingStats.average_rating).toFixed(2)
-                                    : 'N/A'}
+                                {ratingStats.average_rating ? Number(ratingStats.average_rating).toFixed(2) : 'N/A'}
                             </span>
-                            <Stars
-                                rating={Number(ratingStats.average_rating) || 0}
-                            />
+                            <Stars rating={Number(ratingStats.average_rating) || 0} />
                         </dd>
                     </div>
                 </dl>
@@ -125,14 +104,10 @@
 
             <!-- Listed Games -->
             <div>
-                <h3 class="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">
-                    Listed Games
-                </h3>
+                <h3 class="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">Listed Games</h3>
                 <dl class="grid grid-cols-2 gap-4">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Ratings
-                        </dt>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Ratings</dt>
                         <dd class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                             {formatNumber(ratingStats.visible_games.total)}
                         </dd>
@@ -143,31 +118,21 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Reviews
-                        </dt>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Reviews</dt>
                         <dd class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                             {formatNumber(ratingStats.visible_games.reviews)}
                         </dd>
                         <dd class="text-sm text-gray-500 dark:text-gray-400">
-                            Review rate: {ratingStats.visible_games.review_rate
-                                ? ratingStats.visible_games.review_rate.toFixed(1)
-                                : '0.0'}%
+                            Review rate: {ratingStats.visible_games.review_rate ? ratingStats.visible_games.review_rate.toFixed(1) : '0.0'}%
                         </dd>
                     </div>
                     <div class="col-span-2">
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Average Rating
-                        </dt>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Average Rating</dt>
                         <dd class="mt-1 flex items-center gap-2">
                             <span class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                                {ratingStats.visible_games.average_rating
-                                    ? Number(ratingStats.visible_games.average_rating).toFixed(2)
-                                    : 'N/A'}
+                                {ratingStats.visible_games.average_rating ? Number(ratingStats.visible_games.average_rating).toFixed(2) : 'N/A'}
                             </span>
-                            <Stars
-                                rating={Number(ratingStats.visible_games.average_rating) || 0}
-                            />
+                            <Stars rating={Number(ratingStats.visible_games.average_rating) || 0} />
                         </dd>
                     </div>
                 </dl>
@@ -175,7 +140,10 @@
         </div>
         {#if ratingLatest}
             <div class="mt-4 text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Latest Rating:</span><span class="ml-1 text-gray-900 dark:text-gray-100">{ratingLatest.timeAgo} <span class="text-xs text-gray-500 dark:text-gray-400">({ratingLatest.formattedDate} {userTimezone})</span></span>
+                <span class="text-gray-500 dark:text-gray-400">Latest Rating:</span><span class="ml-1 text-gray-900 dark:text-gray-100"
+                    >{ratingLatest.timeAgo}
+                    <span class="text-xs text-gray-500 dark:text-gray-400">({ratingLatest.formattedDate} {userTimezone})</span></span
+                >
             </div>
         {/if}
     </div>

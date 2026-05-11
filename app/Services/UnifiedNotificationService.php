@@ -22,6 +22,16 @@ class UnifiedNotificationService
      */
     public function queueGameUpdate(Game $game, GameVersion $gameVersion, array $options = []): void
     {
+        if ($game->is_paid) {
+            Log::info('Skipping notifications for paid game', [
+                'game_id' => $game->id,
+                'game_name' => $game->name,
+                'version' => $gameVersion->version,
+            ]);
+
+            return;
+        }
+
         $options = array_merge([
             'notify_fvn_li' => true,      // Send to fvn.li push subscribers
             'notify_discord' => true,      // Send to Discord bot
