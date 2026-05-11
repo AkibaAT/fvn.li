@@ -126,6 +126,48 @@ it('calculates saves filters and updates character stats from dialogue', functio
         ->and($unsafeStats->refresh()->blocks)->toBe(1);
 });
 
+it('resets stale language totals when only alt character stats remain', function () {
+    $game = Game::factory()->create();
+    $version = GameVersion::factory()->for($game)->create();
+    $alt = Character::factory()->for($game)->create(['character_id' => 'alt']);
+    $bob = Character::factory()->for($game)->create(['character_id' => 'bob']);
+    $service = new CharacterStatsCalculationService;
+
+    VersionLanguageStats::create([
+        'game_version_id' => $version->id,
+        'iso_code' => 'eng',
+        'blocks' => 7,
+        'words' => 70,
+        'menus' => 3,
+        'options' => 4,
+    ]);
+    VersionLanguageStats::create([
+        'game_version_id' => $version->id,
+        'iso_code' => 'jpn',
+        'blocks' => 99,
+        'words' => 990,
+    ]);
+
+    statsLine($version, $alt, 'image alt text only', 'eng', 1);
+    statsLine($version, $bob, 'real dialogue', 'jpn', 2);
+
+    expect($service->calculateAndSaveStatsForVersionSafe($version->id))->toBe(2);
+
+    $englishStats = VersionLanguageStats::where('game_version_id', $version->id)
+        ->where('iso_code', 'eng')
+        ->firstOrFail();
+    $japaneseStats = VersionLanguageStats::where('game_version_id', $version->id)
+        ->where('iso_code', 'jpn')
+        ->firstOrFail();
+
+    expect($englishStats->blocks)->toBe(0)
+        ->and($englishStats->words)->toBe(0)
+        ->and($englishStats->menus)->toBe(3)
+        ->and($englishStats->options)->toBe(4)
+        ->and($japaneseStats->blocks)->toBe(1)
+        ->and($japaneseStats->words)->toBe(2);
+});
+
 it('finds stats with issues by character type and zero counts', function () {
     $game = Game::factory()->create();
     $otherGame = Game::factory()->create();
@@ -178,6 +220,38 @@ it('repairs character version references, creates missing stats, and deletes orp
         ->and($character->last_seen_in_version_id)->toBe($lastVersion->id)
         ->and(Character::find($orphan->id))->toBeNull()
         ->and(Character::find($otherOrphan->id))->not->toBeNull();
+});
+
+it('keeps stats-only characters during orphan cleanup', function () {
+    $game = Game::factory()->create();
+    $version = GameVersion::factory()->for($game)->create();
+    $statsOnly = Character::factory()->for($game)->create([
+        'character_id' => 'stats_only',
+        'first_seen_in_version_id' => null,
+        'last_seen_in_version_id' => null,
+    ]);
+    $orphan = Character::factory()->for($game)->create(['character_id' => 'unused']);
+    $stats = VersionCharacterStats::factory()
+        ->for($version, 'gameVersion')
+        ->for($statsOnly)
+        ->create([
+            'iso_code' => 'eng',
+            'blocks' => 3,
+            'words' => 30,
+        ]);
+    $statsService = Mockery::mock(CharacterStatsCalculationService::class);
+    $statsService->shouldNotReceive('calculateAndSaveStatsForVersionSafe');
+
+    $result = (new CharacterVersionReferenceService($statsService))->fixVersionReferences($game->id);
+
+    expect($result['characters_processed'])->toBe(2)
+        ->and($result['characters_updated'])->toBe(1)
+        ->and($result['characters_deleted'])->toBe(1)
+        ->and(Character::find($statsOnly->id))->not->toBeNull()
+        ->and(VersionCharacterStats::find($stats->id))->not->toBeNull()
+        ->and($statsOnly->refresh()->first_seen_in_version_id)->toBe($version->id)
+        ->and($statsOnly->last_seen_in_version_id)->toBe($version->id)
+        ->and(Character::find($orphan->id))->toBeNull();
 });
 
 it('dry runs character version repairs without mutating characters', function () {

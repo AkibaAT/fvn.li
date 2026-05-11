@@ -6,18 +6,12 @@
     async function handleDeleteAccount(e: SubmitEvent) {
         e.preventDefault();
 
-        if (
-            !confirm(
-                'Are you sure you want to delete your account? This action cannot be undone.',
-            )
-        ) {
+        if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
             return;
         }
 
         if (
-            !confirm(
-                'This will permanently delete all your data, including your lists, progress, and account information. Are you absolutely sure?',
-            )
+            !confirm('This will permanently delete all your data, including your lists, progress, and account information. Are you absolutely sure?')
         ) {
             return;
         }
@@ -29,10 +23,7 @@
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN':
-                        document
-                            .querySelector('meta[name="csrf-token"]')
-                            ?.getAttribute('content') || '',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
             });
 
@@ -53,18 +44,11 @@
 
 <div class="rounded-2xl border border-red-200/50 bg-white/70 shadow-lg backdrop-blur-xl dark:border-red-800/50 dark:bg-gray-800/70">
     <div class="p-6">
-        <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-500">
-            Danger Zone
-        </h2>
+        <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-500">Danger Zone</h2>
 
         <div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-            <h3 class="mb-2 font-medium text-red-800 dark:text-red-400">
-                Delete Account
-            </h3>
-            <p class="mb-4 text-sm text-red-700 dark:text-red-300">
-                Once you delete your account, there is no going back.
-                Please be certain.
-            </p>
+            <h3 class="mb-2 font-medium text-red-800 dark:text-red-400">Delete Account</h3>
+            <p class="mb-4 text-sm text-red-700 dark:text-red-300">Once you delete your account, there is no going back. Please be certain.</p>
 
             <form onsubmit={handleDeleteAccount}>
                 <button
@@ -76,13 +60,7 @@
                         <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
                         Deleting...
                     {:else}
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path
                                 stroke-linecap="round"
                                 stroke-linejoin="round"

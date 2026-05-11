@@ -65,6 +65,25 @@ it('sends requests through FlareSolverr and updates the supplied cookie jar', fu
         ->and($payload)->not->toHaveKey('session');
 });
 
+it('serializes an explicit session override in request payloads', function () {
+    $history = [];
+    $service = flareSolverrClientWithResponses([
+        new Response(200, [], json_encode([
+            'status' => 'ok',
+            'solution' => [
+                'status' => 200,
+                'headers' => [],
+                'response' => '<html>ok</html>',
+            ],
+        ])),
+    ], $history);
+
+    $service->request('https://itch.io/game', sessionId: 'games_refresh');
+
+    $payload = json_decode((string) $history[0]['request']->getBody(), true);
+    expect($payload['session'])->toBe('games_refresh');
+});
+
 it('throws wrapped exceptions for failed requests and CAPTCHA responses', function () {
     $service = flareSolverrClientWithResponses([
         new Response(200, [], json_encode([

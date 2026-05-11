@@ -1,15 +1,18 @@
 @font-face {
-    font-family: "icomoon";
-    src: url("../fonts/icomoon.woff2") format("woff2"),
-        url("../fonts/icomoon.ttf") format("truetype"),
-        url("../fonts/icomoon.woff") format("woff");
+    font-family: 'icomoon';
+    src:
+        url('../fonts/icomoon.woff2') format('woff2'),
+        url('../fonts/icomoon.ttf') format('truetype'),
+        url('../fonts/icomoon.woff') format('woff');
     font-weight: normal;
     font-style: normal;
     font-display: block;
 }
-.icon, [class^="icon-"], [class*=" icon-"] {
+.icon,
+[class^='icon-'],
+[class*=' icon-'] {
     /* Use !important to prevent extensions from overriding this font. */
-    font-family: "icomoon" !important;
+    font-family: 'icomoon' !important;
     font-style: normal;
     font-weight: normal;
     font-variant: normal;
@@ -22,95 +25,95 @@
     -moz-osx-font-smoothing: grayscale;
 }
 .icon-laptop:before {
-    content: "\f1d1";
+    content: '\f1d1';
 }
 .icon-books:before {
-    content: "\f74f";
+    content: '\f74f';
 }
 .icon-phone:before {
-    content: "\f018";
+    content: '\f018';
 }
 .icon-bookmark:before {
-    content: "\f020";
+    content: '\f020';
 }
 .icon-currency-circle-dollar:before {
-    content: "\f893";
+    content: '\f893';
 }
 .icon-shield:before {
-    content: "\f062";
+    content: '\f062';
 }
 .icon-check:before {
-    content: "\f10a";
+    content: '\f10a';
 }
 .icon-info:before {
-    content: "\f156";
+    content: '\f156';
 }
 .icon-alert:before {
-    content: "\f147";
+    content: '\f147';
 }
 .icon-cross-circle:before {
-    content: "\f00c";
+    content: '\f00c';
 }
 .icon-check-circle:before {
-    content: "\f1de";
+    content: '\f1de';
 }
 .icon-x:before {
-    content: "\f02a";
+    content: '\f02a';
 }
 .icon-star:before {
-    content: "\f178";
+    content: '\f178';
 }
 .icon-paste:before {
-    content: "\f013";
+    content: '\f013';
 }
 .icon-gamepad-2:before {
-    content: "\f5a4";
+    content: '\f5a4';
 }
 .icon-book:before {
-    content: "\f1fb";
+    content: '\f1fb';
 }
 .icon-moon:before {
-    content: "\f194";
+    content: '\f194';
 }
 .icon-sun:before {
-    content: "\f097";
+    content: '\f097';
 }
 .icon-bell:before {
-    content: "\fe5b";
+    content: '\fe5b';
 }
 .icon-magnifier:before {
-    content: "\f0c2";
+    content: '\f0c2';
 }
 .icon-linux:before {
-    content: "\f000";
+    content: '\f000';
 }
 .icon-web:before {
-    content: "\f001";
+    content: '\f001';
 }
 .icon-windows:before {
-    content: "\f002";
+    content: '\f002';
 }
 .icon-android:before {
-    content: "\f003";
+    content: '\f003';
 }
 .icon-apple:before {
-    content: "\f004";
+    content: '\f004';
 }
 .icon-github:before {
-    content: "\f005";
+    content: '\f005';
 }
 .icon-telegram:before {
-    content: "\f006";
+    content: '\f006';
 }
 .icon-external-link:before {
-    content: "\f007";
+    content: '\f007';
 }
 .icon-discord:before {
-    content: "\f008";
+    content: '\f008';
 }
 .icon-bluesky:before {
-    content: "\f009";
+    content: '\f009';
 }
 .icon-space:before {
-    content: "\f00a";
+    content: '\f00a';
 }

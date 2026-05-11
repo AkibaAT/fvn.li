@@ -321,3 +321,49 @@ test('game stats service saves language character and supported language aggrega
         ->and($version->routeVariables()->count())->toBe(1)
         ->and($version->routeVariableChanges()->count())->toBe(1);
 });
+
+test('game stats service keeps real q-prefixed languages in supported languages', function () {
+    DB::table('iso_639_3_languages')->insertOrIgnore([
+        [
+            'id' => 'eng',
+            'scope' => 'I',
+            'type' => 'L',
+            'ref_name' => 'English',
+            'part1' => 'en',
+            'flag_code' => 'gb',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'id' => 'quc',
+            'scope' => 'I',
+            'type' => 'L',
+            'ref_name' => "K'iche'",
+            'part1' => null,
+            'flag_code' => 'gt',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+
+    $game = Game::factory()->create();
+    $version = GameVersion::factory()->for($game)->create();
+
+    app(GameStatsService::class)->saveVersionStats($version, [
+        'languages' => [
+            'quc' => [
+                'blocks' => 2,
+                'words' => 20,
+            ],
+            'made-up-language' => [
+                'blocks' => 1,
+                'words' => 10,
+            ],
+        ],
+    ], 'eng', $game);
+
+    expect(VersionLanguageStats::where('game_version_id', $version->id)->where('iso_code', 'quc')->exists())->toBeTrue()
+        ->and(VersionLanguageStats::where('game_version_id', $version->id)->where('iso_code', 'qaa')->exists())->toBeTrue()
+        ->and(VersionSupportedLanguage::where('game_version_id', $version->id)->where('iso_code', 'quc')->exists())->toBeTrue()
+        ->and(VersionSupportedLanguage::where('game_version_id', $version->id)->where('iso_code', 'qaa')->exists())->toBeFalse();
+});

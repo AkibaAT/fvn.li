@@ -56,7 +56,7 @@
                     </button>
                 {/each}
             </div>
-            {#if hiddenLanguageCount > 0}
+            {#if hiddenLanguageCount > 0 || languagesExpanded}
                 <button
                     onclick={() => setLanguagesExpanded(!languagesExpanded)}
                     class="group flex h-6 w-6 flex-shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"

@@ -12,6 +12,11 @@ use RuntimeException;
 
 class LanguageMappingService
 {
+    public static function isPlaceholderLanguageCode(string $isoCode): bool
+    {
+        return $isoCode >= 'qaa' && $isoCode <= 'qtz';
+    }
+
     /**
      * Resolve a language key to an ISO code, considering game-specific overrides.
      *
@@ -60,7 +65,7 @@ class LanguageMappingService
         }
 
         // Generate a new placeholder code in the qaa-qtz range
-        $highestPlaceholder = LanguageMapping::where('iso_code', 'like', 'q%')
+        $highestPlaceholder = LanguageMapping::whereBetween('iso_code', ['qaa', 'qtz'])
             ->orderBy('iso_code', 'desc')
             ->value('iso_code');
 
@@ -85,12 +90,13 @@ class LanguageMappingService
      */
     private function generateNextPlaceholderCode(string $current): string
     {
+        if ($current >= 'qtz') {
+            throw new RuntimeException('No more placeholder codes available');
+        }
+
         $lastChar = substr($current, -1);
         if ($lastChar === 'z') {
             $middleChar = substr($current, -2, 1);
-            if ($middleChar === 'z') {
-                throw new RuntimeException('No more placeholder codes available');
-            }
 
             return 'q'.chr(ord($middleChar) + 1).'a';
         }

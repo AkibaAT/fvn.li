@@ -2,7 +2,6 @@
     import { useSearch } from '@/hooks/useSearch.svelte';
     import { onMount } from 'svelte';
 
-
     interface Props {
         isOpen: boolean;
         onClose: () => void;
@@ -10,7 +9,10 @@
 
     let { isOpen, onClose }: Props = $props();
 
-    const search = useSearch();
+    const currentUrl = typeof window !== 'undefined' ? (window.location?.href ?? '') : '';
+    const detectedIsGamesPage = (currentUrl.endsWith('/games') && !currentUrl.includes('/my/games')) || currentUrl.includes('/games?');
+
+    const search = useSearch({ isGamesPage: detectedIsGamesPage });
 
     let inputEl: HTMLInputElement | undefined = $state();
 
@@ -33,20 +35,13 @@
 </script>
 
 {#if isOpen}
-    <div
-        class="border-b border-gray-200/50 bg-white/95 p-4 backdrop-blur-xl lg:hidden dark:border-gray-700/50 dark:bg-gray-900/95"
-    >
+    <div class="border-b border-gray-200/50 bg-white/95 p-4 backdrop-blur-xl lg:hidden dark:border-gray-700/50 dark:bg-gray-900/95">
         <div class="relative">
-            <form
-                onsubmit={handleSubmit}
-                class="w-full"
-            >
+            <form onsubmit={handleSubmit} class="w-full">
                 <div class="relative">
-                    <div
-                        class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                         {#if search.isSearching}
-                            <div
-                                class="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                            <div class="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
                         {:else}
                             <i class="icon-magnifier text-gray-400" aria-hidden="true"></i>
                         {/if}
