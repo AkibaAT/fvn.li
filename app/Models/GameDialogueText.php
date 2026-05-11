@@ -135,7 +135,45 @@ class GameDialogueText extends Model
      */
     public static function getForGame(int $gameId): Collection
     {
-        $results = DB::select('
+        return static::hydrateDialogueRows(static::selectCurrentVersionRowsForGame($gameId));
+    }
+
+    /**
+     * Stream dialogue texts for a specific game in bounded chunks.
+     *
+     * @param  callable(Collection<int, static>): void  $callback
+     */
+    public static function chunkForGame(int $gameId, int $chunkSize, callable $callback): int
+    {
+        $total = 0;
+        $offset = 0;
+
+        do {
+            $rows = static::selectCurrentVersionRowsForGame($gameId, $chunkSize, $offset);
+            $dialogueTexts = static::hydrateDialogueRows($rows);
+            $count = $dialogueTexts->count();
+            $total += $count;
+
+            if ($dialogueTexts->isNotEmpty()) {
+                $callback($dialogueTexts);
+            }
+
+            $offset += $chunkSize;
+        } while ($count === $chunkSize);
+
+        return $total;
+    }
+
+    protected static function selectCurrentVersionRowsForGame(int $gameId, ?int $limit = null, int $offset = 0): Collection
+    {
+        $limitSql = $limit !== null ? 'LIMIT ? OFFSET ?' : '';
+        $bindings = [$gameId, $gameId];
+        if ($limit !== null) {
+            $bindings[] = $limit;
+            $bindings[] = $offset;
+        }
+
+        return collect(DB::select("
             WITH current_version AS (
                 SELECT gv.id
                 FROM game_versions gv
@@ -188,9 +226,57 @@ class GameDialogueText extends Model
             INNER JOIN first_seen
                 ON first_seen.text_id = current_texts.text_id
                 AND first_seen.language = current_texts.language
-        ', [$gameId, $gameId]);
+            ORDER BY current_texts.text_id, current_texts.language
+            {$limitSql}
+        ", $bindings));
+    }
 
-        return collect($results)->map(fn ($row) => static::fromIndexRow($row));
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, static>
+     */
+    protected static function hydrateDialogueRows(Collection $rows): Collection
+    {
+        $characterNamesById = static::getCharacterNamesByIds(
+            $rows->flatMap(function ($row) {
+                return is_array($row->character_ids)
+                    ? $row->character_ids
+                    : static::parsePostgresArray($row->character_ids);
+            })->unique()->values()->all()
+        );
+
+        return $rows->map(fn ($row) => static::fromIndexRow($row, $characterNamesById));
+    }
+
+    protected static function fromIndexRow(object $row, array $characterNamesById = []): self
+    {
+        $characterIds = is_array($row->character_ids)
+            ? $row->character_ids
+            : static::parsePostgresArray($row->character_ids);
+
+        $model = new static;
+        $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
+        $model->text_id = $row->text_id;
+        $model->game_id = $row->game_id;
+        $model->text_content = $row->text_content;
+        $model->language = $row->language;
+        $model->game_name = $row->game_name;
+        $model->current_version_id = (int) $row->current_version_id;
+        $model->current_version = $row->current_version;
+        $model->current_version_published_at = $row->current_version_published_at;
+        $model->version_ids = [(int) $row->current_version_id];
+        $model->character_ids = $characterIds;
+        $model->character_names = collect($characterIds)
+            ->map(fn ($characterId) => $characterNamesById[(int) $characterId] ?? null)
+            ->filter()
+            ->values()
+            ->all();
+        $model->first_seen_version_id = (int) $row->first_seen_version_id;
+        $model->first_seen_version = $row->first_seen_version;
+        $model->first_seen_published_at = $row->first_seen_published_at;
+        $model->exists = true;
+
+        return $model;
     }
 
     public static function deleteSearchDocumentsForGame(int $gameId): void
@@ -207,44 +293,37 @@ class GameDialogueText extends Model
             ->deleteAllDocuments();
     }
 
-    protected static function fromIndexRow(object $row): self
+    /**
+     * @return array<int, string>
+     */
+    protected static function getCharacterNamesByIds(array $characterIds): array
     {
-        $characterIds = is_array($row->character_ids)
-            ? $row->character_ids
-            : static::parsePostgresArray($row->character_ids);
-
-        $characterNames = [];
-        if (! empty($characterIds)) {
-            $characters = Character::whereIn('id', $characterIds)->get();
-            foreach ($characters as $character) {
-                $displayNames = $character->display_names;
-                if (is_array($displayNames) && ! empty($displayNames)) {
-                    $characterNames[] = reset($displayNames);
-                } else {
-                    $characterNames[] = $character->character_id;
-                }
-            }
+        if (empty($characterIds)) {
+            return [];
         }
 
-        $model = new static;
-        $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
-        $model->text_id = $row->text_id;
-        $model->game_id = $row->game_id;
-        $model->text_content = $row->text_content;
-        $model->language = $row->language;
-        $model->game_name = $row->game_name;
-        $model->current_version_id = (int) $row->current_version_id;
-        $model->current_version = $row->current_version;
-        $model->current_version_published_at = $row->current_version_published_at;
-        $model->version_ids = [(int) $row->current_version_id];
-        $model->character_ids = $characterIds;
-        $model->character_names = $characterNames;
-        $model->first_seen_version_id = (int) $row->first_seen_version_id;
-        $model->first_seen_version = $row->first_seen_version;
-        $model->first_seen_published_at = $row->first_seen_published_at;
-        $model->exists = true;
+        return DB::table('characters')
+            ->whereIn('id', $characterIds)
+            ->get(['id', 'character_id', 'display_names'])
+            ->mapWithKeys(function ($character) {
+                return [(int) $character->id => static::displayNameForCharacterRow($character)];
+            })
+            ->all();
+    }
 
-        return $model;
+    protected static function displayNameForCharacterRow(object $character): string
+    {
+        $displayNames = $character->display_names;
+
+        if (is_string($displayNames)) {
+            $displayNames = json_decode($displayNames, true) ?: [];
+        }
+
+        if (is_array($displayNames) && ! empty($displayNames)) {
+            return (string) reset($displayNames);
+        }
+
+        return (string) $character->character_id;
     }
 
     /**
