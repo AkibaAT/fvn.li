@@ -153,6 +153,34 @@ class GameDialogueText extends Model
         });
     }
 
+    /**
+     * Stream dialogue texts for a specific game in bounded chunks.
+     *
+     * @param  callable(Collection<int, static>): void  $callback
+     */
+    public static function chunkForGame(int $gameId, int $chunkSize, callable $callback): int
+    {
+        $total = 0;
+        $batch = collect();
+
+        foreach (static::cursorForGame($gameId) as $dialogueText) {
+            $batch->push($dialogueText);
+
+            if ($batch->count() >= $chunkSize) {
+                $total += $batch->count();
+                $callback($batch);
+                $batch = collect();
+            }
+        }
+
+        if ($batch->isNotEmpty()) {
+            $total += $batch->count();
+            $callback($batch);
+        }
+
+        return $total;
+    }
+
     public static function indexSearchDocumentsForGame(int $gameId, int $batchSize = 500, ?callable $afterBatch = null): int
     {
         $indexed = 0;
