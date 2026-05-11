@@ -22,9 +22,7 @@
     const baseClasses = 'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all';
     const interactiveClasses = $derived(onclick ? 'cursor-pointer' : '');
     const stateClasses = $derived(
-        isActive
-            ? 'border-2 border-current bg-opacity-20 shadow-sm'
-            : 'border border-gray-200 bg-white dark:border-gray-600/50 dark:bg-gray-700/50'
+        isActive ? 'border-2 border-current bg-opacity-20 shadow-sm' : 'border border-gray-200 bg-white dark:border-gray-600/50 dark:bg-gray-700/50',
     );
 </script>
 

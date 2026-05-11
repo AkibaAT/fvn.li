@@ -17,10 +17,7 @@
     const objectFitClass = $derived(isSteamGame ? 'object-contain' : 'object-cover');
 </script>
 
-<Link
-    href={route('games.show', game.slug)}
-    class="relative block overflow-hidden rounded-t-2xl bg-gray-100 dark:bg-gray-700"
->
+<Link href={route('games.show', game.slug)} class="relative block overflow-hidden rounded-t-2xl bg-gray-100 dark:bg-gray-700">
     <div class="relative {aspectClass}">
         {#if thumbnailUrl}
             <img
@@ -44,7 +41,9 @@
 
         <!-- Hover CTA -->
         <div class="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:opacity-100">
-            <div class="translate-y-4 transform rounded-xl bg-white/90 px-6 py-3 font-bold text-gray-900 shadow-xl backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 hover:bg-white">
+            <div
+                class="translate-y-4 transform rounded-xl bg-white/90 px-6 py-3 font-bold text-gray-900 shadow-xl backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 hover:bg-white"
+            >
                 View Details →
             </div>
         </div>

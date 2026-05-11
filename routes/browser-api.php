@@ -54,7 +54,9 @@ Route::middleware(['web'])->group(function () {
     Route::get('search/global', [GamesController::class, 'globalSearch'])->name('api.search.global');
     Route::get('games/{game:slug}/details', [GamesController::class, 'gameDetails'])->name('api.games.details');
     Route::get('games/{game:id}/compare-versions',
-        [GamesController::class, 'compareGameVersions'])->name('api.games.compare-versions');
+        [GamesController::class, 'compareGameVersions'])
+        ->whereNumber('game')
+        ->name('api.games.compare-versions');
 
     // Reviews and version stats
     Route::get('games/{game}/reviews', [GamesController::class, 'getGameReviews'])->name('browser-api.games.reviews');

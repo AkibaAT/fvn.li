@@ -21,6 +21,11 @@ return new class extends Migration
                 -- Remove leading/trailing hyphens
                 base_slug := TRIM(BOTH '-' FROM base_slug);
 
+                -- Use a stable fallback when the name has no ASCII slug characters
+                IF base_slug IS NULL OR base_slug = '' THEN
+                    base_slug := 'game-' || p_id::TEXT;
+                END IF;
+
                 -- Start with base slug
                 new_slug := base_slug;
                 counter := 1;

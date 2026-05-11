@@ -1,12 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-    gameStatusConfig,
-    getListTypeColor,
-    getListTypeConfig,
-    getStatusBadgeConfig,
-    getStatusClasses,
-    listStatusConfig,
-} from './status-indicators';
+import { gameStatusConfig, getListTypeColor, getListTypeConfig, getStatusBadgeConfig, getStatusClasses, listStatusConfig } from './status-indicators';
 
 describe('status indicator utilities', () => {
     test('builds accessible class strings from status configuration', () => {

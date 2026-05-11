@@ -7,6 +7,21 @@ interface UseSearchProps {
     debounceMs?: number;
 }
 
+const SEARCH_CHANGE_RESET_PARAMS = new Set(['search', 'page']);
+
+export function getSearchFilterParams(search: string): Record<string, string> {
+    const urlParams = new SvelteURLSearchParams(search);
+    const params: Record<string, string> = {};
+
+    for (const [key, value] of urlParams.entries()) {
+        if (!SEARCH_CHANGE_RESET_PARAMS.has(key)) {
+            params[key] = value;
+        }
+    }
+
+    return params;
+}
+
 export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchProps = {}) {
     let searchTerm = $state('');
     let isSearching = $state(false);
@@ -84,16 +99,7 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
     const getCurrentFilterParams = () => {
         if (typeof window === 'undefined') return {};
 
-        const urlParams = new SvelteURLSearchParams(window.location.search);
-        const params: Record<string, string> = {};
-
-        for (const [key, value] of urlParams.entries()) {
-            if (key !== 'search') {
-                params[key] = value;
-            }
-        }
-
-        return params;
+        return getSearchFilterParams(window.location.search);
     };
 
     // Live search functionality

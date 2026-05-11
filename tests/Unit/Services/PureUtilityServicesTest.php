@@ -146,6 +146,16 @@ it('resolves language keys from game mappings global mappings languages and plac
         'ref_name' => 'English',
         'flag_code' => 'gb',
     ]));
+    Language::withoutEvents(fn () => Language::create([
+        'id' => 'quc',
+        'part2b' => 'quc',
+        'part2t' => 'quc',
+        'part1' => null,
+        'scope' => 'I',
+        'type' => 'L',
+        'ref_name' => "K'iche'",
+        'flag_code' => 'gt',
+    ]));
     LanguageMapping::create([
         'game_id' => $game->id,
         'game_language_key' => 'custom',
@@ -156,9 +166,15 @@ it('resolves language keys from game mappings global mappings languages and plac
         'game_language_key' => 'global',
         'iso_code' => 'eng',
     ]);
+    LanguageMapping::create([
+        'game_id' => null,
+        'game_language_key' => 'real-q-language',
+        'iso_code' => 'quc',
+    ]);
 
     expect($service->resolveLanguageCode('CUSTOM', $game))->toBe('eng')
         ->and($service->resolveLanguageCode('GLOBAL', $game))->toBe('eng')
+        ->and($service->resolveLanguageCode('quc'))->toBe('quc')
         ->and($service->resolveLanguageCode('en'))->toBe('eng')
         ->and(LanguageMapping::where('game_language_key', 'en')->where('iso_code', 'eng')->exists())->toBeTrue()
         ->and($service->resolveLanguageCode('made-up-language'))->toBe('qaa')
@@ -169,7 +185,7 @@ it('throws when placeholder language codes are exhausted', function () {
     LanguageMapping::create([
         'game_id' => null,
         'game_language_key' => 'last-placeholder',
-        'iso_code' => 'qzz',
+        'iso_code' => 'qtz',
     ]);
 
     expect(fn () => app(LanguageMappingService::class)->resolveLanguageCode('overflow-language'))

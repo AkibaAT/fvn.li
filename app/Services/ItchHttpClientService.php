@@ -459,10 +459,12 @@ class ItchHttpClientService
         try {
             // Check if there's an active session from a command
             $useSession = false;
+            $sessionId = null;
             if ($this->sessionManager !== null && $this->sessionManager->isSessionActive()) {
                 $useSession = true;
+                $sessionId = $this->sessionManager->getActiveSessionId();
                 Log::debug('Using active FlareSolverr session', [
-                    'session_id' => $this->sessionManager->getActiveSessionId(),
+                    'session_id' => $sessionId,
                     'url' => $url,
                 ]);
             } else {
@@ -485,7 +487,8 @@ class ItchHttpClientService
                 $method,
                 $postData,
                 null,
-                $useSession
+                $useSession,
+                $sessionId
             );
 
             // Convert FlareSolverr response to PSR-7 ResponseInterface
