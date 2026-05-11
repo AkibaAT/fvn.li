@@ -2,12 +2,7 @@
     let { class: className = 'h-5 w-5', ...restProps }: { class?: string; [key: string]: any } = $props();
 </script>
 
-<svg
-    viewBox="0 0 65 65"
-    class={className}
-    aria-hidden="true"
-    {...restProps}
->
+<svg viewBox="0 0 65 65" class={className} aria-hidden="true" {...restProps}>
     <path
         d="M31.959 64c17.673 0 32-14.327 32-32s-14.327-32-32-32C15.001 0 1.124 13.193.028 29.874c2.074 3.477 2.879 5.628 1.275 11.328C5.259 54.386 17.488 64 31.959 64z"
         style="fill: var(--color-steam-primary)"

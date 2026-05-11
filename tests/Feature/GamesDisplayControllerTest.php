@@ -398,3 +398,61 @@ test('game show exposes rich version review progress analytics and recommendatio
         ->and($response->json('props.similarGames.0.name'))->toBe('Similar Game')
         ->and($response->json('props.developerGames.0.name'))->toBe('Developer Game');
 });
+
+test('game show character count matches modal display name fallback semantics', function () {
+    DB::table('iso_639_3_languages')->updateOrInsert(
+        ['id' => 'eng'],
+        [
+            'part1' => 'en',
+            'scope' => 'I',
+            'type' => 'L',
+            'ref_name' => 'English',
+            'flag_code' => 'gb',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]
+    );
+
+    $game = Game::factory()->create([
+        'name' => 'Fallback Character Count Game',
+        'slug' => 'fallback-character-count-game',
+        'is_visible' => true,
+        'source_language_id' => 'eng',
+    ]);
+
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.0',
+        'published_at' => now(),
+    ]);
+    $version->forceFill(['is_latest' => true])->save();
+
+    $correctedCharacter = Character::factory()->for($game)->create([
+        'character_id' => 'corrected_character',
+        'display_names' => ['jpn' => 'Corrected JP'],
+        'display_name_corrections' => ['eng' => 'Corrected Character'],
+    ]);
+    $fallbackCharacter = Character::factory()->for($game)->create([
+        'character_id' => 'fallback_character',
+        'display_names' => ['jpn' => 'Fallback JP'],
+        'display_name_corrections' => null,
+    ]);
+
+    foreach ([$correctedCharacter, $fallbackCharacter] as $character) {
+        VersionCharacterStats::factory()->create([
+            'game_version_id' => $version->id,
+            'character_id' => $character->id,
+            'iso_code' => 'eng',
+            'blocks' => 1,
+            'words' => 10,
+        ]);
+    }
+
+    $response = $this
+        ->withHeaders(gameShowInertiaHeaders())
+        ->get(route('games.show', $game));
+
+    $response->assertOk();
+
+    expect($response->json("props.versionCharacterCounts.{$version->id}"))->toBe(2);
+});

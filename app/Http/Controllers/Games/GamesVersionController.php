@@ -58,8 +58,20 @@ class GamesVersionController extends Controller
             ->paginate($request->integer('perPage', 10));
 
         $versionIds = $versions->getCollection()->pluck('id')->all();
+        $versionHasFileStats = [];
         $routeDataVersionIds = [];
         if (! empty($versionIds)) {
+            $fileStatsVersionIds = DB::table('version_file_categories')
+                ->whereIn('game_version_id', $versionIds)
+                ->distinct()
+                ->pluck('game_version_id')
+                ->all();
+
+            $fileStatsVersionIds = array_flip($fileStatsVersionIds);
+            foreach ($versionIds as $versionId) {
+                $versionHasFileStats[$versionId] = isset($fileStatsVersionIds[$versionId]);
+            }
+
             $versionsWithCachedRouteGraphs = DB::table('game_versions')
                 ->whereIn('id', $versionIds)
                 ->whereNotNull('route_graph_data')
@@ -91,6 +103,7 @@ class GamesVersionController extends Controller
         return response()->json([
             'success' => true,
             'versions' => $versions,
+            'versionHasFileStats' => $versionHasFileStats,
         ]);
     }
 

@@ -320,7 +320,7 @@ readonly class GameStatsService
         // First, add all languages found in the stats
         echo "    [Stats] Adding supported languages\n";
         foreach ($foundLanguages as $isoCode) {
-            if (! str_starts_with($isoCode, 'q')) {
+            if (! LanguageMappingService::isPlaceholderLanguageCode($isoCode)) {
                 $version->addSupportedLanguage($isoCode);
             }
         }

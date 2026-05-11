@@ -22,6 +22,7 @@ class RatingCalculationService
             'rating_score' => $ratingData['average_rating'],
             'rating_count' => $ratingData['total_count'],
         ]);
+        $this->refreshGameSearchIndex($game);
 
         Log::info('Updated game rating', [
             'game_id' => $game->id,
@@ -71,6 +72,7 @@ class RatingCalculationService
                             'rating_score' => $ratingData['average_rating'],
                             'rating_count' => $ratingData['total_count'],
                         ]);
+                        $this->refreshGameSearchIndex($game);
                         $updatedCount++;
                     } else {
                         // Game has no ratings - reset to null/0
@@ -79,6 +81,7 @@ class RatingCalculationService
                             'rating_score' => null,
                             'rating_count' => 0,
                         ]);
+                        $this->refreshGameSearchIndex($game);
                         $resetCount++;
                     }
                 }
@@ -91,5 +94,16 @@ class RatingCalculationService
         ]);
 
         return $updatedCount + $resetCount;
+    }
+
+    protected function refreshGameSearchIndex(Game $game): void
+    {
+        if ($game->shouldBeSearchable()) {
+            $game->searchable();
+
+            return;
+        }
+
+        $game->unsearchable();
     }
 }

@@ -48,7 +48,7 @@
     <div class="relative" bind:this={userMenuRef}>
         <button
             onclick={() => (showUserMenu = !showUserMenu)}
-            class="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 transition-colors duration-200 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            class="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 transition-colors duration-200 hover:bg-gray-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none dark:bg-gray-800 dark:hover:bg-gray-700"
             aria-expanded={showUserMenu}
             aria-haspopup="menu"
             aria-controls="user-menu"
@@ -112,7 +112,7 @@
                     <div class="space-y-2" role="none">
                         <Link
                             href={route('dashboard')}
-                            class="flex w-full items-center space-x-2 rounded-lg bg-indigo-600 px-3 py-2 text-white transition-all duration-200 hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            class="flex w-full items-center space-x-2 rounded-lg bg-indigo-600 px-3 py-2 text-white transition-all duration-200 hover:bg-indigo-700 hover:shadow-md focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
                             onclick={closeMenu}
                             role="menuitem"
                         >
@@ -129,7 +129,7 @@
 
                         <Link
                             href={route('lists.index')}
-                            class="flex w-full items-center space-x-2 rounded-lg bg-blue-600 px-3 py-2 text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            class="flex w-full items-center space-x-2 rounded-lg bg-blue-600 px-3 py-2 text-white transition-colors hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
                             onclick={closeMenu}
                             role="menuitem"
                         >
@@ -145,7 +145,7 @@
                         </Link>
 
                         <button
-                            class="flex w-full items-center space-x-2 rounded-lg bg-red-600 px-3 py-2 text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                            class="flex w-full items-center space-x-2 rounded-lg bg-red-600 px-3 py-2 text-white transition-colors hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
                             onclick={handleLogout}
                             role="menuitem"
                         >

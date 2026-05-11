@@ -2,10 +2,7 @@
  * Svelte 5 rune-based debounce for function calls.
  * Returns a debounced version of the callback function.
  */
-export function useDebounce<TArgs extends unknown[], TReturn>(
-    callback: (...args: TArgs) => TReturn,
-    delay: number,
-): (...args: TArgs) => void {
+export function useDebounce<TArgs extends unknown[], TReturn>(callback: (...args: TArgs) => TReturn, delay: number): (...args: TArgs) => void {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let latestCallback = callback;
 
@@ -53,6 +50,8 @@ export function useDebouncedValue<T>(getValue: () => T, delay: number) {
     });
 
     return {
-        get value() { return debouncedValue; },
+        get value() {
+            return debouncedValue;
+        },
     };
 }

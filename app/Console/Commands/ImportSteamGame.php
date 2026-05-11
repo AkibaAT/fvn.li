@@ -19,7 +19,7 @@ class ImportSteamGame extends Command
         {url : Steam store page URL (e.g., https://store.steampowered.com/app/123456/Game_Name/)}
         {--no-reviews : Skip importing Steam reviews (default: imports reviews)}
         {--hidden : Keep the game hidden initially (default: visible)}
-        {--content-type=visual_novel : Content type (visual_novel, adjacent_game, other_content)}';
+        {--content-type=visual_novel : Content type (visual_novel, adjacent, other; aliases: adjacent_game, other_content)}';
 
     protected $description = 'Import a new game from Steam by providing its store page URL';
 
@@ -43,7 +43,7 @@ class ImportSteamGame extends Command
         $url = $this->argument('url');
         $withReviews = ! $this->option('no-reviews'); // Default: import reviews
         $isVisible = ! $this->option('hidden'); // Default: visible
-        $contentType = $this->option('content-type');
+        $contentType = $this->normalizeContentType((string) $this->option('content-type'));
 
         $this->info('Starting Steam game import...');
         $this->info("URL: {$url}");
@@ -86,9 +86,8 @@ class ImportSteamGame extends Command
         }
 
         // Validate content type
-        $validContentTypes = ['visual_novel', 'adjacent_game', 'other_content'];
-        if (! in_array($contentType, $validContentTypes)) {
-            $this->error("Invalid content type: {$contentType}. Valid options: ".implode(', ', $validContentTypes));
+        if (! $contentType) {
+            $this->error('Invalid content type: '.$this->option('content-type').'. Valid options: visual_novel, adjacent, other (aliases: adjacent_game, other_content)');
 
             return 1;
         }
@@ -197,5 +196,15 @@ class ImportSteamGame extends Command
 
             return 1;
         }
+    }
+
+    private function normalizeContentType(string $contentType): ?string
+    {
+        return match ($contentType) {
+            'visual_novel' => 'visual_novel',
+            'adjacent', 'adjacent_game' => 'adjacent',
+            'other', 'other_content' => 'other',
+            default => null,
+        };
     }
 }
