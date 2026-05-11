@@ -250,20 +250,15 @@ class ClickStat extends Model
     /**
      * Anonymize click statistics for a specific user
      * This is used when a user requests account deletion (GDPR Article 17)
-     * Removes user_id but anonymizes ip_address using hashing to preserve analytics value
+     * Removes user_id and IP-derived identifiers while preserving aggregate analytics rows
      */
     public static function anonymizePersonalDataForUser(int $userId): bool
     {
-        // Get all records for this user that need anonymization
-        $records = self::where('user_id', $userId)->get();
-
-        foreach ($records as $record) {
-            $record->update([
-                'user_id' => null,
-                'ip_address' => IpAnonymizationService::anonymize($record->ip_address, 'hash'),
-                'updated_at' => now(),
-            ]);
-        }
+        self::where('user_id', $userId)->update([
+            'user_id' => null,
+            'ip_address' => null,
+            'updated_at' => now(),
+        ]);
 
         return true;
     }

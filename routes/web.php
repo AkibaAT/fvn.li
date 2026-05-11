@@ -20,6 +20,7 @@ use App\Http\Controllers\VnListController;
 use App\Models\Game;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -40,7 +41,12 @@ Route::get('health', function () {
 
         return response()->json(['status' => 'ok'], 200);
     } catch (Exception $e) {
-        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 503);
+        Log::warning('Health check failed', [
+            'error' => $e->getMessage(),
+            'exception_class' => get_class($e),
+        ]);
+
+        return response()->json(['status' => 'error'], 503);
     }
 });
 

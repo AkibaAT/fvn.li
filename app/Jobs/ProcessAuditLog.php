@@ -48,9 +48,8 @@ class ProcessAuditLog implements ShouldQueue
             // First attempt as-is
             ChangeLog::create($this->auditData);
         } catch (Throwable $e) {
-            // Log the actual error BEFORE attempting fallback
             Log::warning('Audit log creation failed on attempt '.$this->attempts(), [
-                'audit_data' => $this->auditData,
+                'audit' => $this->auditLogMetadata(),
                 'error' => $e->getMessage(),
                 'error_code' => $e->getCode(),
                 'exception_class' => get_class($e),
@@ -113,5 +112,16 @@ class ProcessAuditLog implements ShouldQueue
     public function retryUntil(): DateTime
     {
         return now()->addMinutes(10);
+    }
+
+    private function auditLogMetadata(): array
+    {
+        return [
+            'event_type' => $this->auditData['event_type'] ?? null,
+            'entity_type' => $this->auditData['entity_type'] ?? null,
+            'entity_id' => $this->auditData['entity_id'] ?? null,
+            'user_id' => $this->auditData['user_id'] ?? null,
+            'source' => $this->auditData['source'] ?? null,
+        ];
     }
 }
