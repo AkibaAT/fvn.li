@@ -2,7 +2,7 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/svelte';
 import { hydrate, mount } from 'svelte';
 import { initializeAppearance } from '@/hooks/use-appearance.svelte';
-import PersistentLayout from '@/layouts/PersistentLayout.svelte';
+import AppFrame from '@/layouts/AppFrame.svelte';
 
 createInertiaApp({
     resolve: async (name) => {
@@ -12,14 +12,14 @@ createInertiaApp({
 
         const page = (await pages[`./pages/${name}.svelte`]?.()) as any;
 
-        // Apply PersistentLayout to all pages by default
+        // Apply the app frame to all pages by default
         if (!page) {
             throw new Error(`Unknown Inertia page: ${name}`);
         }
 
         return {
             default: page,
-            layout: page.layout || PersistentLayout,
+            layout: page.layout || AppFrame,
         };
     },
     setup({ el, App, props }) {

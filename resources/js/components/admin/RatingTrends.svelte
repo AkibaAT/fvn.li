@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import type { Plugin, TooltipItem } from 'chart.js';
     import type { MonthlyTrendData } from '@/types/system';
+    import { Card } from '@/components/ui';
 
     type ChartComponentType = typeof import('@/components/charts/Chart.svelte').default;
 
@@ -216,7 +217,7 @@
 </script>
 
 <!-- All Ratings Trend -->
-<div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+<Card padding="lg" class="mb-6">
     <div class="space-y-8">
         <div>
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">All Ratings Trend</h2>
@@ -227,10 +228,10 @@
             </div>
         </div>
     </div>
-</div>
+</Card>
 
 <!-- Listed Games Ratings Trend -->
-<div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+<Card padding="lg" class="mb-6">
     <div class="space-y-8">
         <div>
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed Games Ratings Trend</h2>
@@ -241,4 +242,4 @@
             </div>
         </div>
     </div>
-</div>
+</Card>

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import { authenticatedFetch } from '@/utils/csrf';
     import { toast } from '@/utils/toast';
     import type { OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
@@ -171,7 +172,10 @@
                     </span>
                 {/if}
             </div>
-            <button
+            <Button
+                type="button"
+                variant={isEditing ? 'solid' : 'solid'}
+                tone={isEditing ? 'neutral' : 'primary'}
                 onclick={() => (isEditing = !isEditing)}
                 class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors {isEditing
                     ? 'bg-gray-600 text-white hover:bg-gray-700'
@@ -188,7 +192,7 @@
                     />
                 </svg>
                 {isEditing ? 'Cancel' : 'Edit Media'}
-            </button>
+            </Button>
         </div>
 
         {#if isEditing}
@@ -208,16 +212,20 @@
                         {#if thumbnail}
                             <div class="relative">
                                 <img src={thumbnail} alt="Game thumbnail" class="h-32 w-32 rounded-lg object-cover" />
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="solid"
+                                    tone="danger"
+                                    size="icon-sm"
                                     onclick={handleThumbnailDelete}
                                     disabled={uploadingThumbnail}
                                     class="absolute -top-2 -right-2 rounded-full bg-red-600 p-1 text-white transition-colors hover:bg-red-700"
-                                    aria-label="Delete thumbnail"
+                                    ariaLabel="Delete thumbnail"
                                 >
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                </button>
+                                </Button>
                             </div>
                         {:else}
                             <div class="flex h-32 w-32 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
@@ -303,9 +311,13 @@
                             {#each screenshots as screenshot, index (index)}
                                 <div class="group relative">
                                     <img src={screenshot.url} alt={`Screenshot ${index + 1}`} class="h-32 w-full rounded-lg object-cover" />
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="solid"
+                                        tone="danger"
+                                        size="icon-md"
                                         onclick={() => handleScreenshotDelete(index)}
-                                        aria-label={`Delete screenshot ${index + 1}`}
+                                        ariaLabel={`Delete screenshot ${index + 1}`}
                                         class="absolute top-2 right-2 rounded-full bg-red-600 p-2 text-white shadow-lg transition-colors hover:bg-red-700"
                                     >
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,7 +328,7 @@
                                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                             />
                                         </svg>
-                                    </button>
+                                    </Button>
                                     <div class="bg-opacity-75 absolute bottom-2 left-2 rounded bg-black px-2 py-1 text-xs text-white">
                                         #{index + 1}
                                     </div>

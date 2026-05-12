@@ -1,8 +1,8 @@
 <script lang="ts">
     import GameStats from '@/components/GameStats.svelte';
     import { notify } from '@/components/Toast.svelte';
+    import { Button, Card } from '@/components/ui';
     import { authenticatedFetch } from '@/utils/csrf';
-    import { Link } from '@inertiajs/svelte';
     import { formatLocalDateTime } from '@/utils/date-formatting';
     import { untrack } from 'svelte';
 
@@ -141,62 +141,36 @@
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage download links and view analytics for your game</p>
         </div>
         <div class="flex items-center gap-3">
-            <Link
-                href={route('my-games.index')}
-                class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
+            <Button href={route('my-games.index')} variant="outline" tone="neutral">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 Back to My Games
-            </Link>
-            <button
-                onclick={save}
-                disabled={saving}
-                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors {saving
-                    ? 'cursor-not-allowed bg-blue-400'
-                    : 'bg-blue-600 hover:bg-blue-700'}"
-            >
-                {#if saving}
-                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                    </svg>
-                    Saving...
-                {:else}
+            </Button>
+            <Button onclick={save} disabled={saving} loading={saving}>
+                {#if !saving}
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
-                    Save Changes
                 {/if}
-            </button>
+                {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
         </div>
     </div>
 
     <!-- Links Editor -->
-    <div class="rounded-xl border border-gray-200/50 bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+    <Card variant="glass">
         <div class="mb-6 flex items-start justify-between">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Download Links</h2>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Add download links for your game. {sortedLinks.length} of 15 links used.</p>
             </div>
-            <button
-                onclick={addLink}
-                disabled={saving || sortedLinks.length >= 15}
-                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 {sortedLinks.length >=
-                15
-                    ? 'cursor-not-allowed bg-gray-400 text-white'
-                    : 'bg-green-600 text-white hover:bg-green-700'}"
-            >
+            <Button onclick={addLink} disabled={saving || sortedLinks.length >= 15} tone="success">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
                 <span>{sortedLinks.length >= 15 ? 'Limit Reached' : 'Add Link'}</span>
-            </button>
+            </Button>
         </div>
 
         <div class="space-y-3">
@@ -239,16 +213,11 @@
                         </select>
                     </div>
                     <div class="col-span-1 flex items-center justify-end gap-1">
-                        <button
-                            onclick={() => removeLink(index)}
-                            class="rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                            aria-label="Remove link"
-                            disabled={saving}
-                        >
+                        <Button onclick={() => removeLink(index)} tone="danger" size="icon-sm" aria-label="Remove link" disabled={saving}>
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                        </button>
+                        </Button>
                     </div>
                     <div class="col-span-12 mt-2">
                         <label for="release-date-{index}" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -280,7 +249,7 @@
         <div class="mt-4 text-xs text-gray-500 dark:text-gray-400">
             Security: localhost and private IP addresses are blocked. Up to 15 links allowed.
         </div>
-    </div>
+    </Card>
 
     <!-- Analytics Section -->
     <GameStats {clickStats} {dailyStats} />
