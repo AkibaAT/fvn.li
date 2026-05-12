@@ -50,7 +50,9 @@
                     aria-label="Show {totalHiddenTagCount} more tags"
                 >
                     <svg
-                        class="h-4 w-4 rotate-0 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"
+                        class="h-4 w-4 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 {tagsExpanded
+                            ? 'rotate-180'
+                            : 'rotate-0'}"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
