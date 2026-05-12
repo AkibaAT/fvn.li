@@ -7,6 +7,7 @@
     import { Link, router } from '@inertiajs/svelte';
     import { toast } from '@/utils/toast';
     import { authenticatedFetch } from '@/utils/csrf';
+    import { Card } from '@/components/ui';
 
     interface Props {
         lists: { data: VnList[]; current_page: number; last_page: number; per_page: number; total: number };
@@ -168,7 +169,7 @@
         </div>
     </div>
 
-    <div class="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
+    <Card variant="glass" padding="lg">
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
             {#each tabs as tab (tab.key)}
                 {@const count = localCounts[tab.key as keyof typeof localCounts] ?? 0}
@@ -186,7 +187,7 @@
                 </Link>
             {/each}
         </div>
-    </div>
+    </Card>
 
     {#if localLists.length > 0}
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

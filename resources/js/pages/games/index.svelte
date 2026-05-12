@@ -12,6 +12,7 @@
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags as SeoMetaTags } from '@/components/seo/SeoHead.svelte';
     import { router } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
 
     interface GamesIndexGame {
         id: number;
@@ -227,7 +228,7 @@
     </h1>
 
     <!-- Info Bar -->
-    <div class="-mt-2 rounded-xl border border-gray-200/50 bg-white/70 px-4 py-3 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+    <Card variant="glass" padding="none" class="-mt-2 px-4 py-3 shadow-none">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex flex-wrap items-center gap-2 lg:flex-1">
                 <ActiveFilterChips
@@ -253,9 +254,14 @@
             <div class="hidden h-6 w-px bg-gray-300 lg:block dark:bg-gray-600"></div>
 
             <div class="flex flex-wrap items-center gap-2">
-                <button
+                <Button
+                    type="button"
+                    variant="outline"
+                    tone="warning"
+                    size="sm"
                     onclick={handleRandomGame}
                     disabled={isRandomLoading}
+                    loading={isRandomLoading}
                     class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-sm text-amber-800 transition-colors hover:bg-amber-100 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
                 >
                     <svg
@@ -273,9 +279,13 @@
                         />
                     </svg>
                     {isRandomLoading ? 'Loading...' : "I'm Feeling Lucky"}
-                </button>
+                </Button>
 
-                <button
+                <Button
+                    type="button"
+                    variant="outline"
+                    tone="neutral"
+                    size="sm"
                     onclick={() => {
                         showFilters = !showFilters;
                     }}
@@ -297,10 +307,10 @@
                             {getActiveFilterCount()}
                         </span>
                     {/if}
-                </button>
+                </Button>
             </div>
         </div>
-    </div>
+    </Card>
 
     <!-- Default Language Preferences Info Bar -->
     {#if currentFilters.usingDefaultLanguages}
@@ -317,12 +327,16 @@
                 </svg>
                 <span>Showing games in your preferred languages.</span>
             </div>
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="info"
+                size="sm"
                 onclick={() => updateFilters({ selectedLanguages: [], noDefaults: true })}
                 class="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
             >
                 Show all
-            </button>
+            </Button>
         </div>
     {/if}
 
@@ -339,12 +353,16 @@
                 </svg>
                 <span>Hiding games with your excluded tags.</span>
             </div>
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="danger"
+                size="sm"
                 onclick={() => updateFilters({ excludedTags: [], noDefaults: true })}
                 class="rounded-md bg-red-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
             >
                 Show all
-            </button>
+            </Button>
         </div>
     {/if}
 
@@ -364,12 +382,16 @@
                     {ignoredCount === 1 ? 'game' : 'games'} hidden from results
                 </span>
             </div>
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="primary"
+                size="sm"
                 onclick={() => updateFilters({ showIgnored: true })}
                 class="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
             >
                 Show Ignored
-            </button>
+            </Button>
         </div>
     {/if}
 
@@ -386,12 +408,16 @@
                 </svg>
                 <span>Showing ignored games</span>
             </div>
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="neutral"
+                size="sm"
                 onclick={() => updateFilters({ showIgnored: false })}
                 class="rounded-md bg-gray-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600"
             >
                 Hide Ignored
-            </button>
+            </Button>
         </div>
     {/if}
 

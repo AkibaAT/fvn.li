@@ -6,6 +6,7 @@
     import MobileSearch from '@/components/layout/MobileSearch.svelte';
     import UserMenu from '@/components/layout/UserMenu.svelte';
     import AppearanceDropdown from '@/components/AppearanceDropdown.svelte';
+    import { Button } from '@/components/ui';
 
     let showMobileSearch = $state(false);
 
@@ -38,11 +39,15 @@
 
             <!-- Mobile Search Button (toggle) -->
             <div class="flex items-center space-x-2 lg:hidden">
-                <button
+                <Button
+                    type="button"
+                    variant="soft"
+                    tone="neutral"
+                    size="icon-md"
                     onclick={toggleMobileSearch}
                     aria-expanded={showMobileSearch}
                     aria-controls="mobile-search-bar"
-                    aria-label={showMobileSearch ? 'Hide search' : 'Show search'}
+                    ariaLabel={showMobileSearch ? 'Hide search' : 'Show search'}
                     class="cursor-pointer rounded-lg bg-gray-100 p-2 text-gray-700 transition-colors duration-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
                     {#if showMobileSearch}
@@ -52,7 +57,7 @@
                     {:else}
                         <i class="icon-magnifier" aria-hidden="true"></i>
                     {/if}
-                </button>
+                </Button>
             </div>
 
             <!-- User Menu -->

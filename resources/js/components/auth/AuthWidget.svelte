@@ -3,7 +3,7 @@
     import Steam from '@/components/icons/Steam.svelte';
     import { router } from '@inertiajs/svelte';
     import type { User } from '@/types';
-    import { isDialogBackdropClick } from '@/utils/dialog';
+    import { Button, Checkbox, Dialog } from '@/components/ui';
 
     interface Props {
         user?: User;
@@ -11,7 +11,7 @@
 
     let { user }: Props = $props();
 
-    let dialogEl: HTMLDialogElement;
+    let isOpen = $state(false);
     let rememberLogin = $state(true);
 
     function socialLoginHref(provider: string): string {
@@ -22,11 +22,11 @@
     }
 
     function openDialog() {
-        dialogEl?.showModal();
+        isOpen = true;
     }
 
     function closeDialog() {
-        dialogEl?.close();
+        isOpen = false;
     }
 
     function handleLogout() {
@@ -41,23 +41,9 @@
             },
         );
     }
-
-    function handleCancel(event: Event) {
-        event.preventDefault();
-        closeDialog();
-    }
-
-    function handleBackdropClick(event: MouseEvent) {
-        if (isDialogBackdropClick(dialogEl, event)) {
-            closeDialog();
-        }
-    }
 </script>
 
-<button
-    onclick={openDialog}
-    class="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-800 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
->
+<Button onclick={openDialog} variant="soft" tone="neutral">
     {#if user}
         <div class="flex items-center gap-2">
             {#if user.avatar}
@@ -83,26 +69,9 @@
         </svg>
         <span>Login</span>
     {/if}
-</button>
+</Button>
 
-<dialog
-    bind:this={dialogEl}
-    onclick={handleBackdropClick}
-    oncancel={handleCancel}
-    class="m-auto w-full max-w-sm rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
->
-    <div class="mb-4 flex items-baseline justify-between">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {user ? 'Account' : 'Sign in with'}
-        </h2>
-        <button onclick={closeDialog} class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
-            <span class="sr-only">Close</span>
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-    </div>
-
+<Dialog open={isOpen} onClose={closeDialog} title={user ? 'Account' : 'Sign in with'} size="sm">
     {#if user}
         <div class="space-y-4 py-4">
             <div class="flex items-center gap-3">
@@ -123,10 +92,7 @@
 
             <hr class="border-gray-200 dark:border-gray-700" />
 
-            <a
-                href={route('dashboard')}
-                class="mb-3 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-900 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
-            >
+            <Button href={route('dashboard')} variant="soft" tone="neutral" class="mb-3 w-full">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                         stroke-linecap="round"
@@ -137,12 +103,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 <span>User Dashboard</span>
-            </a>
+            </Button>
 
-            <a
-                href={route('lists.index')}
-                class="mb-3 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-            >
+            <Button href={route('lists.index')} class="mb-3 w-full">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                         stroke-linecap="round"
@@ -152,12 +115,9 @@
                     />
                 </svg>
                 <span>My VN Lists</span>
-            </a>
+            </Button>
 
-            <button
-                onclick={handleLogout}
-                class="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
-            >
+            <Button onclick={handleLogout} tone="danger" class="w-full">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                         stroke-linecap="round"
@@ -167,32 +127,19 @@
                     />
                 </svg>
                 <span>Sign Out</span>
-            </button>
+            </Button>
         </div>
     {:else}
         <div class="space-y-3 py-4">
-            <label
-                class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200"
-            >
-                <input
-                    bind:checked={rememberLogin}
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
-                />
-                <span>Keep me signed in on this device</span>
-            </label>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+                <Checkbox bind:checked={rememberLogin} label="Keep me signed in on this device" class="dark:bg-gray-800" />
+            </div>
 
-            <a
-                href={socialLoginHref('discord')}
-                class="flex w-full items-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
+            <Button href={socialLoginHref('discord')} variant="outline" tone="neutral" class="w-full justify-start">
                 <i class="icon-discord mr-3 h-5 w-5 text-indigo-500"></i>
                 <span>Discord</span>
-            </a>
-            <a
-                href={socialLoginHref('google')}
-                class="flex w-full items-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
+            </Button>
+            <Button href={socialLoginHref('google')} variant="outline" tone="neutral" class="w-full justify-start">
                 <svg class="mr-3 h-5 w-5" viewBox="0 0 24 24">
                     <path
                         fill="#4285F4"
@@ -212,38 +159,23 @@
                     />
                 </svg>
                 <span>Google</span>
-            </a>
-            <a
-                href={socialLoginHref('itchio')}
-                class="flex w-full items-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
+            </Button>
+            <Button href={socialLoginHref('itchio')} variant="outline" tone="neutral" class="w-full justify-start">
                 <Itchio class="text-itchio mr-3 h-5 w-5" />
                 <span>itch.io</span>
-            </a>
-            <a
-                href={socialLoginHref('steam')}
-                class="flex w-full items-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
+            </Button>
+            <Button href={socialLoginHref('steam')} variant="outline" tone="neutral" class="w-full justify-start">
                 <Steam class="mr-3 h-5 w-5" />
                 <span>Steam</span>
-            </a>
-            <a
-                href={socialLoginHref('telegram')}
-                class="flex w-full items-center rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
+            </Button>
+            <Button href={socialLoginHref('telegram')} variant="outline" tone="neutral" class="w-full justify-start">
                 <i class="icon-telegram mr-3 h-5 w-5 text-blue-500"></i>
                 <span>Telegram</span>
-            </a>
+            </Button>
         </div>
     {/if}
 
     <div class="mt-6 flex justify-end">
-        <button
-            onclick={closeDialog}
-            type="button"
-            class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-600 dark:hover:bg-gray-700"
-        >
-            Close
-        </button>
+        <Button onclick={closeDialog} type="button" variant="outline" tone="neutral">Close</Button>
     </div>
-</dialog>
+</Dialog>

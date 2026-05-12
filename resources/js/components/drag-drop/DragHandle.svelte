@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import type { Attachment } from 'svelte/attachments';
 
     interface Props {
@@ -30,8 +31,12 @@
         </svg>
     </div>
 {:else}
-    <button
-        {@attach attachment}
+    <Button
+        type="button"
+        {attachment}
+        variant="ghost"
+        tone="neutral"
+        size="icon-sm"
         class="cursor-move rounded-lg bg-gray-200 {containerSizeClasses[
             size
         ]} text-gray-700 transition-colors hover:bg-gray-300 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 {className}"
@@ -42,5 +47,5 @@
         <svg class={sizeClasses[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
         </svg>
-    </button>
+    </Button>
 {/if}

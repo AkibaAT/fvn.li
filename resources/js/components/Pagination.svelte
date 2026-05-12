@@ -10,6 +10,8 @@
 </script>
 
 <script lang="ts">
+    import { Button } from '@/components/ui';
+
     let {
         meta,
         loading = false,
@@ -139,28 +141,35 @@
     {:else if variant === 'controls'}
         <div class="flex items-center space-x-3 {className}">
             {#if buildPageUrl && canPrev}
-                <a
-                    bind:this={prevButtonEl}
+                <Button
+                    bind:ref={prevButtonEl}
+                    type="button"
                     href={buildPageUrl(meta.current_page - 1)}
+                    inertia={false}
+                    variant="outline"
+                    tone="neutral"
                     onclick={(e) => {
                         e.preventDefault();
                         handlePrevious();
                     }}
                     class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                    aria-label="Go to page {meta.current_page - 1}"
+                    ariaLabel="Go to page {meta.current_page - 1}"
                 >
                     Previous
-                </a>
+                </Button>
             {:else}
-                <button
-                    bind:this={prevButtonEl}
+                <Button
+                    bind:ref={prevButtonEl}
+                    type="button"
                     onclick={handlePrevious}
                     disabled={!canPrev}
+                    variant="outline"
+                    tone="neutral"
                     class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                    aria-label="Go to page {meta.current_page - 1}"
+                    ariaLabel="Go to page {meta.current_page - 1}"
                 >
                     Previous
-                </button>
+                </Button>
             {/if}
             <div class="flex items-center space-x-2">
                 <span class="text-sm text-gray-500 dark:text-gray-400">Page</span>
@@ -179,28 +188,35 @@
                 <span class="text-sm text-gray-500 dark:text-gray-400">of {meta.last_page}</span>
             </div>
             {#if buildPageUrl && canNext}
-                <a
-                    bind:this={nextButtonEl}
+                <Button
+                    bind:ref={nextButtonEl}
+                    type="button"
                     href={buildPageUrl(meta.current_page + 1)}
+                    inertia={false}
+                    variant="outline"
+                    tone="neutral"
                     onclick={(e) => {
                         e.preventDefault();
                         handleNext();
                     }}
                     class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                    aria-label="Go to page {meta.current_page + 1}"
+                    ariaLabel="Go to page {meta.current_page + 1}"
                 >
                     Next
-                </a>
+                </Button>
             {:else}
-                <button
-                    bind:this={nextButtonEl}
+                <Button
+                    bind:ref={nextButtonEl}
+                    type="button"
                     onclick={handleNext}
                     disabled={!canNext}
+                    variant="outline"
+                    tone="neutral"
                     class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                    aria-label="Go to page {meta.current_page + 1}"
+                    ariaLabel="Go to page {meta.current_page + 1}"
                 >
                     Next
-                </button>
+                </Button>
             {/if}
         </div>
     {:else}
@@ -215,28 +231,35 @@
             </div>
             <div class="flex items-center space-x-3">
                 {#if buildPageUrl && canPrev}
-                    <a
-                        bind:this={prevButtonEl}
+                    <Button
+                        bind:ref={prevButtonEl}
+                        type="button"
                         href={buildPageUrl(meta.current_page - 1)}
+                        inertia={false}
+                        variant="outline"
+                        tone="neutral"
                         onclick={(e) => {
                             e.preventDefault();
                             handlePrevious();
                         }}
                         class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                        aria-label="Go to page {meta.current_page - 1}"
+                        ariaLabel="Go to page {meta.current_page - 1}"
                     >
                         Previous
-                    </a>
+                    </Button>
                 {:else}
-                    <button
-                        bind:this={prevButtonEl}
+                    <Button
+                        bind:ref={prevButtonEl}
+                        type="button"
                         onclick={handlePrevious}
                         disabled={!canPrev}
+                        variant="outline"
+                        tone="neutral"
                         class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                        aria-label="Go to page {meta.current_page - 1}"
+                        ariaLabel="Go to page {meta.current_page - 1}"
                     >
                         Previous
-                    </button>
+                    </Button>
                 {/if}
                 <div class="flex items-center space-x-2">
                     <span class="text-sm text-gray-500 dark:text-gray-400">Page</span>
@@ -255,28 +278,35 @@
                     <span class="text-sm text-gray-500 dark:text-gray-400">of {meta.last_page}</span>
                 </div>
                 {#if buildPageUrl && canNext}
-                    <a
-                        bind:this={nextButtonEl}
+                    <Button
+                        bind:ref={nextButtonEl}
+                        type="button"
                         href={buildPageUrl(meta.current_page + 1)}
+                        inertia={false}
+                        variant="outline"
+                        tone="neutral"
                         onclick={(e) => {
                             e.preventDefault();
                             handleNext();
                         }}
                         class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                        aria-label="Go to page {meta.current_page + 1}"
+                        ariaLabel="Go to page {meta.current_page + 1}"
                     >
                         Next
-                    </a>
+                    </Button>
                 {:else}
-                    <button
-                        bind:this={nextButtonEl}
+                    <Button
+                        bind:ref={nextButtonEl}
+                        type="button"
                         onclick={handleNext}
                         disabled={!canNext}
+                        variant="outline"
+                        tone="neutral"
                         class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                        aria-label="Go to page {meta.current_page + 1}"
+                        ariaLabel="Go to page {meta.current_page + 1}"
                     >
                         Next
-                    </button>
+                    </Button>
                 {/if}
             </div>
         </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 
     let {
@@ -33,13 +34,15 @@
 </script>
 
 {#if game.status}
-    <button
+    <Button
         type="button"
+        variant="outline"
+        tone="neutral"
         onclick={() => onclick(String(game.status))}
         class="cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold {statusClass} {activeClass}"
         aria-label="Filter by status: {game.status}"
         title="Filter by status: {game.status}"
     >
         {game.status}
-    </button>
+    </Button>
 {/if}

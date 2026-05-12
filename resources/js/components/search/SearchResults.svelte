@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
     import { route } from 'ziggy-js';
     import type { SearchResult, SearchPagination } from '@/hooks/useEnhancedSearch.svelte';
     import { highlightPlainText } from '@/utils/safe-highlight';
@@ -43,9 +44,7 @@
                 </h3>
                 <div class="space-y-3">
                     {#each globalResults.games as game (game.id)}
-                        <div
-                            class="rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-                        >
+                        <Card variant="outline" padding="sm" hover class="transition-shadow hover:shadow-md">
                             <Link href={route('games.show', game.slug as string)} class="block">
                                 <h4
                                     class="text-lg font-semibold break-words text-gray-900 hover:text-blue-600 dark:text-white dark:hover:text-blue-400"
@@ -70,7 +69,7 @@
                                     {#if game.is_paid}<span class="text-green-500">Paid</span>{/if}
                                 </div>
                             </Link>
-                        </div>
+                        </Card>
                     {/each}
                 </div>
                 {#if globalResults.total_games > globalResults.games.length}
@@ -91,7 +90,7 @@
                 </h3>
                 <div class="space-y-3">
                     {#each globalResults.dialogue as dialogue (dialogue.id)}
-                        <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                        <Card variant="outline" padding="sm">
                             <div class="text-gray-900 dark:text-white">
                                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                                 {@html highlightText((dialogue.text_content as string)?.substring(0, 200) + '...' || '')}
@@ -106,7 +105,7 @@
                                     {/if}
                                 </div>
                             {/if}
-                        </div>
+                        </Card>
                     {/each}
                 </div>
                 {#if globalResults.total_dialogue > globalResults.dialogue.length}
@@ -134,9 +133,7 @@
             {#each results as result (result.id)}
                 <div>
                     {#if type === 'games'}
-                        <div
-                            class="rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-                        >
+                        <Card variant="outline" padding="sm" hover class="transition-shadow hover:shadow-md">
                             <Link href={route('games.show', result.slug as string)} class="block">
                                 <h4
                                     class="text-lg font-semibold break-words text-gray-900 hover:text-blue-600 dark:text-white dark:hover:text-blue-400"
@@ -163,9 +160,9 @@
                                     {#if result.is_paid}<span class="text-green-500">Paid</span>{/if}
                                 </div>
                             </Link>
-                        </div>
+                        </Card>
                     {:else}
-                        <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                        <Card variant="outline" padding="sm">
                             <div class="text-gray-900 dark:text-white">
                                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                                 {@html highlightText((result.text_content as string)?.substring(0, 200) + '...' || '')}
@@ -180,7 +177,7 @@
                                     {/if}
                                 </div>
                             {/if}
-                        </div>
+                        </Card>
                     {/if}
                 </div>
             {/each}
@@ -188,23 +185,29 @@
 
         {#if pagination && pagination.last_page > 1 && onPageChange}
             <div class="mt-6 flex justify-center space-x-2">
-                <button
+                <Button
+                    type="button"
+                    variant="outline"
+                    tone="neutral"
                     onclick={() => onPageChange?.(pagination!.current_page - 1)}
                     disabled={pagination.current_page <= 1}
                     class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                     Previous
-                </button>
+                </Button>
                 <span class="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
                     Page {pagination.current_page} of {pagination.last_page}
                 </span>
-                <button
+                <Button
+                    type="button"
+                    variant="outline"
+                    tone="neutral"
                     onclick={() => onPageChange?.(pagination!.current_page + 1)}
                     disabled={pagination.current_page >= pagination.last_page}
                     class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                     Next
-                </button>
+                </Button>
             </div>
         {/if}
     </div>
