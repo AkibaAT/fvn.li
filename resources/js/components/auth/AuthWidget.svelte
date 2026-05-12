@@ -135,11 +135,11 @@
                 <Checkbox bind:checked={rememberLogin} label="Keep me signed in on this device" class="dark:bg-gray-800" />
             </div>
 
-            <Button href={socialLoginHref('discord')} variant="outline" tone="neutral" class="w-full justify-start">
+            <Button href={socialLoginHref('discord')} inertia={false} variant="outline" tone="neutral" class="w-full justify-start">
                 <i class="icon-discord mr-3 h-5 w-5 text-indigo-500"></i>
                 <span>Discord</span>
             </Button>
-            <Button href={socialLoginHref('google')} variant="outline" tone="neutral" class="w-full justify-start">
+            <Button href={socialLoginHref('google')} inertia={false} variant="outline" tone="neutral" class="w-full justify-start">
                 <svg class="mr-3 h-5 w-5" viewBox="0 0 24 24">
                     <path
                         fill="#4285F4"
@@ -160,15 +160,15 @@
                 </svg>
                 <span>Google</span>
             </Button>
-            <Button href={socialLoginHref('itchio')} variant="outline" tone="neutral" class="w-full justify-start">
+            <Button href={socialLoginHref('itchio')} inertia={false} variant="outline" tone="neutral" class="w-full justify-start">
                 <Itchio class="text-itchio mr-3 h-5 w-5" />
                 <span>itch.io</span>
             </Button>
-            <Button href={socialLoginHref('steam')} variant="outline" tone="neutral" class="w-full justify-start">
+            <Button href={socialLoginHref('steam')} inertia={false} variant="outline" tone="neutral" class="w-full justify-start">
                 <Steam class="mr-3 h-5 w-5" />
                 <span>Steam</span>
             </Button>
-            <Button href={socialLoginHref('telegram')} variant="outline" tone="neutral" class="w-full justify-start">
+            <Button href={socialLoginHref('telegram')} inertia={false} variant="outline" tone="neutral" class="w-full justify-start">
                 <i class="icon-telegram mr-3 h-5 w-5 text-blue-500"></i>
                 <span>Telegram</span>
             </Button>
