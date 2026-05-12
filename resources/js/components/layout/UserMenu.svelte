@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link, router, usePage } from '@inertiajs/svelte';
+    import { Button } from '@/components/ui';
 
     interface User {
         id: number;
@@ -46,7 +47,10 @@
     </div>
 {:else}
     <div class="relative" bind:this={userMenuRef}>
-        <button
+        <Button
+            type="button"
+            variant="soft"
+            tone="neutral"
             onclick={() => (showUserMenu = !showUserMenu)}
             class="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 transition-colors duration-200 hover:bg-gray-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none dark:bg-gray-800 dark:hover:bg-gray-700"
             aria-expanded={showUserMenu}
@@ -73,7 +77,7 @@
             >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
-        </button>
+        </Button>
 
         {#if showUserMenu}
             <div
@@ -144,7 +148,10 @@
                             <span> My VN Lists </span>
                         </Link>
 
-                        <button
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="danger"
                             class="flex w-full items-center space-x-2 rounded-lg bg-red-600 px-3 py-2 text-white transition-colors hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:outline-none"
                             onclick={handleLogout}
                             role="menuitem"
@@ -158,7 +165,7 @@
                                 />
                             </svg>
                             <span> Sign Out </span>
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

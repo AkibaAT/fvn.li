@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Card } from '@/components/ui';
     import { onMount } from 'svelte';
     import type { TooltipItem } from 'chart.js';
 
@@ -152,7 +153,7 @@
     });
 </script>
 
-<div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+<Card class="mb-6">
     <div class="space-y-8">
         <div>
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed Games by Release Year</h2>
@@ -163,4 +164,4 @@
             </div>
         </div>
     </div>
-</div>
+</Card>

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import { useSearch } from '@/hooks/useSearch.svelte';
     import { onMount } from 'svelte';
 
@@ -50,22 +51,28 @@
             aria-label="Search games, authors, and tags"
         />
         {#if search.searchTerm}
-            <button
+            <Button
                 type="button"
+                variant="ghost"
+                tone="neutral"
+                size="icon-sm"
                 onclick={clearSearch}
                 class="absolute top-1/2 right-20 -translate-y-1/2 transform rounded-full p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                aria-label="Clear search"
+                ariaLabel="Clear search"
             >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-            </button>
+            </Button>
         {/if}
-        <button
+        <Button
             type="submit"
+            variant="solid"
+            tone="primary"
+            size="sm"
             class="absolute top-1/2 right-1 -translate-y-1/2 transform cursor-pointer rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white transition-all duration-200 hover:bg-blue-700"
         >
             Search
-        </button>
+        </Button>
     </div>
 </form>

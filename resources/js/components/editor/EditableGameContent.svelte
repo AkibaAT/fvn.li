@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from 'svelte';
     import TinyMCEEditor from './TinyMCEEditor.svelte';
+    import { Button } from '@/components/ui';
     import http from '@/utils/http';
 
     interface Game {
@@ -276,7 +277,11 @@
             {#if hasCustomPage && !isLoadingViewMode}
                 <div class="mr-2 flex items-center gap-1">
                     <span class="mr-2 text-xs text-gray-600 dark:text-gray-400">Visitors see:</span>
-                    <button
+                    <Button
+                        type="button"
+                        variant={viewMode === 'original' ? 'solid' : 'soft'}
+                        tone={viewMode === 'original' ? 'primary' : 'neutral'}
+                        size="xs"
                         onclick={() => handleViewModeChange('original')}
                         class="rounded px-2 py-1 text-xs transition-colors {viewMode === 'original'
                             ? 'bg-blue-600 text-white'
@@ -284,8 +289,12 @@
                         title="Show visitors original itch.io content"
                     >
                         itch.io
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        type="button"
+                        variant={viewMode === 'custom' ? 'solid' : 'soft'}
+                        tone={viewMode === 'custom' ? 'primary' : 'neutral'}
+                        size="xs"
                         onclick={() => handleViewModeChange('custom')}
                         class="rounded px-2 py-1 text-xs transition-colors {viewMode === 'custom'
                             ? 'bg-blue-600 text-white'
@@ -293,35 +302,47 @@
                         title="Show visitors custom content"
                     >
                         Custom
-                    </button>
+                    </Button>
                 </div>
             {/if}
             {#if hasCustomPage && onPreviewingVisitorViewChange}
-                <button
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="neutral"
+                    size="xs"
                     onclick={() => onPreviewingVisitorViewChange(!previewingVisitorView)}
                     class="rounded bg-gray-700 px-2 py-1 text-xs text-white shadow-md hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500"
                 >
                     {previewingVisitorView ? 'Exit preview' : 'Preview visitor view'}
-                </button>
+                </Button>
             {/if}
             {#if hasCustomPage}
                 <div class="revert-menu-container relative">
-                    <button
+                    <Button
+                        type="button"
+                        variant="solid"
+                        tone="warning"
+                        size="xs"
                         onclick={() => {
                             showRevertMenu = !showRevertMenu;
                         }}
                         disabled={isReverting}
+                        loading={isReverting}
                         class="rounded bg-orange-600 px-2 py-1 text-xs text-white shadow-md hover:bg-orange-700 disabled:opacity-50"
                         title="Revert to original itch.io content"
                     >
                         {isReverting ? 'Reverting...' : 'Revert'}
-                    </button>
+                    </Button>
                     {#if showRevertMenu}
                         <div
                             class="absolute top-full right-0 z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
                         >
                             <div class="py-1">
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="neutral"
                                     onclick={() => {
                                         showRevertMenu = false;
                                         handleRevert({ name: true });
@@ -329,8 +350,11 @@
                                     class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                 >
                                     Revert Name
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="neutral"
                                     onclick={() => {
                                         showRevertMenu = false;
                                         handleRevert();
@@ -338,8 +362,11 @@
                                     class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                 >
                                     Revert Description Only
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="neutral"
                                     onclick={() => {
                                         showRevertMenu = false;
                                         handleRevert({ screenshots: true });
@@ -347,8 +374,11 @@
                                     class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                 >
                                     Revert Screenshots
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="neutral"
                                     onclick={() => {
                                         showRevertMenu = false;
                                         handleRevert({ thumbnail: true });
@@ -356,8 +386,11 @@
                                     class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                 >
                                     Revert Thumbnail
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="warning"
                                     onclick={() => {
                                         showRevertMenu = false;
                                         handleRevert({ name: true, screenshots: true, thumbnail: true });
@@ -365,14 +398,23 @@
                                     class="block w-full border-t border-gray-200 px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                                 >
                                     Revert Everything
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     {/if}
                 </div>
             {/if}
             {#if !previewingVisitorView}
-                <button onclick={handleEdit} class="rounded bg-blue-600 px-2 py-1 text-xs text-white shadow-md hover:bg-blue-700"> Edit </button>
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="primary"
+                    size="xs"
+                    onclick={handleEdit}
+                    class="rounded bg-blue-600 px-2 py-1 text-xs text-white shadow-md hover:bg-blue-700"
+                >
+                    Edit
+                </Button>
             {/if}
         </div>
     {/if}
@@ -407,30 +449,41 @@
 
     {#if isEditing}
         <div class="mt-4 flex items-center gap-2">
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="success"
                 onclick={handleSave}
                 disabled={isSaving || isReverting}
+                loading={isSaving}
                 class="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
             >
                 {isSaving ? 'Saving...' : 'Save'}
-            </button>
+            </Button>
 
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="neutral"
                 onclick={handleCancel}
                 disabled={isSaving || isReverting}
                 class="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-50"
             >
                 Cancel
-            </button>
+            </Button>
 
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="warning"
                 onclick={() => handleRevert({ name: true, screenshots: true, thumbnail: true })}
                 disabled={isSaving || isReverting}
+                loading={isReverting}
                 class="rounded bg-orange-600 px-4 py-2 text-white hover:bg-orange-700 disabled:opacity-50"
                 title="Revert everything to original itch.io content"
             >
                 {isReverting ? 'Reverting...' : 'Revert All'}
-            </button>
+            </Button>
 
             {#if saveStatus === 'saved'}
                 <span class="text-sm text-green-600">Saved</span>

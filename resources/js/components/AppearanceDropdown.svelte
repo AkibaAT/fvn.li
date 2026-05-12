@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import { type Appearance, useAppearance } from '@/hooks/use-appearance.svelte';
 
     const appearanceState = useAppearance();
@@ -43,17 +44,19 @@
 </script>
 
 <div class="theme-menu-container relative" bind:this={containerEl}>
-    <button
+    <Button
         onclick={() => (showMenu = !showMenu)}
+        variant="soft"
+        tone="neutral"
         class="flex items-center rounded-lg bg-gray-100 px-3 py-2 text-gray-700 transition-colors duration-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         title="Change appearance"
-        aria-label="Change appearance"
+        ariaLabel="Change appearance"
         type="button"
     >
         <span class="flex h-6 w-6 items-center justify-center" aria-hidden="true">
             <i class={toggleIcon}></i>
         </span>
-    </button>
+    </Button>
 
     {#if showMenu}
         <div
@@ -62,20 +65,21 @@
             <div class="p-2">
                 <div class="space-y-1">
                     {#each options as opt (opt.mode)}
-                        <button
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            tone="neutral"
                             onclick={() => onSelectAppearance(opt.mode)}
-                            class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 {appearanceState.appearance ===
-                            opt.mode
+                            class="w-full justify-start gap-3 px-3 py-2 text-left {appearanceState.appearance === opt.mode
                                 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                                 : 'text-gray-700 dark:text-gray-300'}"
-                            type="button"
                         >
                             <i class="{opt.icon} text-lg" aria-hidden="true"></i>
                             <div>
                                 <div class="font-medium">{opt.label}</div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400">{opt.description}</div>
                             </div>
-                        </button>
+                        </Button>
                     {/each}
                 </div>
             </div>

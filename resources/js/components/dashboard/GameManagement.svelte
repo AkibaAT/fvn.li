@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchGameStats, type GameStats } from '@/hooks/api/useGameData';
+    import { Card } from '@/components/ui';
 
     let gameStats = $state<GameStats | null>(null);
     let loading = $state(true);
@@ -16,7 +17,7 @@
     });
 </script>
 
-<div class="rounded-2xl border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+<Card variant="glass" padding="none">
     <div class="p-6">
         <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Game Management</h2>
 
@@ -84,4 +85,4 @@
             <span>Manage My Games</span>
         </a>
     </div>
-</div>
+</Card>

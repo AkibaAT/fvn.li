@@ -1,6 +1,7 @@
 <script lang="ts">
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
+    import { Button } from '@/components/ui';
     import type { StorePlatform, StorePlatformIconMeta } from '@/hooks/useStorePlatformIcons';
 
     let {
@@ -26,7 +27,10 @@
     );
 </script>
 
-<button
+<Button
+    type="button"
+    variant="outline"
+    tone="neutral"
     onclick={handleClick}
     disabled={!onclick}
     class="{baseClasses} {interactiveClasses} {stateClasses} {iconMeta.color}"
@@ -54,4 +58,4 @@
         </svg>
     {/if}
     <span class="hidden sm:inline">{iconMeta.label}</span>
-</button>
+</Button>

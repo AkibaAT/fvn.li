@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { Button, Card } from '@/components/ui';
     import { formatDateTimeWithTimezone, getUserTimezone } from '@/utils/date-formatting';
 
     type ChartComponentType = typeof import('@/components/charts/Chart.svelte').default;
@@ -294,25 +295,25 @@
     {#if clickStats}
         <div class="space-y-6">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div class="rounded-xl border border-gray-200/50 bg-white/70 p-4 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+                <Card variant="glass" padding="sm" class="shadow-none">
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Page Views</div>
                     <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{clickStats.page_views_unique}</div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">{clickStats.page_views_total} total</div>
-                </div>
-                <div class="rounded-xl border border-gray-200/50 bg-white/70 p-4 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+                </Card>
+                <Card variant="glass" padding="sm" class="shadow-none">
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400">itch.io Visits</div>
                     <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{clickStats.external_project_unique}</div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">{clickStats.external_project_total} total</div>
-                </div>
-                <div class="rounded-xl border border-gray-200/50 bg-white/70 p-4 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+                </Card>
+                <Card variant="glass" padding="sm" class="shadow-none">
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Downloads</div>
                     <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{downloadsUnique}</div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">{downloadsTotal} total</div>
-                </div>
+                </Card>
             </div>
 
             <!-- Analytics Insights -->
-            <div class="rounded-xl border border-gray-200/50 bg-white/70 p-4 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+            <Card variant="glass" padding="sm" class="shadow-none">
                 <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Insights (Last 30 Days)</h3>
                 <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                     {#if insights}
@@ -339,23 +340,26 @@
                         <div>&#8226; No analytics data available yet. Share your game to start seeing insights!</div>
                     {/if}
                 </div>
-            </div>
+            </Card>
         </div>
     {/if}
 
     <!-- Chart Tabs -->
-    <div class="rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+    <Card variant="glass" padding="none" class="shadow-none">
         <div class="border-b border-gray-200 dark:border-gray-700">
             <nav class="flex space-x-8 px-6" aria-label="Tabs">
                 {#each tabs as tab (tab.id)}
-                    <button
+                    <Button
+                        type="button"
+                        variant="link"
+                        tone="primary"
                         onclick={() => (activeTab = tab.id)}
                         class="border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap {activeTab === tab.id
                             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
                     >
                         {tab.label}
-                    </button>
+                    </Button>
                 {/each}
             </nav>
         </div>
@@ -373,5 +377,5 @@
                 </div>
             {/if}
         </div>
-    </div>
+    </Card>
 </div>

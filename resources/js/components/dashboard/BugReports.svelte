@@ -1,8 +1,8 @@
 <script lang="ts">
     import { notify } from '@/components/Toast.svelte';
+    import { Button, Dialog, Textarea } from '@/components/ui';
     import { authenticatedFetch } from '@/utils/csrf';
     import { untrack } from 'svelte';
-    import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface BugReport {
         id: number;
@@ -53,7 +53,7 @@
     let newComment = $state('');
     let submittingComment = $state(false);
     let closingTicket = $state(false);
-    let dialogEl = $state<HTMLDialogElement | undefined>(undefined);
+    let bugReportModalOpen = $state(false);
 
     function getStatusBadgeClasses(color: string): string {
         switch (color) {
@@ -72,7 +72,7 @@
 
     async function openBugReport(reportId: number) {
         loadingBugReport = true;
-        dialogEl?.showModal();
+        bugReportModalOpen = true;
         try {
             const response = await fetch(route('browser-api.bug-reports.show', { bugReport: reportId }), {
                 credentials: 'same-origin',
@@ -84,18 +84,18 @@
                 bugReports = bugReports.map((r) => (r.id === reportId ? { ...r, unread_count: 0 } : r));
             } else {
                 notify(data.message || 'Failed to load bug report', 'error');
-                dialogEl?.close();
+                bugReportModalOpen = false;
             }
         } catch {
             notify('Failed to load bug report', 'error');
-            dialogEl?.close();
+            bugReportModalOpen = false;
         } finally {
             loadingBugReport = false;
         }
     }
 
     function closeBugReportModal() {
-        dialogEl?.close();
+        bugReportModalOpen = false;
         selectedBugReport = null;
         bugReportComments = [];
         newComment = '';
@@ -150,17 +150,12 @@
 
     // Handle openReportId prop (from notification links)
     $effect(() => {
-        if (openReportId && dialogEl) {
+        if (openReportId) {
             openBugReport(openReportId);
         }
     });
 
     const totalUnread = $derived(bugReports.reduce((sum, r) => sum + r.unread_count, 0));
-
-    function handleCancel(event: Event) {
-        event.preventDefault();
-        closeBugReportModal();
-    }
 </script>
 
 {#if bugReports.length > 0}
@@ -190,9 +185,11 @@
 
             <div class="space-y-3">
                 {#each bugReports as report (report.id)}
-                    <button
+                    <Button
                         type="button"
-                        class="w-full cursor-pointer rounded-lg border border-amber-200 bg-white p-4 text-left transition-colors hover:border-amber-400 dark:border-amber-800 dark:bg-gray-800 dark:hover:border-amber-600"
+                        variant="outline"
+                        tone="warning"
+                        class="w-full justify-start border-amber-200 bg-white p-4 text-left hover:border-amber-400 dark:border-amber-800 dark:bg-gray-800 dark:hover:border-amber-600"
                         onclick={() => openBugReport(report.id)}
                     >
                         <div class="flex items-start justify-between">
@@ -224,173 +221,149 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                             </svg>
                         </div>
-                    </button>
+                    </Button>
                 {/each}
             </div>
         </div>
     </div>
 {/if}
 
-<!-- Bug Report Detail Modal -->
-<dialog
-    bind:this={dialogEl}
-    aria-modal="true"
-    aria-labelledby="bug-report-modal-title"
-    oncancel={handleCancel}
-    class="m-auto max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800"
-    onclick={(e) => {
-        if (isDialogBackdropClick(dialogEl, e)) closeBugReportModal();
-    }}
+<Dialog
+    open={bugReportModalOpen}
+    onClose={closeBugReportModal}
+    title={`Bug Report #${selectedBugReport?.id ?? ''}`}
+    size="lg"
+    bodyClass="max-h-[calc(90vh-180px)] p-6"
 >
-    <div class="relative">
-        <!-- Header -->
-        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <h3 id="bug-report-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
-                Bug Report #{selectedBugReport?.id}
-            </h3>
-            <button
-                onclick={closeBugReportModal}
-                class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                aria-label="Close dialog"
-            >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
+    {#if loadingBugReport}
+        <div class="flex items-center justify-center py-8">
+            <svg class="h-8 w-8 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </div>
+    {:else if selectedBugReport}
+        <!-- Report Details -->
+        <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
+            <div class="mb-3 flex items-center gap-2">
+                <span
+                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(
+                        selectedBugReport.status_color,
+                    )}"
+                >
+                    {selectedBugReport.status_label}
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    Submitted {new Date(selectedBugReport.created_at).toLocaleDateString()}
+                </span>
+            </div>
+
+            <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">
+                {selectedBugReport.description}
+            </p>
+
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+                <strong>Page:</strong>
+                <a href={selectedBugReport.page_url} target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">
+                    {selectedBugReport.page_title || selectedBugReport.page_url}
+                </a>
+            </div>
         </div>
 
-        <!-- Content -->
-        <div class="max-h-[calc(90vh-180px)] overflow-y-auto p-6">
-            {#if loadingBugReport}
-                <div class="flex items-center justify-center py-8">
-                    <svg class="h-8 w-8 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                </div>
-            {:else if selectedBugReport}
-                <!-- Report Details -->
-                <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
-                    <div class="mb-3 flex items-center gap-2">
-                        <span
-                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(
-                                selectedBugReport.status_color,
-                            )}"
+        <!-- Comments Section -->
+        <div class="mb-6">
+            <h4 class="mb-3 font-medium text-gray-900 dark:text-white">
+                Conversation ({bugReportComments.length})
+            </h4>
+
+            {#if bugReportComments.length === 0}
+                <p class="text-sm text-gray-500 dark:text-gray-400">No comments yet. Add additional information below.</p>
+            {:else}
+                <div class="space-y-3">
+                    {#each bugReportComments as comment (comment.id)}
+                        <div
+                            class="rounded-lg p-3 {comment.is_from_admin
+                                ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'}"
                         >
-                            {selectedBugReport.status_label}
-                        </span>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                            Submitted {new Date(selectedBugReport.created_at).toLocaleDateString()}
-                        </span>
-                    </div>
-
-                    <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">
-                        {selectedBugReport.description}
-                    </p>
-
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
-                        <strong>Page:</strong>
-                        <a href={selectedBugReport.page_url} target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">
-                            {selectedBugReport.page_title || selectedBugReport.page_url}
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Comments Section -->
-                <div class="mb-6">
-                    <h4 class="mb-3 font-medium text-gray-900 dark:text-white">
-                        Conversation ({bugReportComments.length})
-                    </h4>
-
-                    {#if bugReportComments.length === 0}
-                        <p class="text-sm text-gray-500 dark:text-gray-400">No comments yet. Add additional information below.</p>
-                    {:else}
-                        <div class="space-y-3">
-                            {#each bugReportComments as comment (comment.id)}
-                                <div
-                                    class="rounded-lg p-3 {comment.is_from_admin
-                                        ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                        : 'border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'}"
+                            <div class="mb-1 flex items-center gap-2">
+                                <span
+                                    class="text-sm font-medium {comment.is_from_admin
+                                        ? 'text-blue-700 dark:text-blue-400'
+                                        : 'text-gray-900 dark:text-white'}"
                                 >
-                                    <div class="mb-1 flex items-center gap-2">
-                                        <span
-                                            class="text-sm font-medium {comment.is_from_admin
-                                                ? 'text-blue-700 dark:text-blue-400'
-                                                : 'text-gray-900 dark:text-white'}"
-                                        >
-                                            {comment.user.name}
-                                        </span>
-                                        {#if comment.is_from_admin}
-                                            <span
-                                                class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                            >
-                                                Staff
-                                            </span>
-                                        {/if}
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                                            {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString(
-                                                [],
-                                                { hour: '2-digit', minute: '2-digit' },
-                                            )}
-                                        </span>
-                                    </div>
-                                    <p class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-                                        {comment.message}
-                                    </p>
-                                </div>
-                            {/each}
+                                    {comment.user.name}
+                                </span>
+                                {#if comment.is_from_admin}
+                                    <span
+                                        class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                    >
+                                        Staff
+                                    </span>
+                                {/if}
+                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                </span>
+                            </div>
+                            <p class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                                {comment.message}
+                            </p>
                         </div>
-                    {/if}
+                    {/each}
                 </div>
-
-                <!-- Add Comment Form -->
-                {#if !selectedBugReport.is_closed}
-                    <div>
-                        <label for="new-comment" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"> Add Information </label>
-                        <textarea
-                            id="new-comment"
-                            bind:value={newComment}
-                            rows="3"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            placeholder="Provide additional details or respond to staff..."
-                        ></textarea>
-                        <div class="mt-2 flex justify-end">
-                            <button
-                                onclick={submitBugReportComment}
-                                disabled={submittingComment || newComment.trim().length < 5}
-                                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {submittingComment ? 'Sending...' : 'Send'}
-                            </button>
-                        </div>
-                    </div>
-                {:else}
-                    <div
-                        class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400"
-                    >
-                        You have closed this report.
-                    </div>
-                {/if}
             {/if}
         </div>
 
-        <!-- Footer -->
-        <div class="flex gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <!-- Add Comment Form -->
+        {#if !selectedBugReport.is_closed}
+            <div>
+                <Textarea
+                    id="new-comment"
+                    label="Add Information"
+                    bind:value={newComment}
+                    rows={3}
+                    placeholder="Provide additional details or respond to staff..."
+                />
+                <div class="mt-2 flex justify-end">
+                    <Button
+                        type="button"
+                        onclick={submitBugReportComment}
+                        disabled={submittingComment || newComment.trim().length < 5}
+                        loading={submittingComment}
+                    >
+                        {submittingComment ? 'Sending...' : 'Send'}
+                    </Button>
+                </div>
+            </div>
+        {:else}
+            <div
+                class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400"
+            >
+                You have closed this report.
+            </div>
+        {/if}
+    {/if}
+    {#snippet footer()}
+        <div class="flex w-full gap-3">
             {#if selectedBugReport && !selectedBugReport.is_closed}
-                <button
+                <Button
+                    type="button"
                     onclick={closeTicket}
                     disabled={closingTicket}
-                    class="flex-1 cursor-pointer rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                    variant="soft"
+                    tone="danger"
+                    loading={closingTicket}
+                    class="flex-1"
                 >
                     {closingTicket ? 'Closing...' : 'Close Ticket'}
-                </button>
+                </Button>
             {/if}
-            <button
-                onclick={closeBugReportModal}
-                class="flex-1 cursor-pointer rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-            >
+            <Button type="button" onclick={closeBugReportModal} variant="soft" tone="neutral" class="flex-1">
                 {selectedBugReport?.is_closed ? 'Close' : 'Keep Open'}
-            </button>
+            </Button>
         </div>
-    </div>
-</dialog>
+    {/snippet}
+</Dialog>

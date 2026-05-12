@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { isDialogBackdropClick } from '@/utils/dialog';
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
-    import Stars from '@/components/ui/Stars.svelte';
+    import { Button, Card, Checkbox, Dialog, Select, Stars } from '@/components/ui';
     import { Link, router } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
@@ -132,9 +131,6 @@
         open: false,
         error: null,
     });
-    let historyDialogEl: HTMLDialogElement;
-    let phrasesDialogEl: HTMLDialogElement;
-
     const reviewStylesObj = useReviewTextStyles();
     const reviewStyles = $derived(
         `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
@@ -222,30 +218,11 @@
         historyModal = { ...historyModal, open: false };
     };
 
-    $effect(() => {
-        if (!historyDialogEl) return;
-        if (historyModal.open) {
-            if (!historyDialogEl.open) historyDialogEl.showModal();
-        } else if (historyDialogEl.open) {
-            historyDialogEl.close();
-        }
-    });
-
     const colorForAvg = (avg: number) => {
         if (avg >= 4) return 'bg-green-50 dark:bg-green-900 text-green-900 dark:text-green-100';
         if (avg >= 3) return 'bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100';
         return 'bg-red-50 dark:bg-red-900 text-red-900 dark:text-red-100';
     };
-
-    $effect(() => {
-        if (!phrasesDialogEl) return;
-        const shouldOpen = showContext && !!selectedPhrase && !!safePhrases[selectedPhrase!];
-        if (shouldOpen) {
-            phrasesDialogEl.showModal();
-        } else if (phrasesDialogEl.open) {
-            phrasesDialogEl.close();
-        }
-    });
 
     function closePhrasesDialog() {
         showContext = false;
@@ -270,7 +247,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card padding="lg">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{rater.name}'s Rating Statistics</h2>
         </div>
@@ -337,10 +314,10 @@
                 </div>
             {/each}
         </div>
-    </div>
+    </Card>
 
     <!-- Phrases -->
-    <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+    <Card padding="lg" class="shadow">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Common Phrases in Reviews</h2>
         <div class="mt-4">
             {#if Object.keys(safePhrases).length === 0}
@@ -354,13 +331,18 @@
                             <div class="ml-2 flex items-center gap-2 text-sm opacity-75">
                                 <span>{data.count}x</span>
                                 <span>({data.avg_rating.toFixed(1)}★)</span>
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="neutral"
+                                    size="icon-sm"
                                     onclick={() => {
                                         selectedPhrase = phrase;
                                         showContext = true;
                                     }}
-                                    class="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    class="ml-1"
                                     title="Show contexts"
+                                    ariaLabel="Show contexts"
                                 >
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path
@@ -370,7 +352,7 @@
                                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                         />
                                     </svg>
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     {/each}
@@ -384,12 +366,12 @@
                 <div><span class="mr-1 inline-block h-3 w-3 rounded bg-red-100 dark:bg-red-900"></span>Negative context (1-2★)</div>
             </div>
         {/if}
-    </div>
+    </Card>
 
     <!-- Review Text Controls -->
     <ReviewTextControls />
 
-    <div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <Card padding="none" class="overflow-hidden">
         <div class="border-b border-gray-200 p-4 dark:border-gray-700">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -401,33 +383,25 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                            type="checkbox"
-                            bind:checked={showOnlyReviews}
-                            onchange={() => {
-                                page = 1;
-                            }}
-                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        Reviews only
-                    </label>
+                    <Checkbox
+                        label="Reviews only"
+                        bind:checked={showOnlyReviews}
+                        onchange={() => {
+                            page = 1;
+                        }}
+                    />
 
-                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                            type="checkbox"
-                            bind:checked={showOnlyVisibleGames}
-                            onchange={() => {
-                                page = 1;
-                            }}
-                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        Listed games only
-                    </label>
+                    <Checkbox
+                        label="Listed games only"
+                        bind:checked={showOnlyVisibleGames}
+                        onchange={() => {
+                            page = 1;
+                        }}
+                    />
 
                     <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                         <span>Sort by:</span>
-                        <select
+                        <Select
                             value={`${sortField}:${sortDirection}`}
                             onchange={(e) => {
                                 const [field, direction] = (e.target as HTMLSelectElement).value.split(':');
@@ -435,13 +409,12 @@
                                 sortDirection = direction as 'asc' | 'desc';
                                 page = 1;
                             }}
-                            class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         >
                             <option value="published_at:desc">Newest</option>
                             <option value="published_at:asc">Oldest</option>
                             <option value="rating:desc">Rating: High to Low</option>
                             <option value="rating:asc">Rating: Low to High</option>
-                        </select>
+                        </Select>
                     </div>
                 </div>
             </div>
@@ -463,10 +436,10 @@
                                 </Link>
                                 {#if previousRatingCounts[row.game.id]}
                                     <span class="text-sm text-gray-500 dark:text-gray-400">
-                                        <button onclick={() => openHistory(row.game.id, row.game.name)} class="hover:underline">
+                                        <Button type="button" variant="link" tone="neutral" onclick={() => openHistory(row.game.id, row.game.name)}>
                                             ({previousRatingCounts[row.game.id]} previous
                                             {previousRatingCounts[row.game.id] > 1 ? ' ratings' : ' rating'})
-                                        </button>
+                                        </Button>
                                     </span>
                                 {/if}
                                 {#if row.game.primary_url}
@@ -531,38 +504,18 @@
                 {buildPageUrl}
             />
         </div>
-    </div>
+    </Card>
 
     <!-- Common Phrases Dialog -->
-    <dialog
-        bind:this={phrasesDialogEl}
-        aria-modal="true"
-        oncancel={(event) => {
-            event.preventDefault();
-            closePhrasesDialog();
-        }}
-        class="m-auto w-full max-w-3xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:bg-gray-800 dark:text-gray-100"
-        onclick={(e) => {
-            if (isDialogBackdropClick(phrasesDialogEl, e)) closePhrasesDialog();
-        }}
+    <Dialog
+        open={showContext && !!selectedPhrase && !!safePhrases[selectedPhrase]}
+        onClose={closePhrasesDialog}
+        title={selectedPhrase ?? 'Phrase Contexts'}
+        size="xl"
     >
         {#if selectedPhrase && safePhrases[selectedPhrase]}
-            <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-lg font-semibold">
-                    "{selectedPhrase}"
-                    <span class="text-sm font-normal">
-                        ({safePhrases[selectedPhrase].count}x / {safePhrases[selectedPhrase].avg_rating.toFixed(1)}★)
-                    </span>
-                </h3>
-                <button
-                    onclick={closePhrasesDialog}
-                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    aria-label="Close dialog"
-                >
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg
-                    >
-                </button>
+            <div class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                {safePhrases[selectedPhrase].count}x / {safePhrases[selectedPhrase].avg_rating.toFixed(1)}★
             </div>
             <div class="max-h-96 space-y-4 overflow-y-auto">
                 {#each Object.entries(safePhrases[selectedPhrase].contexts) as [gameName, context] (gameName)}
@@ -584,26 +537,12 @@
                 {/each}
             </div>
         {/if}
-    </dialog>
+    </Dialog>
 
     <!-- Rating History Dialog -->
-    <dialog
-        bind:this={historyDialogEl}
-        aria-modal="true"
-        oncancel={(event) => {
-            event.preventDefault();
-            closeHistory();
-        }}
-        class="m-auto w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:bg-gray-800 dark:text-gray-100"
-        onclick={(e) => {
-            if (isDialogBackdropClick(historyDialogEl, e)) closeHistory();
-        }}
-    >
+    <Dialog open={historyModal.open} onClose={closeHistory} title={historyModal.gameName || 'Rating History'} size="lg">
         {#if historyModal.gameName}
-            <div class="mb-4">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">{historyModal.gameName}</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Rating history for this game:</p>
-            </div>
+            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Rating history for this game:</p>
         {/if}
         <div class="space-y-6">
             {#if historyModal.error}
@@ -648,12 +587,8 @@
                 <div class="py-4 text-center text-gray-500 dark:text-gray-400">No rating history found.</div>
             {/if}
         </div>
-        <div class="mt-6 flex justify-end">
-            <button
-                onclick={closeHistory}
-                class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                aria-label="Close dialog">Close</button
-            >
-        </div>
-    </dialog>
+        {#snippet footer()}
+            <Button type="button" variant="outline" tone="neutral" onclick={closeHistory}>Close</Button>
+        {/snippet}
+    </Dialog>
 </div>
