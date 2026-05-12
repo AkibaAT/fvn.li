@@ -16,6 +16,7 @@ class ImageDownloadUrlValidator
         'shared.cloudflare.steamstatic.com',
         'cdn.cloudflare.steamstatic.com',
         'steamcdn-a.akamaihd.net',
+        'booth.pximg.net',
     ];
 
     public function validate(string $url): string

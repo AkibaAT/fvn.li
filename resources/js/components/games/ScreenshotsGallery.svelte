@@ -3,6 +3,7 @@
     import { toast } from '@/utils/toast';
     import { Button, Card } from '@/components/ui';
     import { resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';
+    import { gameScreenshotAltText } from '@/utils/imageAltText';
 
     function getThumbnailUrl(screenshot: Screenshot): string {
         return screenshot.thumbnail_url || screenshot.url;
@@ -14,10 +15,11 @@
         onOpenLightbox?: (index: number) => void;
         canEdit?: boolean;
         gameSlug?: string;
+        gameName?: string;
         onUpdate?: (thumbnail: string | null, screenshots: Screenshot[]) => void;
     }
 
-    let { screenshots, blur = false, onOpenLightbox, canEdit = false, gameSlug, onUpdate }: Props = $props();
+    let { screenshots, blur = false, onOpenLightbox, canEdit = false, gameSlug, gameName, onUpdate }: Props = $props();
 
     const shouldBlur = $derived(blur && !canEdit);
     let uploadingScreenshots = $state(false);
@@ -166,7 +168,7 @@
                             <div class="absolute inset-0">
                                 <img
                                     src={thumbnailUrl}
-                                    alt={`Screenshot ${index + 1}`}
+                                    alt={gameScreenshotAltText(gameName, index, displayedScreenshots.length)}
                                     class="h-full w-full object-cover {shouldBlur ? 'blur-sm transition-all duration-300 hover:blur-none' : ''}"
                                 />
                             </div>
