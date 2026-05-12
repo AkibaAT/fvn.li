@@ -8,6 +8,7 @@
     import { getListTypeConfig, listStatusConfig, getStatusBadgeConfig } from '@/utils/status-indicators';
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import DragHandle from '@/components/drag-drop/DragHandle.svelte';
+    import { Button, Card } from '@/components/ui';
 
     interface GameVersion {
         id: number;
@@ -437,7 +438,7 @@
 
 <div class="space-y-6">
     <!-- Header Card -->
-    <div class="mb-6 rounded-lg border-l-4 bg-white p-4 shadow-sm md:p-6 dark:bg-gray-800 {borderColorClass}">
+    <Card padding="lg" class="mb-6 border-l-4 p-4 md:p-6 {borderColorClass}">
         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
                 <h1 class="text-xl font-bold text-gray-900 md:text-2xl dark:text-white">
@@ -484,31 +485,45 @@
                             class="inline-flex items-center rounded-md border border-transparent bg-gray-200 px-3 py-1 text-xs font-semibold tracking-widest text-gray-800 uppercase hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                             >Back to Lists</Link
                         >
-                        <button
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone={isPublic ? 'primary' : 'neutral'}
+                            size="xs"
                             onclick={handleToggleVisibility}
                             disabled={isToggleVisibilityLoading}
+                            loading={isToggleVisibilityLoading}
                             class="inline-flex items-center rounded-md border border-transparent px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase disabled:opacity-50 {isPublic
                                 ? 'bg-blue-500 hover:bg-blue-400'
                                 : 'bg-gray-500 hover:bg-gray-400'}"
                         >
                             {isPublic ? 'Make Private' : 'Make Public'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="warning"
+                            size="xs"
                             onclick={() => {
                                 isEditingList = !isEditingList;
                             }}
                             class="inline-flex items-center rounded-md border border-transparent bg-yellow-500 px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase hover:bg-yellow-400"
                         >
                             {isEditingList ? 'Cancel Edit' : 'Edit List'}
-                        </button>
+                        </Button>
                         {#if vnList.type === 'custom' && !vnList.is_default}
-                            <button
+                            <Button
+                                type="button"
+                                variant="solid"
+                                tone="danger"
+                                size="xs"
                                 onclick={handleDeleteList}
                                 disabled={isListDeleteLoading}
+                                loading={isListDeleteLoading}
                                 class="inline-flex items-center rounded-md border border-transparent bg-red-600 px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase hover:bg-red-700 disabled:opacity-50"
                             >
                                 {isListDeleteLoading ? 'Deleting...' : 'Delete List'}
-                            </button>
+                            </Button>
                         {/if}
                     </div>
                 {:else}
@@ -520,11 +535,11 @@
                 {/if}
             </div>
         </div>
-    </div>
+    </Card>
 
     <!-- List Edit Form -->
     {#if isEditingList && isOwner}
-        <div class="mb-4 rounded-lg border-l-4 border-yellow-500 bg-white p-4 shadow-sm dark:bg-gray-800">
+        <Card padding="sm" class="mb-4 border-l-4 border-yellow-500">
             <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Edit List</h3>
             <div class="space-y-4">
                 <div>
@@ -550,25 +565,32 @@
                     ></textarea>
                 </div>
                 <div class="flex justify-end space-x-2">
-                    <button
+                    <Button
+                        type="button"
+                        variant="outline"
+                        tone="neutral"
                         onclick={handleCancelListEdit}
                         class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >Cancel</button
+                        >Cancel</Button
                     >
-                    <button
+                    <Button
+                        type="button"
+                        variant="solid"
+                        tone="warning"
                         onclick={handleSaveList}
                         disabled={isListSaveLoading || !listFormData.name.trim()}
+                        loading={isListSaveLoading}
                         class="inline-flex items-center rounded-md border border-transparent bg-yellow-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-700 disabled:opacity-50"
                     >
                         {isListSaveLoading ? 'Saving...' : 'Save Changes'}
-                    </button>
+                    </Button>
                 </div>
             </div>
-        </div>
+        </Card>
     {/if}
 
     <!-- List Stats Card -->
-    <div class="mb-4 rounded-lg bg-white p-4 shadow-sm md:pr-6 md:pl-7 dark:bg-gray-800">
+    <Card padding="sm" class="mb-4 md:pr-6 md:pl-7">
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">List Entries ({entries.length})</h2>
             {#if isOwner && freeGames.length > 0}
@@ -588,7 +610,7 @@
                 </div>
             {/if}
         </div>
-    </div>
+    </Card>
 
     {#if entries.length === 0}
         <div class="rounded-lg bg-gray-50 p-8 text-center dark:bg-gray-700">
@@ -653,7 +675,7 @@
     {@const isMoving = movingEntryId === entry.id}
     {@const moveLists = availableListsForMove(vnList.id)}
 
-    <div class="rounded-lg bg-white shadow-sm md:rounded-lg lg:rounded-none dark:bg-gray-800">
+    <Card padding="none" class="md:rounded-lg lg:rounded-none">
         <!-- Desktop View -->
         <div class="hidden items-center p-3 pr-5 lg:flex">
             {#if isOwner}
@@ -718,8 +740,11 @@
                                 <span class="text-gray-400">({new Date(game.latest_version?.published_at || '').toLocaleDateString()})</span>
                             </div>
                             {#if game.latest_version && currentVersion && versionHasCharacterStats[currentVersion.id]}
-                                <button
+                                <Button
                                     type="button"
+                                    variant="link"
+                                    tone="primary"
+                                    size="xs"
                                     class="mt-1 inline-flex cursor-pointer items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
                                     onclick={() => handleCompareVersions(game.id, currentVersion.id, game.latest_version!.id)}
                                 >
@@ -727,7 +752,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                     </svg>
                                     Compare changes
-                                </button>
+                                </Button>
                             {/if}
                         {/if}
                     </div>
@@ -753,7 +778,10 @@
             <!-- Actions -->
             {#if isOwner}
                 <div class="w-20 space-y-2 text-sm">
-                    <button
+                    <Button
+                        type="button"
+                        variant="link"
+                        tone="primary"
                         onclick={() => {
                             if (isEditing) {
                                 editingEntryId = null;
@@ -762,10 +790,13 @@
                             }
                         }}
                         class="block w-full cursor-pointer text-left text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        >{isEditing ? 'Cancel' : 'Edit'}</button
+                        >{isEditing ? 'Cancel' : 'Edit'}</Button
                     >
                     {#if moveLists.length > 0}
-                        <button
+                        <Button
+                            type="button"
+                            variant="link"
+                            tone="warning"
                             onclick={() => {
                                 if (isMoving) {
                                     movingEntryId = null;
@@ -774,13 +805,16 @@
                                 }
                             }}
                             class="block w-full cursor-pointer text-left text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
-                            >{isMoving ? 'Cancel' : 'Move'}</button
+                            >{isMoving ? 'Cancel' : 'Move'}</Button
                         >
                     {/if}
-                    <button
+                    <Button
+                        type="button"
+                        variant="link"
+                        tone="danger"
                         onclick={() => handleEntryRemove(entry.id)}
                         class="block w-full cursor-pointer text-left text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                        >Remove</button
+                        >Remove</Button
                     >
                 </div>
 
@@ -885,8 +919,11 @@
                                 Latest: v{game.latest_version?.version}
                                 <span class="ml-1 text-gray-400">({new Date(game.latest_version?.published_at || '').toLocaleDateString()})</span>
                                 {#if game.latest_version && currentVersion && versionHasCharacterStats[currentVersion.id]}
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="link"
+                                        tone="primary"
+                                        size="xs"
                                         class="ml-2 inline-flex cursor-pointer items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
                                         onclick={() => handleCompareVersions(game.id, currentVersion.id, game.latest_version!.id)}
                                     >
@@ -894,7 +931,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                         </svg>
                                         Compare changes
-                                    </button>
+                                    </Button>
                                 {/if}
                             </div>
                         {/if}
@@ -916,7 +953,10 @@
                     {#if isOwner}
                         <div class="mt-3 flex flex-col gap-3">
                             <div class="flex space-x-2 text-sm">
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    tone="primary"
                                     onclick={() => {
                                         if (isEditing) {
                                             editingEntryId = null;
@@ -925,10 +965,13 @@
                                         }
                                     }}
                                     class="cursor-pointer text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                    >{isEditing ? 'Cancel' : 'Edit'}</button
+                                    >{isEditing ? 'Cancel' : 'Edit'}</Button
                                 >
                                 {#if moveLists.length > 0}
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        tone="warning"
                                         onclick={() => {
                                             if (isMoving) {
                                                 movingEntryId = null;
@@ -937,12 +980,15 @@
                                             }
                                         }}
                                         class="cursor-pointer text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
-                                        >{isMoving ? 'Cancel' : 'Move'}</button
+                                        >{isMoving ? 'Cancel' : 'Move'}</Button
                                     >
                                 {/if}
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    tone="danger"
                                     onclick={() => handleEntryRemove(entry.id)}
-                                    class="cursor-pointer text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Remove</button
+                                    class="cursor-pointer text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Remove</Button
                                 >
                             </div>
 
@@ -1045,18 +1091,25 @@
                     </div>
 
                     <div class="flex justify-end space-x-2">
-                        <button
+                        <Button
+                            type="button"
+                            variant="outline"
+                            tone="neutral"
                             onclick={() => {
                                 editingEntryId = null;
                             }}
                             class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                            >Cancel</button
+                            >Cancel</Button
                         >
-                        <button
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="primary"
                             onclick={() => handleSaveEntry(entry.id)}
                             disabled={entryFormLoading}
+                            loading={entryFormLoading}
                             class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                            >Save Changes</button
+                            >Save Changes</Button
                         >
                     </div>
                 </div>
@@ -1082,22 +1135,29 @@
                     </div>
 
                     <div class="flex justify-end space-x-2">
-                        <button
+                        <Button
+                            type="button"
+                            variant="outline"
+                            tone="neutral"
                             onclick={() => {
                                 movingEntryId = null;
                             }}
                             class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                            >Cancel</button
+                            >Cancel</Button
                         >
-                        <button
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="warning"
                             onclick={() => handleMoveEntry(entry.id)}
                             disabled={entryFormLoading || !entryFormData.target_list_id}
+                            loading={entryFormLoading}
                             class="inline-flex items-center rounded-md border border-transparent bg-yellow-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-700 disabled:opacity-50"
-                            >Move to List</button
+                            >Move to List</Button
                         >
                     </div>
                 </div>
             </div>
         {/if}
-    </div>
+    </Card>
 {/snippet}

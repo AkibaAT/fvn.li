@@ -1,6 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { page } from '@inertiajs/svelte';
+    import { Button, Card, Checkbox, Textarea } from '@/components/ui';
 
     interface UserReview {
         id: number;
@@ -110,15 +111,15 @@
 </script>
 
 {#if !isAuthenticated}
-    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800/50">
+    <Card variant="soft" padding="sm" class="text-center">
         <p class="text-sm text-gray-600 dark:text-gray-400">
             <a href={route('login')} class="text-blue-600 hover:underline dark:text-blue-400">Sign in</a>
             to leave a review for this game.
         </p>
-    </div>
+    </Card>
 {:else if userReview && !isEditing}
     <!-- Existing review display -->
-    <div class="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+    <Card variant="outline" padding="sm" class="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Your Review</span>
@@ -139,27 +140,34 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <button onclick={handleStartEdit} class="text-sm text-blue-600 hover:underline dark:text-blue-400">Edit</button>
-                <button onclick={() => (showDeleteConfirm = true)} class="text-sm text-red-600 hover:underline dark:text-red-400">Delete</button>
+                <Button type="button" variant="link" tone="primary" onclick={handleStartEdit}>Edit</Button>
+                <Button type="button" variant="link" tone="danger" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
             </div>
         </div>
 
         {#if showDeleteConfirm}
             <div class="mt-3 flex items-center gap-2 rounded border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                 <span class="text-sm text-red-800 dark:text-red-200">Delete your review?</span>
-                <button
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="danger"
                     onclick={handleDelete}
                     disabled={isDeleting}
+                    loading={isDeleting}
                     class="rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
                 >
                     {isDeleting ? 'Deleting...' : 'Confirm'}
-                </button>
-                <button
+                </Button>
+                <Button
+                    type="button"
+                    variant="soft"
+                    tone="neutral"
                     onclick={() => (showDeleteConfirm = false)}
                     class="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
                 >
                     Cancel
-                </button>
+                </Button>
             </div>
         {/if}
 
@@ -168,11 +176,14 @@
                 {message.text}
             </div>
         {/if}
-    </div>
+    </Card>
 {:else if !userReview && !isEditing}
     <!-- Write review prompt -->
-    <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <button
+    <Card variant="outline" padding="sm">
+        <Button
+            type="button"
+            variant="ghost"
+            tone="primary"
             onclick={handleStartEdit}
             class="flex w-full items-center gap-2 text-sm text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
         >
@@ -185,11 +196,11 @@
                 />
             </svg>
             Write a review for {gameName}
-        </button>
-    </div>
+        </Button>
+    </Card>
 {:else}
     <!-- Review form -->
-    <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+    <Card variant="outline" padding="sm">
         <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">
             {userReview ? 'Edit Your Review' : 'Write a Review'}
         </h3>
@@ -202,13 +213,16 @@
                     {#each Array(5) as _, i (i)}
                         {@const starValue = i + 1}
                         {@const isActive = starValue <= (hoveredRating || rating)}
-                        <button
+                        <Button
                             type="button"
+                            variant="ghost"
+                            tone="warning"
+                            size="icon-md"
                             onclick={() => (rating = starValue)}
                             onmouseenter={() => (hoveredRating = starValue)}
                             onmouseleave={() => (hoveredRating = 0)}
                             class="focus:outline-none"
-                            aria-label="{starValue} star{starValue !== 1 ? 's' : ''}"
+                            ariaLabel="{starValue} star{starValue !== 1 ? 's' : ''}"
                         >
                             <svg
                                 class="h-7 w-7 cursor-pointer transition-colors {isActive
@@ -221,7 +235,7 @@
                                     d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
                                 />
                             </svg>
-                        </button>
+                        </Button>
                     {/each}
                     {#if rating > 0}
                         <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">{rating}/5</span>
@@ -232,46 +246,44 @@
             <!-- Review Text -->
             <div class="mb-3">
                 <label for="review-text" class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Review (optional)</label>
-                <textarea
+                <Textarea
                     id="review-text"
                     bind:value={reviewText}
                     placeholder="Share your thoughts about this visual novel..."
-                    rows="6"
+                    rows={6}
                     class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                ></textarea>
+                />
             </div>
 
             <!-- Spoiler Toggle -->
             {#if reviewText.trim().length > 0}
                 <div class="mb-3">
-                    <label class="flex cursor-pointer items-center gap-2">
-                        <input
-                            type="checkbox"
-                            bind:checked={hasSpoilers}
-                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
-                        />
-                        <span class="text-sm text-gray-600 dark:text-gray-400">This review contains spoilers</span>
-                    </label>
+                    <Checkbox bind:checked={hasSpoilers} label="This review contains spoilers" />
                 </div>
             {/if}
 
             <!-- Actions -->
             <div class="flex items-center gap-2">
-                <button
+                <Button
                     type="submit"
+                    variant="solid"
+                    tone="primary"
                     disabled={rating === 0 || isSubmitting}
+                    loading={isSubmitting}
                     class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {isSubmitting ? 'Submitting...' : userReview ? 'Update Review' : 'Submit Review'}
-                </button>
+                </Button>
                 {#if isEditing}
-                    <button
+                    <Button
                         type="button"
+                        variant="soft"
+                        tone="neutral"
                         onclick={handleCancel}
                         class="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                     >
                         Cancel
-                    </button>
+                    </Button>
                 {/if}
             </div>
 
@@ -281,5 +293,5 @@
                 </div>
             {/if}
         </form>
-    </div>
+    </Card>
 {/if}

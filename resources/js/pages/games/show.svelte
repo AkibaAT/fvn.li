@@ -11,7 +11,7 @@
     import ScreenshotsGallery from '@/components/games/ScreenshotsGallery.svelte';
     import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox.svelte';
     import PlatformLink from '@/components/game-card/PlatformLink.svelte';
-    import PlatformIcon from '@/components/ui/PlatformIcon.svelte';
+    import { Button, Card, PlatformIcon } from '@/components/ui';
     import DownloadsList from '@/components/games/DownloadsList.svelte';
     import UserReviewForm from '@/components/games/UserReviewForm.svelte';
     import ReportReviewModal from '@/components/games/ReportReviewModal.svelte';
@@ -863,7 +863,7 @@
 </div>
 
 <!-- Game Header -->
-<div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+<Card padding="lg" class="mb-6">
     <div class="flex flex-col gap-6 md:flex-row">
         {#if game.is_visible && currentThumbnail}
             <div class="group relative shrink-0">
@@ -1025,18 +1025,18 @@
             </div>
         </div>
     {/if}
-</div>
+</Card>
 
 {#if canSeeAnalytics && (clickStats || dailyStats)}
-    <div id="analytics" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card id="analytics" padding="lg" class="mb-6 scroll-mt-28">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Analytics</h2>
         <GameStats {clickStats} {dailyStats} />
-    </div>
+    </Card>
 {/if}
 
 {#if game.is_visible}
     <div id="details" class="mb-6 grid scroll-mt-28 grid-cols-1 gap-6 md:grid-cols-2">
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg">
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Game Details</h2>
             <dl class="grid grid-cols-1 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                 {#each detailItems as item (item.label)}
@@ -1062,9 +1062,9 @@
                     </div>
                 </div>
             {/if}
-        </div>
+        </Card>
 
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg">
             <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Tags</h2>
             <div class="flex flex-wrap items-center gap-2">
                 {#each game.tags || [] as tag (tag.id)}
@@ -1076,10 +1076,10 @@
                     </Link>
                 {/each}
             </div>
-        </div>
+        </Card>
 
         {#if game.game_jams && game.game_jams.length > 0}
-            <div class="rounded-lg bg-white p-6 shadow-sm md:col-span-2 dark:bg-gray-800">
+            <Card padding="lg" class="md:col-span-2">
                 <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Game Jams</h2>
                 <div class="space-y-4">
                     {#each game.game_jams as jam (jam.id)}
@@ -1159,7 +1159,7 @@
                         </div>
                     {/each}
                 </div>
-            </div>
+            </Card>
         {/if}
     </div>
 {/if}
@@ -1197,7 +1197,7 @@
 {/if}
 
 {#if publicLists && publicLists.length > 0}
-    <div id="featured-lists" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card id="featured-lists" padding="lg" class="mb-6 scroll-mt-28">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 Featured in {publicListsCount} Public {publicListsCount === 1 ? 'List' : 'Lists'}
@@ -1249,11 +1249,11 @@
                 </Link>
             {/each}
         </div>
-    </div>
+    </Card>
 {/if}
 
 {#if gameVersions && gameVersions.data.length > 0}
-    <div id="versions" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card id="versions" padding="lg" class="mb-6 scroll-mt-28">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Version History</h2>
 
         {#if game.latest_version && (canBrowseLatestDialogue || latestVersionHasRouteMap)}
@@ -1288,7 +1288,7 @@
             </div>
         {/if}
 
-        <div class="my-3 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+        <Card variant="outline" padding="sm" class="my-3">
             <h3 class="mb-3 text-base font-medium text-gray-900 dark:text-gray-100">Compare Versions</h3>
             <div class="flex flex-col items-end gap-4 sm:flex-row">
                 <div>
@@ -1334,21 +1334,23 @@
                     </select>
                 </div>
                 <div>
-                    <button
+                    <Button
                         type="button"
+                        variant="solid"
+                        tone="primary"
                         onclick={compareVersions}
                         disabled={!compareFromVersionId || !compareToVersionId || compareFromVersionId === compareToVersionId}
                         class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         COMPARE
-                    </button>
+                    </Button>
                 </div>
             </div>
-        </div>
+        </Card>
 
         <div class="space-y-4">
             {#each currentVersions as version (version.id)}
-                <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <Card variant="outline" padding="sm">
                     <div class="flex flex-col gap-4 sm:flex-row">
                         <div class="flex flex-1 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                             <div class="flex w-full items-center">
@@ -1388,9 +1390,13 @@
                     </div>
                     <div class="mt-2 flex gap-2">
                         {#if versionCharacterCounts[version.id] > 0}
-                            <button
+                            <Button
+                                type="button"
+                                variant="link"
+                                tone="primary"
                                 onclick={() => loadCharacterStats(version.id)}
                                 disabled={characterStatsLoading === version.id || fileStatsLoading === version.id}
+                                loading={characterStatsLoading === version.id}
                                 class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
                             >
                                 {#if characterStatsLoading === version.id}
@@ -1399,7 +1405,7 @@
                                 {:else}
                                     View {versionCharacterCounts[version.id]} Characters
                                 {/if}
-                            </button>
+                            </Button>
                         {/if}
                         {#if versionHasRouteData[version.id] === true || version.has_route_data === true}
                             <a
@@ -1413,9 +1419,13 @@
                             </a>
                         {/if}
                         {#if versionHasFileStats[version.id]}
-                            <button
+                            <Button
+                                type="button"
+                                variant="link"
+                                tone="primary"
                                 onclick={() => loadFileStats(version.id)}
                                 disabled={characterStatsLoading === version.id || fileStatsLoading === version.id}
+                                loading={fileStatsLoading === version.id}
                                 class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
                             >
                                 {#if fileStatsLoading === version.id}
@@ -1424,7 +1434,7 @@
                                 {:else}
                                     View File Stats
                                 {/if}
-                            </button>
+                            </Button>
                         {/if}
                     </div>
 
@@ -1444,7 +1454,7 @@
                         statsLoading={fileStatsLoading === version.id}
                         {closeFileStatsDialog}
                     />
-                </div>
+                </Card>
             {/each}
         </div>
 
@@ -1457,7 +1467,7 @@
                 label="versions"
             />
         </div>
-    </div>
+    </Card>
 {/if}
 
 <div class="mb-6">
@@ -1468,7 +1478,7 @@
     <UserReviewForm gameId={game.id} gameName={game.effective_name} initialReview={userReview} />
 </div>
 
-<div id="reviews" class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+<Card id="reviews" padding="lg" class="mb-6">
     <div class="mb-4 flex items-center justify-between">
         <div class="flex items-center gap-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Reviews</h2>
@@ -1487,13 +1497,17 @@
                 </select>
             {/if}
         </div>
-        <button
+        <Button
+            type="button"
+            variant="link"
+            tone="primary"
             onclick={handleToggleRatingsView}
             disabled={reviewsLoading}
+            loading={reviewsLoading}
             class="text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 dark:text-blue-400"
         >
             {reviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
-        </button>
+        </Button>
     </div>
 
     {#if reviewsLoading}
@@ -1553,7 +1567,11 @@
                                 </a>
                             {/if}
                             {#if review.user}
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="primary"
+                                    size="icon-sm"
                                     onclick={() => copyReviewLink(review.id)}
                                     class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
                                     title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
@@ -1572,9 +1590,13 @@
                                             />
                                         </svg>
                                     {/if}
-                                </button>
+                                </Button>
                             {/if}
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                tone="danger"
+                                size="icon-sm"
                                 onclick={() => {
                                     reportingReviewId = review.id;
                                     reportingReviewerName = review.user?.name || review.rater.name;
@@ -1590,13 +1612,16 @@
                                         d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
                                     />
                                 </svg>
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
                     {#if review.review && (!showAllRatings || review.is_reviewed)}
                         {#if review.has_spoilers && !revealedSpoilers[review.id]}
-                            <button
+                            <Button
+                                type="button"
+                                variant="outline"
+                                tone="warning"
                                 onclick={() => revealSpoilers(review.id)}
                                 class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 transition-colors hover:bg-yellow-100 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/50"
                             >
@@ -1609,7 +1634,7 @@
                                     />
                                 </svg>
                                 This review contains spoilers — click to reveal
-                            </button>
+                            </Button>
                         {:else}
                             <div>
                                 {#if review.has_spoilers}
@@ -1633,12 +1658,15 @@
                                     {/if}
                                 </div>
                                 {#if shouldCollapseReview(review.review)}
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        tone="primary"
                                         onclick={() => toggleReviewExpanded(review.id)}
                                         class="mt-1 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                                     >
                                         {expandedReviews[review.id] ? 'Show less' : 'Read more'}
-                                    </button>
+                                    </Button>
                                 {/if}
                             </div>
                         {/if}
@@ -1657,10 +1685,10 @@
             label="reviews"
         />
     </div>
-</div>
+</Card>
 
 {#if similarGames && similarGames.length > 0}
-    <div id="similar-games" class="mt-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card id="similar-games" padding="lg" class="mt-6 scroll-mt-28">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Similar Games</h2>
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {#each similarGames as sg (sg.id)}
@@ -1720,11 +1748,11 @@
                 </Link>
             {/each}
         </div>
-    </div>
+    </Card>
 {/if}
 
 {#if developerGames && developerGames.length > 0}
-    <div class="mt-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card padding="lg" class="mt-6">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">More by This Developer</h2>
         <div class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
             {#each developerGames as dg (dg.id)}
@@ -1781,7 +1809,7 @@
                 </Link>
             {/each}
         </div>
-    </div>
+    </Card>
 {/if}
 
 {#if isLightboxOpen}

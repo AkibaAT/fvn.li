@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
     import axios from 'axios';
 
     interface Game {
@@ -117,7 +118,7 @@
 
 <div class="py-12">
     <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-        <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800">
+        <Card padding="none" class="overflow-hidden shadow-sm sm:rounded-lg">
             <div class="p-6">
                 <div class="mb-6 flex items-center justify-between">
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Version Comparison Tool</h1>
@@ -184,13 +185,16 @@
                         {/if}
 
                         <div class="flex justify-end">
-                            <button
+                            <Button
                                 type="submit"
+                                variant="solid"
+                                tone="info"
                                 disabled={!selectedGame || !fromVersionId || !toVersionId || loading}
+                                {loading}
                                 class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {loading ? 'Comparing...' : 'Compare Versions'}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 </div>
@@ -232,19 +236,25 @@
                         <div class="mb-8">
                             <ul class="flex border-b border-gray-200 text-sm dark:border-gray-700" role="tablist">
                                 <li class="mr-1">
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        tone="info"
                                         class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'character'
                                             ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400'}"
-                                        onclick={() => (activeTab = 'character')}>Character Stats</button
+                                        onclick={() => (activeTab = 'character')}>Character Stats</Button
                                     >
                                 </li>
                                 <li class="mr-1">
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        tone="info"
                                         class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'file'
                                             ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400'}"
-                                        onclick={() => (activeTab = 'file')}>File Stats</button
+                                        onclick={() => (activeTab = 'file')}>File Stats</Button
                                     >
                                 </li>
                             </ul>
@@ -440,6 +450,6 @@
                     </div>
                 {/if}
             </div>
-        </div>
+        </Card>
     </div>
 </div>

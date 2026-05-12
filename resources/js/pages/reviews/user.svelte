@@ -2,6 +2,7 @@
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import { Link, router, page } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
     import type { SharedData } from '@/types';
 
     interface ReviewGame {
@@ -119,22 +120,28 @@
 
     <!-- Sort controls -->
     <div class="flex gap-2">
-        <button
+        <Button
+            type="button"
+            variant={filters.sortField === 'published_at' ? 'solid' : 'soft'}
+            tone={filters.sortField === 'published_at' ? 'primary' : 'neutral'}
             onclick={() => toggleSort('published_at')}
             class="rounded-md px-3 py-1.5 text-sm transition-colors {filters.sortField === 'published_at'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'}"
         >
             Date{sortIcon('published_at')}
-        </button>
-        <button
+        </Button>
+        <Button
+            type="button"
+            variant={filters.sortField === 'rating' ? 'solid' : 'soft'}
+            tone={filters.sortField === 'rating' ? 'primary' : 'neutral'}
             onclick={() => toggleSort('rating')}
             class="rounded-md px-3 py-1.5 text-sm transition-colors {filters.sortField === 'rating'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'}"
         >
             Rating{sortIcon('rating')}
-        </button>
+        </Button>
     </div>
 
     <!-- Reviews list -->
@@ -143,7 +150,7 @@
     {:else}
         <div class="space-y-4">
             {#each localReviews as review (review.id)}
-                <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <Card variant="outline" padding="sm">
                     <div class="flex items-start gap-4">
                         {#if review.game}
                             <Link href={route('games.show', review.game.slug)} class="shrink-0">
@@ -190,14 +197,17 @@
                             {#if review.review && review.is_reviewed}
                                 <div class="mt-2">
                                     {#if review.has_spoilers && !spoilerRevealedIds.has(review.id)}
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            tone="warning"
                                             onclick={() => {
                                                 spoilerRevealedIds = new Set([...spoilerRevealedIds, review.id]);
                                             }}
                                             class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-xs text-yellow-800 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200"
                                         >
                                             Contains spoilers — click to reveal
-                                        </button>
+                                        </Button>
                                     {:else if review.review}
                                         {#if review.has_spoilers}
                                             <span
@@ -214,7 +224,7 @@
                             {/if}
                         </div>
                     </div>
-                </div>
+                </Card>
             {/each}
         </div>
     {/if}

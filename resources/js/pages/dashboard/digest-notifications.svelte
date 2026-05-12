@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import { Card } from '@/components/ui';
 
     interface NotificationHistory {
         id: number;
@@ -73,7 +74,7 @@
     </div>
 
     <!-- Notifications Content -->
-    <div class="rounded-xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+    <Card variant="glass" padding="lg" class="shadow-none">
         {#if hasNotifications}
             <div class="space-y-4">
                 <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-white">Your Notifications</h2>
@@ -122,7 +123,7 @@
                 </p>
             </div>
         {/if}
-    </div>
+    </Card>
 
     <!-- Navigation -->
     <div class="flex items-center justify-between">

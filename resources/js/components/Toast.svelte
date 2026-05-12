@@ -58,6 +58,8 @@
 </script>
 
 <script lang="ts">
+    import { Button } from '@/components/ui';
+
     let notifications = $state<Toast[]>([]);
 
     $effect(() => {
@@ -150,10 +152,14 @@
                         </p>
                     </div>
                     <div class="ml-4 flex flex-shrink-0">
-                        <button
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            tone="neutral"
+                            size="icon-sm"
                             onclick={() => notificationManager.remove(notification.id)}
                             class="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none dark:bg-gray-800"
-                            aria-label="Close {notification.type} notification"
+                            ariaLabel="Close {notification.type} notification"
                         >
                             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path
@@ -162,7 +168,7 @@
                                     clip-rule="evenodd"
                                 />
                             </svg>
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
