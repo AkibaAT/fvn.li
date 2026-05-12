@@ -126,7 +126,7 @@
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 {#if review.user?.avatar}
-                    <img src={review.user.avatar} alt="" class="h-8 w-8 rounded-full" />
+                    <img src={review.user.avatar} alt="" aria-hidden="true" class="h-8 w-8 rounded-full" />
                 {/if}
                 <div>
                     <div class="flex items-center gap-2">
@@ -155,7 +155,11 @@
                     </div>
                     {#if review.published_at}
                         <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {new Date(review.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            {new Date(review.published_at).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                            })}
                         </div>
                     {/if}
                 </div>
