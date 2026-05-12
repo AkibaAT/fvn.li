@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button, Card } from '@/components/ui';
     import { onMount } from 'svelte';
     import { fetchAdditionRequests, cancelAdditionRequest, type AdditionRequest } from '@/hooks/api/useAdditionRequests';
     import { toast } from '@/utils/toast';
@@ -85,7 +86,7 @@
     );
 </script>
 
-<div class="rounded-2xl border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+<Card variant="glass" padding="none">
     <div class="p-6">
         <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">My Addition Requests</h2>
 
@@ -164,13 +165,17 @@
                             </div>
 
                             {#if request.status === 'pending'}
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    tone="danger"
                                     onclick={() => cancelRequest(request.id)}
                                     disabled={isCanceling}
+                                    loading={isCanceling}
                                     class="ml-3 text-sm text-red-600 hover:text-red-800 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
                                 >
                                     {isCanceling ? 'Canceling...' : 'Cancel'}
-                                </button>
+                                </Button>
                             {/if}
                         </div>
                     </div>
@@ -178,4 +183,4 @@
             </div>
         {/if}
     </div>
-</div>
+</Card>

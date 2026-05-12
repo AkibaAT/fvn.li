@@ -1,5 +1,6 @@
 <script lang="ts">
     import { formatLocalDate } from '@/utils/date-formatting';
+    import { Card } from '@/components/ui';
     import type { Snippet } from 'svelte';
 
     export interface AdditionalLink {
@@ -20,7 +21,7 @@
 </script>
 
 {#if links && links.length > 0}
-    <div id="downloads" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card id="downloads" class="mb-6 scroll-mt-28">
         <h2 class="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">Downloads</h2>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {#each links as link (link.id)}
@@ -68,5 +69,5 @@
                 </a>
             {/each}
         </div>
-    </div>
+    </Card>
 {/if}
