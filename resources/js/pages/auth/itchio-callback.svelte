@@ -1,5 +1,6 @@
 <script lang="ts">
     import ItchioIcon from '@/components/icons/Itchio.svelte';
+    import { Card } from '@/components/ui';
     import { Link } from '@inertiajs/svelte';
 
     let error = $state<string | null>(null);
@@ -24,7 +25,7 @@
 </svelte:head>
 
 <div class="flex min-h-[60vh] items-center justify-center">
-    <div class="w-full max-w-md rounded-lg bg-white p-8 text-center shadow-md dark:bg-gray-800">
+    <Card padding="lg" class="w-full max-w-md text-center shadow-md">
         <h2 class="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">
             {title}
         </h2>
@@ -61,5 +62,5 @@
                 </div>
             </div>
         {/if}
-    </div>
+    </Card>
 </div>

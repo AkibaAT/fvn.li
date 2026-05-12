@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import { untrack } from 'svelte';
 
     export type Screenshot = {
@@ -82,46 +83,56 @@
 
 {#if isOpen && screenshots && screenshots.length > 0}
     <div class="bg-opacity-95 fixed inset-0 z-50 flex flex-col bg-black">
-        <button type="button" class="absolute inset-0" aria-label="Close lightbox" onclick={onClose}></button>
+        <Button type="button" variant="ghost" tone="neutral" class="absolute inset-0" ariaLabel="Close lightbox" onclick={onClose}></Button>
 
         <!-- Top bar -->
         <div class="relative z-10 flex flex-shrink-0 items-center justify-between p-2">
             <div class="text-sm text-white">{index + 1} / {screenshots.length}</div>
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="neutral"
+                size="icon-lg"
                 onclick={(e) => {
                     e.stopPropagation();
                     onClose();
                 }}
                 class="bg-opacity-90 hover:bg-opacity-100 cursor-pointer rounded-full bg-white p-2 text-black transition-colors"
-                aria-label="Close lightbox"
+                ariaLabel="Close lightbox"
             >
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
-            </button>
+            </Button>
         </div>
 
         <div class="relative z-10 min-h-0 flex-1">
             {#if screenshots.length > 1}
-                <button
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="neutral"
+                    size="icon-lg"
                     onclick={(e) => {
                         e.stopPropagation();
                         navigate('prev');
                     }}
                     class="bg-opacity-90 hover:bg-opacity-100 absolute left-4 z-20 cursor-pointer rounded-full bg-white p-3 text-black transition-colors"
                     style="top: 50%; transform: translateY(-50%)"
-                    aria-label="Previous screenshot"
+                    ariaLabel="Previous screenshot"
                 >
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
-                </button>
+                </Button>
             {/if}
 
             <div class="flex h-full items-center justify-center pb-20">
-                <button
+                <Button
                     type="button"
+                    variant="ghost"
+                    tone="neutral"
                     class="max-h-full max-w-full object-contain transition-transform duration-300 {isZoomed
                         ? 'scale-150 cursor-zoom-out'
                         : 'cursor-zoom-in'}"
@@ -132,27 +143,31 @@
                     ontouchstart={handleTouchStart}
                     ontouchmove={handleTouchMove}
                     ontouchend={handleTouchEnd}
-                    aria-label={isZoomed ? 'Zoom out screenshot' : 'Zoom in screenshot'}
+                    ariaLabel={isZoomed ? 'Zoom out screenshot' : 'Zoom in screenshot'}
                     aria-pressed={isZoomed}
                 >
                     <img src={currentImage} alt={`Screenshot ${index + 1} of ${screenshots.length}`} class="max-h-full max-w-full object-contain" />
-                </button>
+                </Button>
             </div>
 
             {#if screenshots.length > 1}
-                <button
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="neutral"
+                    size="icon-lg"
                     onclick={(e) => {
                         e.stopPropagation();
                         navigate('next');
                     }}
                     class="bg-opacity-90 hover:bg-opacity-100 absolute right-4 z-20 cursor-pointer rounded-full bg-white p-3 text-black transition-colors"
                     style="top: 50%; transform: translateY(-50%)"
-                    aria-label="Next screenshot"
+                    ariaLabel="Next screenshot"
                 >
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
-                </button>
+                </Button>
             {/if}
         </div>
 
@@ -165,7 +180,10 @@
                     >
                         {#each screenshots as screenshot, i (i)}
                             {@const thumbUrl = screenshot.thumbnail_url || screenshot.url}
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                tone="neutral"
                                 onclick={(e) => {
                                     e.stopPropagation();
                                     index = i;
@@ -173,10 +191,10 @@
                                 class="flex-shrink-0 cursor-pointer overflow-hidden rounded transition-all duration-300 {i === index
                                     ? 'scale-110 border-4 border-white opacity-100 shadow-lg'
                                     : 'border-2 border-transparent opacity-60 hover:scale-105 hover:opacity-100'}"
-                                aria-label="Go to screenshot {i + 1}"
+                                ariaLabel="Go to screenshot {i + 1}"
                             >
                                 <img src={thumbUrl} alt={`Thumbnail ${i + 1}`} class="h-12 w-16 object-cover" />
-                            </button>
+                            </Button>
                         {/each}
                     </div>
                 </div>

@@ -7,6 +7,7 @@
     import { toast } from '@/utils/toast';
     import { Link } from '@inertiajs/svelte';
     import ItchioIcon from '@/components/icons/Itchio.svelte';
+    import { Button, Card } from '@/components/ui';
     import type { User, SocialAccount } from '@/types';
     interface NotificationPreferences {
         browser_notifications_enabled: boolean;
@@ -442,7 +443,10 @@
 <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
     <nav class="-mb-px flex space-x-6" aria-label="Dashboard tabs">
         {#each tabs as tab (tab.id)}
-            <button
+            <Button
+                type="button"
+                variant="link"
+                tone="info"
                 onclick={() => setTab(tab.id)}
                 class="flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
                     ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
@@ -454,7 +458,7 @@
                     ><path stroke-linecap="round" stroke-linejoin="round" d={tab.icon} /></svg
                 >
                 {tab.label}
-            </button>
+            </Button>
         {/each}
     </nav>
 </div>
@@ -467,7 +471,7 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-3">
             <!-- Profile Information -->
-            <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
                 <div class="flex items-center gap-4">
                     {#if user.avatar}
@@ -488,7 +492,10 @@
                 </div>
                 <div class="mt-4">
                     <div class="flex gap-3">
-                        <button
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="primary"
                             onclick={handleExportData}
                             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
                         >
@@ -501,7 +508,7 @@
                                 /></svg
                             >
                             Export My Data
-                        </button>
+                        </Button>
                         <Link
                             href={route('users.reviews', user.id)}
                             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
@@ -518,10 +525,10 @@
                         </Link>
                     </div>
                 </div>
-            </div>
+            </Card>
 
             <!-- Notification Settings -->
-            <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification Settings</h2>
                 <div class="space-y-4">
                     <div class="flex items-center gap-4">
@@ -533,7 +540,10 @@
                         </div>
                         <div class="flex items-center">
                             {#if typeof Notification !== 'undefined' && Notification.permission !== 'granted'}
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="solid"
+                                    tone="info"
                                     onclick={async () => {
                                         const result = await Notification.requestPermission();
                                         if (result === 'granted' && vapidPublicKey) {
@@ -543,7 +553,7 @@
                                     class="mr-3 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                                 >
                                     Request Permission
-                                </button>
+                                </Button>
                             {/if}
                             <label class="relative inline-flex cursor-pointer items-center">
                                 <input
@@ -621,7 +631,10 @@
                         <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">Choose how often you'd like to receive update notifications.</div>
                         <div class="grid grid-cols-3 gap-3">
                             {#each [{ value: 'asap', label: 'As soon as possible', desc: 'Get notified immediately when games are updated', icon: 'icon-bell' }, { value: 'daily', label: 'Daily digest', desc: 'Get a summary of all updates once per day', icon: 'icon-paste' }, { value: 'weekly', label: 'Weekly digest', desc: 'Get a summary of all updates once per week', icon: 'icon-paste' }] as freq (freq.value)}
-                                <button
+                                <Button
+                                    type="button"
+                                    variant={notifPrefs.notification_digest === freq.value ? 'outline' : 'outline'}
+                                    tone="info"
                                     onclick={() => updateDigest(freq.value)}
                                     disabled={savingPrefs}
                                     class="rounded-lg border-2 p-3 text-left text-sm transition-colors {notifPrefs.notification_digest === freq.value
@@ -640,30 +653,33 @@
                                             aria-hidden="true"
                                         ></i>
                                     </div>
-                                </button>
+                                </Button>
                             {/each}
                         </div>
                     </div>
                 </div>
-            </div>
+            </Card>
         </div>
 
         <div class="space-y-6 lg:col-span-2">
             <!-- Connected Accounts -->
-            <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Connected Accounts</h2>
                 <ConnectedAccounts {user} {connectedProviders} {socialAccounts} />
-            </div>
+            </Card>
 
             <!-- Danger Zone -->
-            <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-400">Danger Zone</h2>
                 <div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
                     <h3 class="text-sm font-semibold text-red-800 dark:text-red-300">Delete Account</h3>
                     <p class="mt-1 text-sm text-red-700 dark:text-red-400">
                         Once you delete your account, there is no going back. Please be certain.
                     </p>
-                    <button
+                    <Button
+                        type="button"
+                        variant="solid"
+                        tone="danger"
                         onclick={() => {
                             if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                                 // TODO: implement account deletion
@@ -672,9 +688,9 @@
                         class="mt-3 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                     >
                         Delete Account
-                    </button>
+                    </Button>
                 </div>
-            </div>
+            </Card>
         </div>
     </div>
 {/if}
@@ -716,9 +732,7 @@
                 {@const totalViews = gameStats?.page_views_unique || 0}
                 {@const totalDownloads = gameStats?.custom_link_clicks_unique || 0}
                 {@const itchioVisits = gameStats?.external_project_unique || 0}
-                <div
-                    class="overflow-hidden rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70"
-                >
+                <Card variant="glass" padding="none" class="overflow-hidden shadow-none">
                     <Link href={route('games.show', g.slug)} class="block">
                         {#if g.thumb_url}
                             <img
@@ -823,7 +837,7 @@
                             </Link>
                         </div>
                     </div>
-                </div>
+                </Card>
             {/each}
         </div>
 
@@ -837,7 +851,7 @@
 {#if activeTab === 'additions'}
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-2">
-            <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Request VN Addition</h2>
                 <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
                     Submit URLs for visual novels you'd like to see added to the site. We support itch.io, Steam, and other platforms. You can submit
@@ -855,19 +869,26 @@
                         ></textarea>
                     </div>
                     <div class="flex gap-2">
-                        <button
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="primary"
                             onclick={submitRequest}
                             disabled={submittingRequest || !requestText.trim()}
+                            loading={submittingRequest}
                             class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                         >
                             {submittingRequest ? 'Submitting...' : 'Submit Requests'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="soft"
+                            tone="neutral"
                             onclick={() => (requestText = '')}
                             class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
                         >
                             Clear
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 <div class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
@@ -880,11 +901,11 @@
                         <li>Duplicate requests are automatically handled</li>
                     </ul>
                 </div>
-            </div>
+            </Card>
         </div>
 
         <div class="space-y-6 lg:col-span-3">
-            <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg">
                 <div class="mb-6 flex items-center justify-between">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">My Requests</h2>
                     <span class="text-sm text-gray-500 dark:text-gray-400">{filteredRequests.length} request(s)</span>
@@ -941,9 +962,7 @@
                                         >
                                     {/if}
                                     {#if req.status === 'pending' || req.status === 'processing'}
-                                        <button onclick={() => cancelRequest(req.id)} class="text-xs text-red-600 hover:underline dark:text-red-400"
-                                            >Cancel</button
-                                        >
+                                        <Button type="button" variant="link" tone="danger" onclick={() => cancelRequest(req.id)}>Cancel</Button>
                                     {/if}
                                 </div>
                             </div>
@@ -964,7 +983,7 @@
                         <div class="text-xs text-gray-400 dark:text-gray-500">You haven't submitted any addition requests yet.</div>
                     </div>
                 {/if}
-            </div>
+            </Card>
         </div>
     </div>
 {/if}
@@ -977,7 +996,7 @@
         </p>
 
         <!-- Language Preferences -->
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg">
             <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Language Preferences</h2>
             <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
                 Set your preferred languages to auto-filter the games list. When set, the games page will show only games available in these languages
@@ -985,7 +1004,10 @@
             </p>
             <div class="flex flex-wrap gap-2">
                 {#each Object.entries(availableLanguages) as [iso, lang] (iso)}
-                    <button
+                    <Button
+                        type="button"
+                        variant={selectedLanguages.includes(iso) ? 'solid' : 'soft'}
+                        tone={selectedLanguages.includes(iso) ? 'primary' : 'neutral'}
                         onclick={() => toggleLanguagePreference(iso)}
                         class="rounded-full px-3 py-1 text-sm transition-colors {selectedLanguages.includes(iso)
                             ? 'bg-blue-600 text-white'
@@ -993,22 +1015,26 @@
                     >
                         <span class="fi fi-{lang.flag_code} mr-1 rounded-xs"></span>
                         {lang.ref_name}
-                    </button>
+                    </Button>
                 {/each}
             </div>
             <div class="mt-4">
-                <button
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="primary"
                     onclick={saveLanguagePreferences}
                     disabled={savingLanguages}
+                    loading={savingLanguages}
                     class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                     {savingLanguages ? 'Saving...' : 'Save Preferences'}
-                </button>
+                </Button>
             </div>
-        </div>
+        </Card>
 
         <!-- Excluded Tags -->
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg">
             <div class="mb-4 flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Excluded Tags</h2>
                 {#if excludedTags.length > 0}
@@ -1029,26 +1055,36 @@
             />
             <div class="flex max-h-64 flex-wrap gap-2 overflow-y-auto">
                 {#each filteredTags as [tagId, label] (tagId)}
-                    <button
+                    <Button
+                        type="button"
+                        variant={excludedTags.includes(Number(tagId)) ? 'solid' : 'soft'}
+                        tone={excludedTags.includes(Number(tagId)) ? 'danger' : 'neutral'}
                         onclick={() => toggleExcludedTag(Number(tagId))}
                         class="rounded-full px-3 py-1 text-sm transition-colors {excludedTags.includes(Number(tagId))
                             ? 'bg-red-600 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
                     >
                         {label}
-                    </button>
+                    </Button>
                 {/each}
             </div>
             <div class="mt-4 flex gap-2">
-                <button
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="primary"
                     onclick={saveExcludedTags}
                     disabled={savingExcludedTags}
+                    loading={savingExcludedTags}
                     class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                     {savingExcludedTags ? 'Saving...' : 'Save Preferences'}
-                </button>
+                </Button>
                 {#if excludedTags.length > 0}
-                    <button
+                    <Button
+                        type="button"
+                        variant="soft"
+                        tone="neutral"
                         onclick={() => {
                             excludedTags = [];
                             saveExcludedTags();
@@ -1056,13 +1092,13 @@
                         class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
                     >
                         Clear All
-                    </button>
+                    </Button>
                 {/if}
             </div>
-        </div>
+        </Card>
 
         <!-- Ignored Games -->
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg">
             <div class="mb-4 flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Ignored Games</h2>
                 <span class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
@@ -1079,8 +1115,7 @@
                             <Link href={route('games.show', game.slug)} class="truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
                                 >{game.name}</Link
                             >
-                            <button onclick={() => handleUnignoreGame(game.id)} class="ml-2 text-xs text-red-600 hover:underline dark:text-red-400"
-                                >Remove</button
+                            <Button type="button" variant="link" tone="danger" onclick={() => handleUnignoreGame(game.id)} class="ml-2">Remove</Button
                             >
                         </div>
                     {/each}
@@ -1102,6 +1137,6 @@
                     </div>
                 </div>
             {/if}
-        </div>
+        </Card>
     </div>
 {/if}

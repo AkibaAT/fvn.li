@@ -2,7 +2,8 @@
     import { page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
     import http from '@/utils/http';
-    import { isDialogBackdropClick } from '@/utils/dialog';
+    import { Badge, Button, Dialog, TextInput, Checkbox } from '@/components/ui';
+    import { formatListType, listTypeDotClass, listTypeTone } from '@/components/ui/tones';
 
     let {
         gameId,
@@ -40,7 +41,6 @@
     let isCreatingList = $state(false);
     let listStates = $state<Record<number, boolean>>({});
     let loadingStates = $state<Record<number, boolean>>({});
-    let dialogEl = $state<HTMLDialogElement | undefined>(undefined);
 
     let messageTimeout: ReturnType<typeof setTimeout>;
 
@@ -53,14 +53,6 @@
     $effect(() => {
         if (!isAuthenticated) return;
         notificationStatus = userProgress?.receive_updates ?? false;
-    });
-
-    $effect(() => {
-        if (showListDialog) {
-            dialogEl?.showModal();
-        } else {
-            dialogEl?.close();
-        }
     });
 
     const loadUserListsForDialog = async () => {
@@ -199,23 +191,6 @@
         }
     };
 
-    const getBadgeColor = (listType: string | null) => {
-        switch (listType) {
-            case 'reading':
-                return 'blue';
-            case 'completed':
-                return 'green';
-            case 'plan_to_read':
-                return 'yellow';
-            case 'on_hold':
-                return 'orange';
-            case 'dropped':
-                return 'red';
-            default:
-                return 'blue';
-        }
-    };
-
     const primaryListType = $derived(
         (() => {
             const priorityOrder = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
@@ -228,22 +203,13 @@
         })(),
     );
 
-    const badgeColor = $derived(getBadgeColor(primaryListType));
+    const badgeTone = $derived(listTypeTone(primaryListType ?? undefined));
     const userListsInGame = $derived(userLists.filter((list) => listStates[list.id]));
 
     const defaultListTypes = ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'];
     const customLists = $derived(allLists.filter((list) => list.type === 'custom' || !list.type).sort((a, b) => a.name.localeCompare(b.name)));
 
-    const handleDialogBackdropClick = (e: MouseEvent) => {
-        if (isDialogBackdropClick(dialogEl, e)) {
-            dialogEl?.close();
-            showListDialog = false;
-        }
-    };
-
-    const handleDialogCancel = (event: Event) => {
-        event.preventDefault();
-        dialogEl?.close();
+    const closeListDialog = () => {
         showListDialog = false;
     };
 </script>
@@ -253,31 +219,24 @@
         <!-- Fixed Top Controls Row -->
         <div class="flex flex-wrap gap-2">
             <!-- Manage Lists Button -->
-            <button
+            <Button
                 onclick={async () => {
                     showListDialog = true;
                     await loadUserListsForDialog();
                 }}
-                class="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                size="sm"
             >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 {userListsInGame.length > 0 ? 'Manage in Lists' : 'Add to Lists'}
-            </button>
+            </Button>
 
             <!-- User Lists Toggle Button -->
             {#if userListsInGame.length > 0}
-                <button
-                    onclick={() => (showUserLists = !showUserLists)}
-                    class="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                >
+                <Button onclick={() => (showUserLists = !showUserLists)} variant="soft" tone="neutral" size="sm">
                     <span>My Lists</span>
-                    <span
-                        class="rounded-full px-1.5 py-0.5 text-xs font-medium bg-{badgeColor}-100 text-{badgeColor}-800 dark:bg-{badgeColor}-900 dark:text-{badgeColor}-200"
-                    >
-                        {userListsInGame.length}
-                    </span>
+                    <Badge tone={badgeTone} size="sm">{userListsInGame.length}</Badge>
                     <svg
                         class="h-4 w-4 transition-transform {showUserLists ? 'rotate-180' : ''}"
                         fill="none"
@@ -286,7 +245,7 @@
                     >
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
-                </button>
+                </Button>
             {/if}
 
             <!-- Notifications Toggle -->
@@ -334,25 +293,13 @@
                                             {list.name}
                                         </a>
                                         <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            {list.type?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                            {formatListType(list.type)}
                                             {#if list.is_public}
-                                                <span
-                                                    class="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                                >
-                                                    Public
-                                                </span>
+                                                <Badge tone="primary" size="sm" class="ml-1">Public</Badge>
                                             {/if}
                                         </div>
                                     </div>
-                                    <span
-                                        class="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium bg-{getBadgeColor(
-                                            list.type,
-                                        )}-100 text-{getBadgeColor(list.type)}-800 dark:bg-{getBadgeColor(list.type)}-900 dark:text-{getBadgeColor(
-                                            list.type,
-                                        )}-200"
-                                    >
-                                        {list.type?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                                    </span>
+                                    <Badge tone={listTypeTone(list.type)} size="sm" class="flex-shrink-0">{formatListType(list.type)}</Badge>
                                 </div>
                             </div>
                         {/each}
@@ -362,30 +309,7 @@
         {/if}
 
         <!-- Comprehensive List Management Dialog -->
-        <dialog
-            bind:this={dialogEl}
-            oncancel={handleDialogCancel}
-            class="m-auto w-full max-w-md rounded-lg bg-white p-6 shadow-xl backdrop:backdrop-blur-md dark:bg-gray-800 dark:text-gray-100"
-            onclick={handleDialogBackdropClick}
-        >
-            <div class="mb-4 flex items-center justify-between overflow-hidden">
-                <h3 class="line-clamp-3 text-lg font-medium break-words text-gray-900 dark:text-white">
-                    Manage Lists for "{gameName}"
-                </h3>
-                <button
-                    onclick={() => {
-                        dialogEl?.close();
-                        showListDialog = false;
-                    }}
-                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    aria-label="Close dialog"
-                >
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-
+        <Dialog open={showListDialog} onClose={closeListDialog} title={`Manage Lists for "${gameName}"`} size="sm">
             <!-- Message Area -->
             <div class="mb-4 h-6 text-center text-sm">
                 {#if message}
@@ -403,23 +327,23 @@
                             {@const list = allLists.find((l) => l.type === listType)}
                             {@const isInList = list ? listStates[list.id] : false}
                             {@const isLoading = list ? loadingStates[list.id] : false}
-                            <button
+                            <Button
                                 onclick={() => handleDefaultListToggle(listType)}
                                 disabled={isLoading}
-                                class="flex w-full items-center justify-between px-4 py-2 text-left text-sm transition-colors {isInList
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}"
+                                variant={isInList ? 'solid' : 'soft'}
+                                tone={isInList ? 'primary' : 'neutral'}
+                                class="flex w-full items-center justify-between px-4 py-2 text-left text-sm"
                             >
                                 <div class="flex items-center gap-2">
-                                    <span>{listType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
-                                    <span class="h-3 w-3 rounded-full bg-{getBadgeColor(listType)}-500"></span>
+                                    <span>{formatListType(listType)}</span>
+                                    <span class="h-3 w-3 rounded-full {listTypeDotClass(listType)}"></span>
                                 </div>
                                 {#if isLoading}
                                     <span class="text-sm">Updating...</span>
                                 {:else if isInList}
                                     <span class="text-sm font-medium">Remove</span>
                                 {/if}
-                            </button>
+                            </Button>
                         {/each}
                     </div>
                 </div>
@@ -430,12 +354,12 @@
                         {#each customLists as list (list.id)}
                             {@const isInList = listStates[list.id]}
                             {@const isLoading = loadingStates[list.id]}
-                            <button
+                            <Button
                                 onclick={() => handleCustomListToggle(list.id)}
                                 disabled={isLoading}
-                                class="flex w-full items-center justify-between px-4 py-2 text-left text-sm transition-colors {isInList
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}"
+                                variant={isInList ? 'solid' : 'soft'}
+                                tone={isInList ? 'primary' : 'neutral'}
+                                class="flex w-full items-center justify-between px-4 py-2 text-left text-sm"
                             >
                                 <span>{list.name}</span>
                                 {#if isLoading}
@@ -443,43 +367,37 @@
                                 {:else if isInList}
                                     <span class="text-sm font-medium">Remove</span>
                                 {/if}
-                            </button>
+                            </Button>
                         {/each}
                     </div>
 
                     <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
                         <form onsubmit={handleCreateList}>
                             <div class="flex gap-2">
-                                <input
+                                <TextInput
                                     type="text"
                                     bind:value={newListName}
                                     placeholder="New list name"
-                                    class="flex-1 rounded-md border-0 bg-gray-100 px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
+                                    fieldClass="flex-1"
+                                    class="border-0 bg-gray-100 py-1 dark:bg-gray-700"
                                     required
                                 />
-                                <button
-                                    type="submit"
-                                    disabled={!newListName.trim() || isCreatingList}
-                                    class="rounded-md bg-blue-600 px-3 py-1 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
+                                <Button type="submit" disabled={!newListName.trim() || isCreatingList} size="sm">
                                     {isCreatingList ? 'Creating...' : 'Create & Add'}
-                                </button>
+                                </Button>
                             </div>
                             <div class="mt-2 flex items-center">
-                                <input
-                                    type="checkbox"
+                                <Checkbox
                                     id="is_public_{gameId}"
                                     bind:checked={newListIsPublic}
-                                    class="focus:ring-opacity-50 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:focus:ring-blue-600"
+                                    label="Make this list public"
+                                    class="dark:bg-gray-800"
                                 />
-                                <label for="is_public_{gameId}" class="ml-2 block text-xs text-gray-600 dark:text-gray-400">
-                                    Make this list public
-                                </label>
                             </div>
                         </form>
                     </div>
                 </div>
             </div>
-        </dialog>
+        </Dialog>
     </div>
 {/if}

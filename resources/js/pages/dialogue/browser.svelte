@@ -13,6 +13,7 @@
     } from '@/hooks/api';
     import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
     import { Link, page } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
 
     type InitialProps = {
         initial: {
@@ -275,7 +276,7 @@
             </Link>
         </div>
 
-        <div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg" class="mb-6">
             <div class="mb-4 flex items-center justify-between">
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     Dialogue Browser - {gameName}
@@ -377,8 +378,10 @@
             <!-- Controls -->
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center space-x-4">
-                    <button
+                    <Button
                         type="button"
+                        variant={showDuplicates ? 'soft' : 'soft'}
+                        tone={showDuplicates ? 'primary' : 'neutral'}
                         onclick={() => {
                             showDuplicates = !showDuplicates;
                         }}
@@ -395,7 +398,7 @@
                             />
                         </svg>
                         {showDuplicates ? 'Hide Duplicates' : 'Show Duplicates'}
-                    </button>
+                    </Button>
 
                     <div class="flex items-center space-x-2">
                         <select
@@ -455,42 +458,42 @@
                     </div>
                 </div>
             {/if}
-        </div>
+        </Card>
 
         <!-- Statistics card -->
-        <div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg" class="mb-6">
             <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">Version Statistics</h3>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
+                <Card variant="soft" padding="sm">
                     <div class="text-sm text-gray-500 dark:text-gray-400">Total Lines</div>
                     <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                         {summary.totalLines.toLocaleString()}
                     </div>
-                </div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
+                </Card>
+                <Card variant="soft" padding="sm">
                     <div class="text-sm text-gray-500 dark:text-gray-400">Total Words</div>
                     <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                         {summary.totalWords.toLocaleString()}
                     </div>
-                </div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
+                </Card>
+                <Card variant="soft" padding="sm">
                     <div class="text-sm text-gray-500 dark:text-gray-400">Characters</div>
                     <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                         {summary.uniqueCharacters.toLocaleString()}
                     </div>
-                </div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
+                </Card>
+                <Card variant="soft" padding="sm">
                     <div class="text-sm text-gray-500 dark:text-gray-400">Avg Words/Line</div>
                     <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                         {summary.avgWordsPerLine.toFixed(1)}
                     </div>
-                </div>
+                </Card>
             </div>
-        </div>
+        </Card>
 
         <!-- Word Cloud Section -->
         {#if versionId && wordFrequency.length > 0}
-            <div class="mb-6 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <Card padding="lg" class="mb-6">
                 <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">Common Words & Phrases</h3>
                 <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
                     The most frequently used words and phrases in the dialogue. Larger bubbles indicate higher frequency.
@@ -508,11 +511,11 @@
                         }}
                     />
                 </div>
-            </div>
+            </Card>
         {/if}
 
         <!-- Results Panel -->
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+        <Card padding="lg">
             {#if showDuplicates}
                 <div class="mb-4">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
@@ -537,7 +540,7 @@
                             </div>
                         {:else}
                             {#each duplicates as dupe (dupe.text_id)}
-                                <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                                <Card variant="outline" padding="sm">
                                     <div class="mb-3 flex items-center justify-between">
                                         <div class="font-medium text-gray-900 dark:text-gray-100">
                                             Appears {dupe.usage_count} times
@@ -574,7 +577,7 @@
                                             {/each}
                                         </div>
                                     </div>
-                                </div>
+                                </Card>
                             {/each}
                         {/if}
                     </div>
@@ -595,7 +598,7 @@
                     {:else}
                         <div class="space-y-3">
                             {#each searchResults as line (line.id)}
-                                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                <Card variant="outline" padding="sm">
                                     <div class="mb-3 text-gray-900 dark:text-gray-100">
                                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                                         {@html renderTrustedMarksOnly(line.highlighted_text)}
@@ -620,7 +623,7 @@
                                             </span>
                                         </div>
                                     {/if}
-                                </div>
+                                </Card>
                             {/each}
                         </div>
                     {/if}
@@ -651,6 +654,6 @@
                     </div>
                 {/if}
             {/if}
-        </div>
+        </Card>
     </div>
 </div>

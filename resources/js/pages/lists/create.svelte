@@ -1,7 +1,7 @@
 <script lang="ts">
     import { authenticatedFetch } from '@/utils/csrf';
-    import { Link } from '@inertiajs/svelte';
     import { router } from '@inertiajs/svelte';
+    import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
 
     interface Props {
         metaTags?: {
@@ -57,44 +57,21 @@
     </div>
 
     <!-- Form -->
-    <div class="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
+    <Card variant="glass">
         <form onsubmit={handleSubmit} class="space-y-6">
-            <!-- List Name -->
-            <div>
-                <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300"> List Name * </label>
-                <input
-                    type="text"
-                    id="name"
-                    bind:value={formData.name}
-                    required
-                    class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                    placeholder="Enter list name..."
-                />
-            </div>
+            <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
 
-            <!-- Description -->
-            <div>
-                <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300"> Description </label>
-                <textarea
-                    id="description"
-                    bind:value={formData.description}
-                    rows={4}
-                    class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                    placeholder="Optional description for your list..."
-                ></textarea>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Describe what this list is for (optional)</p>
-            </div>
+            <Textarea
+                id="description"
+                bind:value={formData.description}
+                rows={4}
+                label="Description"
+                placeholder="Optional description for your list..."
+                help="Describe what this list is for (optional)"
+            />
 
-            <!-- Public/Private Toggle -->
             <div>
-                <label class="flex items-center">
-                    <input
-                        type="checkbox"
-                        bind:checked={formData.is_public}
-                        class="focus:ring-opacity-50 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200"
-                    />
-                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300"> Make this list public </span>
-                </label>
+                <Checkbox bind:checked={formData.is_public} label="Make this list public" />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Public lists can be viewed by anyone, private lists are only visible to you
                 </p>
@@ -102,20 +79,11 @@
 
             <!-- Submit Buttons -->
             <div class="flex justify-end space-x-3 pt-4">
-                <Link
-                    href={route('lists.index')}
-                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                >
-                    Cancel
-                </Link>
-                <button
-                    type="submit"
-                    disabled={isLoading || !formData.name.trim()}
-                    class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                >
+                <Button href={route('lists.index')} variant="outline" tone="neutral">Cancel</Button>
+                <Button type="submit" disabled={isLoading || !formData.name.trim()} loading={isLoading}>
                     {isLoading ? 'Creating...' : 'Create List'}
-                </button>
+                </Button>
             </div>
         </form>
-    </div>
+    </Card>
 </div>

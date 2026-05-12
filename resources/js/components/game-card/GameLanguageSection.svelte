@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 
     let {
@@ -42,8 +43,12 @@
             >
                 {#each languages as language, index (language.iso_code)}
                     {@const isActive = selectedLanguages.includes(language.iso_code)}
-                    <button
-                        use:langRefAction={index}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        tone="neutral"
+                        size="xs"
+                        action={(node) => langRefAction(node as HTMLButtonElement, index)}
                         onclick={() => handleLanguage(language.iso_code)}
                         class="inline-flex cursor-pointer items-center rounded border px-1.5 py-1 text-xs transition-colors {isActive
                             ? 'border-indigo-700 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-700'
@@ -53,15 +58,19 @@
                         aria-pressed={isActive}
                     >
                         <span class="fi fi-{language.flag_code} rounded-xs"></span>
-                    </button>
+                    </Button>
                 {/each}
             </div>
             {#if hiddenLanguageCount > 0 || languagesExpanded}
-                <button
+                <Button
+                    type="button"
+                    variant="ghost"
+                    tone="neutral"
+                    size="icon-sm"
                     onclick={() => setLanguagesExpanded(!languagesExpanded)}
                     class="group flex h-6 w-6 flex-shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                     title={languagesExpanded ? 'Show less' : `Show ${hiddenLanguageCount} more languages`}
-                    aria-label={languagesExpanded ? 'Show less' : `Show ${hiddenLanguageCount} more languages`}
+                    ariaLabel={languagesExpanded ? 'Show less' : `Show ${hiddenLanguageCount} more languages`}
                 >
                     <svg
                         class="h-4 w-4 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 {languagesExpanded
@@ -74,7 +83,7 @@
                     >
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
-                </button>
+                </Button>
             {/if}
         </div>
     </div>

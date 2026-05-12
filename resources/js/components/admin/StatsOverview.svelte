@@ -1,5 +1,6 @@
 <script lang="ts">
     import Stars from '@/components/ui/Stars.svelte';
+    import { Card } from '@/components/ui';
     import { formatRelativeDateTime, getUserTimezone } from '@/utils/date-formatting';
 
     interface GameStats {
@@ -38,7 +39,7 @@
 
 <div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
     <!-- Game Stats -->
-    <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card>
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Games</h2>
         <dl class="grid grid-cols-2 gap-4">
             <div>
@@ -65,10 +66,10 @@
                 >
             </div>
         {/if}
-    </div>
+    </Card>
 
     <!-- Rating Stats -->
-    <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card>
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Ratings</h2>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             <!-- All Ratings -->
@@ -146,5 +147,5 @@
                 >
             </div>
         {/if}
-    </div>
+    </Card>
 </div>
