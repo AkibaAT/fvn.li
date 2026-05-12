@@ -1,5 +1,7 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import { Badge, Button, Card } from '@/components/ui';
+    import { formatListType, listTypeBorderClass, listTypeTone } from '@/components/ui/tones';
 
     export interface Game {
         id: number;
@@ -42,23 +44,6 @@
         user: User;
     }
 
-    const getListTypeColor = (type: string) => {
-        switch (type) {
-            case 'reading':
-                return 'blue';
-            case 'completed':
-                return 'green';
-            case 'plan_to_read':
-                return 'yellow';
-            case 'on_hold':
-                return 'orange';
-            case 'dropped':
-                return 'red';
-            default:
-                return 'gray';
-        }
-    };
-
     let {
         list,
         showUser = false,
@@ -77,7 +62,8 @@
         class?: string;
     } = $props();
 
-    const color = $derived(getListTypeColor(list.type));
+    const borderClass = $derived(listTypeBorderClass(list.type));
+    const typeTone = $derived(listTypeTone(list.type));
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return '';
@@ -149,10 +135,13 @@
     const entriesCount = $derived(list.entries_count ?? list.entries.length);
 </script>
 
-<div
+<Card
     role="article"
     aria-labelledby="list-title-{list.id}"
-    class="flex h-full flex-col overflow-hidden rounded-xl border-l-4 bg-white/70 shadow-lg backdrop-blur-xl transition-all duration-200 hover:shadow-xl dark:bg-gray-800/70 border-{color}-500 {className}"
+    variant="glass"
+    padding="none"
+    hover
+    class="flex h-full flex-col overflow-hidden border-l-4 {borderClass} {className}"
 >
     <div class="flex-grow p-6">
         <div class="mb-4 flex items-start justify-between gap-4">
@@ -181,24 +170,12 @@
                 {/if}
                 <div class="mb-2 flex items-center gap-2">
                     {#if !list.is_default}
-                        <span
-                            class="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-{color}-100 text-{color}-800 dark:bg-{color}-900/20 dark:text-{color}-400"
-                        >
-                            {list.type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </span>
+                        <Badge tone={typeTone} size="sm">{formatListType(list.type)}</Badge>
                     {/if}
                     {#if list.is_public}
-                        <span
-                            class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
-                        >
-                            Public
-                        </span>
+                        <Badge tone="primary" size="sm">Public</Badge>
                     {:else}
-                        <span
-                            class="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap text-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
-                        >
-                            Private
-                        </span>
+                        <Badge tone="orange" size="sm">Private</Badge>
                     {/if}
                 </div>
                 <h2 id="list-title-{list.id}" class="mb-2 truncate text-xl font-semibold text-gray-900 dark:text-white">
@@ -246,9 +223,12 @@
                             {index + 1}/{total}
                         </div>
                         {#if total > 1}
-                            <button
+                            <Button
                                 onclick={goPrev}
                                 aria-label="Previous"
+                                variant="ghost"
+                                tone="neutral"
+                                size="icon-sm"
                                 class="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-black/60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white/80"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
@@ -258,10 +238,13 @@
                                         clip-rule="evenodd"
                                     />
                                 </svg>
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onclick={goNext}
                                 aria-label="Next"
+                                variant="ghost"
+                                tone="neutral"
+                                size="icon-sm"
                                 class="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-black/60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white/80"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
@@ -271,7 +254,7 @@
                                         clip-rule="evenodd"
                                     />
                                 </svg>
-                            </button>
+                            </Button>
                         {/if}
                     </div>
                 </Link>
@@ -325,15 +308,15 @@
             {/if}
             {#if showActions && isOwner}
                 {#if onToggleVisibility}
-                    <button
+                    <Button
                         onclick={handleToggleVisibility}
                         disabled={isToggling}
-                        class="{list.is_public
-                            ? 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
-                            : 'text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300'} text-sm font-medium transition-colors disabled:opacity-50"
+                        variant="link"
+                        tone={list.is_public ? 'primary' : 'neutral'}
+                        size="sm"
                     >
                         {isToggling ? 'Updating...' : list.is_public ? 'Make Private' : 'Make Public'}
-                    </button>
+                    </Button>
                 {/if}
                 <Link
                     href={route('lists.edit', list.id)}
@@ -342,14 +325,9 @@
                     Edit
                 </Link>
                 {#if !list.is_default && onDelete}
-                    <button
-                        onclick={handleDelete}
-                        class="text-sm font-medium text-red-600 transition-colors hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                        Delete
-                    </button>
+                    <Button onclick={handleDelete} variant="link" tone="danger" size="sm">Delete</Button>
                 {/if}
             {/if}
         </div>
     </div>
-</div>
+</Card>
