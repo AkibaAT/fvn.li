@@ -2,8 +2,7 @@
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
-    import Stars from '@/components/ui/Stars.svelte';
-    import PlatformIcon from '@/components/ui/PlatformIcon.svelte';
+    import { Card, Checkbox, PlatformIcon, Select, Stars } from '@/components/ui';
     import { Link, router } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
@@ -168,7 +167,7 @@
     </div>
 
     <!-- Stats header -->
-    <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+    <Card padding="lg" class="shadow">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Global Rating Statistics</h2>
             <div class="text-sm text-gray-500 dark:text-gray-400">
@@ -231,69 +230,61 @@
                 {/each}
             </div>
         </div>
-    </div>
+    </Card>
 
     <ReviewTextControls />
 
     <!-- Filters and sorting -->
-    <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+    <Card padding="sm" class="shadow">
         <div class="flex flex-wrap items-center gap-4">
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input
-                    type="checkbox"
-                    bind:checked={showOnlyReviews}
-                    onchange={() => {
-                        pageNum = 1;
-                    }}
-                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                />
-                Reviews only
-            </label>
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input
-                    type="checkbox"
-                    bind:checked={showOnlyVisibleGames}
-                    onchange={() => {
-                        pageNum = 1;
-                    }}
-                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                />
-                Listed games only
-            </label>
+            <Checkbox
+                label="Reviews only"
+                bind:checked={showOnlyReviews}
+                onchange={() => {
+                    pageNum = 1;
+                }}
+            />
+            <Checkbox
+                label="Listed games only"
+                bind:checked={showOnlyVisibleGames}
+                onchange={() => {
+                    pageNum = 1;
+                }}
+            />
             <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <span>Platform:</span>
-                <select
+                <Select
                     bind:value={platform}
                     onchange={() => {
                         pageNum = 1;
                     }}
-                    class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    class="py-1"
                 >
                     <option value="">Any</option>
                     <option value="itch_io">itch.io</option>
                     <option value="steam">Steam</option>
-                </select>
+                </Select>
             </div>
             <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <span>Stars:</span>
-                <select
+                <Select
                     value={stars}
                     onchange={(e) => {
                         const v = (e.target as HTMLSelectElement).value;
                         stars = v === '' ? '' : (Number(v) as number);
                         pageNum = 1;
                     }}
-                    class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    class="py-1"
                 >
                     <option value="">Any</option>
                     {#each [5, 4, 3, 2, 1] as r (r)}
                         <option value={r}>{r} Stars</option>
                     {/each}
-                </select>
+                </Select>
             </div>
             <div class="ml-auto flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <span>Sort by:</span>
-                <select
+                <Select
                     value={`${sortField}:${sortDirection}`}
                     onchange={(e) => {
                         const [f, d] = (e.target as HTMLSelectElement).value.split(':');
@@ -301,18 +292,18 @@
                         sortDirection = d as any;
                         pageNum = 1;
                     }}
-                    class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    class="py-1"
                 >
                     <option value="published_at:desc">Newest</option>
                     <option value="published_at:asc">Oldest</option>
                     <option value="rating:desc">Rating: High to Low</option>
                     <option value="rating:asc">Rating: Low to High</option>
-                </select>
+                </Select>
             </div>
         </div>
-    </div>
+    </Card>
 
-    <div class="rounded-lg bg-white shadow dark:bg-gray-800">
+    <Card padding="none" class="shadow">
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
             {#if !ratings || ratings.data.length === 0}
                 <div class="p-6 text-gray-500 dark:text-gray-400">No ratings yet</div>
@@ -378,5 +369,5 @@
                 {buildPageUrl}
             />
         </div>
-    </div>
+    </Card>
 </div>

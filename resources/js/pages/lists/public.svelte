@@ -5,6 +5,7 @@
     import type { VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
     import { Link, router } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
 
     interface FilterGame {
         id: number;
@@ -191,23 +192,28 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 {#if currentSearch}
-                    <button
+                    <Button
                         type="button"
+                        variant="ghost"
+                        tone="neutral"
+                        size="icon-sm"
                         onclick={clearSearch}
                         class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        aria-label="Clear search"
+                        ariaLabel="Clear search"
                     >
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                             ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg
                         >
-                    </button>
+                    </Button>
                 {/if}
             </div>
-            <button
+            <Button
                 type="submit"
+                variant="solid"
+                tone="primary"
                 disabled={isLoading}
                 class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                >Search</button
+                >Search</Button
             >
         </form>
         <div class="flex items-center gap-2">
@@ -232,7 +238,7 @@
         <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span>Showing results for:</span>
             <span class="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">"{currentSearch}"</span>
-            <button onclick={clearSearch} class="text-blue-600 hover:underline dark:text-blue-400">Clear</button>
+            <Button type="button" variant="link" tone="primary" onclick={clearSearch}>Clear</Button>
         </div>
     {/if}
 
@@ -242,7 +248,11 @@
             <Link href={route('games.show', filterGame.slug)} class="font-medium text-purple-700 hover:underline dark:text-purple-300"
                 >{filterGame.name}</Link
             >
-            <button
+            <Button
+                type="button"
+                variant="ghost"
+                tone="primary"
+                size="icon-sm"
                 onclick={clearGameFilter}
                 class="ml-auto rounded-full p-1 text-purple-600 hover:bg-purple-100 dark:text-purple-400"
                 title="Clear filter"
@@ -250,11 +260,11 @@
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                     ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg
                 >
-            </button>
+            </Button>
         </div>
     {/if}
 
-    <div class="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
+    <Card variant="glass" padding="lg">
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
             {#each tabs as tab (tab.key)}
                 <Link
@@ -271,7 +281,7 @@
                 </Link>
             {/each}
         </div>
-    </div>
+    </Card>
 
     {#if localLists.length > 0}
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button, Card } from '@/components/ui';
     import { toast } from '@/utils/toast';
 
     let isDeleting = $state(false);
@@ -42,7 +43,7 @@
     }
 </script>
 
-<div class="rounded-2xl border border-red-200/50 bg-white/70 shadow-lg backdrop-blur-xl dark:border-red-800/50 dark:bg-gray-800/70">
+<Card variant="glass" padding="none" class="border-red-200/50 dark:border-red-800/50">
     <div class="p-6">
         <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-500">Danger Zone</h2>
 
@@ -51,9 +52,12 @@
             <p class="mb-4 text-sm text-red-700 dark:text-red-300">Once you delete your account, there is no going back. Please be certain.</p>
 
             <form onsubmit={handleDeleteAccount}>
-                <button
+                <Button
                     type="submit"
+                    variant="solid"
+                    tone="danger"
                     disabled={isDeleting}
+                    loading={isDeleting}
                     class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {#if isDeleting}
@@ -70,8 +74,8 @@
                         </svg>
                         Delete Account
                     {/if}
-                </button>
+                </Button>
             </form>
         </div>
     </div>
-</div>
+</Card>

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { authenticatedFetch } from '@/utils/csrf';
     import { toast } from '@/utils/toast';
+    import { Button, Card } from '@/components/ui';
     import { resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';
 
     function getThumbnailUrl(screenshot: Screenshot): string {
@@ -88,7 +89,7 @@
 </script>
 
 {#if (displayedScreenshots && displayedScreenshots.length > 0) || canEdit}
-    <div id="screenshots" class="mb-6 scroll-mt-28 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+    <Card id="screenshots" class="mb-6 scroll-mt-28">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Screenshots</h2>
             {#if canEdit}
@@ -172,9 +173,11 @@
                             <div class="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
                         </a>
                         {#if canEdit}
-                            <button
+                            <Button
                                 onclick={() => handleScreenshotDelete(index)}
                                 disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
+                                tone="danger"
+                                size="icon-sm"
                                 class="absolute top-2 right-2 z-10 rounded-full bg-red-600 p-2 text-white shadow-lg transition-colors hover:bg-red-700 disabled:cursor-wait disabled:opacity-70"
                                 aria-label="Delete screenshot"
                             >
@@ -197,7 +200,7 @@
                                         />
                                     </svg>
                                 {/if}
-                            </button>
+                            </Button>
                         {/if}
                     </div>
                 {/each}
@@ -215,5 +218,5 @@
                 <p class="mt-2">No screenshots yet. Click "Add Screenshots" to upload some.</p>
             </div>
         {/if}
-    </div>
+    </Card>
 {/if}

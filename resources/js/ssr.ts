@@ -4,7 +4,7 @@ import createServer from '@inertiajs/svelte/server';
 import { render } from 'svelte/server';
 import { route as ziggyRoute } from 'ziggy-js';
 import type { Config as ZiggyConfig } from 'ziggy-js';
-import PersistentLayout from '@/layouts/PersistentLayout.svelte';
+import AppFrame from '@/layouts/AppFrame.svelte';
 
 const appName = import.meta.env.VITE_APP_NAME || 'FVN.li';
 
@@ -48,7 +48,7 @@ createServer((page) => {
             const pages = import.meta.glob<ResolvedComponent>('./pages/**/*.svelte', { eager: true });
             const resolved = pages[`./pages/${name}.svelte`] as any;
 
-            return { ...resolved, layout: resolved?.layout || PersistentLayout };
+            return { ...resolved, layout: resolved?.layout || AppFrame };
         },
         title: (title) => (title ? `${title} - ${appName}` : appName),
         setup({ App, props }) {

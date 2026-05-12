@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import { Badge, Button, Card } from '@/components/ui';
 
     interface GameSummary {
         id: number;
@@ -41,15 +42,12 @@
 <div class="space-y-8">
     <div class="flex items-center justify-between">
         <h1 class="text-3xl font-bold text-blue-600">Manage My Games</h1>
-        <Link
-            href={route('dashboard')}
-            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
+        <Button href={route('dashboard')} variant="outline" tone="neutral">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
             </svg>
             Back to Dashboard
-        </Link>
+        </Button>
     </div>
 
     {#if !hasItchio}
@@ -64,10 +62,7 @@
                         After connecting, we'll show your owned games here for quick editing and analytics.
                     </div>
                 </div>
-                <a
-                    href={route('auth.redirect', { provider: 'itchio', intended: route('my-games.index') })}
-                    class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">Connect itch.io</a
-                >
+                <Button href={route('auth.redirect', { provider: 'itchio', intended: route('my-games.index') })} size="sm">Connect itch.io</Button>
             </div>
         </div>
     {/if}
@@ -92,9 +87,7 @@
             {@const totalViews = gameStats?.page_views_unique || 0}
             {@const totalDownloads = gameStats?.custom_link_clicks_unique || 0}
             {@const itchioVisits = gameStats?.external_project_unique || 0}
-            <div
-                class="overflow-hidden rounded-xl border border-gray-200/50 bg-white/70 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70"
-            >
+            <Card variant="glass" padding="none" class="overflow-hidden">
                 <Link href={route('games.show', g.slug)} class="block">
                     {#if g.thumb_url}
                         <img
@@ -118,9 +111,9 @@
                 <div class="space-y-2 p-4">
                     <div class="font-semibold text-gray-900 dark:text-white">{g.name}</div>
                     {#if g.has_additional_links}
-                        <div class="text-xs text-green-600 dark:text-green-400">Has download links</div>
+                        <Badge tone="success" size="sm">Has download links</Badge>
                     {:else}
-                        <div class="text-xs text-gray-500 dark:text-gray-400">No download links</div>
+                        <Badge tone="neutral" size="sm">No download links</Badge>
                     {/if}
 
                     {#if gameStats && (totalViews > 0 || totalDownloads > 0 || itchioVisits > 0)}
@@ -177,10 +170,7 @@
                     {/if}
 
                     <div class="pt-2">
-                        <Link
-                            href={route('my-games.edit', { game: g.slug })}
-                            class="inline-flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-                        >
+                        <Button href={route('my-games.edit', { game: g.slug })} size="sm">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                 <path
                                     stroke-linecap="round"
@@ -190,10 +180,10 @@
                                 />
                             </svg>
                             <span>Edit</span>
-                        </Link>
+                        </Button>
                     </div>
                 </div>
-            </div>
+            </Card>
         {/each}
     </div>
 
