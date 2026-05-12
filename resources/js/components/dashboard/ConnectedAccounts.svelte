@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
+    import { Button } from '@/components/ui';
     import type { SocialAccount, User } from '@/types';
     import { toast } from '@/utils/toast';
 
@@ -137,7 +138,11 @@
                                 </div>
                             {/if}
                             <span class="text-sm font-medium text-green-500"> Connected </span>
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                tone="danger"
+                                size="icon-sm"
                                 onclick={() => handleDisconnect(provider)}
                                 class="ml-2 text-red-500 transition-colors hover:text-red-600"
                                 title="Unlink {config.name} account"
@@ -150,15 +155,18 @@
                                         d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                                     />
                                 </svg>
-                            </button>
+                            </Button>
                         </div>
                     {:else}
-                        <button
+                        <Button
+                            type="button"
+                            variant="link"
+                            tone="primary"
                             onclick={() => handleConnect(provider)}
                             class="text-sm font-medium text-blue-500 transition-colors hover:text-blue-600"
                         >
                             Connect
-                        </button>
+                        </Button>
                     {/if}
                 </div>
             </div>

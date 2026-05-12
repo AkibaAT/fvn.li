@@ -10,6 +10,7 @@
     import GameStatusBadge from './game-card/GameStatusBadge.svelte';
     import GameContentBadge from './game-card/GameContentBadge.svelte';
     import StorePlatformBadge from './game-card/StorePlatformBadge.svelte';
+    import { Button, Card } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
     import { usePlatformIcons } from '@/hooks/usePlatformIcons';
     import { useStorePlatformIcons } from '@/hooks/useStorePlatformIcons';
@@ -94,16 +95,22 @@
     );
 </script>
 
-<div
+<Card
+    variant="glass"
+    padding="none"
+    hover
     class="group relative flex {fixedHeight
         ? 'h-[43rem]'
-        : 'h-full'} flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl dark:border-gray-700/50 dark:bg-gray-800/70"
+        : 'h-full'} flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
 >
     <!-- Ignore Button - Only show for authenticated users -->
     {#if auth?.user}
-        <button
+        <Button
             onclick={handleIgnoreToggle}
             disabled={isTogglingIgnore}
+            variant="ghost"
+            tone={isIgnored ? 'danger' : 'neutral'}
+            size="icon-md"
             class="absolute top-2 right-2 z-10 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
             title={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
             aria-label={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
@@ -126,7 +133,7 @@
                     />
                 </svg>
             {/if}
-        </button>
+        </Button>
     {/if}
 
     <!-- Cover Image -->
@@ -207,4 +214,4 @@
             {/if}
         </div>
     </div>
-</div>
+</Card>

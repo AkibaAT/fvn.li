@@ -1,5 +1,6 @@
 <script lang="ts">
     import { tick } from 'svelte';
+    import { Button, Checkbox, TextInput } from '@/components/ui';
     import type { Snippet } from 'svelte';
 
     interface SelectItem {
@@ -151,17 +152,20 @@
                             {:else}
                                 {label}
                             {/if}
-                            <button
+                            <Button
                                 type="button"
+                                variant="ghost"
+                                tone="neutral"
+                                size="icon-sm"
                                 onclick={(e) => {
                                     e.stopPropagation();
                                     onToggle(value);
                                 }}
-                                class="ml-1 inline-flex h-3 w-3 items-center justify-center rounded-full hover:opacity-80 focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                                aria-label="Remove {label}"
+                                class="ml-1 h-3 w-3 rounded-full hover:opacity-80 focus:ring-1 focus:ring-blue-500"
+                                ariaLabel="Remove {label}"
                             >
                                 <span aria-hidden="true">&times;</span>
-                            </button>
+                            </Button>
                         </span>
                     {/each}
                 </span>
@@ -195,11 +199,10 @@
         >
             <!-- Search -->
             <div class="p-2">
-                <input
-                    type="text"
+                <TextInput
                     bind:value={search}
                     placeholder="Search {title.toLowerCase()}..."
-                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    class="px-2 py-1"
                     aria-label="Search {title.toLowerCase()}"
                 />
             </div>
@@ -225,12 +228,11 @@
                                 }
                             }}
                         >
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={selectedItems.includes(value)}
                                 onclick={(e) => e.stopPropagation()}
                                 onchange={() => onToggle(value)}
-                                class="mr-2 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                class="mr-2 focus:ring-2"
                                 aria-label="Select {getDisplayLabel(value, item)}"
                             />
                             <span class="text-sm text-gray-700 dark:text-gray-300">

@@ -17,14 +17,11 @@
     let { children, title }: Props = $props();
 
     const FULL_WIDTH_PAGES = new Set(['home', 'games/route-map']);
-    let isFullWidth = $derived(FULL_WIDTH_PAGES.has(((page as any)?.component ?? '') as string));
+    let isFullWidth = $derived(FULL_WIDTH_PAGES.has(($page as any).component as string));
+    const flash = $derived((($page.props as any).flash ?? {}) as { message?: string; error?: string });
 
-    const flash = $derived((((page as any)?.props?.flash as any) ?? {}) as { message?: string; error?: string });
-
-    // Initialize route accessibility for Inertia.js navigation announcements
     useRouteAccessibility();
 
-    // Central title suffix — ensures every page title ends with " - FVN.li"
     const SITE_SUFFIX = ' - FVN.li';
     onMount(() => {
         const ensureSuffix = () => {
@@ -42,17 +39,11 @@
         return () => observer.disconnect();
     });
 
-    // Emit toasts from flash props when they change
     $effect(() => {
-        if (flash?.message) {
-            notify(String(flash.message), 'success');
-        }
-        if (flash?.error) {
-            notify(String(flash.error), 'error');
-        }
+        if (flash?.message) notify(String(flash.message), 'success');
+        if (flash?.error) notify(String(flash.error), 'error');
     });
 
-    // Minimal service worker registration for push support
     onMount(() => {
         if (!('serviceWorker' in navigator)) return;
         navigator.serviceWorker
@@ -65,8 +56,6 @@
             .catch(() => {});
     });
 
-    // Lightweight focus handling: only restore focus if it was previously focused
-    // and is still present; do not steal focus during partial reloads.
     onMount(() => {
         let lastFocusedId: string | null = null;
 
@@ -98,7 +87,6 @@
         };
     });
 
-    // If a search is in progress on the games page, avoid overriding focus
     onMount(() => {
         let searching = false;
 
@@ -137,7 +125,6 @@
     {/if}
 </svelte:head>
 
-<!-- Skip to main content link for keyboard users -->
 <a
     href="#main-content"
     class="sr-only bg-blue-600 px-4 py-2 font-medium text-white shadow-lg focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
@@ -146,13 +133,9 @@
 </a>
 
 <div class="flex min-h-screen flex-col bg-gray-50 dark:bg-[#060a16]">
-    <!-- Header -->
     <Header />
-
-    <!-- Flash Messages -->
     <FlashMessages message={flash?.message} error={flash?.error} />
 
-    <!-- Modern Main Content -->
     <main id="main-content" class="main-content flex-1 scroll-mt-28 {isFullWidth ? 'full-width' : 'py-8'}" aria-label="Main content">
         {#if isFullWidth}
             {@render children()}
@@ -161,11 +144,9 @@
         {/if}
     </main>
 
-    <!-- Footer -->
     <Footer />
 </div>
 
-<!-- Global Toast Container -->
 <Toast />
 
 <style>

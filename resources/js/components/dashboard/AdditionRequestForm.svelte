@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button, Card } from '@/components/ui';
     import { submitAdditionRequests, type SubmissionResult } from '@/hooks/api/useAdditionRequests';
     import { toast } from '@/utils/toast';
 
@@ -68,7 +69,7 @@
     }
 </script>
 
-<div class="rounded-2xl border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+<Card variant="glass" padding="none">
     <div class="p-6">
         <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Request Game Additions</h2>
 
@@ -143,9 +144,10 @@
             </div>
 
             <div class="flex gap-3">
-                <button
+                <Button
                     type="submit"
                     disabled={isSubmitting || !urls.trim()}
+                    loading={isSubmitting}
                     class="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white shadow-md transition-all duration-200 hover:bg-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {#if isSubmitting}
@@ -156,16 +158,18 @@
                     {:else}
                         Submit Requests
                     {/if}
-                </button>
+                </Button>
 
-                <button
+                <Button
                     type="button"
+                    variant="soft"
+                    tone="neutral"
                     onclick={clearForm}
                     class="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
                 >
                     Clear
-                </button>
+                </Button>
             </div>
         </form>
     </div>
-</div>
+</Card>

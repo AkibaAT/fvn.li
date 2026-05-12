@@ -1,6 +1,7 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
+    import { Card } from '@/components/ui';
     import { Link } from '@inertiajs/svelte';
 
     interface Author {
@@ -91,9 +92,9 @@
 
 <!-- News List -->
 {#if news.data.length === 0}
-    <div class="rounded-lg bg-white p-12 text-center shadow-sm dark:bg-gray-800">
+    <Card padding="lg" class="p-12 text-center">
         <p class="text-lg text-gray-600 dark:text-gray-400">No news items available at this time.</p>
-    </div>
+    </Card>
 {:else}
     <div class="space-y-8">
         {#each news.data as item (item.id)}
