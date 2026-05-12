@@ -97,7 +97,7 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
             {#if reviewUser.avatar}
-                <img src={reviewUser.avatar} alt="" class="h-10 w-10 rounded-full" />
+                <img src={reviewUser.avatar} alt="" aria-hidden="true" class="h-10 w-10 rounded-full" />
             {/if}
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{reviewUser.name}'s Reviews</h1>
@@ -191,7 +191,11 @@
                             </div>
                             {#if review.published_at}
                                 <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                    {new Date(review.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {new Date(review.published_at).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                    })}
                                 </div>
                             {/if}
                             {#if review.review && review.is_reviewed}

@@ -2,6 +2,7 @@
     import { Link } from '@inertiajs/svelte';
     import { Badge, Button, Card } from '@/components/ui';
     import { formatListType, listTypeBorderClass, listTypeTone } from '@/components/ui/tones';
+    import { gameCoverAltText } from '@/utils/imageAltText';
 
     export interface Game {
         id: number;
@@ -209,7 +210,7 @@
                         {#if getThumb(currentGame)}
                             <img
                                 src={getThumb(currentGame)}
-                                alt={currentGame.effective_name}
+                                alt={gameCoverAltText(currentGame.effective_name)}
                                 title={currentGame.effective_name}
                                 class="h-full w-full {currentGame.platform === 'steam'
                                     ? 'object-contain'
@@ -320,7 +321,7 @@
                 {/if}
                 <Link
                     href={route('lists.edit', list.id)}
-                    class="text-sm font-medium text-yellow-600 transition-colors hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
+                    class="text-sm font-medium text-amber-700 transition-colors hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200"
                 >
                     Edit
                 </Link>

@@ -20,6 +20,7 @@
     import SeoHead, { createGameMetaTags } from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
     import { formatLocalDate } from '@/utils/date-formatting';
+    import { gameCoverAltText } from '@/utils/imageAltText';
     import { escapeStyleElementText } from '@/utils/style-html';
     import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail, fetchVersionComparison } from '@/hooks/api';
 
@@ -205,7 +206,13 @@
         external_project_total: number;
         external_project_unique: number;
         last_external_project?: string;
-        custom_links?: Array<{ link_id: string; link_name: string; total_clicks: number; unique_clicks: number; last_click?: string }>;
+        custom_links?: Array<{
+            link_id: string;
+            link_name: string;
+            total_clicks: number;
+            unique_clicks: number;
+            last_click?: string;
+        }>;
     }
     interface EditPermissions {
         canEdit: boolean;
@@ -869,7 +876,7 @@
             <div class="group relative shrink-0">
                 <img
                     src={currentThumbnail}
-                    alt={game.name}
+                    alt={gameCoverAltText(game.name)}
                     class="max-h-52 max-w-64 rounded-lg {game.platform === 'steam' ? 'object-contain' : 'object-cover'}"
                 />
                 {#if editPermissions.canEdit}
@@ -1107,14 +1114,17 @@
                                 </p>
                             {/if}
                             {#if jam.theme}
-                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><span class="font-medium">Theme:</span> {jam.theme}</p>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                    <span class="font-medium">Theme:</span>
+                                    {jam.theme}
+                                </p>
                             {/if}
                             {#if jam.submission_count}
                                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                                     <span class="font-medium">Submissions:</span>
                                     {jam.submission_count.toLocaleString()}
                                     {#if jam.participant_count}
-                                        <span class="ml-1 text-gray-500 dark:text-gray-500"
+                                        <span class="ml-1 text-gray-600 dark:text-gray-400"
                                             >({jam.participant_count.toLocaleString()} participants)</span
                                         >
                                     {/if}
@@ -1154,7 +1164,7 @@
                                 </div>
                             {/if}
                             {#if jam.host}
-                                <p class="mt-2 text-xs text-gray-500 dark:text-gray-500">Hosted by {jam.host}</p>
+                                <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">Hosted by {jam.host}</p>
                             {/if}
                         </div>
                     {/each}
@@ -1171,6 +1181,7 @@
         onOpenLightbox={openLightbox}
         canEdit={editPermissions.canEdit && !previewingVisitorView}
         gameSlug={game.slug}
+        gameName={game.name}
         onUpdate={handleMediaUpdate}
     />
 {/if}
@@ -1383,7 +1394,7 @@
                                 </div>
                             </div>
                             <div class="flex w-full items-center text-sm whitespace-nowrap sm:w-auto">
-                                <span class="text-gray-500">Words:</span>
+                                <span class="text-gray-700 dark:text-gray-300">Words:</span>
                                 <span class="ml-1 text-gray-900 dark:text-gray-100">{getVersionWordCount(version)}</span>
                             </div>
                         </div>
@@ -1528,7 +1539,7 @@
                             <span class="font-medium text-gray-900 dark:text-gray-100">
                                 <Link href={getReviewAuthorHref(review)} class="flex items-center gap-1 hover:underline">
                                     {#if review.user?.avatar}
-                                        <img src={review.user.avatar} alt="" class="h-5 w-5 rounded-full" />
+                                        <img src={review.user.avatar} alt="" aria-hidden="true" class="h-5 w-5 rounded-full" />
                                     {/if}
                                     {review.user?.name || review.rater.name}
                                     {#if review.user}
@@ -1700,7 +1711,7 @@
                         {#if sg.thumb_url}
                             <img
                                 src={sg.thumb_url}
-                                alt={sg.name}
+                                alt={gameCoverAltText(sg.name)}
                                 class="h-full w-full {sg.platform === 'steam' ? 'object-contain' : 'object-cover'}"
                                 loading="lazy"
                             />
@@ -1764,7 +1775,7 @@
                         {#if dg.thumb_url}
                             <img
                                 src={dg.thumb_url}
-                                alt={dg.name}
+                                alt={gameCoverAltText(dg.name)}
                                 class="h-full w-full {dg.platform === 'steam' ? 'object-contain' : 'object-cover'}"
                                 loading="lazy"
                             />
@@ -1813,7 +1824,13 @@
 {/if}
 
 {#if isLightboxOpen}
-    <ScreenshotsLightbox isOpen={isLightboxOpen} screenshots={currentScreenshots} startIndex={lightboxIndex} onClose={closeLightbox} />
+    <ScreenshotsLightbox
+        isOpen={isLightboxOpen}
+        screenshots={currentScreenshots}
+        startIndex={lightboxIndex}
+        gameName={game.name}
+        onClose={closeLightbox}
+    />
 {/if}
 
 {#if reportingReviewId}
