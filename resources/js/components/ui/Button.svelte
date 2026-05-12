@@ -88,7 +88,7 @@
             outline:
                 'border border-red-200 bg-white text-red-700 hover:bg-red-50 focus:ring-red-500 dark:border-red-700/60 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/50',
             ghost: 'text-red-700 hover:bg-red-50 focus:ring-red-500 dark:text-red-300 dark:hover:bg-red-950/50',
-            link: 'rounded-none p-0 text-red-600 hover:text-red-700 hover:underline focus:ring-red-500 dark:text-red-400 dark:hover:text-red-300',
+            link: 'rounded-none p-0 text-red-600 hover:text-red-700 hover:underline focus:ring-red-500 dark:text-red-300 dark:hover:text-red-200',
         },
         success: {
             solid: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 dark:bg-green-600 dark:hover:bg-green-500',

@@ -40,12 +40,12 @@
         },
         warning: {
             soft: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-            solid: 'bg-amber-600 text-white',
+            solid: 'bg-amber-700 text-white',
             outline: 'border border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-300',
         },
         danger: {
             soft: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-            solid: 'bg-red-600 text-white',
+            solid: 'bg-red-700 text-white',
             outline: 'border border-red-300 text-red-700 dark:border-red-700 dark:text-red-300',
         },
         info: {
@@ -55,7 +55,7 @@
         },
         orange: {
             soft: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-            solid: 'bg-orange-600 text-white',
+            solid: 'bg-orange-700 text-white',
             outline: 'border border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300',
         },
         purple: {

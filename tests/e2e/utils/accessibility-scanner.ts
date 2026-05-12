@@ -44,33 +44,33 @@ export interface AccessibilityScanResult {
  */
 export interface ScannerConfig {
   /**
-   * Rules to run (default: all WCAG 2.1 Level AA rules)
+   * Rules to run (default: all WCAG 2.2 Level AA rules supported by axe)
    */
   runOnly?: {
     type: 'tag' | 'rule';
     values: string[];
   };
-  
+
   /**
    * Rules to disable
    */
   disabledRules?: string[];
-  
+
   /**
    * Selectors to exclude from scanning
    */
   exclude?: string[];
-  
+
   /**
    * Whether to fail on violations
    */
   failOnViolations?: boolean;
-  
+
   /**
    * Minimum severity level to fail on
    */
   failOnSeverity?: ViolationSeverity;
-  
+
   /**
    * Whether to output detailed results
    */
@@ -83,7 +83,7 @@ export interface ScannerConfig {
 const DEFAULT_CONFIG: ScannerConfig = {
   runOnly: {
     type: 'tag',
-    values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'],
+    values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'],
   },
   disabledRules: [],
   exclude: [],
@@ -104,46 +104,40 @@ async function injectAxe(page: Page): Promise<void> {
 /**
  * Run accessibility scan on a page
  */
-export async function scanPage(
-  page: Page,
-  config: Partial<ScannerConfig> = {}
-): Promise<AccessibilityScanResult> {
+export async function scanPage(page: Page, config: Partial<ScannerConfig> = {}): Promise<AccessibilityScanResult> {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  
+
   // Inject axe-core
   await injectAxe(page);
-  
+
   // Run axe scan
-  const results = await page.evaluate(
-    async (evalConfig) => {
-      // @ts-expect-error - axe is injected globally
-      const axe = window.axe;
-      
-      const axeConfig: any = {
-        runOnly: evalConfig.runOnly,
-        rules: {},
-      };
-      
-      // Disable specific rules
-      if (evalConfig.disabledRules && evalConfig.disabledRules.length > 0) {
-        evalConfig.disabledRules.forEach((ruleId: string) => {
-          axeConfig.rules[ruleId] = { enabled: false };
-        });
-      }
-      
-      // Run axe
-      const axeResults = await axe.run(
-        evalConfig.exclude && evalConfig.exclude.length > 0
-          ? { exclude: evalConfig.exclude.map((sel: string) => [sel]) }
-          : document,
-        axeConfig
-      );
-      
-      return axeResults;
-    },
-    mergedConfig
-  );
-  
+  const results = await page.evaluate(async (evalConfig) => {
+    // @ts-expect-error - axe is injected globally
+    const axe = window.axe;
+
+    const axeConfig: any = {
+      runOnly: evalConfig.runOnly,
+      rules: {},
+    };
+
+    // Disable specific rules
+    if (evalConfig.disabledRules && evalConfig.disabledRules.length > 0) {
+      evalConfig.disabledRules.forEach((ruleId: string) => {
+        axeConfig.rules[ruleId] = { enabled: false };
+      });
+    }
+
+    // Run axe
+    const axeResults = await axe.run(
+      evalConfig.exclude && evalConfig.exclude.length > 0
+        ? { exclude: evalConfig.exclude.map((sel: string) => [sel]) }
+        : document,
+      axeConfig,
+    );
+
+    return axeResults;
+  }, mergedConfig);
+
   // Process results
   const violations: AccessibilityViolation[] = results.violations.map((violation: any) => ({
     id: violation.id,
@@ -157,7 +151,7 @@ export async function scanPage(
       failureSummary: node.failureSummary || '',
     })),
   }));
-  
+
   // Count violations by severity
   const violationsBySeverity = {
     critical: violations.filter((v) => v.impact === 'critical').length,
@@ -165,7 +159,7 @@ export async function scanPage(
     moderate: violations.filter((v) => v.impact === 'moderate').length,
     minor: violations.filter((v) => v.impact === 'minor').length,
   };
-  
+
   return {
     url: page.url(),
     timestamp: new Date().toISOString(),
@@ -179,26 +173,23 @@ export async function scanPage(
 /**
  * Assert that a page has no accessibility violations
  */
-export async function assertNoViolations(
-  page: Page,
-  config: Partial<ScannerConfig> = {}
-): Promise<void> {
+export async function assertNoViolations(page: Page, config: Partial<ScannerConfig> = {}): Promise<void> {
   const results = await scanPage(page, config);
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  
+
   if (!mergedConfig.failOnViolations) {
     return;
   }
-  
+
   // Filter violations by severity
   const severityLevels: ViolationSeverity[] = ['critical', 'serious', 'moderate', 'minor'];
   const minSeverityIndex = severityLevels.indexOf(mergedConfig.failOnSeverity || 'serious');
-  
+
   const relevantViolations = results.violations.filter((v) => {
     const violationIndex = severityLevels.indexOf(v.impact);
     return violationIndex <= minSeverityIndex;
   });
-  
+
   if (relevantViolations.length > 0) {
     const errorMessage = formatViolationsError(results, relevantViolations, mergedConfig);
     expect(relevantViolations, errorMessage).toHaveLength(0);
@@ -211,24 +202,24 @@ export async function assertNoViolations(
 function formatViolationsError(
   results: AccessibilityScanResult,
   violations: AccessibilityViolation[],
-  config: ScannerConfig
+  config: ScannerConfig,
 ): string {
   let message = `\n\n🚨 Accessibility Violations Found on ${results.url}\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-  
+
   message += `Summary:\n`;
   message += `  • Critical: ${results.violationsBySeverity.critical}\n`;
   message += `  • Serious:  ${results.violationsBySeverity.serious}\n`;
   message += `  • Moderate: ${results.violationsBySeverity.moderate}\n`;
   message += `  • Minor:    ${results.violationsBySeverity.minor}\n`;
   message += `  • Passes:   ${results.passes}\n\n`;
-  
+
   violations.forEach((violation, index) => {
     message += `${index + 1}. [${violation.impact.toUpperCase()}] ${violation.help}\n`;
     message += `   ID: ${violation.id}\n`;
     message += `   Description: ${violation.description}\n`;
     message += `   Help: ${violation.helpUrl}\n`;
-    
+
     if (config.detailedOutput) {
       message += `   Affected elements (${violation.nodes.length}):\n`;
       violation.nodes.slice(0, 3).forEach((node, nodeIndex) => {
@@ -244,9 +235,9 @@ function formatViolationsError(
     }
     message += `\n`;
   });
-  
+
   message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  
+
   return message;
 }
 
@@ -260,7 +251,7 @@ export function generateHtmlReport(results: AccessibilityScanResult): string {
     moderate: '#fbc02d',
     minor: '#388e3c',
   };
-  
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -319,9 +310,14 @@ export function generateHtmlReport(results: AccessibilityScanResult): string {
       </div>
     </div>
     
-    ${results.violations.length === 0 ? '<h2>✅ No violations found!</h2>' : `
+    ${
+      results.violations.length === 0
+        ? '<h2>✅ No violations found!</h2>'
+        : `
       <h2>Violations (${results.violations.length})</h2>
-      ${results.violations.map((v, i) => `
+      ${results.violations
+        .map(
+          (v, i) => `
         <div class="violation" style="border-color: ${severityColors[v.impact]}">
           <h3>${i + 1}. ${v.help}</h3>
           <div class="violation-meta">
@@ -332,20 +328,26 @@ export function generateHtmlReport(results: AccessibilityScanResult): string {
           <p>${v.description}</p>
           <details>
             <summary><strong>Affected Elements (${v.nodes.length})</strong></summary>
-            ${v.nodes.map((node, j) => `
+            ${v.nodes
+              .map(
+                (node, j) => `
               <div class="node">
                 <strong>${j + 1}.</strong> <code>${node.target.join(' > ')}</code><br>
                 <strong>HTML:</strong> <code>${node.html.substring(0, 150)}${node.html.length > 150 ? '...' : ''}</code>
                 ${node.failureSummary ? `<br><strong>Issue:</strong> ${node.failureSummary.split('\n')[0]}` : ''}
               </div>
-            `).join('')}
+            `,
+              )
+              .join('')}
           </details>
         </div>
-      `).join('')}
-    `}
+      `,
+        )
+        .join('')}
+    `
+    }
   </div>
 </body>
 </html>
   `.trim();
 }
-

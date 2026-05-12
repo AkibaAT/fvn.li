@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Button } from '@/components/ui';
+    import { gameScreenshotAltText, gameScreenshotThumbnailAltText } from '@/utils/imageAltText';
     import { untrack } from 'svelte';
 
     export type Screenshot = {
@@ -13,10 +14,11 @@
         isOpen: boolean;
         screenshots: Screenshot[];
         startIndex?: number;
+        gameName?: string;
         onClose: () => void;
     }
 
-    let { isOpen, screenshots, startIndex = 0, onClose }: Props = $props();
+    let { isOpen, screenshots, startIndex = 0, gameName, onClose }: Props = $props();
 
     let index = $state(untrack(() => startIndex));
     let isZoomed = $state(false);
@@ -146,7 +148,11 @@
                     ariaLabel={isZoomed ? 'Zoom out screenshot' : 'Zoom in screenshot'}
                     aria-pressed={isZoomed}
                 >
-                    <img src={currentImage} alt={`Screenshot ${index + 1} of ${screenshots.length}`} class="max-h-full max-w-full object-contain" />
+                    <img
+                        src={currentImage}
+                        alt={gameScreenshotAltText(gameName, index, screenshots.length)}
+                        class="max-h-full max-w-full object-contain"
+                    />
                 </Button>
             </div>
 
@@ -193,7 +199,11 @@
                                     : 'border-2 border-transparent opacity-60 hover:scale-105 hover:opacity-100'}"
                                 ariaLabel="Go to screenshot {i + 1}"
                             >
-                                <img src={thumbUrl} alt={`Thumbnail ${i + 1}`} class="h-12 w-16 object-cover" />
+                                <img
+                                    src={thumbUrl}
+                                    alt={gameScreenshotThumbnailAltText(gameName, i, screenshots.length)}
+                                    class="h-12 w-16 object-cover"
+                                />
                             </Button>
                         {/each}
                     </div>
