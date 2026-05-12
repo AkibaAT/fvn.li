@@ -8,7 +8,8 @@
         hiddenTagCount,
         tagsExpanded,
         setTagsExpanded,
-        tagContainerRef = $bindable(null),
+        tagContainerRef = null,
+        setTagContainer,
         setTagRef,
         handleTag,
     }: {
@@ -18,9 +19,19 @@
         tagsExpanded: boolean;
         setTagsExpanded: (expanded: boolean) => void;
         tagContainerRef?: HTMLDivElement | null;
+        setTagContainer: (element: HTMLDivElement | null) => void;
         setTagRef: (index: number) => (element: HTMLButtonElement | null) => void;
         handleTag: (tagId: number) => void;
     } = $props();
+
+    function containerRefAction(node: HTMLDivElement) {
+        setTagContainer(node);
+        return {
+            destroy() {
+                setTagContainer(null);
+            },
+        };
+    }
 
     function tagRefAction(node: HTMLButtonElement, index: number) {
         setTagRef(index)(node);
@@ -37,6 +48,7 @@
         <div class="flex items-center gap-1.5">
             <div
                 bind:this={tagContainerRef}
+                use:containerRefAction
                 class="relative flex flex-1 flex-wrap items-start gap-1.5 transition-all duration-300 {tagsExpanded
                     ? 'max-h-none'
                     : 'h-15 overflow-hidden'}"
@@ -59,7 +71,7 @@
                     </Button>
                 {/each}
             </div>
-            {#if hiddenTagCount > 0 && !tagsExpanded}
+            {#if hiddenTagCount > 0 || tagsExpanded}
                 <Button
                     type="button"
                     variant="ghost"
@@ -67,11 +79,13 @@
                     size="icon-sm"
                     onclick={() => setTagsExpanded(!tagsExpanded)}
                     class="group flex h-6 w-6 flex-shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title="Show {hiddenTagCount} more tags"
-                    ariaLabel="Show {hiddenTagCount} more tags"
+                    title={tagsExpanded ? 'Show less' : `Show ${hiddenTagCount} more tags`}
+                    ariaLabel={tagsExpanded ? 'Show less' : `Show ${hiddenTagCount} more tags`}
                 >
                     <svg
-                        class="h-4 w-4 rotate-0 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"
+                        class="h-4 w-4 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 {tagsExpanded
+                            ? 'rotate-180'
+                            : 'rotate-0'}"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

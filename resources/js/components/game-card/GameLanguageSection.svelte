@@ -8,7 +8,8 @@
         hiddenLanguageCount,
         languagesExpanded,
         setLanguagesExpanded,
-        languageContainerRef = $bindable(null),
+        languageContainerRef = null,
+        setLanguageContainer,
         setLanguageRef,
         handleLanguage,
     }: {
@@ -18,9 +19,19 @@
         languagesExpanded: boolean;
         setLanguagesExpanded: (expanded: boolean) => void;
         languageContainerRef?: HTMLDivElement | null;
+        setLanguageContainer: (element: HTMLDivElement | null) => void;
         setLanguageRef: (index: number) => (element: HTMLButtonElement | null) => void;
         handleLanguage: (iso: string) => void;
     } = $props();
+
+    function containerRefAction(node: HTMLDivElement) {
+        setLanguageContainer(node);
+        return {
+            destroy() {
+                setLanguageContainer(null);
+            },
+        };
+    }
 
     function langRefAction(node: HTMLButtonElement, index: number) {
         setLanguageRef(index)(node);
@@ -37,6 +48,7 @@
         <div class="flex items-center gap-1">
             <div
                 bind:this={languageContainerRef}
+                use:containerRefAction
                 class="relative flex flex-1 flex-wrap items-start gap-1 transition-all duration-300 {languagesExpanded
                     ? 'max-h-none'
                     : 'h-6 overflow-hidden'}"
