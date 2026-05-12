@@ -71,7 +71,7 @@
                         <li>
                             <a
                                 href="https://bsky.app/profile/akiba.at"
-                                class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
                                 target="_blank"
                                 rel="noopener"
                                 title="Contact on Bluesky"
@@ -83,7 +83,7 @@
                         <li>
                             <a
                                 href="https://discord.com/users/akiba.at"
-                                class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
                                 target="_blank"
                                 rel="noopener"
                                 title="Contact on Discord"
@@ -95,7 +95,7 @@
                         <li>
                             <a
                                 href="https://t.me/AkibaAT"
-                                class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
                                 target="_blank"
                                 rel="noopener"
                                 title="Contact on Telegram"
@@ -131,7 +131,7 @@
         <!-- Bottom Section -->
         <div class="mt-12 border-t border-gray-200 pt-8 dark:border-zinc-800">
             <div class="flex flex-col items-center justify-between md:flex-row">
-                <div class="mb-4 text-sm text-gray-500 md:mb-0">
+                <div class="mb-4 text-sm text-gray-500 md:mb-0 dark:text-zinc-400">
                     <p>&copy; 2023 - {currentYear} AkibaAT</p>
                 </div>
                 <div class="flex items-center space-x-4 text-sm">
