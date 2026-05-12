@@ -1,6 +1,7 @@
 <script lang="ts">
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
+    import { Button } from '@/components/ui';
 
     interface ActiveChip {
         key: string;
@@ -59,15 +60,19 @@
             {/if}
             {chip.label}
             {#if chip.onClear}
-                <button aria-label="Remove {chip.label}" onclick={chip.onClear} class="ml-1 cursor-pointer hover:opacity-80"> &times; </button>
+                <Button
+                    type="button"
+                    variant="link"
+                    tone="neutral"
+                    size="xs"
+                    ariaLabel="Remove {chip.label}"
+                    onclick={chip.onClear}
+                    class="ml-1 hover:opacity-80"
+                >
+                    &times;
+                </Button>
             {/if}
         </span>
     {/each}
-    <button
-        type="button"
-        onclick={onClearAll}
-        class="ml-1 cursor-pointer text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-    >
-        Reset all
-    </button>
+    <Button type="button" variant="link" tone="danger" size="xs" onclick={onClearAll} class="ml-1">Reset all</Button>
 {/if}

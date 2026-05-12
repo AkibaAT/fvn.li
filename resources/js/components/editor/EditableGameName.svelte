@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, untrack } from 'svelte';
+    import { Button } from '@/components/ui';
     import http from '@/utils/http';
 
     interface Game {
@@ -136,20 +137,27 @@
             use:focusOnMount
             maxlength={255}
         />
-        <button
+        <Button
+            type="button"
+            variant="solid"
+            tone="success"
             onclick={handleSave}
             disabled={isSaving}
+            loading={isSaving}
             class="rounded bg-green-600 px-3 py-1 text-sm whitespace-nowrap text-white hover:bg-green-700 disabled:opacity-50"
         >
             {isSaving ? 'Saving...' : 'Save'}
-        </button>
-        <button
+        </Button>
+        <Button
+            type="button"
+            variant="solid"
+            tone="neutral"
             onclick={handleCancel}
             disabled={isSaving}
             class="rounded bg-gray-600 px-3 py-1 text-sm whitespace-nowrap text-white hover:bg-gray-700 disabled:opacity-50"
         >
             Cancel
-        </button>
+        </Button>
         {#if saveStatus === 'saved'}
             <span class="text-sm whitespace-nowrap text-green-600">Saved</span>
         {/if}
@@ -161,13 +169,17 @@
             {renderedName}
         </h1>
         {#if canEdit && !previewingVisitorView}
-            <button
+            <Button
+                type="button"
+                variant="solid"
+                tone="primary"
+                size="xs"
                 onclick={handleEdit}
                 class="rounded bg-blue-600 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-700"
                 title="Edit name"
             >
                 Edit
-            </button>
+            </Button>
         {/if}
     {/if}
 </div>

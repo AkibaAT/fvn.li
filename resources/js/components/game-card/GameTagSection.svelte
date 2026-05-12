@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 
     let {
@@ -42,8 +43,11 @@
             >
                 {#each orderedTags as tag, index (tag.id)}
                     {@const isActive = selectedTags.includes(String(tag.id))}
-                    <button
-                        use:tagRefAction={index}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        tone="neutral"
+                        action={(node) => tagRefAction(node as HTMLButtonElement, index)}
                         data-tag-id={tag.id}
                         onclick={() => handleTag(tag.id)}
                         class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-200 {isActive
@@ -52,15 +56,19 @@
                         title={isActive ? 'Click to remove this filter' : 'Click to filter by this tag'}
                     >
                         {tag.name}
-                    </button>
+                    </Button>
                 {/each}
             </div>
             {#if hiddenTagCount > 0 && !tagsExpanded}
-                <button
+                <Button
+                    type="button"
+                    variant="ghost"
+                    tone="neutral"
+                    size="icon-sm"
                     onclick={() => setTagsExpanded(!tagsExpanded)}
                     class="group flex h-6 w-6 flex-shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                     title="Show {hiddenTagCount} more tags"
-                    aria-label="Show {hiddenTagCount} more tags"
+                    ariaLabel="Show {hiddenTagCount} more tags"
                 >
                     <svg
                         class="h-4 w-4 rotate-0 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"
@@ -71,7 +79,7 @@
                     >
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
-                </button>
+                </Button>
             {/if}
         </div>
     </div>

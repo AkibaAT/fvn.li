@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Button } from '@/components/ui';
     import { useEnhancedSearch, type SearchFilters, type GlobalSearchResponse, type SearchResponse } from '@/hooks/useEnhancedSearch.svelte';
 
     interface Props {
@@ -113,16 +114,19 @@
 
         <!-- Clear Button -->
         {#if showClearButton && query && !searchHook.loading}
-            <button
+            <Button
                 type="button"
                 onclick={handleClear}
-                aria-label="Clear search"
+                variant="ghost"
+                tone="neutral"
+                size="icon-sm"
+                ariaLabel="Clear search"
                 class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors duration-200 hover:text-gray-600 dark:hover:text-gray-300"
             >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-            </button>
+            </Button>
         {/if}
     </div>
 

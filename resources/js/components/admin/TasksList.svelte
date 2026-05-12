@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { Card } from '@/components/ui';
     import { formatFutureDateTime, formatRelativeDateTime } from '@/utils/date-formatting';
 
     interface MonitoredTask {
@@ -71,7 +72,7 @@
     };
 </script>
 
-<div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+<Card>
     <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Scheduled Tasks</h2>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -190,4 +191,4 @@
             </tbody>
         </table>
     </div>
-</div>
+</Card>

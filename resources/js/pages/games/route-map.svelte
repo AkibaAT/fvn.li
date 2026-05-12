@@ -2,6 +2,7 @@
     import { SvelteFlow, Background, Controls, MiniMap } from '@xyflow/svelte';
     import '@xyflow/svelte/dist/style.css';
     import { Link } from '@inertiajs/svelte';
+    import { Button, Card } from '@/components/ui';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import BranchEdge from '@/components/route-map/BranchEdge.svelte';
     import ChoiceNode from '@/components/route-map/ChoiceNode.svelte';
@@ -1035,7 +1036,11 @@
                 </label>
             {/if}
 
-            <button
+            <Button
+                type="button"
+                variant="outline"
+                tone={showSidebar ? 'primary' : 'neutral'}
+                size="icon-sm"
                 class="rounded-lg border px-2 py-1.5 transition-colors {showSidebar
                     ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                     : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}"
@@ -1046,21 +1051,26 @@
                     <path d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
                     <path d="M15 3v18" />
                 </svg>
-            </button>
+            </Button>
 
             <div class="relative flex items-center gap-2">
-                <button
+                <Button
+                    type="button"
+                    variant="outline"
+                    tone={seenNodeIds.size > 0 ? 'success' : 'neutral'}
+                    size="icon-sm"
                     class="rounded-lg border px-2 py-1.5 transition-colors {seenNodeIds.size > 0
                         ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
                         : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}"
                     onclick={() => document.getElementById('save-upload')?.click()}
                     disabled={isUploadingSave}
+                    loading={isUploadingSave}
                     title="Upload Ren'Py save or persistent file to mark seen nodes"
                 >
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
-                </button>
+                </Button>
                 <input
                     id="save-upload"
                     type="file"
@@ -1079,7 +1089,11 @@
                     <span class="text-xs text-emerald-600 dark:text-emerald-400">
                         {seenNodeIds.size}/{routeGraph.total_nodes} seen
                     </span>
-                    <button
+                    <Button
+                        type="button"
+                        variant="link"
+                        tone="neutral"
+                        size="xs"
                         class="text-xs text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
                         onclick={() => {
                             seenNodeIds.clear();
@@ -1088,7 +1102,7 @@
                         title="Clear seen data"
                     >
                         clear
-                    </button>
+                    </Button>
                 {/if}
 
                 {#if saveUploadError}
@@ -1113,7 +1127,7 @@
         </div>
 
         <div class="flex gap-6" style="height: calc(100vh - 200px);">
-            <div class="flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" style="min-width: 0">
+            <Card variant="outline" padding="none" class="flex-1 overflow-hidden dark:bg-gray-900" style="min-width: 0">
                 <SvelteFlow
                     nodes={displayNodes as any[]}
                     edges={displayEdges as any[]}
@@ -1151,17 +1165,21 @@
                         ariaLabel="Route map overview"
                     />
                 </SvelteFlow>
-            </div>
+            </Card>
 
             {#if showSidebar}
-                <div class="w-72 shrink-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                <Card variant="outline" padding="sm" class="w-72 shrink-0 overflow-y-auto dark:bg-gray-900">
                     {#if navigationTarget}
                         <div class="mb-4 border-b border-gray-200 pb-4 dark:border-gray-700">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     Path to <span class="font-mono text-xs">{navigationTarget}</span>
                                 </h3>
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    tone="neutral"
+                                    size="icon-sm"
                                     onclick={() => (navigationTarget = null)}
                                     class="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                                     title="Clear path"
@@ -1169,7 +1187,7 @@
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                         <path d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                </button>
+                                </Button>
                             </div>
 
                             {#if isCalculatingPath}
@@ -1194,7 +1212,10 @@
                                 {/if}
 
                                 <div class="mt-3 max-h-72 space-y-0.5 overflow-y-auto">
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        tone="neutral"
                                         class="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
                                         onclick={() => (selectedNodeId = startNodeId)}
                                     >
@@ -1203,14 +1224,17 @@
                                             >S</span
                                         >
                                         <span class="font-mono">{startNodeId}</span>
-                                    </button>
+                                    </Button>
 
                                     {#each navigationSteps as step (step.nodeId)}
                                         <div class="flex items-stretch gap-1.5">
                                             <div class="flex w-4 shrink-0 justify-center">
                                                 <div class="w-px bg-gray-200 dark:bg-gray-700"></div>
                                             </div>
-                                            <button
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                tone={step.isChoice ? 'primary' : 'neutral'}
                                                 class="flex-1 rounded px-2 py-1 text-left text-xs transition-colors {step.isChoice
                                                     ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50'
                                                     : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}"
@@ -1240,7 +1264,7 @@
                                                         requires: <span class="font-mono">{step.condition}</span>
                                                     </div>
                                                 {/if}
-                                            </button>
+                                            </Button>
                                         </div>
                                     {/each}
                                 </div>
@@ -1268,7 +1292,11 @@
                                             {formatRoutePreference(pref)}
                                         </span>
                                         <div class="flex items-center gap-1">
-                                            <button
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                tone="neutral"
+                                                size="icon-sm"
                                                 class="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                                                 onclick={() => {
                                                     if (index === 0) return;
@@ -1279,8 +1307,12 @@
                                                 title="Increase priority"
                                             >
                                                 ↑
-                                            </button>
-                                            <button
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                tone="neutral"
+                                                size="icon-sm"
                                                 class="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                                                 onclick={() => {
                                                     if (index === routePreferences.length - 1) return;
@@ -1291,8 +1323,12 @@
                                                 title="Decrease priority"
                                             >
                                                 ↓
-                                            </button>
-                                            <button
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                tone="danger"
+                                                size="icon-sm"
                                                 class="rounded px-1 py-0.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300"
                                                 onclick={() => {
                                                     routePreferences = routePreferences.filter((_, currentIndex) => currentIndex !== index);
@@ -1300,7 +1336,7 @@
                                                 title="Remove priority"
                                             >
                                                 ×
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -1337,7 +1373,10 @@
                             {/if}
 
                             <div class="flex gap-2">
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="solid"
+                                    tone="success"
                                     class="flex-1 rounded bg-emerald-500 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
                                     onclick={() => {
                                         const variable = preferenceVariable.trim();
@@ -1356,10 +1395,13 @@
                                     disabled={!preferenceVariable.trim() || (preferenceMode === 'equals' && !preferenceValue.trim())}
                                 >
                                     Add priority
-                                </button>
+                                </Button>
 
                                 {#if routePreferences.length > 0}
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        tone="neutral"
                                         class="rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                                         onclick={() => {
                                             routePreferences = [];
@@ -1369,7 +1411,7 @@
                                         }}
                                     >
                                         Clear
-                                    </button>
+                                    </Button>
                                 {/if}
                             </div>
                         </div>
@@ -1386,11 +1428,14 @@
 
                             {#if selectedNodeData.parent_label}
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    in <button
+                                    in <Button
+                                        type="button"
+                                        variant="link"
+                                        tone="primary"
                                         class="font-mono text-blue-500 hover:underline"
                                         onclick={() => {
                                             selectedNodeId = selectedNodeData.parent_label ?? null;
-                                        }}>{selectedNodeData.parent_label}</button
+                                        }}>{selectedNodeData.parent_label}</Button
                                     >
                                 </p>
                             {/if}
@@ -1510,7 +1555,10 @@
                             {/if}
 
                             {#if startNodeId && selectedNodeData.id !== startNodeId}
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="solid"
+                                    tone="primary"
                                     class="mt-3 w-full rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
                                     onclick={() => (navigationTarget = selectedNodeData.last_label ?? selectedNodeData.id)}
                                     disabled={navigationTarget === (selectedNodeData.last_label ?? selectedNodeData.id)}
@@ -1520,7 +1568,7 @@
                                     {:else}
                                         Navigate here
                                     {/if}
-                                </button>
+                                </Button>
                             {/if}
                         </div>
                     {:else}
@@ -1535,7 +1583,10 @@
 
                             <div class="flex flex-wrap gap-1">
                                 {#each endings as ending (ending)}
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="soft"
+                                        tone="danger"
                                         class="rounded bg-red-50 px-2 py-1 text-xs text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
                                         onclick={() => {
                                             selectedNodeId = ending;
@@ -1543,7 +1594,7 @@
                                         }}
                                     >
                                         {ending}
-                                    </button>
+                                    </Button>
                                 {/each}
                             </div>
                         </div>
@@ -1570,7 +1621,7 @@
                             </div>
                         </div>
                     {/if}
-                </div>
+                </Card>
             {/if}
         </div>
     {/if}
