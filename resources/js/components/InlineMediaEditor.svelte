@@ -3,6 +3,7 @@
     import { authenticatedFetch } from '@/utils/csrf';
     import { toast } from '@/utils/toast';
     import type { OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
+    import { gameCoverAltText, gameScreenshotAltText } from '@/utils/imageAltText';
     interface Screenshot {
         id?: number;
         url: string;
@@ -16,10 +17,11 @@
         screenshots: Screenshot[];
         canEdit: boolean;
         isAdmin?: boolean;
+        gameName?: string;
         onUpdate: (thumbnail: string | null, screenshots: Screenshot[]) => void;
     }
 
-    let { gameSlug, thumbnail, screenshots, canEdit, isAdmin = false, onUpdate }: Props = $props();
+    let { gameSlug, thumbnail, screenshots, canEdit, isAdmin = false, gameName, onUpdate }: Props = $props();
 
     let uploadingThumbnail = $state(false);
     let uploadingScreenshots = $state(false);
@@ -60,7 +62,9 @@
 
     async function handleThumbnailDelete() {
         try {
-            const res = await authenticatedFetch(route('browser-api.my-games.thumbnail.delete', { game: gameSlug }), { method: 'DELETE' });
+            const res = await authenticatedFetch(route('browser-api.my-games.thumbnail.delete', { game: gameSlug }), {
+                method: 'DELETE',
+            });
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok || data?.success === false) {
@@ -211,7 +215,7 @@
                     >
                         {#if thumbnail}
                             <div class="relative">
-                                <img src={thumbnail} alt="Game thumbnail" class="h-32 w-32 rounded-lg object-cover" />
+                                <img src={thumbnail} alt={gameCoverAltText(gameName)} class="h-32 w-32 rounded-lg object-cover" />
                                 <Button
                                     type="button"
                                     variant="solid"
@@ -310,7 +314,11 @@
                         <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                             {#each screenshots as screenshot, index (index)}
                                 <div class="group relative">
-                                    <img src={screenshot.url} alt={`Screenshot ${index + 1}`} class="h-32 w-full rounded-lg object-cover" />
+                                    <img
+                                        src={screenshot.url}
+                                        alt={gameScreenshotAltText(gameName, index, screenshots.length)}
+                                        class="h-32 w-full rounded-lg object-cover"
+                                    />
                                     <Button
                                         type="button"
                                         variant="solid"
