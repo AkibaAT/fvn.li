@@ -35,11 +35,13 @@
         handleDelistedToggle,
         orderedTags,
         tagContainerRef,
+        setTagContainer,
         hiddenTagCount,
         setTagRef,
         tagsExpanded,
         setTagsExpanded,
         languageContainerRef,
+        setLanguageContainer,
         hiddenLanguageCount,
         setLanguageRef,
         languagesExpanded,
@@ -184,6 +186,7 @@
                 {languagesExpanded}
                 {setLanguagesExpanded}
                 {languageContainerRef}
+                {setLanguageContainer}
                 {setLanguageRef}
                 {handleLanguage}
             />
@@ -196,6 +199,7 @@
                 {tagsExpanded}
                 {setTagsExpanded}
                 {tagContainerRef}
+                {setTagContainer}
                 {setTagRef}
                 {handleTag}
             />

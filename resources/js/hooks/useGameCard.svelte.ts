@@ -225,6 +225,7 @@ export function useGameCard({
         get tagContainerRef() {
             return tagObserver.containerRef;
         },
+        setTagContainer: tagObserver.setContainer,
         get hiddenTagCount() {
             return tagObserver.hiddenTagCount;
         },
@@ -240,6 +241,7 @@ export function useGameCard({
         get languageContainerRef() {
             return languageObserver.containerRef;
         },
+        setLanguageContainer: languageObserver.setContainer,
         get hiddenLanguageCount() {
             return languageObserver.hiddenTagCount;
         },
