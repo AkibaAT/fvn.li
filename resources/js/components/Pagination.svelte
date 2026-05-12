@@ -38,8 +38,8 @@
         buildPageUrl?: (page: number) => string;
     } = $props();
 
-    let prevButtonEl = $state<HTMLButtonElement | HTMLAnchorElement | undefined>(undefined);
-    let nextButtonEl = $state<HTMLButtonElement | HTMLAnchorElement | undefined>(undefined);
+    let prevButtonEl = $state<HTMLButtonElement | HTMLAnchorElement | null>(null);
+    let nextButtonEl = $state<HTMLButtonElement | HTMLAnchorElement | null>(null);
     let selectEl = $state<HTMLSelectElement | undefined>(undefined);
     let lastAction: 'prev' | 'next' | 'select' | null = null;
 

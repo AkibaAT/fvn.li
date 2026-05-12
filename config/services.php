@@ -116,7 +116,7 @@ return [
     'image_downloads' => [
         'allowed_hosts' => array_filter(array_map('trim', explode(',', env(
             'IMAGE_DOWNLOAD_ALLOWED_HOSTS',
-            'img.itch.zone,img.itch.io,shared.akamai.steamstatic.com,cdn.akamai.steamstatic.com,shared.cloudflare.steamstatic.com,cdn.cloudflare.steamstatic.com,steamcdn-a.akamaihd.net'
+            'img.itch.zone,img.itch.io,shared.akamai.steamstatic.com,cdn.akamai.steamstatic.com,shared.cloudflare.steamstatic.com,cdn.cloudflare.steamstatic.com,steamcdn-a.akamaihd.net,booth.pximg.net'
         )))),
     ],
 

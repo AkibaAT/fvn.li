@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
+    import { gameCoverAltText } from '@/utils/imageAltText';
 
     let {
         game,
@@ -22,7 +23,7 @@
         {#if thumbnailUrl}
             <img
                 src={thumbnailUrl}
-                alt={gameName}
+                alt={gameCoverAltText(gameName)}
                 loading="lazy"
                 decoding="async"
                 class="h-full w-full {objectFitClass} transition-transform duration-500 group-hover:scale-110"
