@@ -6,6 +6,7 @@ webserver_type: nginx-fpm
 xdebug_enabled: true
 additional_hostnames:
     - fvn-li-testing
+    - butler-fvn-li
 additional_fqdns: []
 database:
     type: postgres
