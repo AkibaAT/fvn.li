@@ -81,6 +81,25 @@ async function scanAndAssert(page: Page, reportName: string) {
     expect(results.violations).toHaveLength(0);
 }
 
+async function expectStrongFocusIndicator(locator: ReturnType<Page['locator']>) {
+    await expect(locator).toBeFocused();
+    await expect(locator).toBeVisible();
+    await expect
+        .poll(async () =>
+            locator.evaluate((el) => {
+                const styles = window.getComputedStyle(el);
+                return {
+                    outlineStyle: styles.outlineStyle,
+                    outlineWidth: styles.outlineWidth,
+                };
+            }),
+        )
+        .toMatchObject({
+            outlineStyle: 'solid',
+            outlineWidth: '3px',
+        });
+}
+
 async function openDashboardTab(page: Page, appearance: Appearance, hash: '' | '#my-games' | '#additions' | '#search', tabName: string) {
     await gotoAuthenticatedWithAppearance(page, `/dashboard${hash}`, appearance);
     await expect(page.getByRole('tab', { name: tabName })).toHaveAttribute('aria-selected', 'true');
@@ -215,11 +234,22 @@ test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
 
         const skipLink = page.locator('a:has-text("Skip to main content")');
         await expect(skipLink).toBeFocused();
+        await expect(skipLink).toBeVisible();
 
         await page.keyboard.press('Enter');
 
         const mainContent = page.locator('#main-content');
         await expect(mainContent).toBeVisible();
+        await expect(mainContent).toBeFocused();
+
+        await page.keyboard.press('Tab');
+        await expectStrongFocusIndicator(page.locator('.hero-section a:has-text("Explore Library")'));
+
+        await page.keyboard.press('Tab');
+        await expect(page.locator('.hero-section a:has-text("Log In")')).toBeFocused();
+
+        await page.keyboard.press('Tab');
+        await expect(page.locator('section:has(h2:has-text("Recently Added")) a:has-text("View all")')).toBeFocused();
     });
 
     test('Games page keyboard navigation', async ({ page }) => {
@@ -231,9 +261,12 @@ test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
 
         await page.keyboard.press('Tab');
         await expect(skipLink).toBeFocused();
+        await expect(skipLink).toBeVisible();
 
         await page.keyboard.press('Enter');
-        await expect(page.locator('#main-content')).toBeVisible();
+        const mainContent = page.locator('#main-content');
+        await expect(mainContent).toBeVisible();
+        await expect(mainContent).toBeFocused();
     });
 });
 

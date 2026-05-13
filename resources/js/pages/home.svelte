@@ -156,7 +156,7 @@
                     </div>
 
                     <!-- Right - Featured Game Cards Preview -->
-                    <div class="relative hidden lg:flex lg:items-center lg:justify-end">
+                    <div class="relative hidden lg:flex lg:items-center lg:justify-end" aria-hidden="true" inert>
                         {#if teasers?.recentlyAdded?.[0]}
                             <div class="relative h-[620px] w-full max-w-[30rem]">
                                 <!-- Card 1 - Back Left -->
