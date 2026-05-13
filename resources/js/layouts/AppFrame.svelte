@@ -127,7 +127,7 @@
 
 <a
     href="#main-content"
-    class="sr-only bg-blue-600 px-4 py-2 font-medium text-white shadow-lg focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+    class="skip-link rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-lg ring-offset-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
 >
     Skip to main content
 </a>
@@ -136,7 +136,7 @@
     <Header />
     <FlashMessages message={flash?.message} error={flash?.error} />
 
-    <main id="main-content" class="main-content flex-1 scroll-mt-28 {isFullWidth ? 'full-width' : 'py-8'}" aria-label="Main content">
+    <main id="main-content" tabindex="-1" class="main-content flex-1 scroll-mt-28 {isFullWidth ? 'full-width' : 'py-8'}" aria-label="Main content">
         {#if isFullWidth}
             {@render children()}
         {:else}
@@ -150,6 +150,30 @@
 <Toast />
 
 <style>
+    .skip-link {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 9999;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+
+    .skip-link:focus,
+    .skip-link:focus-visible {
+        width: auto;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip: auto;
+        white-space: normal;
+    }
+
     .main-content:not(.full-width) :global(> div) {
         max-width: 1340px;
     }
