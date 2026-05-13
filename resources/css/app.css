@@ -37,6 +37,21 @@
     [x-cloak] {
         display: none !important;
     }
+
+    :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
+        outline: 3px solid #facc15 !important;
+        outline-offset: 3px !important;
+        box-shadow:
+            0 0 0 1px #111827,
+            0 0 0 6px rgb(37 99 235 / 0.65) !important;
+    }
+
+    .dark :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
+        outline-color: #fde047 !important;
+        box-shadow:
+            0 0 0 1px #020617,
+            0 0 0 6px rgb(147 197 253 / 0.75) !important;
+    }
 }
 
 /* Drag and drop cursor styles */
