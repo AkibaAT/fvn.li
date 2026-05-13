@@ -163,6 +163,97 @@ test('optimize game archives preserves original tar gzip archive format', functi
         ->toContain('TarGame/game/script.rpy');
 });
 
+test('optimize game archives reuses previous optimized media when source inventory is unchanged', function () {
+    Storage::fake('local');
+
+    $game = Game::factory()->create(['name' => 'Inventory Reuse']);
+    $older = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.0',
+        'published_at' => now()->subDay(),
+    ]);
+    $newer = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.1',
+        'published_at' => now(),
+    ]);
+
+    createAudioArchive($game->id, $older->id, 'older-audio.zip', str_repeat('same source audio', 20));
+    createAudioArchive($game->id, $newer->id, 'newer-audio.zip', str_repeat('same source audio', 20));
+
+    $oldPath = getenv('PATH') ?: '';
+    $binDir = sys_get_temp_dir().'/fake-ffmpeg-'.bin2hex(random_bytes(4));
+    $callLog = $binDir.'/ffmpeg.log';
+    mkdir($binDir);
+    $fakeFfmpeg = $binDir.'/ffmpeg';
+    file_put_contents($fakeFfmpeg, <<<'SH'
+#!/bin/sh
+target=""
+for arg do
+  target="$arg"
+done
+printf '%s\n' "$target" >> "$FFMPEG_CALL_LOG"
+printf 'optimized:%s\n' "$FFMPEG_MARKER" > "$target"
+SH);
+    chmod($fakeFfmpeg, 0755);
+    putenv('PATH='.$binDir.PATH_SEPARATOR.$oldPath);
+    putenv('FFMPEG_CALL_LOG='.$callLog);
+    $_SERVER['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+    $_ENV['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+    $_SERVER['FFMPEG_CALL_LOG'] = $callLog;
+    $_ENV['FFMPEG_CALL_LOG'] = $callLog;
+
+    try {
+        putenv('FFMPEG_MARKER=older');
+        $_SERVER['FFMPEG_MARKER'] = 'older';
+        $_ENV['FFMPEG_MARKER'] = 'older';
+        $olderResult = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
+            ->optimizeStoredArchive($game->id, $older->id, dryRun: false, force: true);
+
+        expect($olderResult['status'])->toBe('optimized')
+            ->and($olderResult['audio_optimized'])->toBe(1)
+            ->and($olderResult['audio_reused'])->toBe(0);
+
+        File::put($callLog, '');
+        putenv('FFMPEG_MARKER=newer');
+        $_SERVER['FFMPEG_MARKER'] = 'newer';
+        $_ENV['FFMPEG_MARKER'] = 'newer';
+        $newerResult = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
+            ->optimizeStoredArchive($game->id, $newer->id, dryRun: false, force: true);
+
+        expect($newerResult['status'])->toBe('optimized')
+            ->and($newerResult['audio_optimized'])->toBe(1)
+            ->and($newerResult['audio_reused'])->toBe(1)
+            ->and(trim(File::get($callLog)))->toBe('');
+    } finally {
+        putenv('PATH='.$oldPath);
+        putenv('FFMPEG_CALL_LOG');
+        putenv('FFMPEG_MARKER');
+        $_SERVER['PATH'] = $oldPath;
+        $_ENV['PATH'] = $oldPath;
+        unset($_SERVER['FFMPEG_CALL_LOG'], $_ENV['FFMPEG_CALL_LOG'], $_SERVER['FFMPEG_MARKER'], $_ENV['FFMPEG_MARKER']);
+        @unlink($fakeFfmpeg);
+        @unlink($callLog);
+        @rmdir($binDir);
+    }
+
+    $zip = new ZipArchive;
+    expect($zip->open(Storage::path("games/{$game->id}/{$newer->id}/newer-audio.optimized.zip")))->toBeTrue();
+
+    try {
+        expect($zip->getFromName('game/music/theme.ogg'))->toBe("optimized:older\n")
+            ->and($zip->getFromName('game/script.rpy'))->toContain('music/theme.ogg')
+            ->not->toContain('music/theme.mp3');
+
+        $metadata = json_decode($zip->getFromName('.fvn-archive-metadata.json'), true);
+        expect(collect($metadata['original_files'])->firstWhere('path', 'game/music/theme.mp3')['sha256'])->toMatch('/^[a-f0-9]{64}$/')
+            ->and(collect($metadata['optimized_files'])->pluck('path')->all())->toContain('game/music/theme.ogg')
+            ->and($metadata['media_replacements'])->toBe(['music/theme.mp3' => 'music/theme.ogg']);
+    } finally {
+        $zip->close();
+    }
+});
+
 test('tar archive repacking treats option-like top level entries as filenames', function () {
     $sourceDir = sys_get_temp_dir().'/archive_tar_option_source_'.bin2hex(random_bytes(4));
     $targetPath = sys_get_temp_dir().'/archive_tar_option_target_'.bin2hex(random_bytes(4)).'.tar';
@@ -381,6 +472,22 @@ function createOptimizableTarArchive(int $gameId, int $versionId, string $filena
     } finally {
         unlink($imagePath);
         File::deleteDirectory($sourceDir);
+    }
+}
+
+function createAudioArchive(int $gameId, int $versionId, string $filename, string $audioContents): void
+{
+    $storagePath = "games/{$gameId}/{$versionId}";
+    Storage::makeDirectory($storagePath);
+
+    $zip = new ZipArchive;
+    expect($zip->open(Storage::path("{$storagePath}/{$filename}"), ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
+
+    try {
+        $zip->addFromString('game/script.rpy', "define audio.theme = \"music/theme.mp3\"\nlabel start:\n    play music theme\n");
+        $zip->addFromString('game/music/theme.mp3', $audioContents);
+    } finally {
+        $zip->close();
     }
 }
 

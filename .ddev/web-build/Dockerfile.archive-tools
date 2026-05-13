@@ -1,5 +1,5 @@
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends docker-cli pipx \
+    && apt-get install -y --no-install-recommends docker-cli golang-go pipx postgresql-client \
     && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install unrpa \
     && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install rpycdec \
     && apt-get clean \
