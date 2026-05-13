@@ -1,0 +1,119 @@
+services:
+  web:
+    environment:
+      BUTLER_SERVER_URL: http://butler-server:8081
+      BUTLER_SERVER_PUBLIC_URL: https://butler-fvn-li.ddev.site
+      BUTLER_SERVER_POSTGRES_HOST: db
+      BUTLER_SERVER_POSTGRES_PORT: 5432
+      BUTLER_SERVER_POSTGRES_DATABASE: butler
+      BUTLER_SERVER_POSTGRES_USERNAME: db
+      BUTLER_SERVER_POSTGRES_PASSWORD: db
+      BUTLER_SERVER_USERNAME: fvn-li
+      BUTLER_CLIENT_PATH: /var/www/butler-client
+    volumes:
+      - ${FVN_BUTLER_CLIENT_HOST_PATH:?Set FVN_BUTLER_CLIENT_HOST_PATH in .ddev/.env to your local butler-client checkout}:/var/www/butler-client:cached
+
+  butler-server:
+    container_name: ddev-${DDEV_SITENAME}-butler-server
+    image: ddev/ddev-webserver:${DDEV_VERSION}-${DDEV_SITENAME}-built
+    working_dir: /var/www/butler-server
+    command: bash /var/www/html/.ddev/butler-server/start.sh
+    expose:
+      - "8081"
+    networks:
+      default:
+        aliases:
+          - api.butler-server
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: butler
+      POSTGRES_USER: db
+      POSTGRES_PASSWORD: db
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ddevminio
+      MINIO_SECRET_KEY: ddevminio
+      MINIO_BUCKET: butler-storage
+      MINIO_USE_SSL: "false"
+      ENABLE_DEV_ENDPOINTS: "false"
+    volumes:
+      - ${DDEV_APPROOT}:/var/www/html:cached
+      - ${FVN_BUTLER_SERVER_HOST_PATH:?Set FVN_BUTLER_SERVER_HOST_PATH in .ddev/.env to your local butler-server checkout}:/var/www/butler-server:cached
+      - ${FVN_WHARF_HOST_PATH:?Set FVN_WHARF_HOST_PATH in .ddev/.env to your local wharf checkout}:/var/www/wharf:cached
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/ >/dev/null"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+      start_period: 5s
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
+
+  minio:
+    container_name: ddev-${DDEV_SITENAME}-minio
+    image: ${MINIO_DOCKER_IMAGE:-minio/minio:latest}
+    environment:
+      MINIO_VOLUMES: /data
+      MC_CONFIG_DIR: /root/.mc
+      MINIO_UID: $DDEV_UID
+      MINIO_GID: $DDEV_GID
+      MINIO_ROOT_USER: ddevminio
+      MINIO_ROOT_PASSWORD: ddevminio
+    command: server --console-address :9090 --address :9000
+    expose:
+      - "9000"
+      - "9090"
+    volumes:
+      - butler-minio:/data
+      - .:/mnt/ddev_config
+      - ddev-global-cache:/mnt/ddev-global-cache
+      - type: volume
+        source: ddev-global-cache
+        target: /root/.minio/certs/CAs
+        volume:
+          subpath: mkcert
+    configs:
+      - source: butler-mc-config.json
+        target: /root/.mc/config.json
+        mode: "0444"
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
+    external_links:
+      - ddev-router:${DDEV_SITENAME}.${DDEV_TLD}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+      start_period: 5s
+    restart: "no"
+
+configs:
+  butler-mc-config.json:
+    content: |
+      {
+        "version": "10",
+        "aliases": {
+          "minio": {
+            "url": "http://minio:9000",
+            "accessKey": "ddevminio",
+            "secretKey": "ddevminio",
+            "api": "s3v4",
+            "path": "auto"
+          }
+        }
+      }
+
+volumes:
+  butler-minio:
+    name: ddev-${DDEV_SITENAME}-butler-minio
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}

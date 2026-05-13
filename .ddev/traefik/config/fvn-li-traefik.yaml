@@ -14,6 +14,25 @@ http:
             service: 'fvn-li-web-5273'
             tls: true
             priority: 100
+        fvn-li-butler-http:
+            entrypoints:
+                - http-80
+            rule: HostRegexp(`^butler-fvn-li\.ddev\.site$`)
+            service: 'fvn-li-butler-server-8081'
+            tls: false
+            priority: 10000
+        fvn-li-butler-https:
+            entrypoints:
+                - http-443
+            rule: HostRegexp(`^butler-fvn-li\.ddev\.site$`)
+            service: 'fvn-li-butler-server-8081'
+            tls: true
+            priority: 10000
+    services:
+        fvn-li-butler-server-8081:
+            loadbalancer:
+                servers:
+                    - url: http://ddev-fvn-li-butler-server:8081
 
 tls:
     certificates:

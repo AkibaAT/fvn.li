@@ -16,6 +16,7 @@ use App\Console\Commands\GenerateSitemap;
 use App\Console\Commands\ImportGameVersionStats;
 use App\Console\Commands\ImportRatings;
 use App\Console\Commands\OptimizeGameArchives;
+use App\Console\Commands\PersistOptimizedGameVersionsToButler;
 use App\Console\Commands\ProcessFeed;
 use App\Console\Commands\ProcessGameScreenshots;
 use App\Console\Commands\ProcessGameThumbnails;
@@ -48,6 +49,7 @@ class Kernel extends ConsoleKernel
         ImportGameVersionStats::class,
         ImportRatings::class,
         OptimizeGameArchives::class,
+        PersistOptimizedGameVersionsToButler::class,
         ProcessFeed::class,
         ProcessGameScreenshots::class,
         ProcessGameThumbnails::class,
