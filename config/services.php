@@ -134,4 +134,18 @@ return [
         'timeout' => env('ROUTE_GRAPH_LAYOUT_TIMEOUT', 300),
     ],
 
+    'butler_server' => [
+        'url' => env('BUTLER_SERVER_URL', 'http://butler-server:8081'),
+        'public_url' => env('BUTLER_SERVER_PUBLIC_URL', 'https://butler-fvn-li.ddev.site'),
+        'username' => env('BUTLER_SERVER_USERNAME', 'fvn-li'),
+        'client_path' => env('BUTLER_CLIENT_PATH', '/var/www/butler-client'),
+        'postgres' => [
+            'host' => env('BUTLER_SERVER_POSTGRES_HOST', 'db'),
+            'port' => env('BUTLER_SERVER_POSTGRES_PORT', 5432),
+            'database' => env('BUTLER_SERVER_POSTGRES_DATABASE', 'butler'),
+            'username' => env('BUTLER_SERVER_POSTGRES_USERNAME', 'db'),
+            'password' => env('BUTLER_SERVER_POSTGRES_PASSWORD', 'db'),
+        ],
+    ],
+
 ];
