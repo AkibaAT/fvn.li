@@ -53,38 +53,46 @@ For detailed architecture information, see the [Frontend Architecture](https://a
    cd fvn.li
    ```
 
-2. Start the DDEV environment:
+2. Configure local `butler-server` checkout paths:
+   ```bash
+   cat .ddev/butler-server/host-paths.env.example >> .ddev/.env
+   ```
+
+   Edit `.ddev/.env` so `FVN_BUTLER_CLIENT_HOST_PATH`, `FVN_BUTLER_SERVER_HOST_PATH`, and `FVN_WHARF_HOST_PATH`
+   point to absolute paths for your local `butler-client`, `butler-server`, and `wharf` checkouts.
+
+3. Start the DDEV environment:
    ```bash
    ddev start
    ```
 
-3. Install PHP dependencies:
+4. Install PHP dependencies:
    ```bash
    ddev composer install
    ```
 
-4. Install JavaScript dependencies:
+5. Install JavaScript dependencies:
    ```bash
    ddev bun install
    ```
 
-5. Copy the environment file and generate an application key:
+6. Copy the environment file and generate an application key:
    ```bash
    cp .env.example .env
    ddev artisan key:generate
    ```
 
-6. Run database migrations:
+7. Run database migrations:
    ```bash
    ddev artisan migrate
    ```
 
-7. Start the Vite development server:
+8. Start the Vite development server:
    ```bash
    ddev bun dev
    ```
 
-8. Access the application at [https://fvn-li.ddev.site](https://fvn-li.ddev.site)
+9. Access the application at [https://fvn-li.ddev.site](https://fvn-li.ddev.site)
 
 For more detailed development instructions, see the [Development Guide](https://akibaat.github.io/fvn.li/development-guide.html).
 
