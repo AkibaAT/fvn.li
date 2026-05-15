@@ -7,6 +7,8 @@ ARG BUN_LINUX_AARCH64_SHA256=70bae41b3908b0a120e1e58c5c8af30e74afae3b8d11b0d3fdd
 # Set working directory
 WORKDIR /app
 
+COPY docker/app/python-tools-requirements.txt /tmp/python-tools-requirements.txt
+
 # Install system dependencies
 RUN apt-get update \
     && apt-get upgrade -yqq \
@@ -24,16 +26,18 @@ RUN apt-get update \
         libsodium-dev \
         nano \
         ncdu \
-        pipx \
         postgresql-client \
         procps \
+        python3-venv \
         redis-tools \
         supervisor \
         unzip \
         wget \
         git \
-    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install unrpa \
-    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install rpycdec \
+    && python3 -m venv /opt/renpy-tools \
+    && /opt/renpy-tools/bin/pip install --no-cache-dir --require-hashes -r /tmp/python-tools-requirements.txt \
+    && ln -s /opt/renpy-tools/bin/unrpa /usr/local/bin/unrpa \
+    && ln -s /opt/renpy-tools/bin/rpycdec /usr/local/bin/rpycdec \
     && ( \
         arch="$(dpkg --print-architecture)" \
         && case "$arch" in \
