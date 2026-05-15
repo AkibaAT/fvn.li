@@ -26,24 +26,23 @@ class DialogueController extends Controller
     {
         $versionId = $request->route('versionId') ?? $request->input('versionId');
 
-        $versionQuery = $game->gameVersions()
-            ->whereExists(function ($query) {
-                $query->select('id')
-                    ->from('version_dialogue_lines')
-                    ->whereColumn('version_dialogue_lines.game_version_id', 'game_versions.id')
-                    ->limit(1);
-            });
-
         if ($versionId !== null) {
-            $versionQuery->whereKey((int) $versionId);
+            $version = $game->gameVersions()
+                ->whereKey((int) $versionId)
+                ->firstOrFail();
         } else {
-            $versionQuery
+            $version = $game->gameVersions()
+                ->whereExists(function ($query) {
+                    $query->select('id')
+                        ->from('version_dialogue_lines')
+                        ->whereColumn('version_dialogue_lines.game_version_id', 'game_versions.id')
+                        ->limit(1);
+                })
                 ->orderByDesc('is_latest')
                 ->orderByDesc('published_at')
-                ->orderByDesc('id');
+                ->orderByDesc('id')
+                ->firstOrFail();
         }
-
-        $version = $versionQuery->firstOrFail();
 
         $initial = [
             'gameId' => $game->id,

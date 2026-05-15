@@ -54,8 +54,16 @@ function dialogueModelLine(GameVersion $version, ?Character $character, string $
 
 it('aggregates dialogue texts per game for search indexing', function () {
     $game = Game::factory()->create(['name' => 'Searchable Game']);
-    $versionA = GameVersion::factory()->for($game)->create();
-    $versionB = GameVersion::factory()->for($game)->create();
+    $versionA = GameVersion::factory()->for($game)->create([
+        'version' => '1.0',
+        'is_latest' => false,
+        'published_at' => now()->subDay(),
+    ]);
+    $versionB = GameVersion::factory()->for($game)->create([
+        'version' => '2.0',
+        'is_latest' => true,
+        'published_at' => now(),
+    ]);
     $otherVersion = GameVersion::factory()->create();
     $alice = Character::factory()->for($game)->create([
         'character_id' => 'alice',
@@ -75,9 +83,11 @@ it('aggregates dialogue texts per game for search indexing', function () {
 
     expect($records)->toHaveCount(2)
         ->and($records['Shared line']->game_name)->toBe('Searchable Game')
-        ->and($records['Shared line']->version_ids)->toContain($versionA->id, $versionB->id)
-        ->and($records['Shared line']->character_ids)->toContain($alice->id, $bob->id)
-        ->and($records['Shared line']->character_names)->toContain('Alice', 'bob')
+        ->and($records['Shared line']->version_ids)->toBe([$versionB->id])
+        ->and($records['Shared line']->character_ids)->toContain($bob->id)
+        ->and($records['Shared line']->character_names)->toContain('bob')
+        ->and($records['Shared line']->first_seen_version_id)->toBe($versionA->id)
+        ->and($records['Shared line']->first_seen_version)->toBe('1.0')
         ->and($records['Narration only']->character_ids)->toBe([])
         ->and($records['Narration only']->character_names)->toBe([]);
 
@@ -92,7 +102,7 @@ it('aggregates dialogue texts per game for search indexing', function () {
     });
 
     expect($chunkedCount)->toBe(2)
-        ->and($chunkedRecords->keyBy('text_content')['Shared line']->character_names)->toContain('Alice', 'bob');
+        ->and($chunkedRecords->keyBy('text_content')['Shared line']->character_names)->toContain('bob');
 });
 
 it('exposes dialogue search payloads and searchability metadata', function () {
@@ -114,9 +124,15 @@ it('exposes dialogue search payloads and searchability metadata', function () {
         'text_content' => 'Index me',
         'language' => 'eng',
         'game_name' => 'Game',
+        'current_version_id' => null,
+        'current_version' => null,
+        'current_version_published_at' => null,
         'version_ids' => [3],
         'character_ids' => [4],
         'character_names' => ['Alice'],
+        'first_seen_version_id' => null,
+        'first_seen_version' => null,
+        'first_seen_published_at' => null,
     ])
         ->and($model->searchableAs())->toBe('game_dialogue_texts')
         ->and($model->shouldBeSearchable())->toBeTrue()
