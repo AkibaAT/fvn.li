@@ -195,9 +195,9 @@ it('reapplies character key filters when expanding meilisearch hits', function (
             'text_content' => $text->text_content,
             '_formatted' => ['text_content' => '<mark>Moonlight</mark> reveals the hidden archive clue.'],
         ],
-    ], 1, function (string $term, array $params) use ($game) {
+    ], 1, function (string $term, array $params) use ($game, $character) {
         expect($term)->toBe('moonlight')
-            ->and($params['filter'])->toBe("language = 'eng' AND game_id = {$game->id}");
+            ->and($params['filter'])->toBe("language = 'eng' AND game_id = {$game->id} AND character_ids = {$character->id}");
     });
 
     $results = app(DialogueSearchService::class)->search('moonlight', [
