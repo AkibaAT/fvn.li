@@ -87,6 +87,6 @@ it('indexes no game dialogue texts when no games have dialogue', function () {
 it('reports no dialogue texts for a requested game without indexing', function () {
     $this->artisan('dialogue:index', ['--game' => 123456])
         ->expectsOutput('Indexing dialogue texts for game 123456...')
-        ->expectsOutput('No dialogue texts found for game 123456')
+        ->expectsOutput('No dialogue texts found for game 123456; stale documents were removed.')
         ->assertExitCode(0);
 });
