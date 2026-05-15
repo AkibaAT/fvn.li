@@ -254,6 +254,73 @@ SH);
     }
 });
 
+test('previous optimized archive metadata cannot reuse paths outside extracted archive', function () {
+    Storage::fake('local');
+
+    $game = Game::factory()->create(['name' => 'Traversal Reuse']);
+    $older = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.0',
+        'published_at' => now()->subDay(),
+    ]);
+    $newer = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.1',
+        'published_at' => now(),
+    ]);
+    $audioContents = str_repeat('same source audio', 20);
+    $secret = "SERVER-LOCAL-SECRET:butler-token=abc123\n";
+    $secretPath = storage_path('app/leak-secret.txt');
+
+    File::put($secretPath, $secret);
+    createAudioArchive($game->id, $older->id, 'seed.zip', $audioContents);
+    createMaliciousOptimizedAudioArchive($game->id, $older->id, 'seed.optimized.zip', $audioContents);
+    createAudioArchive($game->id, $newer->id, 'newer-audio.zip', $audioContents);
+
+    $oldPath = getenv('PATH') ?: '';
+    $binDir = sys_get_temp_dir().'/fake-ffmpeg-'.bin2hex(random_bytes(4));
+    mkdir($binDir);
+    $fakeFfmpeg = $binDir.'/ffmpeg';
+    file_put_contents($fakeFfmpeg, <<<'SH'
+#!/bin/sh
+target=""
+for arg do
+  target="$arg"
+done
+printf 'optimized:newer\n' > "$target"
+SH);
+    chmod($fakeFfmpeg, 0755);
+    putenv('PATH='.$binDir.PATH_SEPARATOR.$oldPath);
+    $_SERVER['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+    $_ENV['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+
+    try {
+        $result = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
+            ->optimizeStoredArchive($game->id, $newer->id, dryRun: false, force: true);
+    } finally {
+        putenv('PATH='.$oldPath);
+        $_SERVER['PATH'] = $oldPath;
+        $_ENV['PATH'] = $oldPath;
+        @unlink($fakeFfmpeg);
+        @rmdir($binDir);
+        File::delete($secretPath);
+    }
+
+    expect($result['status'])->toBe('optimized')
+        ->and($result['audio_optimized'])->toBe(1)
+        ->and($result['audio_reused'])->toBe(0);
+
+    $zip = new ZipArchive;
+    expect($zip->open(Storage::path("games/{$game->id}/{$newer->id}/newer-audio.optimized.zip")))->toBeTrue();
+
+    try {
+        expect($zip->getFromName('game/music/theme.ogg'))->toBe("optimized:newer\n")
+            ->not->toBe($secret);
+    } finally {
+        $zip->close();
+    }
+});
+
 test('tar archive repacking treats option-like top level entries as filenames', function () {
     $sourceDir = sys_get_temp_dir().'/archive_tar_option_source_'.bin2hex(random_bytes(4));
     $targetPath = sys_get_temp_dir().'/archive_tar_option_target_'.bin2hex(random_bytes(4)).'.tar';
@@ -486,6 +553,43 @@ function createAudioArchive(int $gameId, int $versionId, string $filename, strin
     try {
         $zip->addFromString('game/script.rpy', "define audio.theme = \"music/theme.mp3\"\nlabel start:\n    play music theme\n");
         $zip->addFromString('game/music/theme.mp3', $audioContents);
+    } finally {
+        $zip->close();
+    }
+}
+
+function createMaliciousOptimizedAudioArchive(int $gameId, int $versionId, string $filename, string $audioContents): void
+{
+    $storagePath = "games/{$gameId}/{$versionId}";
+    Storage::makeDirectory($storagePath);
+
+    $metadata = [
+        'schema' => 'fvn.archive_optimization.v1',
+        'original_files' => [
+            [
+                'path' => 'game/music/theme.mp3',
+                'size' => strlen($audioContents),
+                'sha256' => hash('sha256', $audioContents),
+            ],
+        ],
+        'optimized_files' => [
+            [
+                'path' => 'game/../../../leak-secret.txt',
+                'size' => 10,
+                'sha256' => str_repeat('0', 64),
+            ],
+        ],
+        'media_replacements' => [
+            'music/theme.mp3' => '../../../leak-secret.txt',
+        ],
+    ];
+
+    $zip = new ZipArchive;
+    expect($zip->open(Storage::path("{$storagePath}/{$filename}"), ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
+
+    try {
+        $zip->addFromString('game/script.rpy', "define audio.theme = \"music/theme.ogg\"\nlabel start:\n    play music theme\n");
+        $zip->addFromString('.fvn-archive-metadata.json', json_encode($metadata, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     } finally {
         $zip->close();
     }
