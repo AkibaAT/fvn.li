@@ -32,6 +32,8 @@ jobs:
       - name: Start DDEV
         run: |
           sudo mkdir -p /tmp/fvn-empty-renpy-sdk
+          # The Butler DDEV service mounts developer-local checkouts that are not present in CI.
+          rm -f .ddev/docker-compose.butler-server.yaml
           ddev start -y
           ddev describe
 
