@@ -36,13 +36,19 @@ jobs:
           ddev describe
 
       - name: Install Composer dependencies
-        run: ddev composer install --no-interaction --prefer-dist
+        run: ddev composer install --no-interaction --prefer-dist --no-progress
 
       - name: Install Bun dependencies
-        run: ddev bun install --frozen-lockfile
+        run: ddev bun install
 
       - name: Validate Composer config
         run: ddev composer validate --no-check-publish
+
+      - name: Audit Composer dependencies
+        run: ddev composer audit --locked --no-interaction
+
+      - name: Audit Bun dependencies
+        run: ddev bun audit --audit-level=high
 
       - name: Check patch whitespace
         run: |
@@ -121,7 +127,7 @@ jobs:
         if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
         with:
-          driver-opts: image=moby/buildkit:latest
+          driver-opts: image=moby/buildkit:v0.26.3@sha256:5601811fde88bb9e8a577bfe804af82bccb712e1cd07ff94663bded5e628cf75
 
       - name: Log in to Docker Hub
         if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
@@ -146,7 +152,8 @@ jobs:
           context: .
           file: docker/app/Dockerfile
           push: true
-          provenance: false
+          provenance: mode=max
+          sbom: true
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -164,7 +171,8 @@ jobs:
           context: docker/social-images
           file: docker/social-images/Dockerfile
           push: true
-          provenance: false
+          provenance: mode=max
+          sbom: true
           platforms: linux/amd64
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/fvn.li:${{ env.REF_NAME }}-social-images
           labels: ${{ steps.meta.outputs.labels }}
@@ -195,7 +203,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         name: Install Bun

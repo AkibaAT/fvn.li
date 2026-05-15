@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
 import { mkdir, access } from 'fs/promises';
 import { join } from 'path';
 

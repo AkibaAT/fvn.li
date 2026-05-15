@@ -1,0 +1,82 @@
+name: Supply Chain Security
+
+on:
+  pull_request:
+    branches:
+      - development
+      - production
+  push:
+    branches:
+      - development
+      - production
+    paths:
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
+      - 'bunfig.toml'
+      - 'bun.lock'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'docker/**'
+      - 'package.json'
+      - 'scripts/check-github-actions-pinned.sh'
+      - 'scripts/check-js-dependency-sources.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Require pinned GitHub Actions
+        run: scripts/check-github-actions-pinned.sh
+
+      - name: Require registry-based JS dependencies
+        run: scripts/check-js-dependency-sources.py
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
+
+  audits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@accd6127cb78bee3e8082180cb391013d204ef9f # v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Audit Composer lockfile
+        run: composer audit --locked --no-interaction
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Verify Bun lockfile
+        run: bun install
+
+      - name: Audit Bun lockfile
+        run: bun audit --audit-level=high
+
+      - name: Audit social image generator dependencies
+        working-directory: docker/social-images
+        run: npm audit --audit-level=high --omit=dev

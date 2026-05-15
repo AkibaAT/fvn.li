@@ -1,11 +1,11 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:18.0
+  image: postgres:18.4@sha256:775a0820dd34e907ec63277e388d145056d427548e461d7953a070edb5de3a3a
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.23
+  image: getmeili/meilisearch:v1.23@sha256:bac1af7afd5a19b72ec57a660cbb09704926b75ad709ad514ed2f7cf01675256
 x-redis: &redis
-  image: redis:8
+  image: redis:8.6.3@sha256:0c341492924cad6f5483f9133e43bd6c51ecdecbcadfac5b51657393b6a7936c
 
 services:
   app:
@@ -191,7 +191,7 @@ services:
     volumes:
       - redis:/data
   flaresolverr:
-    image: flaresolverr/flaresolverr:latest
+    image: flaresolverr/flaresolverr:latest@sha256:7962759d99d7e125e108e0f5e7f3cdbcd36161776d058d1d9b7153b92ef1af9e
     restart: unless-stopped
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -216,6 +216,10 @@ services:
   social-image-generator:
     image: ${DOCKER_IMAGE_SOCIAL_IMAGES}
     restart: "no"
+    user: pwuser
+    ipc: host
+    security_opt:
+      - seccomp=${PWD}/seccomp_profile.json
     profiles:
       - tools
     depends_on:
