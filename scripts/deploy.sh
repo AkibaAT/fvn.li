@@ -5,11 +5,73 @@ set -e
 # It can handle both Docker image updates and code-only changes
 # All build steps (composer install, npm build) are done in GitHub Actions
 
+RUNTIME_GROUP="${APP_RUNTIME_GROUP:-www-data}"
+DEPLOY_UID="$(id -u)"
+RUNTIME_GID="$(getent group "${RUNTIME_GROUP}" | cut -d: -f3 || true)"
+
+if [ -z "${RUNTIME_GID}" ]; then
+  echo "Runtime group '${RUNTIME_GROUP}' does not exist on this host."
+  echo "Create it or set APP_RUNTIME_GROUP to the group shared with the Docker runtime."
+  exit 1
+fi
+
+APP_EXEC_USER="${APP_EXEC_USER:-${DEPLOY_UID}:${RUNTIME_GID}}"
+
+# New files created during deploy should remain writable by the shared runtime group.
+umask 0002
+
+require_deploy_write_access() {
+  if [ ! -w . ]; then
+    echo "Deployment path is not writable by $(id -un)."
+    echo "Expected ownership model: $(id -un):${RUNTIME_GROUP} with group-writable setgid directories."
+    echo "One-time repair example:"
+    echo "  sudo chown -R $(id -un):${RUNTIME_GROUP} $(pwd)"
+    echo "  sudo find $(pwd) -type d -exec chmod 2775 {} +"
+    echo "  sudo find $(pwd) -type f -exec chmod g+rw {} +"
+    exit 1
+  fi
+}
+
+ensure_host_write_paths() {
+  # The checkout is bind-mounted into /app. Keep code/cache paths owned by the
+  # deploy user and writable by the runtime group instead of flipping ownership
+  # to www-data during deploy.
+  install -d -m 2775 bootstrap/cache public/build
+  chgrp -R "${RUNTIME_GROUP}" bootstrap/cache public/build 2>/dev/null || true
+  chmod g+rwX . bootstrap bootstrap/cache public public/build scripts || true
+  find bootstrap/cache public/build -type d -exec chmod 2775 {} +
+  find bootstrap/cache public/build -type f -exec chmod g+rw {} +
+}
+
+compose_exec_app() {
+  docker compose exec -T --user "${APP_EXEC_USER}" app "$@"
+}
+
+compose_exec_root() {
+  docker compose exec -T --user root app "$@"
+}
+
+ensure_container_runtime_paths() {
+  compose_exec_root sh -lc "
+    mkdir -p /app/storage/app/public/social-images /app/storage/logs /app/bootstrap/cache /app/public/build
+    chgrp -R ${RUNTIME_GROUP} /app/storage /app/bootstrap/cache /app/public/build 2>/dev/null || true
+    chmod -R g+rwX /app/storage /app/bootstrap/cache /app/public/build
+    find /app/storage /app/bootstrap/cache /app/public/build -type d -exec chmod g+s {} +
+  "
+}
+
+artisan() {
+  compose_exec_app php artisan "$@"
+}
+
 # Load environment variables from .env.deploy
 if [ -f .env.deploy ]; then
   echo "Loading deployment configuration from .env.deploy"
   export $(grep -v '^#' .env.deploy | xargs)
 fi
+
+require_deploy_write_access
+ensure_host_write_paths
 
 # Check if DOCKER_IMAGE or DOCKER_IMAGE_SOCIAL_IMAGES is set (indicating a Docker build)
 if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
@@ -17,7 +79,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
     echo "Docker image was updated to ${DOCKER_IMAGE}"
     # Update .env file with the new Docker image
     if grep -q "^DOCKER_IMAGE=" .env; then
-      sudo sed -i "s|^DOCKER_IMAGE=.*|DOCKER_IMAGE=${DOCKER_IMAGE}|g" .env
+      sed -i "s|^DOCKER_IMAGE=.*|DOCKER_IMAGE=${DOCKER_IMAGE}|g" .env
     else
       echo "DOCKER_IMAGE=${DOCKER_IMAGE}" >> .env
     fi
@@ -27,7 +89,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
     echo "Social images Docker image was updated to ${DOCKER_IMAGE_SOCIAL_IMAGES}"
     # Update .env file with the new social images Docker image
     if grep -q "^DOCKER_IMAGE_SOCIAL_IMAGES=" .env; then
-      sudo sed -i "s|^DOCKER_IMAGE_SOCIAL_IMAGES=.*|DOCKER_IMAGE_SOCIAL_IMAGES=${DOCKER_IMAGE_SOCIAL_IMAGES}|g" .env
+      sed -i "s|^DOCKER_IMAGE_SOCIAL_IMAGES=.*|DOCKER_IMAGE_SOCIAL_IMAGES=${DOCKER_IMAGE_SOCIAL_IMAGES}|g" .env
     else
       echo "DOCKER_IMAGE_SOCIAL_IMAGES=${DOCKER_IMAGE_SOCIAL_IMAGES}" >> .env
     fi
@@ -42,14 +104,12 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   docker compose down --remove-orphans
   docker compose up -d
 
-  # Ensure social images directory exists with proper permissions
-  docker compose exec app mkdir -p /app/storage/app/public/social-images
-  docker compose exec app chown -R www-data:www-data /app/storage/app/public/social-images
+  ensure_container_runtime_paths
 
   # Run Laravel commands
-  docker compose exec app php artisan storage:link
-  docker compose exec app php artisan config:cache
-  docker compose exec app php artisan migrate --force
+  artisan storage:link
+  artisan config:cache
+  artisan migrate --force
 
   echo "Full restart completed successfully!"
 else
@@ -59,24 +119,26 @@ else
   if docker compose ps app | grep -q "Up"; then
     echo "Container is running, performing cache clear and hot reload..."
 
-    docker compose exec app php artisan storage:link
+    ensure_container_runtime_paths
+
+    artisan storage:link
 
     # Clear Laravel caches
-    docker compose exec app php artisan config:clear
-    docker compose exec app php artisan route:clear
-    docker compose exec app php artisan view:clear
-    docker compose exec app php artisan cache:clear
+    artisan config:clear
+    artisan route:clear
+    artisan view:clear
+    artisan cache:clear
 
     # Run migrations
-    docker compose exec app php artisan migrate --force
+    artisan migrate --force
 
     # Reload FrankenPHP
-    docker compose exec app curl -X POST http://localhost:2019/frankenphp/workers/restart
+    compose_exec_root curl -X POST http://localhost:2019/frankenphp/workers/restart
 
     # Restart workers
-    docker compose exec app supervisorctl restart laravel-nightwatch:*
-    docker compose exec app supervisorctl restart laravel-queue:*
-    docker compose exec app supervisorctl restart inertia-ssr:*
+    compose_exec_root supervisorctl restart laravel-nightwatch:*
+    compose_exec_root supervisorctl restart laravel-queue:*
+    compose_exec_root supervisorctl restart inertia-ssr:*
 
     echo "FrankenPHP and workers hot reload completed successfully!"
   else
@@ -85,10 +147,12 @@ else
     # Start the containers without pulling (using existing image)
     docker compose up -d --remove-orphans
 
+    ensure_container_runtime_paths
+
     # Run Laravel commands
-    docker compose exec app php artisan storage:link
-    docker compose exec app php artisan config:cache
-    docker compose exec app php artisan migrate --force
+    artisan storage:link
+    artisan config:cache
+    artisan migrate --force
 
     echo "Container started successfully!"
   fi

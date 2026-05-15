@@ -1,0 +1,13 @@
+{
+  "name": "social-images",
+  "version": "1.0.0",
+  "main": "generate.js",
+  "scripts": {
+    "start": "node generate.js"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "1.60.0"
+  }
+}

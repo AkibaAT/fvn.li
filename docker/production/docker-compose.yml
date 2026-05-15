@@ -1,11 +1,11 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:18.0
+  image: postgres:18.4@sha256:775a0820dd34e907ec63277e388d145056d427548e461d7953a070edb5de3a3a
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.23
+  image: getmeili/meilisearch:v1.23@sha256:bac1af7afd5a19b72ec57a660cbb09704926b75ad709ad514ed2f7cf01675256
 x-redis: &redis
-  image: redis:8
+  image: redis:8.6.3@sha256:0c341492924cad6f5483f9133e43bd6c51ecdecbcadfac5b51657393b6a7936c
 
 services:
   app:
@@ -18,6 +18,15 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_healthy
+      flaresolverr:
+        condition: service_healthy
+      stats-runner:
+        condition: service_started
+    environment:
+      - RENPY_ANALYSIS_MODE=${RENPY_ANALYSIS_MODE:-sandbox}
+      - RENPY_ANALYZER_URL=${RENPY_ANALYZER_URL:-http://stats-runner:8080/api/renpy-analyzer/analyze}
+      - RENPY_ANALYZER_TOKEN=${RENPY_ANALYZER_TOKEN}
+      - RENPY_ANALYZER_TIMEOUT=${RENPY_ANALYZER_TIMEOUT:-300}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost/health" ]
       interval: 30s
@@ -26,12 +35,13 @@ services:
       start_period: 30s
     networks:
       - fvnli
+      - flaresolverr
       - web
     volumes:
       - app_storage:/app/storage
       - caddy_data:/data
       - caddy_config:/config
-      - /opt/renpy-sdk:/opt/renpy-sdk
+      - /opt/renpy-sdk:/opt/renpy-sdk:ro
       - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
       - ./:/app/
     labels:
@@ -41,6 +51,38 @@ services:
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=https"
+  stats-runner:
+    <<: *fvnli
+    restart: unless-stopped
+    working_dir: /app/public
+    entrypoint:
+      - php
+      - -S
+      - 0.0.0.0:8080
+      - ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fvnli
+    environment:
+      - RENPY_ANALYZER_SERVER=true
+      - RENPY_ANALYZER_TOKEN=${RENPY_ANALYZER_TOKEN}
+      - RENPY_ANALYZER_IMAGE=${DOCKER_IMAGE}
+      - RENPY_ANALYZER_TIMEOUT=${RENPY_ANALYZER_TIMEOUT:-300}
+      - RENPY_ANALYZER_HOST_WORK_DIR=/var/lib/fvn-renpy-analyzer/${COMPOSE_PROJECT_NAME}
+      - RENPY_ANALYZER_CONTAINER_WORK_DIR=/runner-work
+      - RENPY_SDK_DOCKER_HOST_PATH=${RENPY_SDK_DOCKER_HOST_PATH:-/opt/renpy-sdk}
+      - RENPY_SDK_PATH=/opt/renpy-sdk
+    volumes:
+      - app_storage:/app/storage
+      - /opt/renpy-sdk:/opt/renpy-sdk:ro
+      - /var/lib/fvn-renpy-analyzer/${COMPOSE_PROJECT_NAME}:/runner-work
+      - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/app/
   db:
     <<: *db
     restart: unless-stopped
@@ -136,7 +178,8 @@ services:
     command:
       - "redis-server"
       - "--save"
-      - "60 1"
+      - "60"
+      - "1"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -148,7 +191,7 @@ services:
     volumes:
       - redis:/data
   flaresolverr:
-    image: flaresolverr/flaresolverr:latest
+    image: flaresolverr/flaresolverr:latest@sha256:7962759d99d7e125e108e0f5e7f3cdbcd36161776d058d1d9b7153b92ef1af9e
     restart: unless-stopped
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -163,7 +206,7 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - fvnli
+      - flaresolverr
     deploy:
       resources:
         limits:
@@ -173,6 +216,10 @@ services:
   social-image-generator:
     image: ${DOCKER_IMAGE_SOCIAL_IMAGES}
     restart: "no"
+    user: pwuser
+    ipc: host
+    security_opt:
+      - seccomp=${PWD}/seccomp_profile.json
     profiles:
       - tools
     depends_on:
@@ -203,6 +250,8 @@ volumes:
 networks:
   fvnli:
     name: ${COMPOSE_PROJECT_NAME}
+  flaresolverr:
+    name: ${COMPOSE_PROJECT_NAME}_flaresolverr
   web:
     name: web
     external: true
