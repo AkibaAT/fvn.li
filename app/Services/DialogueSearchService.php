@@ -45,8 +45,11 @@ class DialogueSearchService
             $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
         }
         if (! empty($filters['character_id'])) {
-            // Filter by character_ids array
-            $filterParts[] = 'character_ids = ' . (int) $filters['character_id'];
+            $characterDatabaseId = $this->resolveCharacterDatabaseId($filters);
+            if ($characterDatabaseId !== null) {
+                // Filter by character_ids array
+                $filterParts[] = 'character_ids = ' . $characterDatabaseId;
+            }
         }
 
         // If exact match is requested, wrap the search term in quotes for phrase matching
@@ -73,6 +76,15 @@ class DialogueSearchService
         $textIds = collect($hits)->pluck('text_id')->toArray();
         $highlightedTexts = collect($hits)->mapWithKeys(function ($hit) {
             return [$hit['text_id'] => $hit['_formatted']['text_content'] ?? $hit['text_content']];
+        });
+        $firstSeenVersions = collect($hits)->mapWithKeys(function ($hit) {
+            return [
+                $hit['text_id'] => [
+                    'id' => $hit['first_seen_version_id'] ?? null,
+                    'version' => $hit['first_seen_version'] ?? null,
+                    'published_at' => $hit['first_seen_published_at'] ?? null,
+                ],
+            ];
         });
 
         if (empty($textIds)) {
@@ -107,6 +119,11 @@ class DialogueSearchService
         if (! empty($filters['context'])) {
             $query->where('context', $filters['context']);
         }
+        if (! empty($filters['character_id'])) {
+            $query->whereHas('character', function ($q) use ($filters) {
+                $q->where('character_id', $filters['character_id']);
+            });
+        }
 
         // Get all matching dialogue lines
         $dialogueLines = $query->get();
@@ -116,13 +133,15 @@ class DialogueSearchService
 
         // Build final results in the order returned by Meilisearch
         // Attach highlighted text from Meilisearch to each line
-        $items = collect($textIds)->flatMap(function ($textId) use ($linesByTextId, $highlightedTexts) {
+        $items = collect($textIds)->flatMap(function ($textId) use ($linesByTextId, $highlightedTexts, $firstSeenVersions) {
             $lines = $linesByTextId->get($textId, collect());
             $highlightedText = $highlightedTexts->get($textId);
+            $firstSeenVersion = $firstSeenVersions->get($textId);
 
             // Add highlighted text to each line
-            return $lines->map(function ($line) use ($highlightedText) {
+            return $lines->map(function ($line) use ($highlightedText, $firstSeenVersion) {
                 $line->highlighted_text = $highlightedText;
+                $line->first_seen_version = $firstSeenVersion;
 
                 return $line;
             });
@@ -364,5 +383,26 @@ class DialogueSearchService
     {
         // Default to English
         return 'search_vector';
+    }
+
+    private function resolveCharacterDatabaseId(array $filters): ?int
+    {
+        $characterId = $filters['character_id'] ?? null;
+        if (empty($characterId)) {
+            return null;
+        }
+
+        if (is_numeric($characterId)) {
+            return (int) $characterId;
+        }
+
+        $query = DB::table('characters')->where('character_id', '=', $characterId);
+        if (! empty($filters['game_id'])) {
+            $query->where('game_id', '=', $filters['game_id']);
+        }
+
+        $databaseId = $query->value('id');
+
+        return $databaseId ? (int) $databaseId : null;
     }
 }

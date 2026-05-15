@@ -50,10 +50,11 @@ class IndexGameDialogueTexts extends Command
     {
         $this->info("Indexing dialogue texts for game {$gameId}...");
 
+        GameDialogueText::deleteSearchDocumentsForGame($gameId);
         $dialogueTexts = GameDialogueText::getForGame($gameId);
 
         if ($dialogueTexts->isEmpty()) {
-            $this->warn("No dialogue texts found for game {$gameId}");
+            $this->warn("No dialogue texts found for game {$gameId}; stale documents were removed.");
 
             return 0;
         }
@@ -78,6 +79,8 @@ class IndexGameDialogueTexts extends Command
      */
     protected function indexAllGames(): int
     {
+        GameDialogueText::deleteAllSearchDocuments();
+
         // Get all games that have dialogue
         $gameIds = DB::table('version_dialogue_lines as vdl')
             ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')

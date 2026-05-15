@@ -11,6 +11,7 @@ use App\Models\Tag;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Meilisearch\Client;
 
 class SearchIndexService
 {
@@ -42,6 +43,8 @@ class SearchIndexService
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->distinct()
                 ->pluck('gv.game_id');
+
+            GameDialogueText::deleteAllSearchDocuments();
 
             foreach ($gameIds as $gameId) {
                 try {
@@ -136,6 +139,8 @@ class SearchIndexService
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->distinct()
                 ->pluck('gv.game_id');
+
+            GameDialogueText::deleteAllSearchDocuments();
 
             foreach ($gameIds as $gameId) {
                 try {
@@ -262,7 +267,7 @@ class SearchIndexService
     public function getIndexStats(): array
     {
         try {
-            $client = app(\Meilisearch\Client::class);
+            $client = app(Client::class);
 
             $stats = [];
             $indexes = ['games', 'game_dialogue_texts', 'reviews', 'tags'];
@@ -301,7 +306,7 @@ class SearchIndexService
     public function healthCheck(): array
     {
         try {
-            $client = app(\Meilisearch\Client::class);
+            $client = app(Client::class);
             $health = $client->health();
 
             $stats = $this->getIndexStats();

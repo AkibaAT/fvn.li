@@ -32,6 +32,7 @@ export interface DialogueSearchResult {
   game_version_id: number;
   game: { id: number; name: string } | null;
   version: { id: number; version: string } | null;
+  first_seen_version?: { id: number; version: string; published_at: string | null } | null;
 }
 
 export interface DialogueLanguage {

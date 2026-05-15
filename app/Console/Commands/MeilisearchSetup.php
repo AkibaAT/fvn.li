@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Meilisearch\Client;
 
 class MeilisearchSetup extends Command
 {
@@ -102,7 +103,7 @@ class MeilisearchSetup extends Command
     {
         try {
             // Try to get health status (this endpoint doesn't require authentication)
-            $client = app(\Meilisearch\Client::class);
+            $client = app(Client::class);
             $health = $client->health();
 
             return $health['status'] === 'available';
@@ -119,7 +120,7 @@ class MeilisearchSetup extends Command
     private function checkAuthentication(): bool
     {
         try {
-            $client = app(\Meilisearch\Client::class);
+            $client = app(Client::class);
             // Try to get indexes - this requires authentication
             $client->getIndexes();
 
@@ -153,7 +154,7 @@ class MeilisearchSetup extends Command
 
             return true;
         } catch (Exception $e) {
-            $this->error('    ❌ Error setting up indexes: ' . $e->getMessage());
+            $this->error('    ❌ Error setting up indexes: '.$e->getMessage());
 
             return false;
         }
@@ -211,6 +212,8 @@ class MeilisearchSetup extends Command
             $totalGames = $gameIds->count();
             $this->line("  - Importing dialogue texts from {$totalGames} games (per-game deduplication)...");
 
+            GameDialogueText::deleteAllSearchDocuments();
+
             $bar = $this->output->createProgressBar($totalGames);
             $bar->start();
 
@@ -245,7 +248,7 @@ class MeilisearchSetup extends Command
                     $this->line("      • {$error}");
                 }
                 if (count($errors) > 5) {
-                    $this->line('      • ... and ' . (count($errors) - 5) . ' more');
+                    $this->line('      • ... and '.(count($errors) - 5).' more');
                 }
             }
 

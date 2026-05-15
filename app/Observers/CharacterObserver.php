@@ -45,6 +45,7 @@ class CharacterObserver
 
                     // Re-index dialogue texts for each affected game
                     foreach ($gameIds as $gameId) {
+                        GameDialogueText::deleteSearchDocumentsForGame((int) $gameId);
                         $dialogueTexts = GameDialogueText::getForGame($gameId);
                         if ($dialogueTexts->isNotEmpty()) {
                             $dialogueTexts->chunk(500)->each(function ($chunk) {
@@ -106,6 +107,7 @@ class CharacterObserver
             // Re-index dialogue texts for each affected game
             $totalIndexed = 0;
             foreach ($gameIds as $gameId) {
+                GameDialogueText::deleteSearchDocumentsForGame((int) $gameId);
                 $dialogueTexts = GameDialogueText::getForGame($gameId);
                 if ($dialogueTexts->isNotEmpty()) {
                     $dialogueTexts->chunk(500)->each(function ($chunk) {

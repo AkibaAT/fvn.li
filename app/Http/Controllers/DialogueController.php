@@ -20,17 +20,27 @@ class DialogueController extends Controller
 {
     public function dialogueBrowser(Request $request, int $gameId): Response
     {
-        // gameId is now required, versionId is optional
-        $versionId = $request->route('versionId') ?? $request->input('versionId');
-
         // Verify game exists
         $game = Game::findOrFail($gameId);
+        $version = $game->gameVersions()
+            ->whereExists(function ($query) {
+                $query->select('id')
+                    ->from('version_dialogue_lines')
+                    ->whereColumn('version_dialogue_lines.game_version_id', 'game_versions.id')
+                    ->limit(1);
+            })
+            ->orderByDesc('is_latest')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->firstOrFail();
 
         $initial = [
             'gameId' => $gameId,
             'gameName' => $game->name,
             'gameSlug' => $game->slug,
-            'versionId' => $versionId ? (int) $versionId : null,
+            'versionId' => $version->id,
+            'versionName' => $version->version,
+            'versionPublishedAt' => $version->published_at?->toDateString(),
         ];
 
         return Inertia::render('dialogue/browser', [
@@ -404,6 +414,11 @@ class DialogueController extends Controller
                 'version' => $line->gameVersion ? [
                     'id' => $line->gameVersion->id,
                     'version' => $line->gameVersion->version,
+                ] : null,
+                'first_seen_version' => ! empty($line->first_seen_version['id']) ? [
+                    'id' => (int) $line->first_seen_version['id'],
+                    'version' => (string) $line->first_seen_version['version'],
+                    'published_at' => $line->first_seen_version['published_at'],
                 ] : null,
             ];
         })->toArray();

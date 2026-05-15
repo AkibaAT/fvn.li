@@ -221,8 +221,8 @@ if (app()->environment(['local', 'development'])) {
 
 // React/Inertia Dialogue Browser + JSON API
 // gameId is now required - dialogue browser is only accessible from game detail page
-Route::get('dialogue/browser/{gameId}/{versionId?}', [DialogueController::class, 'dialogueBrowser'])
-    ->where(['gameId' => '[0-9]+', 'versionId' => '[0-9]+'])
+Route::get('dialogue/browser/{gameId}', [DialogueController::class, 'dialogueBrowser'])
+    ->where(['gameId' => '[0-9]+'])
     ->name('dialogue.browser');
 // JSON endpoints moved to routes/react-api.php
 

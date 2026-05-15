@@ -38,11 +38,13 @@ class GameVersionObserver
     protected function reindexGameDialogueTexts(int $gameId): void
     {
         try {
+            GameDialogueText::deleteSearchDocumentsForGame($gameId);
+
             // Get all dialogue texts for this game and push to Meilisearch
             $dialogueTexts = GameDialogueText::getForGame($gameId);
 
             if ($dialogueTexts->isEmpty()) {
-                Log::debug('No dialogue texts found for game reindex', ['game_id' => $gameId]);
+                Log::debug('No dialogue texts found for game reindex; stale documents were removed', ['game_id' => $gameId]);
 
                 return;
             }
