@@ -217,7 +217,7 @@ services:
     image: ${DOCKER_IMAGE_SOCIAL_IMAGES}
     restart: "no"
     user: pwuser
-    ipc: host
+    shm_size: 1gb
     security_opt:
       - seccomp=${PWD}/seccomp_profile.json
     profiles:
