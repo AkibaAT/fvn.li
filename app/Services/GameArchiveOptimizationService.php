@@ -217,8 +217,13 @@ class GameArchiveOptimizationService
     private function optimizedArchivePath(string $storagePath): ?string
     {
         $files = Storage::files($storagePath);
+        $optimizedFilenames = collect($files)
+            ->reject(fn (string $file): bool => str_contains(pathinfo($file, PATHINFO_FILENAME), '.optimized'))
+            ->map(fn (string $file): string => $this->optimizedFilename(Storage::path($file)))
+            ->flip();
+
         $archive = collect($files)
-            ->first(fn (string $file): bool => str_contains(pathinfo($file, PATHINFO_FILENAME), '.optimized'));
+            ->first(fn (string $file): bool => $optimizedFilenames->has(basename($file)));
 
         return $archive === null ? null : Storage::path($archive);
     }
@@ -542,7 +547,11 @@ class GameArchiveOptimizationService
 
         $relativeTargetPath = $previousOptimizedContext['target_paths'][$relativeGameSourcePath]
             ?? $this->relativeArchivePath($sourceDir, $targetPath);
-        $previousTargetPath = $previousOptimizedContext['extract_path'].'/'.$relativeTargetPath;
+        $previousTargetPath = $this->containedPath($previousOptimizedContext['extract_path'], $relativeTargetPath);
+        if ($previousTargetPath === null) {
+            return false;
+        }
+
         if (! File::isFile($previousTargetPath) || File::size($previousTargetPath) >= File::size($sourcePath)) {
             return false;
         }
@@ -818,8 +827,13 @@ class GameArchiveOptimizationService
                 continue;
             }
 
-            $sourceHashes[(string) $file['path']] = (string) $file['sha256'];
-            if (($gamePath = $this->metadataGamePath((string) $file['path'])) !== null) {
+            $archivePath = $this->safeRelativeArchivePath((string) $file['path']);
+            if ($archivePath === null) {
+                continue;
+            }
+
+            $sourceHashes[$archivePath] = (string) $file['sha256'];
+            if (($gamePath = $this->metadataGamePath($archivePath)) !== null) {
                 $sourceHashes[$gamePath] = (string) $file['sha256'];
             }
         }
@@ -843,8 +857,15 @@ class GameArchiveOptimizationService
                 continue;
             }
 
+            $sourcePath = $this->safeRelativeArchivePath($sourcePath);
+            $targetPath = $this->safeRelativeArchivePath($targetPath);
+            if ($sourcePath === null || $targetPath === null) {
+                continue;
+            }
+
             $archiveTargetPath = collect($optimizedFiles)
-                ->map(fn (array $file): string => (string) $file['path'])
+                ->map(fn (array $file): ?string => $this->safeRelativeArchivePath((string) $file['path']))
+                ->filter()
                 ->first(fn (string $path): bool => $path === 'game/'.$targetPath || str_ends_with($path, '/game/'.$targetPath));
 
             if ($archiveTargetPath !== null) {
@@ -868,6 +889,58 @@ class GameArchiveOptimizationService
         }
 
         return substr($archivePath, $position + strlen($needle));
+    }
+
+    private function safeRelativeArchivePath(string $path): ?string
+    {
+        $path = str_replace('\\', '/', trim($path));
+        if (
+            $path === '' ||
+            str_contains($path, "\0") ||
+            str_starts_with($path, '/') ||
+            preg_match('/^[A-Za-z]:\//', $path) === 1
+        ) {
+            return null;
+        }
+
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+
+            if ($part === '..') {
+                return null;
+            }
+
+            $parts[] = $part;
+        }
+
+        return $parts === [] ? null : implode('/', $parts);
+    }
+
+    private function containedPath(string $basePath, string $relativePath): ?string
+    {
+        $relativePath = $this->safeRelativeArchivePath($relativePath);
+        if ($relativePath === null) {
+            return null;
+        }
+
+        $baseRealPath = realpath($basePath);
+        if ($baseRealPath === false) {
+            return null;
+        }
+
+        $candidate = $baseRealPath.'/'.$relativePath;
+        $candidateRealPath = realpath($candidate);
+        if ($candidateRealPath === false) {
+            return null;
+        }
+
+        $baseRealPath = rtrim(str_replace('\\', '/', $baseRealPath), '/').'/';
+        $candidateRealPath = str_replace('\\', '/', $candidateRealPath);
+
+        return str_starts_with($candidateRealPath, $baseRealPath) ? $candidateRealPath : null;
     }
 
     private function createZipFromDirectory(string $sourceDir, string $targetPath): void
