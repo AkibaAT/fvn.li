@@ -53,13 +53,8 @@ For detailed architecture information, see the [Frontend Architecture](https://a
    cd fvn.li
    ```
 
-2. Configure local `butler-server` checkout paths:
-   ```bash
-   cat .ddev/butler-server/host-paths.env.example >> .ddev/.env
-   ```
-
-   Edit `.ddev/.env` so `FVN_BUTLER_CLIENT_HOST_PATH`, `FVN_BUTLER_SERVER_HOST_PATH`, and `FVN_WHARF_HOST_PATH`
-   point to absolute paths for your local `butler-client`, `butler-server`, and `wharf` checkouts.
+2. DDEV downloads the official itch.io `butler` CLI into the web image and runs the
+   `ghcr.io/akibaat/denkit-stash:development` image for the local DenKit Stash server.
 
 3. Start the DDEV environment:
    ```bash
