@@ -311,11 +311,65 @@ return [
                 'pagination' => [
                     'maxTotalHits' => 10000,
                 ],
-                'embedders' => [
-                    'default' => [
-                        'source' => 'huggingFace',
-                        'model' => 'BAAI/bge-small-en-v1.5',
-                        'documentTemplate' => 'A visual novel called {{doc.name}} by {{doc.authors}}. Tags: {{doc.tags}}. {{doc.description}} {{doc.full_description}}',
+                ...((bool) env('MEILISEARCH_EMBEDDERS_ENABLED', true) ? [
+                    'embedders' => [
+                        'default' => [
+                            'source' => 'huggingFace',
+                            'model' => 'nomic-ai/nomic-embed-text-v1.5',
+                            'documentTemplate' => 'A visual novel called {{doc.name}} by {{doc.authors}}. Tags: {{doc.tags}}. {{doc.description}} {{doc.full_description}}',
+                        ],
+                    ],
+                ] : []),
+            ],
+            'reviews' => [
+                'filterableAttributes' => [
+                    'game_id',
+                    'game_name',
+                    'game_slug',
+                    'game_is_visible',
+                    'rater_id',
+                    'rater_name',
+                    'rating',
+                    'event_id',
+                    'published_at',
+                    'created_at',
+                    'updated_at',
+                    'is_visible',
+                    'is_reviewed',
+                ],
+                'sortableAttributes' => [
+                    'published_at',
+                    'created_at',
+                    'updated_at',
+                    'rating',
+                ],
+                'searchableAttributes' => [
+                    'review',
+                    'game_name',
+                    'rater_name',
+                ],
+                'displayedAttributes' => [
+                    'id',
+                    'review',
+                    'rating',
+                    'game_id',
+                    'game_name',
+                    'game_slug',
+                    'game_is_visible',
+                    'rater_id',
+                    'rater_name',
+                    'event_id',
+                    'published_at',
+                    'created_at',
+                    'updated_at',
+                    'is_visible',
+                    'is_reviewed',
+                ],
+                'typoTolerance' => [
+                    'enabled' => true,
+                    'minWordSizeForTypos' => [
+                        'oneTypo' => 4,
+                        'twoTypos' => 8,
                     ],
                 ],
             ],
