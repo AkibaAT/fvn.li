@@ -134,17 +134,19 @@ return [
         'timeout' => env('ROUTE_GRAPH_LAYOUT_TIMEOUT', 300),
     ],
 
-    'butler_server' => [
-        'url' => env('BUTLER_SERVER_URL', 'http://butler-server:8081'),
-        'public_url' => env('BUTLER_SERVER_PUBLIC_URL', 'https://butler-fvn-li.ddev.site'),
-        'username' => env('BUTLER_SERVER_USERNAME', 'fvn-li'),
+    'denkit_stash' => [
+        'url' => env('DENKIT_STASH_URL', 'http://denkit-stash:8081'),
+        'public_url' => env('DENKIT_STASH_PUBLIC_URL', 'https://denkit-stash-fvn-li.ddev.site'),
+        'username' => env('DENKIT_STASH_USERNAME', 'fvn-li'),
+        'api_key' => env('DENKIT_STASH_API_KEY'),
+        'api_key_hash_secret' => env('DENKIT_API_KEY_HASH_SECRET'),
         'client_path' => env('BUTLER_CLIENT_PATH', '/var/www/butler-client'),
         'postgres' => [
-            'host' => env('BUTLER_SERVER_POSTGRES_HOST', 'db'),
-            'port' => env('BUTLER_SERVER_POSTGRES_PORT', 5432),
-            'database' => env('BUTLER_SERVER_POSTGRES_DATABASE', 'butler'),
-            'username' => env('BUTLER_SERVER_POSTGRES_USERNAME', 'db'),
-            'password' => env('BUTLER_SERVER_POSTGRES_PASSWORD', 'db'),
+            'host' => env('DENKIT_STASH_POSTGRES_HOST', 'db'),
+            'port' => env('DENKIT_STASH_POSTGRES_PORT', 5432),
+            'database' => env('DENKIT_STASH_POSTGRES_DATABASE', 'butler'),
+            'username' => env('DENKIT_STASH_POSTGRES_USERNAME', 'db'),
+            'password' => env('DENKIT_STASH_POSTGRES_PASSWORD', 'db'),
         ],
     ],
 

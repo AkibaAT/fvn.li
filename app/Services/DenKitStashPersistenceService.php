@@ -15,7 +15,7 @@ use RuntimeException;
 use Symfony\Component\Process\Process;
 use ZipArchive;
 
-class ButlerServerPersistenceService
+class DenKitStashPersistenceService
 {
     private const OPTIMIZATION_METADATA_SCHEMA = 'fvn.archive_optimization.v1';
 
@@ -103,12 +103,12 @@ class ButlerServerPersistenceService
 
     private function username(): string
     {
-        return (string) Config::get('services.butler_server.username', 'fvn-li');
+        return (string) Config::get('services.denkit_stash.username', 'fvn-li');
     }
 
     private function serverUrl(): string
     {
-        return rtrim((string) Config::get('services.butler_server.url', 'http://butler-server:8081'), '/');
+        return rtrim((string) Config::get('services.denkit_stash.url', 'http://denkit-stash:8081'), '/');
     }
 
     private function targetName(Game $game): string
@@ -120,7 +120,7 @@ class ButlerServerPersistenceService
 
     private function butlerBinary(): string
     {
-        $clientPath = rtrim((string) Config::get('services.butler_server.client_path', '/var/www/butler-client'), '/');
+        $clientPath = rtrim((string) Config::get('services.denkit_stash.client_path', '/var/www/butler-client'), '/');
         $binary = "{$clientPath}/butler";
 
         if (is_executable($binary)) {
@@ -147,24 +147,35 @@ class ButlerServerPersistenceService
 
     private function ensureApiUser(string $username): string
     {
-        $connection = $this->butlerConnection();
+        $connection = $this->denKitStashConnection();
+        $configuredApiKey = $this->configuredApiKey();
         $user = $connection->table('users')->where('username', $username)->first();
         if ($user !== null) {
+            $updates = [];
             if (! (bool) $user->is_active) {
-                $connection->table('users')->where('id', $user->id)->update([
-                    'is_active' => true,
-                    'updated_at' => now(),
-                ]);
+                $updates['is_active'] = true;
             }
 
-            return (string) $user->api_key;
+            if ($configuredApiKey !== null) {
+                $storedApiKey = $this->storedApiKey($configuredApiKey);
+                if ((string) $user->api_key !== $storedApiKey) {
+                    $updates['api_key'] = $storedApiKey;
+                }
+            }
+
+            if ($updates !== []) {
+                $updates['updated_at'] = now();
+                $connection->table('users')->where('id', $user->id)->update($updates);
+            }
+
+            return $configuredApiKey ?? (string) $user->api_key;
         }
 
-        $apiKey = 'fvn_'.Str::random(48);
+        $apiKey = $configuredApiKey ?? 'fvn_'.Str::random(48);
         $connection->table('users')->insert([
             'username' => $username,
             'display_name' => $username,
-            'api_key' => $apiKey,
+            'api_key' => $this->storedApiKey($apiKey),
             'role' => 'admin',
             'is_active' => true,
             'created_at' => now(),
@@ -174,6 +185,27 @@ class ButlerServerPersistenceService
         return $apiKey;
     }
 
+    private function configuredApiKey(): ?string
+    {
+        $apiKey = Config::get('services.denkit_stash.api_key');
+
+        return is_string($apiKey) && $apiKey !== '' ? $apiKey : null;
+    }
+
+    private function storedApiKey(string $apiKey): string
+    {
+        if (str_starts_with($apiKey, 'hmac-sha256:')) {
+            return $apiKey;
+        }
+
+        $secret = Config::get('services.denkit_stash.api_key_hash_secret');
+        if (! is_string($secret) || $secret === '') {
+            return $apiKey;
+        }
+
+        return 'hmac-sha256:'.hash_hmac('sha256', $apiKey, $secret);
+    }
+
     private function versionAlreadyPersisted(string $username, string $targetName, string $channel, string $userVersion): bool
     {
         return $this->latestBuildId($username, $targetName, $channel, $userVersion) !== null;
@@ -181,7 +213,7 @@ class ButlerServerPersistenceService
 
     private function latestBuildId(string $username, string $targetName, string $channel, string $userVersion): ?int
     {
-        $id = $this->butlerConnection()
+        $id = $this->denKitStashConnection()
             ->table('builds')
             ->join('uploads', 'uploads.id', '=', 'builds.upload_id')
             ->join('games', 'games.id', '=', 'uploads.game_id')
@@ -197,16 +229,16 @@ class ButlerServerPersistenceService
         return $id === null ? null : (int) $id;
     }
 
-    private function butlerConnection(): ConnectionInterface
+    private function denKitStashConnection(): ConnectionInterface
     {
-        $name = 'butler_server';
+        $name = 'denkit_stash';
         if (! Config::has("database.connections.{$name}")) {
             $base = Config::get('database.connections.pgsql');
-            $base['host'] = Config::get('services.butler_server.postgres.host', 'db');
-            $base['port'] = Config::get('services.butler_server.postgres.port', 5432);
-            $base['database'] = Config::get('services.butler_server.postgres.database', 'butler');
-            $base['username'] = Config::get('services.butler_server.postgres.username', 'db');
-            $base['password'] = Config::get('services.butler_server.postgres.password', 'db');
+            $base['host'] = Config::get('services.denkit_stash.postgres.host', 'db');
+            $base['port'] = Config::get('services.denkit_stash.postgres.port', 5432);
+            $base['database'] = Config::get('services.denkit_stash.postgres.database', 'butler');
+            $base['username'] = Config::get('services.denkit_stash.postgres.username', 'db');
+            $base['password'] = Config::get('services.denkit_stash.postgres.password', 'db');
             Config::set("database.connections.{$name}", $base);
         }
 
