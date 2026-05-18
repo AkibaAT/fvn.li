@@ -6,7 +6,7 @@ namespace App\Console\Commands;
 
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
-use App\Services\ButlerServerPersistenceService;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveOptimizationService;
 use Illuminate\Console\Command;
 
@@ -23,11 +23,11 @@ class PersistOptimizedGameVersionsToButler extends Command
                             {--force : Re-push versions even when a completed butler build with the same user version already exists}
                             {--skip-validation : Skip stats extraction validation while creating optimized archives}';
 
-    protected $description = 'Optimize stored game version archives and persist them permanently into the DDEV butler-server';
+    protected $description = 'Optimize stored game version archives and persist them permanently into the DDEV DenKit Stash';
 
     public function handle(
         GameArchiveOptimizationService $optimizer,
-        ButlerServerPersistenceService $butler
+        DenKitStashPersistenceService $stash
     ): int {
         if (! $this->validateGameSelectionOptions()) {
             return self::FAILURE;
@@ -81,7 +81,7 @@ class PersistOptimizedGameVersionsToButler extends Command
                         continue;
                     }
 
-                    $result = $butler->persistOptimizedArchive(
+                    $result = $stash->persistOptimizedArchive(
                         $game,
                         $version,
                         $optimization['optimized_path'],
@@ -106,7 +106,7 @@ class PersistOptimizedGameVersionsToButler extends Command
             }
         }
 
-        $this->info("Butler persistence complete: {$persisted} persisted, {$skipped} skipped, {$failed} failed");
+        $this->info("DenKit Stash persistence complete: {$persisted} persisted, {$skipped} skipped, {$failed} failed");
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }

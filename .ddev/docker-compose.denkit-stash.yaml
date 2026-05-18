@@ -1,29 +1,28 @@
 services:
   web:
     environment:
-      BUTLER_SERVER_URL: http://butler-server:8081
-      BUTLER_SERVER_PUBLIC_URL: https://butler-fvn-li.ddev.site
-      BUTLER_SERVER_POSTGRES_HOST: db
-      BUTLER_SERVER_POSTGRES_PORT: 5432
-      BUTLER_SERVER_POSTGRES_DATABASE: butler
-      BUTLER_SERVER_POSTGRES_USERNAME: db
-      BUTLER_SERVER_POSTGRES_PASSWORD: db
-      BUTLER_SERVER_USERNAME: fvn-li
-      BUTLER_CLIENT_PATH: /var/www/butler-client
-    volumes:
-      - ${FVN_BUTLER_CLIENT_HOST_PATH:?Set FVN_BUTLER_CLIENT_HOST_PATH in .ddev/.env to your local butler-client checkout}:/var/www/butler-client:cached
+      DENKIT_STASH_URL: http://denkit-stash:8081
+      DENKIT_STASH_PUBLIC_URL: https://denkit-stash-fvn-li.ddev.site
+      DENKIT_STASH_POSTGRES_HOST: db
+      DENKIT_STASH_POSTGRES_PORT: 5432
+      DENKIT_STASH_POSTGRES_DATABASE: butler
+      DENKIT_STASH_POSTGRES_USERNAME: db
+      DENKIT_STASH_POSTGRES_PASSWORD: db
+      DENKIT_STASH_USERNAME: fvn-li
+      DENKIT_STASH_API_KEY: fvn-li-local-denkit-api-key
+      BUTLER_CLIENT_PATH: /opt/butler
+      DENKIT_API_KEY_HASH_SECRET: fvn-li-local-denkit-hash-secret
 
-  butler-server:
-    container_name: ddev-${DDEV_SITENAME}-butler-server
-    image: ddev/ddev-webserver:${DDEV_VERSION}-${DDEV_SITENAME}-built
-    working_dir: /var/www/butler-server
-    command: bash /var/www/html/.ddev/butler-server/start.sh
+  denkit-stash:
+    container_name: ddev-${DDEV_SITENAME}-denkit-stash
+    image: ${DENKIT_STASH_IMAGE:-ghcr.io/akibaat/denkit-stash:development}
+    command: ["./denkit-stash", "--port=8081"]
     expose:
       - "8081"
     networks:
       default:
         aliases:
-          - api.butler-server
+          - api.denkit-stash
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
@@ -37,17 +36,18 @@ services:
       MINIO_BUCKET: butler-storage
       MINIO_USE_SSL: "false"
       ENABLE_DEV_ENDPOINTS: "false"
-    volumes:
-      - ${DDEV_APPROOT}:/var/www/html:cached
-      - ${FVN_BUTLER_SERVER_HOST_PATH:?Set FVN_BUTLER_SERVER_HOST_PATH in .ddev/.env to your local butler-server checkout}:/var/www/butler-server:cached
-      - ${FVN_WHARF_HOST_PATH:?Set FVN_WHARF_HOST_PATH in .ddev/.env to your local wharf checkout}:/var/www/wharf:cached
+      DENKIT_API_KEY_HASH_SECRET: fvn-li-local-denkit-hash-secret
+      DENKIT_HTTP_READ_HEADER_TIMEOUT: 5s
+      DENKIT_HTTP_READ_TIMEOUT: 30m
+      DENKIT_HTTP_WRITE_TIMEOUT: 30m
+      DENKIT_HTTP_IDLE_TIMEOUT: 2m
     depends_on:
       db:
         condition: service_healthy
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/ >/dev/null"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8081/"]
       interval: 1s
       timeout: 5s
       retries: 120
@@ -71,7 +71,7 @@ services:
       - "9000"
       - "9090"
     volumes:
-      - butler-minio:/data
+      - denkit-stash-minio:/data
       - .:/mnt/ddev_config
       - ddev-global-cache:/mnt/ddev-global-cache
       - type: volume
@@ -80,7 +80,7 @@ services:
         volume:
           subpath: mkcert
     configs:
-      - source: butler-mc-config.json
+      - source: denkit-stash-mc-config.json
         target: /root/.mc/config.json
         mode: "0444"
     labels:
@@ -97,7 +97,7 @@ services:
     restart: "no"
 
 configs:
-  butler-mc-config.json:
+  denkit-stash-mc-config.json:
     content: |
       {
         "version": "10",
@@ -113,7 +113,7 @@ configs:
       }
 
 volumes:
-  butler-minio:
-    name: ddev-${DDEV_SITENAME}-butler-minio
+  denkit-stash-minio:
+    name: ddev-${DDEV_SITENAME}-denkit-stash-minio
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}
