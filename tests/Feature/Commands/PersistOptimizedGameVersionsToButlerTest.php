@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Services\ButlerServerPersistenceService;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveOptimizationService;
 
 test('persist optimized versions optimizes every selected version before pushing to butler in version order', function () {
@@ -36,15 +36,15 @@ test('persist optimized versions optimizes every selected version before pushing
     ]);
 
     $optimizerRecorder = (object) ['calls' => []];
-    $butlerRecorder = (object) ['calls' => []];
+    $stashRecorder = (object) ['calls' => []];
 
     $this->app->instance(
         GameArchiveOptimizationService::class,
         new RecordingButlerArchiveOptimizer($optimizerRecorder)
     );
     $this->app->instance(
-        ButlerServerPersistenceService::class,
-        new RecordingButlerPersistenceService($butlerRecorder)
+        DenKitStashPersistenceService::class,
+        new RecordingDenKitStashPersistenceService($stashRecorder)
     );
 
     $this->artisan('games:persist-optimized-versions', [
@@ -75,7 +75,7 @@ test('persist optimized versions optimizes every selected version before pushing
         ],
     ]);
 
-    expect($butlerRecorder->calls)->toBe([
+    expect($stashRecorder->calls)->toBe([
         [
             'game_id' => $game->id,
             'version_id' => $older->id,
@@ -110,15 +110,15 @@ test('persist optimized versions skips non optimized results without pushing ori
             $version->id => ['status' => 'skipped', 'reason' => 'No stored archive found'],
         ],
     ];
-    $butlerRecorder = (object) ['calls' => []];
+    $stashRecorder = (object) ['calls' => []];
 
     $this->app->instance(
         GameArchiveOptimizationService::class,
         new RecordingButlerArchiveOptimizer($optimizerRecorder)
     );
     $this->app->instance(
-        ButlerServerPersistenceService::class,
-        new RecordingButlerPersistenceService($butlerRecorder)
+        DenKitStashPersistenceService::class,
+        new RecordingDenKitStashPersistenceService($stashRecorder)
     );
 
     $this->artisan('games:persist-optimized-versions', [
@@ -127,7 +127,7 @@ test('persist optimized versions skips non optimized results without pushing ori
         ->expectsOutputToContain('Skipped Original Only Target 1.0: No stored archive found')
         ->assertExitCode(0);
 
-    expect($butlerRecorder->calls)->toBe([]);
+    expect($stashRecorder->calls)->toBe([]);
 });
 
 test('persist optimized versions can target specific version ids', function () {
@@ -153,15 +153,15 @@ test('persist optimized versions can target specific version ids', function () {
     ]);
 
     $optimizerRecorder = (object) ['calls' => []];
-    $butlerRecorder = (object) ['calls' => []];
+    $stashRecorder = (object) ['calls' => []];
 
     $this->app->instance(
         GameArchiveOptimizationService::class,
         new RecordingButlerArchiveOptimizer($optimizerRecorder)
     );
     $this->app->instance(
-        ButlerServerPersistenceService::class,
-        new RecordingButlerPersistenceService($butlerRecorder)
+        DenKitStashPersistenceService::class,
+        new RecordingDenKitStashPersistenceService($stashRecorder)
     );
 
     $this->artisan('games:persist-optimized-versions', [
@@ -177,7 +177,7 @@ test('persist optimized versions can target specific version ids', function () {
         $first->id,
         $last->id,
     ]);
-    expect(array_column($butlerRecorder->calls, 'version_id'))->toBe([
+    expect(array_column($stashRecorder->calls, 'version_id'))->toBe([
         $first->id,
         $last->id,
     ]);
@@ -213,7 +213,7 @@ class RecordingButlerArchiveOptimizer extends GameArchiveOptimizationService
     }
 }
 
-class RecordingButlerPersistenceService extends ButlerServerPersistenceService
+class RecordingDenKitStashPersistenceService extends DenKitStashPersistenceService
 {
     public function __construct(private object $recorder) {}
 
