@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Services\HomePageCacheService;
+use App\Services\MeilisearchService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,10 @@ use Inertia\Response;
 
 class HomeController extends Controller
 {
+    public function __construct(
+        private MeilisearchService $meilisearchService
+    ) {}
+
     public function home(): Response
     {
         // Cache stats indefinitely - cleared by observers when data changes
@@ -68,35 +73,22 @@ class HomeController extends Controller
 
     private function getGameTeasers(string $sortField, string $sortDirection = 'desc', int $limit = 4, array $ignoredGameIds = []): array
     {
-        $query = Game::query()
-            ->where('games.is_visible', true)
-            ->select('games.*');
+        $paginator = $this->meilisearchService->searchGames(
+            query: '',
+            filters: [],
+            perPage: $limit,
+            page: 1,
+            sortField: $sortField,
+            sortDirection: $sortDirection,
+            ignoredGameIds: $ignoredGameIds
+        );
 
-        if (! empty($ignoredGameIds)) {
-            $query->whereNotIn('games.id', $ignoredGameIds);
-        }
-
-        match ($sortField) {
-            'latest_version_published_at' => $query
-                ->leftJoin('game_versions as latest_game_versions', function ($join) {
-                    $join->on('latest_game_versions.game_id', '=', 'games.id')
-                        ->where('latest_game_versions.is_latest', true);
-                })
-                ->orderByRaw('latest_game_versions.published_at '.($sortDirection === 'asc' ? 'asc' : 'desc').' nulls last'),
-            'trending_score' => $query
-                ->orderBy('games.trending_score', $sortDirection === 'asc' ? 'asc' : 'desc')
-                ->orderByDesc('games.rating_count'),
-            default => $query->orderByRaw('games.first_visible_at '.($sortDirection === 'asc' ? 'asc' : 'desc').' nulls last'),
-        };
-
-        $games = $query
-            ->limit($limit)
-            ->get();
+        $games = $paginator->items();
 
         // Load essential relationships for the frontend
-        if ($games->isNotEmpty()) {
+        if ($paginator->count() > 0) {
             // Load relationships to prevent N+1 queries
-            $games->load([
+            $paginator->getCollection()->load([
                 'tags',
                 'sourceLanguage',
                 'latestVersion.supportedLanguages.language',
@@ -167,7 +159,7 @@ class HomeController extends Controller
             }
         }
 
-        return $games->all();
+        return $games;
     }
 
     private function withCurrentUserTeaserData(array $teasers): array

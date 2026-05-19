@@ -7,14 +7,12 @@ namespace App\Observers;
 use App\Jobs\ProcessAuditLog;
 use App\Models\ChangeLog;
 use App\Models\User;
-use App\Services\IpAnonymizationService;
+use App\Services\AuditContextBuilder;
 use App\Support\SystemAuditUser;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use RuntimeException;
 use Throwable;
 
 class UniversalAuditObserver
@@ -237,7 +235,8 @@ class UniversalAuditObserver
     private function buildAuditData(string $event, Model $model): array
     {
         $user = Auth::user();
-        $context = $this->buildContext();
+        $contextBuilder = app(AuditContextBuilder::class);
+        $context = $contextBuilder->build();
 
         // Handle special case: user deleting themselves
         // Use system user ID to avoid foreign key constraint violation
@@ -263,201 +262,8 @@ class UniversalAuditObserver
             'old_values' => $this->getOldValues($event, $model),
             'new_values' => $this->getNewValues($event, $model),
             'context' => $context,
-            'source' => $this->detectSource(),
+            'source' => $contextBuilder->source(),
         ];
-    }
-
-    /**
-     * Build context information
-     */
-    private function buildContext(): array
-    {
-        $context = [];
-        $includeContext = Config::get('audit.include_context', []);
-
-        if (request()) {
-            if ($includeContext['ip_address'] ?? false) {
-                $context['ip_address'] = IpAnonymizationService::getAnonymizedIpAddress(request()->ip());
-            }
-            if ($includeContext['user_agent'] ?? false) {
-                $context['user_agent'] = request()->userAgent();
-            }
-            if ($includeContext['url'] ?? false) {
-                $context['url'] = request()->fullUrl();
-            }
-            if ($includeContext['method'] ?? false) {
-                $context['method'] = request()->method();
-            }
-            if ($includeContext['session_id'] ?? false) {
-                try {
-                    $session = request()->session();
-                    if ($session) {
-                        $context['session_id'] = $session->getId();
-                    }
-                } catch (RuntimeException $e) {
-                    // Session store not set (e.g., in console commands) - skip session_id
-                }
-            }
-            if ($includeContext['request_id'] ?? false) {
-                // Try multiple ways to get request ID
-                $requestId = $this->getRequestId();
-                if ($requestId) {
-                    $context['request_id'] = $requestId;
-                }
-            }
-        }
-
-        // Capture command information for console operations
-        if (($includeContext['command'] ?? false) && app()->runningInConsole()) {
-            $commandInfo = $this->getCommandInfo();
-            if ($commandInfo) {
-                $context['command'] = $commandInfo;
-            }
-        }
-
-        return $context;
-    }
-
-    /**
-     * Get a unique request identifier
-     */
-    private function getRequestId(): ?string
-    {
-        if (! request()) {
-            return null;
-        }
-
-        // Check for existing request ID headers (common in load balancers, proxies)
-        $requestIdHeaders = [
-            'X-Request-ID',
-            'X-Correlation-ID',
-            'X-Trace-ID',
-            'Request-ID',
-            'Correlation-ID',
-        ];
-
-        foreach ($requestIdHeaders as $header) {
-            $requestId = request()->header($header);
-            if ($requestId) {
-                return $requestId;
-            }
-        }
-
-        // Check if Laravel's request ID middleware is available
-        if (request()->hasHeader('X-Laravel-Request-ID')) {
-            return request()->header('X-Laravel-Request-ID');
-        }
-
-        // Generate our own request ID based on request signature
-        return $this->generateRequestId();
-    }
-
-    /**
-     * Generate a unique request ID based on request characteristics
-     */
-    private function generateRequestId(): string
-    {
-        $request = request();
-
-        // Create a unique identifier based on request properties
-        $ipAddress = IpAnonymizationService::getAnonymizedIpAddress($request->ip());
-        $signature = sprintf(
-            '%s_%s_%s_%s_%d',
-            $request->method(),
-            md5($request->fullUrl()),
-            $ipAddress,
-            microtime(true),
-            memory_get_usage()
-        );
-
-        return 'req_'.substr(md5($signature), 0, 16);
-    }
-
-    /**
-     * Get information about the currently running command
-     */
-    private function getCommandInfo(): ?array
-    {
-        if (! app()->runningInConsole()) {
-            return null;
-        }
-
-        try {
-            // Get the current Artisan command if available
-            $kernel = app(Kernel::class);
-
-            // Try to get command info from $_SERVER['argv']
-            $argv = $_SERVER['argv'] ?? [];
-
-            if (empty($argv)) {
-                return null;
-            }
-
-            // First argument is usually the script name (artisan)
-            $script = basename($argv[0] ?? '');
-
-            // Second argument is usually the command name
-            $commandName = $argv[1] ?? null;
-
-            // Remaining arguments are parameters
-            $arguments = array_slice($argv, 2);
-
-            $commandInfo = [
-                'script' => $script,
-            ];
-
-            if ($commandName) {
-                $commandInfo['name'] = $commandName;
-            }
-
-            if (! empty($arguments)) {
-                // Filter out sensitive information from arguments
-                $filteredArgs = $this->filterSensitiveArguments($arguments);
-                if (! empty($filteredArgs)) {
-                    $commandInfo['arguments'] = $filteredArgs;
-                }
-            }
-
-            return $commandInfo;
-
-        } catch (Throwable $e) {
-            // If we can't determine the command, return null
-            return null;
-        }
-    }
-
-    /**
-     * Filter out potentially sensitive information from command arguments
-     */
-    private function filterSensitiveArguments(array $arguments): array
-    {
-        $sensitivePatterns = [
-            '/^--password=/',
-            '/^--token=/',
-            '/^--secret=/',
-            '/^--key=/',
-            '/^--api-key=/',
-        ];
-
-        $filtered = [];
-
-        foreach ($arguments as $arg) {
-            $isSensitive = false;
-
-            foreach ($sensitivePatterns as $pattern) {
-                if (preg_match($pattern, $arg)) {
-                    $filtered[] = preg_replace('/=.*/', '=***', $arg);
-                    $isSensitive = true;
-                    break;
-                }
-            }
-
-            if (! $isSensitive) {
-                $filtered[] = $arg;
-            }
-        }
-
-        return $filtered;
     }
 
     /**
@@ -571,28 +377,6 @@ class UniversalAuditObserver
         }
 
         return $changedFields;
-    }
-
-    /**
-     * Detect the source of the change
-     */
-    private function detectSource(): string
-    {
-        $sources = Config::get('audit.sources', []);
-
-        if (app()->runningInConsole()) {
-            return $sources['command'] ?? 'command';
-        }
-
-        if (request()) {
-            if (request()->is('api/*') || request()->expectsJson()) {
-                return $sources['api'] ?? 'api';
-            }
-
-            return $sources['web'] ?? 'web';
-        }
-
-        return $sources['system'] ?? 'system';
     }
 
     /**

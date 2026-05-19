@@ -346,7 +346,8 @@ class SteamDataSyncService
             $game->steam_languages = strip_tags($appData['supported_languages']);
 
             // Parse languages and store in class property for later use
-            $this->parsedLanguageIsoCodes = $this->importSteamLanguages($game, $appData['supported_languages']);
+            $this->parsedLanguageIsoCodes = app(SteamLanguageMapper::class)
+                ->parseSupportedLanguageHtml($appData['supported_languages'], $game->id);
         }
 
         // Extract content descriptors (NSFW check)
@@ -424,161 +425,6 @@ class SteamDataSyncService
             ]);
             // Don't throw - API data is more important
         }
-    }
-
-    /**
-     * Parse and import Steam languages to game version
-     * Returns the parsed ISO codes
-     */
-    private function importSteamLanguages(Game $game, string $steamLanguagesHtml): array
-    {
-        // Steam returns HTML like: "English<strong>*</strong>, French, German<br><strong>*</strong>languages with full audio support"
-        // Strip HTML tags and extract language names
-        $languagesText = strip_tags($steamLanguagesHtml);
-
-        // Remove asterisks that mark audio support
-        $languagesText = str_replace('*', '', $languagesText);
-
-        // Remove the footnote text (everything after "languages with")
-        $languagesText = preg_replace('/\s*languages with.*$/is', '', $languagesText);
-
-        // Split by comma and clean up
-        $languageNames = array_map('trim', explode(',', $languagesText));
-        $languageNames = array_filter($languageNames, fn ($name) => ! empty($name));
-
-        if (empty($languageNames)) {
-            Log::warning('No languages found in Steam data', [
-                'game_id' => $game->id,
-                'raw_html' => $steamLanguagesHtml,
-            ]);
-
-            return [];
-        }
-
-        // Map Steam language names to ISO codes
-        $isoCodes = $this->mapSteamLanguagesToIsoCodes($languageNames);
-
-        if (empty($isoCodes)) {
-            Log::warning('Could not map any Steam languages to ISO codes', [
-                'game_id' => $game->id,
-                'language_names' => $languageNames,
-            ]);
-
-            return [];
-        }
-
-        Log::debug('Parsed Steam languages', [
-            'game_id' => $game->id,
-            'language_count' => count($isoCodes),
-            'languages' => $isoCodes,
-        ]);
-
-        return $isoCodes;
-    }
-
-    /**
-     * Map Steam language names to ISO 639-3 codes
-     */
-    private function mapSteamLanguagesToIsoCodes(array $steamLanguageNames): array
-    {
-        // Steam language name to ISO 639-3 code mapping
-        $steamToIso = [
-            'English' => 'eng',
-            'French' => 'fra',
-            'German' => 'deu',
-            'Spanish - Spain' => 'spa',
-            'Spanish - Latin America' => 'spa',
-            'Spanish' => 'spa',
-            'Italian' => 'ita',
-            'Portuguese' => 'por',
-            'Portuguese - Brazil' => 'por',
-            'Russian' => 'rus',
-            'Japanese' => 'jpn',
-            'Korean' => 'kor',
-            'Simplified Chinese' => 'zho',
-            'Traditional Chinese' => 'zho',
-            'Chinese' => 'zho',
-            'Polish' => 'pol',
-            'Turkish' => 'tur',
-            'Dutch' => 'nld',
-            'Swedish' => 'swe',
-            'Norwegian' => 'nor',
-            'Danish' => 'dan',
-            'Finnish' => 'fin',
-            'Czech' => 'ces',
-            'Hungarian' => 'hun',
-            'Romanian' => 'ron',
-            'Bulgarian' => 'bul',
-            'Greek' => 'ell',
-            'Arabic' => 'ara',
-            'Thai' => 'tha',
-            'Vietnamese' => 'vie',
-            'Ukrainian' => 'ukr',
-            'Indonesian' => 'ind',
-            'Malay' => 'msa',
-            'Hindi' => 'hin',
-            'Bengali' => 'ben',
-            'Tamil' => 'tam',
-            'Telugu' => 'tel',
-            'Marathi' => 'mar',
-            'Kannada' => 'kan',
-            'Gujarati' => 'guj',
-            'Malayalam' => 'mal',
-            'Punjabi' => 'pan',
-            'Urdu' => 'urd',
-            'Hebrew' => 'heb',
-            'Persian' => 'fas',
-            'Afrikaans' => 'afr',
-            'Albanian' => 'sqi',
-            'Amharic' => 'amh',
-            'Armenian' => 'hye',
-            'Azerbaijani' => 'aze',
-            'Basque' => 'eus',
-            'Belarusian' => 'bel',
-            'Bosnian' => 'bos',
-            'Catalan' => 'cat',
-            'Croatian' => 'hrv',
-            'Estonian' => 'est',
-            'Filipino' => 'fil',
-            'Galician' => 'glg',
-            'Georgian' => 'kat',
-            'Icelandic' => 'isl',
-            'Irish' => 'gle',
-            'Kazakh' => 'kaz',
-            'Khmer' => 'khm',
-            'Kyrgyz' => 'kir',
-            'Lao' => 'lao',
-            'Latvian' => 'lav',
-            'Lithuanian' => 'lit',
-            'Luxembourgish' => 'ltz',
-            'Macedonian' => 'mkd',
-            'Mongolian' => 'mon',
-            'Nepali' => 'nep',
-            'Serbian' => 'srp',
-            'Sinhala' => 'sin',
-            'Slovak' => 'slk',
-            'Slovenian' => 'slv',
-            'Swahili' => 'swa',
-            'Tajik' => 'tgk',
-            'Tatar' => 'tat',
-            'Turkmen' => 'tuk',
-            'Uzbek' => 'uzb',
-            'Welsh' => 'cym',
-        ];
-
-        $isoCodes = [];
-        foreach ($steamLanguageNames as $steamName) {
-            if (isset($steamToIso[$steamName])) {
-                $isoCodes[] = $steamToIso[$steamName];
-            } else {
-                Log::warning('Unknown Steam language', [
-                    'language_name' => $steamName,
-                ]);
-            }
-        }
-
-        // Remove duplicates (e.g., multiple Chinese variants)
-        return array_unique($isoCodes);
     }
 
     /**
@@ -663,67 +509,7 @@ class SteamDataSyncService
      */
     private function processImages(Game $game, ?string $originalThumbUrl, ?array $originalScreenshots): void
     {
-        $imageService = app(ImageProcessingService::class);
-
-        // Process screenshots if they changed or if optimized variants are missing.
-        $needsScreenshotProcessing = $this->needsScreenshotProcessing($game->screenshots, $originalScreenshots);
-
-        if ($needsScreenshotProcessing) {
-            try {
-                echo "    [Steam] Screenshots need processing...\n";
-                if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
-                    $imageService->processGameScreenshots($game);
-                } else {
-                    $imageService->processGameScreenshots($game, 80, true);
-                }
-                echo "    [Steam] Screenshots processed successfully\n";
-            } catch (Exception $e) {
-                Log::error('Failed to process Steam screenshots', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-                // Continue anyway - we'll save the URLs at least
-            }
-        }
-
-        // Process thumbnail if it changed OR if we have a URL but no processed thumbnails
-        $needsThumbnailProcessing = (
-            ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) ||
-            ($game->thumb_url && empty($game->optimized_thumbnails))
-        );
-
-        if ($needsThumbnailProcessing) {
-            try {
-                echo "    [Steam] Thumbnail needs processing...\n";
-                // Clear old thumbnails first
-                if ($game->optimized_thumbnails) {
-                    $game->clearOptimizedThumbnails();
-                }
-                $imageService->processGameThumbnail($game);
-                echo "    [Steam] Thumbnail processed successfully\n";
-            } catch (Exception $e) {
-                Log::error('Failed to process Steam thumbnail', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-                // Continue anyway
-            }
-        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
-            // No thumbnail but have screenshots - process first screenshot as thumbnail
-            try {
-                echo "    [Steam] No thumbnail, processing first screenshot as fallback...\n";
-                if ($game->optimized_thumbnails) {
-                    $game->clearOptimizedThumbnails();
-                }
-                $imageService->processGameThumbnail($game);
-                echo "    [Steam] Thumbnail fallback processed successfully\n";
-            } catch (Exception $e) {
-                Log::error('Failed to process Steam thumbnail fallback', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
+        app(SteamImageSyncService::class)->processImages($game, $originalThumbUrl, $originalScreenshots);
     }
 
     /**
@@ -736,42 +522,12 @@ class SteamDataSyncService
      */
     private function screenshotUrlsChanged(?array $screenshots1, ?array $screenshots2): bool
     {
-        // Extract just the source URLs from each array
-        $urls1 = $this->extractScreenshotUrls($screenshots1);
-        $urls2 = $this->extractScreenshotUrls($screenshots2);
-
-        return $urls1 !== $urls2;
+        return app(SteamImageSyncService::class)->screenshotUrlsChanged($screenshots1, $screenshots2);
     }
 
     private function needsScreenshotProcessing(?array $screenshots, ?array $originalScreenshots): bool
     {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        return $this->screenshotUrlsChanged($screenshots, $originalScreenshots)
-            || $this->screenshotsMissingOptimizedVariants($screenshots);
-    }
-
-    private function screenshotsMissingOptimizedVariants(?array $screenshots): bool
-    {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        foreach ($screenshots as $screenshot) {
-            if (empty($screenshot['url'])) {
-                continue;
-            }
-
-            foreach (['small', 'default', 'large'] as $variant) {
-                if (empty($screenshot['optimized'][$variant]['path'])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return app(SteamImageSyncService::class)->needsScreenshotProcessing($screenshots, $originalScreenshots);
     }
 
     /**
@@ -782,17 +538,6 @@ class SteamDataSyncService
      */
     private function extractScreenshotUrls(?array $screenshots): array
     {
-        if (empty($screenshots)) {
-            return [];
-        }
-
-        $urls = [];
-        foreach ($screenshots as $screenshot) {
-            if (isset($screenshot['url'])) {
-                $urls[] = $screenshot['url'];
-            }
-        }
-
-        return $urls;
+        return app(SteamImageSyncService::class)->extractScreenshotUrls($screenshots);
     }
 }
