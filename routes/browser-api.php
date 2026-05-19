@@ -5,7 +5,10 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\BugReportController;
 use App\Http\Controllers\ClickTrackingController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Dashboard\DashboardAdditionRequestController;
+use App\Http\Controllers\Dashboard\DashboardNotificationController;
+use App\Http\Controllers\Dashboard\DashboardStatsController;
+use App\Http\Controllers\Dashboard\UserDataExportController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\EditorUploadController;
 use App\Http\Controllers\GameContentController;
@@ -14,7 +17,9 @@ use App\Http\Controllers\GamesController;
 use App\Http\Controllers\MyGamesController;
 use App\Http\Controllers\ReviewReportController;
 use App\Http\Controllers\UserReviewController;
-use App\Http\Controllers\VnListController;
+use App\Http\Controllers\VnLists\VnListCrudController;
+use App\Http\Controllers\VnLists\VnListEntryController;
+use App\Http\Controllers\VnLists\VnListGameController;
 use App\Http\Middleware\CanEditGame;
 use Illuminate\Support\Facades\Route;
 
@@ -85,26 +90,26 @@ Route::middleware(['web'])->group(function () {
     Route::middleware('auth')->group(function () {
         // Dashboard
         Route::get('dashboard/notification-preferences',
-            [DashboardController::class, 'getNotificationPreferences'])->name('browser-api.dashboard.notifications.get');
+            [DashboardNotificationController::class, 'getNotificationPreferences'])->name('browser-api.dashboard.notifications.get');
         Route::post('dashboard/notification-preferences', [
-            DashboardController::class, 'updateNotificationPreferences',
+            DashboardNotificationController::class, 'updateNotificationPreferences',
         ])->name('browser-api.dashboard.notifications.update');
 
         Route::post('dashboard/addition-requests', [
-            DashboardController::class, 'submitAdditionRequest',
+            DashboardAdditionRequestController::class, 'submitAdditionRequest',
         ])->name('browser-api.dashboard.addition-requests.submit');
         Route::get('dashboard/addition-requests', [
-            DashboardController::class, 'getUserAdditionRequests',
+            DashboardAdditionRequestController::class, 'getUserAdditionRequests',
         ])->name('browser-api.dashboard.addition-requests.index');
         Route::post('dashboard/addition-requests/{request}/cancel', [
-            DashboardController::class, 'cancelAdditionRequest',
+            DashboardAdditionRequestController::class, 'cancelAdditionRequest',
         ])->whereNumber('request')->name('browser-api.dashboard.addition-requests.cancel');
 
         Route::get('dashboard/game-stats',
-            [DashboardController::class, 'getUserGameStats'])->name('browser-api.dashboard.game-stats');
+            [DashboardStatsController::class, 'getUserGameStats'])->name('browser-api.dashboard.game-stats');
 
         // User data export
-        Route::get('user/export', [DashboardController::class, 'exportUserData'])->name('browser-api.user.export');
+        Route::get('user/export', [UserDataExportController::class, 'exportUserData'])->name('browser-api.user.export');
 
         // My Games update
         Route::put('my-games/{game:slug}',
@@ -125,23 +130,23 @@ Route::middleware(['web'])->group(function () {
             [MyGamesController::class, 'reorderScreenshots'])->name('browser-api.my-games.screenshots.reorder');
 
         // VN Lists (CRUD) - keep api.* names used in frontend
-        Route::post('vn-lists', [VnListController::class, 'storeVnList'])->name('api.vn-lists.store');
-        Route::put('vn-lists/{vnList}', [VnListController::class, 'updateVnList'])->name('api.vn-lists.update');
-        Route::delete('vn-lists/{vnList}', [VnListController::class, 'destroyVnList'])->name('api.vn-lists.destroy');
+        Route::post('vn-lists', [VnListCrudController::class, 'storeVnList'])->name('api.vn-lists.store');
+        Route::put('vn-lists/{vnList}', [VnListCrudController::class, 'updateVnList'])->name('api.vn-lists.update');
+        Route::delete('vn-lists/{vnList}', [VnListCrudController::class, 'destroyVnList'])->name('api.vn-lists.destroy');
         Route::post('vn-lists/{vnList}/toggle-visibility',
-            [VnListController::class, 'toggleVnListVisibility'])->name('api.vn-lists.toggle-visibility');
+            [VnListCrudController::class, 'toggleVnListVisibility'])->name('api.vn-lists.toggle-visibility');
         Route::patch('vn-lists/{vnList}/toggle-all-updates',
-            [VnListController::class, 'toggleAllUpdates'])->name('api.vn-lists.toggle-all-updates');
+            [VnListCrudController::class, 'toggleAllUpdates'])->name('api.vn-lists.toggle-all-updates');
 
         // VN List entries
         Route::put('list-entries/{entry}',
-            [VnListController::class, 'updateListEntry'])->name('api.list-entries.update');
+            [VnListEntryController::class, 'updateListEntry'])->name('api.list-entries.update');
         Route::post('list-entries/{entry}/move',
-            [VnListController::class, 'moveListEntry'])->name('api.list-entries.move');
+            [VnListEntryController::class, 'moveListEntry'])->name('api.list-entries.move');
         Route::delete('list-entries/{entry}',
-            [VnListController::class, 'removeListEntry'])->name('api.list-entries.destroy');
+            [VnListEntryController::class, 'removeListEntry'])->name('api.list-entries.destroy');
         Route::post('lists/{vnList}/reorder',
-            [VnListController::class, 'reorderListEntries'])->name('api.lists.reorder');
+            [VnListEntryController::class, 'reorderListEntries'])->name('api.lists.reorder');
 
         // Game content editing
         Route::middleware(CanEditGame::class)->group(function () {
@@ -163,23 +168,23 @@ Route::middleware(['web'])->group(function () {
 
         // Game operations + user lists (support both api.* and browser-api.* where used)
         Route::get('games/{game:id}/lists',
-            [VnListController::class, 'getGameLists'])->name('browser-api.games.lists');
+            [VnListGameController::class, 'getGameLists'])->name('browser-api.games.lists');
         Route::post('games/{game:id}/add-to-list',
-            [VnListController::class, 'addGameToList'])->name('browser-api.games.add-to-list');
+            [VnListGameController::class, 'addGameToList'])->name('browser-api.games.add-to-list');
         Route::post('games/{game:id}/add-to-list',
-            [VnListController::class, 'addGameToList'])->name('api.games.add-to-list');
+            [VnListGameController::class, 'addGameToList'])->name('api.games.add-to-list');
         Route::post('lists/{vnList}/add-game',
-            [VnListController::class, 'addGameToCustomList'])->name('api.list-entries.add-to-custom');
-        Route::get('vn-lists', [VnListController::class, 'getUserLists'])->name('api.vn-lists.index');
-        Route::get('user/lists', [VnListController::class, 'getUserLists'])->name('browser-api.user.lists');
+            [VnListGameController::class, 'addGameToCustomList'])->name('api.list-entries.add-to-custom');
+        Route::get('vn-lists', [VnListGameController::class, 'getUserLists'])->name('api.vn-lists.index');
+        Route::get('user/lists', [VnListGameController::class, 'getUserLists'])->name('browser-api.user.lists');
 
         // User progress
         Route::get('user-progress/{game:id}/status',
-            [VnListController::class, 'getUserProgressStatus'])->name('browser-api.user-progress.status');
+            [VnListGameController::class, 'getUserProgressStatus'])->name('browser-api.user-progress.status');
         Route::put('user-progress/{game:id}',
-            [VnListController::class, 'updateUserProgress'])->name('api.user-progress.update');
+            [VnListGameController::class, 'updateUserProgress'])->name('api.user-progress.update');
         Route::patch('user-progress/{game:id}/toggle-updates',
-            [VnListController::class, 'toggleUserProgressUpdates'])->name('api.user-progress.toggle-updates');
+            [VnListGameController::class, 'toggleUserProgressUpdates'])->name('api.user-progress.toggle-updates');
 
         // Push Subscriptions (moved from api.php; session-based)
         Route::post('push-subscriptions',

@@ -9,12 +9,13 @@ use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\Tag;
 use App\Services\GameFilterService;
+use App\Services\GamesSearchMetaBuilder;
+use App\Services\GamesSearchResultHydrator;
 use App\Services\MeilisearchService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -115,118 +116,16 @@ class GamesSearchController extends Controller
             }
         }
 
-        // Load essential relationships for the frontend
-        if ($games->count() > 0) {
-            // Load relationships to prevent N+1 queries
-            $collection = $games->getCollection();
-            if (method_exists($collection, 'load')) {
-                $collection->load([
-                    'tags',
-                    'sourceLanguage',
-                    'latestVersion.supportedLanguages.language',
-                    'latestVersion.languageStats',
-                ]);
-            }
+        $hydrator = app(GamesSearchResultHydrator::class);
+        $hydrator->hydrate($games);
 
-            // Enhance models with data from loaded relationships only (no additional queries)
-            foreach ($games as $game) {
-                // Set platform flags from the latest version relationship
-                if ($game->latestVersion) {
-                    $game->is_windows = $game->latestVersion->is_windows ?? false;
-                    $game->is_linux = $game->latestVersion->is_linux ?? false;
-                    $game->is_mac = $game->latestVersion->is_mac ?? false;
-                    $game->is_android = $game->latestVersion->is_android ?? false;
-                    $game->is_web = $game->latestVersion->is_web ?? false;
-                    $game->latest_version_id = $game->latestVersion->id;
-                    $game->latest_version_published_at = $game->latestVersion->published_at;
-                } else {
-                    $game->is_windows = false;
-                    $game->is_linux = false;
-                    $game->is_mac = false;
-                    $game->is_android = false;
-                    $game->is_web = false;
-                    $game->latest_version_id = null;
-                    $game->latest_version_published_at = null;
-                }
-
-                // Set supported languages using the relationship data (with underscore for frontend)
-                if ($game->latestVersion && $game->latestVersion->supportedLanguages) {
-                    $game->supported_languages = $game->latestVersion->supportedLanguages
-                        ->where('is_available', true)
-                        ->map(function ($supportedLanguage) {
-                            return [
-                                'iso_code' => $supportedLanguage->iso_code,
-                                'is_available' => $supportedLanguage->is_available,
-                                'ref_name' => $supportedLanguage->language?->ref_name,
-                                'flag_code' => $supportedLanguage->language?->flag_code,
-                            ];
-                        })
-                        ->values();
-                } else {
-                    $game->supported_languages = collect();
-                }
-
-                // Set english_word_count from the latest version (same pattern as supported_languages)
-                if ($game->latestVersion) {
-                    $englishStats = $game->latestVersion->languageStats
-                        ->where('iso_code', 'eng')
-                        ->first();
-                    $game->english_word_count = $englishStats?->words;
-
-                    // Set primary word count and language label
-                    $sourceLanguageId = $game->source_language_id ?? 'eng';
-                    if ($sourceLanguageId !== 'eng') {
-                        $primaryStats = $game->latestVersion->languageStats
-                            ->where('iso_code', $sourceLanguageId)
-                            ->first();
-                        $game->primary_word_count = $primaryStats?->words;
-                    } else {
-                        $game->primary_word_count = $game->english_word_count;
-                    }
-                    $game->primary_language_label = $game->getPrimaryLanguageLabel();
-                } else {
-                    $game->english_word_count = null;
-                    $game->primary_word_count = null;
-                    $game->primary_language_label = 'EN';
-                }
-            }
-        }
-
-        // Load user-specific data if authenticated and we have games
-        if (Auth::check() && $games->count() > 0) {
-            $gameIds = collect($games->items())->pluck('id')->toArray();
-
-            if (! empty($gameIds)) {
-                // Load user progress
-                $userProgress = DB::table('user_game_progress')
-                    ->where('user_id', Auth::id())
-                    ->whereIn('game_id', $gameIds)
-                    ->select('game_id', 'receive_updates')
-                    ->get()
-                    ->keyBy('game_id');
-
-                // Load list memberships
-                $userListMemberships = DB::table('vn_list_entries')
-                    ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
-                    ->where('vn_lists.user_id', Auth::id())
-                    ->whereIn('vn_list_entries.game_id', $gameIds)
-                    ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
-                    ->get()
-                    ->groupBy('game_id');
-
-                // Attach user data to each game object
-                foreach ($games->items() as $game) {
-                    // Wrap user_progress in array to match Eloquent relationship format
-                    $progress = $userProgress->get($game->id);
-                    $game->user_progress = $progress ? [$progress] : [];
-                    $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
-                }
-            }
+        if (Auth::check()) {
+            $hydrator->attachUserData($games, Auth::id());
         }
 
         // Build meta tags with filter information
         $filterOptions = GameFilterService::getOptions();
-        $metaTags = $this->buildMetaTags(
+        $metaTags = app(GamesSearchMetaBuilder::class)->build(
             $request,
             $search,
             $selectedStatuses,
@@ -577,226 +476,9 @@ class GamesSearchController extends Controller
 
         $games = $query->orderBy('first_visible_at', 'desc')->paginate($perPage, ['*'], 'page', $page);
 
-        // Apply the same data transformation as the main search
-        if ($games->count() > 0) {
-            foreach ($games as $game) {
-                // Set platform flags from the latest version relationship
-                if ($game->latestVersion) {
-                    $game->is_windows = $game->latestVersion->is_windows ?? false;
-                    $game->is_linux = $game->latestVersion->is_linux ?? false;
-                    $game->is_mac = $game->latestVersion->is_mac ?? false;
-                    $game->is_android = $game->latestVersion->is_android ?? false;
-                    $game->is_web = $game->latestVersion->is_web ?? false;
-                    $game->latest_version_id = $game->latestVersion->id;
-                    $game->latest_version_published_at = $game->latestVersion->published_at;
-                } else {
-                    $game->is_windows = false;
-                    $game->is_linux = false;
-                    $game->is_mac = false;
-                    $game->is_android = false;
-                    $game->is_web = false;
-                    $game->latest_version_id = null;
-                    $game->latest_version_published_at = null;
-                }
-
-                // Set supported languages using the relationship data
-                if ($game->latestVersion && $game->latestVersion->supportedLanguages) {
-                    $game->supported_languages = $game->latestVersion->supportedLanguages
-                        ->where('is_available', true)
-                        ->map(function ($supportedLanguage) {
-                            return [
-                                'iso_code' => $supportedLanguage->iso_code,
-                                'is_available' => $supportedLanguage->is_available,
-                                'ref_name' => $supportedLanguage->language?->ref_name,
-                                'flag_code' => $supportedLanguage->language?->flag_code,
-                            ];
-                        })
-                        ->values();
-                } else {
-                    $game->supported_languages = collect();
-                }
-
-                // Set english_word_count from the latest version
-                if ($game->latestVersion) {
-                    $englishStats = $game->latestVersion->languageStats
-                        ->where('iso_code', 'eng')
-                        ->first();
-                    $game->english_word_count = $englishStats?->words;
-
-                    // Set primary word count and language label
-                    $sourceLanguageId = $game->source_language_id ?? 'eng';
-                    if ($sourceLanguageId !== 'eng') {
-                        $primaryStats = $game->latestVersion->languageStats
-                            ->where('iso_code', $sourceLanguageId)
-                            ->first();
-                        $game->primary_word_count = $primaryStats?->words;
-                    } else {
-                        $game->primary_word_count = $game->english_word_count;
-                    }
-                    $game->primary_language_label = $game->getPrimaryLanguageLabel();
-                } else {
-                    $game->english_word_count = null;
-                    $game->primary_word_count = null;
-                    $game->primary_language_label = 'EN';
-                }
-            }
-        }
+        app(GamesSearchResultHydrator::class)->hydrate($games);
 
         return $games;
     }
 
-    /**
-     * Build comprehensive meta tags with filter information for social media
-     */
-    private function buildMetaTags(
-        Request $request,
-        ?string $search,
-        $selectedStatuses,
-        $selectedEngines,
-        $selectedPlatforms,
-        $selectedLanguages,
-        $selectedTags,
-        int $totalGames,
-        array $filterOptions,
-        $games
-    ): array {
-        $titleParts = [];
-        $descriptionParts = [];
-
-        // Add search query if present
-        if (! empty($search)) {
-            $titleParts[] = "Search: {$search}";
-            $descriptionParts[] = "Search results for '{$search}'";
-        }
-
-        // Add platform filters
-        if ($selectedPlatforms) {
-            $platforms = is_array($selectedPlatforms) ? $selectedPlatforms : explode(',', $selectedPlatforms);
-            $platformLabels = array_map(function ($p) use ($filterOptions) {
-                return $filterOptions['platforms'][$p] ?? ucfirst($p);
-            }, $platforms);
-            if (count($platformLabels) > 0) {
-                $titleParts[] = implode(', ', $platformLabels);
-                $descriptionParts[] = 'Available on '.implode(', ', $platformLabels);
-            }
-        }
-
-        // Add language filters
-        if ($selectedLanguages) {
-            $languages = is_array($selectedLanguages) ? $selectedLanguages : explode(',', $selectedLanguages);
-            $languageLabels = array_map(function ($l) use ($filterOptions) {
-                return $filterOptions['languages'][$l]['ref_name'] ?? $l;
-            }, $languages);
-            if (count($languageLabels) > 0 && count($languageLabels) <= 3) {
-                $titleParts[] = implode(', ', $languageLabels);
-                $descriptionParts[] = 'In '.implode(', ', $languageLabels);
-            }
-        }
-
-        // Add status filters
-        if ($selectedStatuses) {
-            $statuses = is_array($selectedStatuses) ? $selectedStatuses : explode(',', $selectedStatuses);
-            if (count($statuses) === 1) {
-                $status = ucwords(str_replace('_', ' ', $statuses[0]));
-                $titleParts[] = $status;
-                $descriptionParts[] = "Status: {$status}";
-            }
-        }
-
-        // Add engine filters
-        if ($selectedEngines) {
-            $engines = is_array($selectedEngines) ? $selectedEngines : explode(',', $selectedEngines);
-            if (count($engines) === 1) {
-                $titleParts[] = $engines[0];
-                $descriptionParts[] = "Made with {$engines[0]}";
-            }
-        }
-
-        // Add tag filters (limit to 2 for brevity)
-        if ($selectedTags) {
-            $tags = is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags);
-            $tagIds = array_slice($tags, 0, 2);
-            $tagLabels = [];
-            foreach ($tagIds as $tagId) {
-                $tagLabel = $filterOptions['tags'][$tagId] ?? null;
-                if ($tagLabel) {
-                    // Remove count from tag label (e.g., "Romance (42)" -> "Romance")
-                    $tagLabels[] = preg_replace('/\s*\(\d+\)$/', '', $tagLabel);
-                }
-            }
-            if (count($tagLabels) > 0) {
-                $titleParts[] = implode(', ', $tagLabels);
-                $descriptionParts[] = 'Tagged: '.implode(', ', $tagLabels);
-            }
-        }
-
-        // Add NSFW/SFW filter
-        $nsfw = $request->boolean('nsfw');
-        $sfw = $request->boolean('sfw');
-        if ($nsfw && ! $sfw) {
-            $titleParts[] = 'NSFW';
-            $descriptionParts[] = 'NSFW content';
-        } elseif ($sfw && ! $nsfw) {
-            $titleParts[] = 'SFW';
-            $descriptionParts[] = 'SFW content only';
-        }
-
-        // Add paid/free filter
-        $showPaid = $request->boolean('showPaid');
-        $showFree = $request->boolean('showFree');
-        if ($showPaid && ! $showFree) {
-            $titleParts[] = 'Paid';
-            $descriptionParts[] = 'Paid games';
-        } elseif ($showFree && ! $showPaid) {
-            $titleParts[] = 'Free';
-            $descriptionParts[] = 'Free games';
-        }
-
-        // Add demo filter
-        if ($request->boolean('showDemo')) {
-            $titleParts[] = 'Demos';
-            $descriptionParts[] = 'Games with demos available';
-        }
-
-        // Build social media title with detailed filter information
-        $socialTitle = count($titleParts) > 0
-            ? implode(' - ', array_slice($titleParts, 0, 3)).' Visual Novels'
-            : 'Visual Novels';
-
-        // Browser title is always simple and static
-        $browserTitle = 'Visual Novels';
-
-        // Build description
-        $description = count($descriptionParts) > 0
-            ? implode(' • ', $descriptionParts).' - Browse and discover visual novels on FVN.li'
-            : 'Browse and discover visual novels on FVN.li';
-
-        // Add total count to description
-        if ($totalGames > 0) {
-            $description .= sprintf(' - %d games found', $totalGames);
-        }
-
-        // Add first few game names to give users an idea of what to expect
-        if ($games && $games->count() > 0) {
-            $gameNames = collect($games->items())
-                ->take(3)
-                ->pluck('name')
-                ->toArray();
-
-            if (count($gameNames) > 0) {
-                $description .= '. Including: '.implode(', ', $gameNames);
-                if ($totalGames > count($gameNames)) {
-                    $description .= ', and more';
-                }
-            }
-        }
-
-        return [
-            'browserTitle' => $browserTitle,
-            'socialTitle' => $socialTitle,
-            'description' => $description,
-            'image' => asset(config('social.images.games_list', config('social.images.default'))),
-            'url' => $request->url(),
-        ];
-    }
 }

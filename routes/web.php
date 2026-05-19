@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClickTrackingController;
+use App\Http\Controllers\Dashboard\DashboardVersionComparisonController;
+use App\Http\Controllers\Dashboard\DigestNotificationController;
+use App\Http\Controllers\Dashboard\UserAccountController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\FeedController;
@@ -16,7 +19,8 @@ use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\SystemStatusController;
 use App\Http\Controllers\UserGameProgressController;
 use App\Http\Controllers\UserPreferencesController;
-use App\Http\Controllers\VnListController;
+use App\Http\Controllers\VnLists\PublicVnListController;
+use App\Http\Controllers\VnLists\VnListPageController;
 use App\Models\Game;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -123,15 +127,15 @@ Route::get('dashboard', [DashboardController::class, 'dashboard'])
 
 // User Account Management
 Route::middleware(['auth'])->group(function () {
-    Route::delete('user/account', [DashboardController::class, 'deleteAccount'])
+    Route::delete('user/account', [UserAccountController::class, 'deleteAccount'])
         ->name('user.account.delete');
-    Route::post('user/merge/{provider}', [DashboardController::class, 'mergeSocialAccounts'])
+    Route::post('user/merge/{provider}', [UserAccountController::class, 'mergeSocialAccounts'])
         ->name('user.merge');
-    Route::delete('user/disconnect/{provider}', [DashboardController::class, 'disconnectSocialAccount'])
+    Route::delete('user/disconnect/{provider}', [UserAccountController::class, 'disconnectSocialAccount'])
         ->name('user.disconnect');
-    Route::get('user/notifications/digest/{date}', [DashboardController::class, 'showDigestNotifications'])
+    Route::get('user/notifications/digest/{date}', [DigestNotificationController::class, 'showDigestNotifications'])
         ->name('user.notifications.digest');
-    Route::post('users/dashboard/version-comparison', [DashboardController::class, 'getVersionComparison'])
+    Route::post('users/dashboard/version-comparison', [DashboardVersionComparisonController::class, 'getVersionComparison'])
         ->name('users.dashboard.version-comparison');
     Route::put('user-progress/{game:id}', [UserGameProgressController::class, 'update'])
         ->name('user-progress.update');
@@ -160,26 +164,26 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // VN Lists routes
-Route::get('lists', [VnListController::class, 'listsIndex'])
+Route::get('lists', [VnListPageController::class, 'listsIndex'])
     ->middleware(['auth'])
     ->name('lists.index');
-Route::get('lists/create', [VnListController::class, 'listCreate'])
+Route::get('lists/create', [VnListPageController::class, 'listCreate'])
     ->middleware(['auth'])
     ->name('lists.create');
 
 // Public VN Lists routes (no auth required) - place before dynamic {vnList} routes
-Route::get('lists/public', [VnListController::class, 'publicLists'])
+Route::get('lists/public', [PublicVnListController::class, 'publicLists'])
     ->middleware('throttle:30,1')
     ->name('lists.public');
-Route::get('users/{user}/lists', [VnListController::class, 'userPublicLists'])
+Route::get('users/{user}/lists', [PublicVnListController::class, 'userPublicLists'])
     ->name('lists.user-public');
 
 // Dynamic VN List routes (constrained to numeric IDs)
-Route::get('lists/{vnList}/edit', [VnListController::class, 'listEdit'])
+Route::get('lists/{vnList}/edit', [VnListPageController::class, 'listEdit'])
     ->middleware(['auth'])
     ->whereNumber('vnList')
     ->name('lists.edit');
-Route::get('lists/{vnList}', [VnListController::class, 'listShow'])
+Route::get('lists/{vnList}', [VnListPageController::class, 'listShow'])
     ->whereNumber('vnList')
     ->name('lists.show');
 
