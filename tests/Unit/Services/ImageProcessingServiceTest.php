@@ -224,18 +224,21 @@ test('process game screenshots keeps original data when the download is not an i
     $game = Game::factory()->create([
         'screenshots' => [
             ['url' => 'https://img.itch.zone/not-an-image.txt'],
+            ['url' => 'https://img.itch.zone/real-image.png'],
         ],
     ]);
 
     $service = imageProcessingServiceForResponses([
         new Response(200, ['Content-Type' => 'text/plain'], 'not an image'),
+        new Response(200, ['Content-Type' => 'image/png'], createImageProcessingPayload()),
     ]);
 
     $service->processGameScreenshots($game, force: true);
 
-    expect($game->screenshots)->toBe([
-        ['url' => 'https://img.itch.zone/not-an-image.txt'],
-    ]);
+    expect($game->screenshots)->toHaveCount(2)
+        ->and($game->screenshots[0])->toBe(['url' => 'https://img.itch.zone/not-an-image.txt'])
+        ->and($game->screenshots[1]['url'])->toBe('https://img.itch.zone/real-image.png')
+        ->and($game->screenshots[1]['optimized'])->toHaveKeys(['small', 'default', 'large']);
 });
 
 test('process game thumbnail creates variants from thumbnail URL', function () {
@@ -358,11 +361,10 @@ test('image downloads reject untrusted screenshot and thumbnail urls before fetc
     $history = [];
     $service = imageProcessingServiceForResponses([], $history);
 
-    $service->processGameScreenshots($game, force: true);
-
-    expect($game->screenshots)->toBe([
-        ['url' => 'https://127.0.0.1/internal.png'],
-    ])->and($history)->toBe([]);
+    // Every processable screenshot is rejected, so the service surfaces a hard failure.
+    expect(fn () => $service->processGameScreenshots($game, force: true))
+        ->toThrow(Exception::class, 'Failed to optimize any screenshots')
+        ->and($history)->toBe([]);
 
     $gameWithBadThumbnail = Game::factory()->create([
         'thumb_url' => 'https://example.invalid/thumb.png',
