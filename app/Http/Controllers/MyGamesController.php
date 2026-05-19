@@ -7,19 +7,16 @@ namespace App\Http\Controllers;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\User;
+use App\Services\GameMediaEditorService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\Encoders\WebpEncoder;
-use Intervention\Image\ImageManager;
 use Throwable;
 
 class MyGamesController extends Controller
@@ -55,7 +52,7 @@ class MyGamesController extends Controller
                     'id' => $g->id,
                     'name' => $g->name,
                     'slug' => $g->slug,
-                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : null,
+                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : $g->thumb_url,
                     'has_additional_links' => method_exists($g,
                         'hasAdditionalLinks') ? $g->hasAdditionalLinks() : ! empty($g->additional_links),
                 ];
@@ -156,7 +153,7 @@ class MyGamesController extends Controller
             'metaTags' => [
                 'title' => "Edit {$game->name}",
                 'description' => "Edit download links and platforms for {$game->name}. Manage additional download links for different platforms to help players find the right version.",
-                'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : null,
+                'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
                 'structuredData' => [
                     '@type' => 'WebPage',
                     'name' => "Edit {$game->name}",
@@ -166,7 +163,7 @@ class MyGamesController extends Controller
                         '@type' => 'SoftwareApplication',
                         'name' => $game->name,
                         'url' => route('games.show', $game->slug),
-                        'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : null,
+                        'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
                     ],
                 ],
             ],
@@ -365,43 +362,11 @@ class MyGamesController extends Controller
         }
 
         try {
-            $file = $request->file('thumbnail');
-
-            // Log file info for debugging
-            Log::info('Thumbnail upload attempt', [
-                'game_id' => $game->id,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'original_name' => $file->getClientOriginalName(),
-            ]);
-
-            $path = $file->store("games/{$game->id}/thumbnails", 'public');
-
-            // Generate optimized thumbnails
-            $optimizedThumbnails = $this->generateOptimizedThumbnails($file, $path, $game->id);
-
-            // Clean up old optimized thumbnails if they exist
-            if ($game->optimized_thumbnails) {
-                foreach ($game->optimized_thumbnails as $variant) {
-                    if (isset($variant['path'])) {
-                        Storage::disk('public')->delete($variant['path']);
-                    }
-                }
-            }
-
-            $game->update([
-                'thumb_url' => asset('storage/'.$path),
-                'optimized_thumbnails' => $optimizedThumbnails,
-                'custom_page_updated_at' => now(),
-                'custom_page_updated_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Thumbnail updated successfully.',
-                'thumbnail_url' => $game->getThumbnailUrl(),
-                'optimized_thumbnails' => $optimizedThumbnails,
-            ]);
+            return response()->json(app(GameMediaEditorService::class)->updateThumbnail(
+                $game,
+                $user,
+                $request->file('thumbnail')
+            ));
         } catch (Exception $e) {
             Log::error('Thumbnail upload failed', [
                 'game_id' => $game->id,
@@ -432,27 +397,7 @@ class MyGamesController extends Controller
         }
 
         try {
-            // Clean up optimized thumbnails if they exist
-            if ($game->optimized_thumbnails) {
-                foreach ($game->optimized_thumbnails as $variant) {
-                    if (isset($variant['path'])) {
-                        Storage::disk('public')->delete($variant['path']);
-                    }
-                }
-            }
-
-            // Reset thumbnail to original
-            $game->update([
-                'thumb_url' => null,
-                'optimized_thumbnails' => null,
-                'custom_page_updated_at' => now(),
-                'custom_page_updated_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Thumbnail deleted successfully.',
-            ]);
+            return response()->json(app(GameMediaEditorService::class)->deleteThumbnail($game, $user));
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -482,38 +427,11 @@ class MyGamesController extends Controller
         ]);
 
         try {
-            $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
-            $newScreenshots = [];
-
-            foreach ($request->file('screenshots') as $index => $file) {
-                $path = $file->store("games/{$game->id}/screenshots", 'public');
-
-                // Generate optimized screenshots
-                $optimized = $this->generateOptimizedScreenshots($file, $path, $game->id, count($screenshots) + $index);
-
-                $newScreenshots[] = [
-                    'url' => asset('storage/'.$path),
-                    'thumbnail_url' => asset('storage/'.$path),
-                    'optimized' => $optimized,
-                    'uploaded_at' => now()->toISOString(),
-                ];
-            }
-
-            $allScreenshots = array_merge($screenshots, $newScreenshots);
-
-            $game->update([
-                'custom_screenshots' => $allScreenshots,
-                'has_custom_page' => true,
-                'custom_page_updated_at' => now(),
-                'custom_page_updated_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Screenshots uploaded successfully.',
-                'screenshots' => $game->resolveScreenshots($allScreenshots),
-                'new_screenshots' => $game->resolveScreenshots($newScreenshots),
-            ]);
+            return response()->json(app(GameMediaEditorService::class)->uploadScreenshots(
+                $game,
+                $user,
+                $request->file('screenshots')
+            ));
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -542,68 +460,16 @@ class MyGamesController extends Controller
         ]);
 
         $index = $request->input('index');
-        $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
-
-        if (! isset($screenshots[$index])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Screenshot not found.',
-            ], 404);
-        }
 
         try {
-            $deletedScreenshot = $screenshots[$index];
+            $result = app(GameMediaEditorService::class)->deleteScreenshot($game, $user, (int) $index);
 
-            // Only delete files if this is a custom screenshot (has optimized field or uploaded_at)
-            $isCustomScreenshot = isset($deletedScreenshot['optimized']) || isset($deletedScreenshot['uploaded_at']);
-
-            if ($isCustomScreenshot) {
-                // Clean up optimized images
-                if (isset($deletedScreenshot['optimized'])) {
-                    foreach ($deletedScreenshot['optimized'] as $variant) {
-                        if (isset($variant['path'])) {
-                            Storage::disk('public')->delete($variant['path']);
-                        }
-                    }
-                }
-
-                // Delete the original file
-                if (isset($deletedScreenshot['url'])) {
-                    // Extract storage path from asset URL
-                    // URL format: http://domain.com/storage/games/{id}/screenshots/filename.jpg
-                    // We need: games/{id}/screenshots/filename.jpg
-                    $url = $deletedScreenshot['url'];
-                    if (str_contains($url, '/storage/')) {
-                        $path = substr($url, strpos($url, '/storage/') + strlen('/storage/'));
-                        Storage::disk('public')->delete($path);
-                    }
-                }
-
-                // Delete the thumbnail file if it's different from the original
-                if (isset($deletedScreenshot['thumbnail_url']) &&
-                    $deletedScreenshot['thumbnail_url'] !== $deletedScreenshot['url']) {
-                    $url = $deletedScreenshot['thumbnail_url'];
-                    if (str_contains($url, '/storage/')) {
-                        $path = substr($url, strpos($url, '/storage/') + strlen('/storage/'));
-                        Storage::disk('public')->delete($path);
-                    }
-                }
-            }
-
-            // Remove the screenshot from the array
-            array_splice($screenshots, $index, 1);
-
-            $game->update([
-                'custom_screenshots' => $screenshots,
-                'custom_page_updated_at' => now(),
-                'custom_page_updated_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Screenshot deleted successfully.',
-                'screenshots' => $game->resolveScreenshots($screenshots),
-            ]);
+            return $result
+                ? response()->json($result)
+                : response()->json([
+                    'success' => false,
+                    'message' => 'Screenshot not found.',
+                ], 404);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -633,28 +499,11 @@ class MyGamesController extends Controller
         ]);
 
         try {
-            $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
-            $orderedIndices = $request->input('ordered_indices');
-
-            // Reorder screenshots based on the provided indices
-            $reorderedScreenshots = [];
-            foreach ($orderedIndices as $index) {
-                if (isset($screenshots[$index])) {
-                    $reorderedScreenshots[] = $screenshots[$index];
-                }
-            }
-
-            $game->update([
-                'custom_screenshots' => $reorderedScreenshots,
-                'custom_page_updated_at' => now(),
-                'custom_page_updated_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Screenshots reordered successfully.',
-                'screenshots' => $game->resolveScreenshots($reorderedScreenshots),
-            ]);
+            return response()->json(app(GameMediaEditorService::class)->reorderScreenshots(
+                $game,
+                $user,
+                $request->input('ordered_indices')
+            ));
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -671,86 +520,4 @@ class MyGamesController extends Controller
         return $user->is_admin || (method_exists($user, 'ownsGame') && $user->ownsGame($game));
     }
 
-    /**
-     * Generate optimized thumbnails for different sizes
-     */
-    private function generateOptimizedThumbnails($file, string $path, int $gameId): array
-    {
-        $optimized = [];
-        $sizes = [
-            'small' => [189, 150],   // 315:250 aspect ratio
-            'default' => [315, 250], // 315:250 aspect ratio
-            'large' => [630, 500],   // 315:250 aspect ratio
-        ];
-
-        $manager = new ImageManager(new Driver);
-
-        foreach ($sizes as $variant => [$width, $height]) {
-            try {
-                $image = $manager->decodePath($file->getRealPath());
-                $image->cover($width, $height);
-                $encoded = $image->encode(new WebpEncoder(quality: 80));
-
-                $optimizedPath = "games/{$gameId}/thumbnails/{$variant}_".time().'.webp';
-                Storage::disk('public')->put($optimizedPath, (string) $encoded);
-
-                $optimized[$variant] = [
-                    'path' => $optimizedPath,
-                    'width' => $width,
-                    'height' => $height,
-                    'size' => strlen((string) $encoded),
-                ];
-            } catch (Exception $e) {
-                Log::error('Failed to generate optimized thumbnail', [
-                    'game_id' => $gameId,
-                    'variant' => $variant,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return $optimized;
-    }
-
-    /**
-     * Generate optimized screenshots for different sizes
-     */
-    private function generateOptimizedScreenshots($file, string $path, int $gameId, int $screenshotIndex): array
-    {
-        $optimized = [];
-        $sizes = [
-            'small' => [320, 180],
-            'default' => [640, 360],
-            'large' => [1920, 1080],
-        ];
-
-        $manager = new ImageManager(new Driver);
-
-        foreach ($sizes as $variant => [$width, $height]) {
-            try {
-                $image = $manager->decodePath($file->getRealPath());
-                $image->scale($width, $height);
-                $encoded = $image->encode(new WebpEncoder(quality: 80));
-
-                $optimizedPath = "games/{$gameId}/screenshots/{$screenshotIndex}_{$variant}_".time().'.webp';
-                Storage::disk('public')->put($optimizedPath, (string) $encoded);
-
-                $optimized[$variant] = [
-                    'path' => $optimizedPath,
-                    'width' => $width,
-                    'height' => $height,
-                    'size' => strlen((string) $encoded),
-                ];
-            } catch (Exception $e) {
-                Log::error('Failed to generate optimized screenshot', [
-                    'game_id' => $gameId,
-                    'screenshot_index' => $screenshotIndex,
-                    'variant' => $variant,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return $optimized;
-    }
 }

@@ -5,29 +5,17 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Character;
-use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\UniqueDialogueText;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
-use Exception;
-use FilesystemIterator;
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Normalizer;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 use Throwable;
-use ZipArchive;
 
 /**
  * Service for extracting and processing game script statistics
@@ -44,16 +32,28 @@ readonly class GameStatsService
 
     private RenpyStatsSandboxClient $sandboxClient;
 
+    private RenpyStatsLocalExtractor $localExtractor;
+
+    private GameStatsRouteGraphPersister $routeGraphPersister;
+
+    private GameStatsDialoguePersister $dialoguePersister;
+
     public function __construct(
         ?LanguageMappingService $languageMappingService = null,
         ?CharacterStatsCalculationService $characterStatsService = null,
         ?EssentialCharacterService $essentialCharacterService = null,
-        ?RenpyStatsSandboxClient $sandboxClient = null
+        ?RenpyStatsSandboxClient $sandboxClient = null,
+        ?RenpyStatsLocalExtractor $localExtractor = null,
+        ?GameStatsRouteGraphPersister $routeGraphPersister = null,
+        ?GameStatsDialoguePersister $dialoguePersister = null
     ) {
         $this->languageMappingService = $languageMappingService ?? app(LanguageMappingService::class);
         $this->characterStatsService = $characterStatsService ?? app(CharacterStatsCalculationService::class);
         $this->essentialCharacterService = $essentialCharacterService ?? app(EssentialCharacterService::class);
         $this->sandboxClient = $sandboxClient ?? app(RenpyStatsSandboxClient::class);
+        $this->localExtractor = $localExtractor ?? app(RenpyStatsLocalExtractor::class);
+        $this->routeGraphPersister = $routeGraphPersister ?? app(GameStatsRouteGraphPersister::class);
+        $this->dialoguePersister = $dialoguePersister ?? app(GameStatsDialoguePersister::class);
     }
 
     /**
@@ -130,73 +130,7 @@ readonly class GameStatsService
      */
     private function extractGameStatsLocally(string $archivePath): ?array
     {
-        Log::info('GameStats: Starting extraction', [
-            'archive_path' => basename($archivePath),
-        ]);
-
-        // Create temporary directory for extraction
-        $extractPath = storage_path('app/temp/'.uniqid('game_', true));
-        File::makeDirectory($extractPath, 0755, true);
-
-        try {
-            // Extract archive
-            Log::info('GameStats: Extracting archive', [
-                'extract_path' => $extractPath,
-            ]);
-            $this->extractArchive($archivePath, $extractPath);
-            Log::info('GameStats: Archive extracted successfully');
-
-            // Find the game directory (it might be in a subdirectory)
-            Log::info('GameStats: Finding game directory');
-            $gameDir = $this->findGameDirectory($extractPath);
-            if (! $gameDir) {
-                Log::warning('Could not find valid game directory', [
-                    'archive_path' => $archivePath,
-                    'extract_path' => $extractPath,
-                ]);
-
-                return null;
-            }
-
-            Log::info('GameStats: Game directory found', [
-                'game_dir' => basename($gameDir),
-            ]);
-
-            Log::info('GameStats: Attempting to use Ren\'Py SDK');
-            $sdkPath = config('services.renpy.sdk_path');
-            if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
-                Log::error('Ren\'Py SDK path not configured or invalid', [
-                    'sdk_path' => $sdkPath,
-                ]);
-
-                return null;
-            }
-
-            // Use the Ren'Py SDK to analyze the game
-            Log::info('GameStats: Running Ren\'Py SDK analysis', [
-                'game_dir' => basename($gameDir),
-            ]);
-            $stats = $this->extractStatsWithSdk($gameDir, $sdkPath);
-            Log::info('GameStats: SDK analysis completed', [
-                'has_stats' => $stats !== null,
-            ]);
-
-            return $stats;
-        } catch (Exception $e) {
-            // Log the exception but don't treat it as an error
-            Log::warning('Error during game stats extraction', [
-                'archive_path' => $archivePath,
-                'error' => $e->getMessage(),
-                'exception' => $e,
-            ]);
-
-            return null;
-        } finally {
-            // Cleanup
-            if (File::exists($extractPath)) {
-                File::deleteDirectory($extractPath);
-            }
-        }
+        return $this->localExtractor->extract($archivePath);
     }
 
     /**
@@ -402,151 +336,7 @@ readonly class GameStatsService
      */
     protected function saveRouteGraph(GameVersion $version, array $stats): void
     {
-        $now = now();
-
-        // Clear pre-computed route graph
-        $version->route_graph_data = null;
-        $version->saveQuietly();
-
-        // Delete existing route data for this version
-        $version->routeLabels()->delete();
-        $version->routeEdges()->delete();
-        $version->routeMenuChoices()->delete();
-        $version->routeVariables()->delete();
-        $version->routeVariableChanges()->delete();
-
-        // Save route labels
-        if (isset($stats['route_labels']) && ! empty($stats['route_labels'])) {
-            $labelBatch = [];
-            foreach ($stats['route_labels'] as $label) {
-                $labelBatch[] = [
-                    'game_version_id' => $version->id,
-                    'name' => $label['name'] ?? '',
-                    'file_path' => $label['file'] ?? '',
-                    'line_number' => $label['line'] ?? 0,
-                    'is_ending' => $label['is_ending'] ?? false,
-                    'returns_to_caller' => $label['returns_to_caller'] ?? false,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            foreach (array_chunk($labelBatch, 1000) as $chunk) {
-                DB::table('version_route_labels')->insert($chunk);
-            }
-        }
-
-        // Save route edges
-        if (isset($stats['route_edges']) && ! empty($stats['route_edges'])) {
-            $edgeBatch = [];
-            foreach ($stats['route_edges'] as $edge) {
-                $edgeBatch[] = [
-                    'game_version_id' => $version->id,
-                    'from_label' => $edge['from_label'] ?? '',
-                    'to_label' => $edge['to_label'] ?? '',
-                    'edge_type' => $edge['edge_type'] ?? 'flow',
-                    'condition' => $edge['condition'] ?? null,
-                    'file_path' => $edge['file'] ?? null,
-                    'line_number' => $edge['line'] ?? 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            foreach (array_chunk($edgeBatch, 1000) as $chunk) {
-                DB::table('version_route_edges')->insert($chunk);
-            }
-        }
-
-        // Save route menu choices (detailed choice data with conditions)
-        if (isset($stats['route_menu_choices']) && ! empty($stats['route_menu_choices'])) {
-            $choiceBatch = [];
-            $game = $version->game;
-            foreach ($stats['route_menu_choices'] as $choice) {
-                // Map Ren'Py language keys to ISO codes
-                $translations = $this->mapTranslationKeys($choice['translations'] ?? [], $game);
-                $promptTranslations = $this->mapTranslationKeys($choice['prompt_translations'] ?? [], $game);
-
-                $choiceBatch[] = [
-                    'game_version_id' => $version->id,
-                    'from_label' => $choice['from_label'] ?? '',
-                    'prompt' => $choice['prompt'] ?? null,
-                    'prompt_translations' => ! empty($promptTranslations) ? json_encode($promptTranslations) : null,
-                    'menu_line' => $choice['menu_line'] ?? 0,
-                    'text' => $choice['text'] ?? null,
-                    'translations' => ! empty($translations) ? json_encode($translations) : null,
-                    'condition' => $choice['condition'] ?? null,
-                    'enclosing_condition' => $choice['enclosing_condition'] ?? null,
-                    'choice_condition' => $choice['choice_condition'] ?? null,
-                    'menu_branch' => $choice['menu_branch'] ?? null,
-                    'menu_condition_stack' => ! empty($choice['menu_condition_stack']) ? json_encode($choice['menu_condition_stack']) : null,
-                    'parent_menu_line' => $choice['parent_menu_line'] ?? 0,
-                    'parent_choice_line' => $choice['parent_choice_line'] ?? 0,
-                    'target_label' => $choice['target_label'] ?? null,
-                    'edge_type' => $choice['edge_type'] ?? null,
-                    'file_path' => $choice['file'] ?? null,
-                    'line_number' => $choice['line'] ?? 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            foreach (array_chunk($choiceBatch, 1000) as $chunk) {
-                DB::table('version_route_menu_choices')->insert($chunk);
-            }
-        }
-
-        // Save route variables (defaults from default/define statements)
-        if (isset($stats['route_variables']) && ! empty($stats['route_variables'])) {
-            $varBatch = [];
-            $seen = [];
-            foreach ($stats['route_variables'] as $var) {
-                $key = $var['name'] ?? '';
-                if (isset($seen[$key])) {
-                    continue;
-                }
-                $seen[$key] = true;
-                $varBatch[] = [
-                    'game_version_id' => $version->id,
-                    'name' => $var['name'] ?? '',
-                    'default_value' => $var['default_value'] ?? null,
-                    'type' => $var['type'] ?? 'default',
-                    'file_path' => $var['file'] ?? null,
-                    'line_number' => $var['line'] ?? 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            foreach (array_chunk($varBatch, 1000) as $chunk) {
-                DB::table('version_route_variables')->insert($chunk);
-            }
-        }
-
-        // Save route variable changes (assignments within labels/choices)
-        if (isset($stats['route_variable_changes']) && ! empty($stats['route_variable_changes'])) {
-            $changeBatch = [];
-            foreach ($stats['route_variable_changes'] as $change) {
-                $changeBatch[] = [
-                    'game_version_id' => $version->id,
-                    'label' => $change['label'] ?? '',
-                    'variable_name' => $change['variable'] ?? '',
-                    'operation' => $change['operation'] ?? '=',
-                    'value' => $change['value'] ?? null,
-                    'file_path' => $change['file'] ?? null,
-                    'line_number' => $change['line'] ?? 0,
-                    'context' => $change['context'] ?? null,
-                    'condition' => $change['condition'] ?? null,
-                    'condition_stack' => isset($change['condition_stack']) ? json_encode($change['condition_stack']) : null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            foreach (array_chunk($changeBatch, 1000) as $chunk) {
-                DB::table('version_route_variable_changes')->insert($chunk);
-            }
-        }
+        $this->routeGraphPersister->save($version, $stats);
     }
 
     /**
@@ -560,174 +350,7 @@ readonly class GameStatsService
         ?Game $game = null,
         array $foundLanguages = []
     ): void {
-        echo "    [Dialogue] Deleting existing dialogue lines\n";
-        // First, delete any existing dialogue lines for this version
-        DialogueLine::where('game_version_id', $version->id)->delete();
-        echo "    [Dialogue] Existing lines deleted\n";
-
-        // Get the essential characters that were already created with all languages
-        $menuChoiceCharacter = $this->essentialCharacterService->getOrCreateMenuChoiceCharacter($version->game_id);
-        $narratorCharacter = $this->essentialCharacterService->getOrCreateNarratorCharacter($version->game_id);
-
-        // Create an in-memory cache for characters to avoid repeated database lookups
-        $characterCache = [
-            'menu_choice' => $menuChoiceCharacter->id,
-            'narrator' => $narratorCharacter->id,
-        ];
-
-        // Process each language
-        foreach ($dialogueLines as $langKey => $lines) {
-            $isoCode = $langKey === 'default'
-                ? $defaultLanguage
-                : $this->languageMappingService->resolveLanguageCode($langKey, $game);
-
-            if (! $isoCode) {
-                Log::warning("Skipping dialogue lines for language {$langKey} - could not determine ISO code");
-
-                continue;
-            }
-
-            // Process unique texts in smaller batches
-            $now = now();
-            $batchSize = 1000; // Reduced batch size to stay well under PostgreSQL's parameter limit
-            $processedLines = 0;
-            $totalLines = count($lines);
-
-            // Process in chunks to avoid hitting PostgreSQL's parameter limit
-            echo "    [Dialogue] Processing {$totalLines} lines for language {$isoCode}\n";
-            foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
-                echo '    [Dialogue] Processing chunk '.($chunkIndex + 1)."\n";
-                // First, collect unique texts for this chunk
-                $uniqueTexts = [];
-
-                // Normalize text to remove diacritical marks
-                echo "    [Dialogue] Normalizing text...\n";
-                foreach ($chunk as $id => $line) {
-                    $text = $line['text'] ?? '';
-                    if (empty($text)) {
-                        continue;
-                    }
-
-                    $chunk[$id]['text'] = $this->processText($text);
-                }
-                echo "    [Dialogue] Text normalized\n";
-
-                echo "    [Dialogue] Collecting unique texts...\n";
-                foreach ($chunk as $line) {
-                    $text = $line['text'] ?? '';
-                    if (empty($text)) {
-                        continue;
-                    }
-
-                    $textHash = md5($text);
-                    $uniqueTexts[$textHash] = [
-                        'text_hash' => $textHash,
-                        'text_content' => $text,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                echo '    [Dialogue] Collected '.count($uniqueTexts)." unique texts\n";
-
-                // Create unique texts (no search indexing needed - UniqueDialogueText is not searchable)
-                // Use bulk upsert for performance instead of individual firstOrCreate() calls
-                echo "    [Dialogue] Bulk inserting unique dialogue texts...\n";
-
-                // PostgreSQL upsert - insert all at once, ignore conflicts
-                if (! empty($uniqueTexts)) {
-                    DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
-                }
-                echo "    [Dialogue] Bulk insert completed\n";
-
-                // Now fetch all the IDs in a single query
-                echo "    [Dialogue] Fetching text IDs...\n";
-                $textIdMapping = [];
-                $hashes = array_keys($uniqueTexts);
-                $texts = DB::table('unique_dialogue_texts')
-                    ->whereIn('text_hash', $hashes)
-                    ->get(['id', 'text_hash']);
-
-                foreach ($texts as $text) {
-                    $textIdMapping[$text->text_hash] = $text->id;
-                }
-                echo '    [Dialogue] Mapped '.count($textIdMapping)." text IDs\n";
-
-                // Now process dialogue lines for this chunk
-                echo "    [Dialogue] Building dialogue batch...\n";
-                $dialogueBatch = [];
-
-                foreach ($chunk as $line) {
-                    // Skip empty text
-                    $text = $line['text'] ?? '';
-                    if (empty($text)) {
-                        continue;
-                    }
-
-                    // Get character ID with caching to avoid repeated database lookups
-                    $characterName = empty($line['character']) ? 'narrator' : $line['character'];
-
-                    if (isset($characterCache[$characterName])) {
-                        // Use cached character ID
-                        $characterId = $characterCache[$characterName];
-                    } else {
-                        // Create character and cache it
-                        $character = $this->createCharacter(
-                            $version->game_id,
-                            $characterName,
-                            $foundLanguages,
-                            $defaultLanguage
-                        );
-                        $characterCache[$characterName] = $character->id;
-                        $characterId = $character->id;
-                    }
-
-                    // Get the text ID from our mapping
-                    $textHash = md5($text);
-                    $textId = $textIdMapping[$textHash] ?? null;
-
-                    if (! $textId) {
-                        // If not found in our chunk, try to find it directly
-                        $textId = DB::table('unique_dialogue_texts')
-                            ->where('text_hash', $textHash)
-                            ->value('id');
-
-                        if (! $textId) {
-                            Log::warning("Could not find text ID for hash {$textHash}");
-
-                            continue;
-                        }
-                    }
-
-                    // Add to batch
-                    $dialogueBatch[] = [
-                        'game_version_id' => $version->id,
-                        'character_id' => $characterId,
-                        'iso_code' => $isoCode,
-                        'file_path' => $line['file'] ?? '',
-                        'line_number' => $line['line'] ?? 0,
-                        'text_id' => $textId,
-                        'context' => $line['context'] ?? null,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-
-                    $processedLines++;
-                }
-
-                echo '    [Dialogue] Dialogue batch built ('.count($dialogueBatch)." lines)\n";
-
-                // Bulk insert dialogue lines for performance (skip observers during import)
-                // We'll update the search index once at the end instead of per-line
-                if (! empty($dialogueBatch)) {
-                    echo "    [Dialogue] Inserting batch into database...\n";
-                    DB::table('version_dialogue_lines')->insert($dialogueBatch);
-                    echo "    [Dialogue] Batch inserted\n";
-                }
-            }
-        }
-
-        echo "    [Dialogue] All dialogue lines inserted\n";
-        Cache::forget('dialogue.games_list');
+        $this->dialoguePersister->save($version, $dialogueLines, $defaultLanguage, $game, $foundLanguages);
     }
 
     /**
@@ -740,15 +363,7 @@ readonly class GameStatsService
      */
     protected function processText(string $text): string
     {
-        $text = $this->truncateUtf8Bytes($text, self::MAX_DIALOGUE_TEXT_BYTES);
-
-        if ($this->isZalgo($text)) {
-            // Zalgo text: remove all diacritical marks.
-            return $this->stripDiacritics($text);
-        } else {
-            // Normal text: normalize to NFC to ensure canonical form (preserving diacritics).
-            return Normalizer::normalize($text, Normalizer::FORM_C);
-        }
+        return $this->dialoguePersister->processText($text);
     }
 
     /**
@@ -760,31 +375,7 @@ readonly class GameStatsService
      */
     protected function isZalgo(string $text, float $threshold = 0.9): bool
     {
-        $text = $this->truncateUtf8Bytes($text, self::MAX_DIALOGUE_TEXT_BYTES);
-
-        // Normalize to decomposed form so that diacritical marks are separate characters
-        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-        if (! is_string($decomposed) || $decomposed === '') {
-            return false;
-        }
-
-        $totalLength = 0;
-        $diacriticCount = 0;
-        $offset = 0;
-        $byteLength = strlen($decomposed);
-
-        while ($offset < $byteLength && preg_match('/\p{Mn}|./us', $decomposed, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
-            $character = $match[0][0];
-            $offset = $match[0][1] + strlen($character);
-            $totalLength++;
-
-            if (preg_match('/^\p{Mn}$/u', $character) === 1) {
-                $diacriticCount++;
-            }
-        }
-
-        // Avoid division by zero, and check if ratio exceeds threshold
-        return $totalLength > 0 && ($diacriticCount / $totalLength) > $threshold;
+        return $this->dialoguePersister->isZalgo($text, $threshold);
     }
 
     /**
@@ -795,28 +386,7 @@ readonly class GameStatsService
      */
     protected function stripDiacritics(string $text): string
     {
-        $text = $this->truncateUtf8Bytes($text, self::MAX_DIALOGUE_TEXT_BYTES);
-
-        // Normalize to decomposed form (so diacritics are separate)
-        $decomposed = Normalizer::normalize($text, Normalizer::FORM_D);
-
-        // Remove all combining diacritical marks
-        return preg_replace('/\p{Mn}/u', '', $decomposed);
-    }
-
-    private function truncateUtf8Bytes(string $text, int $maxBytes): string
-    {
-        if (strlen($text) <= $maxBytes) {
-            return $text;
-        }
-
-        $truncated = substr($text, 0, $maxBytes);
-
-        while ($truncated !== '' && ! mb_check_encoding($truncated, 'UTF-8')) {
-            $truncated = substr($truncated, 0, -1);
-        }
-
-        return $truncated;
+        return $this->dialoguePersister->stripDiacritics($text);
     }
 
     /**
@@ -829,67 +399,7 @@ readonly class GameStatsService
         array $foundLanguages,
         string $defaultLanguage
     ): Character {
-        /** @var Character $character */
-        $character = Character::firstOrNew([
-            'game_id' => $gameId,
-            'character_id' => $characterId,
-        ]);
-
-        if (! $character->exists) {
-            // New character: create with all languages
-            $displayNames = [];
-
-            // Add display name for all found languages
-            foreach ($foundLanguages as $langCode) {
-                $displayNames[$langCode] = $characterId;
-            }
-
-            // Ensure English is always included
-            if (! in_array('eng', $foundLanguages)) {
-                $displayNames['eng'] = $characterId;
-            }
-
-            // Ensure default language is always included
-            if ($defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages)) {
-                $displayNames[$defaultLanguage] = $characterId;
-            }
-
-            $character->display_names = $displayNames;
-            $character->save();
-        } else {
-            // Existing character: only add missing languages (preserves JSON display names)
-            $displayNames = $character->display_names ?? [];
-            $needsUpdate = false;
-
-            // Add display name for all found languages if not already set
-            foreach ($foundLanguages as $langCode) {
-                if (! isset($displayNames[$langCode])) {
-                    $displayNames[$langCode] = $characterId;
-                    $needsUpdate = true;
-                }
-            }
-
-            // Ensure English is always included
-            if (! isset($displayNames['eng']) && ! in_array('eng', $foundLanguages)) {
-                $displayNames['eng'] = $characterId;
-                $needsUpdate = true;
-            }
-
-            // Ensure default language is always included
-            if (! isset($displayNames[$defaultLanguage]) && $defaultLanguage !== 'eng' && ! in_array($defaultLanguage,
-                $foundLanguages)) {
-                $displayNames[$defaultLanguage] = $characterId;
-                $needsUpdate = true;
-            }
-
-            // Only save if we made changes
-            if ($needsUpdate) {
-                $character->display_names = $displayNames;
-                $character->save();
-            }
-        }
-
-        return $character;
+        return $this->dialoguePersister->createCharacter($gameId, $characterId, $foundLanguages, $defaultLanguage);
     }
 
     /**
@@ -897,25 +407,7 @@ readonly class GameStatsService
      */
     protected function applySpecialCharacterAssignments(GameVersion $version): void
     {
-        Log::info("Applying special character assignments for game version {$version->id}");
-
-        // Use the special character assignment service to fix assignments
-        $specialCharacterService = app(CharacterSpecialAssignmentService::class);
-
-        // Apply fixes for this specific game (not dry run)
-        $result = $specialCharacterService->fixSpecialCharacterAssignments($version->game_id, null, false);
-
-        if ($result['lines_reassigned'] > 0) {
-            Log::info("Reassigned {$result['lines_reassigned']} special character lines for game {$version->game_id}");
-
-            // Clean up any orphaned special characters
-            $versionReferenceService = app(CharacterVersionReferenceService::class);
-            $cleanupResult = $versionReferenceService->fixVersionReferences($version->game_id, false);
-
-            if ($cleanupResult['characters_deleted'] > 0) {
-                Log::info("Deleted {$cleanupResult['characters_deleted']} orphaned special characters for game {$version->game_id}");
-            }
-        }
+        $this->dialoguePersister->applySpecialCharacterAssignments($version);
     }
 
     /**
@@ -927,65 +419,7 @@ readonly class GameStatsService
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {
-        // Calculate stats using our centralized service
-        $this->characterStatsService->calculateAndSaveStatsForVersion($version->id);
-
-        // Compare with JSON stats and report discrepancies
-        if (! isset($stats['languages'])) {
-            return;
-        }
-
-        $discrepanciesFound = false;
-
-        foreach ($stats['languages'] as $langKey => $langData) {
-            $isoCode = $langKey === 'default'
-                ? $defaultLanguage
-                : $this->languageMappingService->resolveLanguageCode($langKey, $game);
-
-            if (! $isoCode || ! isset($langData['characters'])) {
-                continue;
-            }
-
-            foreach ($langData['characters'] as $charId => $charData) {
-                // Find the character in our database
-                $character = Character::where('game_id', $version->game_id)
-                    ->where('character_id', $charId)
-                    ->first();
-
-                if (! $character) {
-                    continue;
-                }
-
-                // Get our calculated stats
-                $calculatedStats = VersionCharacterStats::where('game_version_id', $version->id)
-                    ->where('character_id', $character->id)
-                    ->where('iso_code', $isoCode)
-                    ->first();
-
-                if (! $calculatedStats) {
-                    continue;
-                }
-
-                // Compare JSON vs calculated stats
-                $jsonBlocks = $charData['blocks'] ?? 0;
-                $jsonWords = $charData['words'] ?? 0;
-                $calculatedBlocks = $calculatedStats->blocks;
-                $calculatedWords = $calculatedStats->words;
-
-                if ($jsonBlocks !== $calculatedBlocks || $jsonWords !== $calculatedWords) {
-                    if (! $discrepanciesFound) {
-                        Log::warning("Character stats discrepancies found for game version {$version->id}:");
-                        $discrepanciesFound = true;
-                    }
-
-                    Log::warning("Character '{$charId}' ({$isoCode}): JSON={$jsonBlocks} blocks, {$jsonWords} words | Calculated={$calculatedBlocks} blocks, {$calculatedWords} words");
-                }
-            }
-        }
-
-        if (! $discrepanciesFound) {
-            Log::info("Character stats validation passed for game version {$version->id} - no discrepancies found");
-        }
+        $this->dialoguePersister->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
     }
 
     /**
@@ -994,44 +428,7 @@ readonly class GameStatsService
      */
     protected function queueWordFrequencyCalculations(int $versionId): void
     {
-        // Get all distinct languages for this version
-        $languages = DB::table('version_dialogue_lines')
-            ->where('game_version_id', $versionId)
-            ->distinct()
-            ->pluck('iso_code');
-
-        if ($languages->isEmpty()) {
-            return;
-        }
-
-        // Run the artisan command for each language synchronously (in the background would be better but this ensures it's done)
-        foreach ($languages as $language) {
-            try {
-                Artisan::call('dialogue:calculate-word-frequencies', [
-                    '--version-id' => $versionId,
-                    '--language' => $language,
-                    '--force' => true, // Force recalculation since this is a fresh import
-                ]);
-            } catch (Throwable $e) {
-                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: ".$e->getMessage());
-            }
-        }
-    }
-
-    /**
-     * Map Ren'Py language keys to ISO codes using the same logic as dialogue line import
-     */
-    private function mapTranslationKeys(array $translations, ?Game $game): array
-    {
-        $mapped = [];
-        foreach ($translations as $langKey => $text) {
-            $isoCode = $this->languageMappingService->resolveLanguageCode($langKey, $game);
-            if ($isoCode) {
-                $mapped[$isoCode] = $text;
-            }
-        }
-
-        return $mapped;
+        $this->dialoguePersister->queueWordFrequencyCalculations($versionId);
     }
 
     /**
@@ -1041,111 +438,12 @@ readonly class GameStatsService
      */
     private function extractArchive(string $archivePath, string $extractPath): void
     {
-        $archiveFormat = $this->detectArchiveFormat($archivePath);
-
-        // Handle tar.gz and tar.bz2 files (even if they're missing the tar part)
-        if ($archiveFormat === 'tar.gz' || $archiveFormat === 'tar.bz2') {
-            $process = new Process([
-                'tar',
-                '-x'.($archiveFormat === 'tar.gz' ? 'z' : 'j'),
-                '-f',
-                $archivePath,
-                '-C',
-                $extractPath,
-            ]);
-
-            $process->setTimeout(300); // 5 minute timeout
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
-            }
-
-            return;
-        }
-
-        // Handle zip files
-        if ($archiveFormat === 'zip') {
-            $zip = new ZipArchive;
-            $result = $zip->open($archivePath);
-
-            if ($result !== true) {
-                throw new RuntimeException("Failed to open zip archive: {$result}");
-            }
-
-            try {
-                if (! $zip->extractTo($extractPath)) {
-                    throw new RuntimeException('Failed to extract zip archive');
-                }
-            } finally {
-                $zip->close();
-            }
-
-            return;
-        }
-
-        // Handle plain tar files
-        if ($archiveFormat === 'tar') {
-            $process = new Process([
-                'tar',
-                '-xf',
-                $archivePath,
-                '-C',
-                $extractPath,
-            ]);
-
-            $process->setTimeout(300);
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
-            }
-
-            return;
-        }
-
-        throw new RuntimeException("Unsupported archive format: {$archiveFormat}");
+        $this->localExtractor->extractArchive($archivePath, $extractPath);
     }
 
     private function detectArchiveFormat(string $archivePath): string
     {
-        $handle = fopen($archivePath, 'rb');
-        if ($handle === false) {
-            throw new RuntimeException("Failed to open archive: {$archivePath}");
-        }
-
-        try {
-            $header = fread($handle, 512);
-        } finally {
-            fclose($handle);
-        }
-
-        if (str_starts_with($header, "PK\x03\x04") || str_starts_with($header, "PK\x05\x06") || str_starts_with($header, "PK\x07\x08")) {
-            return 'zip';
-        }
-
-        if (str_starts_with($header, "\x1F\x8B")) {
-            return 'tar.gz';
-        }
-
-        if (str_starts_with($header, 'BZh')) {
-            return 'tar.bz2';
-        }
-
-        if (substr($header, 257, 5) === 'ustar') {
-            return 'tar';
-        }
-
-        $ext = strtolower(pathinfo($archivePath, PATHINFO_EXTENSION));
-
-        if ($ext === 'gz' || $ext === 'bz2') {
-            $basename = basename($archivePath, ".{$ext}");
-            if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
-                return "tar.{$ext}";
-            }
-        }
-
-        return $ext;
+        return $this->localExtractor->detectArchiveFormat($archivePath);
     }
 
     /**
@@ -1153,223 +451,7 @@ readonly class GameStatsService
      */
     private function findGameDirectory(string $basePath): ?string
     {
-        // Check if the game directory is directly in the extracted path
-        if (File::isDirectory($basePath.'/game')) {
-            return $basePath;
-        }
-
-        // Check first-level subdirectories
-        return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir.'/game'));
-    }
-
-    /**
-     * Find a Linux executable in the game directory
-     *
-     * @param  string  $gameDir  The game directory to search in
-     * @return string|null Path to the executable or null if none found
-     */
-    private function findLinuxExecutable(string $gameDir): ?string
-    {
-        $this->makeExecutables($gameDir);
-
-        // Get all files in the game directory and its subdirectories
-        $allFiles = $this->findAllFiles($gameDir);
-
-        // Filter to only include executable files
-        $executableFiles = array_filter($allFiles, function ($file) {
-            // Check if the file is executable
-            return is_file($file) && is_executable($file);
-        });
-
-        if (empty($executableFiles)) {
-            Log::info('No executable files found in game directory');
-
-            return null;
-        }
-
-        // First, try to find executables matching our priority patterns
-        foreach ($executableFiles as $file) {
-            $filename = basename($file);
-            if (preg_match('/\.sh$/i', $filename)) {
-                Log::info("Found bash script: {$filename}");
-
-                return $file;
-            }
-        }
-
-        // If no priority match, return the first executable found
-        $firstExecutable = reset($executableFiles);
-        $filename = basename($firstExecutable);
-        Log::info("Using first available executable: {$filename}");
-
-        return $firstExecutable;
-    }
-
-    private function makeExecutables(string $dir): void
-    {
-        // root
-        foreach (File::files($dir) as $file) {
-            chmod($file->getPathname(), 0755);
-        }
-
-        // lib/
-        $lib = $dir.DIRECTORY_SEPARATOR.'lib';
-        if (! File::isDirectory($lib)) {
-            return;
-        }
-
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY
-        );
-
-        foreach ($it as $file) {
-            if ($file->isFile()) {
-                chmod($file->getPathname(), 0755);
-            }
-        }
-    }
-
-    /**
-     * Find all files in a directory and its subdirectories
-     *
-     * @param  string  $dir  The directory to search in
-     * @return array Array of file paths
-     */
-    private function findAllFiles(string $dir): array
-    {
-        $files = [];
-
-        // Get all files in the current directory
-        foreach (File::files($dir) as $file) {
-            $files[] = $file->getPathname();
-        }
-
-        // Recursively search subdirectories
-        foreach (File::directories($dir) as $subdir) {
-            if (basename($subdir) === 'game') {
-                continue;
-            }
-
-            $files = array_merge($files, $this->findAllFiles($subdir));
-        }
-
-        return $files;
-    }
-
-    /**
-     * Extract statistics using a native Linux executable
-     *
-     * @param  string  $gameDir  The game directory
-     * @param  string  $executablePath  Path to the Linux executable
-     * @return array|null Stats array or null if extraction failed
-     */
-    private function extractStatsWithNativeExecutable(string $gameDir, string $executablePath): ?array
-    {
-        try {
-            // Copy our analysis script to the game directory
-            File::copy(
-                resource_path('renpy/json_stats.rpy'),
-                $gameDir.'/game/json_stats.rpy'
-            );
-        } catch (Exception $e) {
-            Log::warning('Failed to copy analysis script', [
-                'error' => $e->getMessage(),
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        $stats = $this->runNativeStatsCommand($gameDir, $executablePath, [$executablePath, 'game', 'test'], 'test');
-        if ($stats !== null) {
-            return $stats;
-        }
-
-        if ($this->hasTranslationTree($gameDir)) {
-            Log::warning('Skipping native launcher fallback after test-mode stats extraction failed for translated game', [
-                'executable' => $executablePath,
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        return $this->runNativeStatsCommand($gameDir, $executablePath, [$executablePath], 'launcher');
-    }
-
-    private function runNativeStatsCommand(string $gameDir, string $executablePath, array $command, string $mode): ?array
-    {
-        $statsFile = $gameDir.'/stats.json';
-        if (File::exists($statsFile)) {
-            File::delete($statsFile);
-        }
-
-        $process = new Process($command, dirname($executablePath));
-        $process->setTimeout(300); // 5 minute timeout
-        $process->run();
-
-        // Check for successful execution, but don't treat it as an error
-        if (! $process->isSuccessful()) {
-            $output = $process->getOutput();
-            $errorOutput = $process->getErrorOutput();
-            Log::warning('Native executable completed with non-zero exit code', [
-                'output' => $output,
-                'error_output' => $errorOutput,
-                'exit_code' => $process->getExitCode(),
-                'executable' => $executablePath,
-                'mode' => $mode,
-            ]);
-        }
-
-        if (! File::exists($statsFile)) {
-            Log::info('Stats file not generated by native executable', [
-                'executable' => $executablePath,
-                'mode' => $mode,
-            ]);
-
-            return null;
-        }
-
-        // Read and parse the stats file
-        try {
-            $stats = json_decode(File::get($statsFile), true);
-            if (! $stats || ! isset($stats['languages'])) {
-                Log::warning('Invalid stats file format from native executable', [
-                    'executable' => $executablePath,
-                    'mode' => $mode,
-                ]);
-
-                return null;
-            }
-
-            return $stats;
-        } catch (Exception $e) {
-            Log::warning('Error reading stats file from native executable', [
-                'error' => $e->getMessage(),
-                'executable' => $executablePath,
-                'mode' => $mode,
-            ]);
-
-            return null;
-        }
-    }
-
-    private function hasTranslationTree(string $gameDir): bool
-    {
-        $translationPath = $gameDir.'/game/tl';
-        if (! File::isDirectory($translationPath)) {
-            return false;
-        }
-
-        foreach (File::directories($translationPath) as $languageDir) {
-            $language = basename($languageDir);
-            if ($language !== 'None' && $language !== 'common') {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->localExtractor->findGameDirectory($basePath);
     }
 
     /**
@@ -1377,54 +459,10 @@ readonly class GameStatsService
      *
      * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
      *
-     * @throws RuntimeException|FileNotFoundException Only if stats file doesn't exist or is invalid after successful process execution
+     * @throws RuntimeException Only if stats file doesn't exist or is invalid after successful process execution
      */
     private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?array
     {
-        try {
-            // Copy our analysis script to the game directory
-            File::copy(
-                resource_path('renpy/json_stats.rpy'),
-                $gameDir.'/game/json_stats.rpy'
-            );
-        } catch (Exception $e) {
-            Log::warning('Failed to copy analysis script', [
-                'error' => $e->getMessage(),
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        // Execute the script analysis using the SDK
-        $process = new Process([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir);
-        $process->setTimeout(300); // 5 minute timeout
-        $process->run();
-
-        // Check for successful execution, but don't treat it as an error
-        if (! $process->isSuccessful()) {
-            $output = $process->getOutput();
-            $errorOutput = $process->getErrorOutput();
-            Log::warning('Script analysis completed with non-zero exit code', [
-                'output' => $output,
-                'error_output' => $errorOutput,
-                'exit_code' => $process->getExitCode(),
-                'sdk_path' => $sdkPath,
-                'game_dir' => $gameDir,
-            ]);
-        }
-
-        // Read and parse the stats file - this is the only real error condition
-        $statsFile = $gameDir.'/stats.json';
-        if (! File::exists($statsFile)) {
-            throw new RuntimeException('Stats file not generated');
-        }
-
-        $stats = json_decode(File::get($statsFile), true);
-        if (! $stats || ! isset($stats['languages'])) {
-            throw new RuntimeException('Invalid stats file format');
-        }
-
-        return $stats;
+        return $this->localExtractor->extractStatsWithSdk($gameDir, $sdkPath);
     }
 }

@@ -104,7 +104,6 @@ trait HasCustomGameContent
     {
         $this->update([
             'has_custom_page' => true,
-            'custom_name' => $this->name,
             'custom_description' => $this->full_description,
             'custom_screenshots' => $this->screenshots ?: [],
             'custom_assets' => [],
@@ -127,6 +126,43 @@ trait HasCustomGameContent
             'custom_page_updated_at' => null,
             'custom_page_updated_by' => null,
         ]);
+    }
+
+    /**
+     * Update custom page content
+     */
+    public function updateCustomPage(array $data, User $user): void
+    {
+        $updateData = [
+            'custom_page_updated_at' => now(),
+            'custom_page_updated_by' => $user->id,
+        ];
+
+        if (isset($data['name'])) {
+            $updateData['custom_name'] = $data['name'];
+        }
+
+        if (isset($data['description'])) {
+            $updateData['custom_description'] = $data['description'];
+        }
+
+        if (isset($data['screenshots'])) {
+            $updateData['custom_screenshots'] = $data['screenshots'];
+        }
+
+        if (isset($data['assets'])) {
+            $updateData['custom_assets'] = $data['assets'];
+        }
+
+        $this->update($updateData);
+    }
+
+    /**
+     * Get the user who last updated the custom page
+     */
+    public function customPageUpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'custom_page_updated_by');
     }
 
     /**

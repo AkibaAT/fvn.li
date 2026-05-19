@@ -6,11 +6,22 @@ namespace App\Services;
 
 use App\Models\GameVersion;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class RouteGraphService
 {
     private const GRAPH_REVISION = 25;
+
+    public function __construct(
+        private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
+        private readonly RouteGraphPostProcessor $postProcessor = new RouteGraphPostProcessor,
+        private readonly RouteGraphVariableChangeFormatter $variableChangeFormatter = new RouteGraphVariableChangeFormatter,
+        private readonly RouteGraphEdgePruner $edgePruner = new RouteGraphEdgePruner,
+        private readonly RouteGraphFunctionMenuDetector $functionMenuDetector = new RouteGraphFunctionMenuDetector,
+        private readonly RouteGraphIdFactory $ids = new RouteGraphIdFactory,
+        private readonly RouteGraphChoiceAccessor $choiceAccessor = new RouteGraphChoiceAccessor,
+        private readonly RouteGraphMenuSequencer $menuSequencer = new RouteGraphMenuSequencer,
+        private readonly RouteGraphMenuAnalyzer $menuAnalyzer = new RouteGraphMenuAnalyzer,
+    ) {}
 
     /**
      * Compute word counts per label from dialogue lines.
@@ -20,35 +31,7 @@ class RouteGraphService
      */
     public static function getWordCountsByLabel(GameVersion $version): array
     {
-        $game = $version->game ?? $version->game()->first();
-        $isoCode = $game?->source_language_id ?? 'eng';
-
-        // Use length-based word count estimation instead of regexp_split_to_array.
-        // The regex approach creates an array per row for the sole purpose of counting
-        // elements, which is expensive in aggregate. The difference is negligible for
-        // display purposes (word counts are approximate regardless).
-        $rows = DB::table('version_dialogue_lines')
-            ->join('unique_dialogue_texts', 'version_dialogue_lines.text_id', '=', 'unique_dialogue_texts.id')
-            ->where('version_dialogue_lines.game_version_id', $version->id)
-            ->where('version_dialogue_lines.iso_code', $isoCode)
-            ->whereNotNull('version_dialogue_lines.context')
-            ->groupBy('version_dialogue_lines.context')
-            ->select([
-                'version_dialogue_lines.context',
-                DB::raw("SUM(
-                    CASE WHEN trim(unique_dialogue_texts.text_content) = '' THEN 0
-                    ELSE array_length(string_to_array(trim(unique_dialogue_texts.text_content), ' '), 1)
-                    END
-                ) as word_count"),
-            ])
-            ->get();
-
-        $result = [];
-        foreach ($rows as $row) {
-            $result[$row->context] = (int) $row->word_count;
-        }
-
-        return $result;
+        return app(RouteGraphWordCountService::class)->byLabel($version);
     }
 
     public function buildGraph(GameVersion $version, bool $includeUnreachable = false): array
@@ -93,8 +76,8 @@ class RouteGraphService
             }
         }
 
-        $edges = $this->removeInputRetrySelfLoopEdges($edges);
-        $edges = $this->removeUnreachableFallthroughEdges($edges, $choiceLookup);
+        $edges = $this->edgePruner->removeInputRetrySelfLoopEdges($edges);
+        $edges = $this->edgePruner->removeUnreachableFallthroughEdges($edges, $choiceLookup);
         $edgeMapByFrom = $edges->groupBy('from_label');
 
         // Pre-index variable changes by label AND by context for fast lookup
@@ -122,9 +105,9 @@ class RouteGraphService
             $nodeChoices = $choicesByLabel->get($name, collect());
             $continuationEdges = $outgoingEdges
                 ->filter(fn ($e) => $e->edge_type !== 'menu_choice')
-                ->reject(fn ($e) => $this->isDuplicateMenuChoiceEdge($e, $choiceLookup[$e->from_label.':'.$e->to_label] ?? []))
+                ->reject(fn ($e) => $this->edgePruner->isDuplicateMenuChoiceEdge($e, $choiceLookup[$e->from_label.':'.$e->to_label] ?? []))
                 ->values();
-            $allTargetlessChoices = $this->targetlessChoices($nodeChoices);
+            $allTargetlessChoices = $this->menuAnalyzer->targetlessChoices($nodeChoices);
             $menuChoiceLines = $nodeChoices
                 ->pluck('line_number')
                 ->filter(fn ($line) => $line !== null && (int) $line > 0)
@@ -133,9 +116,9 @@ class RouteGraphService
                 ->sort()
                 ->values();
 
-            $menuGroups = $this->meaningfulMenuGroups(
+            $menuGroups = $this->menuAnalyzer->meaningfulMenuGroups(
                 $name,
-                $this->menuChoiceGroups($nodeChoices),
+                $this->menuAnalyzer->menuChoiceGroups($nodeChoices),
                 $varChangesByContext,
                 $label,
                 $nodeChoices,
@@ -154,7 +137,7 @@ class RouteGraphService
 
             $singleGroup = count($menuGroups) === 1 ? $menuGroups[0] : null;
             $singleGroupIsFunctionMenu = $singleGroup
-                ? $this->isFunctionMenu($name, $singleGroup['choices'], $singleGroup['prompt'])
+                ? $this->functionMenuDetector->isFunctionMenu($name, $singleGroup['choices'], $singleGroup['prompt'])
                 : false;
             $shouldExpandMenus = $meaningfulChoices->isNotEmpty()
                 && (count($menuGroups) > 1 || $meaningfulChoices->count() <= $maxExpandedChoices || ! $singleGroupIsFunctionMenu);
@@ -164,11 +147,11 @@ class RouteGraphService
                 $expandedLabels[$name] = true;
                 $expandedEdgeReplacements[$name] = [];
                 $hasMultipleMenuGroups = count($menuGroups) > 1;
-                $firstMenuCondition = $singleGroup ? $this->commonMenuCondition($singleGroup['choices']) : null;
+                $firstMenuCondition = $singleGroup ? $this->menuAnalyzer->commonMenuCondition($singleGroup['choices']) : null;
                 $usesDedicatedMenuNodes = $hasMultipleMenuGroups || $firstMenuCondition !== null;
-                [$previousMenuGroupByIndex, $nextMenuGroupByIndex] = $this->menuSequenceLinks($menuGroups, $continuationEdges);
-                $firstChildGroupByChoiceLine = $this->firstChildMenuGroupByChoiceLine($menuGroups, $previousMenuGroupByIndex);
-                $resumeGroupByChildGroupIndex = $this->resumeMenuGroupByChildGroupIndex($menuGroups, $nextMenuGroupByIndex);
+                [$previousMenuGroupByIndex, $nextMenuGroupByIndex] = $this->menuSequencer->menuSequenceLinks($menuGroups, $continuationEdges);
+                $firstChildGroupByChoiceLine = $this->menuSequencer->firstChildMenuGroupByChoiceLine($menuGroups, $previousMenuGroupByIndex);
+                $resumeGroupByChildGroupIndex = $this->menuSequencer->resumeMenuGroupByChildGroupIndex($menuGroups, $nextMenuGroupByIndex);
                 foreach ($resumeGroupByChildGroupIndex as $childGroupIndex => $resumeGroupIndex) {
                     $nextMenuGroupByIndex[$childGroupIndex] ??= $resumeGroupIndex;
                 }
@@ -189,7 +172,7 @@ class RouteGraphService
                             ->count(),
                         'word_count' => $wordCounts[$name] ?? 0,
                         'choices' => [],
-                        'variable_changes' => $this->formatVarChanges($varChanges, excludeChoiceContexts: true),
+                        'variable_changes' => $this->variableChangeFormatter->format($varChanges, excludeChoiceContexts: true),
                     ];
                 }
 
@@ -197,7 +180,7 @@ class RouteGraphService
                 $syntheticEndingId = null;
 
                 if ((bool) $label->is_ending) {
-                    $syntheticEndingId = $this->syntheticEndingId($name);
+                    $syntheticEndingId = $this->ids->syntheticEndingId($name);
                     $expandedEndingReplacements[$name] = $syntheticEndingId;
 
                     if (! isset($labelNames[$syntheticEndingId])) {
@@ -227,7 +210,7 @@ class RouteGraphService
                     $groupChoices = $menuGroup['choices'];
                     $menuPrompt = $menuGroup['prompt'];
                     $menuPromptTranslations = $menuGroup['prompt_translations'];
-                    $menuCondition = $usesDedicatedMenuNodes ? $this->commonMenuCondition($groupChoices) : null;
+                    $menuCondition = $usesDedicatedMenuNodes ? $this->menuAnalyzer->commonMenuCondition($groupChoices) : null;
                     $sourceId = $usesDedicatedMenuNodes
                         ? $this->menuGroupNodeId($name, $menuGroup['start_line'], $groupIndex)
                         : $name;
@@ -237,9 +220,9 @@ class RouteGraphService
                         ? $this->menuGroupNodeId($name, $nextMenuGroup['start_line'], $nextMenuGroupIndex)
                         : null;
                     $nextMenuCondition = $nextMenuGroup && $usesDedicatedMenuNodes
-                        ? $this->commonMenuCondition($nextMenuGroup['choices'])
+                        ? $this->menuAnalyzer->commonMenuCondition($nextMenuGroup['choices'])
                         : null;
-                    $isFunctionMenu = $this->isFunctionMenu($name, $groupChoices, $menuPrompt);
+                    $isFunctionMenu = $this->functionMenuDetector->isFunctionMenu($name, $groupChoices, $menuPrompt);
                     $renderAsHub = $groupChoices->count() > $maxExpandedChoices && $isFunctionMenu;
 
                     $nodes[] = [
@@ -261,9 +244,9 @@ class RouteGraphService
                             'text' => $mc->text,
                             'translations' => $mc->translations,
                             'target_label' => $mc->target_label,
-                            'condition' => $this->deduplicatedContinuationCondition($menuCondition, $this->choiceCondition($mc)),
+                            'condition' => $this->conditions->deduplicatedContinuationCondition($menuCondition, $this->menuAnalyzer->choiceCondition($mc)),
                         ])->values()->toArray() : [],
-                        'variable_changes' => $usesDedicatedMenuNodes ? [] : $this->formatVarChanges($varChanges, excludeChoiceContexts: true),
+                        'variable_changes' => $usesDedicatedMenuNodes ? [] : $this->variableChangeFormatter->format($varChanges, excludeChoiceContexts: true),
                         'parent_label' => $usesDedicatedMenuNodes ? $name : null,
                     ];
 
@@ -288,7 +271,7 @@ class RouteGraphService
                     }
 
                     if ($nextMenuSourceId !== null) {
-                        $emptyMenuCondition = $this->menuEmptyCondition($groupChoices);
+                        $emptyMenuCondition = $this->menuAnalyzer->menuEmptyCondition($groupChoices);
                         if ($emptyMenuCondition !== null) {
                             $processedEdges[] = [
                                 'id' => $sourceId.':'.$nextMenuSourceId.':menu_empty',
@@ -314,17 +297,17 @@ class RouteGraphService
                         // Get variable changes for this specific choice (indexed lookup)
                         $choiceContext = 'menu_choice:'.($mc->text ?? '');
                         $contextKey = $name.'|'.$choiceContext;
-                        $choiceVarChanges = $this->getVariableChangesForChoice(
+                        $choiceVarChanges = $this->menuAnalyzer->getVariableChangesForChoice(
                             $mc,
                             collect($varChangesByContext[$contextKey] ?? []),
                             $nodeChoices
                         );
 
                         // Build label with variable effects
-                        $choiceKnownCondition = $this->choiceEffectiveCondition($mc);
+                        $choiceKnownCondition = $this->menuAnalyzer->choiceEffectiveCondition($mc);
                         $varSummary = $choiceVarChanges->map(function ($vc) use ($choiceKnownCondition) {
-                            $summary = $vc->variable_name.' '.$vc->operation.' '.$this->formatVariableValue($vc->value);
-                            $condition = $this->displayConditionForVariableChange($vc, $choiceKnownCondition);
+                            $summary = $vc->variable_name.' '.$vc->operation.' '.$this->variableChangeFormatter->formatValue($vc->value);
+                            $condition = $this->variableChangeFormatter->displayCondition($vc, $choiceKnownCondition);
 
                             return $condition ? 'if '.$condition.': '.$summary : $summary;
                         })->join(', ');
@@ -332,28 +315,28 @@ class RouteGraphService
                         $choiceLine = (int) ($mc->line_number ?? 0);
                         $childGroupIndex = $choiceLine > 0 ? ($firstChildGroupByChoiceLine[$choiceLine] ?? null) : null;
                         $childGroup = $childGroupIndex !== null ? ($menuGroups[$childGroupIndex] ?? null) : null;
-                        $childMenuCondition = $childGroup ? $this->commonMenuCondition($childGroup['choices']) : null;
+                        $childMenuCondition = $childGroup ? $this->menuAnalyzer->commonMenuCondition($childGroup['choices']) : null;
                         $childResumeGroupIndex = $childGroupIndex !== null ? ($resumeGroupByChildGroupIndex[$childGroupIndex] ?? null) : null;
                         $childResumeGroup = $childResumeGroupIndex !== null ? ($menuGroups[$childResumeGroupIndex] ?? null) : null;
                         $childResumeSourceId = $childResumeGroup && $usesDedicatedMenuNodes
                             ? $this->menuGroupNodeId($name, $childResumeGroup['start_line'], $childResumeGroupIndex)
                             : null;
                         $hasChildMenu = $childGroup !== null && $usesDedicatedMenuNodes;
-                        $childSkipCondition = $hasChildMenu ? $this->negatedCondition($childMenuCondition) : null;
-                        $childResumeCondition = $childResumeGroup ? $this->commonMenuCondition($childResumeGroup['choices']) : null;
+                        $childSkipCondition = $hasChildMenu ? $this->conditions->negatedCondition($childMenuCondition) : null;
+                        $childResumeCondition = $childResumeGroup ? $this->menuAnalyzer->commonMenuCondition($childResumeGroup['choices']) : null;
                         $childResumeSkip = $childResumeCondition !== null && $childResumeGroup
-                            ? $this->commonContinuationAfterGroup($childResumeGroup, $continuationEdges)
+                            ? $this->menuSequencer->commonContinuationAfterGroup($childResumeGroup, $continuationEdges)
                             : null;
                         $childSkipTargetId = $childResumeSkip['target'] ?? $childResumeSourceId;
                         $nextMenuSkip = $nextMenuCondition !== null && $nextMenuGroup
-                            ? $this->commonContinuationAfterGroup($nextMenuGroup, $continuationEdges)
+                            ? $this->menuSequencer->commonContinuationAfterGroup($nextMenuGroup, $continuationEdges)
                             : null;
 
                         // Hard choice: has its own target. Soft choice: uses continuation edges.
                         $hasHardTarget = ! empty($mc->target_label);
                         $choiceContinuationEdges = $hasHardTarget || $hasChildMenu
                             ? collect()
-                            : $this->getContinuationEdgesForChoice(
+                            : $this->menuAnalyzer->getContinuationEdgesForChoice(
                                 $mc,
                                 $continuationEdges,
                                 $targetlessChoices,
@@ -382,9 +365,9 @@ class RouteGraphService
                             'outgoing_count' => $outCount,
                             'word_count' => 0,
                             'choices' => [],
-                            'variable_changes' => $this->formatVarChanges($choiceVarChanges, onlyContext: $choiceContext),
+                            'variable_changes' => $this->variableChangeFormatter->format($choiceVarChanges, onlyContext: $choiceContext),
                             'parent_label' => $name,
-                            'condition' => $this->choiceCondition($mc),
+                            'condition' => $this->menuAnalyzer->choiceCondition($mc),
                         ];
 
                         if ($choiceLine > 0) {
@@ -397,7 +380,7 @@ class RouteGraphService
                             'source' => $sourceId,
                             'target' => $choiceId,
                             'edge_type' => 'choice',
-                            'condition' => $this->deduplicatedContinuationCondition($menuCondition, $this->choiceCondition($mc)),
+                            'condition' => $this->conditions->deduplicatedContinuationCondition($menuCondition, $this->menuAnalyzer->choiceCondition($mc)),
                         ];
 
                         if ($hasHardTarget) {
@@ -425,7 +408,7 @@ class RouteGraphService
                                     ];
 
                                     foreach (($childResumeSkip['edges'] ?? collect()) as $skipEdge) {
-                                        $expandedEdgeReplacements[$name][$this->edgeIdentity($skipEdge)] = true;
+                                        $expandedEdgeReplacements[$name][$this->ids->edgeIdentity($skipEdge)] = true;
                                     }
                                 }
                             } elseif ($continuesToNextMenu) {
@@ -434,9 +417,9 @@ class RouteGraphService
                                     'source' => $choiceId,
                                     'target' => $nextMenuSourceId,
                                     'edge_type' => 'flow',
-                                    'condition' => $this->deduplicatedMenuTransitionCondition(
+                                    'condition' => $this->conditions->deduplicatedMenuTransitionCondition(
                                         $menuCondition,
-                                        $this->choiceEffectiveCondition($mc),
+                                        $this->menuAnalyzer->choiceEffectiveCondition($mc),
                                         $nextMenuCondition
                                     ),
                                     'condition_stack' => $nextMenuGroup['condition_stack'] ?? [],
@@ -448,11 +431,11 @@ class RouteGraphService
                                         'source' => $choiceId,
                                         'target' => $nextMenuSkip['target'],
                                         'edge_type' => 'flow',
-                                        'condition' => $this->negatedCondition($nextMenuCondition),
+                                        'condition' => $this->conditions->negatedCondition($nextMenuCondition),
                                     ];
 
                                     foreach ($nextMenuSkip['edges'] as $skipEdge) {
-                                        $expandedEdgeReplacements[$name][$this->edgeIdentity($skipEdge)] = true;
+                                        $expandedEdgeReplacements[$name][$this->ids->edgeIdentity($skipEdge)] = true;
                                     }
                                 }
                             } elseif ($usesSyntheticEnding) {
@@ -466,15 +449,15 @@ class RouteGraphService
                             } else {
                                 foreach ($choiceContinuationEdges as $ce) {
                                     $processedEdges[] = [
-                                        'id' => $this->generatedChoiceEdgeId($choiceId, $ce),
+                                        'id' => $this->ids->generatedChoiceEdgeId($choiceId, $ce),
                                         'source' => $choiceId,
                                         'target' => $ce->to_label,
                                         'edge_type' => $ce->edge_type,
-                                        'condition' => $this->deduplicatedContinuationCondition($this->choiceEffectiveCondition($mc), $ce->condition),
+                                        'condition' => $this->conditions->deduplicatedContinuationCondition($this->menuAnalyzer->choiceEffectiveCondition($mc), $ce->condition),
                                     ];
 
-                                    if (! $this->isOuterConditionJoinEdge($mc, $ce)) {
-                                        $expandedEdgeReplacements[$name][$this->edgeIdentity($ce)] = true;
+                                    if (! $this->menuAnalyzer->isOuterConditionJoinEdge($mc, $ce)) {
+                                        $expandedEdgeReplacements[$name][$this->ids->edgeIdentity($ce)] = true;
                                     }
                                 }
                             }
@@ -501,9 +484,9 @@ class RouteGraphService
                         'text' => $mc->text,
                         'translations' => $mc->translations,
                         'target_label' => $mc->target_label,
-                        'condition' => $this->choiceCondition($mc),
+                        'condition' => $this->menuAnalyzer->choiceCondition($mc),
                     ])->values()->toArray(),
-                    'variable_changes' => $this->formatVarChanges($varChanges, excludeChoiceContexts: true),
+                    'variable_changes' => $this->variableChangeFormatter->format($varChanges, excludeChoiceContexts: true),
                 ];
             } else {
                 // Regular node without choices
@@ -520,7 +503,7 @@ class RouteGraphService
                     'outgoing_count' => $outgoingEdges->count(),
                     'word_count' => $wordCounts[$name] ?? 0,
                     'choices' => [],
-                    'variable_changes' => $this->formatVarChanges($varChanges, excludeChoiceContexts: true),
+                    'variable_changes' => $this->variableChangeFormatter->format($varChanges, excludeChoiceContexts: true),
                 ];
             }
         }
@@ -537,22 +520,22 @@ class RouteGraphService
                     continue;
                 }
 
-                $edgeKey = $this->edgeIdentity($edge);
+                $edgeKey = $this->ids->edgeIdentity($edge);
                 if (isset($expandedEdgeReplacements[$edge->from_label][$edgeKey])) {
                     continue;
                 }
 
-                if ($this->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
+                if ($this->edgePruner->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
                     continue;
                 }
             }
 
-            if ($this->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
+            if ($this->edgePruner->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
                 continue;
             }
 
             $edgeData = [
-                'id' => $this->routeEdgeId($edge),
+                'id' => $this->ids->routeEdgeId($edge),
                 'source' => $edge->from_label,
                 'target' => $edge->to_label,
                 'edge_type' => $edge->edge_type,
@@ -562,7 +545,7 @@ class RouteGraphService
             ];
 
             if ($edge->edge_type === 'menu_choice') {
-                $matchingChoice = $this->findMatchingMenuChoice($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? []);
+                $matchingChoice = $this->edgePruner->findMatchingMenuChoice($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? []);
                 if ($matchingChoice) {
                     $edgeData['choice_text'] = $matchingChoice->text;
                     $edgeData['condition'] = $matchingChoice->condition;
@@ -573,2008 +556,37 @@ class RouteGraphService
         }
 
         // Post-process: infer else conditions and deduplicate
-        $processedEdges = $this->inferElseConditions($processedEdges);
-        $processedEdges = $this->normalizeDisplayConditions($processedEdges);
-        [$nodes, $processedEdges] = $this->factorConditionScopeEdges($nodes, $processedEdges);
-        $nodes = $this->addMissingEndpointNodes($nodes, $processedEdges);
+        $processedEdges = $this->postProcessor->inferElseConditions($processedEdges);
+        $processedEdges = $this->conditions->normalizeDisplayConditions($processedEdges);
+        [$nodes, $processedEdges] = $this->postProcessor->factorConditionScopeEdges($nodes, $processedEdges);
+        $nodes = $this->postProcessor->addMissingEndpointNodes($nodes, $processedEdges);
         if (! $includeUnreachable) {
-            [$nodes, $processedEdges] = $this->filterReachableFromStart($nodes, $processedEdges);
+            [$nodes, $processedEdges] = $this->postProcessor->filterReachableFromStart($nodes, $processedEdges);
         }
 
         // Leave disconnected script components disconnected. Fabricated bridge
         // edges make the map claim routes exist when Ren'Py control flow does
         // not actually connect them.
 
-        // Pre-count variable changes by name
-        $varChangeCounts = [];
-        foreach ($variableChanges as $vc) {
-            $varChangeCounts[$vc->variable_name] = ($varChangeCounts[$vc->variable_name] ?? 0) + 1;
-        }
-
-        $variableData = $variables->map(function ($v) use ($varChangeCounts) {
-            return [
-                'name' => $v->name,
-                'default_value' => $v->default_value,
-                'type' => $v->type,
-                'change_count' => $varChangeCounts[$v->name] ?? 0,
-            ];
-        })->values()->toArray();
-
-        $visibleNodeIds = collect($nodes)->pluck('id')->flip();
-        $endings = $labels
-            ->where('is_ending', true)
-            ->pluck('name')
-            ->reject(fn (string $name) => isset($expandedEndingReplacements[$name]))
-            ->filter(fn (string $name) => isset($visibleNodeIds[$name]))
-            ->values()
-            ->toArray();
-
-        foreach ($expandedEndingReplacements as $endingId) {
-            if (isset($visibleNodeIds[$endingId]) && ! in_array($endingId, $endings, true)) {
-                $endings[] = $endingId;
-            }
-        }
-
-        $layout = app(RouteGraphLayoutService::class)->layout($nodes, $processedEdges);
-
-        return [
-            'graph_revision' => self::GRAPH_REVISION,
-            'includes_unreachable' => $includeUnreachable,
-            'nodes' => $nodes,
-            'edges' => $processedEdges,
-            'variables' => $variableData,
-            'endings' => $endings,
-            'layout' => $layout,
-            'total_nodes' => collect($nodes)->reject(fn (array $node) => (bool) ($node['is_condition_scope'] ?? false))->count(),
-            'total_edges' => collect($processedEdges)->reject(fn (array $edge) => ($edge['edge_type'] ?? null) === 'condition_scope')->count(),
-            'has_graph_data' => true,
-        ];
+        return app(RouteGraphResultBuilder::class)->build(
+            $nodes,
+            $processedEdges,
+            $variables,
+            $variableChanges,
+            $labels,
+            $expandedEndingReplacements,
+            $includeUnreachable,
+            self::GRAPH_REVISION
+        );
     }
 
     public function buildSimplifiedGraph(Collection $labels, Collection $edges, array $wordCounts = []): array
     {
-        // Pre-index edges for O(1) lookup instead of O(n) per label
-        $outgoing = [];
-        $incoming = [];
-        foreach ($labels as $label) {
-            $outgoing[$label->name] = [];
-            $incoming[$label->name] = [];
-        }
-        foreach ($edges as $edge) {
-            $outgoing[$edge->from_label][] = $edge->to_label;
-            $incoming[$edge->to_label][] = $edge->from_label;
-        }
-
-        $branchPoints = [];
-        $chainNodes = [];
-
-        foreach ($labels as $label) {
-            $name = $label->name;
-            $outCount = count($outgoing[$name] ?? []);
-            $inCount = count($incoming[$name] ?? []);
-            $isStart = $name === 'start' || $name === 'labels.start';
-            $isEnding = (bool) $label->is_ending;
-
-            if ($isStart || $isEnding || $outCount !== 1 || $inCount !== 1) {
-                $branchPoints[$name] = true;
-            } else {
-                $chainNodes[$name] = true;
-            }
-        }
-
-        $chains = [];
-        $visited = [];
-
-        foreach ($chainNodes as $name => $_) {
-            if (isset($visited[$name])) {
-                continue;
-            }
-
-            $chain = [$name];
-            $visited[$name] = true;
-            $current = $name;
-
-            while (true) {
-                $outs = $outgoing[$current] ?? [];
-                if (count($outs) !== 1) {
-                    break;
-                }
-                $next = $outs[0];
-                if (isset($branchPoints[$next]) || isset($visited[$next])) {
-                    break;
-                }
-                $chain[] = $next;
-                $visited[$next] = true;
-                $current = $next;
-            }
-
-            if (count($chain) > 1) {
-                $chains[] = $chain;
-            }
-        }
-
-        $simplifiedNodes = [];
-        $labelToSimplified = [];
-
-        // Pre-index labels by name for O(1) lookup
-        $labelsByName = $labels->keyBy('name');
-
-        foreach ($branchPoints as $name => $_) {
-            $label = $labelsByName->get($name);
-            $simplifiedNodes[] = [
-                'id' => $name,
-                'label' => $name,
-                'type' => 'branch',
-                'is_start' => $name === 'start' || $name === 'labels.start',
-                'is_ending' => (bool) ($label->is_ending ?? false),
-                'returns_to_caller' => (bool) ($label->returns_to_caller ?? false),
-                'word_count' => $wordCounts[$name] ?? 0,
-            ];
-            $labelToSimplified[$name] = $name;
-        }
-
-        foreach ($chains as $chain) {
-            $first = $chain[0];
-            $collapsedId = 'chain_'.implode('_', array_slice($chain, 0, 3)).'_'.count($chain);
-            $chainWordCount = array_sum(array_map(fn ($n) => $wordCounts[$n] ?? 0, $chain));
-
-            $simplifiedNodes[] = [
-                'id' => $collapsedId,
-                'label' => count($chain).' nodes',
-                'type' => 'chain',
-                'chain_labels' => $chain,
-                'first_label' => $first,
-                'last_label' => $chain[count($chain) - 1],
-                'is_start' => false,
-                'is_ending' => false,
-                'word_count' => $chainWordCount,
-            ];
-
-            foreach ($chain as $node) {
-                $labelToSimplified[$node] = $collapsedId;
-            }
-        }
-
-        $simplifiedEdges = [];
-        $seen = [];
-
-        foreach ($edges as $edge) {
-            $sourceId = $labelToSimplified[$edge->from_label] ?? $edge->from_label;
-            $targetId = $labelToSimplified[$edge->to_label] ?? $edge->to_label;
-
-            if ($sourceId === $targetId) {
-                continue;
-            }
-            $edgeKey = $sourceId.':'.$targetId.':'.$edge->edge_type;
-            if (isset($seen[$edgeKey])) {
-                continue;
-            }
-            $seen[$edgeKey] = true;
-            $simplifiedEdges[] = [
-                'id' => $edgeKey,
-                'source' => $sourceId,
-                'target' => $targetId,
-                'edge_type' => $edge->edge_type,
-            ];
-        }
-
-        return [
-            'nodes' => $simplifiedNodes,
-            'edges' => $simplifiedEdges,
-            'chain_count' => count($chains),
-        ];
-    }
-
-    private function edgeIdentity($edge): string
-    {
-        if (! empty($edge->id)) {
-            return 'id:'.$edge->id;
-        }
-
-        return implode('|', [
-            (string) ($edge->from_label ?? ''),
-            (string) ($edge->to_label ?? ''),
-            (string) ($edge->edge_type ?? ''),
-            (string) ($edge->condition ?? ''),
-            (string) ($edge->file_path ?? ''),
-            (string) ($edge->line_number ?? ''),
-        ]);
-    }
-
-    private function routeEdgeId($edge): string
-    {
-        if (! empty($edge->id)) {
-            return 'route_edge:'.$edge->id;
-        }
-
-        return 'route_edge:'.md5($this->edgeIdentity($edge));
-    }
-
-    private function generatedChoiceEdgeId(string $choiceId, $edge): string
-    {
-        if (! empty($edge->id)) {
-            return $choiceId.':route_edge:'.$edge->id;
-        }
-
-        return $choiceId.':route_edge:'.md5($this->edgeIdentity($edge));
-    }
-
-    private function syntheticEndingId(string $labelName): string
-    {
-        return $labelName.':ending';
-    }
-
-    private function targetlessChoices(Collection $choices): Collection
-    {
-        return $choices
-            ->filter(fn ($choice) => empty($choice->target_label))
-            ->sortBy(fn ($choice) => (int) ($choice->line_number ?? 0))
-            ->values();
-    }
-
-    /**
-     * @return array<int, array{
-     *     choices: Collection<int, mixed>,
-     *     prompt: string|null,
-     *     prompt_translations: array<string, string>|null,
-     *     menu_line: int,
-     *     menu_branch: string|null,
-     *     condition_stack: array<int, string>,
-     *     parent_menu_line: int,
-     *     parent_choice_line: int,
-     *     start_line: int,
-     *     end_line: int
-     * }>
-     */
-    private function menuChoiceGroups(Collection $choices): array
-    {
-        $groups = [];
-        $groupOrder = [];
-
-        foreach ($choices->sortBy(fn ($choice) => (int) ($choice->line_number ?? 0))->values() as $choice) {
-            $prompt = $this->choicePrompt($choice);
-            $displayPrompt = $prompt !== '' ? $prompt : null;
-            $line = (int) ($choice->line_number ?? 0);
-            $menuLine = $this->choiceMenuLine($choice);
-            $menuBranch = $this->choiceMenuBranch($choice);
-            $parentMenuLine = $this->choiceParentMenuLine($choice);
-            $parentChoiceLine = $this->choiceParentChoiceLine($choice);
-            $groupKey = implode('|', [
-                $menuLine > 0 ? 'menu:'.$menuLine : 'choice:'.$line,
-                'branch:'.($menuBranch ?? ''),
-                'parent_menu:'.$parentMenuLine,
-                'parent_choice:'.$parentChoiceLine,
-            ]);
-
-            if (! isset($groups[$groupKey])) {
-                $groupOrder[] = $groupKey;
-                $groups[$groupKey] = [
-                    'choices' => collect(),
-                    'prompt' => $displayPrompt,
-                    'prompt_translations' => $choice->prompt_translations,
-                    'menu_line' => $menuLine,
-                    'menu_branch' => $menuBranch,
-                    'condition_stack' => [],
-                    'parent_menu_line' => $parentMenuLine,
-                    'parent_choice_line' => $parentChoiceLine,
-                    'start_line' => $line,
-                    'end_line' => $line,
-                ];
-            } elseif ($groups[$groupKey]['prompt'] === null && $displayPrompt !== null) {
-                $groups[$groupKey]['prompt'] = $displayPrompt;
-                $groups[$groupKey]['prompt_translations'] = $choice->prompt_translations;
-            }
-
-            $groups[$groupKey]['choices']->push($choice);
-            if ($line > 0) {
-                $groups[$groupKey]['start_line'] = $groups[$groupKey]['start_line'] > 0 ? min($groups[$groupKey]['start_line'], $line) : $line;
-                $groups[$groupKey]['end_line'] = max($groups[$groupKey]['end_line'], $line);
-            }
-        }
-
-        return collect($groupOrder)
-            ->map(function (string $key) use ($groups) {
-                $group = $groups[$key];
-                $group['condition_stack'] = $this->commonMenuConditionStack($group['choices']);
-
-                return $group;
-            })
-            ->sortBy(fn (array $group) => sprintf(
-                '%010d:%010d',
-                (int) ($group['menu_line'] ?: $group['start_line']),
-                (int) $group['start_line'],
-            ))
-            ->values()
-            ->all();
+        return app(RouteGraphSimplifier::class)->build($labels, $edges, $wordCounts);
     }
 
     private function menuGroupNodeId(string $labelName, int $startLine, int $index): string
     {
         return $labelName.':menu_'.($startLine > 0 ? $startLine : $index);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $menuGroups
-     * @return array{0: array<int, int>, 1: array<int, int>}
-     */
-    private function menuSequenceLinks(array $menuGroups, Collection $continuationEdges): array
-    {
-        $previousByIndex = [];
-        $nextByIndex = [];
-        $lastBySequence = [];
-        $lastRootIndex = null;
-
-        foreach ($menuGroups as $index => $group) {
-            $sequenceKey = (string) ($group['menu_branch'] ?? '');
-
-            if (isset($lastBySequence[$sequenceKey])) {
-                $previousIndex = $lastBySequence[$sequenceKey];
-                $previousByIndex[$index] = $previousIndex;
-                $nextByIndex[$previousIndex] = $index;
-            }
-
-            if (! isset($previousByIndex[$index]) && $this->isRootMenuGroup($group) && $lastRootIndex !== null) {
-                $previousRootGroup = $menuGroups[$lastRootIndex] ?? null;
-                if ($previousRootGroup !== null && $this->canSequenceRootMenuGroups($previousRootGroup, $group, $continuationEdges)) {
-                    $previousByIndex[$index] = $lastRootIndex;
-                    $nextByIndex[$lastRootIndex] = $index;
-                }
-            }
-
-            $lastBySequence[$sequenceKey] = $index;
-            if ($this->isRootMenuGroup($group)) {
-                $lastRootIndex = $index;
-            }
-        }
-
-        return [$previousByIndex, $nextByIndex];
-    }
-
-    private function isRootMenuGroup(array $group): bool
-    {
-        return (int) ($group['parent_choice_line'] ?? 0) <= 0;
-    }
-
-    private function canSequenceRootMenuGroups(array $previousGroup, array $nextGroup, Collection $continuationEdges): bool
-    {
-        $previousEndLine = (int) ($previousGroup['end_line'] ?? 0);
-        $nextStartLine = (int) (($nextGroup['menu_line'] ?? 0) ?: ($nextGroup['start_line'] ?? 0));
-
-        if ($previousEndLine <= 0 || $nextStartLine <= 0 || $previousEndLine >= $nextStartLine) {
-            return false;
-        }
-
-        return ! $continuationEdges->contains(function ($edge) use ($previousEndLine, $nextStartLine) {
-            $line = (int) ($edge->line_number ?? 0);
-
-            return $line > $previousEndLine && $line < $nextStartLine;
-        });
-    }
-
-    /**
-     * @return array{target: string, edge_type: string, edges: Collection<int, mixed>}|null
-     */
-    private function commonContinuationAfterGroup(array $group, Collection $continuationEdges): ?array
-    {
-        $groupEndLine = (int) ($group['end_line'] ?? 0);
-        if ($groupEndLine <= 0) {
-            return null;
-        }
-
-        $laterEdges = $continuationEdges
-            ->filter(fn ($edge) => (int) ($edge->line_number ?? 0) > $groupEndLine)
-            ->values();
-
-        if ($laterEdges->isEmpty()) {
-            return null;
-        }
-
-        $targets = $laterEdges
-            ->pluck('to_label')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($targets->count() !== 1) {
-            return null;
-        }
-
-        return [
-            'target' => (string) $targets->first(),
-            'edge_type' => (string) ($laterEdges->first()->edge_type ?? 'flow'),
-            'edges' => $laterEdges,
-        ];
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $menuGroups
-     * @param  array<int, int>  $previousMenuGroupByIndex
-     * @return array<int, int>
-     */
-    private function firstChildMenuGroupByChoiceLine(array $menuGroups, array $previousMenuGroupByIndex): array
-    {
-        $firstByChoiceLine = [];
-
-        foreach ($menuGroups as $index => $group) {
-            if (isset($previousMenuGroupByIndex[$index])) {
-                continue;
-            }
-
-            $parentChoiceLine = (int) ($group['parent_choice_line'] ?? 0);
-            if ($parentChoiceLine <= 0 || isset($firstByChoiceLine[$parentChoiceLine])) {
-                continue;
-            }
-
-            $firstByChoiceLine[$parentChoiceLine] = $index;
-        }
-
-        return $firstByChoiceLine;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $menuGroups
-     * @param  array<int, int>  $nextMenuGroupByIndex
-     * @return array<int, int>
-     */
-    private function resumeMenuGroupByChildGroupIndex(array $menuGroups, array $nextMenuGroupByIndex): array
-    {
-        $parentGroupByChoiceLine = [];
-        foreach ($menuGroups as $index => $group) {
-            foreach ($group['choices'] as $choice) {
-                $choiceLine = (int) ($choice->line_number ?? 0);
-                if ($choiceLine > 0) {
-                    $parentGroupByChoiceLine[$choiceLine] = $index;
-                }
-            }
-        }
-
-        $resumeByChildGroupIndex = [];
-        foreach ($menuGroups as $index => $group) {
-            if (isset($nextMenuGroupByIndex[$index])) {
-                continue;
-            }
-
-            $parentChoiceLine = (int) ($group['parent_choice_line'] ?? 0);
-            $parentGroupIndex = $parentChoiceLine > 0 ? ($parentGroupByChoiceLine[$parentChoiceLine] ?? null) : null;
-            if ($parentGroupIndex === null) {
-                continue;
-            }
-
-            $resumeGroupIndex = $nextMenuGroupByIndex[$parentGroupIndex] ?? null;
-            if ($resumeGroupIndex !== null) {
-                $resumeByChildGroupIndex[$index] = $resumeGroupIndex;
-            }
-        }
-
-        return $resumeByChildGroupIndex;
-    }
-
-    private function choiceMenuLine($choice): int
-    {
-        return (int) ($choice->menu_line ?? 0);
-    }
-
-    private function choiceMenuBranch($choice): ?string
-    {
-        $branch = trim((string) ($choice->menu_branch ?? ''));
-
-        return $branch === '' ? null : $branch;
-    }
-
-    private function choiceParentMenuLine($choice): int
-    {
-        return (int) ($choice->parent_menu_line ?? 0);
-    }
-
-    private function choiceParentChoiceLine($choice): int
-    {
-        return (int) ($choice->parent_choice_line ?? 0);
-    }
-
-    private function choiceEnclosingCondition($choice): ?string
-    {
-        return $this->normalizeDisplayCondition($choice->enclosing_condition ?? null);
-    }
-
-    private function choiceCondition($choice): ?string
-    {
-        return $this->normalizeDisplayCondition($choice->choice_condition ?? ($choice->condition ?? null));
-    }
-
-    private function choiceEffectiveCondition($choice): ?string
-    {
-        return $this->normalizeDisplayCondition($choice->condition ?? null);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $groups
-     * @return array<int, array<string, mixed>>
-     */
-    private function meaningfulMenuGroups(
-        string $labelName,
-        array $groups,
-        array $varChangesByContext,
-        $label,
-        Collection $nodeChoices,
-        Collection $menuChoiceLines,
-        Collection $continuationEdges,
-        Collection $targetlessChoices
-    ): array {
-        if ($groups === []) {
-            return [];
-        }
-
-        $meaningfulByIndex = [];
-        foreach ($groups as $index => $group) {
-            if ($this->isMeaningfulMenuGroup(
-                $labelName,
-                $group['choices'],
-                $varChangesByContext,
-                $label,
-                $nodeChoices,
-                $menuChoiceLines,
-                $continuationEdges,
-                $targetlessChoices
-            )) {
-                $meaningfulByIndex[$index] = true;
-            }
-        }
-
-        $choiceLineToGroupIndex = [];
-        foreach ($groups as $index => $group) {
-            foreach ($group['choices'] as $choice) {
-                $choiceLine = (int) ($choice->line_number ?? 0);
-                if ($choiceLine > 0) {
-                    $choiceLineToGroupIndex[$choiceLine] = $index;
-                }
-            }
-        }
-
-        $changed = true;
-        while ($changed) {
-            $changed = false;
-            foreach ($groups as $index => $group) {
-                if (! isset($meaningfulByIndex[$index])) {
-                    continue;
-                }
-
-                $parentChoiceLine = (int) ($group['parent_choice_line'] ?? 0);
-                $parentIndex = $parentChoiceLine > 0 ? ($choiceLineToGroupIndex[$parentChoiceLine] ?? null) : null;
-                if ($parentIndex !== null && ! isset($meaningfulByIndex[$parentIndex])) {
-                    $meaningfulByIndex[$parentIndex] = true;
-                    $changed = true;
-                }
-            }
-        }
-
-        return collect($groups)
-            ->filter(fn (array $group, int $index) => isset($meaningfulByIndex[$index]))
-            ->values()
-            ->all();
-    }
-
-    private function isMeaningfulMenuGroup(
-        string $labelName,
-        Collection $choices,
-        array $varChangesByContext,
-        $label,
-        Collection $nodeChoices,
-        Collection $menuChoiceLines,
-        Collection $continuationEdges,
-        Collection $targetlessChoices
-    ): bool {
-        if ((bool) $label->is_ending) {
-            return true;
-        }
-
-        $continuationSignatures = [];
-
-        foreach ($choices as $choice) {
-            if (! empty($choice->target_label)) {
-                return true;
-            }
-
-            $contextKey = $labelName.'|menu_choice:'.($choice->text ?? '');
-            $choiceVarChanges = $this->getVariableChangesForChoice(
-                $choice,
-                collect($varChangesByContext[$contextKey] ?? []),
-                $nodeChoices
-            );
-
-            if ($choiceVarChanges->isNotEmpty()) {
-                return true;
-            }
-
-            $choiceContinuationEdges = $this->getContinuationEdgesForChoice($choice, $continuationEdges, $targetlessChoices);
-            if ($choiceContinuationEdges->isNotEmpty()) {
-                $continuationSignatures[] = $choiceContinuationEdges
-                    ->map(fn ($edge) => implode('|', [
-                        (string) ($edge->to_label ?? ''),
-                        (string) ($edge->edge_type ?? ''),
-                        $this->normalizedConditionForComparison($edge->condition ?? null),
-                    ]))
-                    ->sort()
-                    ->values()
-                    ->join(';');
-            }
-        }
-
-        if ($choices->count() === 1 && $continuationSignatures !== []) {
-            return true;
-        }
-
-        return count(array_unique($continuationSignatures)) > 1;
-    }
-
-    private function commonMenuCondition(Collection $choices): ?string
-    {
-        $displayCondition = null;
-        $normalizedCondition = null;
-
-        foreach ($choices as $choice) {
-            $choiceCondition = $this->choiceEnclosingCondition($choice);
-
-            if ($choiceCondition === null) {
-                return null;
-            }
-
-            $normalizedChoiceCondition = $this->normalizedConditionForComparison($choiceCondition);
-            if ($normalizedCondition === null) {
-                $displayCondition = $choiceCondition;
-                $normalizedCondition = $normalizedChoiceCondition;
-
-                continue;
-            }
-
-            if ($normalizedChoiceCondition !== $normalizedCondition) {
-                return null;
-            }
-        }
-
-        return $displayCondition;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function commonMenuConditionStack(Collection $choices): array
-    {
-        $displayStack = null;
-        $normalizedStack = null;
-
-        foreach ($choices as $choice) {
-            $choiceStack = $this->choiceMenuConditionStack($choice);
-            if ($choiceStack === []) {
-                return [];
-            }
-
-            $normalizedChoiceStack = array_map(
-                fn (string $condition) => $this->normalizedConditionForComparison($condition),
-                $choiceStack
-            );
-
-            if ($normalizedStack === null) {
-                $displayStack = $choiceStack;
-                $normalizedStack = $normalizedChoiceStack;
-
-                continue;
-            }
-
-            if ($normalizedChoiceStack !== $normalizedStack) {
-                return [];
-            }
-        }
-
-        return $displayStack ?? [];
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function choiceMenuConditionStack($choice): array
-    {
-        $stack = $choice->menu_condition_stack ?? [];
-
-        if (is_string($stack)) {
-            $decoded = json_decode($stack, true);
-            $stack = is_array($decoded) ? $decoded : [];
-        }
-
-        if (! is_array($stack)) {
-            return [];
-        }
-
-        return collect($stack)
-            ->map(fn ($condition) => $this->normalizeDisplayCondition(is_string($condition) ? $condition : null))
-            ->filter()
-            ->values()
-            ->all();
-    }
-
-    private function menuEmptyCondition(Collection $choices): ?string
-    {
-        $conditions = [];
-
-        foreach ($choices as $choice) {
-            $choiceCondition = $this->choiceCondition($choice);
-
-            if ($choiceCondition === null) {
-                return null;
-            }
-
-            $conditions[$this->normalizedConditionForComparison($choiceCondition)] = $choiceCondition;
-        }
-
-        if ($conditions === []) {
-            return null;
-        }
-
-        $conditionParts = array_map(fn (string $condition) => '('.$condition.')', array_values($conditions));
-
-        return 'not ('.implode(' or ', $conditionParts).')';
-    }
-
-    private function negatedCondition(?string $condition): ?string
-    {
-        $condition = $this->normalizeDisplayCondition($condition);
-        if ($condition === null) {
-            return null;
-        }
-
-        return 'not (('.$condition.'))';
-    }
-
-    private function getContinuationEdgesForChoice($choice, Collection $continuationEdges, Collection $targetlessChoices, ?int $stopBeforeLine = null): Collection
-    {
-        $choiceLine = (int) ($choice->line_number ?? 0);
-
-        if ($choiceLine <= 0) {
-            return $continuationEdges->count() === 1 ? $continuationEdges : collect();
-        }
-
-        [, $groupEndLine, $nextMenuLine] = $this->targetlessMenuGroupBounds($choice, $targetlessChoices);
-        if ($stopBeforeLine !== null && $stopBeforeLine <= 0) {
-            $stopBeforeLine = null;
-        }
-
-        if ($stopBeforeLine !== null) {
-            return $this->compatibleContinuationEdges(
-                $choice,
-                $continuationEdges
-                    ->filter(function ($edge) use ($groupEndLine, $stopBeforeLine) {
-                        $edgeLine = (int) ($edge->line_number ?? 0);
-
-                        return $edgeLine > $groupEndLine && $edgeLine < $stopBeforeLine;
-                    })
-                    ->values()
-            );
-        }
-
-        $segmentEdges = $continuationEdges
-            ->filter(function ($edge) use ($groupEndLine, $nextMenuLine) {
-                $edgeLine = (int) ($edge->line_number ?? 0);
-
-                return $edgeLine > $groupEndLine && ($nextMenuLine === null || $edgeLine < $nextMenuLine);
-            })
-            ->values();
-
-        if ($segmentEdges->isNotEmpty()) {
-            return $this->compatibleContinuationEdges($choice, $segmentEdges);
-        }
-
-        if ($this->choicePrompt($choice) !== '' || $nextMenuLine === null) {
-            $laterEdges = $continuationEdges
-                ->filter(fn ($edge) => (int) ($edge->line_number ?? 0) > $groupEndLine)
-                ->values();
-            $compatibleLaterEdges = $this->compatibleContinuationEdges($choice, $laterEdges);
-
-            if ($compatibleLaterEdges->isNotEmpty()) {
-                return $this->firstLineEdgeGroup($compatibleLaterEdges);
-            }
-
-            if ($nextMenuLine === null && $continuationEdges->count() === 1) {
-                return $continuationEdges;
-            }
-        }
-
-        return collect();
-    }
-
-    /**
-     * @return array{0: int, 1: int, 2: int|null}
-     */
-    private function targetlessMenuGroupBounds($choice, Collection $targetlessChoices): array
-    {
-        $choiceLine = (int) ($choice->line_number ?? 0);
-        $choiceMenuLine = $this->choiceMenuLine($choice);
-        $choicePrompt = $this->choicePrompt($choice);
-        $choices = $targetlessChoices->values();
-        $choiceIndex = $choices->search(fn ($candidate) => (int) ($candidate->line_number ?? 0) === $choiceLine && (string) ($candidate->text ?? '') === (string) ($choice->text ?? '') && $this->choiceMenuLine($candidate) === $choiceMenuLine);
-
-        if ($choiceIndex === false) {
-            $choiceIndex = $choices->search(fn ($candidate) => (int) ($candidate->line_number ?? 0) === $choiceLine && $this->choiceMenuLine($candidate) === $choiceMenuLine);
-        }
-
-        if ($choiceIndex === false) {
-            $nextLine = $choices
-                ->pluck('line_number')
-                ->filter(fn ($line) => (int) $line > $choiceLine)
-                ->map(fn ($line) => (int) $line)
-                ->sort()
-                ->first();
-
-            return [$choiceLine, $choiceLine, $nextLine ?: null];
-        }
-
-        $startIndex = (int) $choiceIndex;
-        $endIndex = (int) $choiceIndex;
-
-        if ($choiceMenuLine > 0) {
-            while ($startIndex > 0 && $this->choiceMenuLine($choices[$startIndex - 1]) === $choiceMenuLine) {
-                $startIndex--;
-            }
-
-            while ($endIndex < $choices->count() - 1 && $this->choiceMenuLine($choices[$endIndex + 1]) === $choiceMenuLine) {
-                $endIndex++;
-            }
-        } elseif ($choicePrompt !== '') {
-            while ($startIndex > 0 && $this->choicePrompt($choices[$startIndex - 1]) === $choicePrompt) {
-                $startIndex--;
-            }
-
-            while ($endIndex < $choices->count() - 1 && $this->choicePrompt($choices[$endIndex + 1]) === $choicePrompt) {
-                $endIndex++;
-            }
-        } else {
-            while ($startIndex > 0 && (int) ($choices[$startIndex - 1]->line_number ?? 0) === $choiceLine) {
-                $startIndex--;
-            }
-
-            while ($endIndex < $choices->count() - 1 && (int) ($choices[$endIndex + 1]->line_number ?? 0) === $choiceLine) {
-                $endIndex++;
-            }
-        }
-
-        $groupStartLine = (int) ($choices[$startIndex]->line_number ?? $choiceLine);
-        $groupEndLine = (int) ($choices[$endIndex]->line_number ?? $choiceLine);
-        $nextChoice = $choices[$endIndex + 1] ?? null;
-        $nextMenuLine = $nextChoice ? (int) ($nextChoice->line_number ?? 0) : null;
-
-        return [$groupStartLine, $groupEndLine, $nextMenuLine && $nextMenuLine > 0 ? $nextMenuLine : null];
-    }
-
-    private function compatibleContinuationEdges($choice, Collection $edges): Collection
-    {
-        $choiceCondition = $this->normalizedConditionForComparison($this->choiceEffectiveCondition($choice));
-
-        return $edges
-            ->filter(function ($edge) use ($choiceCondition) {
-                $edgeCondition = $this->normalizedConditionForComparison($edge->condition ?? null);
-
-                if ($choiceCondition === '') {
-                    return $edgeCondition === '';
-                }
-
-                return $edgeCondition === '' || $this->conditionsCanOverlap($choiceCondition, $edgeCondition);
-            })
-            ->values();
-    }
-
-    private function firstLineEdgeGroup(Collection $edges): Collection
-    {
-        $firstLine = $edges
-            ->pluck('line_number')
-            ->filter(fn ($line) => $line !== null && (int) $line > 0)
-            ->map(fn ($line) => (int) $line)
-            ->min();
-
-        if (! $firstLine) {
-            return $edges->values();
-        }
-
-        return $edges
-            ->filter(fn ($edge) => (int) ($edge->line_number ?? 0) === $firstLine)
-            ->values();
-    }
-
-    private function isOuterConditionJoinEdge($choice, $edge): bool
-    {
-        $stack = $this->choiceMenuConditionStack($choice);
-        if (count($stack) < 2) {
-            return false;
-        }
-
-        $edgeCondition = $this->normalizedConditionForComparison($edge->condition ?? null);
-        if ($edgeCondition === '') {
-            return false;
-        }
-
-        for ($i = 1; $i < count($stack); $i++) {
-            $prefixCondition = $this->combinedConditionStack(array_slice($stack, 0, $i));
-            if ($edgeCondition === $this->normalizedConditionForComparison($prefixCondition)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function choicePrompt($choice): string
-    {
-        return trim((string) ($choice->prompt ?? ''));
-    }
-
-    private function conditionsCanOverlap(?string $choiceCondition, ?string $edgeCondition): bool
-    {
-        $choiceCondition = $this->normalizedConditionForComparison($choiceCondition);
-        $edgeCondition = $this->normalizedConditionForComparison($edgeCondition);
-
-        if ($choiceCondition === '' || $edgeCondition === '') {
-            return true;
-        }
-
-        if ($choiceCondition === $edgeCondition) {
-            return true;
-        }
-
-        if ($this->conditionsContradict($choiceCondition, $edgeCondition)) {
-            return false;
-        }
-
-        return str_contains($edgeCondition, $choiceCondition) || str_contains($choiceCondition, $edgeCondition);
-    }
-
-    private function conditionsContradict(string $leftCondition, string $rightCondition): bool
-    {
-        $leftCondition = $this->stripOuterParentheses($leftCondition);
-        $rightCondition = $this->stripOuterParentheses($rightCondition);
-
-        return $this->conditionContainsDirectNegation($leftCondition, $rightCondition)
-            || $this->conditionContainsDirectNegation($rightCondition, $leftCondition);
-    }
-
-    private function conditionContainsDirectNegation(string $condition, string $negatedTerm): bool
-    {
-        $negatedTerm = $this->stripOuterParentheses($negatedTerm);
-        if ($negatedTerm === '') {
-            return false;
-        }
-
-        $patterns = [
-            'not('.$negatedTerm.')',
-            'not(('.$negatedTerm.'))',
-        ];
-
-        foreach ($patterns as $pattern) {
-            if ($condition === $pattern || str_contains($condition, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function stripOuterParentheses(string $condition): string
-    {
-        $condition = trim($condition);
-
-        while (strlen($condition) >= 2 && $condition[0] === '(' && str_ends_with($condition, ')')) {
-            $depth = 0;
-            $wrapsWholeExpression = true;
-            $length = strlen($condition);
-
-            for ($i = 0; $i < $length; $i++) {
-                if ($condition[$i] === '(') {
-                    $depth++;
-                } elseif ($condition[$i] === ')') {
-                    $depth--;
-
-                    if ($depth === 0 && $i < $length - 1) {
-                        $wrapsWholeExpression = false;
-                        break;
-                    }
-                }
-
-                if ($depth < 0) {
-                    $wrapsWholeExpression = false;
-                    break;
-                }
-            }
-
-            if (! $wrapsWholeExpression || $depth !== 0) {
-                break;
-            }
-
-            $condition = substr($condition, 1, -1);
-        }
-
-        return $condition;
-    }
-
-    private function deduplicatedContinuationCondition(?string $choiceCondition, ?string $edgeCondition): ?string
-    {
-        $normalizedEdgeCondition = $this->normalizeDisplayCondition($edgeCondition);
-
-        if ($normalizedEdgeCondition === null) {
-            return null;
-        }
-
-        if ($this->conditionImplies($choiceCondition, $normalizedEdgeCondition)) {
-            return null;
-        }
-
-        return $normalizedEdgeCondition;
-    }
-
-    private function conditionImplies(?string $knownCondition, ?string $candidateCondition): bool
-    {
-        $knownCondition = $this->normalizedConditionForComparison($knownCondition);
-        $candidateCondition = $this->normalizedConditionForComparison($candidateCondition);
-
-        if ($candidateCondition === '') {
-            return true;
-        }
-
-        if ($knownCondition === '') {
-            return false;
-        }
-
-        if ($knownCondition === $candidateCondition) {
-            return true;
-        }
-
-        if ($this->conditionsContradict($knownCondition, $candidateCondition)) {
-            return false;
-        }
-
-        return str_contains($knownCondition, $candidateCondition);
-    }
-
-    private function deduplicatedMenuTransitionCondition(?string $menuCondition, ?string $choiceCondition, ?string $nextMenuCondition): ?string
-    {
-        $normalizedNextMenuCondition = $this->normalizeDisplayCondition($nextMenuCondition);
-
-        if ($normalizedNextMenuCondition === null) {
-            return null;
-        }
-
-        $knownConditions = [
-            $this->normalizedConditionForComparison($menuCondition),
-            $this->normalizedConditionForComparison($choiceCondition),
-        ];
-
-        if (in_array($this->normalizedConditionForComparison($normalizedNextMenuCondition), $knownConditions, true)) {
-            return null;
-        }
-
-        return $normalizedNextMenuCondition;
-    }
-
-    private function displayConditionForVariableChange($variableChange, ?string $knownCondition): ?string
-    {
-        foreach (array_reverse($this->variableChangeConditionStack($variableChange)) as $condition) {
-            if (! $this->variableConditionAlreadyShown($knownCondition, $condition)) {
-                return $condition;
-            }
-        }
-
-        $condition = $this->normalizeDisplayCondition($variableChange->condition ?? null);
-        if ($condition !== null && ! $this->variableConditionAlreadyShown($knownCondition, $condition)) {
-            return $condition;
-        }
-
-        return null;
-    }
-
-    private function variableConditionAlreadyShown(?string $knownCondition, ?string $candidateCondition): bool
-    {
-        $knownCondition = $this->normalizedConditionForComparison($knownCondition);
-        $candidateCondition = $this->normalizedConditionForComparison($candidateCondition);
-
-        if ($candidateCondition === '') {
-            return true;
-        }
-
-        if ($knownCondition === '') {
-            return false;
-        }
-
-        if ($knownCondition === $candidateCondition) {
-            return true;
-        }
-
-        if (str_contains($knownCondition, 'or')) {
-            return false;
-        }
-
-        return str_contains($knownCondition, $candidateCondition);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function variableChangeConditionStack($variableChange): array
-    {
-        $stack = $variableChange->condition_stack ?? [];
-
-        if (is_string($stack)) {
-            $decoded = json_decode($stack, true);
-            $stack = is_array($decoded) ? $decoded : [];
-        }
-
-        if (! is_array($stack)) {
-            return [];
-        }
-
-        return collect($stack)
-            ->map(fn ($condition) => $this->normalizeDisplayCondition(is_string($condition) ? $condition : null))
-            ->filter()
-            ->values()
-            ->all();
-    }
-
-    private function formatVariableValue(?string $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        if (preg_match('/^Num\(n=(.+)\)$/', $value, $m)) {
-            return $m[1];
-        }
-
-        if (preg_match("/^Str\(s='(.+)'\)$/", $value, $m)) {
-            return "'".$m[1]."'";
-        }
-
-        if (preg_match("/^Name\(id='(.+?)'.*\)$/", $value, $m)) {
-            return $m[1];
-        }
-
-        return $value;
-    }
-
-    private function normalizedConditionForComparison(?string $condition): string
-    {
-        $condition = trim((string) $condition);
-        if ($condition === '' || $condition === 'True') {
-            return '';
-        }
-
-        return preg_replace('/\s+/', '', $condition) ?? $condition;
-    }
-
-    private function addMissingEndpointNodes(array $nodes, array $edges): array
-    {
-        $nodeIds = [];
-        foreach ($nodes as $node) {
-            $nodeIds[$node['id']] = true;
-        }
-
-        foreach ($edges as $edge) {
-            foreach (['source', 'target'] as $key) {
-                $id = $edge[$key] ?? null;
-                if (! is_string($id) || $id === '' || isset($nodeIds[$id])) {
-                    continue;
-                }
-
-                $nodes[] = [
-                    'id' => $id,
-                    'label' => $id,
-                    'node_type' => 'label',
-                    'is_ending' => false,
-                    'returns_to_caller' => false,
-                    'is_start' => false,
-                    'has_menu_choice' => false,
-                    'file_path' => null,
-                    'line_number' => 0,
-                    'outgoing_count' => 0,
-                    'word_count' => 0,
-                    'choices' => [],
-                    'variable_changes' => [],
-                    'is_unresolved' => true,
-                ];
-                $nodeIds[$id] = true;
-            }
-        }
-
-        return $nodes;
-    }
-
-    /**
-     * Route maps should describe playable flow from the game's entry label.
-     * Keep unrooted fixture graphs intact, but when a start node exists, hide
-     * script fragments that Ren'Py cannot reach from that start path.
-     *
-     * @return array{0: array<int, array>, 1: array<int, array>}
-     */
-    private function filterReachableFromStart(array $nodes, array $edges): array
-    {
-        $nodeIds = [];
-        $startIds = [];
-
-        foreach ($nodes as $node) {
-            $id = $node['id'] ?? null;
-            if (! is_string($id) || $id === '') {
-                continue;
-            }
-
-            $nodeIds[$id] = true;
-            if (($node['is_start'] ?? false) || $id === 'start' || $id === 'labels.start') {
-                $startIds[] = $id;
-            }
-        }
-
-        if (empty($startIds)) {
-            return [$nodes, $edges];
-        }
-
-        $adjacency = [];
-        foreach ($edges as $edge) {
-            $source = $edge['source'] ?? null;
-            $target = $edge['target'] ?? null;
-
-            if (! is_string($source) || ! is_string($target)) {
-                continue;
-            }
-
-            if (! isset($nodeIds[$source], $nodeIds[$target])) {
-                continue;
-            }
-
-            $adjacency[$source][] = $target;
-        }
-
-        $visited = [];
-        $queue = [];
-        foreach (array_unique($startIds) as $startId) {
-            $visited[$startId] = true;
-            $queue[] = $startId;
-        }
-
-        while ($queue !== []) {
-            $current = array_shift($queue);
-            foreach ($adjacency[$current] ?? [] as $target) {
-                if (isset($visited[$target])) {
-                    continue;
-                }
-
-                $visited[$target] = true;
-                $queue[] = $target;
-            }
-        }
-
-        $filteredNodes = array_values(array_filter(
-            $nodes,
-            fn (array $node) => isset($visited[$node['id'] ?? null])
-        ));
-
-        $filteredEdges = array_values(array_filter(
-            $edges,
-            fn (array $edge) => isset($visited[$edge['source'] ?? null], $visited[$edge['target'] ?? null])
-        ));
-
-        return [$filteredNodes, $filteredEdges];
-    }
-
-    private function getVariableChangesForChoice($choice, Collection $choiceVarChanges, Collection $allChoices): Collection
-    {
-        $choiceLine = (int) ($choice->line_number ?? 0);
-        if ($choiceLine <= 0) {
-            return $choiceVarChanges->values();
-        }
-
-        $nextMenuLine = $this->nextNonDescendantChoiceLine($choice, $allChoices);
-        $lineScopedChanges = $choiceVarChanges
-            ->filter(function ($change) use ($choiceLine, $nextMenuLine) {
-                $changeLine = (int) ($change->line_number ?? 0);
-
-                return $changeLine >= $choiceLine && ($nextMenuLine === null || $changeLine < $nextMenuLine);
-            })
-            ->values();
-
-        return $lineScopedChanges;
-    }
-
-    private function nextNonDescendantChoiceLine($choice, Collection $allChoices): ?int
-    {
-        $choiceLine = (int) ($choice->line_number ?? 0);
-        if ($choiceLine <= 0) {
-            return null;
-        }
-
-        return $allChoices
-            ->filter(function ($candidate) use ($choice, $choiceLine) {
-                $candidateLine = (int) ($candidate->line_number ?? 0);
-
-                return $candidateLine > $choiceLine
-                    && ! $this->choiceIsDescendantOfChoice($candidate, $choice);
-            })
-            ->pluck('line_number')
-            ->map(fn ($line) => (int) $line)
-            ->sort()
-            ->first();
-    }
-
-    private function choiceIsDescendantOfChoice($candidate, $choice): bool
-    {
-        $choiceLine = (int) ($choice->line_number ?? 0);
-        if ($choiceLine <= 0) {
-            return false;
-        }
-
-        if ((int) ($candidate->parent_choice_line ?? 0) === $choiceLine) {
-            return true;
-        }
-
-        $branch = (string) ($candidate->menu_branch ?? '');
-        if ($branch === '') {
-            return false;
-        }
-
-        return (bool) preg_match('/(?:^|\/)menu:\d+:choice:'.preg_quote((string) $choiceLine, '/').'(?:\/|$)/', $branch);
-    }
-
-    private function findMatchingMenuChoice($edge, array $choices)
-    {
-        if (empty($choices)) {
-            return null;
-        }
-
-        $edgeLine = (int) ($edge->line_number ?? 0);
-
-        foreach ($choices as $choice) {
-            if ((int) ($choice->line_number ?? 0) === $edgeLine) {
-                return $choice;
-            }
-        }
-
-        return $choices[0] ?? null;
-    }
-
-    private function isDuplicateMenuChoiceEdge($edge, array $choices): bool
-    {
-        if (empty($choices) || $edge->edge_type === 'menu_choice') {
-            return false;
-        }
-
-        if (! in_array($edge->edge_type, ['jump', 'call', 'flow'], true)) {
-            return false;
-        }
-
-        $edgeLine = (int) ($edge->line_number ?? 0);
-        foreach ($choices as $choice) {
-            $choiceLine = (int) ($choice->line_number ?? 0);
-            $choiceEdgeType = $this->normalizedMenuChoiceTargetType($choice->edge_type ?: $edge->edge_type);
-            $edgeType = $this->normalizedMenuChoiceTargetType($edge->edge_type);
-            $edgeCondition = $this->normalizeDisplayCondition($edge->condition ?? null);
-
-            if ($edgeCondition !== null && $this->normalizedConditionForComparison($edgeCondition) !== $this->normalizedConditionForComparison($this->choiceEffectiveCondition($choice))) {
-                continue;
-            }
-
-            if ($choiceEdgeType === $edgeType && ($edgeLine <= 0 || $choiceLine <= 0 || $edgeLine >= $choiceLine)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function normalizedMenuChoiceTargetType(?string $edgeType): string
-    {
-        return $edgeType === 'label' ? 'flow' : (string) $edgeType;
-    }
-
-    private function removeUnreachableFallthroughEdges(Collection $edges, array $choiceLookup = []): Collection
-    {
-        $terminalLineBySource = [];
-
-        foreach ($edges as $edge) {
-            if (! in_array($edge->edge_type, ['jump', 'return'], true)) {
-                continue;
-            }
-
-            if (! $this->isUnconditional($edge->condition)) {
-                continue;
-            }
-
-            $line = (int) ($edge->line_number ?? 0);
-            if ($line <= 0) {
-                continue;
-            }
-
-            if ($this->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
-                continue;
-            }
-
-            $source = (string) $edge->from_label;
-            $terminalLineBySource[$source] = min($terminalLineBySource[$source] ?? $line, $line);
-        }
-
-        if (empty($terminalLineBySource)) {
-            return $edges->values();
-        }
-
-        return $edges
-            ->reject(function ($edge) use ($terminalLineBySource) {
-                if ($edge->edge_type !== 'flow') {
-                    return false;
-                }
-
-                if (! $this->isUnconditional($edge->condition)) {
-                    return false;
-                }
-
-                $terminalLine = $terminalLineBySource[(string) $edge->from_label] ?? null;
-                if ($terminalLine === null) {
-                    return false;
-                }
-
-                $line = (int) ($edge->line_number ?? 0);
-
-                return $line > $terminalLine;
-            })
-            ->values();
-    }
-
-    private function removeInputRetrySelfLoopEdges(Collection $edges): Collection
-    {
-        $hasNonSelfOutgoing = [];
-        foreach ($edges as $edge) {
-            if ((string) $edge->from_label === (string) $edge->to_label) {
-                continue;
-            }
-
-            $hasNonSelfOutgoing[(string) $edge->from_label] = true;
-        }
-
-        return $edges
-            ->reject(function ($edge) use ($hasNonSelfOutgoing) {
-                if ($edge->edge_type !== 'jump') {
-                    return false;
-                }
-
-                $source = (string) $edge->from_label;
-                if ($source === '' || $source !== (string) $edge->to_label) {
-                    return false;
-                }
-
-                if (! isset($hasNonSelfOutgoing[$source])) {
-                    return false;
-                }
-
-                return $this->isEmptyInputCondition($edge->condition);
-            })
-            ->values();
-    }
-
-    private function isEmptyInputCondition(?string $condition): bool
-    {
-        $condition = trim((string) $condition);
-        if ($condition === '') {
-            return false;
-        }
-
-        return (bool) preg_match('/\b[A-Za-z_][A-Za-z0-9_]*\s*==\s*([\'"])\1/', $condition);
-    }
-
-    private function normalizeDisplayConditions(array $edges): array
-    {
-        foreach ($edges as &$edge) {
-            $edge['condition'] = $this->normalizeDisplayCondition($edge['condition'] ?? null);
-        }
-        unset($edge);
-
-        return $edges;
-    }
-
-    private function normalizeDisplayCondition(?string $condition): ?string
-    {
-        $condition = trim((string) $condition);
-
-        return $condition === '' || $condition === 'True' ? null : $condition;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $nodes
-     * @param  array<int, array<string, mixed>>  $edges
-     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
-     */
-    private function factorConditionScopeEdges(array $nodes, array $edges): array
-    {
-        $scopesBySource = [];
-
-        foreach ($edges as $edge) {
-            $stack = $this->edgeConditionStack($edge);
-            if (count($stack) < 2) {
-                continue;
-            }
-
-            $source = (string) ($edge['source'] ?? '');
-            if ($source === '') {
-                continue;
-            }
-
-            $prefixStack = [];
-            foreach ($stack as $localCondition) {
-                $prefixStack[] = $localCondition;
-                $prefixCondition = $this->combinedConditionStack($prefixStack);
-                $normalizedPrefix = $this->normalizedConditionForComparison($prefixCondition);
-
-                if ($normalizedPrefix === '') {
-                    continue;
-                }
-
-                $scopesBySource[$source][$normalizedPrefix] = [
-                    'id' => $this->conditionScopeNodeId($source, $prefixCondition),
-                    'label' => $this->conditionScopeLabel($localCondition),
-                    'condition' => $prefixCondition,
-                    'file_path' => $edge['file_path'] ?? null,
-                    'line_number' => (int) ($edge['line_number'] ?? 0),
-                ];
-            }
-        }
-
-        if ($scopesBySource === []) {
-            foreach ($edges as &$edge) {
-                unset($edge['condition_stack']);
-            }
-            unset($edge);
-
-            return [$nodes, $edges];
-        }
-
-        $nodeIds = [];
-        foreach ($nodes as $node) {
-            $nodeIds[(string) ($node['id'] ?? '')] = true;
-        }
-
-        foreach ($scopesBySource as $scopes) {
-            foreach ($scopes as $scope) {
-                if (isset($nodeIds[$scope['id']])) {
-                    continue;
-                }
-
-                $nodes[] = [
-                    'id' => $scope['id'],
-                    'label' => $scope['label'],
-                    'node_type' => 'condition',
-                    'is_ending' => false,
-                    'returns_to_caller' => false,
-                    'is_start' => false,
-                    'has_menu_choice' => false,
-                    'file_path' => $scope['file_path'],
-                    'line_number' => $scope['line_number'],
-                    'outgoing_count' => 0,
-                    'word_count' => 0,
-                    'choices' => [],
-                    'variable_changes' => [],
-                    'is_condition_scope' => true,
-                ];
-                $nodeIds[$scope['id']] = true;
-            }
-        }
-
-        $transformedEdges = [];
-        $scopeEdgeKeys = [];
-        $addScopeEdge = function (string $source, string $target, array $edge) use (&$transformedEdges, &$scopeEdgeKeys): void {
-            if ($source === $target) {
-                return;
-            }
-
-            $key = $source."\0".$target;
-            if (isset($scopeEdgeKeys[$key])) {
-                return;
-            }
-
-            $scopeEdgeKeys[$key] = true;
-            $transformedEdges[] = [
-                'id' => 'condition_scope:'.md5($key),
-                'source' => $source,
-                'target' => $target,
-                'edge_type' => 'condition_scope',
-                'condition' => null,
-                'file_path' => $edge['file_path'] ?? null,
-                'line_number' => $edge['line_number'] ?? 0,
-            ];
-        };
-
-        foreach ($edges as $edge) {
-            $stack = $this->edgeConditionStack($edge);
-            unset($edge['condition_stack']);
-
-            $source = (string) ($edge['source'] ?? '');
-
-            if (count($stack) >= 2 && $source !== '') {
-                $previous = $source;
-                $prefixStack = [];
-
-                foreach ($stack as $localCondition) {
-                    $prefixStack[] = $localCondition;
-                    $prefixCondition = $this->combinedConditionStack($prefixStack);
-                    $scope = $scopesBySource[$source][$this->normalizedConditionForComparison($prefixCondition)] ?? null;
-
-                    if ($scope === null) {
-                        continue;
-                    }
-
-                    $addScopeEdge($previous, $scope['id'], $edge);
-                    $previous = $scope['id'];
-                }
-
-                $edge['id'] = ((string) ($edge['id'] ?? md5(json_encode($edge) ?: 'edge'))).':condition_scope_target';
-                $edge['source'] = $previous;
-                $edge['condition'] = null;
-                $transformedEdges[] = $edge;
-
-                continue;
-            }
-
-            $edgeCondition = $this->normalizedConditionForComparison($edge['condition'] ?? null);
-            $scope = $source !== '' && $edgeCondition !== ''
-                ? ($scopesBySource[$source][$edgeCondition] ?? null)
-                : null;
-
-            if ($scope !== null) {
-                $addScopeEdge($source, $scope['id'], $edge);
-                $edge['id'] = ((string) ($edge['id'] ?? md5(json_encode($edge) ?: 'edge'))).':condition_scope';
-                $edge['source'] = $scope['id'];
-                $edge['condition'] = null;
-            }
-
-            $transformedEdges[] = $edge;
-        }
-
-        return [$nodes, $transformedEdges];
-    }
-
-    /**
-     * @param  array<string, mixed>  $edge
-     * @return array<int, string>
-     */
-    private function edgeConditionStack(array $edge): array
-    {
-        $stack = $edge['condition_stack'] ?? [];
-        if (is_string($stack)) {
-            $decoded = json_decode($stack, true);
-            $stack = is_array($decoded) ? $decoded : [];
-        }
-
-        if (! is_array($stack)) {
-            return [];
-        }
-
-        return collect($stack)
-            ->map(fn ($condition) => $this->normalizeDisplayCondition(is_string($condition) ? $condition : null))
-            ->filter()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<int, string>  $stack
-     */
-    private function combinedConditionStack(array $stack): ?string
-    {
-        $conditions = collect($stack)
-            ->map(fn (string $condition) => $this->normalizeDisplayCondition($condition))
-            ->filter()
-            ->values();
-
-        if ($conditions->isEmpty()) {
-            return null;
-        }
-
-        $combined = $conditions->shift();
-        foreach ($conditions as $condition) {
-            $combined = '('.$combined.') and ('.$condition.')';
-        }
-
-        return $combined;
-    }
-
-    private function conditionScopeNodeId(string $source, ?string $prefixCondition): string
-    {
-        return 'condition_scope:'.md5($source."\0".$this->normalizedConditionForComparison($prefixCondition));
-    }
-
-    private function conditionScopeLabel(?string $condition): string
-    {
-        $condition = $this->normalizeDisplayCondition($condition);
-        if ($condition === null) {
-            return 'if True';
-        }
-
-        if (preg_match('/^not\s*\(.+\)$/', $condition) && ! str_contains($condition, ' and ')) {
-            return 'else';
-        }
-
-        return 'if '.$condition;
-    }
-
-    private function isUnconditional(?string $condition): bool
-    {
-        $condition = trim((string) $condition);
-
-        return $condition === '' || $condition === 'True';
-    }
-
-    /**
-     * When a label has conditional edges alongside unconditional flow edges to
-     * different targets, the flow edges are the implicit "else" case.
-     * Also removes duplicate edges to the same target when a conditional version exists.
-     */
-    /**
-     * When start can only reach a small subset of the graph, bridge to
-     * disconnected components via synthetic edges.
-     * This handles games that use screen-based navigation we can't statically resolve.
-     */
-    private function bridgeDisconnectedComponents(array $nodes, array $edges): array
-    {
-        if (empty($nodes) || empty($edges)) {
-            return $edges;
-        }
-
-        $startId = null;
-        $nodeIndex = [];
-        foreach ($nodes as $n) {
-            $nodeIndex[$n['id']] = $n;
-            if ($n['is_start'] ?? false) {
-                $startId = $n['id'];
-            }
-        }
-
-        if (! $startId) {
-            return $edges;
-        }
-
-        // Early exit: if start node is not a proper label node, skip bridging
-        $startNode = $nodeIndex[$startId] ?? null;
-        if (! $startNode || ($startNode['node_type'] ?? '') !== 'label') {
-            return $edges;
-        }
-
-        // Iteratively bridge: BFS from start, find unreachable entry points, bridge, repeat
-        $maxBridges = 20;
-        for ($attempt = 0; $attempt < $maxBridges; $attempt++) {
-            $adjacency = [];
-            foreach ($edges as $e) {
-                $adjacency[$e['source']][] = $e['target'];
-            }
-
-            $visited = [$startId => true];
-            $queue = [$startId];
-            // Track the last reachable menu-choice label during BFS
-            $lastReachableMenuNode = $startId;
-            while (! empty($queue)) {
-                $current = array_shift($queue);
-                foreach ($adjacency[$current] ?? [] as $target) {
-                    if (! isset($visited[$target])) {
-                        $visited[$target] = true;
-                        $queue[] = $target;
-                        // Track menu-choice labels as potential bridge sources
-                        $targetNode = $nodeIndex[$target] ?? null;
-                        if ($targetNode && ($targetNode['node_type'] ?? '') === 'label' && ($targetNode['has_menu_choice'] ?? false)) {
-                            $lastReachableMenuNode = $target;
-                        }
-                    }
-                }
-            }
-
-            if (count($visited) > count($nodes) * 0.95) {
-                break; // Good enough
-            }
-
-            // Find unreachable label nodes (not choice/hub/ending sub-nodes) that have outgoing edges
-            // These are likely game entry points we can't see
-            $bestBridge = null;
-            $bestOutgoing = 0;
-
-            // Pre-index incoming edges by target for O(1) lookup instead of O(edges) per node
-            $unreachableIncoming = [];
-            foreach ($edges as $e) {
-                if (! isset($visited[$e['target']])) {
-                    $unreachableIncoming[$e['target']] = ($unreachableIncoming[$e['target']] ?? 0) + 1;
-                }
-            }
-
-            foreach ($nodes as $n) {
-                $id = $n['id'];
-                if (isset($visited[$id])) {
-                    continue;
-                }
-                if (($n['node_type'] ?? '') !== 'label') {
-                    continue;
-                }
-
-                $outCount = count($adjacency[$id] ?? []);
-                if ($outCount <= 0) {
-                    continue;
-                }
-
-                // Prefer nodes with no incoming edges from unreachable nodes (true entry points)
-                $hasUnreachableIncoming = ($unreachableIncoming[$id] ?? 0) > 0;
-
-                $score = $outCount + ($hasUnreachableIncoming ? 0 : 1000);
-                if ($score > $bestOutgoing) {
-                    $bestOutgoing = $score;
-                    $bestBridge = $id;
-                }
-            }
-
-            if (! $bestBridge) {
-                break;
-            }
-
-            $bridgeSource = $lastReachableMenuNode;
-
-            $edges[] = [
-                'id' => $bridgeSource.':'.$bestBridge.':bridge',
-                'source' => $bridgeSource,
-                'target' => $bestBridge,
-                'edge_type' => 'flow',
-                'condition' => null,
-            ];
-        }
-
-        return $edges;
-    }
-
-    private function inferElseConditions(array $edges): array
-    {
-        // Group edges by source
-        $bySource = [];
-        foreach ($edges as $i => $edge) {
-            $bySource[$edge['source']][] = $i;
-        }
-
-        foreach ($bySource as $indices) {
-            if (count($indices) < 2) {
-                continue;
-            }
-
-            // Find conditions on conditional edges from this source
-            $conditions = [];
-            $unconditionalFlowIndices = [];
-            foreach ($indices as $i) {
-                $e = $edges[$i];
-                $isUnconditional = empty($e['condition']) || $e['condition'] === 'True';
-                if (! $isUnconditional) {
-                    $conditions[] = $e['condition'];
-                } elseif (in_array($e['edge_type'], ['flow', 'jump'])) {
-                    $unconditionalFlowIndices[] = $i;
-                }
-            }
-
-            if (empty($conditions) || empty($unconditionalFlowIndices)) {
-                continue;
-            }
-
-            // Remove unconditional flow edges that duplicate conditional edges
-            // only when the conditionals do not actually branch to another
-            // target. If conditionals branch elsewhere, the fall-through edge
-            // is the implicit else path and must remain visible.
-            $conditionalTargets = [];
-            foreach ($indices as $i) {
-                $cond = $edges[$i]['condition'] ?? null;
-                if (! empty($cond) && $cond !== 'True') {
-                    $conditionalTargets[$edges[$i]['target']] = true;
-                }
-            }
-            $hasConditionalBranch = count($conditionalTargets) > 1;
-            foreach ($unconditionalFlowIndices as $j => $i) {
-                if (! $hasConditionalBranch && isset($conditionalTargets[$edges[$i]['target']])) {
-                    unset($edges[$i]);
-                    unset($unconditionalFlowIndices[$j]);
-                }
-            }
-
-            // For remaining unconditional flow edges, infer the else condition
-            if (! empty($conditions) && ! empty($unconditionalFlowIndices)) {
-                $conditionParts = array_map(fn (string $condition) => '('.$condition.')', array_values(array_unique($conditions)));
-                $elseCondition = 'not ('.implode(' or ', $conditionParts).')';
-
-                foreach ($unconditionalFlowIndices as $i) {
-                    if (isset($edges[$i])) {
-                        $edges[$i]['condition'] = $elseCondition;
-                    }
-                }
-            }
-        }
-
-        return array_values($edges);
-    }
-
-    private function formatVarChanges(Collection $varChanges, ?string $onlyContext = null, bool $excludeChoiceContexts = false): array
-    {
-        $filtered = $varChanges;
-
-        if ($onlyContext !== null) {
-            $filtered = $filtered->filter(fn ($vc) => $vc->context === $onlyContext);
-        }
-
-        if ($excludeChoiceContexts) {
-            $filtered = $filtered->reject(fn ($vc) => str_starts_with((string) $vc->context, 'menu_choice:'));
-        }
-
-        return $filtered->map(function ($vc) {
-            return [
-                'variable' => $vc->variable_name,
-                'operation' => $vc->operation,
-                'value' => $this->formatVariableValue($vc->value),
-                'context' => $vc->context,
-                'condition' => $this->normalizeDisplayCondition($vc->condition ?? null),
-                'condition_stack' => $this->variableChangeConditionStack($vc),
-            ];
-        })->values()->toArray();
-    }
-
-    /**
-     * Detect if a menu is a "function menu" (chapter select, gallery, etc.)
-     * rather than a normal gameplay choice menu.
-     *
-     * Function menus are identified by:
-     * - Label names containing keywords like "chapter", "gallery", "select", "menu_main"
-     * - Prompt text indicating chapter/scene selection
-     * - Choice text patterns like "Chapter X", "Scene Y", "CG Gallery"
-     */
-    private function isFunctionMenu(string $labelName, $choices, ?string $prompt): bool
-    {
-        // Check label name patterns
-        $labelPatterns = [
-            '/chapter[_\s]?select/i',
-            '/chapter[_\s]?menu/i',
-            '/chapitre[_\s]?(?:select|selec|menu)/i',
-            '/(?:selection|sélection)[_\s]?chapitre/i',
-            '/gallery|galerie/i',
-            '/select[_\s]?screen/i',
-            '/main[_\s]?menu/i',
-            '/extras/i',
-            '/bonus/i',
-        ];
-        foreach ($labelPatterns as $pattern) {
-            if (preg_match($pattern, $labelName)) {
-                return true;
-            }
-        }
-
-        // Check prompt text patterns
-        if ($prompt) {
-            $promptPatterns = [
-                '/^(select|choose)\s+(a\s+)?chapter/i',
-                '/^(select|choose)\s+(a\s+)?scene/i',
-                '/^(choisir|sélectionner|selectionner)\s+(un\s+|une\s+)?chapitre/i',
-                '/^chapter\s+select/i',
-                '/^chapitre\s+(select|sélection|selection)/i',
-                '/^scene\s+select/i',
-                '/^jump\s+to/i',
-            ];
-            foreach ($promptPatterns as $pattern) {
-                if (preg_match($pattern, trim($prompt))) {
-                    return true;
-                }
-            }
-        }
-
-        // Check if all choices look like chapter/scene selectors
-        if ($choices->count() > 5) {
-            $chapterLikeChoices = 0;
-            foreach ($choices as $choice) {
-                $text = $choice->text ?? '';
-                // Match patterns like "Chapter 1", "Chapitre 1", "Scene 5",
-                // "Prologue", "Epilogue", "Day 1", "Route A".
-                if (preg_match('/^(chapter|chapitre|scene|scène|day|jour|route|part|partie|act|acte)\s*\d+/i', $text) ||
-                    preg_match('/^(prologue|epilogue|épilogue|intro|ending|fin|bonus|extra|gallery|galerie|cg)/i', $text)) {
-                    $chapterLikeChoices++;
-                }
-            }
-            // If >80% of choices look like chapter selectors, it's likely a function menu
-            if ($chapterLikeChoices / $choices->count() > 0.8) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

@@ -9,6 +9,7 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VnList;
+use App\Services\GameSocialMetaBuilder;
 use App\Services\HtmlSanitizerService;
 use App\Services\SimilarGamesService;
 use App\Traits\HasSocialMetaTags;
@@ -170,8 +171,7 @@ class GamesDisplayController extends Controller
             $game->user_progress = $userProgress ? [$userProgress] : [];
         }
 
-        // Prepare social meta tags
-        $this->prepareSocialMetaTags($game, $reviews, $englishStats);
+        $this->setMetaTags(app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats));
 
         // Calculate character counts for each version (for dialogue browser links)
         // Optimized: Use batch query instead of N+1
@@ -498,108 +498,8 @@ class GamesDisplayController extends Controller
         ]);
     }
 
-    /**
-     * Prepare social meta tags for game page
-     */
     private function prepareSocialMetaTags(Game $game, $reviews, ?array $englishStats = null): void
     {
-        $title = $game->effective_name;
-        $description = $game->description ?: "Discover {$game->effective_name} on fvn.li - Visual Novel Database and Analytics";
-
-        // Use optimized thumbnail for social sharing, fallback to default social image
-        $image = $game->getThumbnailUrl('default') ?? asset(config('social.images.default'));
-
-        // Add game-specific info to description
-        $metaDescription = $description;
-        if ($game->authors) {
-            $authors = strip_tags($game->authors);
-            $metaDescription .= " by {$authors}";
-        }
-        if ($game->status) {
-            $metaDescription .= " ({$game->status})";
-        }
-
-        // Add word count information
-        if ($englishStats && isset($englishStats['words']) && is_numeric($englishStats['words']) && (int) $englishStats['words'] > 0) {
-            $wordCount = number_format((int) $englishStats['words']);
-            $metaDescription .= " - {$wordCount} words";
-        }
-
-        // Add platform information
-        $platforms = [];
-        if ($game->latestVersion) {
-            if ($game->latestVersion->is_windows) {
-                $platforms[] = 'Windows';
-            }
-            if ($game->latestVersion->is_mac) {
-                $platforms[] = 'macOS';
-            }
-            if ($game->latestVersion->is_linux) {
-                $platforms[] = 'Linux';
-            }
-            if ($game->latestVersion->is_android) {
-                $platforms[] = 'Android';
-            }
-            if ($game->latestVersion->is_web) {
-                $platforms[] = 'Web';
-            }
-        }
-        if (! empty($platforms)) {
-            $metaDescription .= ' - Available on: '.implode(', ', $platforms);
-        }
-
-        if ($reviews->total() > 0) {
-            $metaDescription .= " - {$reviews->total()} reviews";
-        }
-
-        // Prepare tags for Open Graph
-        $tags = $game->tags->pluck('name')->toArray();
-
-        $this->setMetaTags([
-            'title' => $title,
-            'browserTitle' => $title,
-            'socialTitle' => $title,
-            'description' => $metaDescription,
-            'image' => $image,
-            'url' => route('games.show', $game),
-            'type' => 'article',
-            'siteName' => 'FVN.li',
-            'locale' => 'en_US',
-            'twitterCard' => 'summary_large_image',
-            'author' => $game->authors ? strip_tags($game->authors) : null,
-            'publishedTime' => $game->initially_published_at?->toIso8601String(),
-            'modifiedTime' => $game->latest_version_published_at?->toIso8601String() ?? $game->updated_at->toIso8601String(),
-            'section' => 'Visual Novels',
-            'tags' => $tags,
-            'noindex' => ! $game->is_visible,
-            'structuredData' => array_filter([
-                '@type' => 'VideoGame',
-                'name' => $game->name,
-                'description' => $game->description,
-                'image' => $image,
-                'url' => route('games.show', $game),
-                'author' => $game->authors ? [
-                    '@type' => 'Organization',
-                    'name' => strip_tags($game->authors),
-                ] : null,
-                'datePublished' => $game->initially_published_at?->toIso8601String(),
-                'dateModified' => $game->latest_version_published_at?->toIso8601String() ?? $game->updated_at->toIso8601String(),
-                'genre' => $tags,
-                'gamePlatform' => $platforms,
-                'offers' => $game->is_paid ? [
-                    '@type' => 'Offer',
-                    'price' => $game->current_price ?? $game->min_price,
-                    'priceCurrency' => 'USD',
-                    'availability' => 'https://schema.org/InStock',
-                ] : null,
-                'aggregateRating' => $game->rating_score ? [
-                    '@type' => 'AggregateRating',
-                    'ratingValue' => round($game->rating_score, 2),
-                    'ratingCount' => $game->rating_count,
-                    'bestRating' => 5,
-                    'worstRating' => 1,
-                ] : null,
-            ], fn ($value) => $value !== null),
-        ]);
+        $this->setMetaTags(app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats));
     }
 }
