@@ -16,12 +16,6 @@ use ZipArchive;
 
 class GameArchiveOptimizationService
 {
-    private const METADATA_FILENAME = '.fvn-archive-metadata.json';
-
-    private const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
-
-    private const AUDIO_EXTENSIONS = ['wav', 'flac', 'mp3'];
-
     public function __construct(
         private readonly GameStatsService $statsService
     ) {}
@@ -81,7 +75,8 @@ class GameArchiveOptimizationService
 
             $this->reportProgress($progress, 'Extracting archive');
             $this->extractArchive($archivePath, $workDir);
-            $originalFileInventory = $this->archiveFileInventory($workDir);
+            $metadataService = app(ArchiveOptimizationMetadataService::class);
+            $originalFileInventory = $metadataService->inventory($workDir);
             $previousOptimizedContext = $this->previousOptimizedArchiveContext($gameId, $versionId);
             $gameDir = $this->findGameDirectory($workDir);
             if ($gameDir === null) {
@@ -95,25 +90,27 @@ class GameArchiveOptimizationService
 
             $contentDir = $gameDir.'/game';
 
-            $rpaFiles = $this->filesWithExtensions($contentDir, ['rpa']);
+            $rpaFiles = app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpa']);
             $this->reportProgress($progress, sprintf('Unpacking %d RPA file(s)', count($rpaFiles)));
             $this->unpackRpaFiles($rpaFiles, $contentDir);
 
-            $rpycFiles = $this->filesWithExtensions($contentDir, ['rpyc']);
+            $rpycFiles = app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpyc']);
             $this->reportProgress($progress, sprintf('Decompiling missing RPY sources from %d RPYC file(s)', count($rpycFiles)));
             $rpycDecompileFailures = $this->decompileRpycFiles($rpycFiles, $progress);
 
-            $imageResult = $this->optimizeImages($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
-            $audioResult = $this->optimizeAudio($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
+            $mediaOptimizer = app(ArchiveMediaOptimizer::class);
+            $imageResult = $mediaOptimizer->optimizeImages($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
+            $audioResult = $mediaOptimizer->optimizeAudio($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
             $this->reportProgress($progress, 'Updating script references');
-            $referencesUpdated = $this->replaceScriptReferences(
+            $referencesUpdated = $mediaOptimizer->replaceScriptReferences(
                 $contentDir,
                 array_merge($imageResult['replacements'], $audioResult['replacements'])
             );
 
-            $this->writeOptimizationMetadata(
+            $metadataService->write(
                 $workDir,
                 $archivePath,
+                $this->archiveExtension($archivePath),
                 $originalSize,
                 $originalFileInventory,
                 array_merge($imageResult['replacements'], $audioResult['replacements'])
@@ -384,258 +381,6 @@ class GameArchiveOptimizationService
         return $line === null ? 'decompiler exited unsuccessfully' : str($line)->limit(180)->toString();
     }
 
-    /**
-     * @param  array{extract_path: string, source_hashes: array<string, string>, target_paths: array<string, string>}|null  $previousOptimizedContext
-     * @return array{optimized: int, reused: int, replacements: array<string, string>}
-     */
-    private function optimizeImages(
-        string $contentDir,
-        string $gameDir,
-        string $sourceDir,
-        ?array $previousOptimizedContext,
-        ?callable $progress = null
-    ): array {
-        $optimized = 0;
-        $reused = 0;
-        $replacements = [];
-        $files = $this->filesWithExtensions($contentDir, self::IMAGE_EXTENSIONS);
-        $total = count($files);
-        $processed = 0;
-
-        $this->reportProgress($progress, sprintf('Optimizing %d image file(s)', $total));
-
-        foreach ($files as $file) {
-            $processed++;
-            $target = preg_replace('/\.(png|jpe?g)$/i', '.webp', $file);
-            if ($target === null || $target === $file) {
-                $this->reportMediaProgress($progress, 'images', $processed, $total, $optimized);
-
-                continue;
-            }
-
-            if ($this->reusePreviousOptimizedMedia($file, $target, $sourceDir, $gameDir, $previousOptimizedContext)) {
-                $replacements[$this->relativeGamePath($gameDir, $file)] = $this->relativeGamePath($gameDir, $target);
-                File::delete($file);
-                $optimized++;
-                $reused++;
-                $this->reportMediaProgress($progress, 'images', $processed, $total, $optimized);
-
-                continue;
-            }
-
-            $process = new Process([
-                $this->binary('magick') ?? $this->binary('convert') ?? 'magick',
-                $file,
-                '-strip',
-                '-quality',
-                '78',
-                $target,
-            ]);
-            $process->setTimeout(300);
-            $process->run();
-
-            if (! $process->isSuccessful() || ! File::exists($target) || File::size($target) >= File::size($file)) {
-                File::delete($target);
-                $this->reportMediaProgress($progress, 'images', $processed, $total, $optimized);
-
-                continue;
-            }
-
-            $replacements[$this->relativeGamePath($gameDir, $file)] = $this->relativeGamePath($gameDir, $target);
-            File::delete($file);
-            $optimized++;
-            $this->reportMediaProgress($progress, 'images', $processed, $total, $optimized);
-        }
-
-        return ['optimized' => $optimized, 'reused' => $reused, 'replacements' => $replacements];
-    }
-
-    /**
-     * @param  array{extract_path: string, source_hashes: array<string, string>, target_paths: array<string, string>}|null  $previousOptimizedContext
-     * @return array{optimized: int, reused: int, replacements: array<string, string>}
-     */
-    private function optimizeAudio(
-        string $contentDir,
-        string $gameDir,
-        string $sourceDir,
-        ?array $previousOptimizedContext,
-        ?callable $progress = null
-    ): array {
-        $optimized = 0;
-        $reused = 0;
-        $replacements = [];
-        $files = $this->filesWithExtensions($contentDir, self::AUDIO_EXTENSIONS);
-        $total = count($files);
-        $processed = 0;
-
-        $this->reportProgress($progress, sprintf('Optimizing %d audio file(s)', $total));
-
-        foreach ($files as $file) {
-            $processed++;
-            $target = preg_replace('/\.(wav|flac|mp3)$/i', '.ogg', $file);
-            if ($target === null || $target === $file) {
-                $this->reportMediaProgress($progress, 'audio files', $processed, $total, $optimized);
-
-                continue;
-            }
-
-            if ($this->reusePreviousOptimizedMedia($file, $target, $sourceDir, $gameDir, $previousOptimizedContext)) {
-                $replacements[$this->relativeGamePath($gameDir, $file)] = $this->relativeGamePath($gameDir, $target);
-                File::delete($file);
-                $optimized++;
-                $reused++;
-                $this->reportMediaProgress($progress, 'audio files', $processed, $total, $optimized);
-
-                continue;
-            }
-
-            $process = new Process([
-                $this->binary('ffmpeg') ?? 'ffmpeg',
-                '-y',
-                '-i',
-                $file,
-                '-map_metadata',
-                '-1',
-                '-vn',
-                '-c:a',
-                'libvorbis',
-                '-q:a',
-                '4',
-                $target,
-            ]);
-            $process->setTimeout(300);
-            $process->run();
-
-            if (! $process->isSuccessful() || ! File::exists($target) || File::size($target) >= File::size($file)) {
-                File::delete($target);
-                $this->reportMediaProgress($progress, 'audio files', $processed, $total, $optimized);
-
-                continue;
-            }
-
-            $replacements[$this->relativeGamePath($gameDir, $file)] = $this->relativeGamePath($gameDir, $target);
-            File::delete($file);
-            $optimized++;
-            $this->reportMediaProgress($progress, 'audio files', $processed, $total, $optimized);
-        }
-
-        return ['optimized' => $optimized, 'reused' => $reused, 'replacements' => $replacements];
-    }
-
-    /**
-     * @param  array{extract_path: string, source_hashes: array<string, string>, target_paths: array<string, string>}|null  $previousOptimizedContext
-     */
-    private function reusePreviousOptimizedMedia(
-        string $sourcePath,
-        string $targetPath,
-        string $sourceDir,
-        string $gameDir,
-        ?array $previousOptimizedContext
-    ): bool {
-        if ($previousOptimizedContext === null) {
-            return false;
-        }
-
-        $relativeSourcePath = $this->relativeArchivePath($sourceDir, $sourcePath);
-        $relativeGameSourcePath = $this->relativeGamePath($gameDir, $sourcePath);
-        $previousSourceHash = $previousOptimizedContext['source_hashes'][$relativeGameSourcePath]
-            ?? $previousOptimizedContext['source_hashes'][$relativeSourcePath]
-            ?? null;
-        if ($previousSourceHash === null || $previousSourceHash !== hash_file('sha256', $sourcePath)) {
-            return false;
-        }
-
-        $relativeTargetPath = $previousOptimizedContext['target_paths'][$relativeGameSourcePath]
-            ?? $this->relativeArchivePath($sourceDir, $targetPath);
-        $previousTargetPath = $this->containedPath($previousOptimizedContext['extract_path'], $relativeTargetPath);
-        if ($previousTargetPath === null) {
-            return false;
-        }
-
-        if (! File::isFile($previousTargetPath) || File::size($previousTargetPath) >= File::size($sourcePath)) {
-            return false;
-        }
-
-        File::ensureDirectoryExists(dirname($targetPath));
-
-        return File::copy($previousTargetPath, $targetPath);
-    }
-
-    /**
-     * @param  array<string, string>  $replacements
-     */
-    private function replaceScriptReferences(string $contentDir, array $replacements): int
-    {
-        if (empty($replacements)) {
-            return 0;
-        }
-
-        $basenameCounts = [];
-        foreach (array_keys($replacements) as $oldPath) {
-            $basenameCounts[basename($oldPath)] = ($basenameCounts[basename($oldPath)] ?? 0) + 1;
-        }
-
-        $updated = 0;
-        foreach ($this->filesWithExtensions($contentDir, ['rpy']) as $scriptFile) {
-            $contents = File::get($scriptFile);
-            $original = $contents;
-
-            foreach ($replacements as $oldPath => $newPath) {
-                $contents = str_replace([$oldPath, 'game/'.$oldPath], [$newPath, 'game/'.$newPath], $contents);
-
-                $oldBasename = basename($oldPath);
-                if (($basenameCounts[$oldBasename] ?? 0) === 1) {
-                    $contents = str_replace(
-                        ['"'.$oldBasename.'"', "'".$oldBasename."'"],
-                        ['"'.basename($newPath).'"', "'".basename($newPath)."'"],
-                        $contents
-                    );
-                }
-            }
-
-            if ($contents !== $original) {
-                File::put($scriptFile, $contents);
-                $updated++;
-            }
-        }
-
-        return $updated;
-    }
-
-    /**
-     * @param  array<int, string>  $extensions
-     * @return array<int, string>
-     */
-    private function filesWithExtensions(string $dir, array $extensions): array
-    {
-        $files = [];
-        $extensionLookup = array_fill_keys(array_map('strtolower', $extensions), true);
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
-
-        foreach ($iterator as $file) {
-            if (! $file->isFile()) {
-                continue;
-            }
-
-            if (isset($extensionLookup[strtolower($file->getExtension())])) {
-                $files[] = $file->getPathname();
-            }
-        }
-
-        sort($files);
-
-        return $files;
-    }
-
-    private function reportMediaProgress(?callable $progress, string $label, int $processed, int $total, int $optimized): void
-    {
-        if ($progress === null || $processed === 0 || ($processed % 100 !== 0 && $processed !== $total)) {
-            return;
-        }
-
-        $progress(sprintf('Processed %d/%d %s (%d kept smaller)', $processed, $total, $label, $optimized));
-    }
-
     private function reportProgress(?callable $progress, string $message): void
     {
         if ($progress === null) {
@@ -674,66 +419,6 @@ class GameArchiveOptimizationService
         if (! $process->isSuccessful()) {
             throw new RuntimeException('Failed to create optimized archive: '.$process->getErrorOutput());
         }
-    }
-
-    /**
-     * @return array<int, array{path: string, size: int, sha256: string}>
-     */
-    private function archiveFileInventory(string $sourceDir): array
-    {
-        $files = [];
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($sourceDir));
-
-        foreach ($iterator as $file) {
-            if (! $file->isFile()) {
-                continue;
-            }
-
-            $path = $file->getPathname();
-            $files[] = [
-                'path' => $this->relativeArchivePath($sourceDir, $path),
-                'size' => $file->getSize(),
-                'sha256' => hash_file('sha256', $path) ?: '',
-            ];
-        }
-
-        usort($files, fn (array $a, array $b): int => $a['path'] <=> $b['path']);
-
-        return $files;
-    }
-
-    /**
-     * @param  array<int, array{path: string, size: int, sha256: string}>  $originalFileInventory
-     * @param  array<string, string>  $mediaReplacements
-     */
-    private function writeOptimizationMetadata(
-        string $workDir,
-        string $archivePath,
-        int $originalSize,
-        array $originalFileInventory,
-        array $mediaReplacements
-    ): void {
-        $metadata = [
-            'schema' => 'fvn.archive_optimization.v1',
-            'generated_at' => now()->toIso8601String(),
-            'optimized_by' => 'fvn.li archive optimizer',
-            'original_archive' => [
-                'filename' => basename($archivePath),
-                'format' => $this->archiveExtension($archivePath),
-                'size' => $originalSize,
-                'sha256' => hash_file('sha256', $archivePath) ?: '',
-            ],
-            'original_files' => $originalFileInventory,
-            'optimized_files' => $this->archiveFileInventory($workDir),
-            'media_replacements' => $mediaReplacements,
-        ];
-
-        $json = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        if ($json === false) {
-            throw new RuntimeException('Failed to encode archive optimization metadata');
-        }
-
-        File::put($workDir.'/'.self::METADATA_FILENAME, $json."\n");
     }
 
     /**
@@ -776,15 +461,16 @@ class GameArchiveOptimizationService
             File::makeDirectory($extractPath, 0755, true);
             $this->extractArchive($archivePath, $extractPath);
 
-            $metadata = $this->readExtractedOptimizationMetadata($extractPath);
+            $metadataService = app(ArchiveOptimizationMetadataService::class);
+            $metadata = $metadataService->readExtracted($extractPath);
             if (! is_array($metadata)) {
                 File::deleteDirectory($extractPath);
 
                 continue;
             }
 
-            $sourceHashes = $this->sourceHashesFromMetadata($metadata);
-            $targetPaths = $this->targetPathsFromMetadata($metadata);
+            $sourceHashes = $metadataService->sourceHashesFrom($metadata);
+            $targetPaths = $metadataService->targetPathsFrom($metadata);
             if ($sourceHashes === []) {
                 File::deleteDirectory($extractPath);
 
@@ -799,148 +485,6 @@ class GameArchiveOptimizationService
         }
 
         return null;
-    }
-
-    private function readExtractedOptimizationMetadata(string $extractPath): ?array
-    {
-        $metadataPath = $extractPath.'/'.self::METADATA_FILENAME;
-        if (! File::isFile($metadataPath)) {
-            return null;
-        }
-
-        $metadata = json_decode(File::get($metadataPath), true);
-        if (! is_array($metadata) || ($metadata['schema'] ?? null) !== 'fvn.archive_optimization.v1') {
-            return null;
-        }
-
-        return $metadata;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function sourceHashesFromMetadata(array $metadata): array
-    {
-        $sourceHashes = [];
-        foreach (($metadata['original_files'] ?? []) as $file) {
-            if (! is_array($file) || ! isset($file['path'], $file['sha256'])) {
-                continue;
-            }
-
-            $archivePath = $this->safeRelativeArchivePath((string) $file['path']);
-            if ($archivePath === null) {
-                continue;
-            }
-
-            $sourceHashes[$archivePath] = (string) $file['sha256'];
-            if (($gamePath = $this->metadataGamePath($archivePath)) !== null) {
-                $sourceHashes[$gamePath] = (string) $file['sha256'];
-            }
-        }
-
-        return $sourceHashes;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function targetPathsFromMetadata(array $metadata): array
-    {
-        $optimizedFiles = array_values(array_filter(
-            $metadata['optimized_files'] ?? [],
-            fn (mixed $file): bool => is_array($file) && isset($file['path'])
-        ));
-        $targetPaths = [];
-
-        foreach (($metadata['media_replacements'] ?? []) as $sourcePath => $targetPath) {
-            if (! is_string($sourcePath) || ! is_string($targetPath)) {
-                continue;
-            }
-
-            $sourcePath = $this->safeRelativeArchivePath($sourcePath);
-            $targetPath = $this->safeRelativeArchivePath($targetPath);
-            if ($sourcePath === null || $targetPath === null) {
-                continue;
-            }
-
-            $archiveTargetPath = collect($optimizedFiles)
-                ->map(fn (array $file): ?string => $this->safeRelativeArchivePath((string) $file['path']))
-                ->filter()
-                ->first(fn (string $path): bool => $path === 'game/'.$targetPath || str_ends_with($path, '/game/'.$targetPath));
-
-            if ($archiveTargetPath !== null) {
-                $targetPaths[$sourcePath] = $archiveTargetPath;
-            }
-        }
-
-        return $targetPaths;
-    }
-
-    private function metadataGamePath(string $archivePath): ?string
-    {
-        if (str_starts_with($archivePath, 'game/')) {
-            return substr($archivePath, strlen('game/'));
-        }
-
-        $needle = '/game/';
-        $position = strpos($archivePath, $needle);
-        if ($position === false) {
-            return null;
-        }
-
-        return substr($archivePath, $position + strlen($needle));
-    }
-
-    private function safeRelativeArchivePath(string $path): ?string
-    {
-        $path = str_replace('\\', '/', trim($path));
-        if (
-            $path === '' ||
-            str_contains($path, "\0") ||
-            str_starts_with($path, '/') ||
-            preg_match('/^[A-Za-z]:\//', $path) === 1
-        ) {
-            return null;
-        }
-
-        $parts = [];
-        foreach (explode('/', $path) as $part) {
-            if ($part === '' || $part === '.') {
-                continue;
-            }
-
-            if ($part === '..') {
-                return null;
-            }
-
-            $parts[] = $part;
-        }
-
-        return $parts === [] ? null : implode('/', $parts);
-    }
-
-    private function containedPath(string $basePath, string $relativePath): ?string
-    {
-        $relativePath = $this->safeRelativeArchivePath($relativePath);
-        if ($relativePath === null) {
-            return null;
-        }
-
-        $baseRealPath = realpath($basePath);
-        if ($baseRealPath === false) {
-            return null;
-        }
-
-        $candidate = $baseRealPath.'/'.$relativePath;
-        $candidateRealPath = realpath($candidate);
-        if ($candidateRealPath === false) {
-            return null;
-        }
-
-        $baseRealPath = rtrim(str_replace('\\', '/', $baseRealPath), '/').'/';
-        $candidateRealPath = str_replace('\\', '/', $candidateRealPath);
-
-        return str_starts_with($candidateRealPath, $baseRealPath) ? $candidateRealPath : null;
     }
 
     private function createZipFromDirectory(string $sourceDir, string $targetPath): void
@@ -1026,11 +570,6 @@ class GameArchiveOptimizationService
     private function storageRelativePath(string $path): string
     {
         return ltrim(str_replace(Storage::path(''), '', $path), '/');
-    }
-
-    private function relativeGamePath(string $gameDir, string $path): string
-    {
-        return ltrim(str_replace('\\', '/', substr($path, strlen($gameDir.'/game/'))), '/');
     }
 
     private function relativeArchivePath(string $sourceDir, string $path): string

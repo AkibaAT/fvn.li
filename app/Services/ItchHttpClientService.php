@@ -25,6 +25,8 @@ class ItchHttpClientService
 
     private ?FlareSolverrSessionManager $sessionManager = null;
 
+    private ItchCloudflareChallengeDetector $challengeDetector;
+
     /**
      * Create a new ItchHttpClientService instance.
      */
@@ -35,6 +37,7 @@ class ItchHttpClientService
         private int $baseCooldown = 30
     ) {
         $this->anonymousClient = $this->clientFactory->createClient();
+        $this->challengeDetector = app(ItchCloudflareChallengeDetector::class);
 
         // Always use FlareSolverr for HTML requests (Cloudflare-protected)
         // API requests are automatically skipped (not Cloudflare-protected)
@@ -104,7 +107,7 @@ class ItchHttpClientService
                 $statusCode = $response->getStatusCode();
 
                 // Check for Cloudflare challenge (403 or specific response patterns)
-                if (! $anonymous && ! $cloudflareRetried && $this->isCloudflareChallenge($response)) {
+                if (! $anonymous && ! $cloudflareRetried && $this->challengeDetector->isChallenge($response)) {
                     Log::warning('Cloudflare challenge detected, refreshing authentication', [
                         'url' => $url,
                         'status_code' => $statusCode,
@@ -302,72 +305,6 @@ class ItchHttpClientService
         }
 
         return $this->authenticatedClient;
-    }
-
-    /**
-     * Check if the response indicates a Cloudflare challenge
-     *
-     * @param  ResponseInterface  $response  The response to check
-     * @return bool True if the response appears to be a Cloudflare challenge
-     */
-    private function isCloudflareChallenge(ResponseInterface $response): bool
-    {
-        $statusCode = $response->getStatusCode();
-        $body = $response->getBody()->getContents();
-
-        // Reset body stream so it can be read again
-        $response->getBody()->rewind();
-
-        // Check for common Cloudflare challenge indicators
-        $cloudflareIndicators = [
-            'cf-challenge',
-            'cf-captcha-container',
-            'Checking your browser',
-            'Just a moment',
-            'Enable JavaScript and cookies to continue',
-            'cf-error-details',
-            'cloudflare',
-        ];
-
-        // 403 with Cloudflare indicators
-        if ($statusCode === 403) {
-            foreach ($cloudflareIndicators as $indicator) {
-                if (stripos($body, $indicator) !== false) {
-                    Log::info('Cloudflare challenge detected', [
-                        'status_code' => $statusCode,
-                        'indicator' => $indicator,
-                    ]);
-
-                    return true;
-                }
-            }
-        }
-
-        // Check for redirect to Cloudflare challenge page
-        if ($statusCode === 302 || $statusCode === 301) {
-            $location = $response->getHeaderLine('Location');
-            if (stripos($location, 'cdn-cgi/challenge') !== false) {
-                Log::info('Cloudflare challenge redirect detected', [
-                    'status_code' => $statusCode,
-                    'location' => $location,
-                ]);
-
-                return true;
-            }
-        }
-
-        // Check for Cloudflare server header with challenge response
-        $server = $response->getHeaderLine('Server');
-        if (stripos($server, 'cloudflare') !== false && $statusCode === 403) {
-            Log::info('Cloudflare 403 detected', [
-                'status_code' => $statusCode,
-                'server' => $server,
-            ]);
-
-            return true;
-        }
-
-        return false;
     }
 
     /**

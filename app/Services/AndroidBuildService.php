@@ -7,35 +7,22 @@ namespace App\Services;
 use App\Models\AndroidBuild;
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Traits\HandlesLocalImages;
-use App\ValueObjects\Upload;
 use Exception;
-use GuzzleHttp\Client;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\Encoders\JpegEncoder;
-use Intervention\Image\ImageManager;
 use RuntimeException;
 use Symfony\Component\Process\Process as SymfonyProcess;
 use ZipArchive;
 
 class AndroidBuildService
 {
-    use HandlesLocalImages;
-
-    private ImageManager $imageManager;
-
     public function __construct(
         private readonly GameArchiveService $archiveService,
-        private readonly Client $httpClient,
-        private readonly ImageDownloadUrlValidator $imageUrlValidator
+        private readonly ?AndroidBuildArchiveResolver $archiveResolver = null,
     ) {
-        // Initialize ImageManager with GD driver using fully qualified class name
-        $this->imageManager = new ImageManager(Driver::class);
     }
 
     /**
@@ -153,164 +140,7 @@ class AndroidBuildService
             $build->keystore_path = $keystorePath;
             $build->save();
 
-            // Get the archive path
-            $archivePath = $this->archiveService->getStoredArchive($game->id, $version->id);
-            if (! $archivePath) {
-                Log::info('No local archive found, checking uploads in database', [
-                    'game_id' => $game->id,
-                    'version_id' => $version->id,
-                    'game_name' => $game->name,
-                ]);
-
-                // Get uploads directly from the database
-                $uploads = $game->uploads ?? [];
-
-                // Log the raw uploads data for debugging
-                Log::info('Raw uploads data from database', [
-                    'game_id' => $game->id,
-                    'game_name' => $game->name,
-                    'uploads_type' => gettype($uploads),
-                    'is_array' => is_array($uploads),
-                    'is_null' => is_null($uploads),
-                    'is_empty' => empty($uploads),
-                ]);
-
-                // If uploads is a string, try to decode it as JSON
-                if (is_string($uploads) && ! empty($uploads)) {
-                    try {
-                        $decodedUploads = json_decode($uploads, true);
-                        if (json_last_error() === JSON_ERROR_NONE && is_array($decodedUploads)) {
-                            $uploads = $decodedUploads;
-                            Log::info('Successfully decoded uploads JSON string', [
-                                'count' => count($uploads),
-                            ]);
-                        }
-                    } catch (Exception $e) {
-                        Log::warning('Error decoding uploads JSON string', [
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                }
-
-                // If uploads is not an array, try to convert it
-                if (! is_array($uploads) && ! is_null($uploads)) {
-                    try {
-                        if (is_string($uploads)) {
-                            // Try to decode JSON string
-                            $decodedUploads = json_decode($uploads, true);
-                            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedUploads)) {
-                                $uploads = $decodedUploads;
-                                Log::info('Successfully converted uploads string to array', [
-                                    'count' => count($uploads),
-                                ]);
-                            } else {
-                                Log::warning('Failed to decode uploads JSON string', [
-                                    'json_error' => json_last_error_msg(),
-                                ]);
-                            }
-                        } else {
-                            // Try to convert to array
-                            $uploads = (array) $uploads;
-                            Log::info('Converted uploads to array', [
-                                'count' => count($uploads),
-                            ]);
-                        }
-                    } catch (Exception $e) {
-                        Log::error('Error converting uploads to array', [
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                }
-
-                // Ensure uploads is an array
-                if (! is_array($uploads)) {
-                    $uploads = [];
-                }
-
-                // If we still don't have any uploads, we can't proceed
-                if (empty($uploads)) {
-                    Log::error('No uploads found for game', [
-                        'game_id' => $game->id,
-                        'game_name' => $game->name,
-                        'game_url' => $game->url,
-                    ]);
-
-                    throw new Exception('No uploads found for this game. Please ensure the game has downloadable files on itch.io.');
-                }
-
-                Log::info('Available uploads for game', [
-                    'game_id' => $game->id,
-                    'uploads_count' => count($uploads),
-                    'uploads' => array_map(function ($upload) {
-                        return [
-                            'id' => $upload['id'] ?? 'unknown',
-                            'filename' => $upload['filename'] ?? 'unknown',
-                            'size' => $upload['size'] ?? 'unknown',
-                        ];
-                    }, $uploads),
-                ]);
-
-                // Convert the raw uploads array to Upload objects
-                $uploadObjects = collect();
-                foreach ($uploads as $key => $upload) {
-                    // If the upload doesn't have an ID but the key is numeric, use the key as the ID
-                    if ((! isset($upload['id']) || $upload['id'] === 'unknown') && is_numeric($key)) {
-                        $id = (int) $key;
-                    } else {
-                        $id = $upload['id'] ?? 0;
-                    }
-
-                    // Make sure we have the required fields
-                    $upload['updated_at'] = $upload['updated_at'] ?? date('Y-m-d H:i:s');
-
-                    try {
-                        $uploadObj = Upload::fromArray($upload, $id);
-                        $uploadObjects->push($uploadObj);
-                    } catch (Exception $e) {
-                        Log::warning('Failed to create Upload object', [
-                            'error' => $e->getMessage(),
-                            'upload' => $upload,
-                        ]);
-                    }
-                }
-
-                // Get the best upload using the Upload class
-                $bestUpload = Upload::getBest($uploadObjects);
-
-                if (! $bestUpload) {
-                    throw new Exception('Could not find a suitable upload for this game version. Please ensure the game has downloadable files on itch.io.');
-                }
-
-                Log::info('Selected best upload', [
-                    'upload_id' => $bestUpload->id,
-                    'filename' => $bestUpload->filename,
-                    'traits' => $bestUpload->traits,
-                    'is_linux' => $bestUpload->isLinux(),
-                    'is_windows' => $bestUpload->isWindows(),
-                    'is_mac' => $bestUpload->isMac(),
-                ]);
-
-                // Download the archive
-                $result = $this->archiveService->downloadAndProcess(
-                    $game->url,
-                    $bestUpload->filename,
-                    $bestUpload->id,
-                    $game->id,
-                    $version->id
-                );
-
-                $archivePath = $result['archive'];
-
-                if (! $archivePath) {
-                    throw new Exception('Failed to download and process the game archive.');
-                }
-
-                Log::info('Successfully downloaded and processed game archive', [
-                    'game_id' => $game->id,
-                    'version_id' => $version->id,
-                    'archive_path' => $archivePath,
-                ]);
-            }
+            $archivePath = $this->resolver()->resolve($game, $version);
 
             // Create a temporary directory for extraction
             $extractPath = storage_path('app/temp/android_build_'.$build->build_id);
@@ -361,6 +191,11 @@ class AndroidBuildService
 
             throw $e;
         }
+    }
+
+    private function resolver(): AndroidBuildArchiveResolver
+    {
+        return $this->archiveResolver ?? app(AndroidBuildArchiveResolver::class);
     }
 
     /**
@@ -689,116 +524,7 @@ class AndroidBuildService
      */
     private function createAndroidIcon(Game $game, string $gameDir): void
     {
-        try {
-            if (! $game->thumb_url) {
-                Log::warning('Game has no thumbnail URL', [
-                    'game_id' => $game->id,
-                    'game_name' => $game->name,
-                ]);
-
-                return;
-            }
-
-            // Use the same thumbnail logic as the frontend
-            $thumbnailUrl = $game->getThumbnailUrl('default');
-
-            Log::info('Creating Android icon from game thumbnail', [
-                'game_id' => $game->id,
-                'thumb_url' => $thumbnailUrl,
-            ]);
-
-            // Create temporary directory
-            $tempDir = storage_path('app/temp/android_icon_'.$game->id);
-            File::makeDirectory($tempDir, 0755, true, true);
-
-            // Handle local vs external thumbnails
-            if ($this->isLocalThumbnail($thumbnailUrl)) {
-                // Copy local cached thumbnail directly
-                $localPath = $this->getLocalThumbnailPath($thumbnailUrl);
-                if ($localPath && file_exists($localPath)) {
-                    $tempFile = $tempDir.'/thumbnail'.pathinfo($localPath, PATHINFO_EXTENSION);
-                    copy($localPath, $tempFile);
-                } else {
-                    throw new Exception('Local thumbnail not found: '.$localPath);
-                }
-            } else {
-                // Download external thumbnail
-                $tempFile = $tempDir.'/thumbnail.jpg';
-                $response = $this->httpClient->get(
-                    $this->imageUrlValidator->validate($thumbnailUrl),
-                    [
-                        'timeout' => 30,
-                        'connect_timeout' => 10,
-                        'allow_redirects' => false,
-                    ]
-                );
-
-                if ($response->getStatusCode() !== 200) {
-                    throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
-                }
-
-                // Save the thumbnail to a temporary file
-                $content = $response->getBody()->getContents();
-                if (empty($content)) {
-                    throw new Exception('Downloaded content is empty');
-                }
-
-                File::put($tempFile, $content);
-
-                // Verify the downloaded file
-                if (! File::exists($tempFile) || File::size($tempFile) === 0) {
-                    throw new Exception('Failed to save downloaded content');
-                }
-            }
-
-            // Create the foreground icon in the game directory
-            $foregroundPath = $gameDir.'/android-icon_foreground.png';
-
-            // Load and process the image
-            $image = $this->imageManager->decodePath($tempFile);
-
-            // Resize to a square (512x512 is a good size for Android icons)
-            $size = 512;
-
-            // Determine the crop dimensions to make it square
-            $width = $image->width();
-            $height = $image->height();
-
-            if ($width > $height) {
-                // Landscape image
-                $cropSize = $height;
-                $x = intval(($width - $height) / 2);
-                $y = 0;
-            } else {
-                // Portrait or square image
-                $cropSize = $width;
-                $x = 0;
-                $y = intval(($height - $width) / 2);
-            }
-
-            // Crop to square
-            $image = $image->crop($cropSize, $cropSize, $x, $y);
-
-            // Resize to target size
-            $image = $image->resize($size, $size);
-
-            // Save as JPEG (Ren'Py will convert it to the appropriate format)
-            $encodedImage = $image->encode(new JpegEncoder);
-            File::put($foregroundPath, $encodedImage);
-
-            Log::info('Android icon created successfully', [
-                'path' => $foregroundPath,
-            ]);
-
-            // Clean up
-            File::deleteDirectory($tempDir);
-        } catch (Exception $e) {
-            Log::error('Failed to create Android icon', [
-                'game_id' => $game->id,
-                'error' => $e->getMessage(),
-                'exception' => $e,
-            ]);
-        }
+        app(AndroidIconService::class)->create($game, $gameDir);
     }
 
     /**

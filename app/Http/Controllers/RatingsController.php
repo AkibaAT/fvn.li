@@ -8,7 +8,8 @@ use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
-use App\Services\HtmlSanitizerService;
+use App\Services\RatingAnalyticsService;
+use App\Services\RatingPresenter;
 use App\Services\RatingStatsCacheService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,20 +18,6 @@ use Inertia\Response;
 
 class RatingsController extends Controller
 {
-    private const int RATER_PHRASES_CACHE_VERSION = 2;
-
-    private const int RATER_PHRASES_MAX_REVIEWS = 80;
-
-    private const int RATER_PHRASES_MAX_REVIEW_CHARS = 5000;
-
-    private const int RATER_PHRASES_MAX_TOTAL_WORDS = 12000;
-
-    private const int RATER_PHRASES_MAX_SENTENCES = 20;
-
-    private const int RATER_PHRASES_MAX_CANDIDATES = 750;
-
-    private const int RATER_PHRASES_COMPARISON_LIMIT = 75;
-
     private const array ALLOWED_RATING_PLATFORMS = [
         'itch_io',
         'steam',
@@ -126,29 +113,9 @@ class RatingsController extends Controller
             ->forPage($page, $perPage)
             ->get();
 
+        $presenter = app(RatingPresenter::class);
         $ratings = [
-            'data' => $rows->map(function ($row) {
-                return [
-                    'id' => (int) $row->id,
-                    'score' => (int) $row->rating,
-                    'created_at' => optional($row->published_at) ? (string) $row->published_at : null,
-                    'is_reviewed' => (bool) $row->is_reviewed,
-                    'review' => $this->sanitizeReview($row->review),
-                    'game' => [
-                        'id' => (int) $row->game_id,
-                        'name' => $row->game_name,
-                        'slug' => $row->game_slug,
-                        'primary_url' => $this->extractPrimaryUrl($row->game_url, $row->game_platform),
-                        'platform' => $row->game_platform,
-                        'is_visible' => (bool) $row->game_is_visible,
-                    ],
-                    'rater' => [
-                        'id' => (int) $row->rater_id,
-                        'name' => $row->rater_name,
-                        'external_platform' => $row->rater_platform ?? 'itch_io',
-                    ],
-                ];
-            })->toArray(),
+            'data' => $rows->map(fn ($row) => $presenter->indexRatingRow($row))->toArray(),
             'current_page' => $page,
             'last_page' => $total > 0 ? (int) ceil($total / $perPage) : 0,
             'per_page' => $perPage,
@@ -295,26 +262,9 @@ class RatingsController extends Controller
             ? (int) $rows[0]->total_count
             : (int) ((clone $ratingsBase)->count('ratings.id'));
 
+        $presenter = app(RatingPresenter::class);
         $ratings = [
-            'data' => $rows->map(function ($row) {
-                return [
-                    'id' => (int) $row->id,
-                    'rating' => (int) $row->rating,
-                    'published_at' => optional($row->published_at) ? (string) $row->published_at : null,
-                    'is_reviewed' => (bool) $row->is_reviewed,
-                    'review' => $this->sanitizeReview($row->review),
-                    'event_id' => $row->event_id,
-                    'is_visible' => (bool) $row->rating_is_visible,
-                    'game' => [
-                        'id' => (int) $row->game_id,
-                        'name' => $row->game_name,
-                        'slug' => $row->game_slug,
-                        'primary_url' => $this->extractPrimaryUrl($row->game_url, $row->game_platform),
-                        'platform' => $row->game_platform,
-                        'is_visible' => (bool) $row->game_is_visible,
-                    ],
-                ];
-            })->toArray(),
+            'data' => $rows->map(fn ($row) => $presenter->raterRatingRow($row))->toArray(),
             'current_page' => $page,
             'last_page' => $total > 0 ? (int) ceil($total / $perPage) : 0,
             'per_page' => $perPage,
@@ -429,32 +379,7 @@ class RatingsController extends Controller
             ->where('is_visible', true)
             ->findOrFail($rating);
 
-        $reviewData = [
-            'id' => $review->id,
-            'rating' => (int) $review->rating,
-            'review' => $this->sanitizeReview($review->review),
-            'published_at' => $review->published_at?->toISOString(),
-            'is_reviewed' => $review->is_reviewed,
-            'has_spoilers' => (bool) $review->has_spoilers,
-            'event_id' => $review->event_id,
-            'source_platform' => $review->source_platform,
-            'game' => $review->game ? [
-                'id' => $review->game->id,
-                'name' => $review->game->name,
-                'slug' => $review->game->slug,
-                'thumb_url' => $review->game->getThumbnailUrl('small'),
-            ] : null,
-            'user' => $review->user ? [
-                'id' => $review->user->id,
-                'name' => $review->user->name,
-                'avatar' => $review->user->avatar,
-            ] : null,
-            'rater' => $review->rater ? [
-                'id' => $review->rater->id,
-                'name' => $review->rater->name,
-                'external_platform' => $review->rater->external_platform,
-            ] : null,
-        ];
+        $reviewData = app(RatingPresenter::class)->reviewDetail($review);
 
         $authorName = $review->user?->name ?? $review->rater?->name ?? 'Unknown';
         $gameName = $review->game?->name ?? 'Unknown';
@@ -515,22 +440,7 @@ class RatingsController extends Controller
             ->orderBy($sortField, $sortDirection)
             ->forPage($page, $perPage)
             ->get()
-            ->map(function ($review) {
-                return [
-                    'id' => $review->id,
-                    'rating' => (int) $review->rating,
-                    'review' => $this->sanitizeReview($review->review),
-                    'published_at' => $review->published_at?->toISOString(),
-                    'is_reviewed' => $review->is_reviewed,
-                    'has_spoilers' => (bool) $review->has_spoilers,
-                    'game' => $review->game ? [
-                        'id' => $review->game->id,
-                        'name' => $review->game->name,
-                        'slug' => $review->game->slug,
-                        'thumb_url' => $review->game->getThumbnailUrl('small'),
-                    ] : null,
-                ];
-            });
+            ->map(fn (Rating $review) => app(RatingPresenter::class)->userReview($review));
 
         // Stats
         $stats = DB::table('ratings')
@@ -589,16 +499,7 @@ class RatingsController extends Controller
             ->orderBy('published_at', 'desc')
             ->select(['id', 'rating', 'published_at', 'is_visible', 'review', 'event_id'])
             ->get()
-            ->map(function ($row) {
-                return [
-                    'id' => (int) $row->id,
-                    'rating' => (int) $row->rating,
-                    'published_at' => optional($row->published_at) ? (string) $row->published_at : null,
-                    'is_visible' => (bool) $row->is_visible,
-                    'review' => $this->sanitizeReview($row->review),
-                    'event_id' => $row->event_id,
-                ];
-            })
+            ->map(fn ($row) => app(RatingPresenter::class)->historyRatingRow($row))
             ->toArray();
 
         return response()->json([
@@ -614,519 +515,22 @@ class RatingsController extends Controller
 
     protected function getGlobalRatingStats(): array
     {
-        // Compute only for listed games to reduce cost
-        $agg = DB::table('ratings')
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->where('ratings.is_visible', true)
-            ->where('games.is_visible', true)
-            ->select([
-                DB::raw('MIN(ratings.published_at) as first_rating'),
-                DB::raw('MAX(ratings.published_at) as latest_rating'),
-                DB::raw('COUNT(*) as total_ratings'),
-                DB::raw('SUM(CASE WHEN ratings.is_reviewed THEN 1 ELSE 0 END) as reviewed_count'),
-                DB::raw('AVG(ratings.rating) as average_rating'),
-                DB::raw('COUNT(DISTINCT ratings.game_id) as unique_games'),
-            ])
-            ->first();
-
-        // Per-rating distribution for listed games only
-        $distRows = DB::table('ratings')
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->where('ratings.is_visible', true)
-            ->where('games.is_visible', true)
-            ->groupBy('ratings.rating')
-            ->select([
-                'ratings.rating as rating_value',
-                DB::raw('COUNT(*) as count_for_rating'),
-            ])
-            ->get();
-
-        if (! $agg) {
-            return [
-                'first_rating' => null,
-                'latest_rating' => null,
-                'all_games' => [
-                    'total_ratings' => 0,
-                    'reviewed_count' => 0,
-                    'review_percentage' => 0,
-                    'average_rating' => 0,
-                    'unique_games' => 0,
-                    'rating_distribution' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0],
-                ],
-                'visible_games' => [
-                    'total_ratings' => 0,
-                    'reviewed_count' => 0,
-                    'review_percentage' => 0,
-                    'average_rating' => 0,
-                    'unique_games' => 0,
-                    'rating_distribution' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0],
-                ],
-            ];
-        }
-
-        $distribution = [];
-        foreach ($distRows as $row) {
-            $r = (int) $row->rating_value;
-            $distribution[$r] = (int) ($distribution[$r] ?? 0) + (int) $row->count_for_rating;
-        }
-        for ($i = 1; $i <= 5; $i++) {
-            $distribution[$i] = $distribution[$i] ?? 0;
-        }
-        ksort($distribution);
-
-        $visibleBlock = [
-            'total_ratings' => (int) ($agg->total_ratings ?? 0),
-            'reviewed_count' => (int) ($agg->reviewed_count ?? 0),
-            'review_percentage' => ((int) ($agg->total_ratings ?? 0)) > 0
-                ? (((int) ($agg->reviewed_count ?? 0)) / ((int) ($agg->total_ratings ?? 0)) * 100)
-                : 0,
-            'average_rating' => (float) ($agg->average_rating ?? 0),
-            'unique_games' => (int) ($agg->unique_games ?? 0),
-            'rating_distribution' => $distribution,
-        ];
-
-        // To keep response shape stable, mirror visible stats into all_games
-        return [
-            'first_rating' => $agg->first_rating ?? null,
-            'latest_rating' => $agg->latest_rating ?? null,
-            'all_games' => $visibleBlock,
-            'visible_games' => $visibleBlock,
-        ];
+        return app(RatingAnalyticsService::class)->globalStats();
     }
 
     protected function getRatingStats(int $raterId): array
     {
-        // 1) Overall aggregates (all visible ratings vs listed games)
-        $agg = DB::table('ratings')
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->where('ratings.rater_id', $raterId)
-            ->where('ratings.is_visible', true)
-            ->select([
-                DB::raw('MIN(ratings.published_at) as first_rating'),
-                DB::raw('MAX(ratings.published_at) as latest_rating'),
-                DB::raw('COUNT(*) as all_total_ratings'),
-                DB::raw('SUM(CASE WHEN ratings.is_reviewed THEN 1 ELSE 0 END) as all_reviewed_count'),
-                DB::raw('AVG(ratings.rating) as all_average_rating'),
-                DB::raw('COUNT(DISTINCT ratings.game_id) as all_unique_games'),
-                DB::raw('SUM(CASE WHEN games.is_visible THEN 1 ELSE 0 END) as vis_total_ratings'),
-                DB::raw('SUM(CASE WHEN games.is_visible AND ratings.is_reviewed THEN 1 ELSE 0 END) as vis_reviewed_count'),
-                DB::raw('AVG(CASE WHEN games.is_visible THEN ratings.rating END) as vis_average_rating'),
-                DB::raw('COUNT(DISTINCT CASE WHEN games.is_visible THEN ratings.game_id END) as vis_unique_games'),
-            ])
-            ->first();
-
-        // 2) Per-rating distributions (counts for all visible ratings vs listed)
-        $distRows = DB::table('ratings')
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->where('ratings.rater_id', $raterId)
-            ->where('ratings.is_visible', true)
-            ->groupBy('ratings.rating')
-            ->select([
-                'ratings.rating as rating_value',
-                DB::raw('COUNT(*) as all_count_for_rating'),
-                DB::raw('SUM(CASE WHEN games.is_visible THEN 1 ELSE 0 END) as vis_count_for_rating'),
-            ])
-            ->get();
-
-        if (! $agg) {
-            return [
-                'first_rating' => null,
-                'latest_rating' => null,
-                'all_games' => [
-                    'total_ratings' => 0,
-                    'reviewed_count' => 0,
-                    'review_percentage' => 0,
-                    'average_rating' => 0,
-                    'unique_games' => 0,
-                    'rating_distribution' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0],
-                ],
-                'visible_games' => [
-                    'total_ratings' => 0,
-                    'reviewed_count' => 0,
-                    'review_percentage' => 0,
-                    'average_rating' => 0,
-                    'unique_games' => 0,
-                    'rating_distribution' => [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0],
-                ],
-            ];
-        }
-
-        $allDistribution = [];
-        $visDistribution = [];
-
-        foreach ($distRows as $row) {
-            $r = (int) $row->rating_value;
-            $allDistribution[$r] = (int) ($allDistribution[$r] ?? 0) + (int) $row->all_count_for_rating;
-            $visDistribution[$r] = (int) ($visDistribution[$r] ?? 0) + (int) $row->vis_count_for_rating;
-        }
-
-        for ($i = 1; $i <= 5; $i++) {
-            $allDistribution[$i] = $allDistribution[$i] ?? 0;
-            $visDistribution[$i] = $visDistribution[$i] ?? 0;
-        }
-        ksort($allDistribution);
-        ksort($visDistribution);
-
-        return [
-            'first_rating' => $agg->first_rating,
-            'latest_rating' => $agg->latest_rating,
-            'all_games' => [
-                'total_ratings' => (int) $agg->all_total_ratings,
-                'reviewed_count' => (int) $agg->all_reviewed_count,
-                'review_percentage' => ((int) $agg->all_total_ratings) > 0
-                    ? (((int) $agg->all_reviewed_count) / ((int) $agg->all_total_ratings) * 100)
-                    : 0,
-                'average_rating' => (float) ($agg->all_average_rating ?? 0),
-                'unique_games' => (int) $agg->all_unique_games,
-                'rating_distribution' => $allDistribution,
-            ],
-            'visible_games' => [
-                'total_ratings' => (int) $agg->vis_total_ratings,
-                'reviewed_count' => (int) $agg->vis_reviewed_count,
-                'review_percentage' => ((int) $agg->vis_total_ratings) > 0
-                    ? (((int) $agg->vis_reviewed_count) / ((int) $agg->vis_total_ratings) * 100)
-                    : 0,
-                'average_rating' => (float) ($agg->vis_average_rating ?? 0),
-                'unique_games' => (int) $agg->vis_unique_games,
-                'rating_distribution' => $visDistribution,
-            ],
-        ];
+        return app(RatingAnalyticsService::class)->raterStats($raterId);
     }
 
     protected function getCommonPhrases(int $raterId): array
     {
-        return cache()->remember($this->raterPhrasesCacheKey($raterId), now()->addHour(), function () use ($raterId) {
-            $reviews = DB::table('ratings')
-                ->where('rater_id', $raterId)
-                ->where('ratings.is_visible', true)
-                ->whereNotNull('review')
-                ->select([
-                    'ratings.review',
-                    'ratings.rating',
-                    'games.name as game_name',
-                    'games.slug as game_slug',
-                    'ratings.rating as game_rating',
-                ])
-                ->join('games', 'games.id', '=', 'ratings.game_id')
-                ->orderBy('ratings.published_at', 'desc')
-                ->orderBy('ratings.id', 'desc')
-                ->limit(self::RATER_PHRASES_MAX_REVIEWS)
-                ->get();
-
-            if ($reviews->isEmpty()) {
-                return [];
-            }
-
-            $allPhrases = [];
-            $processedWords = 0;
-
-            // Use a unique boundary marker that cannot appear in user content
-            $boundaryMarker = '|||BOUNDARY_'.uniqid().'|||';
-
-            foreach ($reviews as $review) {
-                if ($processedWords >= self::RATER_PHRASES_MAX_TOTAL_WORDS) {
-                    break;
-                }
-
-                // Preprocess the review text.
-                $rawReview = mb_substr((string) $review->review, 0, self::RATER_PHRASES_MAX_REVIEW_CHARS);
-
-                // Decode HTML entities first
-                $decodedReview = html_entity_decode($rawReview, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-                // Replace line breaks and block-level tags with boundary markers to prevent cross-boundary phrase matching
-                $textWithDelimiters = preg_replace('/<br\s*\/?>/i', $boundaryMarker, $decodedReview);
-                $textWithDelimiters = preg_replace('/<\/(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)>/i', $boundaryMarker, $textWithDelimiters);
-                $textWithDelimiters = preg_replace('/<(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)[^>]*>/i', '', $textWithDelimiters);
-
-                // Strip remaining tags and split into blocks
-                $textStripped = strip_tags($textWithDelimiters);
-                $blocks = explode($boundaryMarker, $textStripped);
-
-                // Process each block separately to extract phrases
-                $allWords = [];
-                foreach ($blocks as $block) {
-                    $cleanBlock = strtolower($block);
-                    $cleanBlock = preg_replace('/[^\w\s\']/', ' ', $cleanBlock);
-                    $cleanBlock = preg_replace('/\s+/', ' ', $cleanBlock);
-                    $blockWords = explode(' ', trim($cleanBlock));
-                    $blockWords = array_filter($blockWords); // Remove empty strings
-
-                    if (count($blockWords) > 0) {
-                        // Add a marker to indicate block boundary
-                        $allWords = array_merge($allWords, $blockWords, [$boundaryMarker]);
-                    }
-                }
-
-                // Remove the trailing boundary marker
-                if (end($allWords) === $boundaryMarker) {
-                    array_pop($allWords);
-                }
-
-                // Count only actual words, not boundary markers
-                $actualWordCount = count(array_filter($allWords, function ($word) use ($boundaryMarker) {
-                    return $word !== $boundaryMarker;
-                }));
-
-                if ($actualWordCount === 0) {
-                    continue;
-                }
-
-                $processedWords += $actualWordCount;
-
-                $wordsCount = count($allWords); // Total count including markers for iteration
-                $seenPhrases = [];
-
-                // Split the review into sentences for context extraction
-                // Replace line breaks and block tags with periods for sentence splitting
-                $sentenceText = preg_replace('/<br\s*\/?>/i', '. ', $decodedReview);
-                $sentenceText = preg_replace('/<\/(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)>/i', '. ', $sentenceText);
-                $sentenceText = preg_replace('/<(p|div|h[1-6]|li|ul|ol|tr|td|th|blockquote)[^>]*>/i', ' ', $sentenceText);
-                $sentences = preg_split('/(?<=[.!?])\s+/', strip_tags($sentenceText));
-                $sentences = array_slice(array_filter($sentences), 0, self::RATER_PHRASES_MAX_SENTENCES);
-                $lowerSentences = array_map('strtolower', $sentences);
-
-                for ($length = 4; $length >= 2; $length--) {
-                    if ($wordsCount < $length) {
-                        continue;
-                    }
-                    for ($i = 0; $i <= $wordsCount - $length; $i++) {
-                        // Skip if this phrase would cross a block boundary
-                        $phraseWords = array_slice($allWords, $i, $length);
-                        if (in_array($boundaryMarker, $phraseWords)) {
-                            continue;
-                        }
-
-                        $phrase = implode(' ', $phraseWords);
-                        if (strlen($phrase) < 5 || ! $this->isPhraseMeaningful($phrase)) {
-                            continue;
-                        }
-
-                        if (isset($seenPhrases[$phrase])) {
-                            continue;
-                        }
-                        $seenPhrases[$phrase] = true;
-
-                        $pattern = '/\b'.implode('[-\s]+', array_map(function ($word) {
-                            return preg_quote($word, '/');
-                        }, explode(' ', $phrase))).'\b/';
-
-                        $matchingSentences = [];
-                        // Limit to first 3 matching sentences to reduce memory and processing
-                        $matchCount = 0;
-                        foreach ($lowerSentences as $index => $lowerSentence) {
-                            if ($matchCount >= 3) {
-                                break;
-                            }
-                            if (preg_match($pattern, $lowerSentence)) {
-                                $matchingSentences[] = $sentences[$index];
-                                $matchCount++;
-                            }
-                        }
-
-                        if (! isset($allPhrases[$phrase])) {
-                            if (count($allPhrases) >= self::RATER_PHRASES_MAX_CANDIDATES) {
-                                continue;
-                            }
-
-                            $allPhrases[$phrase] = [
-                                'count' => 1,
-                                'length' => $length,
-                                'total_rating' => $review->rating,
-                                'contexts' => [
-                                    $review->game_name => [
-                                        'slug' => $review->game_slug,
-                                        'rating' => $review->game_rating,
-                                        'sentences' => $matchingSentences,
-                                    ],
-                                ],
-                            ];
-                        } else {
-                            $allPhrases[$phrase]['count']++;
-                            $allPhrases[$phrase]['total_rating'] += $review->rating;
-                            if (! isset($allPhrases[$phrase]['contexts'][$review->game_name])) {
-                                $allPhrases[$phrase]['contexts'][$review->game_name] = [
-                                    'slug' => $review->game_slug,
-                                    'rating' => $review->game_rating,
-                                    'sentences' => [],
-                                ];
-                            }
-                            // Limit sentences per game to 3
-                            $existingSentences = $allPhrases[$phrase]['contexts'][$review->game_name]['sentences'];
-                            if (count($existingSentences) < 3) {
-                                $allPhrases[$phrase]['contexts'][$review->game_name]['sentences'] = array_merge(
-                                    $existingSentences,
-                                    array_slice($matchingSentences, 0, 3 - count($existingSentences))
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Remove phrases that appear only once.
-            $allPhrases = array_filter($allPhrases, fn ($data) => $data['count'] > 1);
-
-            foreach ($allPhrases as &$data) {
-                $data['avg_rating'] = $data['total_rating'] / $data['count'];
-                // Remove duplicate sentences in each game's context.
-                foreach ($data['contexts'] as &$gameData) {
-                    $gameData['sentences'] = array_values(array_unique($gameData['sentences']));
-                    // Limit to 3 sentences per game
-                    $gameData['sentences'] = array_slice($gameData['sentences'], 0, 3);
-                }
-                unset($data['total_rating']);
-            }
-            unset($data);
-
-            uasort($allPhrases, function ($a, $b) {
-                if ($a['count'] !== $b['count']) {
-                    return $b['count'] <=> $a['count'];
-                }
-
-                return $b['length'] <=> $a['length'];
-            });
-
-            // Optimized filtering: only process top phrases to reduce O(n²) comparisons
-            $topPhrases = array_slice($allPhrases, 0, self::RATER_PHRASES_COMPARISON_LIMIT, true);
-            $filteredPhrases = [];
-
-            foreach ($topPhrases as $phrase => $data) {
-                $isSubphrase = false;
-                $relations = [];
-
-                foreach ($topPhrases as $otherPhrase => $otherData) {
-                    if ($phrase === $otherPhrase) {
-                        continue;
-                    }
-
-                    // If this phrase is part of another phrase with similar count.
-                    if (stripos($otherPhrase, $phrase) !== false &&
-                        $otherData['count'] >= ($data['count'] * 0.8)) {
-                        $isSubphrase = true;
-                        break;
-                    } elseif (stripos($phrase, $otherPhrase) !== false &&
-                        $data['count'] >= ($otherData['count'] * 0.8)) {
-                        // Track related phrases (limit to 3).
-                        if (count($relations) < 3) {
-                            $relations[] = [
-                                'phrase' => $otherPhrase,
-                                'count' => $otherData['count'],
-                                'avg_rating' => $otherData['avg_rating'],
-                            ];
-                        }
-                    }
-
-                    // REMOVED: expensive similar_text() call that was O(n²) on string length
-                }
-
-                if (! $isSubphrase) {
-                    $filteredPhrases[$phrase] = $data;
-                    $filteredPhrases[$phrase]['related'] = $relations;
-                }
-
-                // Early termination: stop once we have 10 phrases
-                if (count($filteredPhrases) >= 10) {
-                    break;
-                }
-            }
-
-            return array_slice($filteredPhrases, 0, 10, true);
-        });
+        return app(RatingAnalyticsService::class)->commonPhrases($raterId);
     }
 
     protected function raterPhrasesCacheKey(int $raterId): string
     {
-        return sprintf('rater_phrases_v%d_%d', self::RATER_PHRASES_CACHE_VERSION, $raterId);
-    }
-
-    /**
-     * Extract the primary URL from a JSONB url field using the game's platform.
-     */
-    private function extractPrimaryUrl(?string $urlJson, ?string $platform): ?string
-    {
-        if (! $urlJson || ! $platform) {
-            return null;
-        }
-
-        $urls = json_decode($urlJson, true);
-
-        return $urls[$platform] ?? null;
-    }
-
-    /**
-     * Sanitize review content by replacing non-breaking spaces with regular spaces
-     */
-    private function sanitizeReview(?string $review): ?string
-    {
-        if (! $review) {
-            return $review;
-        }
-
-        return app(HtmlSanitizerService::class)->sanitizeReview($review);
-    }
-
-    private function isPhraseMeaningful(string $phrase): bool
-    {
-        // Convert filler words into an associative array for faster lookups.
-        static $fillerWords = [
-            'a' => true, 'about' => true, 'above' => true, 'after' => true, 'again' => true, 'against' => true,
-            'all' => true, 'am' => true, 'an' => true, 'and' => true, 'any' => true, 'are' => true, "aren't" => true,
-            'as' => true, 'at' => true,
-            'be' => true, 'because' => true, 'been' => true, 'before' => true, 'being' => true, 'below' => true,
-            'between' => true, 'both' => true, 'but' => true, 'by' => true,
-            'could' => true, "couldn't" => true, 'did' => true, "didn't" => true, 'do' => true, 'does' => true,
-            "doesn't" => true, 'doing' => true, "don't" => true, 'down' => true, 'during' => true,
-            'each' => true, 'few' => true, 'for' => true, 'from' => true, 'further' => true,
-            'had' => true, "hadn't" => true, 'has' => true, "hasn't" => true, 'have' => true, "haven't" => true,
-            'having' => true, 'he' => true, "he'd" => true, "he'll" => true, "he's" => true, 'her' => true,
-            'here' => true, "here's" => true, 'hers' => true, 'herself' => true, 'him' => true, 'himself' => true,
-            'his' => true, 'how' => true, "how's" => true,
-            'i' => true, "i'd" => true, "i'll" => true, "i'm" => true, "i've" => true, 'if' => true, 'in' => true,
-            'into' => true, 'is' => true, "isn't" => true, 'it' => true, "it's" => true, 'its' => true,
-            'itself' => true, "let's" => true,
-            'me' => true, 'more' => true, 'most' => true, "mustn't" => true, 'my' => true, 'myself' => true,
-            'no' => true, 'nor' => true, 'not' => true,
-            'of' => true, 'off' => true, 'on' => true, 'once' => true, 'only' => true, 'or' => true, 'other' => true,
-            'ought' => true, 'our' => true, 'ours' => true, 'ourselves' => true, 'out' => true, 'over' => true,
-            'own' => true,
-            'same' => true, "shan't" => true, 'she' => true, "she'd" => true, "she'll" => true, "she's" => true,
-            'should' => true, "shouldn't" => true, 'so' => true, 'some' => true, 'such' => true,
-            'than' => true, 'that' => true, "that's" => true, 'the' => true, 'their' => true, 'theirs' => true,
-            'them' => true, 'themselves' => true, 'then' => true, 'there' => true, "there's" => true,
-            'these' => true,
-            'they' => true, "they'd" => true, "they'll" => true, "they're" => true, "they've" => true,
-            'this' => true, 'those' => true, 'through' => true, 'to' => true,
-            'too' => true,
-            'under' => true, 'until' => true, 'up' => true,
-            'very' => true,
-            'was' => true, "wasn't" => true, 'we' => true, "we'd" => true, "we'll" => true, "we're" => true,
-            "we've" => true, 'were' => true, "weren't" => true, 'what' => true, "what's" => true, 'when' => true,
-            "when's" => true, 'where' => true, "where's" => true, 'which' => true, 'while' => true, 'who' => true,
-            "who's" => true, 'whom' => true, 'why' => true, "why's" => true, 'with' => true, "won't" => true,
-            'would' => true, "wouldn't" => true,
-            'you' => true, "you'd" => true, "you'll" => true, "you're" => true, "you've" => true, 'your' => true,
-            'yours' => true, 'yourself' => true, 'yourselves' => true,
-        ];
-
-        $words = explode(' ', $phrase);
-        $totalWords = count($words);
-        if ($totalWords === 0) {
-            return false;
-        }
-
-        $fillerCount = 0;
-        foreach ($words as $word) {
-            if (isset($fillerWords[$word])) {
-                $fillerCount++;
-            }
-        }
-
-        if (($fillerCount / $totalWords) >= 0.5) {
-            return false;
-        }
-
-        return true;
+        return app(RatingAnalyticsService::class)->phrasesCacheKey($raterId);
     }
 
     private function normalizeRatingPlatform(mixed $platform): ?string
