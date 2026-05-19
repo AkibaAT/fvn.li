@@ -15,7 +15,6 @@ use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -124,79 +123,29 @@ class GameDataSyncService
         $seenUploads = $game->uploads ?: [];
         $hasChanges = false;
         $candidateUploads = [];
-
-        // Platform flags for the latest version
-        $isWindows = false;
-        $isLinux = false;
-        $isMac = false;
-        $isAndroid = false;
-        $isWeb = false;
+        $platforms = [
+            'windows' => false,
+            'linux' => false,
+            'mac' => false,
+            'android' => false,
+            'web' => false,
+        ];
 
         // Process uploads data to detect changes
         if (isset($uploadsData['uploads'])) {
             echo '    [Version] Processing '.count($uploadsData['uploads'])." uploads\n";
-            foreach ($uploadsData['uploads'] as $upload) {
-                $fileId = (int) $upload['id'];
-                $currentFilename = $upload['filename'] ?? '';
-                $currentDisplayName = $upload['display_name'] ?? null;
-                $currentMd5 = $upload['md5_hash'] ?? null;
-                $currentUpdatedAt = $upload['updated_at'];
-                $currentBuildId = $upload['build_id'] ?? null;
-                $currentBuild = $upload['build'] ?? [];
-                $currentUserVersion = $currentBuild['user_version'] ?? null;
-                $currentBuildUpdatedAt = $currentBuild['updated_at'] ?? null;
-
-                // Always store upload info regardless of processability
-                $isNewOrChanged = (
-                    ! isset($seenUploads[$fileId]) ||
-                    ($seenUploads[$fileId]['filename'] ?? '') !== $currentFilename ||
-                    ($seenUploads[$fileId]['md5_hash'] ?? null) !== $currentMd5 ||
-                    ($seenUploads[$fileId]['updated_at'] ?? null) !== $currentUpdatedAt ||
-                    ($seenUploads[$fileId]['build_id'] ?? null) !== $currentBuildId ||
-                    ($seenUploads[$fileId]['build_updated_at'] ?? null) !== $currentBuildUpdatedAt
-                );
-
-                if ($isNewOrChanged || $force) {
-                    $hasChanges = true;
-                    $seenUploads[$fileId] = [
-                        'display_name' => $currentDisplayName,
-                        'md5_hash' => $currentMd5,
-                        'updated_at' => $currentUpdatedAt,
-                        'build_id' => $currentBuildId,
-                        'build_updated_at' => $currentBuildUpdatedAt,
-                        'user_version' => $currentUserVersion,
-                        'filename' => $currentFilename,
-                        'traits' => $upload['traits'] ?? [],
-                        'type' => $upload['type'] ?? '',
-                    ];
-
-                    // Only add to candidate uploads if it's a processable file type
-                    $candidateUpload = Upload::fromArray($seenUploads[$fileId], $fileId);
-                    if ($candidateUpload->isProcessable()) {
-                        $candidateUploads[] = $candidateUpload;
-                    }
-                }
-
-                // Update platform flags based on traits
-                if (! empty($upload['traits'])) {
-                    if (in_array('p_windows', $upload['traits'])) {
-                        $isWindows = true;
-                    }
-                    if (in_array('p_linux', $upload['traits'])) {
-                        $isLinux = true;
-                    }
-                    if (in_array('p_osx', $upload['traits'])) {
-                        $isMac = true;
-                    }
-                    if (in_array('p_android', $upload['traits'])) {
-                        $isAndroid = true;
-                    }
-                }
-                if (($upload['type'] ?? '') === 'html') {
-                    $isWeb = true;
-                }
-            }
+            $uploadAnalysis = app(GameUploadAnalyzer::class)->analyze($uploadsData['uploads'], $seenUploads, $force);
+            $seenUploads = $uploadAnalysis['seenUploads'];
+            $hasChanges = $uploadAnalysis['hasChanges'];
+            $candidateUploads = $uploadAnalysis['candidateUploads'];
+            $platforms = $uploadAnalysis['platforms'];
         }
+
+        $isWindows = $platforms['windows'];
+        $isLinux = $platforms['linux'];
+        $isMac = $platforms['mac'];
+        $isAndroid = $platforms['android'];
+        $isWeb = $platforms['web'];
 
         // Select best upload from candidates using Upload model's sorting logic
         $bestUpload = Upload::getBest(collect($candidateUploads));
@@ -503,163 +452,8 @@ class GameDataSyncService
      */
     public function refreshMetadata(Game $game): void
     {
-        // ========================================
-        // PHASE 1: Fetch metadata (NO TRANSACTION - no locks held)
-        // ========================================
         $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
-        $html = $response['body'];
-        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-
-        $extractor = app(ItchGameMetadataExtractor::class);
-
-        // Store original values to detect changes
-        $originalThumbUrl = $game->thumb_url;
-        $originalScreenshots = $game->screenshots;
-
-        // Check for demo availability
-        $extractor->checkForDemo($game, $doc);
-
-        // Update status if not abandoned/canceled
-        if (! in_array($game->status, ['Abandoned', 'Canceled'])) {
-            $gameInfo = $doc->querySelector('div.game_info_panel_widget');
-            if ($gameInfo) {
-                $statusLinks = $gameInfo->querySelectorAll('a');
-                foreach ($statusLinks as $index => $link) {
-                    if ($index === 0) {
-                        $game->status = $link->textContent;
-                        break;
-                    }
-                }
-            }
-        }
-
-        $extractor->extractFullDescription($game, $doc, app(ItchHtmlProcessor::class));
-        $extractor->extractScreenshots($game, $doc);
-
-        // Always sync custom CSS (styling should be updated regardless of custom page status)
-        $extractor->extractCustomCss($game, $html, app(ItchCssProcessor::class));
-
-        // Get game jam information
-        $extractor->extractGameJamInfo($game, $doc);
-
-        // Get game info table data
-        $infoTable = $doc->querySelector('div.game_info_panel_widget table');
-        if ($infoTable) {
-            foreach ($infoTable->querySelectorAll('tr') as $row) {
-                $cells = $row->querySelectorAll('td');
-                if (count($cells) < 2) {
-                    continue;
-                }
-
-                $label = trim($cells[0]->textContent);
-                $value = trim($cells[1]->textContent);
-
-                switch ($label) {
-                    case 'Tags':
-                        $game->syncTagsFromString($value);
-                        break;
-                    case 'Author':
-                    case 'Authors':
-                        $game->authors = '';
-                        foreach ($cells[1]->querySelectorAll('a') as $author) {
-                            if ($game->authors !== '') {
-                                $game->authors .= ',<br>';
-                            }
-                            $game->authors .= sprintf(
-                                '<a href="%s" target="_blank">%s</a>',
-                                $author->getAttribute('href'),
-                                $author->textContent
-                            );
-                        }
-                        break;
-                }
-            }
-        }
-
-        // Check NSFW status
-        $nsfw = $doc->querySelector('div.content_warning_inner');
-        $game->is_nsfw = $nsfw !== null;
-
-        // Check delisted status (robots noindex meta tag)
-        $game->is_delisted = $this->checkForNoindexTag($doc);
-
-        // ========================================
-        // PHASE 2: Process images (NO TRANSACTION - downloads can take seconds!)
-        // ========================================
-        $imageService = app(ImageProcessingService::class);
-
-        // Process screenshots if they changed or if optimized variants are missing.
-        $needsScreenshotProcessing = $this->needsScreenshotProcessing($game->screenshots, $originalScreenshots);
-
-        if ($needsScreenshotProcessing) {
-            try {
-                echo "    [Metadata] Screenshots need processing before save...\n";
-                if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
-                    $imageService->processGameScreenshots($game);
-                } else {
-                    $imageService->processGameScreenshots($game, 80, true);
-                }
-                echo "    [Metadata] Screenshots processed successfully\n";
-            } catch (Exception $e) {
-                Log::error('Failed to process screenshots during metadata refresh', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-                // Continue anyway - we'll save the URLs at least
-            }
-        }
-
-        // Process thumbnail if it changed OR if we have a URL but no processed thumbnails
-        $needsThumbnailProcessing = (
-            ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) ||
-            ($game->thumb_url && empty($game->optimized_thumbnails))
-        );
-
-        if ($needsThumbnailProcessing) {
-            try {
-                echo "    [Metadata] Thumbnail needs processing...\n";
-                // Clear old thumbnails first
-                if ($game->optimized_thumbnails) {
-                    $game->clearOptimizedThumbnails();
-                }
-                $imageService->processGameThumbnail($game);
-                echo "    [Metadata] Thumbnail processed successfully\n";
-            } catch (Exception $e) {
-                Log::error('Failed to process thumbnail during metadata refresh', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-                // Continue anyway
-            }
-        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $screenshotsChanged) {
-            // No thumbnail but have screenshots - process first screenshot as thumbnail
-            try {
-                echo "    [Metadata] No thumbnail, processing first screenshot as fallback...\n";
-                if ($game->optimized_thumbnails) {
-                    $game->clearOptimizedThumbnails();
-                }
-                $imageService->processGameThumbnail($game);
-                echo "    [Metadata] Thumbnail fallback processed successfully\n";
-            } catch (Exception $e) {
-                Log::error('Failed to process thumbnail fallback during metadata refresh', [
-                    'game_id' => $game->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        // ========================================
-        // PHASE 3: Prepare data for saving (NO TRANSACTION - caller will handle)
-        // ========================================
-        // NOTE: We do NOT save here - the caller will save in their transaction
-        // This keeps all DB writes in ONE transaction at the top level
-        Log::info('Game metadata prepared for saving', [
-            'game_id' => $game->id,
-            'game_name' => $game->name,
-            'has_custom_css' => isset($game->custom_css),
-            'custom_css_length' => strlen($game->custom_css ?? ''),
-            'dirty_attributes' => $game->getDirty(),
-        ]);
+        app(ItchGameMetadataRefresher::class)->refresh($game, $response['body']);
     }
 
     /**
@@ -769,27 +563,7 @@ class GameDataSyncService
      */
     private function copyLanguageSupport(Game $game, GameVersion $gameVersion): void
     {
-        // Find the previous version with language support
-        $previousVersion = $game->gameVersions()
-            ->where('id', '!=', $gameVersion->id)
-            ->whereHas('supportedLanguages')
-            ->orderBy('published_at', 'desc')
-            ->first();
-
-        if ($previousVersion) {
-            // Copy all supported languages from previous version
-            foreach ($previousVersion->supportedLanguages as $supported) {
-                $gameVersion->addSupportedLanguage($supported->iso_code, $supported->is_available);
-            }
-        } else {
-            // If no previous version exists, add only source language
-            if ($game->source_language_id) {
-                $gameVersion->addSupportedLanguage($game->source_language_id);
-            } else {
-                // Fallback to English only if no source language is defined
-                $gameVersion->addSupportedLanguage('eng');
-            }
-        }
+        app(GameVersionLanguageSupportCopier::class)->copy($game, $gameVersion);
     }
 
     /**
@@ -800,104 +574,19 @@ class GameDataSyncService
         return $candidateUploads !== [] && collect($candidateUploads)->every(fn (Upload $upload) => $upload->isDemo());
     }
 
-    /**
-     * Check if the page has a robots noindex meta tag, indicating the game is delisted
-     */
     private function checkForNoindexTag(HTMLDocument $doc): bool
     {
-        // Look for meta robots tag with noindex
-        $metaTags = $doc->querySelectorAll('meta[name="robots"]');
-        foreach ($metaTags as $meta) {
-            $content = strtolower($meta->getAttribute('content') ?? '');
-            if (str_contains($content, 'noindex')) {
-                return true;
-            }
-        }
-
-        return false;
+        return app(ItchGameMetadataRefresher::class)->hasNoindexTag($doc);
     }
 
-    /**
-     * Process any pending game jam associations
-     * This should be called after the game is saved
-     */
     private function processPendingGameJams(Game $game): void
     {
-        // Check if we have any pending game jam associations
-        if (empty($game->pendingGameJamId)) {
-            return;
-        }
-
-        // Make sure the game has been saved and has an ID
-        if (! $game->exists || ! $game->id) {
-            Log::warning('Cannot process pending game jams - game not saved', [
-                'game_name' => $game->name,
-                'game_id' => $game->id,
-                'exists' => $game->exists,
-            ]);
-
-            return;
-        }
-
-        // Process each pending game jam
-        foreach ($game->pendingGameJamId as $jamId) {
-            // Check if the association already exists
-            if (! $game->gameJams()->where('game_jam_id', $jamId)->exists()) {
-                // Create the association
-                $game->gameJams()->attach($jamId);
-
-                Log::info('Associated game with game jam', [
-                    'game_id' => $game->id,
-                    'game_name' => $game->name,
-                    'jam_id' => $jamId,
-                ]);
-
-                GameFilterService::clearCache();
-
-                if ($game->is_visible) {
-                    $game->loadMissing(['tags', 'gameJams', 'gameVersions']);
-                    $game->searchable();
-                }
-            }
-        }
-
-        // Clear the pending list
-        $game->pendingGameJamId = [];
+        app(GamePendingAssociationProcessor::class)->processGameJams($game);
     }
 
-    /**
-     * Process any pending tag associations
-     * This should be called after the game is saved
-     */
     private function processPendingTags(Game $game): void
     {
-        // Check if we have any pending tag associations
-        if (empty($game->pendingTagIds)) {
-            return;
-        }
-
-        // Make sure the game has been saved and has an ID
-        if (! $game->exists || ! $game->id) {
-            Log::warning('Cannot process pending tags - game not saved', [
-                'game_name' => $game->name,
-                'game_id' => $game->id,
-                'exists' => $game->exists,
-            ]);
-
-            return;
-        }
-
-        // Sync the tags
-        $game->tags()->sync($game->pendingTagIds);
-
-        Log::info('Synced pending tags for game', [
-            'game_id' => $game->id,
-            'game_name' => $game->name,
-            'tag_ids' => $game->pendingTagIds,
-        ]);
-
-        // Clear the pending list
-        $game->pendingTagIds = [];
+        app(GamePendingAssociationProcessor::class)->processTags($game);
     }
 
     /**
@@ -910,81 +599,16 @@ class GameDataSyncService
      */
     private function screenshotUrlsChanged(?array $screenshots1, ?array $screenshots2): bool
     {
-        // Extract just the source URLs from each array
-        $urls1 = $this->extractScreenshotUrls($screenshots1);
-        $urls2 = $this->extractScreenshotUrls($screenshots2);
-
-        return $urls1 !== $urls2;
+        return app(GameMetadataImageProcessor::class)->screenshotUrlsChanged($screenshots1, $screenshots2);
     }
 
     private function needsScreenshotProcessing(?array $screenshots, ?array $originalScreenshots): bool
     {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        return $this->screenshotUrlsChanged($screenshots, $originalScreenshots)
-            || $this->screenshotsMissingOptimizedVariants($screenshots);
+        return app(GameMetadataImageProcessor::class)->needsScreenshotProcessing($screenshots, $originalScreenshots);
     }
 
-    private function screenshotsMissingOptimizedVariants(?array $screenshots): bool
-    {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        foreach ($screenshots as $screenshot) {
-            if (empty($screenshot['url'])) {
-                continue;
-            }
-
-            foreach (['small', 'default', 'large'] as $variant) {
-                if (empty($screenshot['optimized'][$variant]['path'])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>|null  $screenshots
-     */
-    private function hasUnoptimizedScreenshots(?array $screenshots): bool
-    {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        foreach ($screenshots as $screenshot) {
-            if (empty($screenshot['optimized'])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Extract source URLs from a screenshots array, ignoring optimized data.
-     *
-     * @param  array|null  $screenshots  Screenshots array
-     * @return array Sorted array of source URLs
-     */
     private function extractScreenshotUrls(?array $screenshots): array
     {
-        if (empty($screenshots)) {
-            return [];
-        }
-
-        $urls = [];
-        foreach ($screenshots as $screenshot) {
-            if (isset($screenshot['url'])) {
-                $urls[] = $screenshot['url'];
-            }
-        }
-
-        return $urls;
+        return app(GameMetadataImageProcessor::class)->extractScreenshotUrls($screenshots);
     }
 }

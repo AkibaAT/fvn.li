@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models\Concerns;
 
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 trait HasGameAttributes
@@ -37,42 +39,54 @@ trait HasGameAttributes
         }
     }
 
-    /**
-     * Get additional links sorted by sort_order
-     */
     public function getAdditionalLinksAttribute($value): array
+    {
+        $now = Carbon::now();
+
+        return array_values(array_filter($this->sortAdditionalLinks($value), function ($link) use ($now) {
+            if (empty($link['release_at'])) {
+                return true;
+            }
+
+            try {
+                return $now->gte(Carbon::parse($link['release_at']));
+            } catch (Exception) {
+                return true;
+            }
+        }));
+    }
+
+    public function getAllAdditionalLinks(): array
+    {
+        return $this->sortAdditionalLinks($this->attributes['additional_links'] ?? null);
+    }
+
+    public function hasAdditionalLinks(): bool
+    {
+        return ! empty($this->additional_links);
+    }
+
+    private function sortAdditionalLinks($value): array
     {
         if (! $value) {
             return [];
         }
 
         $links = is_string($value) ? json_decode($value, true) : $value;
-
         if (! is_array($links)) {
             return [];
         }
 
-        // Sort by sort_order, then by id for consistent ordering
         usort($links, function ($a, $b) {
             $orderA = $a['sort_order'] ?? 0;
             $orderB = $b['sort_order'] ?? 0;
 
-            if ($orderA === $orderB) {
-                return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
-            }
-
-            return $orderA <=> $orderB;
+            return $orderA === $orderB
+                ? ($a['id'] ?? 0) <=> ($b['id'] ?? 0)
+                : $orderA <=> $orderB;
         });
 
         return $links;
-    }
-
-    /**
-     * Check if the game has any additional links
-     */
-    public function hasAdditionalLinks(): bool
-    {
-        return ! empty($this->additional_links);
     }
 
     /**
