@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class RouteGraphService
 {
-    private const GRAPH_REVISION = 26;
+    private const GRAPH_REVISION = 27;
 
     public function __construct(
         private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
@@ -78,7 +78,16 @@ class RouteGraphService
 
         $edges = $this->edgePruner->removeInputRetrySelfLoopEdges($edges);
         $edges = $this->edgePruner->removeUnreachableFallthroughEdges($edges, $choiceLookup);
-        $edges = $this->collapseTrivialReturnHelperCalls($labels, $edges, $menuChoices, $variableChanges, $wordCounts);
+        $collapseResult = $this->collapseTrivialReturnHelperCalls($labels, $edges, $menuChoices, $variableChanges, $wordCounts);
+        $edges = $collapseResult['edges'];
+        $collapsedReturnHelperContinuations = $collapseResult['collapsed'];
+        $choiceLookup = [];
+        foreach ($menuChoices as $mc) {
+            $targetLabel = $this->collapsedReturnHelperTarget((string) $mc->target_label, $collapsedReturnHelperContinuations);
+            if ($targetLabel !== null) {
+                $choiceLookup[$mc->from_label . ':' . $targetLabel][] = $mc;
+            }
+        }
         $edgeMapByFrom = $edges->groupBy('from_label');
 
         // Pre-index variable changes by label AND by context for fast lookup
@@ -334,7 +343,8 @@ class RouteGraphService
                             : null;
 
                         // Hard choice: has its own target. Soft choice: uses continuation edges.
-                        $hasHardTarget = ! empty($mc->target_label);
+                        $hardTargetLabel = $this->collapsedReturnHelperTarget((string) $mc->target_label, $collapsedReturnHelperContinuations);
+                        $hasHardTarget = $hardTargetLabel !== null;
                         $choiceContinuationEdges = $hasHardTarget || $hasChildMenu
                             ? collect()
                             : $this->menuAnalyzer->getContinuationEdgesForChoice(
@@ -387,11 +397,11 @@ class RouteGraphService
                         if ($hasHardTarget) {
                             // Hard choice: direct edge to its target
                             $processedEdges[] = [
-                                'id' => $choiceId . ':' . $mc->target_label . ':choice_target',
+                                'id' => $choiceId . ':' . $hardTargetLabel . ':choice_target',
                                 'source' => $choiceId,
-                                'target' => $mc->target_label,
+                                'target' => $hardTargetLabel,
                                 'edge_type' => 'choice_target',
-                                'condition' => null,
+                                'condition' => $this->collapsedReturnHelperCondition((string) $mc->target_label, $collapsedReturnHelperContinuations),
                             ];
                         } else {
                             // Soft choice: connect only to continuation edges in the
@@ -591,13 +601,16 @@ class RouteGraphService
         return $labelName . ':menu_' . ($startLine > 0 ? $startLine : $index);
     }
 
+    /**
+     * @return array{edges: Collection, collapsed: array<string, mixed>}
+     */
     private function collapseTrivialReturnHelperCalls(
         Collection $labels,
         Collection $edges,
         Collection $menuChoices,
         Collection $variableChanges,
         array $wordCounts
-    ): Collection {
+    ): array {
         $labelsByName = $labels->keyBy('name');
         $choicesByLabel = $menuChoices->groupBy('from_label');
         $variableChangesByLabel = $variableChanges->groupBy('label');
@@ -639,7 +652,10 @@ class RouteGraphService
         }
 
         if ($collapsedLabels === []) {
-            return $edges;
+            return [
+                'edges' => $edges,
+                'collapsed' => [],
+            ];
         }
 
         $rewritten = collect();
@@ -670,6 +686,33 @@ class RouteGraphService
             $rewritten->push($replacement);
         }
 
-        return $rewritten->values();
+        return [
+            'edges' => $rewritten->values(),
+            'collapsed' => $collapsedLabels,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $collapsedReturnHelperContinuations
+     */
+    private function collapsedReturnHelperTarget(string $targetLabel, array $collapsedReturnHelperContinuations): ?string
+    {
+        if ($targetLabel === '') {
+            return null;
+        }
+
+        $continuation = $collapsedReturnHelperContinuations[$targetLabel] ?? null;
+
+        return $continuation ? $continuation->to_label : $targetLabel;
+    }
+
+    /**
+     * @param  array<string, mixed>  $collapsedReturnHelperContinuations
+     */
+    private function collapsedReturnHelperCondition(string $targetLabel, array $collapsedReturnHelperContinuations): ?string
+    {
+        $continuation = $collapsedReturnHelperContinuations[$targetLabel] ?? null;
+
+        return $continuation?->condition;
     }
 }

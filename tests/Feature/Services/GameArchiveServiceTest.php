@@ -7,6 +7,7 @@ use App\Models\GameVersion;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\Services\ItchDownloadUrlResolver;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -427,6 +428,19 @@ test('itch file download URLs accept public hosts from the authenticated itch do
             'validateItchFileDownloadUrl',
             ['https://127.0.0.1:8765/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
         ))->toThrow(RuntimeException::class, 'cannot resolve to a private or reserved IP address');
+});
+
+test('itch file download requests pin the validated DNS answer', function () {
+    $request = app(ItchDownloadUrlResolver::class)->validatedItchFileDownloadRequest(
+        'https://example.com:9443/game.zip',
+        'https://creator.itch.io/game',
+        'itch.io file download URL'
+    );
+    $resolve = $request['options']['curl'][constant('CURLOPT_RESOLVE')] ?? [];
+
+    expect($request['url'])->toBe('https://example.com:9443/game.zip')
+        ->and($resolve)->toHaveCount(1)
+        ->and($resolve[0])->toStartWith('example.com:9443:');
 });
 
 test('download filename sanitization rejects paths and falls back for empty names', function () {

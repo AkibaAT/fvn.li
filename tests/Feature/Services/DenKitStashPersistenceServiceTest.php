@@ -20,6 +20,21 @@ function invokeDenKitStashMethod(DenKitStashPersistenceService $service, string 
     return $methodReflection->invokeArgs($service, $arguments);
 }
 
+it('requires explicit opt in before enabling DenKit Stash auto persist', function () {
+    Config::set('services.denkit_stash.enabled', true);
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+    Config::set('services.denkit_stash.auto_persist', false);
+
+    $service = new DenKitStashPersistenceService(Mockery::mock(GameArchiveService::class));
+
+    expect($service->isEnabled())->toBeTrue()
+        ->and($service->isAutoPersistEnabled())->toBeFalse();
+
+    Config::set('services.denkit_stash.auto_persist', true);
+
+    expect($service->isAutoPersistEnabled())->toBeTrue();
+});
+
 it('looks up existing DenKit Stash builds through the HTTP API', function () {
     Config::set('services.denkit_stash.url', 'https://stash.example');
     Config::set('services.denkit_stash.api_key', 'secret-key');

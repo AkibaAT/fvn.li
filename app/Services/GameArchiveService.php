@@ -148,7 +148,8 @@ class GameArchiveService
 
         $this->sanitizeDownloadFilename($filename);
 
-        $downloadUrl = $this->resolveItchDownloadUrl($gameUrl, $uploadId, $gameId);
+        $downloadRequest = $this->resolveItchDownloadRequest($gameUrl, $uploadId, $gameId);
+        $downloadUrl = $downloadRequest['url'];
 
         Log::info('GameArchive: Download URL obtained', [
             'game_id' => $gameId,
@@ -172,9 +173,9 @@ class GameArchiveService
                 'connect_timeout' => 30,  // 30 seconds to establish connection
                 'allow_redirects' => false,
             ]);
-            $downloadResponse = $downloadClient->get($downloadUrl, [
+            $downloadResponse = $downloadClient->get($downloadUrl, array_replace_recursive($downloadRequest['options'], [
                 'sink' => $tempFile,
-            ]);
+            ]));
             $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
             $namedTempFile = $this->tempPathForDownloadFilename($tempDir, $downloadFilename);
             File::move($tempFile, $namedTempFile);
@@ -286,7 +287,8 @@ class GameArchiveService
 
         $this->sanitizeDownloadFilename($filename);
 
-        $downloadUrl = $this->resolveItchDownloadUrl($gameUrl, $uploadId, $gameId);
+        $downloadRequest = $this->resolveItchDownloadRequest($gameUrl, $uploadId, $gameId);
+        $downloadUrl = $downloadRequest['url'];
 
         Log::info('GameArchive: Download URL obtained', [
             'game_id' => $gameId,
@@ -313,10 +315,10 @@ class GameArchiveService
                 'connect_timeout' => 30,  // 30 seconds to establish connection
                 'allow_redirects' => false,
             ]);
-            $downloadResponse = $downloadClient->get($downloadUrl, [
+            $downloadResponse = $downloadClient->get($downloadUrl, array_replace_recursive($downloadRequest['options'], [
                 'sink' => $tempFile,
                 'progress' => $progress,
-            ]);
+            ]));
             $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
 
             $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
@@ -514,6 +516,14 @@ class GameArchiveService
     private function resolveItchDownloadUrl(string $gameUrl, int $uploadId, int $gameId): string
     {
         return app(ItchDownloadUrlResolver::class)->resolve($gameUrl, $uploadId, $gameId);
+    }
+
+    /**
+     * @return array{url: string, options: array<string, mixed>}
+     */
+    private function resolveItchDownloadRequest(string $gameUrl, int $uploadId, int $gameId): array
+    {
+        return app(ItchDownloadUrlResolver::class)->resolveRequest($gameUrl, $uploadId, $gameId);
     }
 
     /**

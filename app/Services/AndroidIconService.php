@@ -91,11 +91,12 @@ class AndroidIconService
         }
 
         $tempFile = $tempDir.'/thumbnail.jpg';
-        $response = $this->httpClient->get($this->imageUrlValidator->validate($thumbnailUrl), [
+        $request = $this->imageUrlValidator->validatedRequest($thumbnailUrl);
+        $response = $this->httpClient->get($request['url'], array_replace_recursive([
             'timeout' => 30,
             'connect_timeout' => 10,
             'allow_redirects' => false,
-        ]);
+        ], $request['options']));
 
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");

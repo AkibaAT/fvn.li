@@ -312,7 +312,8 @@ test('image downloads keep TLS verification enabled and do not follow redirects'
         ->and((string) $history[0]['request']->getUri())->toBe('https://img.itch.zone/thumb.png')
         ->and($history[0]['options']['verify'] ?? true)->not->toBeFalse()
         ->and($history[0]['options']['allow_redirects'])->toBeFalse()
-        ->and($history[0]['options']['stream'])->toBeTrue();
+        ->and($history[0]['options']['stream'])->toBeTrue()
+        ->and($history[0]['options']['curl'][constant('CURLOPT_RESOLVE')][0] ?? '')->toStartWith('img.itch.zone:443:');
 });
 
 test('image downloads reject oversized thumbnail responses before processing', function () {

@@ -43,7 +43,7 @@ class RenpyAnalyzerController extends Controller
         $stats = $runner->analyze($archivePath);
         if ($stats === null) {
             return response()->json([
-                'message' => $runner->getLastError() ?: 'No stats could be extracted',
+                'message' => 'No stats could be extracted',
             ], 422);
         }
 
