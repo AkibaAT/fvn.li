@@ -45,7 +45,7 @@ return [
     'itchio' => [
         'client_id' => env('ITCHIO_CLIENT_ID'),
         'client_secret' => env('ITCHIO_CLIENT_SECRET'),
-        'redirect' => env('APP_URL').'/auth/itchio/callback',
+        'redirect' => env('APP_URL') . '/auth/itchio/callback',
     ],
 
     'discord' => [
@@ -121,19 +121,14 @@ return [
     ],
 
     'denkit_stash' => [
+        'enabled' => filter_var(env('DENKIT_STASH_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'auto_persist' => filter_var(env('DENKIT_STASH_AUTO_PERSIST', true), FILTER_VALIDATE_BOOLEAN),
+        'delete_local_after_push' => filter_var(env('DENKIT_STASH_DELETE_LOCAL_AFTER_PUSH', true), FILTER_VALIDATE_BOOLEAN),
         'url' => env('DENKIT_STASH_URL', 'http://denkit-stash:8081'),
         'public_url' => env('DENKIT_STASH_PUBLIC_URL', 'https://denkit-stash-fvn-li.ddev.site'),
         'username' => env('DENKIT_STASH_USERNAME', 'fvn-li'),
         'api_key' => env('DENKIT_STASH_API_KEY'),
-        'api_key_hash_secret' => env('DENKIT_API_KEY_HASH_SECRET'),
         'client_path' => env('BUTLER_CLIENT_PATH', '/var/www/butler-client'),
-        'postgres' => [
-            'host' => env('DENKIT_STASH_POSTGRES_HOST', 'db'),
-            'port' => env('DENKIT_STASH_POSTGRES_PORT', 5432),
-            'database' => env('DENKIT_STASH_POSTGRES_DATABASE', 'butler'),
-            'username' => env('DENKIT_STASH_POSTGRES_USERNAME', 'db'),
-            'password' => env('DENKIT_STASH_POSTGRES_PASSWORD', 'db'),
-        ],
     ],
 
 ];
