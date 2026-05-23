@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
 use GuzzleHttp\Psr7\Response;
@@ -208,7 +209,7 @@ test('download filename rejects traversal from content disposition and fallback 
 });
 
 test('process archive strips file statistics from optimized archives', function () {
-    $archivePath = tempnam(sys_get_temp_dir(), 'optimized_archive_').'.zip';
+    $archivePath = tempnam(sys_get_temp_dir(), 'optimized_archive_') . '.zip';
     $zip = new ZipArchive;
     expect($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
 
@@ -292,6 +293,35 @@ test('stored archive lookup archive existence and temp moves use version storage
     }
 });
 
+test('stored archive lookup restores missing versions from DenKit Stash', function () {
+    $game = Game::factory()->create(['name' => 'Stash Restored']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id]);
+    $restoredPath = Storage::path("games/{$game->id}/{$version->id}/denkit-stash-{$version->id}.zip");
+    $recorder = (object) ['restoreCalls' => []];
+
+    $this->app->instance(DenKitStashPersistenceService::class, new class($recorder, $restoredPath) extends DenKitStashPersistenceService
+    {
+        public function __construct(private object $recorder, private string $restoredPath) {}
+
+        public function restorePersistedArchive(Game $game, GameVersion $version, string $storagePath, string $channel = 'main'): ?array
+        {
+            $this->recorder->restoreCalls[] = [$game->id, $version->id, $storagePath, $channel];
+
+            return [
+                'status' => 'restored',
+                'target' => 'fvn-li/stash-restored:' . $channel,
+                'channel' => $channel,
+                'archive_path' => $this->restoredPath,
+            ];
+        }
+    });
+
+    expect($this->archiveService->getStoredArchive($game->id, $version->id))->toBe($restoredPath);
+    expect($recorder->restoreCalls)->toBe([
+        [$game->id, $version->id, "games/{$game->id}/{$version->id}", 'main'],
+    ]);
+});
+
 test('archive metadata reader handles invalid missing and tar metadata archives', function () {
     $missing = tempnam(sys_get_temp_dir(), 'missing-archive-');
     unlink($missing);
@@ -299,7 +329,7 @@ test('archive metadata reader handles invalid missing and tar metadata archives'
     expect(fn () => $this->archiveService->readArchiveMetadata($missing))
         ->toThrow(RuntimeException::class, 'Archive file not found');
 
-    $plainZip = tempnam(sys_get_temp_dir(), 'plain-archive-').'.zip';
+    $plainZip = tempnam(sys_get_temp_dir(), 'plain-archive-') . '.zip';
     $zip = new ZipArchive;
     expect($zip->open($plainZip, ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
     $zip->addFromString('game/script.rpy', 'label start:');
@@ -308,13 +338,13 @@ test('archive metadata reader handles invalid missing and tar metadata archives'
     expect($this->archiveService->readArchiveMetadata($plainZip))->toBeNull();
     @unlink($plainZip);
 
-    $tarDir = sys_get_temp_dir().'/archive-metadata-'.uniqid();
+    $tarDir = sys_get_temp_dir() . '/archive-metadata-' . uniqid();
     mkdir($tarDir);
-    file_put_contents($tarDir.'/.fvn-archive-metadata.json', json_encode([
+    file_put_contents($tarDir . '/.fvn-archive-metadata.json', json_encode([
         'schema' => 'fvn.archive_optimization.v1',
         'original_archive' => ['filename' => 'source.zip'],
     ]));
-    $tarPath = $tarDir.'/metadata.tar';
+    $tarPath = $tarDir . '/metadata.tar';
     $process = new Process(['tar', '-cf', $tarPath, '-C', $tarDir, '.fvn-archive-metadata.json']);
     $process->run();
 
@@ -323,7 +353,7 @@ test('archive metadata reader handles invalid missing and tar metadata archives'
             ->and($this->archiveService->readArchiveMetadata($tarPath)['original_archive']['filename'])->toBe('source.zip');
     } finally {
         @unlink($tarPath);
-        @unlink($tarDir.'/.fvn-archive-metadata.json');
+        @unlink($tarDir . '/.fvn-archive-metadata.json');
         @rmdir($tarDir);
     }
 });
@@ -418,7 +448,7 @@ test('temporary archive downloads use generated paths inside the temp directory'
         expect(File::exists($tempFile))->toBeTrue()
             ->and(realpath(dirname($tempFile)))->toBe(realpath($tempDir))
             ->and($tempFile)->not->toContain('download.zip')
-            ->and($namedTempFile)->toBe($tempDir.DIRECTORY_SEPARATOR.'download.zip');
+            ->and($namedTempFile)->toBe($tempDir . DIRECTORY_SEPARATOR . 'download.zip');
     } finally {
         File::deleteDirectory($tempDir);
     }

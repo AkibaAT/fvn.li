@@ -6,10 +6,10 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
-use Illuminate\Database\ConnectionInterface;
+use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -20,7 +20,8 @@ class DenKitStashPersistenceService
     private const OPTIMIZATION_METADATA_SCHEMA = 'fvn.archive_optimization.v1';
 
     public function __construct(
-        private readonly GameArchiveService $archiveService
+        private readonly GameArchiveService $archiveService,
+        private readonly ?Client $httpClient = null
     ) {}
 
     /**
@@ -39,7 +40,7 @@ class DenKitStashPersistenceService
         $targetName = $this->targetName($game);
         $target = "{$username}/{$targetName}:{$channel}";
 
-        $apiKey = $this->ensureApiUser($username);
+        $apiKey = $this->apiKey();
         if (! $force && $this->versionAlreadyPersisted($username, $targetName, $channel, (string) $version->version)) {
             return [
                 'status' => 'skipped',
@@ -48,14 +49,14 @@ class DenKitStashPersistenceService
             ];
         }
 
-        $workDir = storage_path('app/temp/'.uniqid('butler_push_', true));
+        $workDir = storage_path('app/temp/' . uniqid('butler_push_', true));
         try {
             File::makeDirectory($workDir, 0755, true);
             $this->extractArchive($archivePath, $workDir);
 
             $process = new Process([
                 $this->butlerBinary(),
-                '--address='.$this->serverUrl(),
+                '--address=' . $this->serverUrl(),
                 '--assume-yes',
                 'push',
                 $this->pushDirectory($workDir),
@@ -93,6 +94,106 @@ class DenKitStashPersistenceService
         }
     }
 
+    public function isEnabled(): bool
+    {
+        return (bool) Config::get('services.denkit_stash.enabled', true)
+            && is_string(Config::get('services.denkit_stash.api_key'))
+            && Config::get('services.denkit_stash.api_key') !== '';
+    }
+
+    public function isAutoPersistEnabled(): bool
+    {
+        return $this->isEnabled() && (bool) Config::get('services.denkit_stash.auto_persist', true);
+    }
+
+    public function shouldDeleteLocalAfterPush(): bool
+    {
+        return (bool) Config::get('services.denkit_stash.delete_local_after_push', false);
+    }
+
+    /**
+     * @return array{status: string, target: string, channel: string, archive_path?: string, build_id?: int|null}|null
+     */
+    public function restorePersistedArchive(Game $game, GameVersion $version, string $storagePath, string $channel = 'main'): ?array
+    {
+        if (! $this->isEnabled()) {
+            return null;
+        }
+
+        $username = $this->username();
+        $targetName = $this->targetName($game);
+        $buildId = $this->latestBuildId($username, $targetName, $channel, (string) $version->version);
+        if ($buildId === null) {
+            return null;
+        }
+
+        $target = "{$username}/{$targetName}:{$channel}";
+        $workDir = storage_path('app/temp/' . uniqid('butler_restore_', true));
+        $archivePath = "{$workDir}/archive-{$buildId}.zip";
+
+        try {
+            File::makeDirectory($workDir, 0755, true);
+            $this->downloadBuildArchive($buildId, $archivePath);
+
+            $filename = "denkit-stash-{$buildId}.zip";
+            Storage::makeDirectory($storagePath);
+            Storage::putFileAs($storagePath, $archivePath, $filename);
+
+            return [
+                'status' => 'restored',
+                'target' => $target,
+                'channel' => $channel,
+                'archive_path' => Storage::path("{$storagePath}/{$filename}"),
+                'build_id' => $buildId,
+            ];
+        } finally {
+            if (File::exists($workDir)) {
+                File::deleteDirectory($workDir);
+            }
+        }
+    }
+
+    public function defaultChannel(): string
+    {
+        return 'main';
+    }
+
+    private function downloadBuildArchive(int $buildId, string $archivePath): void
+    {
+        $client = new Client([
+            'timeout' => 600,
+            'connect_timeout' => 30,
+            'allow_redirects' => false,
+        ]);
+        $response = $client->get($this->serverUrl() . "/builds/{$buildId}/download/archive/default", [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->apiKey(),
+                'Accept' => 'application/json',
+            ],
+        ]);
+
+        if ($response->getStatusCode() !== 307) {
+            throw new RuntimeException("Expected DenKit Stash archive redirect for build {$buildId}, got HTTP {$response->getStatusCode()}");
+        }
+
+        $location = $response->getHeaderLine('Location');
+        if ($location === '') {
+            throw new RuntimeException("DenKit Stash archive redirect for build {$buildId} did not include a Location header");
+        }
+
+        $download = (new Client([
+            'timeout' => 600,
+            'connect_timeout' => 30,
+            'allow_redirects' => true,
+        ]))->get($location, [
+            'sink' => $archivePath,
+        ]);
+
+        if ($download->getStatusCode() < 200 || $download->getStatusCode() >= 300) {
+            throw new RuntimeException("Failed to download DenKit Stash archive for build {$buildId}: HTTP {$download->getStatusCode()}");
+        }
+    }
+
     private function assertOptimizedArchive(string $archivePath): void
     {
         $metadata = $this->archiveService->readArchiveMetadata($archivePath);
@@ -115,7 +216,7 @@ class DenKitStashPersistenceService
     {
         $slug = (string) ($game->slug ?: Str::slug((string) $game->name));
 
-        return $slug !== '' ? $slug : 'game-'.$game->id;
+        return $slug !== '' ? $slug : 'game-' . $game->id;
     }
 
     private function butlerBinary(): string
@@ -145,65 +246,14 @@ class DenKitStashPersistenceService
         return $builtBinary;
     }
 
-    private function ensureApiUser(string $username): string
-    {
-        $connection = $this->denKitStashConnection();
-        $configuredApiKey = $this->configuredApiKey();
-        $user = $connection->table('users')->where('username', $username)->first();
-        if ($user !== null) {
-            $updates = [];
-            if (! (bool) $user->is_active) {
-                $updates['is_active'] = true;
-            }
-
-            if ($configuredApiKey !== null) {
-                $storedApiKey = $this->storedApiKey($configuredApiKey);
-                if ((string) $user->api_key !== $storedApiKey) {
-                    $updates['api_key'] = $storedApiKey;
-                }
-            }
-
-            if ($updates !== []) {
-                $updates['updated_at'] = now();
-                $connection->table('users')->where('id', $user->id)->update($updates);
-            }
-
-            return $configuredApiKey ?? (string) $user->api_key;
-        }
-
-        $apiKey = $configuredApiKey ?? 'fvn_'.Str::random(48);
-        $connection->table('users')->insert([
-            'username' => $username,
-            'display_name' => $username,
-            'api_key' => $this->storedApiKey($apiKey),
-            'role' => 'admin',
-            'is_active' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $apiKey;
-    }
-
-    private function configuredApiKey(): ?string
+    private function apiKey(): string
     {
         $apiKey = Config::get('services.denkit_stash.api_key');
-
-        return is_string($apiKey) && $apiKey !== '' ? $apiKey : null;
-    }
-
-    private function storedApiKey(string $apiKey): string
-    {
-        if (str_starts_with($apiKey, 'hmac-sha256:')) {
-            return $apiKey;
+        if (! is_string($apiKey) || $apiKey === '') {
+            throw new RuntimeException('DENKIT_STASH_API_KEY is required to use DenKit Stash');
         }
 
-        $secret = Config::get('services.denkit_stash.api_key_hash_secret');
-        if (! is_string($secret) || $secret === '') {
-            return $apiKey;
-        }
-
-        return 'hmac-sha256:'.hash_hmac('sha256', $apiKey, $secret);
+        return $apiKey;
     }
 
     private function versionAlreadyPersisted(string $username, string $targetName, string $channel, string $userVersion): bool
@@ -213,36 +263,42 @@ class DenKitStashPersistenceService
 
     private function latestBuildId(string $username, string $targetName, string $channel, string $userVersion): ?int
     {
-        $id = $this->denKitStashConnection()
-            ->table('builds')
-            ->join('uploads', 'uploads.id', '=', 'builds.upload_id')
-            ->join('games', 'games.id', '=', 'uploads.game_id')
-            ->join('users', 'users.id', '=', 'games.user_id')
-            ->where('users.username', $username)
-            ->where('games.title', $targetName)
-            ->where('builds.channel_name', $channel)
-            ->where('builds.user_version', $userVersion)
-            ->where('builds.state', 'completed')
-            ->orderBy('builds.id', 'desc')
-            ->value('builds.id');
+        $response = $this->httpClient([
+            'timeout' => 30,
+            'connect_timeout' => 10,
+        ])->get($this->serverUrl() . '/wharf/builds/latest', [
+            'http_errors' => false,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->apiKey(),
+                'Accept' => 'application/json',
+            ],
+            'query' => [
+                'target' => "{$username}/{$targetName}",
+                'channel' => $channel,
+                'user_version' => $userVersion,
+            ],
+        ]);
 
-        return $id === null ? null : (int) $id;
-    }
-
-    private function denKitStashConnection(): ConnectionInterface
-    {
-        $name = 'denkit_stash';
-        if (! Config::has("database.connections.{$name}")) {
-            $base = Config::get('database.connections.pgsql');
-            $base['host'] = Config::get('services.denkit_stash.postgres.host', 'db');
-            $base['port'] = Config::get('services.denkit_stash.postgres.port', 5432);
-            $base['database'] = Config::get('services.denkit_stash.postgres.database', 'butler');
-            $base['username'] = Config::get('services.denkit_stash.postgres.username', 'db');
-            $base['password'] = Config::get('services.denkit_stash.postgres.password', 'db');
-            Config::set("database.connections.{$name}", $base);
+        if ($response->getStatusCode() === 404) {
+            return null;
         }
 
-        return DB::connection($name);
+        if ($response->getStatusCode() !== 200) {
+            throw new RuntimeException("Failed to query DenKit Stash build lookup: HTTP {$response->getStatusCode()}");
+        }
+
+        $data = json_decode((string) $response->getBody(), true);
+        $id = $data['build']['id'] ?? null;
+
+        return is_numeric($id) ? (int) $id : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function httpClient(array $options = []): Client
+    {
+        return $this->httpClient ?? new Client($options);
     }
 
     private function extractArchive(string $archivePath, string $targetPath): void
@@ -277,18 +333,18 @@ class DenKitStashPersistenceService
         $process->setTimeout(600);
         $process->run();
         if (! $process->isSuccessful()) {
-            throw new RuntimeException('Failed to extract optimized archive: '.$process->getErrorOutput());
+            throw new RuntimeException('Failed to extract optimized archive: ' . $process->getErrorOutput());
         }
     }
 
     private function pushDirectory(string $extractPath): string
     {
-        if (File::isDirectory($extractPath.'/game')) {
+        if (File::isDirectory($extractPath . '/game')) {
             return $extractPath;
         }
 
         $directories = File::directories($extractPath);
-        if (count($directories) === 1 && File::isDirectory($directories[0].'/game')) {
+        if (count($directories) === 1 && File::isDirectory($directories[0] . '/game')) {
             return $directories[0];
         }
 
