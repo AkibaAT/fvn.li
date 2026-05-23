@@ -17,12 +17,15 @@ use ZipArchive;
 
 class RenpyStatsLocalExtractor
 {
+    private ?string $lastError = null;
+
     /**
      * Extract statistics locally. This mode is intended only for trusted local
      * fixtures and explicit development fallback, never untrusted production input.
      */
     public function extract(string $archivePath): ?array
     {
+        $this->lastError = null;
         Log::info('GameStats: Starting extraction', [
             'archive_path' => basename($archivePath),
         ]);
@@ -40,6 +43,7 @@ class RenpyStatsLocalExtractor
             Log::info('GameStats: Finding game directory');
             $gameDir = $this->findGameDirectory($extractPath);
             if (! $gameDir) {
+                $this->lastError = 'Could not find valid game directory';
                 Log::warning('Could not find valid game directory', [
                     'archive_path' => $archivePath,
                     'extract_path' => $extractPath,
@@ -72,6 +76,7 @@ class RenpyStatsLocalExtractor
             Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
             if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
+                $this->lastError = 'Ren\'Py SDK path not configured or invalid';
                 Log::error('Ren\'Py SDK path not configured or invalid', [
                     'sdk_path' => $sdkPath,
                 ]);
@@ -89,6 +94,7 @@ class RenpyStatsLocalExtractor
 
             return $stats;
         } catch (Exception $e) {
+            $this->lastError = $e->getMessage();
             Log::warning('Error during game stats extraction', [
                 'archive_path' => $archivePath,
                 'error' => $e->getMessage(),
@@ -101,6 +107,11 @@ class RenpyStatsLocalExtractor
                 File::deleteDirectory($extractPath);
             }
         }
+    }
+
+    public function getLastError(): ?string
+    {
+        return $this->lastError;
     }
 
     /**
@@ -405,6 +416,7 @@ class RenpyStatsLocalExtractor
                 $gameDir.'/game/json_stats.rpy'
             );
         } catch (Exception $e) {
+            $this->lastError = 'Failed to copy analysis script: '.$e->getMessage();
             Log::warning('Failed to copy analysis script', [
                 'error' => $e->getMessage(),
                 'game_dir' => $gameDir,
@@ -418,6 +430,7 @@ class RenpyStatsLocalExtractor
         $process->run();
 
         if (! $process->isSuccessful()) {
+            $this->lastError = trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'Ren\'Py SDK analysis failed';
             Log::warning('Script analysis completed with non-zero exit code', [
                 'output' => $process->getOutput(),
                 'error_output' => $process->getErrorOutput(),

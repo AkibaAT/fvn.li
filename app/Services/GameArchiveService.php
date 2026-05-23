@@ -22,11 +22,15 @@ use Throwable;
 /**
  * Service for handling game archive operations
  */
-readonly class GameArchiveService
+class GameArchiveService
 {
+    private ?string $lastProcessingError;
+
     public function __construct(
-        private GameStatsService $statsService
-    ) {}
+        private readonly GameStatsService $statsService
+    ) {
+        $this->lastProcessingError = null;
+    }
 
     /**
      * Get the stored archive path for a game version
@@ -427,6 +431,7 @@ readonly class GameArchiveService
      */
     public function processArchive(string $archivePath): ?array
     {
+        $this->lastProcessingError = null;
         if (! File::exists($archivePath)) {
             throw new RuntimeException("Archive file not found: {$archivePath}");
         }
@@ -442,7 +447,16 @@ readonly class GameArchiveService
             ]);
         }
 
+        if ($stats === null) {
+            $this->lastProcessingError = $this->statsService->getLastExtractionError();
+        }
+
         return $stats;
+    }
+
+    public function getLastProcessingError(): ?string
+    {
+        return $this->lastProcessingError;
     }
 
     /**

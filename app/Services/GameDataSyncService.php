@@ -240,6 +240,9 @@ class GameDataSyncService
                     echo "    [Version] Stats extracted successfully from temp archive\n";
                 } else {
                     echo "    [Version] No stats extracted from archive\n";
+                    if ($archiveService->getLastProcessingError()) {
+                        echo "    [Version] Stats extraction reason: {$archiveService->getLastProcessingError()}\n";
+                    }
                 }
             } catch (Exception $e) {
                 Log::error('Failed to download/process game archive to temp', [
