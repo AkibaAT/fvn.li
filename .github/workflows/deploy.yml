@@ -52,7 +52,7 @@ jobs:
         run: ddev composer install --no-interaction --prefer-dist --no-progress
 
       - name: Install Bun dependencies
-        run: ddev bun install
+        run: ddev bun install --frozen-lockfile
 
       - name: Validate Composer config
         run: ddev composer validate --no-check-publish
@@ -246,7 +246,7 @@ jobs:
         name: Install Bun
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build assets
         run: bun run build:ssr

@@ -7,10 +7,8 @@ use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameDialogueText;
 use App\Models\GameVersion;
-use App\Models\Rating;
 use App\Models\Tag;
 use App\Models\UniqueDialogueText;
-use App\Models\User;
 use App\Services\MeilisearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -145,11 +143,6 @@ function configureMeilisearchIndexesOnce(): void
         'embedders' => [],
     ]);
 
-    configureMeilisearchIndex('reviews', [
-        'filterableAttributes' => ['is_visible', 'is_reviewed', 'rating'],
-        'searchableAttributes' => ['review', 'game_name', 'rater_name'],
-    ]);
-
     configureMeilisearchIndex('game_dialogue_texts', [
         'filterableAttributes' => ['game_id', 'text_id', 'language', 'version_ids', 'character_ids'],
         'searchableAttributes' => ['text_content', 'character_names', 'game_name'],
@@ -162,7 +155,7 @@ function clearMeilisearchTestIndexes(): void
 {
     $client = meilisearchTestClient();
 
-    foreach (['games', 'reviews', 'game_dialogue_texts'] as $indexName) {
+    foreach (['games', 'game_dialogue_texts'] as $indexName) {
         waitForMeilisearchTask($client->index($indexName)->deleteAllDocuments());
     }
 }
@@ -289,42 +282,6 @@ test('searches dialogue using the current game dialogue text index', function ()
     expect($results->total())->toBe(1)
         ->and($results->items()[0]->id)->toBe($line->id)
         ->and($results->items()[0]->highlighted_text)->toContain('<mark>');
-});
-
-test('searches reviews and applies rating filters through meilisearch', function () {
-    $token = 'amazing-'.str()->lower(str()->random(8));
-    $user = User::factory()->create();
-    $game = makeMeilisearchGame(['name' => "Review {$token} VN"]);
-
-    $matching = Rating::create([
-        'user_id' => $user->id,
-        'game_id' => $game->id,
-        'rating' => 5,
-        'review' => "This is an {$token} game.",
-        'is_visible' => true,
-        'is_reviewed' => true,
-        'source_platform' => 'itch_io',
-        'published_at' => now(),
-    ]);
-    $other = Rating::create([
-        'user_id' => User::factory()->create()->id,
-        'game_id' => makeMeilisearchGame(['name' => "Other Review {$token} VN"])->id,
-        'rating' => 2,
-        'review' => "This is an {$token} but lower rated game.",
-        'is_visible' => true,
-        'is_reviewed' => true,
-        'source_platform' => 'itch_io',
-        'published_at' => now(),
-    ]);
-
-    addMeilisearchDocument('reviews', $matching->fresh(['game', 'rater', 'user'])->toSearchableArray());
-    addMeilisearchDocument('reviews', $other->fresh(['game', 'rater', 'user'])->toSearchableArray());
-
-    $results = waitForMeilisearchAssertion(fn () => $this->service->searchReviews($token, [
-        'min_rating' => 4,
-    ]));
-
-    expect($results->pluck('id')->all())->toBe([$matching->id]);
 });
 
 test('meilisearch is reachable in the github ddev environment', function () {

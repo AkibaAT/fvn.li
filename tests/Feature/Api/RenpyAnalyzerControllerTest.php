@@ -69,3 +69,36 @@ it('runs the docker analyzer only for archives under the shared analyzer path', 
         }
     }
 });
+
+it('returns a generic extraction failure instead of raw analyzer output', function () {
+    $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-'.uniqid());
+    File::makeDirectory($sharedPath, 0755, true);
+    $archivePath = "{$sharedPath}/game.zip";
+    File::put($archivePath, 'archive');
+
+    config([
+        'services.renpy.analyzer_server' => true,
+        'services.renpy.analyzer_token' => 'secret',
+        'services.renpy.analyzer_shared_path' => $sharedPath,
+    ]);
+
+    $runner = Mockery::mock(RenpyAnalyzerDockerRunner::class);
+    $runner->shouldReceive('analyze')
+        ->once()
+        ->with(realpath($archivePath))
+        ->andReturn(null);
+    $runner->shouldReceive('getLastError')->never();
+    $this->app->instance(RenpyAnalyzerDockerRunner::class, $runner);
+
+    try {
+        $this->withToken('secret')
+            ->postJson('/api/renpy-analyzer/analyze', [
+                'archive_path' => $archivePath,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'No stats could be extracted')
+            ->assertDontSee('SECRET_FROM_STDERR');
+    } finally {
+        File::deleteDirectory($sharedPath);
+    }
+});
