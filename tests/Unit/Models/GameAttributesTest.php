@@ -135,9 +135,14 @@ test('price accessors handle no sale correctly', function () {
         ->and($game->discount_percentage)->toBe(0);
 });
 
-test('thumbnail helpers prefer thumb_url then first screenshot', function () {
+test('thumbnail helpers expose optimized thumbnails only for display urls', function () {
     $game = new Game([
         'thumb_url' => 'https://cdn.example.com/thumb.jpg',
+        'optimized_thumbnails' => [
+            'default' => [
+                'path' => 'thumbnails/thumb.webp',
+            ],
+        ],
         'screenshots' => [
             ['url' => 'https://cdn.example.com/s1.jpg'],
             ['url' => 'https://cdn.example.com/s2.jpg'],
@@ -146,9 +151,8 @@ test('thumbnail helpers prefer thumb_url then first screenshot', function () {
 
     expect($game->hasThumbnail())->toBeTrue()
         ->and($game->getEffectiveThumbnailUrl())->toBe('https://cdn.example.com/thumb.jpg')
-        ->and($game->getThumbnailUrl('default'))->toBe('https://cdn.example.com/thumb.jpg');
+        ->and($game->getThumbnailUrl('default'))->toContain('/storage/thumbnails/thumb.webp');
 
-    // Without thumb_url falls back to first screenshot
     $game2 = new Game([
         'screenshots' => [
             ['url' => 'https://cdn.example.com/first.jpg'],
@@ -156,7 +160,7 @@ test('thumbnail helpers prefer thumb_url then first screenshot', function () {
     ]);
 
     expect($game2->getEffectiveThumbnailUrl())->toBe('https://cdn.example.com/first.jpg')
-        ->and($game2->getThumbnailUrl('default'))->toBe('https://cdn.example.com/first.jpg');
+        ->and($game2->getThumbnailUrl('default'))->toBeNull();
 });
 
 test('thumbnail helpers handle missing thumbnails and screenshots', function () {

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use App\Services\GameDataSyncService;
+use App\Services\ImageProcessingService;
+use App\Services\ItchGameMetadataExtractor;
 use App\Services\ItchHttpClientService;
 use App\ValueObjects\Upload;
+use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -83,4 +86,98 @@ test('only demo processable uploads are treated as unsuitable for stats extracti
     expect($method->invoke($service, [$demoUpload]))->toBeTrue()
         ->and($method->invoke($service, [$demoUpload, $fullUpload]))->toBeFalse()
         ->and($method->invoke($service, []))->toBeFalse();
+});
+
+test('itch screenshot extraction preserves optimized variants for unchanged source urls', function () {
+    $game = Game::factory()->create([
+        'screenshots' => [
+            [
+                'url' => 'https://img.itch.zone/a.png',
+                'thumbnail_url' => 'https://img.itch.zone/a-thumb-old.png',
+                'optimized' => [
+                    'default' => [
+                        'path' => 'screenshots/a_default.webp',
+                        'width' => 320,
+                        'height' => 180,
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    $html = <<<'HTML'
+<!DOCTYPE html>
+<html>
+<body>
+    <div class="screenshot_list">
+        <a class="screenshot_link" href="https://img.itch.zone/a.png">
+            <img src="https://img.itch.zone/a-thumb-new.png">
+        </a>
+    </div>
+</body>
+</html>
+HTML;
+
+    app(ItchGameMetadataExtractor::class)->extractScreenshots(
+        $game,
+        HTMLDocument::createFromString($html, LIBXML_NOERROR)
+    );
+
+    expect($game->screenshots[0]['thumbnail_url'])->toBe('https://img.itch.zone/a-thumb-new.png')
+        ->and($game->screenshots[0]['optimized']['default']['path'])->toBe('screenshots/a_default.webp');
+});
+
+test('itch metadata refresh processes screenshots when urls match but optimized variants are missing', function () {
+    $game = Game::factory()->create([
+        'name' => 'Dawn Chorus',
+        'platform' => 'itch_io',
+        'url' => ['itch_io' => 'https://example.itch.io/dawn-chorus'],
+        'thumb_url' => 'https://img.itch.zone/cover.png',
+        'optimized_thumbnails' => [
+            'default' => ['path' => 'thumbnails/cover.webp'],
+        ],
+        'screenshots' => [
+            [
+                'url' => 'https://img.itch.zone/screenshot.png',
+                'thumbnail_url' => 'https://img.itch.zone/screenshot-thumb.png',
+            ],
+        ],
+    ]);
+
+    $html = <<<'HTML'
+<!DOCTYPE html>
+<html>
+<body>
+    <div class="screenshot_list">
+        <a class="screenshot_link" href="https://img.itch.zone/screenshot.png">
+            <img src="https://img.itch.zone/screenshot-thumb.png">
+        </a>
+    </div>
+</body>
+</html>
+HTML;
+
+    $mockClient = Mockery::mock(ItchHttpClientService::class);
+    $mockClient->shouldReceive('get')
+        ->once()
+        ->with($game->getPrimaryUrl(), [], true)
+        ->andReturn(new Response(200, [], $html));
+    $this->app->instance(ItchHttpClientService::class, $mockClient);
+
+    $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('processGameScreenshots')
+        ->once()
+        ->with(Mockery::on(fn (Game $processedGame) => $processedGame->is($game)))
+        ->andReturnUsing(function (Game $processedGame): void {
+            $screenshots = $processedGame->screenshots;
+            $screenshots[0]['optimized'] = [
+                'default' => ['path' => 'screenshots/screenshot_default.webp'],
+            ];
+            $processedGame->screenshots = $screenshots;
+        });
+    $this->app->instance(ImageProcessingService::class, $imageService);
+
+    app(GameDataSyncService::class)->refreshMetadata($game);
+
+    expect($game->screenshots[0]['optimized']['default']['path'])->toBe('screenshots/screenshot_default.webp');
 });

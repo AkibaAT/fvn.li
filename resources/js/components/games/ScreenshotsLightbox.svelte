@@ -121,10 +121,10 @@
                 </button>
             {/if}
 
-            <div class="flex h-full items-center justify-center pb-20">
+            <div class="flex h-full min-h-0 items-center justify-center p-4 sm:p-6">
                 <button
                     type="button"
-                    class="max-h-full max-w-full object-contain transition-transform duration-300 {isZoomed
+                    class="flex h-full w-full items-center justify-center overflow-hidden transition-transform duration-300 {isZoomed
                         ? 'scale-150 cursor-zoom-out'
                         : 'cursor-zoom-in'}"
                     onclick={(e) => {
@@ -137,7 +137,11 @@
                     aria-label={isZoomed ? 'Zoom out screenshot' : 'Zoom in screenshot'}
                     aria-pressed={isZoomed}
                 >
-                    <img src={currentImage} alt={`Screenshot ${index + 1} of ${screenshots.length}`} class="max-h-full max-w-full object-contain" />
+                    <img
+                        src={currentImage}
+                        alt={`Screenshot ${index + 1} of ${screenshots.length}`}
+                        class="block h-auto max-h-full w-auto max-w-full object-contain"
+                    />
                 </button>
             </div>
 
@@ -158,7 +162,7 @@
             {/if}
         </div>
 
-        <div class="bg-opacity-80 relative z-10 flex items-center justify-between bg-black px-4 py-2">
+        <div class="bg-opacity-80 relative z-10 flex flex-shrink-0 items-center justify-between bg-black px-4 py-2">
             {#if screenshots.length > 1}
                 <div class="mr-4 flex flex-1 justify-center overflow-hidden">
                     <div

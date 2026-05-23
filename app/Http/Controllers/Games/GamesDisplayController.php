@@ -291,7 +291,7 @@ class GamesDisplayController extends Controller
                     'id' => $g->id,
                     'name' => $g->effective_name,
                     'slug' => $g->slug,
-                    'thumb_url' => $g->optimized_thumbnail_url ?? $g->thumb_url,
+                    'thumb_url' => $g->optimized_thumbnail_url,
                     'authors' => $g->authors ? strip_tags($g->authors) : null,
                     'rating_score' => $g->rating_score,
                     'rating_count' => $g->rating_count,
@@ -308,7 +308,7 @@ class GamesDisplayController extends Controller
                 'id' => $g->id,
                 'name' => $g->effective_name,
                 'slug' => $g->slug,
-                'thumb_url' => $g->optimized_thumbnail_url ?? $g->thumb_url,
+                'thumb_url' => $g->optimized_thumbnail_url,
                 'rating_score' => $g->rating_score,
                 'rating_count' => $g->rating_count,
                 'status' => $g->status,
@@ -388,6 +388,7 @@ class GamesDisplayController extends Controller
         $game->screenshots = $originalScreenshots;
         $game->custom_screenshots = $customScreenshots;
         $game->effective_screenshots = $effectiveScreenshots;
+        $game->thumb_url = $game->optimized_thumbnail_url;
 
         return Inertia::render('games/show', [
             'game' => $game,
@@ -468,7 +469,7 @@ class GamesDisplayController extends Controller
             'min_price' => $game->min_price,
             'current_price' => $game->current_price,
             'url' => $game->url,
-            'thumb_url' => $game->thumb_url,
+            'thumb_url' => $game->optimized_thumbnail_url,
             'screenshots' => $game->getScreenshots(),
             'additional_links' => $game->additional_links,
             'platforms' => $game->platforms,

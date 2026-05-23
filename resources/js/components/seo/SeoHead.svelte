@@ -82,10 +82,9 @@
             description: game.description
                 ? `${game.description.substring(0, 155)}...`
                 : `Discover ${gameName}, a furry visual novel. Read reviews, ratings, and community discussions.`,
-            image:
-                game.thumb_url || game.optimized_thumbnails?.default?.path
-                    ? `${baseUrl}/storage/${game.optimized_thumbnails?.default?.path}`
-                    : `${baseUrl}/images/social-fallback.jpg`,
+            image: game.optimized_thumbnails?.default?.path
+                ? `${baseUrl}/storage/${game.optimized_thumbnails.default.path}`
+                : `${baseUrl}/images/social-fallback.jpg`,
             url: gameUrl,
             type: 'article',
             noindex: game.is_visible === false,
@@ -98,7 +97,7 @@
                 '@type': 'VideoGame',
                 name: gameName,
                 description: game.description,
-                image: game.thumb_url,
+                image: game.optimized_thumbnails?.default?.path ? `${baseUrl}/storage/${game.optimized_thumbnails.default.path}` : undefined,
                 url: gameUrl,
                 author: game.authors_text
                     ? {

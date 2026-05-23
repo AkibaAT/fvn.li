@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 trait HasGameMedia
 {
     /**
-     * Check if the game has a thumbnail (either thumb_url or screenshots)
+     * Check if the game has a source image that can be processed into a thumbnail.
      */
     public function hasThumbnail(): bool
     {
@@ -76,7 +76,7 @@ trait HasGameMedia
     }
 
     /**
-     * Get the optimized thumbnail URL (fallback to original if not available)
+     * Get the optimized thumbnail URL.
      */
     public function getOptimizedThumbnailUrlAttribute(): ?string
     {
@@ -89,13 +89,7 @@ trait HasGameMedia
     public function getThumbnailUrl(string $variant = 'default'): ?string
     {
         if (! isset($this->optimized_thumbnails[$variant], $this->optimized_thumbnails[$variant]['path'])) {
-            // If no optimized thumbnail exists, try the original thumb_url
-            if ($this->thumb_url) {
-                return $this->thumb_url;
-            }
-
-            // Fallback to first screenshot if no thumbnail is available
-            return $this->getFirstScreenshotUrl($variant);
+            return null;
         }
 
         $path = $this->optimized_thumbnails[$variant]['path'];
@@ -119,8 +113,7 @@ trait HasGameMedia
             return asset('storage/'.$firstScreenshot['optimized'][$variant]['path']);
         }
 
-        // Fallback to original screenshot URL
-        return $firstScreenshot['url'] ?? null;
+        return null;
     }
 
     /**
@@ -135,15 +128,20 @@ trait HasGameMedia
             return [];
         }
 
-        return array_values(array_map(function (array $screenshot) use ($thumbnailVariant, $displayVariant): array {
-            $originalUrl = $screenshot['url'] ?? null;
+        return array_values(array_filter(array_map(function (array $screenshot) use ($thumbnailVariant, $displayVariant): ?array {
+            $displayUrl = $this->getOptimizedScreenshotUrl($screenshot, $displayVariant);
+            $thumbnailUrl = $this->getOptimizedScreenshotUrl($screenshot, $thumbnailVariant);
+
+            if (! $displayUrl || ! $thumbnailUrl) {
+                return null;
+            }
 
             return [
-                'url' => $this->getOptimizedOrOriginalUrl($screenshot, $displayVariant),
-                'thumbnail_url' => $this->getOptimizedOrOriginalUrl($screenshot, $thumbnailVariant),
-                'original_url' => $originalUrl,
+                'url' => $displayUrl,
+                'thumbnail_url' => $thumbnailUrl,
+                'original_url' => $displayUrl,
             ];
-        }, $screenshots));
+        }, $screenshots)));
     }
 
     /**
@@ -172,7 +170,7 @@ trait HasGameMedia
 
         $screenshot = $this->screenshots[$index];
 
-        return $this->getOptimizedOrOriginalUrl($screenshot, $variant);
+        return $this->getOptimizedScreenshotUrl($screenshot, $variant);
     }
 
     /**
@@ -188,14 +186,14 @@ trait HasGameMedia
     }
 
     /**
-     * Get optimized URL for a screenshot or fall back to original
+     * Get an optimized screenshot URL. Imported screenshots must not fall back to remote originals.
      */
-    private function getOptimizedOrOriginalUrl(array $screenshot, string $variant): ?string
+    private function getOptimizedScreenshotUrl(array $screenshot, string $variant): ?string
     {
         if (isset($screenshot['optimized'][$variant]['path'])) {
             return asset('storage/'.$screenshot['optimized'][$variant]['path']);
         }
 
-        return $screenshot['url'] ?? null;
+        return null;
     }
 }

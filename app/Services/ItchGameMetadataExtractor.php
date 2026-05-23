@@ -91,6 +91,10 @@ class ItchGameMetadataExtractor
     public function extractScreenshots(Game $game, HTMLDocument $doc): void
     {
         $screenshots = [];
+        $existingScreenshotsByUrl = collect($game->screenshots ?? [])
+            ->filter(fn ($screenshot) => isset($screenshot['url']))
+            ->keyBy('url');
+
         $carousel = $doc->querySelector('.screenshot_list');
         if ($carousel) {
             $screenshotElements = $carousel->querySelectorAll('a.screenshot_link');
@@ -108,10 +112,17 @@ class ItchGameMetadataExtractor
                     if (! preg_match('/\.(jpg|jpeg|png|gif|webp)$/i', $imageUrl)) {
                         continue;
                     }
-                    $screenshots[] = [
+                    $screenshot = [
                         'url' => $imageUrl,
                         'thumbnail_url' => $thumbnailUrl,
                     ];
+
+                    $existingScreenshot = $existingScreenshotsByUrl->get($imageUrl);
+                    if (! empty($existingScreenshot['optimized'])) {
+                        $screenshot['optimized'] = $existingScreenshot['optimized'];
+                    }
+
+                    $screenshots[] = $screenshot;
                 }
             }
         }
@@ -231,31 +242,29 @@ class ItchGameMetadataExtractor
                 $shouldCleanup = true;
             }
             if ($shouldCleanup && isset($currentScreenshot['optimized']) && ! empty($currentScreenshot['optimized'])) {
-                $this->cleanupScreenshotOptimizedImages($game, $index);
+                $this->cleanupScreenshotOptimizedImages($game, $currentScreenshot);
             }
         }
     }
 
-    private function cleanupScreenshotOptimizedImages(Game $game, int $screenshotIndex): void
+    /**
+     * @param  array<string, mixed>  $screenshot
+     */
+    private function cleanupScreenshotOptimizedImages(Game $game, array $screenshot): void
     {
         try {
-            $files = Storage::disk('public')->files('screenshots');
-            $pattern = "/^{$game->id}_screenshot_{$screenshotIndex}_[a-f0-9]{8}/";
-            foreach ($files as $file) {
-                $filename = basename($file);
-                if (preg_match($pattern, $filename)) {
-                    Storage::disk('public')->delete($file);
+            foreach ($screenshot['optimized'] ?? [] as $variant) {
+                if (isset($variant['path'])) {
+                    Storage::disk('public')->delete($variant['path']);
                     Log::info('Cleaned up optimized screenshot', [
                         'game_id' => $game->id,
-                        'screenshot_index' => $screenshotIndex,
-                        'file' => $filename,
+                        'file' => $variant['path'],
                     ]);
                 }
             }
         } catch (Exception $e) {
             Log::error('Failed to cleanup optimized screenshot images', [
                 'game_id' => $game->id,
-                'screenshot_index' => $screenshotIndex,
                 'error' => $e->getMessage(),
             ]);
         }

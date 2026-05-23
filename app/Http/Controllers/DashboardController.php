@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Games\GamesVersionController;
 use App\Models\AdditionRequest;
 use App\Models\BugReport;
 use App\Models\ChangeLog;
@@ -71,7 +72,7 @@ class DashboardController extends Controller
                     'id' => $g->id,
                     'name' => $g->name,
                     'slug' => $g->slug,
-                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : $g->thumb_url,
+                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : null,
                     'platform' => $g->platform,
                     'has_additional_links' => method_exists($g,
                         'hasAdditionalLinks') ? $g->hasAdditionalLinks() : ! empty($g->additional_links),
@@ -135,7 +136,7 @@ class DashboardController extends Controller
                     'id' => $game->id,
                     'name' => $game->name,
                     'slug' => $game->slug,
-                    'thumb_url' => $game->thumb_url,
+                    'thumb_url' => $game->getThumbnailUrl(),
                     'optimized_thumbnails' => $game->optimized_thumbnails,
                     'platform' => $game->platform,
                 ];
@@ -371,7 +372,7 @@ class DashboardController extends Controller
         }
 
         if (! empty($result['errors'])) {
-            $message .= ' Errors: ' . implode(', ', $result['errors']);
+            $message .= ' Errors: '.implode(', ', $result['errors']);
         }
 
         return response()->json([
@@ -705,8 +706,8 @@ class DashboardController extends Controller
                 ];
             })->values();
 
-        $filename = 'user-data-' . ($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
-            strtolower($user->name)) : 'export') . '-' . now()->format('Ymd-His') . '.zip';
+        $filename = 'user-data-'.($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
+            strtolower($user->name)) : 'export').'-'.now()->format('Ymd-His').'.zip';
 
         return new StreamedResponse(function () use (
             $profile,
@@ -763,7 +764,7 @@ class DashboardController extends Controller
             fclose($tmp);
         }, 200, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'no-store, no-cache, must-revalidate',
             'Pragma' => 'no-cache',
         ]);
@@ -899,19 +900,19 @@ class DashboardController extends Controller
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Successfully disconnected ' . ucfirst($provider) . ' account.',
+                'message' => 'Successfully disconnected '.ucfirst($provider).' account.',
                 'provider' => $provider,
             ]);
         }
 
         return redirect()->route('dashboard')
-            ->with('success', 'Successfully disconnected ' . ucfirst($provider) . ' account.');
+            ->with('success', 'Successfully disconnected '.ucfirst($provider).' account.');
     }
 
     /**
      * Show digest notifications for a specific date
      *
-     * @return \Inertia\Response
+     * @return Response
      */
     public function showDigestNotifications(string $date)
     {
@@ -947,7 +948,7 @@ class DashboardController extends Controller
                 'metaTags' => [
                     'title' => "Notification Digest - {$carbonDate->format('F j, Y')}",
                     'description' => $notifications->isNotEmpty()
-                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. " .
+                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. ".
                           "Contains {$notifications->count()} notifications about your tracked visual novels."
                         : "No notifications found for {$carbonDate->format('F j, Y')}.",
                     'structuredData' => [
@@ -1010,7 +1011,7 @@ class DashboardController extends Controller
         }
 
         // Use the existing GamesVersionController method to get the comparison data
-        $versionController = app(\App\Http\Controllers\Games\GamesVersionController::class);
+        $versionController = app(GamesVersionController::class);
         $comparisonData = $versionController->compareVersions($request, $game);
 
         return $comparisonData;
@@ -1039,8 +1040,8 @@ class DashboardController extends Controller
                         $avatar = $account->provider_data['avatarfull'] ?? null;
                         break;
                     case 'telegram':
-                        $displayName = $account->provider_data['first_name'] .
-                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
+                        $displayName = $account->provider_data['first_name'].
+                            (isset($account->provider_data['last_name']) ? ' '.$account->provider_data['last_name'] : '');
                         $avatar = $account->provider_data['photo_url'] ?? null;
                         break;
                     case 'itchio':

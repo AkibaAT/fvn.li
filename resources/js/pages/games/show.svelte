@@ -349,7 +349,7 @@
         }
 
         lastSyncedMediaKey = nextMediaKey;
-        currentThumbnail = game.optimized_thumbnail_url || game.thumb_url || null;
+        currentThumbnail = game.optimized_thumbnail_url || null;
         customScreenshots = customScreenshotsForEditor();
         visitorScreenshots = game.effective_screenshots || game.screenshots || [];
         visitorName = game.effective_name;

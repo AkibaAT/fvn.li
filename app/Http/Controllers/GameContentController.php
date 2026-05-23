@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use App\Services\GameDataSyncService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -204,7 +205,7 @@ class GameContentController extends Controller
                     'name' => $game->name,
                     'effective_name' => $game->effective_name,
                     'content' => $game->full_description,
-                    'screenshots' => $game->screenshots,
+                    'screenshots' => $game->getScreenshots(),
                     'thumbnail_url' => $thumbnailUrl,
                     'has_custom_page' => false,
                     'is_reverted' => true,
@@ -258,7 +259,7 @@ class GameContentController extends Controller
                 'name' => $revertName ? $game->name : null,
                 'effective_name' => $revertName ? $game->effective_name : null,
                 'content' => $game->full_description,
-                'screenshots' => $revertScreenshots ? $game->screenshots : null,
+                'screenshots' => $revertScreenshots ? $game->getScreenshots() : null,
                 'thumbnail_url' => $thumbnailUrl,
                 'has_custom_page' => true,
                 'is_reverted' => true,
@@ -463,7 +464,7 @@ class GameContentController extends Controller
     {
         try {
             // Refresh base info from itch.io to get the original thumbnail
-            $syncService = app(\App\Services\GameDataSyncService::class);
+            $syncService = app(GameDataSyncService::class);
             $syncService->refreshBaseInfo($game);
 
             // Clear optimized thumbnails to force regeneration
@@ -474,10 +475,10 @@ class GameContentController extends Controller
 
             Log::info('Reverted thumbnail to itch.io version', [
                 'game_id' => $game->id,
-                'new_thumb_url' => $game->thumb_url,
+                'new_thumb_url' => $game->getThumbnailUrl(),
             ]);
 
-            return $game->thumb_url;
+            return $game->getThumbnailUrl();
 
         } catch (Exception $e) {
             Log::error('Failed to revert thumbnail', [

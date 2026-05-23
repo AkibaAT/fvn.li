@@ -101,13 +101,6 @@ export function useGameCard({
             return `/storage/${game.optimized_thumbnails.default.path}`;
         }
 
-        if (game.thumb_url) return game.thumb_url;
-
-        const first = game.screenshots?.[0];
-        if (first) {
-            return first.thumbnail_url || first.url || null;
-        }
-
         return null;
     };
 

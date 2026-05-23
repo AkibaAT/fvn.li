@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -54,7 +55,7 @@ class MyGamesController extends Controller
                     'id' => $g->id,
                     'name' => $g->name,
                     'slug' => $g->slug,
-                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : $g->thumb_url,
+                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : null,
                     'has_additional_links' => method_exists($g,
                         'hasAdditionalLinks') ? $g->hasAdditionalLinks() : ! empty($g->additional_links),
                 ];
@@ -155,7 +156,7 @@ class MyGamesController extends Controller
             'metaTags' => [
                 'title' => "Edit {$game->name}",
                 'description' => "Edit download links and platforms for {$game->name}. Manage additional download links for different platforms to help players find the right version.",
-                'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
+                'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : null,
                 'structuredData' => [
                     '@type' => 'WebPage',
                     'name' => "Edit {$game->name}",
@@ -165,7 +166,7 @@ class MyGamesController extends Controller
                         '@type' => 'SoftwareApplication',
                         'name' => $game->name,
                         'url' => route('games.show', $game->slug),
-                        'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
+                        'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : null,
                     ],
                 ],
             ],
@@ -216,7 +217,7 @@ class MyGamesController extends Controller
                     }
                 },
             ],
-            'links.*.platform' => 'nullable|string|in:' . implode(',', array_keys(Game::getAvailablePlatforms())),
+            'links.*.platform' => 'nullable|string|in:'.implode(',', array_keys(Game::getAvailablePlatforms())),
             'links.*.release_at' => [
                 'nullable',
                 'date',
@@ -343,10 +344,10 @@ class MyGamesController extends Controller
             $request->validate([
                 'thumbnail' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240', // 10MB max
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed: ' . $e->getMessage(),
+                'message' => 'Validation failed: '.$e->getMessage(),
                 'errors' => $e->errors(),
             ], 422);
         }
@@ -377,7 +378,7 @@ class MyGamesController extends Controller
             }
 
             $game->update([
-                'thumb_url' => asset('storage/' . $path),
+                'thumb_url' => asset('storage/'.$path),
                 'optimized_thumbnails' => $optimizedThumbnails,
                 'custom_page_updated_at' => now(),
                 'custom_page_updated_by' => $user->id,
@@ -386,7 +387,7 @@ class MyGamesController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Thumbnail updated successfully.',
-                'thumbnail_url' => $game->thumb_url,
+                'thumbnail_url' => $game->getThumbnailUrl(),
                 'optimized_thumbnails' => $optimizedThumbnails,
             ]);
         } catch (Exception $e) {
@@ -398,7 +399,7 @@ class MyGamesController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload thumbnail: ' . $e->getMessage(),
+                'message' => 'Failed to upload thumbnail: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -443,7 +444,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete thumbnail: ' . $e->getMessage(),
+                'message' => 'Failed to delete thumbnail: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -479,8 +480,8 @@ class MyGamesController extends Controller
                 $optimized = $this->generateOptimizedScreenshots($file, $path, $game->id, count($screenshots) + $index);
 
                 $newScreenshots[] = [
-                    'url' => asset('storage/' . $path),
-                    'thumbnail_url' => asset('storage/' . $path),
+                    'url' => asset('storage/'.$path),
+                    'thumbnail_url' => asset('storage/'.$path),
                     'optimized' => $optimized,
                     'uploaded_at' => now()->toISOString(),
                 ];
@@ -504,7 +505,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload screenshots: ' . $e->getMessage(),
+                'message' => 'Failed to upload screenshots: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -594,7 +595,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete screenshot: ' . $e->getMessage(),
+                'message' => 'Failed to delete screenshot: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -645,7 +646,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reorder screenshots: ' . $e->getMessage(),
+                'message' => 'Failed to reorder screenshots: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -678,7 +679,7 @@ class MyGamesController extends Controller
                 $image->cover($width, $height);
                 $encoded = $image->encode(new WebpEncoder(quality: 80));
 
-                $optimizedPath = "games/{$gameId}/thumbnails/{$variant}_" . time() . '.webp';
+                $optimizedPath = "games/{$gameId}/thumbnails/{$variant}_".time().'.webp';
                 Storage::disk('public')->put($optimizedPath, (string) $encoded);
 
                 $optimized[$variant] = [
@@ -719,7 +720,7 @@ class MyGamesController extends Controller
                 $image->scale($width, $height);
                 $encoded = $image->encode(new WebpEncoder(quality: 80));
 
-                $optimizedPath = "games/{$gameId}/screenshots/{$screenshotIndex}_{$variant}_" . time() . '.webp';
+                $optimizedPath = "games/{$gameId}/screenshots/{$screenshotIndex}_{$variant}_".time().'.webp';
                 Storage::disk('public')->put($optimizedPath, (string) $encoded);
 
                 $optimized[$variant] = [
