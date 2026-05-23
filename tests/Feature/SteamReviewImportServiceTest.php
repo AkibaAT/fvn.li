@@ -57,7 +57,7 @@ function steamReviewPayload(array $overrides = []): array
     ], $overrides);
 }
 
-it('imports Steam reviews, creates raters, converts BBCode, and deletes stale Steam reviews', function () {
+it('imports Steam reviews, creates raters, converts BBCode, and preserves local Steam reviews missing from the response', function () {
     $game = steamImportGame();
     $staleRater = Rater::factory()->create([
         'name' => 'Stale Steam User',
@@ -90,10 +90,10 @@ it('imports Steam reviews, creates raters, converts BBCode, and deletes stale St
         'fetched' => 1,
         'imported' => 1,
         'updated' => 0,
-        'deleted' => 1,
+        'deleted' => 0,
         'skipped' => 0,
         'errors' => 0,
-    ])->and(Rating::find($staleRating->id))->toBeNull();
+    ])->and(Rating::find($staleRating->id))->not->toBeNull();
 
     $rating = Rating::where('external_id', 'rec-1')->firstOrFail();
 
