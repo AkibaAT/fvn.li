@@ -478,6 +478,15 @@ init 10000 python:
             yield combine_conditions(outer_condition, local_condition), sub_block
             prior_conditions.append(branch_condition)
 
+    def is_statement_block(block):
+        return isinstance(block, (list, tuple))
+
+    def iter_statement_block(block):
+        if is_statement_block(block):
+            return block
+
+        return []
+
     def handle_call_screen(from_label, screen_name, filename, linenumber, condition=None):
         if not from_label or not screen_name:
             return
@@ -537,7 +546,7 @@ init 10000 python:
 
     def block_has_terminal(block):
         """Check if a block ends with a jump, call, or return."""
-        if not block:
+        if not is_statement_block(block) or not block:
             return False
         for stmt in reversed(block):
             if isinstance(stmt, (renpy.ast.Jump, renpy.ast.Call, renpy.ast.Return)):
@@ -609,9 +618,9 @@ init 10000 python:
 
     def walk_for_edges(block, from_label, filename, from_type="flow", active_condition=None):
         """Recursively walk a block to find all Jump/Call edges and variable changes."""
-        if not block:
+        if not is_statement_block(block) or not block:
             return
-        for stmt in block:
+        for stmt in iter_statement_block(block):
             screen_name = get_call_screen_name(stmt)
             if screen_name:
                 handle_call_screen(

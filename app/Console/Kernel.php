@@ -23,6 +23,7 @@ use App\Console\Commands\RecalculateGameRatings;
 use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGames;
 use App\Console\Commands\RefreshSteamGames;
+use App\Console\Commands\RefreshTrendingScores;
 use App\Console\Commands\UpdateWatchlist;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -50,6 +51,7 @@ class Kernel extends ConsoleKernel
         RefreshFeedlessGames::class,
         RefreshGames::class,
         RefreshSteamGames::class,
+        RefreshTrendingScores::class,
         UpdateWatchlist::class,
     ];
 
@@ -68,6 +70,7 @@ class Kernel extends ConsoleKernel
             ['--all', '--update-data', '--update-reviews'])->dailyAt('22:00')->withoutOverlapping();
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details')->hourly()->withoutOverlapping();
+        $schedule->command('games:refresh-trending-scores')->hourly()->withoutOverlapping();
         $schedule->command('fix:characters')->weekly()->sundays()->at('03:00')->withoutOverlapping();
 
         // Notification commands (performance optimized: reduced from everyMinute to everyFiveMinutes)
@@ -88,7 +91,7 @@ class Kernel extends ConsoleKernel
      */
     protected function commands(): void
     {
-        $this->load(__DIR__ . '/Commands');
+        $this->load(__DIR__.'/Commands');
 
         require base_path('routes/console.php');
     }

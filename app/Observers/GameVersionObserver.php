@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\GameDialogueText;
 use App\Models\GameVersion;
+use App\Services\GameSearchRefreshService;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -29,6 +30,18 @@ class GameVersionObserver
 
             // Reindex all dialogue texts for this game
             $this->reindexGameDialogueTexts($gameVersion->game_id);
+        }
+
+        if ($isLatest && $gameVersion->wasChanged([
+            'is_latest',
+            'published_at',
+            'is_windows',
+            'is_linux',
+            'is_mac',
+            'is_android',
+            'is_web',
+        ])) {
+            GameSearchRefreshService::refreshForLatestVersion($gameVersion, 'game_version_saved');
         }
     }
 

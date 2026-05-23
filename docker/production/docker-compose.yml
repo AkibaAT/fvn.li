@@ -3,7 +3,7 @@ x-fvnli: &fvnli
 x-db: &db
   image: postgres:18.4@sha256:775a0820dd34e907ec63277e388d145056d427548e461d7953a070edb5de3a3a
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.23@sha256:bac1af7afd5a19b72ec57a660cbb09704926b75ad709ad514ed2f7cf01675256
+  image: getmeili/meilisearch:v1.44@sha256:b839a48d008d4e67e57f78dcff5b21d5e8b8fa066bacd11f97824d6307abb0dd
 x-redis: &redis
   image: redis:8.6.3@sha256:0c341492924cad6f5483f9133e43bd6c51ecdecbcadfac5b51657393b6a7936c
 
@@ -164,6 +164,7 @@ services:
       - MEILI_LOG_LEVEL=INFO
       - MEILI_MAX_INDEXING_MEMORY=2GB
       - MEILI_MAX_INDEXING_THREADS=2
+      - MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE=true
     volumes:
       - meilisearch:/meili_data
     deploy:

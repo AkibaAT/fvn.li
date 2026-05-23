@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Services\HomePageCacheService;
-use App\Services\MeilisearchService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -15,10 +14,6 @@ use Inertia\Response;
 
 class HomeController extends Controller
 {
-    public function __construct(
-        private MeilisearchService $meilisearchService
-    ) {}
-
     public function home(): Response
     {
         // Cache stats indefinitely - cleared by observers when data changes
@@ -40,12 +35,11 @@ class HomeController extends Controller
             $ignoredGameIds = Auth::user()->ignoredGames()->pluck('games.id')->toArray();
         }
 
-        // Use versioning for cache invalidation instead of time-based expiry
-        // This ensures cache stays fresh indefinitely until games actually change
+        // Use versioning for active invalidation, with a TTL as a backstop for old variants.
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
+        $cacheKey = "home.teasers.v{$teaserVersion}.".md5(implode(',', $ignoredGameIds));
 
-        $teasers = Cache::rememberForever($cacheKey, function () use ($ignoredGameIds) {
+        $teasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
             return [
                 'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),
                 'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', 4, $ignoredGameIds),
@@ -73,23 +67,35 @@ class HomeController extends Controller
 
     private function getGameTeasers(string $sortField, string $sortDirection = 'desc', int $limit = 4, array $ignoredGameIds = []): array
     {
-        // Use Meilisearch - same as games index page
-        $paginator = $this->meilisearchService->searchGames(
-            query: '',
-            filters: [],
-            perPage: $limit,
-            page: 1,
-            sortField: $sortField,
-            sortDirection: $sortDirection,
-            ignoredGameIds: $ignoredGameIds
-        );
+        $query = Game::query()
+            ->where('games.is_visible', true)
+            ->select('games.*');
 
-        $games = $paginator->items();
+        if (! empty($ignoredGameIds)) {
+            $query->whereNotIn('games.id', $ignoredGameIds);
+        }
+
+        match ($sortField) {
+            'latest_version_published_at' => $query
+                ->leftJoin('game_versions as latest_game_versions', function ($join) {
+                    $join->on('latest_game_versions.game_id', '=', 'games.id')
+                        ->where('latest_game_versions.is_latest', true);
+                })
+                ->orderByRaw('latest_game_versions.published_at '.($sortDirection === 'asc' ? 'asc' : 'desc').' nulls last'),
+            'trending_score' => $query
+                ->orderBy('games.trending_score', $sortDirection === 'asc' ? 'asc' : 'desc')
+                ->orderByDesc('games.rating_count'),
+            default => $query->orderByRaw('games.first_visible_at '.($sortDirection === 'asc' ? 'asc' : 'desc').' nulls last'),
+        };
+
+        $games = $query
+            ->limit($limit)
+            ->get();
 
         // Load essential relationships for the frontend
-        if ($paginator->count() > 0) {
+        if ($games->isNotEmpty()) {
             // Load relationships to prevent N+1 queries
-            $paginator->load([
+            $games->load([
                 'tags',
                 'sourceLanguage',
                 'latestVersion.supportedLanguages.language',
@@ -161,8 +167,8 @@ class HomeController extends Controller
         }
 
         // Load user-specific data if authenticated
-        if (Auth::check() && $paginator->count() > 0) {
-            $gameIds = collect($games)->pluck('id')->toArray();
+        if (Auth::check() && $games->isNotEmpty()) {
+            $gameIds = $games->pluck('id')->toArray();
 
             if (! empty($gameIds)) {
                 // Load user progress
@@ -192,6 +198,6 @@ class HomeController extends Controller
             }
         }
 
-        return $games;
+        return $games->all();
     }
 }

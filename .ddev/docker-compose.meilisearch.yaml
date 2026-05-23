@@ -3,7 +3,7 @@
 
 services:
   meilisearch:
-    image: getmeili/meilisearch:v1.18
+    image: getmeili/meilisearch:v1.44
     restart: unless-stopped
     container_name: ddev-${DDEV_SITENAME}-meilisearch
     hostname: ${DDEV_SITENAME}-meilisearch
@@ -15,6 +15,7 @@ services:
       - MEILI_ENV=development
       - MEILI_HTTP_ADDR=0.0.0.0:7700
       - MEILI_LOG_LEVEL=DEBUG
+      - MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE=true
     volumes:
       - meilisearch_data:/meili_data
     networks:

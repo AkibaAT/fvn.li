@@ -314,7 +314,7 @@ return [
                 'embedders' => [
                     'default' => [
                         'source' => 'huggingFace',
-                        'model' => 'nomic-ai/nomic-embed-text-v1.5',
+                        'model' => 'BAAI/bge-small-en-v1.5',
                         'documentTemplate' => 'A visual novel called {{doc.name}} by {{doc.authors}}. Tags: {{doc.tags}}. {{doc.description}} {{doc.full_description}}',
                     ],
                 ],

@@ -348,7 +348,7 @@ readonly class GameStatsService
         }
 
         Cache::forget('dialogue.games_list');
-        $this->scheduleGameSearchReindex($version);
+        GameSearchRefreshService::refreshForLatestVersion($version, 'version_stats_saved');
         echo "    [Stats] Version stats processing complete\n";
     }
 
@@ -358,28 +358,6 @@ readonly class GameStatsService
         $version->languageStats()->delete();
         $version->characterStats()->delete();
         $version->supportedLanguages()->delete();
-    }
-
-    private function scheduleGameSearchReindex(GameVersion $version): void
-    {
-        if (! $version->is_latest) {
-            return;
-        }
-
-        $gameId = $version->game_id;
-
-        dispatch(function () use ($gameId) {
-            $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
-            if (! $game) {
-                return;
-            }
-
-            if ($game->shouldBeSearchable()) {
-                $game->searchable();
-            } else {
-                $game->unsearchable();
-            }
-        })->afterCommit();
     }
 
     /**
