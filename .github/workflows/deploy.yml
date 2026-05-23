@@ -8,6 +8,17 @@ on:
     paths-ignore:
       - '**.md'
   workflow_dispatch:
+    inputs:
+      force_app_image:
+        description: Rebuild and redeploy the main application Docker image
+        required: false
+        default: false
+        type: boolean
+      force_social_images:
+        description: Rebuild and redeploy the social image generator Docker image
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -96,7 +107,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          fetch-depth: 2 # Needed to check for file changes
+          fetch-depth: 0 # Needed to check the full pushed range for file changes
 
       - name: Set deployment variables
         id: vars
@@ -114,15 +125,39 @@ jobs:
             exit 0
           fi
 
+          FORCE_APP_IMAGE="${{ inputs.force_app_image || false }}"
+          FORCE_SOCIAL_IMAGES="${{ inputs.force_social_images || false }}"
+
+          CHANGED_FILES="$(mktemp)"
+          BASE_SHA="${{ github.event.before }}"
+          HEAD_SHA="${{ github.sha }}"
+
+          if [[ "${{ github.event_name }}" == "push" && "$BASE_SHA" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$CHANGED_FILES"
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --name-only HEAD^ HEAD > "$CHANGED_FILES"
+          else
+            git ls-tree -r --name-only HEAD > "$CHANGED_FILES"
+          fi
+
           # Check if Dockerfile or related files have changed
           DOCKERFILE_CHANGED=false
-          git diff --name-only HEAD^ HEAD | grep -q -E '^docker/(app/.*|production/docker-compose\.yml)$' && DOCKERFILE_CHANGED=true
+          grep -q -E '^docker/(app/.*|production/docker-compose\.yml)$' "$CHANGED_FILES" && DOCKERFILE_CHANGED=true
+          [[ "$FORCE_APP_IMAGE" == "true" ]] && DOCKERFILE_CHANGED=true
           echo "dockerfile_changed=$DOCKERFILE_CHANGED" >> $GITHUB_OUTPUT
 
           # Check if social image generator Dockerfile or script changed
           SOCIAL_IMAGES_CHANGED=false
-          git diff --name-only HEAD^ HEAD | grep -q -E '^docker/social-images/.*$' && SOCIAL_IMAGES_CHANGED=true
+          grep -q -E '^docker/social-images/.*$' "$CHANGED_FILES" && SOCIAL_IMAGES_CHANGED=true
+          [[ "$FORCE_SOCIAL_IMAGES" == "true" ]] && SOCIAL_IMAGES_CHANGED=true
           echo "social_images_changed=$SOCIAL_IMAGES_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "Changed files considered for Docker rebuilds:"
+          cat "$CHANGED_FILES"
+          echo "force_app_image=$FORCE_APP_IMAGE"
+          echo "force_social_images=$FORCE_SOCIAL_IMAGES"
+          echo "dockerfile_changed=$DOCKERFILE_CHANGED"
+          echo "social_images_changed=$SOCIAL_IMAGES_CHANGED"
 
       # Build and push Docker images if Dockerfile or related files changed
       - name: Set up Docker Buildx
