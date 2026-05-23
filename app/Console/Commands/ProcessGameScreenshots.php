@@ -177,9 +177,10 @@ class ProcessGameScreenshots extends Command
 
                 // Download the screenshot
                 $this->info('Downloading screenshot...');
+                $request = $this->imageUrlValidator->validatedRequest($sourceUrl);
                 $response = $this->httpClient->get(
-                    $this->imageUrlValidator->validate($sourceUrl),
-                    self::DOWNLOAD_OPTIONS
+                    $request['url'],
+                    array_replace_recursive(self::DOWNLOAD_OPTIONS, $request['options'])
                 );
 
                 // Get the content

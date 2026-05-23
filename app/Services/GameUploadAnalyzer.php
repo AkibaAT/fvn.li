@@ -13,6 +13,7 @@ class GameUploadAnalyzer
      *     seenUploads: array<int|string, mixed>,
      *     hasChanges: bool,
      *     candidateUploads: array<int, Upload>,
+     *     processableUploads: array<int, Upload>,
      *     platforms: array{windows: bool, linux: bool, mac: bool, android: bool, web: bool}
      * }
      */
@@ -20,6 +21,7 @@ class GameUploadAnalyzer
     {
         $hasChanges = false;
         $candidateUploads = [];
+        $processableUploads = [];
         $platforms = [
             'windows' => false,
             'linux' => false,
@@ -68,6 +70,13 @@ class GameUploadAnalyzer
                 }
             }
 
+            if (isset($seenUploads[$fileId])) {
+                $currentUpload = Upload::fromArray($seenUploads[$fileId], $fileId);
+                if ($currentUpload->isProcessable()) {
+                    $processableUploads[] = $currentUpload;
+                }
+            }
+
             if (! empty($upload['traits'])) {
                 $platforms['windows'] = $platforms['windows'] || in_array('p_windows', $upload['traits']);
                 $platforms['linux'] = $platforms['linux'] || in_array('p_linux', $upload['traits']);
@@ -83,6 +92,7 @@ class GameUploadAnalyzer
             'seenUploads' => $seenUploads,
             'hasChanges' => $hasChanges,
             'candidateUploads' => $candidateUploads,
+            'processableUploads' => $processableUploads,
             'platforms' => $platforms,
         ];
     }

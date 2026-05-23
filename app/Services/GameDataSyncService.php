@@ -123,6 +123,7 @@ class GameDataSyncService
         $seenUploads = $game->uploads ?: [];
         $hasChanges = false;
         $candidateUploads = [];
+        $processableUploads = [];
         $platforms = [
             'windows' => false,
             'linux' => false,
@@ -138,6 +139,7 @@ class GameDataSyncService
             $seenUploads = $uploadAnalysis['seenUploads'];
             $hasChanges = $uploadAnalysis['hasChanges'];
             $candidateUploads = $uploadAnalysis['candidateUploads'];
+            $processableUploads = $uploadAnalysis['processableUploads'];
             $platforms = $uploadAnalysis['platforms'];
         }
 
@@ -157,6 +159,12 @@ class GameDataSyncService
 
         if ($game->is_paid) {
             echo "    [Version] Paid game; skipping stats extraction\n";
+        } elseif ($this->hasOnlyDemoProcessableUploads($processableUploads)) {
+            $game->is_stats_extraction_disabled = true;
+            echo "    [Version] Only demo archives are processable; skipping stats extraction\n";
+        } elseif ($processableUploads !== [] && $game->is_stats_extraction_disabled) {
+            $game->is_stats_extraction_disabled = false;
+            echo "    [Version] Full processable archive is available; enabling stats extraction\n";
         }
 
         // Exit early if no changes detected and game already has versions

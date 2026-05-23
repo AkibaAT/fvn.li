@@ -74,3 +74,33 @@ it('returns null when the sandbox analyzer is not configured', function () {
         File::delete($archivePath);
     }
 });
+
+it('does not expose raw sandbox analyzer failure output as the extraction error', function () {
+    $sharedPath = storage_path('framework/testing/renpy-analyzer-shared-'.uniqid());
+    $archivePath = storage_path('framework/testing/source-archive-'.uniqid().'.zip');
+    File::ensureDirectoryExists(dirname($archivePath));
+    File::put($archivePath, 'archive');
+
+    config([
+        'services.renpy.analyzer_url' => 'http://stats-runner:8080/api/renpy-analyzer/analyze',
+        'services.renpy.analyzer_token' => 'test-token',
+        'services.renpy.analyzer_shared_path' => $sharedPath,
+    ]);
+
+    Http::fake([
+        'stats-runner:8080/*' => Http::response([
+            'message' => 'SECRET_FROM_ANALYZER_STDERR /srv/analyzer/work/request-1',
+        ], 422),
+    ]);
+
+    $client = new RenpyStatsSandboxClient;
+
+    try {
+        expect($client->extract($archivePath))->toBeNull()
+            ->and($client->getLastError())->toBe('No stats could be extracted')
+            ->and($client->getLastError())->not->toContain('SECRET_FROM_ANALYZER_STDERR');
+    } finally {
+        File::delete($archivePath);
+        File::deleteDirectory($sharedPath);
+    }
+});

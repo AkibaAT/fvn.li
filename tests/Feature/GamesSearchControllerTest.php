@@ -319,11 +319,9 @@ it('returns global search results and random visible game slugs', function () {
             ->andReturn([
                 'games' => [['id' => $game->id, 'name' => $game->name]],
                 'dialogue' => [],
-                'reviews' => [],
                 'tags' => [],
                 'total_games' => 1,
                 'total_dialogue' => 0,
-                'total_reviews' => 0,
                 'total_tags' => 0,
             ]);
     });

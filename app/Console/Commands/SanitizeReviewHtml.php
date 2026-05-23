@@ -63,9 +63,6 @@ class SanitizeReviewHtml extends Command
             'changed' => 0,
             'unchanged' => 0,
             'emptied' => 0,
-            'indexed' => 0,
-            'unindexed' => 0,
-            'index_errors' => 0,
             'errors' => 0,
         ];
 
@@ -111,7 +108,6 @@ class SanitizeReviewHtml extends Command
                         'is_reviewed' => $isReviewed,
                     ])->saveQuietly();
 
-                    $this->refreshSearchIndex($rating, $isReviewed, $stats);
                 } catch (Exception $e) {
                     $stats['errors']++;
                     $this->newLine();
@@ -126,10 +122,6 @@ class SanitizeReviewHtml extends Command
         );
 
         if ($apply) {
-            $this->info("Search index refreshed for {$stats['indexed']} review(s); removed {$stats['unindexed']} review(s).");
-            if ($stats['index_errors'] > 0) {
-                $this->warn("Search index refresh failed for {$stats['index_errors']} review(s). Run php artisan meilisearch:reindex --type=reviews after investigating.");
-            }
             $this->info("Sanitized {$stats['changed']} stored review(s).");
         } else {
             $this->info("Stored reviews that would be updated: {$stats['changed']}");
@@ -170,22 +162,4 @@ class SanitizeReviewHtml extends Command
         return array_values(array_unique($parsed));
     }
 
-    private function refreshSearchIndex(Rating $rating, bool $isReviewed, array &$stats): void
-    {
-        try {
-            if ($rating->is_visible && $isReviewed && trim((string) $rating->review) !== '') {
-                $rating->searchable();
-                $stats['indexed']++;
-
-                return;
-            }
-
-            $rating->unsearchable();
-            $stats['unindexed']++;
-        } catch (Exception $e) {
-            $stats['index_errors']++;
-            $this->newLine();
-            $this->warn("Failed to refresh search index for rating {$rating->id}: {$e->getMessage()}");
-        }
-    }
 }
