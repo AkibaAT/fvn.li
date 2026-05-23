@@ -102,11 +102,23 @@ class GameObserver
             } elseif (! $isVisible) {
                 // Game is now hidden - remove from search index
                 Log::debug('Removing game from search index', ['game_id' => $game->id]);
-                $game->unsearchable();
-                Log::info('Removed game from search index', [
-                    'game_id' => $game->id,
-                    'game_name' => $game->name,
-                ]);
+
+                $gameId = $game->id;
+                $gameName = $game->name;
+
+                dispatch(function () use ($gameId, $gameName) {
+                    $game = Game::find($gameId);
+
+                    if (! $game || $game->is_visible) {
+                        return;
+                    }
+
+                    $game->unsearchable();
+                    Log::info('Removed game from search index', [
+                        'game_id' => $gameId,
+                        'game_name' => $gameName,
+                    ]);
+                })->afterCommit();
             }
 
             // Clear home page cache when visibility changes

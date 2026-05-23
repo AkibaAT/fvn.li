@@ -29,7 +29,10 @@ class SteamReviewImportService
 
     /**
      * Completely sync all reviews for a Steam game
-     * Fetches all reviews, updates existing ones, and removes reviews no longer present on Steam
+     * Fetches all reviews available from Steam and updates existing ones.
+     *
+     * Steam's review API can omit older reviews due to cutoff/pagination limits, so routine
+     * syncs must not treat missing review IDs as deleted.
      *
      * @param  Game  $game  The game to sync reviews for
      * @return array Statistics about the sync
@@ -56,7 +59,6 @@ class SteamReviewImportService
         ];
 
         $cursor = '*';
-        $steamReviewIds = []; // Track all review IDs found on Steam
 
         Log::info('Starting complete Steam review sync', [
             'game_id' => $game->id,
@@ -95,10 +97,6 @@ class SteamReviewImportService
                 foreach ($reviews as $reviewData) {
                     try {
                         $recommendationId = $reviewData['recommendationid'] ?? null;
-                        if ($recommendationId) {
-                            $steamReviewIds[] = (string) $recommendationId;
-                        }
-
                         $result = $this->syncSingleReview($game, $reviewData);
                         if ($result === 'imported') {
                             $stats['imported']++;
@@ -140,21 +138,6 @@ class SteamReviewImportService
                 ]);
                 break;
             }
-        }
-
-        // Remove reviews that are no longer present on Steam
-        if (! empty($steamReviewIds)) {
-            $deletedCount = Rating::where('game_id', $game->id)
-                ->where('source_platform', 'steam')
-                ->whereNotIn('external_id', $steamReviewIds)
-                ->delete();
-
-            $stats['deleted'] = $deletedCount;
-
-            Log::info('Deleted reviews no longer on Steam', [
-                'game_id' => $game->id,
-                'deleted_count' => $deletedCount,
-            ]);
         }
 
         Log::info('Completed complete Steam review sync', array_merge(['game_id' => $game->id], $stats));

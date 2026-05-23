@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use App\Models\GameDialogueText;
-use App\Models\Rating;
 use App\Models\Tag;
 use Exception;
 use Illuminate\Console\Command;
@@ -253,49 +252,6 @@ class MeilisearchSetup extends Command
             }
 
             $this->info("    ✅ Dialogue texts imported ({$totalIndexed} entries)");
-
-            // Import reviews
-            $reviewCount = Rating::where('is_visible', true)
-                ->where('is_reviewed', true)
-                ->whereRaw("trim(review) != ''")
-                ->count();
-
-            if ($reviewCount > 0) {
-                $this->line("  - Importing {$reviewCount} reviews...");
-
-                $bar = $this->output->createProgressBar($reviewCount);
-                $bar->start();
-
-                $errors = [];
-                Rating::where('is_visible', true)
-                    ->where('is_reviewed', true)
-                    ->whereRaw("trim(review) != ''")
-                    ->chunk(100, function ($reviews) use ($bar, &$errors) {
-                        try {
-                            $reviews->searchable();
-                            $bar->advance($reviews->count());
-                        } catch (Exception $e) {
-                            $errors[] = "Reviews chunk error: {$e->getMessage()}";
-                            $bar->advance($reviews->count());
-                        }
-                    });
-
-                $bar->finish();
-                $this->newLine();
-
-                if (! empty($errors)) {
-                    $this->error('    ❌ Errors importing reviews:');
-                    foreach ($errors as $error) {
-                        $this->line("      • {$error}");
-                    }
-
-                    return false;
-                }
-
-                $this->info('    ✅ Reviews imported');
-            } else {
-                $this->info('    ℹ️ No reviews to import');
-            }
 
             // Import tags
             $tagCount = Tag::whereRaw("trim(name) != ''")->count();

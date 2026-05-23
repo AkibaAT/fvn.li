@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\CallQueuedClosure;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    Config::set('scout.driver', 'null');
+});
 
 describe('GameObserver slug generation', function () {
     test('generates slug from URL on creation', function () {
@@ -232,6 +239,21 @@ describe('GameObserver search indexing', function () {
             ->and($game->is_visible)->toBeFalse();
 
         // The observer should not call searchable() for invisible games
+    });
+
+    test('removes hidden game from search index after commit', function () {
+        $game = Game::factory()->create([
+            'platform' => 'itch_io',
+            'name' => 'Test Game',
+            'url' => ['itch_io' => 'https://test.itch.io/game'],
+            'is_visible' => true,
+        ]);
+
+        Queue::fake();
+
+        $game->update(['is_visible' => false]);
+
+        Queue::assertPushed(CallQueuedClosure::class);
     });
 });
 

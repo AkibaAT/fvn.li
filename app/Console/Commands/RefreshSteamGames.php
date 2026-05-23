@@ -25,7 +25,7 @@ class RefreshSteamGames extends Command
         {--all : Refresh all visible Steam games}
         {--sort=updated_at : Sort games by field (id, name, created_at, updated_at)}
         {--update-data : Refresh game data (metadata, versions, tags)}
-        {--update-reviews : Sync ALL reviews from Steam (fetches all, updates existing, removes deleted)}
+        {--update-reviews : Sync reviews from Steam (fetches available reviews and updates existing)}
         {--force : Force refresh even for abandoned/canceled games}
         {--sleep=10 : Sleep time in seconds between games (to avoid rate limiting)}';
 
@@ -82,9 +82,9 @@ class RefreshSteamGames extends Command
         $this->info('Force mode: ' . ($force ? 'Yes' : 'No'));
         $this->info('Options selected:');
         $this->info('- Game Data: ' . ($this->option('update-data') ? 'Yes' : 'No'));
-        $this->info('- Reviews: ' . ($this->option('update-reviews') ? 'Yes (complete sync)' : 'No'));
+        $this->info('- Reviews: ' . ($this->option('update-reviews') ? 'Yes (upsert available reviews)' : 'No'));
         if ($this->option('update-reviews')) {
-            $this->info('  Reviews will be completely synced: fetch all, update existing, remove deleted');
+            $this->info('  Reviews will be synced without deleting local reviews missing from the Steam API response');
         }
         $this->info('Sleep time between games: ' . $sleepTime . ' seconds');
 

@@ -16,7 +16,7 @@ class MeilisearchReindex extends Command
      * @var string
      */
     protected $signature = 'meilisearch:reindex
-        {--type=all : Type of content to reindex (all, games, dialogue, reviews, tags)}';
+        {--type=all : Type of content to reindex (all, games, dialogue, tags)}';
 
     /**
      * The console command description.
@@ -69,7 +69,6 @@ class MeilisearchReindex extends Command
             [
                 ['Games', $stats['games']],
                 ['Dialogue Texts', $stats['dialogue_texts']],
-                ['Reviews', $stats['reviews']],
                 ['Tags', $stats['tags']],
             ]
         );
@@ -108,7 +107,6 @@ class MeilisearchReindex extends Command
         $stats = match ($type) {
             'games' => $searchService->reindexGames($progressCallback),
             'dialogue' => $searchService->reindexDialogue($progressCallback),
-            'reviews' => $searchService->reindexReviews($progressCallback),
             'tags' => $searchService->reindexTags($progressCallback),
             default => throw new InvalidArgumentException("Invalid type: {$type}"),
         };

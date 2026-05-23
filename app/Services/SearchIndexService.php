@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameDialogueText;
-use App\Models\Rating;
 use App\Models\Tag;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +19,6 @@ class SearchIndexService
         $stats = [
             'games' => 0,
             'dialogue_texts' => 0,
-            'reviews' => 0,
             'tags' => 0,
             'errors' => [],
         ];
@@ -62,18 +60,6 @@ class SearchIndexService
                     $stats['errors'][] = "Game {$gameId}: {$e->getMessage()}";
                 }
             }
-
-            // Reindex reviews
-            Rating::where('is_visible', true)
-                ->where('is_reviewed', true)
-                ->whereRaw("trim(review) != ''")
-                ->chunk(100, function ($reviews) use (&$stats, $progressCallback) {
-                    $reviews->searchable();
-                    $stats['reviews'] += $reviews->count();
-                    if ($progressCallback) {
-                        $progressCallback($reviews->count());
-                    }
-                });
 
             // Reindex tags
             Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats, $progressCallback) {
@@ -172,37 +158,6 @@ class SearchIndexService
     }
 
     /**
-     * Reindex only reviews.
-     */
-    public function reindexReviews(?callable $progressCallback = null): array
-    {
-        $stats = ['count' => 0, 'errors' => []];
-
-        try {
-            Rating::where('is_visible', true)
-                ->where('is_reviewed', true)
-                ->whereRaw("trim(review) != ''")
-                ->chunk(100, function ($reviews) use (&$stats, $progressCallback) {
-                    $reviews->searchable();
-                    $stats['count'] += $reviews->count();
-                    if ($progressCallback) {
-                        $progressCallback($reviews->count());
-                    }
-                });
-
-            Log::info('Reviews reindexed', $stats);
-        } catch (Exception $e) {
-            $stats['errors'][] = $e->getMessage();
-            Log::error('Reviews reindex failed', [
-                'error' => $e->getMessage(),
-                'stats' => $stats,
-            ]);
-        }
-
-        return $stats;
-    }
-
-    /**
      * Reindex only tags.
      */
     public function reindexTags(?callable $progressCallback = null): array
@@ -270,7 +225,7 @@ class SearchIndexService
             $client = app(Client::class);
 
             $stats = [];
-            $indexes = ['games', 'game_dialogue_texts', 'reviews', 'tags'];
+            $indexes = ['games', 'game_dialogue_texts', 'tags'];
 
             foreach ($indexes as $indexName) {
                 try {

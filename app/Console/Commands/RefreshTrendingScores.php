@@ -20,7 +20,10 @@ class RefreshTrendingScores extends Command
     public function handle(): int
     {
         $calculatedAt = now();
+
+        $this->info('Calculating trending scores from page views in the last 14 days...');
         $scores = $this->calculateScores();
+        $this->info(sprintf('Calculated %d candidate trending scores.', $scores->count()));
 
         if ($scores->isEmpty() && ! Game::query()->where('trending_score', '>', 0)->exists()) {
             $this->info('No trending score candidates found.');
@@ -29,10 +32,16 @@ class RefreshTrendingScores extends Command
         }
 
         $changedIds = [];
+        $candidateCount = $scores->count();
+        $processedCandidates = 0;
+
+        if ($candidateCount > 0) {
+            $this->info(sprintf('Checking %d candidate games for score changes...', $candidateCount));
+        }
 
         $scores
             ->chunk(1000)
-            ->each(function ($scoreChunk) use ($calculatedAt, &$changedIds) {
+            ->each(function ($scoreChunk) use ($calculatedAt, &$changedIds, &$processedCandidates, $candidateCount) {
                 Game::query()
                     ->whereIn('id', $scoreChunk->keys())
                     ->select(['id', 'trending_score'])
@@ -55,13 +64,24 @@ class RefreshTrendingScores extends Command
                             $changedIds[] = $game->id;
                         }
                     });
+
+                $processedCandidates += $scoreChunk->count();
+                $this->line(sprintf('Checked %d/%d candidate games.', $processedCandidates, $candidateCount));
             });
+
+        $staleScoreCount = Game::query()->where('trending_score', '>', 0)->count();
+
+        if ($staleScoreCount > 0) {
+            $this->info(sprintf('Checking %d games with existing scores for reset...', $staleScoreCount));
+        }
+
+        $processedStaleScores = 0;
 
         Game::query()
             ->where('trending_score', '>', 0)
             ->select(['id', 'trending_score'])
             ->orderBy('id')
-            ->chunkById(500, function ($games) use ($scores, $calculatedAt, &$changedIds) {
+            ->chunkById(500, function ($games) use ($scores, $calculatedAt, &$changedIds, &$processedStaleScores, $staleScoreCount) {
                 foreach ($games as $game) {
                     if ($scores->has($game->id)) {
                         continue;
@@ -82,9 +102,13 @@ class RefreshTrendingScores extends Command
 
                     $changedIds[] = $game->id;
                 }
+
+                $processedStaleScores += $games->count();
+                $this->line(sprintf('Checked %d/%d existing scored games.', $processedStaleScores, $staleScoreCount));
             });
 
         $changedIds = array_values(array_unique($changedIds));
+        $this->info(sprintf('Found %d games with changed trending scores.', count($changedIds)));
 
         if (empty($changedIds)) {
             $this->info('Trending scores are already current.');
@@ -106,15 +130,21 @@ class RefreshTrendingScores extends Command
         }
 
         if ($visibleChangedIds !== []) {
+            $this->info(sprintf('Clearing home page teaser cache for %d visible changed games.', count($visibleChangedIds)));
             HomePageCacheService::clearTeasers();
         }
+
+        $this->info(sprintf('Refreshing search documents for %d visible changed games...', count($visibleChangedIds)));
+        $refreshedVisibleGames = 0;
 
         foreach (array_chunk($visibleChangedIds, 1000) as $visibleChangedIdChunk) {
             Game::query()
                 ->whereIn('id', $visibleChangedIdChunk)
                 ->with(['tags', 'gameJams', 'gameVersions'])
-                ->chunkById(100, function ($games) {
+                ->chunkById(100, function ($games) use (&$refreshedVisibleGames, $visibleChangedIds) {
                     $games->searchable();
+                    $refreshedVisibleGames += $games->count();
+                    $this->line(sprintf('Queued %d/%d visible games for search refresh.', $refreshedVisibleGames, count($visibleChangedIds)));
                 });
         }
 

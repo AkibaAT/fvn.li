@@ -3,10 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\Game;
-use App\Models\Rating;
 use App\Models\Tag;
 use App\Models\UniqueDialogueText;
-use App\Models\User;
 use App\Services\MeilisearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -228,59 +226,5 @@ describe('Dialogue Search', function () {
 
         expect($results->total())->toBe(1);
         expect($results->first()->text)->toContain('Alice');
-    })->skip('Requires Meilisearch server');
-});
-
-describe('Review Search', function () {
-    test('searches reviews by text', function () {
-        $user = User::factory()->create();
-        $game = Game::factory()->create();
-
-        $rating1 = Rating::factory()->create([
-            'user_id' => $user->id,
-            'game_id' => $game->id,
-            'review' => 'This is an amazing game!',
-        ]);
-
-        $rating2 = Rating::factory()->create([
-            'user_id' => $user->id,
-            'game_id' => $game->id,
-            'review' => 'This is a terrible game!',
-        ]);
-
-        sleep(1);
-
-        $results = $this->service->searchReviews('amazing');
-
-        expect($results->total())->toBeGreaterThan(0);
-        expect($results->first()->review)->toContain('amazing');
-    })->skip('Requires Meilisearch server');
-
-    test('filters reviews by rating range', function () {
-        $user = User::factory()->create();
-        $game = Game::factory()->create();
-
-        $rating1 = Rating::factory()->create([
-            'user_id' => $user->id,
-            'game_id' => $game->id,
-            'rating' => 5,
-            'review' => 'Great game',
-        ]);
-
-        $rating2 = Rating::factory()->create([
-            'user_id' => $user->id,
-            'game_id' => $game->id,
-            'rating' => 2,
-            'review' => 'Bad game',
-        ]);
-
-        sleep(1);
-
-        $results = $this->service->searchReviews('game', [
-            'min_rating' => 4,
-        ]);
-
-        expect($results->total())->toBe(1);
-        expect($results->first()->rating)->toBe(5);
     })->skip('Requires Meilisearch server');
 });

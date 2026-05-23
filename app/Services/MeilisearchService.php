@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
-use App\Models\Rating;
 use App\Models\Tag;
 use App\Models\UniqueDialogueText;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -206,39 +205,6 @@ class MeilisearchService
     }
 
     /**
-     * Search for reviews with filters and pagination.
-     */
-    public function searchReviews(
-        string $query,
-        array $filters = [],
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
-        $search = Rating::search(trim($query));
-
-        if (! empty($filters['game_name'])) {
-            $search->where('game_name', $filters['game_name']);
-        }
-
-        if (! empty($filters['rater_name'])) {
-            $search->where('rater_name', $filters['rater_name']);
-        }
-
-        if (isset($filters['min_rating'])) {
-            $search->where('rating', '>=', $filters['min_rating']);
-        }
-
-        if (isset($filters['max_rating'])) {
-            $search->where('rating', '<=', $filters['max_rating']);
-        }
-
-        $search->where('is_visible', true);
-        $search->where('is_reviewed', true);
-
-        return $search->paginate($perPage, 'page', $page);
-    }
-
-    /**
      * Search for tags with filters and pagination.
      */
     public function searchTags(
@@ -263,17 +229,14 @@ class MeilisearchService
     {
         $games = $this->searchGames($query, ['show_hidden' => false], $limit, 1);
         $dialogue = $this->searchDialogue($query, [], $limit, 1);
-        $reviews = $this->searchReviews($query, [], $limit, 1);
         $tags = $this->searchTags($query, [], $limit, 1);
 
         return [
             'games' => $games->items(),
             'dialogue' => $dialogue->items(),
-            'reviews' => $reviews->items(),
             'tags' => $tags->items(),
             'total_games' => $games->total(),
             'total_dialogue' => $dialogue->total(),
-            'total_reviews' => $reviews->total(),
             'total_tags' => $tags->total(),
         ];
     }
