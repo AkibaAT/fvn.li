@@ -124,6 +124,11 @@ readonly class GameStatsService
         return $this->extractGameStatsLocally($archivePath);
     }
 
+    public function getLastExtractionError(): ?string
+    {
+        return $this->sandboxClient->getLastError() ?? $this->localExtractor->getLastError();
+    }
+
     /**
      * Extract statistics locally. This mode is intended only for trusted local
      * fixtures and explicit development fallback, never untrusted production input.

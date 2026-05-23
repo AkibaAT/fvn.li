@@ -11,12 +11,16 @@ use RuntimeException;
 
 class RenpyStatsSandboxClient
 {
+    private ?string $lastError = null;
+
     public function extract(string $archivePath): ?array
     {
+        $this->lastError = null;
         $url = config('services.renpy.analyzer_url');
         $token = config('services.renpy.analyzer_token');
 
         if (! is_string($url) || $url === '' || ! is_string($token) || $token === '') {
+            $this->lastError = 'Sandbox analyzer is not configured';
             Log::warning('GameStats: sandbox analyzer is not configured', [
                 'has_url' => is_string($url) && $url !== '',
                 'has_token' => is_string($token) && $token !== '',
@@ -39,6 +43,10 @@ class RenpyStatsSandboxClient
                 ]);
 
             if (! $response->successful()) {
+                $message = $response->json('message');
+                $this->lastError = is_string($message) && $message !== ''
+                    ? $message
+                    : "Sandbox analyzer request failed with HTTP {$response->status()}";
                 Log::warning('GameStats: sandbox analyzer request failed', [
                     'status' => $response->status(),
                     'body' => $response->body(),
@@ -49,6 +57,7 @@ class RenpyStatsSandboxClient
 
             $stats = $response->json('stats');
             if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
+                $this->lastError = 'Sandbox analyzer returned invalid stats payload';
                 Log::warning('GameStats: sandbox analyzer returned invalid stats payload');
 
                 return null;
@@ -56,6 +65,7 @@ class RenpyStatsSandboxClient
 
             return $stats;
         } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
             Log::warning('GameStats: sandbox analyzer request errored', [
                 'error' => $e->getMessage(),
                 'exception' => $e,
@@ -65,6 +75,11 @@ class RenpyStatsSandboxClient
         } finally {
             File::deleteDirectory($requestDir);
         }
+    }
+
+    public function getLastError(): ?string
+    {
+        return $this->lastError;
     }
 
     private function createRequestDirectory(): string

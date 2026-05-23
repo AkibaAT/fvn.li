@@ -92,10 +92,10 @@ test('reprocess current game archive skips when current version has no stored ar
     expect($statsRecorder->saveVersionStatsCalls)->toBe([]);
 });
 
-readonly class ReprocessRecordingGameArchiveService extends GameArchiveService
+class ReprocessRecordingGameArchiveService extends GameArchiveService
 {
     public function __construct(
-        private object $recorder
+        private readonly object $recorder
     ) {}
 
     public function getStoredArchive(int $gameId, int $versionId): ?string

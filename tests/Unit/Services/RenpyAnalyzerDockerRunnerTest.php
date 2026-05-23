@@ -42,9 +42,12 @@ it('builds a locked down docker command for per-archive analysis', function () {
         ->and($command)->toContain('type=bind,source=/host/work/job/input,target=/input,readonly')
         ->and($command)->toContain('type=bind,source=/host/work/job/output,target=/output')
         ->and($command)->toContain('type=bind,source=/host/renpy-sdk,target=/opt/renpy-sdk,readonly')
-        ->and($command)->toContain('php8.5')
         ->and($command)->toContain('/input/renpy-analyze-archive.php')
         ->and($command)->toContain('/input/json_stats.rpy');
+
+    $entrypointIndex = array_search('--entrypoint', $command, true);
+    expect($entrypointIndex)->not->toBeFalse()
+        ->and($command[$entrypointIndex + 1])->toBe('php8.5');
 });
 
 it('cleans up stale analyzer job directories without deleting active or unrelated directories', function () {
