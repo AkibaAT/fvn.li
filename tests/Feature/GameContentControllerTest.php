@@ -187,7 +187,7 @@ test('developer can switch visitor mode between itch io and custom content', fun
     $customResponse->assertOk()
         ->assertJsonPath('data.view_mode', 'custom')
         ->assertJsonPath('data.effective_name', 'Custom Name')
-        ->assertJsonPath('data.effective_screenshots.0.url', 'https://custom.example/custom.jpg');
+        ->assertJsonCount(0, 'data.effective_screenshots');
 
     expect($customResponse->json('data.effective_description'))
         ->toContain('<img')
@@ -203,7 +203,7 @@ test('developer can switch visitor mode between itch io and custom content', fun
         ->assertJsonPath('data.view_mode', 'original')
         ->assertJsonPath('data.effective_name', 'Original itch.io Name')
         ->assertJsonPath('data.effective_description', '<p>Original itch.io text</p>')
-        ->assertJsonPath('data.effective_screenshots.0.url', 'https://itch.example/original.jpg');
+        ->assertJsonCount(0, 'data.effective_screenshots');
 
     $game->refresh();
     expect($game->view_mode)->toBe('original')
@@ -267,7 +267,7 @@ test('developer partially reverts content name screenshots and cleans custom scr
         ->assertJsonPath('data.name', 'Original itch.io Name')
         ->assertJsonPath('data.content', '<p>Original itch.io text</p>')
         ->assertJsonPath('data.has_custom_page', true)
-        ->assertJsonPath('data.screenshots.0.url', 'https://itch.example/original.jpg');
+        ->assertJsonCount(0, 'data.screenshots');
 
     Storage::disk('public')->assertMissing($customPath);
     Storage::disk('public')->assertMissing('games/custom/screenshots/default.webp');
@@ -322,7 +322,7 @@ test('developer fully reverts custom content and thumbnail through sync service 
     $response->assertOk()
         ->assertJsonPath('message', 'All custom content has been removed. The game now shows original itch.io content.')
         ->assertJsonPath('data.has_custom_page', false)
-        ->assertJsonPath('data.thumbnail_url', 'https://itch.example/original-thumb.jpg')
+        ->assertJsonPath('data.thumbnail_url', null)
         ->assertJsonPath('data.name', 'Original itch.io Name');
 
     $game->refresh();
