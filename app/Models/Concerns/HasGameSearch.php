@@ -96,6 +96,7 @@ trait HasGameSearch
             'status' => $this->status,
             'is_visible' => $this->is_visible,
             'is_delisted' => $this->is_delisted,
+            'is_stats_extraction_disabled' => $this->is_stats_extraction_disabled,
 
             // Content flags
             'is_nsfw' => $this->is_nsfw,

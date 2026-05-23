@@ -9,6 +9,7 @@ use App\Services\GameFilterService;
 use App\Services\HomePageCacheService;
 use App\Services\RatingStatsCacheService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class GameObserver
@@ -143,6 +144,26 @@ class GameObserver
             $this->bumpRecommendationCacheVersion();
         }
 
+        if ($game->wasChanged('is_stats_extraction_disabled')) {
+            if ($game->is_stats_extraction_disabled) {
+                $this->clearExtractedStats($game);
+            }
+
+            if ($game->is_visible && ! empty(trim($game->name))) {
+                $gameId = $game->id;
+
+                dispatch(function () use ($gameId) {
+                    $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+                    if ($game && $game->is_visible) {
+                        $game->searchable();
+                        Log::info('Re-indexed game after stats extraction setting changed', [
+                            'game_id' => $gameId,
+                        ]);
+                    }
+                })->afterCommit();
+            }
+        }
+
         // Process any pending associations
         Log::debug('Processing pending game jams after game update', ['game_id' => $game->id]);
         $hadPendingGameJams = ! empty($game->pendingGameJamId);
@@ -191,5 +212,32 @@ class GameObserver
     {
         Cache::add('games.recommendations.version', 1);
         Cache::increment('games.recommendations.version');
+    }
+
+    private function clearExtractedStats(Game $game): void
+    {
+        $versionIds = $game->gameVersions()->pluck('id');
+
+        if ($versionIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('version_word_frequencies')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_dialogue_lines')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_character_stats')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_language_stats')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_file_categories')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_route_paths')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_route_variable_changes')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_route_variables')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_route_menu_choices')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_route_edges')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('version_route_labels')->whereIn('game_version_id', $versionIds)->delete();
+        DB::table('game_versions')->whereIn('id', $versionIds)->update(['route_graph_data' => null]);
+
+        Log::info('Cleared extracted stats for game with disabled stats extraction', [
+            'game_id' => $game->id,
+            'version_ids' => $versionIds->all(),
+        ]);
     }
 }

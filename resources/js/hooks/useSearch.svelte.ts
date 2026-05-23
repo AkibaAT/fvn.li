@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/svelte';
 import { SvelteURLSearchParams, SvelteURL } from 'svelte/reactivity';
+import { route } from 'ziggy-js';
 
 interface UseSearchProps {
     isGamesPage?: boolean;
@@ -11,28 +12,71 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
     let isSearching = $state(false);
     let lastSearchQuery = '';
 
-    // Get search term from URL if on games page
-    const initializeSearchFromUrl = () => {
-        if (isGamesPage) {
-            const urlParams = new SvelteURLSearchParams(window.location.search);
-            const searchParam = urlParams.get('search');
-            if (searchParam) {
-                searchTerm = searchParam;
-            }
+    const getPathname = (urlOrPath: string) => {
+        try {
+            const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+
+            return new URL(urlOrPath, base).pathname.replace(/\/+$/, '') || '/';
+        } catch {
+            return urlOrPath.replace(/\/+$/, '') || '/';
         }
+    };
+
+    const isCurrentGamesIndexPage = () => {
+        if (typeof window === 'undefined') return isGamesPage;
+
+        return getPathname(window.location.pathname) === getPathname(route('games.index'));
+    };
+
+    const gamesIndexUrl = (params?: SvelteURLSearchParams) => {
+        const query = params?.toString();
+
+        return query ? `${route('games.index')}?${query}` : route('games.index');
+    };
+
+    const syncSearchTermFromCurrentRoute = () => {
+        if (typeof window === 'undefined') return;
+
+        if (!isCurrentGamesIndexPage()) {
+            searchTerm = '';
+            lastSearchQuery = '';
+            isSearching = false;
+
+            return;
+        }
+
+        const urlParams = new SvelteURLSearchParams(window.location.search);
+        searchTerm = urlParams.get('search') ?? '';
+        lastSearchQuery = searchTerm.trim();
+    };
+
+    // Get search term from URL if on games index page
+    const initializeSearchFromUrl = () => {
+        syncSearchTermFromCurrentRoute();
+    };
+
+    const updateGamesSearchUrl = (value: string) => {
+        if (typeof window === 'undefined' || !isCurrentGamesIndexPage()) {
+            return;
+        }
+
+        const url = new SvelteURL(window.location.href);
+        if (value.trim()) {
+            url.searchParams.set('search', value.trim());
+        } else {
+            url.searchParams.delete('search');
+        }
+        window.history.replaceState({}, '', url.toString());
     };
 
     // Keep local searchTerm in sync with the URL after navigations and back/forward
     $effect(() => {
-        const syncFromUrl = () => {
-            const urlParams = new SvelteURLSearchParams(window.location.search);
-            const searchParam = urlParams.get('search') ?? '';
-            searchTerm = searchParam;
-        };
+        window.addEventListener('popstate', syncSearchTermFromCurrentRoute);
+        document.addEventListener('inertia:complete', syncSearchTermFromCurrentRoute as EventListener);
 
-        window.addEventListener('popstate', syncFromUrl);
         return () => {
-            window.removeEventListener('popstate', syncFromUrl);
+            window.removeEventListener('popstate', syncSearchTermFromCurrentRoute);
+            document.removeEventListener('inertia:complete', syncSearchTermFromCurrentRoute as EventListener);
         };
     });
 
@@ -70,7 +114,7 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
 
             if (searchQuery.trim().length >= 2) {
                 isSearching = true;
-                if (isGamesPage) {
+                if (isCurrentGamesIndexPage()) {
                     if (typeof window !== 'undefined') {
                         window.dispatchEvent(new CustomEvent('fvn:search:start'));
                     }
@@ -79,7 +123,7 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
                     const params = new SvelteURLSearchParams(currentParams);
                     params.set('search', searchQuery.trim());
 
-                    router.visit(`/games?${params.toString()}`, {
+                    router.visit(gamesIndexUrl(params), {
                         replace: true,
                         preserveState: true,
                         onFinish: () => {
@@ -90,20 +134,23 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
                         },
                     });
                 } else {
-                    router.visit(`/games?search=${encodeURIComponent(searchQuery.trim())}`, {
+                    const params = new SvelteURLSearchParams();
+                    params.set('search', searchQuery.trim());
+
+                    router.visit(gamesIndexUrl(params), {
                         onFinish: () => {
                             isSearching = false;
                         },
                     });
                 }
-            } else if (searchQuery.trim().length === 0 && isGamesPage) {
+            } else if (searchQuery.trim().length === 0 && isCurrentGamesIndexPage()) {
                 isSearching = true;
 
                 const currentParams = getCurrentFilterParams();
                 const params = new SvelteURLSearchParams(currentParams);
                 params.delete('search');
 
-                router.visit(`/games?${params.toString()}`, {
+                router.visit(gamesIndexUrl(params), {
                     replace: true,
                     preserveState: true,
                     onFinish: () => {
@@ -120,9 +167,13 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
 
         const currentParams = getCurrentFilterParams();
         const params = new SvelteURLSearchParams(currentParams);
-        params.set('search', searchTerm);
+        if (searchTerm.trim()) {
+            params.set('search', searchTerm.trim());
+        } else {
+            params.delete('search');
+        }
 
-        router.visit(`/games?${params.toString()}`);
+        router.visit(gamesIndexUrl(params));
     };
 
     // Handle search input change with live search
@@ -130,14 +181,7 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         const value = (e.target as HTMLInputElement).value;
         searchTerm = value;
 
-        // Always update URL search parameter to keep it in sync
-        const url = new SvelteURL(window.location.href);
-        if (value.trim()) {
-            url.searchParams.set('search', value.trim());
-        } else {
-            url.searchParams.delete('search');
-        }
-        window.history.replaceState({}, '', url.toString());
+        updateGamesSearchUrl(value);
 
         performLiveSearch(value);
     };
@@ -147,18 +191,15 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         searchTerm = '';
         lastSearchQuery = '';
 
-        // Remove search parameter from URL
-        const url = new SvelteURL(window.location.href);
-        url.searchParams.delete('search');
-        window.history.replaceState({}, '', url.toString());
+        updateGamesSearchUrl('');
 
-        if (isGamesPage) {
+        if (isCurrentGamesIndexPage()) {
             isSearching = true;
 
             const currentParams = getCurrentFilterParams();
             const params = new SvelteURLSearchParams(currentParams);
 
-            router.visit(`/games?${params.toString()}`, {
+            router.visit(gamesIndexUrl(params), {
                 replace: true,
                 preserveState: true,
                 onFinish: () => {

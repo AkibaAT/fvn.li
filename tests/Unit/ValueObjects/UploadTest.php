@@ -55,3 +55,24 @@ test('linux and pc archives remain processable', function (array $data) {
         'traits' => ['p_windows', 'p_linux'],
     ]],
 ]);
+
+test('demo uploads are detected from trait and common names', function (array $data) {
+    expect(uploadValueObjectForTest($data)->isDemo())->toBeTrue();
+})->with([
+    'demo trait' => [[
+        'traits' => ['p_windows', 'demo'],
+    ]],
+    'demo filename' => [[
+        'filename' => 'Game-1.0-demo-pc.zip',
+    ]],
+    'free version display name' => [[
+        'display_name' => 'Free Version',
+    ]],
+]);
+
+test('non demo uploads are not marked as demo', function () {
+    expect(uploadValueObjectForTest([
+        'filename' => 'Game-1.0-pc.zip',
+        'display_name' => 'Windows + Linux',
+    ])->isDemo())->toBeFalse();
+});

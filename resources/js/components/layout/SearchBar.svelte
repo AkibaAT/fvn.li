@@ -8,10 +8,7 @@
 
     let { class: className = '' }: Props = $props();
 
-    const currentUrl = typeof window !== 'undefined' ? (window.location?.href ?? '') : '';
-    const detectedIsGamesPage = (currentUrl.endsWith('/games') && !currentUrl.includes('/my/games')) || currentUrl.includes('/games?');
-
-    const search = useSearch({ isGamesPage: detectedIsGamesPage });
+    const search = useSearch();
 
     let searchInputEl: HTMLInputElement | undefined = $state();
 

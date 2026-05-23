@@ -59,7 +59,8 @@ class ReimportGameVersion extends Command
             // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
-                ->where('game_engine', "Ren'Py");
+                ->where('game_engine', "Ren'Py")
+                ->where('is_stats_extraction_disabled', false);
 
             // Apply game selection filters
             $this->applyGameSelectionFilters($query);

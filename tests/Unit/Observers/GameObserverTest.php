@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Models\Game;
+use App\Models\GameVersion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\CallQueuedClosure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
@@ -257,6 +259,45 @@ describe('GameObserver search indexing', function () {
     });
 });
 
+describe('GameObserver stats extraction disabling', function () {
+    test('clears derived stats and queues search sync when stats extraction is disabled', function () {
+        $game = Game::factory()->create([
+            'is_visible' => true,
+            'is_stats_extraction_disabled' => false,
+        ]);
+        $version = GameVersion::factory()->for($game)->create();
+
+        DB::table('version_language_stats')->insert([
+            'game_version_id' => $version->id,
+            'iso_code' => 'eng',
+            'blocks' => 1,
+            'words' => 100,
+            'menus' => 0,
+            'options' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('version_route_labels')->insert([
+            'game_version_id' => $version->id,
+            'name' => 'start',
+            'file_path' => 'script.rpy',
+            'line_number' => 1,
+            'is_ending' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Queue::fake();
+
+        $game->update(['is_stats_extraction_disabled' => true]);
+
+        expect(DB::table('version_language_stats')->where('game_version_id', $version->id)->count())->toBe(0)
+            ->and(DB::table('version_route_labels')->where('game_version_id', $version->id)->count())->toBe(0);
+
+        Queue::assertPushed(CallQueuedClosure::class);
+    });
+});
+
 describe('GameObserver thumbnail processing', function () {
     test('triggers thumbnail processing when thumb_url changes', function () {
         $game = Game::factory()->create([
@@ -333,7 +374,7 @@ describe('GameObserver edge cases', function () {
         for ($i = 0; $i < 5; $i++) {
             $games[] = Game::factory()->create([
                 'platform' => 'itch_io',
-                'url' => ['itch_io' => 'https://dev' . $i . '.itch.io/same-game'],
+                'url' => ['itch_io' => 'https://dev'.$i.'.itch.io/same-game'],
             ]);
         }
 

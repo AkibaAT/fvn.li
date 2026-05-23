@@ -107,6 +107,10 @@ class GameResource extends Resource
                             ->required()
                             ->default('unknown')
                             ->maxLength(50),
+                        Toggle::make('is_stats_extraction_disabled')
+                            ->label('Skip stats extraction')
+                            ->helperText('Disable word count, dialogue, and route graph extraction for games with unsupported script formats.')
+                            ->default(false),
                     ]),
 
                 Section::make('Additional Information')
@@ -233,6 +237,11 @@ class GameResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('game_engine')
                     ->sortable(),
+                IconColumn::make('is_stats_extraction_disabled')
+                    ->boolean()
+                    ->label('Stats Disabled')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('initially_published_at')
                     ->label('Initially Published')
                     ->dateTime()

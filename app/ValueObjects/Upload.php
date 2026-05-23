@@ -108,6 +108,17 @@ class Upload
         return true;
     }
 
+    public function isDemo(): bool
+    {
+        if (in_array('demo', $this->traits, true)) {
+            return true;
+        }
+
+        $names = array_filter([$this->filename, $this->displayName]);
+
+        return array_any($names, fn ($name) => preg_match('/(?:^|[^a-z0-9])(?:demo|free[-_\s]?version)(?:[^a-z0-9]|$)/i', $name) === 1);
+    }
+
     public function isWeb(): bool
     {
         return $this->type === 'html';
