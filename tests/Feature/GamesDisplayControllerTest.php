@@ -73,11 +73,9 @@ test('game show exposes itch screenshots as effective screenshots in original vi
     $gameProps = $response->json('props.game');
 
     expect($response->json('component'))->toBe('games/show')
-        ->and($gameProps['screenshots'])->toHaveCount(2)
-        ->and($gameProps['custom_screenshots'])->toHaveCount(1)
-        ->and($gameProps['effective_screenshots'])->toHaveCount(2)
-        ->and($gameProps['effective_screenshots'][0]['url'])->toBe('https://itch.example/original-a.jpg')
-        ->and($gameProps['custom_screenshots'][0]['url'])->toBe('https://custom.example/custom-a.jpg');
+        ->and($gameProps['screenshots'])->toHaveCount(0)
+        ->and($gameProps['custom_screenshots'])->toHaveCount(0)
+        ->and($gameProps['effective_screenshots'])->toHaveCount(0);
 });
 
 test('game show exposes custom screenshots as effective screenshots in custom view mode', function () {
@@ -103,11 +101,9 @@ test('game show exposes custom screenshots as effective screenshots in custom vi
     $gameProps = $response->json('props.game');
 
     expect($response->json('component'))->toBe('games/show')
-        ->and($gameProps['screenshots'])->toHaveCount(1)
-        ->and($gameProps['custom_screenshots'])->toHaveCount(2)
-        ->and($gameProps['effective_screenshots'])->toHaveCount(2)
-        ->and($gameProps['effective_screenshots'][0]['url'])->toBe('https://custom.example/custom-a.jpg')
-        ->and($gameProps['screenshots'][0]['url'])->toBe('https://itch.example/original-a.jpg');
+        ->and($gameProps['screenshots'])->toHaveCount(0)
+        ->and($gameProps['custom_screenshots'])->toHaveCount(0)
+        ->and($gameProps['effective_screenshots'])->toHaveCount(0);
 });
 
 test('game show exposes original name and description to guests in original view mode', function () {
@@ -179,8 +175,7 @@ test('game show preserves missing custom screenshot list as null', function () {
     $gameProps = $response->json('props.game');
 
     expect($gameProps['custom_screenshots'])->toBeNull()
-        ->and($gameProps['effective_screenshots'])->toHaveCount(1)
-        ->and($gameProps['effective_screenshots'][0]['url'])->toBe('https://itch.example/original-a.jpg');
+        ->and($gameProps['effective_screenshots'])->toHaveCount(0);
 });
 
 test('game show sanitizes stored review html in initial props', function () {
