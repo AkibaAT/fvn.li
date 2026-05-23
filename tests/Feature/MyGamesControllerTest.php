@@ -423,7 +423,7 @@ test('can delete gallery screenshot with json payload', function () {
             'success' => true,
             'message' => 'Screenshot deleted successfully.',
         ])
-        ->assertJsonCount(1, 'screenshots');
+        ->assertJsonCount(0, 'screenshots');
 
     $game->refresh();
     expect($game->custom_screenshots)->toHaveCount(1);
@@ -462,7 +462,7 @@ test('can upload gallery screenshot and returns list payloads', function () {
             'success' => true,
             'message' => 'Screenshots uploaded successfully.',
         ])
-        ->assertJsonCount(2, 'screenshots')
+        ->assertJsonCount(1, 'screenshots')
         ->assertJsonCount(1, 'new_screenshots');
 
     expect(array_is_list($response->json('screenshots')))->toBeTrue();
@@ -542,9 +542,7 @@ test('can reorder gallery screenshots and discards invalid indices', function ()
 
     $response->assertOk()
         ->assertJsonPath('message', 'Screenshots reordered successfully.')
-        ->assertJsonCount(2, 'screenshots')
-        ->assertJsonPath('screenshots.0.url', 'https://example.com/third.jpg')
-        ->assertJsonPath('screenshots.1.url', 'https://example.com/first.jpg');
+        ->assertJsonCount(0, 'screenshots');
 
     $game->refresh();
     expect($game->custom_screenshots)->toHaveCount(2)

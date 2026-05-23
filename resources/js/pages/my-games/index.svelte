@@ -99,7 +99,7 @@
                         />
                     {:else}
                         <div
-                            class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                            class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                         >
                             <div class="text-center">
                                 <div class="mb-2 text-3xl opacity-50">🎮</div>
