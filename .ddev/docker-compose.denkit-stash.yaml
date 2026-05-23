@@ -3,15 +3,9 @@ services:
     environment:
       DENKIT_STASH_URL: http://denkit-stash:8081
       DENKIT_STASH_PUBLIC_URL: https://denkit-stash-fvn-li.ddev.site
-      DENKIT_STASH_POSTGRES_HOST: db
-      DENKIT_STASH_POSTGRES_PORT: 5432
-      DENKIT_STASH_POSTGRES_DATABASE: butler
-      DENKIT_STASH_POSTGRES_USERNAME: db
-      DENKIT_STASH_POSTGRES_PASSWORD: db
       DENKIT_STASH_USERNAME: fvn-li
       DENKIT_STASH_API_KEY: fvn-li-local-denkit-api-key
       BUTLER_CLIENT_PATH: /opt/butler
-      DENKIT_API_KEY_HASH_SECRET: fvn-li-local-denkit-hash-secret
 
   denkit-stash:
     container_name: ddev-${DDEV_SITENAME}-denkit-stash

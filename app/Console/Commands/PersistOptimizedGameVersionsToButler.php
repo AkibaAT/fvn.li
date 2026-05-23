@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveOptimizationService;
 use Illuminate\Console\Command;
+use Throwable;
 
 class PersistOptimizedGameVersionsToButler extends Command
 {
@@ -57,7 +58,10 @@ class PersistOptimizedGameVersionsToButler extends Command
         $persisted = 0;
         $skipped = 0;
         $failed = 0;
-        $channel = (string) $this->option('channel');
+        $channel = trim((string) $this->option('channel'));
+        if ($channel === '') {
+            $channel = $stash->defaultChannel();
+        }
 
         foreach ($games as $game) {
             foreach ($game->gameVersions as $version) {
@@ -76,7 +80,7 @@ class PersistOptimizedGameVersionsToButler extends Command
 
                     if ($optimization['status'] !== 'optimized' || ! isset($optimization['optimized_path'])) {
                         $skipped++;
-                        $this->warn("Skipped {$label}: ".($optimization['reason'] ?? 'archive was not optimized'));
+                        $this->warn("Skipped {$label}: " . ($optimization['reason'] ?? 'archive was not optimized'));
 
                         continue;
                     }
@@ -99,7 +103,7 @@ class PersistOptimizedGameVersionsToButler extends Command
                     $persisted++;
                     $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
                     $this->info("Persisted {$label} to {$result['target']}{$build}");
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $failed++;
                     $this->error("Failed to persist {$label}: {$e->getMessage()}");
                 }
