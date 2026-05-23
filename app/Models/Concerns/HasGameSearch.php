@@ -130,7 +130,7 @@ trait HasGameSearch
             // Ratings and popularity
             'rating_score' => $this->rating_score,
             'rating_count' => $this->rating_count,
-            'trending_score' => (int) ($this->trending_score ?? 0),
+            'trending_score' => (int) ($this->trending_score ?: $this->getTrendingScore()),
 
             // Dates for sorting and display
             'created_at' => $this->created_at?->toISOString(),

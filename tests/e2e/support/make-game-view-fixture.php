@@ -92,16 +92,47 @@ $game = Game::factory()->create([
             'sort_order' => 1,
         ],
     ],
+    'optimized_thumbnails' => [
+        'default' => [
+            'path' => "e2e/{$suffix}/cover.webp",
+            'width' => 315,
+            'height' => 250,
+        ],
+    ],
     'screenshots' => [
         [
             'url' => 'https://example.test/original-screenshot.jpg',
             'thumbnail_url' => 'https://example.test/original-screenshot-thumb.jpg',
+            'optimized' => [
+                'default' => [
+                    'path' => "e2e/{$suffix}/original-screenshot-default.webp",
+                    'width' => 315,
+                    'height' => 250,
+                ],
+                'large' => [
+                    'path' => "e2e/{$suffix}/original-screenshot-large.webp",
+                    'width' => 1280,
+                    'height' => 720,
+                ],
+            ],
         ],
     ],
     'custom_screenshots' => [
         [
             'url' => 'https://example.test/custom-screenshot.jpg',
             'thumbnail_url' => 'https://example.test/custom-screenshot-thumb.jpg',
+            'optimized' => [
+                'default' => [
+                    'path' => "e2e/{$suffix}/custom-screenshot-default.webp",
+                    'width' => 315,
+                    'height' => 250,
+                ],
+                'large' => [
+                    'path' => "e2e/{$suffix}/custom-screenshot-large.webp",
+                    'width' => 1280,
+                    'height' => 720,
+                ],
+            ],
         ],
     ],
 ]);
