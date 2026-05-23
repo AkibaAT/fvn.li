@@ -96,6 +96,10 @@ services:
       start_period: 5s
     restart: "no"
 
+  db:
+    volumes:
+      - ./postgres/10-create-denkit-stash-database.sql:/docker-entrypoint-initdb.d/10-create-denkit-stash-database.sql:ro
+
 configs:
   denkit-stash-mc-config.json:
     content: |
