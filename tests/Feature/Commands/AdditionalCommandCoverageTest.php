@@ -154,7 +154,7 @@ test('refresh steam games refreshes data and reviews with mocked steam services'
         ->artisan('games:refresh-steam --all --update-data --update-reviews --sleep=0')
         ->expectsOutput('Starting refresh for all visible Steam games')
         ->expectsOutput('- Game Data: Yes')
-        ->expectsOutput('- Reviews: Yes (complete sync)')
+        ->expectsOutput('- Reviews: Yes (upsert available reviews)')
         ->expectsOutput('Found 1 game(s):')
         ->expectsOutput("- {$game->name} (ID: {$game->id}, Status: Released)")
         ->expectsOutput('  ✓ Game data updated successfully')

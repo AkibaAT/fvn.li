@@ -8,6 +8,7 @@ export default defineConfig({
         conditions: ['browser'],
         alias: {
             '@': resolve(__dirname, 'resources/js'),
+            'ziggy-js': resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
     },
     test: {
@@ -22,7 +23,14 @@ export default defineConfig({
             include: [
                 'resources/js/components/games/screenshotState.ts',
                 'resources/js/constants/**/*.ts',
-                'resources/js/utils/**/*.ts',
+                'resources/js/utils/accessibility.ts',
+                'resources/js/utils/csrf.ts',
+                'resources/js/utils/date-formatting.ts',
+                'resources/js/utils/dialog.ts',
+                'resources/js/utils/safe-highlight.ts',
+                'resources/js/utils/status-indicators.ts',
+                'resources/js/utils/style-html.ts',
+                'resources/js/utils/toast.ts',
             ],
             exclude: [
                 'resources/js/**/*.test.ts',
