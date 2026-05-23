@@ -30,7 +30,9 @@ class AndroidIconService
     public function create(Game $game, string $gameDir): void
     {
         try {
-            if (! $game->thumb_url) {
+            $thumbnailUrl = $game->getThumbnailUrl('default');
+
+            if (! $thumbnailUrl) {
                 Log::warning('Game has no thumbnail URL', [
                     'game_id' => $game->id,
                     'game_name' => $game->name,
@@ -38,8 +40,6 @@ class AndroidIconService
 
                 return;
             }
-
-            $thumbnailUrl = $game->getThumbnailUrl('default');
 
             Log::info('Creating Android icon from game thumbnail', [
                 'game_id' => $game->id,

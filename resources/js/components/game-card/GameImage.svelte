@@ -29,7 +29,7 @@
                 class="h-full w-full {objectFitClass} transition-transform duration-500 group-hover:scale-110"
             />
         {:else}
-            <div class="flex h-full w-full items-center justify-center text-gray-400">
+            <div class="flex h-full w-full items-center justify-center text-gray-700 dark:text-gray-200">
                 <div class="text-center">
                     <div class="mb-3 text-5xl opacity-50">🎮</div>
                     <div class="text-sm font-medium">No Image Available</div>
