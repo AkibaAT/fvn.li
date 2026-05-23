@@ -88,7 +88,7 @@
                             onchange={(e) => {
                                 const file = (e.target as HTMLInputElement).files?.[0];
                                 if (file) {
-                                    handleThumbnailUpload(file);
+                                    onThumbnailUpload(file);
                                 }
                             }}
                         />
@@ -101,7 +101,7 @@
             <div class="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                 <div class="group min-w-0 flex-1">
                     {#if editPermissions.canEdit}
-                        <EditableGameName {game} {previewingVisitorView} previewName={visitorName} onNameUpdate={handleCustomNameUpdate} />
+                        <EditableGameName {game} {previewingVisitorView} previewName={visitorName} onNameUpdate={onNameUpdate} />
                     {:else}
                         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{game.effective_name}</h1>
                     {/if}
@@ -177,10 +177,10 @@
                         {previewingVisitorView}
                         previewContent={visitorDescription}
                         onPreviewingVisitorViewChange={(previewing) => {
-                            previewingVisitorView = previewing;
+                            onPreviewingVisitorViewChange(previewing);
                         }}
-                        onViewModeUpdate={handleVisitorViewModeUpdate}
-                        onContentUpdate={handleCustomContentUpdate}
+                        onViewModeUpdate={onViewModeUpdate}
+                        onContentUpdate={onContentUpdate}
                     />
                 {:else if game.is_visible && (game.effective_description || game.full_description || game.description)}
                     <div class="game_description prose max-w-none dark:prose-invert">
