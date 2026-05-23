@@ -266,6 +266,20 @@ class ItchGameMetadataExtractor
     private function cleanupScreenshotOptimizedImages(Game $game, array $screenshot): void
     {
         try {
+            if (($screenshot['optimized'] ?? null) === true) {
+                foreach (Storage::disk('public')->files('screenshots') as $file) {
+                    if (str_starts_with($file, "screenshots/{$game->id}_screenshot_")) {
+                        Storage::disk('public')->delete($file);
+                        Log::info('Cleaned up legacy optimized screenshot', [
+                            'game_id' => $game->id,
+                            'file' => $file,
+                        ]);
+                    }
+                }
+
+                return;
+            }
+
             foreach ($screenshot['optimized'] ?? [] as $variant) {
                 if (isset($variant['path'])) {
                     Storage::disk('public')->delete($variant['path']);

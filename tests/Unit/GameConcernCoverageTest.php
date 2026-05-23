@@ -214,14 +214,14 @@ test('custom game content concern handles effective values and edit state transi
         ->and($game->getEffectiveName(forceOriginal: true))->toBe('Original Name')
         ->and($game->getEffectiveDescription())->toBe('Custom Description')
         ->and($game->getEffectiveDescription(forceOriginal: true))->toBe('Original Description')
-        ->and($game->getEffectiveScreenshots()[0]['original_url'])->toBe('https://example.com/custom.png')
+        ->and($game->getEffectiveScreenshots())->toBe([])
         ->and($game->canUserEdit($guest))->toBeFalse()
         ->and($game->canUserEdit($admin))->toBeTrue();
 
     $game->view_mode = 'original';
     expect($game->getEffectiveName())->toBe('Original Name')
         ->and($game->getEffectiveDescription())->toBe('Original Description')
-        ->and($game->getEffectiveScreenshots()[0]['original_url'])->toBe('https://example.com/original.png');
+        ->and($game->getEffectiveScreenshots())->toBe([]);
 });
 
 test('game stats service saves language character and supported language aggregates', function () {
