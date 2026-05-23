@@ -15,11 +15,6 @@ use Throwable;
 
 class ItchDownloadUrlResolver
 {
-    private const DEFAULT_ITCH_DOWNLOAD_HOSTS = [
-        'w3g3a5v6.ssl.hwcdn.net',
-        'v6p9d9t4.ssl.hwcdn.net',
-    ];
-
     /**
      * @throws BindingResolutionException
      */
@@ -202,10 +197,6 @@ class ItchDownloadUrlResolver
         $parts = $this->validatedUrlParts($url, $description);
         $host = $this->normalizeHost((string) $parts['host']);
 
-        if (! $this->isItchHost($host) && ! in_array($host, $this->allowedItchDownloadHosts(), true)) {
-            throw new RuntimeException("Untrusted {$description} host: {$host}");
-        }
-
         $this->assertPubliclyRoutableHost($host, $description);
 
         return $url;
@@ -298,26 +289,6 @@ class ItchDownloadUrlResolver
     private function isItchHost(string $host): bool
     {
         return $host === 'itch.io' || str_ends_with($host, '.itch.io');
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function allowedItchDownloadHosts(): array
-    {
-        $configuredHosts = config('services.itch_downloads.allowed_download_hosts', null);
-        if (is_string($configuredHosts)) {
-            $configuredHosts = explode(',', $configuredHosts);
-        }
-
-        if (! is_array($configuredHosts) || $configuredHosts === []) {
-            $configuredHosts = self::DEFAULT_ITCH_DOWNLOAD_HOSTS;
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $host): string => $this->normalizeHost((string) $host),
-            $configuredHosts
-        ))));
     }
 
     private function assertPubliclyRoutableHost(string $host, string $description): void
