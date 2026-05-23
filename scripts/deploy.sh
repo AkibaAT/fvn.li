@@ -69,6 +69,38 @@ bootstrap_denkit_stash_db() {
   ./scripts/bootstrap-denkit-stash-db.sh
 }
 
+read_dotenv_value() {
+  local key="$1"
+  local fallback="${2:-}"
+  local value
+
+  value="$(grep -E "^${key}=" .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
+  if [ -z "${value}" ]; then
+    printf '%s' "${fallback}"
+    return
+  fi
+
+  value="${value%\"}"
+  value="${value#\"}"
+  value="${value%\'}"
+  value="${value#\'}"
+  printf '%s' "${value}"
+}
+
+bootstrap_denkit_stash_user() {
+  local username="${DENKIT_STASH_USERNAME:-$(read_dotenv_value DENKIT_STASH_USERNAME fvn-li)}"
+  local api_key="${DENKIT_STASH_API_KEY:-$(read_dotenv_value DENKIT_STASH_API_KEY)}"
+
+  if [ -z "${api_key}" ]; then
+    echo "DENKIT_STASH_API_KEY is not set; skipping DenKit Stash API user bootstrap."
+    return
+  fi
+
+  docker compose exec -T denkit-stash ./denkit-stash \
+    --ensure-admin="${username}" \
+    --api-key="${api_key}"
+}
+
 # Load environment variables from .env.deploy
 if [ -f .env.deploy ]; then
   echo "Loading deployment configuration from .env.deploy"
@@ -109,6 +141,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   docker compose down --remove-orphans
   bootstrap_denkit_stash_db
   docker compose up -d
+  bootstrap_denkit_stash_user
 
   ensure_container_runtime_paths
 
@@ -126,6 +159,8 @@ else
     echo "Container is running, performing cache clear and hot reload..."
 
     bootstrap_denkit_stash_db
+    docker compose up -d denkit-stash
+    bootstrap_denkit_stash_user
     ensure_container_runtime_paths
 
     artisan storage:link
@@ -154,6 +189,7 @@ else
     # Start the containers without pulling (using existing image)
     bootstrap_denkit_stash_db
     docker compose up -d --remove-orphans
+    bootstrap_denkit_stash_user
 
     ensure_container_runtime_paths
 

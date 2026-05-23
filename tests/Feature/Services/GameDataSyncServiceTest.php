@@ -7,6 +7,7 @@ use App\Models\GameJam;
 use App\Models\GameVersion;
 use App\Models\Language;
 use App\Models\Tag;
+use App\Services\GameArchiveService;
 use App\Services\GameDataSyncService;
 use App\Services\ItchHttpClientService;
 use Dom\HTMLDocument;
@@ -363,6 +364,70 @@ it('creates an itch version from processable uploads and updates existing platfo
     expect($version->refresh()->is_windows)->toBeFalse()
         ->and($version->is_linux)->toBeTrue()
         ->and($version->is_web)->toBeFalse();
+});
+
+it('force reprocesses existing versions from the stored archive repository without downloading', function () {
+    ensureSyncLanguage('eng', 'English');
+
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 765,
+        'url' => ['itch_io' => 'https://creator.itch.io/reprocess'],
+        'source_language_id' => 'eng',
+        'game_engine' => "Ren'Py",
+    ]);
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.2',
+    ]);
+    $storedArchivePath = storage_path('app/testing/stash-restored.zip');
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/765/uploads')
+        ->andReturn(new Response(200, [], json_encode([
+            'uploads' => [
+                [
+                    'id' => 20,
+                    'filename' => 'Reprocess-1.2-pc.zip',
+                    'display_name' => 'Reprocess 1.2',
+                    'md5_hash' => 'force',
+                    'updated_at' => '2024-04-05T06:07:08Z',
+                    'build_id' => 99,
+                    'build' => [
+                        'user_version' => '1.2',
+                        'updated_at' => '2024-04-05T06:07:09Z',
+                    ],
+                    'traits' => ['p_windows'],
+                    'type' => 'default',
+                ],
+            ],
+        ])));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    $archiveService = Mockery::mock(GameArchiveService::class);
+    $archiveService->shouldReceive('downloadAndProcessToTemp')
+        ->never();
+    $archiveService->shouldReceive('getStoredArchive')
+        ->once()
+        ->with($game->id, $version->id)
+        ->andReturn($storedArchivePath);
+    $archiveService->shouldReceive('processArchive')
+        ->once()
+        ->with($storedArchivePath)
+        ->andReturn(null);
+    $archiveService->shouldReceive('getLastProcessingError')
+        ->once()
+        ->andReturn(null);
+    $archiveService->shouldReceive('moveFromTempToStorage')
+        ->never();
+    app()->instance(GameArchiveService::class, $archiveService);
+
+    app(GameDataSyncService::class)->refreshVersion($game, true);
+
+    expect($game->gameVersions()->count())->toBe(1)
+        ->and($version->refresh()->is_windows)->toBeTrue();
 });
 
 it('does not persist overlong itch upload user versions', function () {
