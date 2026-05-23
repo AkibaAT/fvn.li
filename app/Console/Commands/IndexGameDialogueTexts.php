@@ -51,23 +51,17 @@ class IndexGameDialogueTexts extends Command
         $this->info("Indexing dialogue texts for game {$gameId}...");
 
         GameDialogueText::deleteSearchDocumentsForGame($gameId);
-        $dialogueTexts = GameDialogueText::getForGame($gameId);
+        $indexed = GameDialogueText::indexSearchDocumentsForGame(
+            $gameId,
+            500,
+            fn (int $_count, int $total) => $this->line("  Indexed {$total} texts...")
+        );
 
-        if ($dialogueTexts->isEmpty()) {
+        if ($indexed === 0) {
             $this->warn("No dialogue texts found for game {$gameId}; stale documents were removed.");
 
             return 0;
         }
-
-        $this->info("Found {$dialogueTexts->count()} unique texts");
-
-        // Push to Meilisearch in chunks
-        $indexed = 0;
-        $dialogueTexts->chunk(500)->each(function ($chunk) use (&$indexed) {
-            $chunk->searchable();
-            $indexed += $chunk->count();
-            $this->line("  Indexed {$indexed} texts...");
-        });
 
         $this->info("✓ Successfully indexed {$indexed} texts for game {$gameId}");
 
@@ -98,16 +92,7 @@ class IndexGameDialogueTexts extends Command
 
         foreach ($gameIds as $gameId) {
             try {
-                $dialogueTexts = GameDialogueText::getForGame($gameId);
-
-                if ($dialogueTexts->isNotEmpty()) {
-                    // Push to Meilisearch in chunks
-                    $dialogueTexts->chunk(500)->each(function ($chunk) {
-                        $chunk->searchable();
-                    });
-
-                    $totalIndexed += $dialogueTexts->count();
-                }
+                $totalIndexed += GameDialogueText::indexSearchDocumentsForGame((int) $gameId);
             } catch (Exception $e) {
                 $errors++;
                 $this->newLine();

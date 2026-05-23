@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Facades\DB;
 use Laravel\Scout\Searchable;
 use Meilisearch\Client;
@@ -135,7 +136,59 @@ class GameDialogueText extends Model
      */
     public static function getForGame(int $gameId): Collection
     {
-        $results = DB::select('
+        return static::cursorForGame($gameId)->collect();
+    }
+
+    /**
+     * Stream dialogue texts for a specific game without loading the full result set.
+     */
+    public static function cursorForGame(int $gameId): LazyCollection
+    {
+        $characterNameMap = static::characterNameMapForGame($gameId);
+
+        return LazyCollection::make(function () use ($gameId, $characterNameMap) {
+            foreach (DB::cursor(static::forGameSql(), [$gameId, $gameId]) as $row) {
+                yield static::fromIndexRow($row, $characterNameMap);
+            }
+        });
+    }
+
+    public static function indexSearchDocumentsForGame(int $gameId, int $batchSize = 500, ?callable $afterBatch = null): int
+    {
+        $indexed = 0;
+        $batch = collect();
+
+        foreach (static::cursorForGame($gameId) as $dialogueText) {
+            $batch->push($dialogueText);
+
+            if ($batch->count() >= $batchSize) {
+                $indexed += static::indexSearchDocumentBatch($batch, $afterBatch, $indexed);
+                $batch = collect();
+            }
+        }
+
+        if ($batch->isNotEmpty()) {
+            $indexed += static::indexSearchDocumentBatch($batch, $afterBatch, $indexed);
+        }
+
+        return $indexed;
+    }
+
+    private static function indexSearchDocumentBatch(Collection $batch, ?callable $afterBatch, int $indexedBeforeBatch): int
+    {
+        $count = $batch->count();
+        $batch->searchable();
+
+        if ($afterBatch) {
+            $afterBatch($count, $indexedBeforeBatch + $count);
+        }
+
+        return $count;
+    }
+
+    private static function forGameSql(): string
+    {
+        return '
             WITH current_version AS (
                 SELECT gv.id
                 FROM game_versions gv
@@ -188,9 +241,23 @@ class GameDialogueText extends Model
             INNER JOIN first_seen
                 ON first_seen.text_id = current_texts.text_id
                 AND first_seen.language = current_texts.language
-        ', [$gameId, $gameId]);
+        ';
+    }
 
-        return collect($results)->map(fn ($row) => static::fromIndexRow($row));
+    private static function characterNameMapForGame(int $gameId): array
+    {
+        return Character::query()
+            ->where('game_id', $gameId)
+            ->get(['id', 'character_id', 'display_names'])
+            ->mapWithKeys(function (Character $character) {
+                $displayNames = $character->display_names;
+                $name = is_array($displayNames) && ! empty($displayNames)
+                    ? reset($displayNames)
+                    : $character->character_id;
+
+                return [$character->id => $name];
+            })
+            ->all();
     }
 
     public static function deleteSearchDocumentsForGame(int $gameId): void
@@ -207,7 +274,7 @@ class GameDialogueText extends Model
             ->deleteAllDocuments();
     }
 
-    protected static function fromIndexRow(object $row): self
+    protected static function fromIndexRow(object $row, ?array $characterNameMap = null): self
     {
         $characterIds = is_array($row->character_ids)
             ? $row->character_ids
@@ -215,13 +282,21 @@ class GameDialogueText extends Model
 
         $characterNames = [];
         if (! empty($characterIds)) {
-            $characters = Character::whereIn('id', $characterIds)->get();
-            foreach ($characters as $character) {
-                $displayNames = $character->display_names;
-                if (is_array($displayNames) && ! empty($displayNames)) {
-                    $characterNames[] = reset($displayNames);
-                } else {
-                    $characterNames[] = $character->character_id;
+            if ($characterNameMap !== null) {
+                foreach ($characterIds as $characterId) {
+                    if (isset($characterNameMap[$characterId])) {
+                        $characterNames[] = $characterNameMap[$characterId];
+                    }
+                }
+            } else {
+                $characters = Character::whereIn('id', $characterIds)->get();
+                foreach ($characters as $character) {
+                    $displayNames = $character->display_names;
+                    if (is_array($displayNames) && ! empty($displayNames)) {
+                        $characterNames[] = reset($displayNames);
+                    } else {
+                        $characterNames[] = $character->character_id;
+                    }
                 }
             }
         }

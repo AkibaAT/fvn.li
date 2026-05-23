@@ -44,22 +44,7 @@ class SearchIndexService
 
             GameDialogueText::deleteAllSearchDocuments();
 
-            foreach ($gameIds as $gameId) {
-                try {
-                    $dialogueTexts = GameDialogueText::getForGame($gameId);
-                    if ($dialogueTexts->isNotEmpty()) {
-                        $dialogueTexts->chunk(500)->each(function ($chunk) use ($progressCallback) {
-                            $chunk->searchable();
-                            if ($progressCallback) {
-                                $progressCallback($chunk->count());
-                            }
-                        });
-                        $stats['dialogue_texts'] += $dialogueTexts->count();
-                    }
-                } catch (Exception $e) {
-                    $stats['errors'][] = "Game {$gameId}: {$e->getMessage()}";
-                }
-            }
+            $stats['dialogue_texts'] += $this->reindexDialogueForGameIds($gameIds, $progressCallback, $stats['errors']);
 
             // Reindex tags
             Tag::whereRaw("trim(name) != ''")->chunk(100, function ($tags) use (&$stats, $progressCallback) {
@@ -128,22 +113,7 @@ class SearchIndexService
 
             GameDialogueText::deleteAllSearchDocuments();
 
-            foreach ($gameIds as $gameId) {
-                try {
-                    $dialogueTexts = GameDialogueText::getForGame($gameId);
-                    if ($dialogueTexts->isNotEmpty()) {
-                        $dialogueTexts->chunk(500)->each(function ($chunk) use ($progressCallback) {
-                            $chunk->searchable();
-                            if ($progressCallback) {
-                                $progressCallback($chunk->count());
-                            }
-                        });
-                        $stats['count'] += $dialogueTexts->count();
-                    }
-                } catch (Exception $e) {
-                    $stats['errors'][] = "Game {$gameId}: {$e->getMessage()}";
-                }
-            }
+            $stats['count'] += $this->reindexDialogueForGameIds($gameIds, $progressCallback, $stats['errors']);
 
             Log::info('Dialogue texts reindexed', $stats);
         } catch (Exception $e) {
@@ -278,5 +248,24 @@ class SearchIndexService
                 'healthy' => false,
             ];
         }
+    }
+
+    private function reindexDialogueForGameIds(iterable $gameIds, ?callable $progressCallback, array &$errors): int
+    {
+        $indexed = 0;
+
+        foreach ($gameIds as $gameId) {
+            try {
+                $indexed += GameDialogueText::indexSearchDocumentsForGame(
+                    (int) $gameId,
+                    500,
+                    fn (int $count) => $progressCallback ? $progressCallback($count) : null
+                );
+            } catch (Exception $e) {
+                $errors[] = "Game {$gameId}: {$e->getMessage()}";
+            }
+        }
+
+        return $indexed;
     }
 }

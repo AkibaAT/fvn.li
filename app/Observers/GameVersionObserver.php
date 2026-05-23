@@ -53,10 +53,9 @@ class GameVersionObserver
         try {
             GameDialogueText::deleteSearchDocumentsForGame($gameId);
 
-            // Get all dialogue texts for this game and push to Meilisearch
-            $dialogueTexts = GameDialogueText::getForGame($gameId);
+            $indexed = GameDialogueText::indexSearchDocumentsForGame($gameId);
 
-            if ($dialogueTexts->isEmpty()) {
+            if ($indexed === 0) {
                 Log::debug('No dialogue texts found for game reindex; stale documents were removed', ['game_id' => $gameId]);
 
                 return;
@@ -64,13 +63,8 @@ class GameVersionObserver
 
             Log::debug('Reindexing dialogue text entries for game', [
                 'game_id' => $gameId,
-                'entries_count' => $dialogueTexts->count(),
+                'entries_count' => $indexed,
             ]);
-
-            // Push to Meilisearch in chunks
-            $dialogueTexts->chunk(500)->each(function ($chunk) {
-                $chunk->searchable();
-            });
 
             Log::debug('Successfully reindexed dialogue texts for game', ['game_id' => $gameId]);
         } catch (Exception $e) {
