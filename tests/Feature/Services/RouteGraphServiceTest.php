@@ -68,7 +68,7 @@ function createRouteChoice(
 ): VersionRouteMenuChoice {
     $choiceCondition ??= $condition;
     $effectiveCondition = $enclosingCondition && $choiceCondition && $choiceCondition !== 'True'
-        ? '('.$enclosingCondition.') and ('.$choiceCondition.')'
+        ? '(' . $enclosingCondition . ') and (' . $choiceCondition . ')'
         : ($enclosingCondition ?: $choiceCondition);
 
     return VersionRouteMenuChoice::create([
@@ -142,10 +142,10 @@ test('buildGraph refreshes stale cached graph revisions', function () {
 
     $graph = app(RouteGraphService::class)->buildGraph($this->version->fresh());
 
-    expect($graph['graph_revision'])->toBe(25)
+    expect($graph['graph_revision'])->toBe(26)
         ->and(collect($graph['nodes'])->pluck('id'))->toContain('start')
         ->and(collect($graph['nodes'])->pluck('id'))->not->toContain('stale')
-        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(25);
+        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(26);
 });
 
 test('computed route graphs include precomputed GraphViz layout positions', function () {
@@ -200,9 +200,9 @@ test('localized chapter select menus collapse to hub nodes instead of expanding 
     createRouteLabel($this->version, 'chapitreselec', 100);
 
     for ($i = 1; $i <= 12; $i++) {
-        $target = 'chapitre'.$i;
+        $target = 'chapitre' . $i;
         createRouteLabel($this->version, $target, 100 + $i);
-        createRouteChoice($this->version, 'chapitreselec', 'Chapitre '.$i, 120, $target, 'routea');
+        createRouteChoice($this->version, 'chapitreselec', 'Chapitre ' . $i, 120, $target, 'routea');
         createRouteEdge($this->version, 'chapitreselec', $target, 'menu_choice', 120, 'routea');
         createRouteEdge($this->version, 'chapitreselec', $target, 'jump', 121);
     }
@@ -362,7 +362,7 @@ test('conditioned menu choices do not borrow the enclosing branch else exit', fu
     createRouteVariableChange($this->version, 'scene', 'menu_choice:Orlando', 'dragonlove', 'Constant(value=1)', 21);
 
     createRouteEdge($this->version, 'scene', 'lunch', 'jump', 100, $branchCondition);
-    createRouteEdge($this->version, 'scene', 'scene:ending', 'return', 110, 'not (('.$branchCondition.'))');
+    createRouteEdge($this->version, 'scene', 'scene:ending', 'return', 110, 'not ((' . $branchCondition . '))');
 
     $graph = app(RouteGraphService::class)->computeGraph($this->version);
     $edges = collect($graph['edges']);
@@ -642,7 +642,7 @@ test('route graph endpoint only includes unreachable script nodes for admins and
     $url = route('browser-api.games.version.route-graph', [
         'game' => $this->game->slug,
         'version' => $this->version->id,
-    ]).'?include_unreachable=1';
+    ]) . '?include_unreachable=1';
 
     $this->getJson($url)
         ->assertOk()
@@ -746,6 +746,41 @@ test('missing route targets are surfaced as unresolved nodes', function () {
 
     expect($nodesById)->toHaveKey('missing_label')
         ->and($nodesById['missing_label']['is_unresolved'])->toBeTrue();
+});
+
+test('high fan in trivial return helpers are collapsed out of the playable route graph', function () {
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'scene_a');
+    createRouteLabel($this->version, 'scene_b');
+    createRouteLabel($this->version, 'scene_c');
+    createRouteLabel($this->version, 'next_a');
+    createRouteLabel($this->version, 'next_b');
+    createRouteLabel($this->version, 'next_c');
+    createRouteLabel($this->version, 'random_animation')->forceFill([
+        'returns_to_caller' => true,
+    ])->save();
+    createRouteVariableChange($this->version, 'random_animation', 'label_block', 'chosen_animation', "Call(func=Attribute(value=Attribute(value=Name(id='renpy', ctx=Load()), attr='random', ctx=Load()), attr='choice', ctx=Load()))");
+
+    createRouteEdge($this->version, 'start', 'scene_a');
+    createRouteEdge($this->version, 'scene_a', 'scene_b');
+    createRouteEdge($this->version, 'scene_b', 'scene_c');
+    createRouteEdge($this->version, 'scene_a', 'random_animation', 'call', 10);
+    createRouteEdge($this->version, 'scene_b', 'random_animation', 'call', 20);
+    createRouteEdge($this->version, 'scene_c', 'random_animation', 'call', 30);
+    createRouteEdge($this->version, 'random_animation', 'chosen_animation', 'call', 31);
+    createRouteEdge($this->version, 'scene_a', 'next_a', 'jump', 11);
+    createRouteEdge($this->version, 'scene_b', 'next_b', 'jump', 21);
+    createRouteEdge($this->version, 'scene_c', 'next_c', 'jump', 31);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes)->not->toHaveKey('random_animation')
+        ->and($nodes)->not->toHaveKey('chosen_animation')
+        ->and($edges->contains(fn (array $edge) => $edge['target'] === 'random_animation'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'random_animation'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene_a' && $edge['target'] === 'next_a'))->toBeTrue();
 });
 
 test('expanded labels keep earlier returns to ending labels', function () {

@@ -15,15 +15,20 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->sdkPath = storage_path('app/testing-renpy-sdk');
+    $this->keystoreDir = storage_path('framework/testing/android-keystores-' . uniqid());
     File::deleteDirectory($this->sdkPath);
-    File::makeDirectory($this->sdkPath.'/rapt', 0755, true, true);
-    File::put($this->sdkPath.'/renpy.sh', "#!/bin/sh\nmkdir -p \"$4\"\nprintf apk > \"$4/fvn-test.apk\"\n");
-    chmod($this->sdkPath.'/renpy.sh', 0755);
-    config(['services.renpy.sdk_path' => $this->sdkPath]);
+    File::makeDirectory($this->sdkPath . '/rapt', 0755, true, true);
+    File::put($this->sdkPath . '/renpy.sh', "#!/bin/sh\nmkdir -p \"$4\"\nprintf apk > \"$4/fvn-test.apk\"\n");
+    chmod($this->sdkPath . '/renpy.sh', 0755);
+    config([
+        'services.renpy.sdk_path' => $this->sdkPath,
+        'services.android.keystore_path' => $this->keystoreDir,
+    ]);
 });
 
 afterEach(function () {
     File::deleteDirectory($this->sdkPath);
+    File::deleteDirectory($this->keystoreDir);
 });
 
 function androidBuildVersion(Game $game, array $attributes = []): GameVersion
@@ -63,7 +68,7 @@ it('checks Android build eligibility from engine version and SDK configuration',
     $game->forceFill(['game_engine' => 'Unity'])->save();
     expect($service->isEligibleForAndroidBuild($game, $version))->toBeFalse();
 
-    File::delete($this->sdkPath.'/renpy.sh');
+    File::delete($this->sdkPath . '/renpy.sh');
     $game->forceFill(['game_engine' => "Ren'Py"])->save();
     $version->forceFill(['is_android' => false])->save();
     expect($service->isEligibleForAndroidBuild($game, $version))->toBeFalse();
@@ -139,9 +144,9 @@ it('marks builds as failed when no local archive or downloadable upload exists',
         'status' => 'pending',
     ]);
 
-    $keystoreDir = storage_path('app/keystores');
+    $keystoreDir = $this->keystoreDir;
     File::makeDirectory($keystoreDir, 0755, true, true);
-    File::put($keystoreDir.'/'.$game->id.'.keystore', 'existing-keystore');
+    File::put($keystoreDir . '/' . $game->id . '.keystore', 'existing-keystore');
 
     expect(fn () => $service->processBuild($build))
         ->toThrow(Exception::class, 'No uploads found for this game.');
@@ -154,7 +159,7 @@ it('marks builds as failed when no local archive or downloadable upload exists',
 it('processes a stored RenPy archive into a completed APK build', function () {
     Storage::fake();
 
-    $workDir = storage_path('framework/testing/android-build-process-'.uniqid());
+    $workDir = storage_path('framework/testing/android-build-process-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
 
     try {
@@ -182,7 +187,7 @@ it('processes a stored RenPy archive into a completed APK build', function () {
             'build_id' => '00000000-0000-4000-8000-000000000001',
         ]);
 
-        $keystorePath = storage_path("app/keystores/{$game->id}.keystore");
+        $keystorePath = "{$this->keystoreDir}/{$game->id}.keystore";
         File::makeDirectory(dirname($keystorePath), 0755, true, true);
         File::put($keystorePath, 'existing-keystore');
 
@@ -214,7 +219,7 @@ it('reuses an existing game keystore and stores generated APK files', function (
         'game_version_id' => $version->id,
     ]);
 
-    $keystorePath = storage_path("app/keystores/{$game->id}.keystore");
+    $keystorePath = "{$this->keystoreDir}/{$game->id}.keystore";
     File::makeDirectory(dirname($keystorePath), 0755, true, true);
     File::put($keystorePath, 'existing-keystore');
 
@@ -233,7 +238,7 @@ it('reuses an existing game keystore and stores generated APK files', function (
 
 it('extracts zip archives and locates RenPy game directories', function () {
     $service = app(AndroidBuildService::class);
-    $workDir = storage_path('framework/testing/android-build-'.uniqid());
+    $workDir = storage_path('framework/testing/android-build-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
 
     try {
@@ -268,7 +273,7 @@ it('converts display versions to numeric Android version codes', function () {
 
 it('skips Android icon generation when thumbnail data is unavailable or invalid', function () {
     $service = app(AndroidBuildService::class);
-    $gameDir = storage_path('framework/testing/android-icon-'.uniqid());
+    $gameDir = storage_path('framework/testing/android-icon-' . uniqid());
     File::makeDirectory($gameDir, 0755, true);
 
     try {
