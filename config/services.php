@@ -123,7 +123,7 @@ return [
 
     'denkit_stash' => [
         'enabled' => filter_var(env('DENKIT_STASH_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-        'auto_persist' => filter_var(env('DENKIT_STASH_AUTO_PERSIST', true), FILTER_VALIDATE_BOOLEAN),
+        'auto_persist' => filter_var(env('DENKIT_STASH_AUTO_PERSIST', false), FILTER_VALIDATE_BOOLEAN),
         'delete_local_after_push' => filter_var(env('DENKIT_STASH_DELETE_LOCAL_AFTER_PUSH', true), FILTER_VALIDATE_BOOLEAN),
         'url' => env('DENKIT_STASH_URL', 'http://denkit-stash:8081'),
         'public_url' => env('DENKIT_STASH_PUBLIC_URL', 'https://denkit-stash-fvn-li.ddev.site'),

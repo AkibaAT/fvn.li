@@ -75,9 +75,15 @@ class GameArchiveOptimizationService
 
             $this->reportProgress($progress, 'Extracting archive');
             $this->extractArchive($archivePath, $workDir);
-            $metadataService = app(ArchiveOptimizationMetadataService::class);
-            $originalFileInventory = $metadataService->inventory($workDir);
-            $previousOptimizedContext = $this->previousOptimizedArchiveContext($gameId, $versionId);
+            if ($this->archiveContainsUnsafeEntries($workDir)) {
+                return [
+                    'status' => 'skipped',
+                    'reason' => 'Archive contains linked or special content and cannot be optimized safely',
+                    'original_path' => $archivePath,
+                    'original_size' => $originalSize,
+                ];
+            }
+
             $gameDir = $this->findGameDirectory($workDir);
             if ($gameDir === null) {
                 return [
@@ -88,6 +94,9 @@ class GameArchiveOptimizationService
                 ];
             }
 
+            $metadataService = app(ArchiveOptimizationMetadataService::class);
+            $originalFileInventory = $metadataService->inventory($workDir);
+            $previousOptimizedContext = $this->previousOptimizedArchiveContext($gameId, $versionId);
             $contentDir = $gameDir.'/game';
 
             $rpaFiles = app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpa']);
@@ -282,14 +291,55 @@ class GameArchiveOptimizationService
         throw new RuntimeException("Unsupported archive format: {$ext}");
     }
 
+    private function archiveContainsUnsafeEntries(string $path): bool
+    {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($path, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            if ($item->isLink()) {
+                return true;
+            }
+
+            if (! $item->isFile() && ! $item->isDir()) {
+                return true;
+            }
+
+            $stat = @stat($item->getPathname());
+            if ($item->isFile() && is_array($stat) && ($stat['nlink'] ?? 1) > 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function findGameDirectory(string $basePath): ?string
     {
-        if (File::isDirectory($basePath.'/game')) {
+        if ($this->hasSafeGameDirectory($basePath, $basePath)) {
             return $basePath;
         }
 
         return collect(File::directories($basePath))
-            ->first(fn (string $dir): bool => File::isDirectory($dir.'/game'));
+            ->first(fn (string $dir): bool => $this->hasSafeGameDirectory($dir, $basePath));
+    }
+
+    private function hasSafeGameDirectory(string $candidateDir, string $basePath): bool
+    {
+        $gamePath = $candidateDir.'/game';
+        if (! File::isDirectory($gamePath) || is_link($gamePath)) {
+            return false;
+        }
+
+        $resolvedBase = realpath($basePath);
+        $resolvedGame = realpath($gamePath);
+        if ($resolvedBase === false || $resolvedGame === false) {
+            return false;
+        }
+
+        return str_starts_with($resolvedGame, rtrim($resolvedBase, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
     }
 
     /**

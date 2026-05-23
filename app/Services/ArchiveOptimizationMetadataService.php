@@ -22,7 +22,7 @@ class ArchiveOptimizationMetadataService
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($sourceDir));
 
         foreach ($iterator as $file) {
-            if (! $file->isFile()) {
+            if (! $file->isFile() || $file->isLink() || ! $this->isContainedPath($sourceDir, $file->getPathname())) {
                 continue;
             }
 
@@ -190,6 +190,17 @@ class ArchiveOptimizationMetadataService
         }
 
         return $parts === [] ? null : implode('/', $parts);
+    }
+
+    private function isContainedPath(string $basePath, string $path): bool
+    {
+        $resolvedBase = realpath($basePath);
+        $resolvedPath = realpath($path);
+        if ($resolvedBase === false || $resolvedPath === false) {
+            return false;
+        }
+
+        return str_starts_with($resolvedPath, rtrim($resolvedBase, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
     }
 
     private function relativeArchivePath(string $sourceDir, string $path): string
