@@ -135,7 +135,12 @@ class ArchiveMediaOptimizer
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
 
         foreach ($iterator as $file) {
-            if ($file->isFile() && isset($extensionLookup[strtolower($file->getExtension())])) {
+            if (
+                ! $file->isLink()
+                && $file->isFile()
+                && $this->isContainedPath($dir, $file->getPathname())
+                && isset($extensionLookup[strtolower($file->getExtension())])
+            ) {
                 $files[] = $file->getPathname();
             }
         }
@@ -303,6 +308,17 @@ class ArchiveMediaOptimizer
         }
 
         return $parts === [] ? null : implode('/', $parts);
+    }
+
+    private function isContainedPath(string $basePath, string $path): bool
+    {
+        $resolvedBase = realpath($basePath);
+        $resolvedPath = realpath($path);
+        if ($resolvedBase === false || $resolvedPath === false) {
+            return false;
+        }
+
+        return str_starts_with($resolvedPath, rtrim($resolvedBase, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
     }
 
     private function binary(string $name): ?string

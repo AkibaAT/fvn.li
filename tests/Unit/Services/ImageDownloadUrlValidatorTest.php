@@ -19,6 +19,15 @@ test('it accepts public https image hosts from metadata fetches', function (stri
     'generic public host' => ['https://example.com/image.png'],
 ]);
 
+test('it pins the validated DNS answer for image fetches', function () {
+    $request = $this->validator->validatedRequest('https://example.com:8443/image.png');
+    $resolve = $request['options']['curl'][constant('CURLOPT_RESOLVE')] ?? [];
+
+    expect($request['url'])->toBe('https://example.com:8443/image.png')
+        ->and($resolve)->toHaveCount(1)
+        ->and($resolve[0])->toStartWith('example.com:8443:');
+});
+
 test('it rejects untrusted or unsafe image urls', function (string $url, string $message) {
     expect(fn () => $this->validator->validate($url))
         ->toThrow(InvalidArgumentException::class, $message);
