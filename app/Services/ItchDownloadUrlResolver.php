@@ -20,12 +20,22 @@ class ItchDownloadUrlResolver
      */
     public function resolve(string $gameUrl, int $uploadId, int $gameId): string
     {
+        return $this->resolveRequest($gameUrl, $uploadId, $gameId)['url'];
+    }
+
+    /**
+     * @return array{url: string, options: array<string, mixed>}
+     *
+     * @throws BindingResolutionException
+     */
+    public function resolveRequest(string $gameUrl, int $uploadId, int $gameId): array
+    {
         $gameUrl = $this->validateItchControlUrl($gameUrl, $gameUrl, 'itch.io game URL');
         $legacyResponse = App::make(ItchHttpClientService::class)->post($this->uploadDownloadEndpoint($gameUrl, $uploadId));
         $legacyDownloadInfo = $this->decodeDownloadInfo($legacyResponse->getBody()->getContents());
 
         if (isset($legacyDownloadInfo['url'])) {
-            return $this->validateItchFileDownloadUrl((string) $legacyDownloadInfo['url'], $gameUrl, 'itch.io file download URL');
+            return $this->validatedItchFileDownloadRequest((string) $legacyDownloadInfo['url'], $gameUrl, 'itch.io file download URL');
         }
 
         $flareSolverr = App::make(FlareSolverrClient::class);
@@ -83,7 +93,7 @@ class ItchDownloadUrlResolver
         ])->getBody()->getContents());
 
         if (isset($fileDownloadInfo['url'])) {
-            return $this->validateItchFileDownloadUrl((string) $fileDownloadInfo['url'], $gameUrl, 'itch.io file download URL');
+            return $this->validatedItchFileDownloadRequest((string) $fileDownloadInfo['url'], $gameUrl, 'itch.io file download URL');
         }
 
         throw new RuntimeException($this->downloadUrlErrorMessage('Could not get itch.io file download URL', $fileDownloadInfo));
@@ -193,13 +203,24 @@ class ItchDownloadUrlResolver
 
     public function validateItchFileDownloadUrl(string $url, string $gameUrl, string $description): string
     {
+        return $this->validatedItchFileDownloadRequest($url, $gameUrl, $description)['url'];
+    }
+
+    /**
+     * @return array{url: string, options: array<string, mixed>}
+     */
+    public function validatedItchFileDownloadRequest(string $url, string $gameUrl, string $description): array
+    {
         $url = $this->normalizeRelativeUrl($url, $gameUrl);
         $parts = $this->validatedUrlParts($url, $description);
         $host = $this->normalizeHost((string) $parts['host']);
+        $port = (int) ($parts['port'] ?? 443);
+        $ip = $this->publiclyRoutableIpForHost($host, $description);
 
-        $this->assertPubliclyRoutableHost($host, $description);
-
-        return $url;
+        return [
+            'url' => $url,
+            'options' => $this->resolveOptions($host, $port, $ip),
+        ];
     }
 
     /**
@@ -228,7 +249,7 @@ class ItchDownloadUrlResolver
     }
 
     /**
-     * @return array{scheme: string, host: string}
+     * @return array{scheme: string, host: string, port?: int}
      */
     private function validatedUrlParts(string $url, string $description): array
     {
@@ -253,10 +274,15 @@ class ItchDownloadUrlResolver
             throw new RuntimeException("The {$description} is missing a host");
         }
 
-        return [
+        $validated = [
             'scheme' => $scheme,
             'host' => $host,
         ];
+        if (isset($parts['port'])) {
+            $validated['port'] = (int) $parts['port'];
+        }
+
+        return $validated;
     }
 
     private function normalizeRelativeUrl(string $url, string $baseUrl): string
@@ -293,6 +319,11 @@ class ItchDownloadUrlResolver
 
     private function assertPubliclyRoutableHost(string $host, string $description): void
     {
+        $this->publiclyRoutableIpForHost($host, $description);
+    }
+
+    private function publiclyRoutableIpForHost(string $host, string $description): string
+    {
         if (in_array($host, ['localhost', 'localhost.localdomain'], true)) {
             throw new RuntimeException("The {$description} cannot point to localhost");
         }
@@ -300,7 +331,7 @@ class ItchDownloadUrlResolver
         if (filter_var($host, FILTER_VALIDATE_IP)) {
             $this->assertPubliclyRoutableIp($host, $description);
 
-            return;
+            return $host;
         }
 
         $records = dns_get_record($host, DNS_A + DNS_AAAA);
@@ -308,12 +339,22 @@ class ItchDownloadUrlResolver
             throw new RuntimeException("Could not resolve {$description} host: {$host}");
         }
 
+        $firstPublicIp = null;
         foreach ($records as $record) {
             $ip = $record['ip'] ?? $record['ipv6'] ?? null;
-            if (is_string($ip) && $ip !== '') {
-                $this->assertPubliclyRoutableIp($ip, $description);
+            if (! is_string($ip) || $ip === '') {
+                continue;
             }
+
+            $this->assertPubliclyRoutableIp($ip, $description);
+            $firstPublicIp ??= $ip;
         }
+
+        if ($firstPublicIp === null) {
+            throw new RuntimeException("Could not resolve {$description} host: {$host}");
+        }
+
+        return $firstPublicIp;
     }
 
     private function assertPubliclyRoutableIp(string $ip, string $description): void
@@ -326,5 +367,25 @@ class ItchDownloadUrlResolver
     private function normalizeHost(string $host): string
     {
         return rtrim(strtolower(trim($host)), '.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveOptions(string $host, int $port, string $ip): array
+    {
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return [];
+        }
+
+        if (! defined('CURLOPT_RESOLVE')) {
+            throw new RuntimeException('Itch file downloads require cURL DNS pinning support');
+        }
+
+        return [
+            'curl' => [
+                constant('CURLOPT_RESOLVE') => ["{$host}:{$port}:{$ip}"],
+            ],
+        ];
     }
 }

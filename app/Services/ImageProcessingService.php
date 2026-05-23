@@ -416,9 +416,11 @@ class ImageProcessingService
 
     private function downloadImage(string $sourceUrl): ResponseInterface
     {
+        $request = $this->imageUrlValidator->validatedRequest($sourceUrl);
+
         return $this->httpClient->get(
-            $this->imageUrlValidator->validate($sourceUrl),
-            self::DOWNLOAD_OPTIONS
+            $request['url'],
+            array_replace_recursive(self::DOWNLOAD_OPTIONS, $request['options'])
         );
     }
 

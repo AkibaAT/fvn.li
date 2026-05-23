@@ -142,10 +142,10 @@ test('buildGraph refreshes stale cached graph revisions', function () {
 
     $graph = app(RouteGraphService::class)->buildGraph($this->version->fresh());
 
-    expect($graph['graph_revision'])->toBe(26)
+    expect($graph['graph_revision'])->toBe(27)
         ->and(collect($graph['nodes'])->pluck('id'))->toContain('start')
         ->and(collect($graph['nodes'])->pluck('id'))->not->toContain('stale')
-        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(26);
+        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(27);
 });
 
 test('computed route graphs include precomputed GraphViz layout positions', function () {
@@ -781,6 +781,31 @@ test('high fan in trivial return helpers are collapsed out of the playable route
         ->and($edges->contains(fn (array $edge) => $edge['target'] === 'random_animation'))->toBeFalse()
         ->and($edges->contains(fn (array $edge) => $edge['source'] === 'random_animation'))->toBeFalse()
         ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene_a' && $edge['target'] === 'next_a'))->toBeTrue();
+});
+
+test('menu choice targets are rewritten when trivial return helpers are collapsed', function () {
+    createRouteLabel($this->version, 'menu_start');
+    createRouteLabel($this->version, 'caller_a');
+    createRouteLabel($this->version, 'caller_b');
+    createRouteLabel($this->version, 'caller_c');
+    createRouteLabel($this->version, 'real_continuation');
+    createRouteLabel($this->version, 'return_helper')->forceFill([
+        'returns_to_caller' => true,
+    ])->save();
+
+    createRouteChoice($this->version, 'menu_start', 'Use helper path', 20, 'return_helper');
+    createRouteEdge($this->version, 'menu_start', 'return_helper', 'menu_choice', 20);
+    createRouteEdge($this->version, 'caller_a', 'return_helper', 'call', 10);
+    createRouteEdge($this->version, 'caller_b', 'return_helper', 'call', 11);
+    createRouteEdge($this->version, 'caller_c', 'return_helper', 'call', 12);
+    createRouteEdge($this->version, 'return_helper', 'real_continuation', 'jump', 13, 'helper_ready');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['source'] === 'menu_start:choice_0' && $edge['target'] === 'return_helper'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'menu_start:choice_0' && $edge['target'] === 'real_continuation' && $edge['edge_type'] === 'choice_target' && $edge['condition'] === 'helper_ready'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['target'] === 'return_helper'))->toBeFalse();
 });
 
 test('expanded labels keep earlier returns to ending labels', function () {

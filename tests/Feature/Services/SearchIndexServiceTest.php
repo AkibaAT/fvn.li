@@ -6,8 +6,6 @@ use App\Models\Character;
 use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\Rater;
-use App\Models\Rating;
 use App\Models\Tag;
 use App\Models\UniqueDialogueText;
 use App\Services\SearchIndexService;
@@ -15,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Meilisearch\Client as MeilisearchClient;
 use Meilisearch\Endpoints\Indexes;
 
-it('reindexes visible games reviews and tags with progress callbacks', function () {
+it('reindexes visible games and tags with progress callbacks', function () {
     $visibleGame = Game::factory()->create([
         'name' => 'Visible Indexed Game',
         'is_visible' => true,
@@ -23,28 +21,6 @@ it('reindexes visible games reviews and tags with progress callbacks', function 
     Game::factory()->create([
         'name' => 'Hidden Indexed Game',
         'is_visible' => false,
-    ]);
-
-    $rater = Rater::factory()->create(['external_platform' => 'itch_io']);
-    Rating::create([
-        'game_id' => $visibleGame->id,
-        'rater_id' => $rater->id,
-        'rating' => 4,
-        'review' => 'This visible review should be indexed.',
-        'is_visible' => true,
-        'is_reviewed' => true,
-        'source_platform' => 'itch_io',
-        'published_at' => now(),
-    ]);
-    Rating::create([
-        'game_id' => $visibleGame->id,
-        'rater_id' => $rater->id,
-        'rating' => 2,
-        'review' => 'Hidden review.',
-        'is_visible' => false,
-        'is_reviewed' => true,
-        'source_platform' => 'itch_io',
-        'published_at' => now(),
     ]);
 
     Tag::create(['name' => 'Romance']);
@@ -56,18 +32,13 @@ it('reindexes visible games reviews and tags with progress callbacks', function 
     $gameStats = $service->reindexGames(function (int $count) use (&$progress) {
         $progress[] = ['games', $count];
     });
-    $reviewStats = $service->reindexReviews(function (int $count) use (&$progress) {
-        $progress[] = ['reviews', $count];
-    });
     $tagStats = $service->reindexTags(function (int $count) use (&$progress) {
         $progress[] = ['tags', $count];
     });
 
     expect($gameStats)->toBe(['count' => 1, 'errors' => []])
-        ->and($reviewStats)->toBe(['count' => 1, 'errors' => []])
         ->and($tagStats)->toBe(['count' => 2, 'errors' => []])
         ->and($progress)->toContain(['games', 1])
-        ->and($progress)->toContain(['reviews', 1])
         ->and($progress)->toContain(['tags', 2]);
 });
 
@@ -76,24 +47,12 @@ it('runs a full reindex and returns aggregate stats without dialogue rows', func
         'name' => 'Full Reindex Game',
         'is_visible' => true,
     ]);
-    $rater = Rater::factory()->create(['external_platform' => 'itch_io']);
-    Rating::create([
-        'game_id' => $game->id,
-        'rater_id' => $rater->id,
-        'rating' => 5,
-        'review' => 'A review with text.',
-        'is_visible' => true,
-        'is_reviewed' => true,
-        'source_platform' => 'itch_io',
-        'published_at' => now(),
-    ]);
     Tag::create(['name' => 'Drama']);
 
     $stats = (new SearchIndexService)->fullReindex();
 
     expect($stats['games'])->toBe(1)
         ->and($stats['dialogue_texts'])->toBe(0)
-        ->and($stats['reviews'])->toBe(1)
         ->and($stats['tags'])->toBe(1)
         ->and($stats['errors'])->toBe([]);
 });
@@ -121,7 +80,6 @@ it('includes dialogue rows in full reindex aggregate stats', function () {
 
     expect($stats['games'])->toBe(1)
         ->and($stats['dialogue_texts'])->toBe(1)
-        ->and($stats['reviews'])->toBe(0)
         ->and($stats['tags'])->toBe(0)
         ->and($stats['errors'])->toBe([]);
 });
@@ -185,12 +143,11 @@ it('returns search index stats and health while tolerating per-index failures', 
     ]);
 
     $failingIndex = Mockery::mock(Indexes::class);
-    $failingIndex->shouldReceive('stats')->times(6)->andThrow(new RuntimeException('index unavailable'));
+    $failingIndex->shouldReceive('stats')->times(4)->andThrow(new RuntimeException('index unavailable'));
 
     $client = Mockery::mock(MeilisearchClient::class);
     $client->shouldReceive('index')->twice()->with('games')->andReturn($gamesIndex);
     $client->shouldReceive('index')->twice()->with('game_dialogue_texts')->andReturn($failingIndex);
-    $client->shouldReceive('index')->twice()->with('reviews')->andReturn($failingIndex);
     $client->shouldReceive('index')->twice()->with('tags')->andReturn($failingIndex);
     $client->shouldReceive('health')->once()->andReturn(['status' => 'available']);
 
@@ -206,7 +163,6 @@ it('returns search index stats and health while tolerating per-index failures', 
         'fieldDistribution' => ['name' => 12],
     ])
         ->and($stats['game_dialogue_texts']['error'])->toBe('index unavailable')
-        ->and($stats['reviews']['numberOfDocuments'])->toBe(0)
         ->and($health['meilisearch_status'])->toBe('available')
         ->and($health['healthy'])->toBeTrue()
         ->and($health['indexes']['games']['numberOfDocuments'])->toBe(12);
@@ -227,13 +183,12 @@ it('reports unhealthy search when the Meilisearch client cannot respond', functi
 
 it('marks search unhealthy when Meilisearch responds with a non-available status', function () {
     $index = Mockery::mock(Indexes::class);
-    $index->shouldReceive('stats')->times(4)->andReturn([]);
+    $index->shouldReceive('stats')->times(3)->andReturn([]);
 
     $client = Mockery::mock(MeilisearchClient::class);
     $client->shouldReceive('health')->once()->andReturn(['status' => 'degraded']);
     $client->shouldReceive('index')->once()->with('games')->andReturn($index);
     $client->shouldReceive('index')->once()->with('game_dialogue_texts')->andReturn($index);
-    $client->shouldReceive('index')->once()->with('reviews')->andReturn($index);
     $client->shouldReceive('index')->once()->with('tags')->andReturn($index);
 
     app()->instance(MeilisearchClient::class, $client);

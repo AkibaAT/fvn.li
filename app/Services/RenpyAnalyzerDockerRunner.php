@@ -44,11 +44,11 @@ class RenpyAnalyzerDockerRunner
             $process->run();
 
             if (! $process->isSuccessful()) {
-                $this->lastError = trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'Analyzer container failed';
+                $this->lastError = 'Analyzer container failed';
                 Log::warning('RenPy analyzer container failed', [
                     'exit_code' => $process->getExitCode(),
-                    'output' => $process->getOutput(),
-                    'error_output' => $process->getErrorOutput(),
+                    'output' => $this->sanitizeDiagnosticOutput($process->getOutput()),
+                    'error_output' => $this->sanitizeDiagnosticOutput($process->getErrorOutput()),
                 ]);
 
                 return null;
@@ -79,6 +79,18 @@ class RenpyAnalyzerDockerRunner
     public function getLastError(): ?string
     {
         return $this->lastError;
+    }
+
+    private function sanitizeDiagnosticOutput(string $output): string
+    {
+        $output = str_replace("\0", '', $output);
+        $limit = 4096;
+
+        if (strlen($output) <= $limit) {
+            return $output;
+        }
+
+        return substr($output, 0, $limit)."\n[truncated]";
     }
 
     private function cleanupStaleJobDirectories(string $workDir): void

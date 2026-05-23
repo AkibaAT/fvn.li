@@ -44,12 +44,12 @@ class RenpyStatsSandboxClient
 
             if (! $response->successful()) {
                 $message = $response->json('message');
-                $this->lastError = is_string($message) && $message !== ''
-                    ? $message
+                $this->lastError = $response->status() === 422
+                    ? 'No stats could be extracted'
                     : "Sandbox analyzer request failed with HTTP {$response->status()}";
                 Log::warning('GameStats: sandbox analyzer request failed', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'message' => is_string($message) ? $this->sanitizeDiagnosticOutput($message) : null,
                 ]);
 
                 return null;
@@ -80,6 +80,18 @@ class RenpyStatsSandboxClient
     public function getLastError(): ?string
     {
         return $this->lastError;
+    }
+
+    private function sanitizeDiagnosticOutput(string $output): string
+    {
+        $output = str_replace("\0", '', $output);
+        $limit = 1024;
+
+        if (strlen($output) <= $limit) {
+            return $output;
+        }
+
+        return substr($output, 0, $limit)."\n[truncated]";
     }
 
     private function createRequestDirectory(): string

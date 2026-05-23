@@ -103,7 +103,7 @@ class DenKitStashPersistenceService
 
     public function isAutoPersistEnabled(): bool
     {
-        return $this->isEnabled() && (bool) Config::get('services.denkit_stash.auto_persist', true);
+        return $this->isEnabled() && (bool) Config::get('services.denkit_stash.auto_persist', false);
     }
 
     public function shouldDeleteLocalAfterPush(): bool
