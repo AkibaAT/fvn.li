@@ -8,17 +8,6 @@ use InvalidArgumentException;
 
 class ImageDownloadUrlValidator
 {
-    private const DEFAULT_ALLOWED_HOSTS = [
-        'img.itch.zone',
-        'img.itch.io',
-        'shared.akamai.steamstatic.com',
-        'cdn.akamai.steamstatic.com',
-        'shared.cloudflare.steamstatic.com',
-        'cdn.cloudflare.steamstatic.com',
-        'steamcdn-a.akamaihd.net',
-        'booth.pximg.net',
-    ];
-
     public function validate(string $url): string
     {
         $url = trim($url);
@@ -42,34 +31,41 @@ class ImageDownloadUrlValidator
             throw new InvalidArgumentException('Image URL must not contain credentials');
         }
 
-        if (! in_array($host, $this->allowedHosts(), true)) {
-            throw new InvalidArgumentException("Untrusted image host: {$host}");
-        }
+        $this->assertPubliclyRoutableHost($host);
 
         return $url;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function allowedHosts(): array
+    private function assertPubliclyRoutableHost(string $host): void
     {
-        $configuredHosts = function_exists('config')
-            ? config('services.image_downloads.allowed_hosts')
-            : null;
-
-        if (is_string($configuredHosts)) {
-            $configuredHosts = explode(',', $configuredHosts);
+        if (in_array($host, ['localhost', 'localhost.localdomain'], true)) {
+            throw new InvalidArgumentException('Image URL cannot point to localhost');
         }
 
-        if (! is_array($configuredHosts) || $configuredHosts === []) {
-            $configuredHosts = self::DEFAULT_ALLOWED_HOSTS;
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            $this->assertPubliclyRoutableIp($host);
+
+            return;
         }
 
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $host): string => $this->normalizeHost((string) $host),
-            $configuredHosts
-        ))));
+        $records = dns_get_record($host, DNS_A + DNS_AAAA);
+        if ($records === false || $records === []) {
+            throw new InvalidArgumentException("Could not resolve image host: {$host}");
+        }
+
+        foreach ($records as $record) {
+            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+            if (is_string($ip) && $ip !== '') {
+                $this->assertPubliclyRoutableIp($ip);
+            }
+        }
+    }
+
+    private function assertPubliclyRoutableIp(string $ip): void
+    {
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            throw new InvalidArgumentException('Image URL cannot resolve to a private or reserved IP address');
+        }
     }
 
     private function normalizeHost(string $host): string

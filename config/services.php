@@ -42,13 +42,6 @@ return [
         'retry_cooldown' => env('ITCH_RETRY_COOLDOWN', 30),
     ],
 
-    'itch_downloads' => [
-        'allowed_download_hosts' => env('ITCH_DOWNLOAD_ALLOWED_HOSTS', [
-            'w3g3a5v6.ssl.hwcdn.net',
-            'v6p9d9t4.ssl.hwcdn.net',
-        ]),
-    ],
-
     'itchio' => [
         'client_id' => env('ITCHIO_CLIENT_ID'),
         'client_secret' => env('ITCHIO_CLIENT_SECRET'),
@@ -111,13 +104,6 @@ return [
     'android' => [
         'keystore_password' => env('ANDROID_KEYSTORE_PASSWORD', 'fvnli'),
         'key_password' => env('ANDROID_KEY_PASSWORD', 'fvnli'),
-    ],
-
-    'image_downloads' => [
-        'allowed_hosts' => array_filter(array_map('trim', explode(',', env(
-            'IMAGE_DOWNLOAD_ALLOWED_HOSTS',
-            'img.itch.zone,img.itch.io,shared.akamai.steamstatic.com,cdn.akamai.steamstatic.com,shared.cloudflare.steamstatic.com,cdn.cloudflare.steamstatic.com,steamcdn-a.akamaihd.net,booth.pximg.net'
-        )))),
     ],
 
     'flaresolverr' => [
