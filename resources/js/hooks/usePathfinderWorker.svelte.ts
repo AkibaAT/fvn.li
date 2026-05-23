@@ -1,8 +1,6 @@
 import type { RouteEdge } from '@/types/route-graph';
 import { findPath, type PathfinderOptions, type RoutePath } from '@/utils/pathfinder';
 
-/* eslint-disable svelte/prefer-svelte-reactivity -- this hook uses Maps for worker request bookkeeping, not Svelte component state. */
-
 interface PendingRequest {
     resolve: (path: RoutePath | null) => void;
     reject: (error: Error) => void;

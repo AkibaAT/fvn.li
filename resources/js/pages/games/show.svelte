@@ -5,7 +5,7 @@
     import ScreenshotsGallery from '@/components/games/ScreenshotsGallery.svelte';
     import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox.svelte';
     import GameDetailsSection from '@/components/games/GameDetailsSection.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Card } from '@/components/ui';
     import DownloadsList from '@/components/games/DownloadsList.svelte';
     import GameRecommendationsSection from '@/components/games/GameRecommendationsSection.svelte';
     import GameReviewsSection from '@/components/games/GameReviewsSection.svelte';
