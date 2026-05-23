@@ -40,11 +40,29 @@ class GameArchiveService
         $storagePath = $this->getStoragePath($gameId, $versionId);
         $files = Storage::files($storagePath);
 
-        if (empty($files)) {
+        if (! empty($files)) {
+            return Storage::path($files[0]);
+        }
+
+        $game = Game::query()->find($gameId);
+        $version = GameVersion::query()->where('game_id', $gameId)->find($versionId);
+        if (! $game || ! $version) {
             return null;
         }
 
-        return Storage::path($files[0]);
+        try {
+            $restored = app(DenKitStashPersistenceService::class)->restorePersistedArchive($game, $version, $storagePath);
+
+            return $restored['archive_path'] ?? null;
+        } catch (Throwable $throwable) {
+            Log::warning('Failed to restore game version archive from DenKit Stash', [
+                'game_id' => $gameId,
+                'version_id' => $versionId,
+                'error' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
@@ -603,5 +621,4 @@ class GameArchiveService
     {
         return app(ArchiveDownloadPathService::class)->sanitizeFilename($filename);
     }
-
 }
