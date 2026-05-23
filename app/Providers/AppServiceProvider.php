@@ -86,7 +86,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registerUniversalAuditObserver();
 
         // Ensure the keystores directory exists and is secured
-        $keystoreDir = storage_path('app/keystores');
+        $keystoreDir = (string) config('services.android.keystore_path', storage_path('app/keystores'));
         if (! File::exists($keystoreDir)) {
             File::makeDirectory($keystoreDir, 0755, true, true);
         }
@@ -139,7 +139,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $modelFiles = glob($modelPath.'/*.php');
+        $modelFiles = glob($modelPath . '/*.php');
 
         foreach ($modelFiles as $file) {
             $fileName = basename($file, '.php');

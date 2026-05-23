@@ -104,6 +104,7 @@ return [
     'android' => [
         'keystore_password' => env('ANDROID_KEYSTORE_PASSWORD', 'fvnli'),
         'key_password' => env('ANDROID_KEY_PASSWORD', 'fvnli'),
+        'keystore_path' => env('ANDROID_KEYSTORE_PATH', storage_path('app/keystores')),
     ],
 
     'flaresolverr' => [
