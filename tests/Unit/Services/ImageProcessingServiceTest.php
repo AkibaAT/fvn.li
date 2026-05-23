@@ -370,5 +370,5 @@ test('image downloads reject untrusted screenshot and thumbnail urls before fetc
     ]);
 
     expect(fn () => $service->processGameThumbnail($gameWithBadThumbnail, force: true))
-        ->toThrow(InvalidArgumentException::class, 'Untrusted image host');
+        ->toThrow(InvalidArgumentException::class, 'Could not resolve image host');
 });
