@@ -376,27 +376,27 @@ test('itch browser download control URLs stay on the original itch origin', func
         ))->toThrow(RuntimeException::class, 'must not contain credentials');
 });
 
-test('itch file download URLs are limited to configured public CDN hosts', function () {
-    config(['services.itch_downloads.allowed_download_hosts' => ['93.184.216.34']]);
-
+test('itch file download URLs accept public hosts from the authenticated itch download flow', function () {
     expect(invokeGameArchiveServiceMethod(
         $this->archiveService,
         'validateItchFileDownloadUrl',
         ['https://93.184.216.34/game.zip', 'https://creator.itch.io/game', 'itch.io file download URL']
     ))->toBe('https://93.184.216.34/game.zip')
+        ->and(invokeGameArchiveServiceMethod(
+            $this->archiveService,
+            'validateItchFileDownloadUrl',
+            ['https://itchio-mirror.cb031a832f44726753d6267436f3b414.r2.cloudflarestorage.com/game.zip', 'https://creator.itch.io/game', 'itch.io file download URL']
+        ))->toBe('https://itchio-mirror.cb031a832f44726753d6267436f3b414.r2.cloudflarestorage.com/game.zip')
+        ->and(invokeGameArchiveServiceMethod(
+            $this->archiveService,
+            'validateItchFileDownloadUrl',
+            ['https://example.com/game.zip', 'https://creator.itch.io/game', 'itch.io file download URL']
+        ))->toBe('https://example.com/game.zip')
         ->and(fn () => invokeGameArchiveServiceMethod(
             $this->archiveService,
             'validateItchFileDownloadUrl',
             ['https://127.0.0.1:8765/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
-        ))->toThrow(RuntimeException::class, 'Untrusted itch.io file download URL host: 127.0.0.1');
-
-    config(['services.itch_downloads.allowed_download_hosts' => ['127.0.0.1']]);
-
-    expect(fn () => invokeGameArchiveServiceMethod(
-        $this->archiveService,
-        'validateItchFileDownloadUrl',
-        ['https://127.0.0.1:8765/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
-    ))->toThrow(RuntimeException::class, 'cannot resolve to a private or reserved IP address');
+        ))->toThrow(RuntimeException::class, 'cannot resolve to a private or reserved IP address');
 });
 
 test('download filename sanitization rejects paths and falls back for empty names', function () {
