@@ -352,6 +352,54 @@ test('tar archive repacking treats option-like top level entries as filenames', 
     }
 });
 
+test('optimize game archives skips archives with symlinked game directories', function () {
+    Storage::fake('local');
+
+    $game = Game::factory()->create(['name' => 'Symlinked Game Dir']);
+    $version = GameVersion::factory()->latest()->create([
+        'game_id' => $game->id,
+        'version' => '4.0',
+    ]);
+
+    $outsideDir = createSymlinkedGameDirectoryArchive($game->id, $version->id, 'symlinked-game.tar');
+
+    try {
+        $result = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
+            ->optimizeStoredArchive($game->id, $version->id, dryRun: false, force: true);
+        $outsideScriptExistsAfter = File::exists($outsideDir.'/script.rpy');
+    } finally {
+        File::deleteDirectory($outsideDir);
+    }
+
+    expect($result['status'])->toBe('skipped')
+        ->and($result['reason'])->toBe('Archive contains linked or special content and cannot be optimized safely')
+        ->and($outsideScriptExistsAfter)->toBeTrue();
+});
+
+test('optimize game archives skips archives with symlinked media output paths', function () {
+    Storage::fake('local');
+
+    $game = Game::factory()->create(['name' => 'Symlinked Media Output']);
+    $version = GameVersion::factory()->latest()->create([
+        'game_id' => $game->id,
+        'version' => '4.1',
+    ]);
+
+    [$victimPath, $originalContents] = createSymlinkedMediaOutputArchive($game->id, $version->id, 'symlinked-output.tar');
+
+    try {
+        $result = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
+            ->optimizeStoredArchive($game->id, $version->id, dryRun: false, force: true);
+        $victimContentsAfter = File::get($victimPath);
+    } finally {
+        File::delete($victimPath);
+    }
+
+    expect($result['status'])->toBe('skipped')
+        ->and($result['reason'])->toBe('Archive contains linked or special content and cannot be optimized safely')
+        ->and($victimContentsAfter)->toBe($originalContents);
+});
+
 test('optimize game archives skips rpyc files that fail to decompile', function () {
     Storage::fake('local');
 
@@ -540,6 +588,69 @@ function createOptimizableTarArchive(int $gameId, int $versionId, string $filena
         unlink($imagePath);
         File::deleteDirectory($sourceDir);
     }
+}
+
+function createSymlinkedGameDirectoryArchive(int $gameId, int $versionId, string $filename): string
+{
+    $storagePath = "games/{$gameId}/{$versionId}";
+    Storage::makeDirectory($storagePath);
+
+    $sourceDir = sys_get_temp_dir().'/archive_symlink_source_'.bin2hex(random_bytes(4));
+    $outsideDir = sys_get_temp_dir().'/archive_symlink_outside_'.bin2hex(random_bytes(4));
+    File::makeDirectory($sourceDir, 0755, true);
+    File::makeDirectory($outsideDir, 0755, true);
+    File::put($outsideDir.'/script.rpy', "label start:\n    return\n");
+
+    symlink($outsideDir, $sourceDir.'/game');
+
+    try {
+        (new Process([
+            'tar',
+            '-cf',
+            Storage::path("{$storagePath}/{$filename}"),
+            '-C',
+            $sourceDir,
+            '.',
+        ]))->mustRun();
+    } finally {
+        File::deleteDirectory($sourceDir);
+    }
+
+    return $outsideDir;
+}
+
+/**
+ * @return array{0: string, 1: string}
+ */
+function createSymlinkedMediaOutputArchive(int $gameId, int $versionId, string $filename): array
+{
+    $storagePath = "games/{$gameId}/{$versionId}";
+    Storage::makeDirectory($storagePath);
+
+    $sourceDir = sys_get_temp_dir().'/archive_symlink_output_source_'.bin2hex(random_bytes(4));
+    $victimPath = sys_get_temp_dir().'/archive_symlink_output_victim_'.bin2hex(random_bytes(4)).'.txt';
+    $originalContents = "do not overwrite\n";
+    File::makeDirectory($sourceDir.'/game/images', 0755, true);
+    File::put($sourceDir.'/game/script.rpy', "image bg = \"images/payload.png\"\nlabel start:\n    scene bg\n");
+    File::put($sourceDir.'/game/images/payload.png', 'fake png contents');
+    File::put($victimPath, $originalContents);
+
+    symlink($victimPath, $sourceDir.'/game/images/payload.webp');
+
+    try {
+        (new Process([
+            'tar',
+            '-cf',
+            Storage::path("{$storagePath}/{$filename}"),
+            '-C',
+            $sourceDir,
+            '.',
+        ]))->mustRun();
+    } finally {
+        File::deleteDirectory($sourceDir);
+    }
+
+    return [$victimPath, $originalContents];
 }
 
 function createAudioArchive(int $gameId, int $versionId, string $filename, string $audioContents): void

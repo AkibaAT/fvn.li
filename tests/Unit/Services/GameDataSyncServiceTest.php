@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use App\Services\GameDataSyncService;
+use App\Services\GameUploadAnalyzer;
 use App\Services\ImageProcessingService;
 use App\Services\ItchGameMetadataExtractor;
 use App\Services\ItchHttpClientService;
@@ -86,6 +87,53 @@ test('only demo processable uploads are treated as unsuitable for stats extracti
     expect($method->invoke($service, [$demoUpload]))->toBeTrue()
         ->and($method->invoke($service, [$demoUpload, $fullUpload]))->toBeFalse()
         ->and($method->invoke($service, []))->toBeFalse();
+});
+
+test('demo-only stats decision considers unchanged full uploads', function () {
+    $seenUploads = [
+        10 => [
+            'filename' => 'Game-1.0-pc.zip',
+            'display_name' => null,
+            'md5_hash' => 'full-md5',
+            'updated_at' => '2025-09-20T22:25:28Z',
+            'build_id' => null,
+            'build_updated_at' => null,
+            'user_version' => null,
+            'traits' => ['p_windows', 'p_linux'],
+            'type' => 'default',
+        ],
+    ];
+
+    $uploads = [
+        [
+            'id' => 10,
+            'filename' => 'Game-1.0-pc.zip',
+            'display_name' => null,
+            'md5_hash' => 'full-md5',
+            'updated_at' => '2025-09-20T22:25:28Z',
+            'traits' => ['p_windows', 'p_linux'],
+            'type' => 'default',
+        ],
+        [
+            'id' => 11,
+            'filename' => 'Game-1.0-demo-pc.zip',
+            'display_name' => null,
+            'md5_hash' => 'demo-md5',
+            'updated_at' => '2025-09-21T22:25:28Z',
+            'traits' => ['p_windows', 'p_linux', 'demo'],
+            'type' => 'default',
+        ],
+    ];
+
+    $analysis = app(GameUploadAnalyzer::class)->analyze($uploads, $seenUploads, false);
+    $service = app(GameDataSyncService::class);
+    $method = new ReflectionMethod($service, 'hasOnlyDemoProcessableUploads');
+
+    expect($analysis['candidateUploads'])->toHaveCount(1)
+        ->and($analysis['candidateUploads'][0]->filename)->toBe('Game-1.0-demo-pc.zip')
+        ->and($analysis['processableUploads'])->toHaveCount(2)
+        ->and($method->invoke($service, [$analysis['candidateUploads'][0]]))->toBeTrue()
+        ->and($method->invoke($service, [$analysis['processableUploads'][0], $analysis['processableUploads'][1]]))->toBeFalse();
 });
 
 test('itch screenshot extraction preserves optimized variants for unchanged source urls', function () {

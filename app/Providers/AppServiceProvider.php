@@ -116,7 +116,6 @@ class AppServiceProvider extends ServiceProvider
 
         Game::disableSearchSyncing();
         GameDialogueText::disableSearchSyncing();
-        Rating::disableSearchSyncing();
         Tag::disableSearchSyncing();
     }
 
