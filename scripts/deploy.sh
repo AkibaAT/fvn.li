@@ -64,6 +64,11 @@ artisan() {
   compose_exec_app php artisan "$@"
 }
 
+bootstrap_denkit_stash_db() {
+  docker compose up -d db
+  ./scripts/bootstrap-denkit-stash-db.sh
+}
+
 # Load environment variables from .env.deploy
 if [ -f .env.deploy ]; then
   echo "Loading deployment configuration from .env.deploy"
@@ -102,6 +107,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
 
   # Full restart
   docker compose down --remove-orphans
+  bootstrap_denkit_stash_db
   docker compose up -d
 
   ensure_container_runtime_paths
@@ -119,6 +125,7 @@ else
   if docker compose ps app | grep -q "Up"; then
     echo "Container is running, performing cache clear and hot reload..."
 
+    bootstrap_denkit_stash_db
     ensure_container_runtime_paths
 
     artisan storage:link
@@ -145,6 +152,7 @@ else
     echo "Container is not running, starting it..."
 
     # Start the containers without pulling (using existing image)
+    bootstrap_denkit_stash_db
     docker compose up -d --remove-orphans
 
     ensure_container_runtime_paths

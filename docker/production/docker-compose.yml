@@ -6,6 +6,10 @@ x-meilisearch: &meilisearch
   image: getmeili/meilisearch:v1.44@sha256:b839a48d008d4e67e57f78dcff5b21d5e8b8fa066bacd11f97824d6307abb0dd
 x-redis: &redis
   image: redis:8.6.3@sha256:0c341492924cad6f5483f9133e43bd6c51ecdecbcadfac5b51657393b6a7936c
+x-denkit-stash: &denkit-stash
+  image: ${DENKIT_STASH_IMAGE}
+x-minio: &minio
+  image: ${MINIO_DOCKER_IMAGE:-minio/minio:latest}
 
 services:
   app:
@@ -22,11 +26,24 @@ services:
         condition: service_healthy
       stats-runner:
         condition: service_started
+      denkit-stash:
+        condition: service_healthy
     environment:
       - RENPY_ANALYSIS_MODE=${RENPY_ANALYSIS_MODE:-sandbox}
       - RENPY_ANALYZER_URL=${RENPY_ANALYZER_URL:-http://stats-runner:8080/api/renpy-analyzer/analyze}
       - RENPY_ANALYZER_TOKEN=${RENPY_ANALYZER_TOKEN}
       - RENPY_ANALYZER_TIMEOUT=${RENPY_ANALYZER_TIMEOUT:-300}
+      - DENKIT_STASH_URL=${DENKIT_STASH_URL:-http://denkit-stash:8081}
+      - DENKIT_STASH_PUBLIC_URL=${DENKIT_STASH_PUBLIC_URL:-https://denkit-stash.${APP_DOMAIN}}
+      - DENKIT_STASH_POSTGRES_HOST=${DENKIT_STASH_POSTGRES_HOST:-db}
+      - DENKIT_STASH_POSTGRES_PORT=${DENKIT_STASH_POSTGRES_PORT:-5432}
+      - DENKIT_STASH_POSTGRES_DATABASE=${DENKIT_STASH_POSTGRES_DATABASE:-denkit_stash}
+      - DENKIT_STASH_POSTGRES_USERNAME=${DENKIT_STASH_POSTGRES_USERNAME:-denkit_stash}
+      - DENKIT_STASH_POSTGRES_PASSWORD=${DENKIT_STASH_POSTGRES_PASSWORD}
+      - DENKIT_STASH_USERNAME=${DENKIT_STASH_USERNAME:-fvn-li}
+      - DENKIT_STASH_API_KEY=${DENKIT_STASH_API_KEY}
+      - DENKIT_API_KEY_HASH_SECRET=${DENKIT_API_KEY_HASH_SECRET}
+      - BUTLER_CLIENT_PATH=${BUTLER_CLIENT_PATH:-/var/www/butler-client}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost/health" ]
       interval: 30s
@@ -91,6 +108,58 @@ services:
       - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app/
+  denkit-stash:
+    <<: *denkit-stash
+    restart: unless-stopped
+    command: ["./denkit-stash", "--port=8081"]
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8081/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - fvnli
+    environment:
+      - POSTGRES_HOST=${DENKIT_STASH_POSTGRES_HOST:-db}
+      - POSTGRES_PORT=${DENKIT_STASH_POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${DENKIT_STASH_POSTGRES_DATABASE:-butler}
+      - POSTGRES_USER=${DENKIT_STASH_POSTGRES_USERNAME:-denkit_stash}
+      - POSTGRES_PASSWORD=${DENKIT_STASH_POSTGRES_PASSWORD}
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_PUBLIC_ENDPOINT=${DENKIT_STASH_MINIO_PUBLIC_ENDPOINT:-http://minio:9000}
+      - MINIO_ACCESS_KEY=${DENKIT_STASH_MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${DENKIT_STASH_MINIO_SECRET_KEY}
+      - MINIO_BUCKET=${DENKIT_STASH_MINIO_BUCKET:-butler-storage}
+      - MINIO_USE_SSL=false
+      - ENABLE_DEV_ENDPOINTS=false
+      - DENKIT_API_KEY_HASH_SECRET=${DENKIT_API_KEY_HASH_SECRET}
+      - DENKIT_HTTP_READ_HEADER_TIMEOUT=5s
+      - DENKIT_HTTP_READ_TIMEOUT=${DENKIT_HTTP_READ_TIMEOUT:-30m}
+      - DENKIT_HTTP_WRITE_TIMEOUT=${DENKIT_HTTP_WRITE_TIMEOUT:-30m}
+      - DENKIT_HTTP_IDLE_TIMEOUT=2m
+  minio:
+    <<: *minio
+    restart: unless-stopped
+    command: server --console-address :9090 --address :9000 /data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - fvnli
+    environment:
+      - MINIO_ROOT_USER=${DENKIT_STASH_MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${DENKIT_STASH_MINIO_SECRET_KEY}
+    volumes:
+      - denkit_stash_minio:/data
   db:
     <<: *db
     restart: unless-stopped
@@ -255,6 +324,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}_meilisearch
   redis:
     name: ${COMPOSE_PROJECT_NAME}_redis
+  denkit_stash_minio:
+    name: ${COMPOSE_PROJECT_NAME}_denkit_stash_minio
 
 networks:
   fvnli:
