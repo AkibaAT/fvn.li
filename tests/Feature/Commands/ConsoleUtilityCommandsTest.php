@@ -10,6 +10,7 @@ use App\Models\GameVersion;
 use App\Models\Rater;
 use App\Models\UniqueDialogueText;
 use App\Models\User;
+use App\Services\ImageDownloadUrlValidator;
 use App\Services\ImageProcessingService;
 use App\Services\PlatformDetectionService;
 use App\Services\RatingCalculationService;
@@ -292,6 +293,16 @@ it('processes selected game thumbnails through the command wrapper', function ()
         ->andReturn(new Response(200, [], consoleUtilityPngPayload()));
     $this->app->instance(GuzzleClient::class, $client);
 
+    $validator = Mockery::mock(ImageDownloadUrlValidator::class);
+    $validator->shouldReceive('validatedRequest')
+        ->once()
+        ->with('https://img.itch.zone/thumb.png')
+        ->andReturn([
+            'url' => 'https://img.itch.zone/thumb.png',
+            'options' => [],
+        ]);
+    $this->app->instance(ImageDownloadUrlValidator::class, $validator);
+
     $imageService = Mockery::mock(ImageProcessingService::class);
     $imageService->shouldReceive('processImageVariant')
         ->twice()
@@ -342,6 +353,16 @@ it('thumbnail command rejects oversized downloads before image processing', func
         ])
         ->andReturn(new Response(200, ['Content-Length' => (string) (10 * 1024 * 1024 + 1)], ''));
     $this->app->instance(GuzzleClient::class, $client);
+
+    $validator = Mockery::mock(ImageDownloadUrlValidator::class);
+    $validator->shouldReceive('validatedRequest')
+        ->once()
+        ->with('https://img.itch.zone/huge.png')
+        ->andReturn([
+            'url' => 'https://img.itch.zone/huge.png',
+            'options' => [],
+        ]);
+    $this->app->instance(ImageDownloadUrlValidator::class, $validator);
 
     $imageService = Mockery::mock(ImageProcessingService::class);
     $imageService->shouldReceive('processImageVariant')->never();

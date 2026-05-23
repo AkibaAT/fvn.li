@@ -111,3 +111,49 @@ test('version archive repository optimizes and persists stored archives to defau
         ],
     ]);
 });
+
+test('version archive repository skips optimization when stash auto persist is disabled', function () {
+    $game = Game::factory()->create();
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+    ]);
+    $recorder = (object) [
+        'optimizerCalls' => 0,
+    ];
+
+    $service = new GameVersionArchiveRepositoryService(
+        new class($recorder) extends GameArchiveOptimizationService
+        {
+            public function __construct(private object $recorder) {}
+
+            public function optimizeStoredArchive(
+                int $gameId,
+                int $versionId,
+                bool $dryRun = true,
+                bool $replace = false,
+                bool $force = false,
+                bool $validate = true,
+                ?callable $progress = null
+            ): array {
+                $this->recorder->optimizerCalls++;
+
+                return ['status' => 'optimized'];
+            }
+        },
+        new class extends DenKitStashPersistenceService
+        {
+            public function __construct() {}
+
+            public function isAutoPersistEnabled(): bool
+            {
+                return false;
+            }
+        }
+    );
+
+    expect($service->persistStoredArchive($game, $version))->toMatchArray([
+        'status' => 'skipped',
+        'reason' => 'DenKit Stash auto-persist is not configured',
+    ]);
+    expect($recorder->optimizerCalls)->toBe(0);
+});

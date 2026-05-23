@@ -164,9 +164,10 @@ class ProcessGameThumbnails extends Command
 
         // Download the thumbnail
         $this->info('Downloading thumbnail...');
+        $request = $this->imageUrlValidator->validatedRequest($sourceUrl);
         $response = $this->httpClient->get(
-            $this->imageUrlValidator->validate($sourceUrl),
-            self::DOWNLOAD_OPTIONS
+            $request['url'],
+            array_replace_recursive(self::DOWNLOAD_OPTIONS, $request['options'])
         );
 
         if ($response->getStatusCode() !== 200) {

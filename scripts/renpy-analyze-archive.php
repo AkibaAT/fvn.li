@@ -49,8 +49,8 @@ try {
 
     $result = runProcess([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir, 300);
     if ($result['exit_code'] !== 0) {
-        fwrite(STDERR, $result['stderr']);
-        fwrite(STDERR, $result['stdout']);
+        writeDiagnosticOutput($result['stderr']);
+        writeDiagnosticOutput($result['stdout']);
     }
 
     $statsPath = $gameDir.'/stats.json';
@@ -69,6 +69,18 @@ try {
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage()."\n");
     exit(1);
+}
+
+function writeDiagnosticOutput(string $output): void
+{
+    $output = str_replace("\0", '', $output);
+    $limit = 4096;
+
+    if (strlen($output) > $limit) {
+        $output = substr($output, 0, $limit)."\n[truncated]\n";
+    }
+
+    fwrite(STDERR, $output);
 }
 
 /**
