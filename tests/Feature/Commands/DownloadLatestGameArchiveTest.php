@@ -327,10 +327,10 @@ test('download latest game archive shows current game progress', function () {
         ->assertExitCode(0);
 });
 
-readonly class RecordingGameArchiveService extends GameArchiveService
+class RecordingGameArchiveService extends GameArchiveService
 {
     public function __construct(
-        private object $recorder
+        private readonly object $recorder
     ) {}
 
     public function archiveExists(int $gameId, int $versionId, ?string $filename = null): bool
