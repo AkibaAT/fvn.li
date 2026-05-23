@@ -11,8 +11,12 @@ use Symfony\Component\Process\Process;
 
 class RenpyAnalyzerDockerRunner
 {
+    private ?string $lastError = null;
+
     public function analyze(string $archivePath): ?array
     {
+        $this->lastError = null;
+
         if (! File::exists($archivePath)) {
             throw new RuntimeException("Archive file not found: {$archivePath}");
         }
@@ -40,6 +44,7 @@ class RenpyAnalyzerDockerRunner
             $process->run();
 
             if (! $process->isSuccessful()) {
+                $this->lastError = trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'Analyzer container failed';
                 Log::warning('RenPy analyzer container failed', [
                     'exit_code' => $process->getExitCode(),
                     'output' => $process->getOutput(),
@@ -51,6 +56,7 @@ class RenpyAnalyzerDockerRunner
 
             $statsPath = "{$containerJobDir}/output/stats.json";
             if (! File::exists($statsPath)) {
+                $this->lastError = 'Analyzer container did not produce stats.json';
                 Log::warning('RenPy analyzer container did not produce stats.json');
 
                 return null;
@@ -58,6 +64,7 @@ class RenpyAnalyzerDockerRunner
 
             $stats = json_decode(File::get($statsPath), true);
             if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
+                $this->lastError = 'Analyzer container produced invalid stats.json';
                 Log::warning('RenPy analyzer container produced invalid stats.json');
 
                 return null;
@@ -67,6 +74,11 @@ class RenpyAnalyzerDockerRunner
         } finally {
             File::deleteDirectory($containerJobDir);
         }
+    }
+
+    public function getLastError(): ?string
+    {
+        return $this->lastError;
     }
 
     private function cleanupStaleJobDirectories(string $workDir): void
@@ -113,6 +125,8 @@ class RenpyAnalyzerDockerRunner
             'ALL',
             '--security-opt',
             'no-new-privileges',
+            '--entrypoint',
+            (string) config('services.renpy.analyzer_php_binary', 'php'),
             '--pids-limit',
             (string) config('services.renpy.analyzer_pids_limit', 128),
             '--cpus',
@@ -132,7 +146,6 @@ class RenpyAnalyzerDockerRunner
             '--mount',
             "type=bind,source={$sdkHostPath},target={$sdkContainerPath},readonly",
             (string) config('services.renpy.analyzer_image'),
-            (string) config('services.renpy.analyzer_php_binary', 'php'),
             '/input/renpy-analyze-archive.php',
             "/input/{$archiveFilename}",
             '/output/stats.json',
