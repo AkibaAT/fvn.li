@@ -20,7 +20,7 @@
 
     let { gameId, gameName, initialReview = null }: Props = $props();
 
-    const auth = $derived(($page as any).props?.auth);
+    const auth = $derived((page as any).props?.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
 
     let isEditing = $state(false);

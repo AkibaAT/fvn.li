@@ -173,7 +173,7 @@
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
             {#each tabs as tab (tab.key)}
                 {@const count = localCounts[tab.key as keyof typeof localCounts] ?? 0}
-                <Link
+                <a
                     href={route('lists.index', tab.key === 'all' ? {} : { visibility: tab.key })}
                     onclick={(e: MouseEvent) => {
                         e.preventDefault();
@@ -184,7 +184,7 @@
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
                 >
                     {tab.label} ({count})
-                </Link>
+                </a>
             {/each}
         </div>
     </Card>
