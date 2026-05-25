@@ -65,7 +65,7 @@
     } = $derived(props);
     const { getSupportedPlatforms, getPlatformIcon } = usePlatformIcons();
     const { getStorePlatformIcon, getStorePlatformFromString } = useStorePlatformIcons();
-    const auth = $derived((page as any)?.props?.auth);
+    const auth = $derived((page as any).props?.auth);
 
     let isIgnored = $derived(untrack(() => ignoredGameIds?.includes(game.id) || false));
     let isTogglingIgnore = $state(false);
