@@ -17,7 +17,7 @@
     params: {} as Record<string, string>,
   });
 
-  const user = $derived(($page?.props as any)?.auth?.user as User | null);
+  const user = $derived((page.props as any)?.auth?.user as User | null);
 
   // Capture page info when modal opens
   $effect(() => {

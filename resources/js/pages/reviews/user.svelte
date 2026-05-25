@@ -48,7 +48,7 @@
 
     let { reviewUser, reviews, stats, filters, metaTags }: Props = $props();
 
-    const _auth = $derived(((page as any)?.props as SharedData | undefined)?.auth);
+    const _auth = $derived((page.props as SharedData).auth);
     let isLoading = $state(false);
     let localReviews = $derived(reviews.data);
     let spoilerRevealedIds = $state<Set<number>>(new Set());
