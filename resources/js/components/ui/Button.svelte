@@ -128,6 +128,7 @@
 
     let isDisabled = $derived(disabled || loading);
     let classes = $derived(twMerge(clsx(baseClasses, toneClasses[normalizedTone][normalizedVariant], sizeClasses[size], className)));
+    let linkProps = $derived(restProps as any);
 
     $effect(() => {
         if (!ref || !action) return;
@@ -158,7 +159,7 @@
 {/snippet}
 
 {#if href && !external && inertia}
-    <Link href={href} class={classes} aria-disabled={isDisabled} aria-label={ariaLabel} {...restProps}>
+    <Link href={href} class={classes} aria-disabled={isDisabled} aria-label={ariaLabel} {...linkProps}>
         {@render content()}
     </Link>
 {:else if href}

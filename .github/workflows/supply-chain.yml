@@ -80,3 +80,33 @@ jobs:
       - name: Audit social image generator dependencies
         working-directory: docker/social-images
         run: npm audit --audit-level=high --omit=dev
+
+  frontend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Install Bun dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check frontend
+        run: bun types
+
+      - name: Lint frontend
+        run: bun lint:check
+
+      - name: Build frontend assets
+        run: bun run build:ssr
