@@ -1,52 +1,66 @@
 version: 2
 updates:
-  - package-ecosystem: "composer"
-    directory: "/"
+  - package-ecosystem: 'composer'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
     groups:
       php-dependencies:
         patterns:
-          - "*"
+          - '*'
 
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'bun'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
     groups:
       frontend-dependencies:
         patterns:
-          - "*"
+          - '*'
 
-  - package-ecosystem: "npm"
-    directory: "/docker/social-images"
+  - package-ecosystem: 'npm'
+    directory: '/docker/social-images'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
     groups:
       social-image-dependencies:
         patterns:
-          - "*"
+          - '*'
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
     groups:
       github-actions:
         patterns:
-          - "*"
+          - '*'
 
-  - package-ecosystem: "docker"
-    directory: "/docker/app"
+  - package-ecosystem: 'docker'
+    directory: '/docker/app'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
 
-  - package-ecosystem: "docker"
-    directory: "/docker/social-images"
+  - package-ecosystem: 'docker'
+    directory: '/docker/social-images'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
 
-  - package-ecosystem: "docker"
-    directory: "/docker/production"
+  - package-ecosystem: 'docker'
+    directory: '/docker/production'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
