@@ -22,9 +22,7 @@ class ItchAuthService
 
     private CookieJar $cookieJar;
 
-    private ?FlareSolverrClient $flareSolverr = null;
-
-    private bool $useFlareSolverr;
+    private FlareSolverrClient $flareSolverr;
 
     public function __construct(
         private readonly ItchHttpClientFactory $clientFactory,
@@ -32,11 +30,7 @@ class ItchAuthService
     ) {
         $this->cookieJar = $this->clientFactory->createCookieJar();
         $this->client = $this->clientFactory->createClient($this->cookieJar);
-        $this->useFlareSolverr = config('services.flaresolverr.enabled', true);
-
-        if ($this->useFlareSolverr && $flareSolverr !== null) {
-            $this->flareSolverr = $flareSolverr;
-        }
+        $this->flareSolverr = $flareSolverr ?? app(FlareSolverrClient::class);
     }
 
     /**
@@ -143,9 +137,14 @@ class ItchAuthService
     private function verifySession(): bool
     {
         try {
-            $response = $this->client->get('https://itch.io/dashboard', ['allow_redirects' => false]);
+            $response = $this->flareSolverr->request(
+                'https://itch.io/dashboard',
+                'GET',
+                [],
+                $this->cookieJar
+            );
 
-            return $response->getStatusCode() === 200;
+            return $response['status'] === 200;
         } catch (Exception $e) {
             Log::warning('Session verification failed', ['error' => $e->getMessage()]);
 
@@ -165,63 +164,28 @@ class ItchAuthService
             $html = $this->getLoginPageHtml();
             $formData = $this->getLoginFormData($html);
 
-            // Perform login via FlareSolverr to bypass Cloudflare
-            if ($this->useFlareSolverr && $this->flareSolverr !== null) {
-                Log::info('Using FlareSolverr to bypass Cloudflare and login to itch.io');
+            Log::info('Using FlareSolverr to bypass Cloudflare and login to itch.io');
 
-                $result = $this->flareSolverr->request(
-                    'https://itch.io/login',
-                    'POST',
-                    $formData,
-                    $this->cookieJar
-                );
+            $result = $this->flareSolverr->request(
+                'https://itch.io/login',
+                'POST',
+                $formData,
+                $this->cookieJar
+            );
 
-                // Check if login was successful
-                if ($result['status'] === 200 || $result['status'] === 302) {
-                    Log::info('FlareSolverr login successful, cookies obtained');
+            // Check if login was successful
+            if ($result['status'] === 200 || $result['status'] === 302) {
+                Log::info('FlareSolverr login successful, cookies obtained');
 
-                    // Now verify we can access the dashboard using regular HTTP with the cookies
-                    return $this->verifySession();
-                }
-
-                Log::error('Itch.io login failed (FlareSolverr)', [
-                    'status' => $result['status'],
-                ]);
-
-                return false;
-            } else {
-                // Direct HTTP login (will fail if Cloudflare is active)
-                Log::info('Attempting direct HTTP login (FlareSolverr disabled)');
-
-                $response = $this->client->post('https://itch.io/login', [
-                    'form_params' => $formData,
-                    'headers' => [
-                        'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                        'Accept-Language' => 'en-US,en;q=0.9',
-                        'Origin' => 'https://itch.io',
-                        'Referer' => 'https://itch.io/login',
-                    ],
-                    'allow_redirects' => false,
-                ]);
-
-                // Check for successful login
-                if ($response->getStatusCode() === 302) {
-                    // Follow redirect to verify login
-                    $redirectUrl = $response->getHeader('Location')[0];
-                    $response = $this->client->get($redirectUrl);
-
-                    if ($response->getStatusCode() === 200) {
-                        return true;
-                    }
-                }
-
-                Log::error('Itch.io login failed', [
-                    'status_code' => $response->getStatusCode(),
-                    'body' => $response->getBody()->getContents(),
-                ]);
-
-                return false;
+                // Now verify we can access the dashboard using regular HTTP with the cookies
+                return $this->verifySession();
             }
+
+            Log::error('Itch.io login failed (FlareSolverr)', [
+                'status' => $result['status'],
+            ]);
+
+            return false;
         } catch (Exception $e) {
             Log::error('Login attempt failed', ['exception' => $e]);
 
@@ -235,24 +199,16 @@ class ItchAuthService
      */
     private function getLoginPageHtml(): string
     {
-        if ($this->useFlareSolverr && $this->flareSolverr !== null) {
-            Log::info('Fetching login page via FlareSolverr to bypass Cloudflare');
+        Log::info('Fetching login page via FlareSolverr to bypass Cloudflare');
 
-            $result = $this->flareSolverr->request(
-                'https://itch.io/login',
-                'GET',
-                [],
-                $this->cookieJar
-            );
+        $result = $this->flareSolverr->request(
+            'https://itch.io/login',
+            'GET',
+            [],
+            $this->cookieJar
+        );
 
-            return $result['response'];
-        } else {
-            Log::info('Fetching login page via direct HTTP');
-
-            $response = $this->client->get('https://itch.io/login');
-
-            return $response->getBody()->getContents();
-        }
+        return $result['response'];
     }
 
     /**

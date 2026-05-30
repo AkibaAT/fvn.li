@@ -86,6 +86,19 @@ denkit_user="$(sql_literal "${DENKIT_STASH_POSTGRES_USERNAME}")"
 denkit_password="$(sql_literal "${DENKIT_STASH_POSTGRES_PASSWORD}")"
 denkit_db="$(sql_literal "${DENKIT_STASH_POSTGRES_DATABASE}")"
 
+for attempt in $(seq 1 60); do
+  if pg_isready -U "${DB_USERNAME}" -d postgres >/dev/null 2>&1; then
+    break
+  fi
+
+  if [ "${attempt}" -eq 60 ]; then
+    echo "Postgres did not become ready for Denkit stash bootstrap."
+    exit 1
+  fi
+
+  sleep 1
+done
+
 psql -v ON_ERROR_STOP=1 -U "${DB_USERNAME}" -d postgres <<SQL
 SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', '${denkit_user}', '${denkit_password}')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${denkit_user}')\gexec

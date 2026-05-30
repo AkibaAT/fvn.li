@@ -75,7 +75,7 @@ it('returns null when the sandbox analyzer is not configured', function () {
     }
 });
 
-it('does not expose raw sandbox analyzer failure output as the extraction error', function () {
+it('keeps the sandbox analyzer failure diagnostic as the extraction error', function () {
     $sharedPath = storage_path('framework/testing/renpy-analyzer-shared-'.uniqid());
     $archivePath = storage_path('framework/testing/source-archive-'.uniqid().'.zip');
     File::ensureDirectoryExists(dirname($archivePath));
@@ -89,7 +89,7 @@ it('does not expose raw sandbox analyzer failure output as the extraction error'
 
     Http::fake([
         'stats-runner:8080/*' => Http::response([
-            'message' => 'SECRET_FROM_ANALYZER_STDERR /srv/analyzer/work/request-1',
+            'message' => 'Analyzer container failed: Stats file not generated',
         ], 422),
     ]);
 
@@ -97,8 +97,7 @@ it('does not expose raw sandbox analyzer failure output as the extraction error'
 
     try {
         expect($client->extract($archivePath))->toBeNull()
-            ->and($client->getLastError())->toBe('No stats could be extracted')
-            ->and($client->getLastError())->not->toContain('SECRET_FROM_ANALYZER_STDERR');
+            ->and($client->getLastError())->toBe('Analyzer container failed: Stats file not generated');
     } finally {
         File::delete($archivePath);
         File::deleteDirectory($sharedPath);

@@ -352,8 +352,13 @@ test('archive metadata reader handles invalid missing and tar metadata archives'
     try {
         expect($process->isSuccessful())->toBeTrue()
             ->and($this->archiveService->readArchiveMetadata($tarPath)['original_archive']['filename'])->toBe('source.zip');
+
+        $misleadingPath = $tarDir . '/metadata.zip';
+        copy($tarPath, $misleadingPath);
+        expect($this->archiveService->readArchiveMetadata($misleadingPath)['original_archive']['filename'])->toBe('source.zip');
     } finally {
         @unlink($tarPath);
+        @unlink($misleadingPath ?? '');
         @unlink($tarDir . '/.fvn-archive-metadata.json');
         @rmdir($tarDir);
     }

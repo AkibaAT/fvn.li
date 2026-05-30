@@ -22,16 +22,7 @@ class TestFlareSolverr extends Command
         $this->info('Testing FlareSolverr Integration');
         $this->newLine();
 
-        // Check if FlareSolverr is enabled
-        $enabled = config('services.flaresolverr.enabled', false);
-        $this->info('FlareSolverr Enabled: '.($enabled ? 'Yes' : 'No'));
-
-        if (! $enabled) {
-            $this->warn('FlareSolverr is disabled in configuration');
-            $this->info('Set FLARESOLVERR_ENABLED=true in .env to enable');
-
-            return 1;
-        }
+        $this->info('FlareSolverr Enabled: Yes');
 
         // Check service availability
         $this->info('Checking FlareSolverr service availability...');

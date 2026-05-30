@@ -55,7 +55,7 @@ test('version archive repository optimizes and persists stored archives to defau
         {
             public function __construct(private object $recorder) {}
 
-            public function isAutoPersistEnabled(): bool
+            public function isEnabled(): bool
             {
                 return true;
             }
@@ -112,7 +112,7 @@ test('version archive repository optimizes and persists stored archives to defau
     ]);
 });
 
-test('version archive repository skips optimization when stash auto persist is disabled', function () {
+test('version archive repository skips optimization when DenKit Stash is not configured', function () {
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create([
         'game_id' => $game->id,
@@ -144,7 +144,7 @@ test('version archive repository skips optimization when stash auto persist is d
         {
             public function __construct() {}
 
-            public function isAutoPersistEnabled(): bool
+            public function isEnabled(): bool
             {
                 return false;
             }
@@ -153,7 +153,7 @@ test('version archive repository skips optimization when stash auto persist is d
 
     expect($service->persistStoredArchive($game, $version))->toMatchArray([
         'status' => 'skipped',
-        'reason' => 'DenKit Stash auto-persist is not configured',
+        'reason' => 'DenKit Stash is not configured',
     ]);
     expect($recorder->optimizerCalls)->toBe(0);
 });

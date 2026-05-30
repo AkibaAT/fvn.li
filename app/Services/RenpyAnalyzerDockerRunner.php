@@ -44,7 +44,11 @@ class RenpyAnalyzerDockerRunner
             $process->run();
 
             if (! $process->isSuccessful()) {
+                $diagnostic = trim($process->getErrorOutput()) ?: trim($process->getOutput());
                 $this->lastError = 'Analyzer container failed';
+                if ($diagnostic !== '') {
+                    $this->lastError .= ': '.$this->sanitizeDiagnosticOutput($diagnostic);
+                }
                 Log::warning('RenPy analyzer container failed', [
                     'exit_code' => $process->getExitCode(),
                     'output' => $this->sanitizeDiagnosticOutput($process->getOutput()),
