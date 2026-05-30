@@ -234,7 +234,24 @@ class GameDataSyncService
                     echo "    [Version] Reprocessing from stored archive repository...\n";
                     $storedArchivePath = $archiveService->getStoredArchive($game->id, $existingVersion->id);
                     if ($storedArchivePath === null) {
-                        echo "    [Version] No stored archive found for existing version\n";
+                        echo "    [Version] No DenKit archive found for existing version; downloading itch.io archive to seed DenKit\n";
+                        $archiveLookupError = $archiveService->getLastArchiveLookupError();
+                        if ($archiveLookupError) {
+                            echo "    [Version] Archive lookup reason: {$archiveLookupError}\n";
+                        }
+
+                        $archiveResult = $archiveService->downloadAndProcessToTemp(
+                            $game->getPrimaryUrl(),
+                            $bestUpload->filename,
+                            $bestUpload->id,
+                            $game->id
+                        );
+
+                        $tempDirPath = $archiveResult['temp_dir'] ?? null;
+
+                        if (isset($archiveResult['stats']) && $archiveResult['stats']) {
+                            $versionStats = $archiveResult['stats'];
+                        }
                     } else {
                         $versionStats = $archiveService->processArchive($storedArchivePath);
                     }

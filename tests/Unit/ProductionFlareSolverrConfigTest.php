@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-test('flaresolverr is opt in by default', function () {
-    expect(config('services.flaresolverr.enabled'))->toBeFalse();
+test('flaresolverr has no runtime disable switch', function () {
+    expect(config('services.flaresolverr'))->not->toHaveKey('enabled');
 });
 
 test('production flaresolverr is isolated from the application data network', function () {
@@ -14,7 +14,8 @@ test('production flaresolverr is isolated from the application data network', fu
 
     expect($compose)->not->toBeFalse()
         ->and($exampleEnv)->not->toBeFalse()
-        ->and($exampleEnv)->toContain('FLARESOLVERR_ENABLED=false')
+        ->and($exampleEnv)->not->toContain('FLARESOLVERR_ENABLED')
+        ->and($compose)->not->toContain('FLARESOLVERR_ENABLED')
         ->and($compose)->toContain('- flaresolverr')
         ->and($compose)->toContain('${COMPOSE_PROJECT_NAME}_flaresolverr');
 
