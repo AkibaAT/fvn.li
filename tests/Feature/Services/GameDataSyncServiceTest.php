@@ -9,6 +9,7 @@ use App\Models\Language;
 use App\Models\Tag;
 use App\Services\GameArchiveService;
 use App\Services\GameDataSyncService;
+use App\Services\GameVersionArchiveRepositoryService;
 use App\Services\ItchHttpClientService;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
@@ -425,6 +426,97 @@ it('force reprocesses existing versions from the stored archive repository witho
     app()->instance(GameArchiveService::class, $archiveService);
 
     app(GameDataSyncService::class)->refreshVersion($game, true);
+
+    expect($game->gameVersions()->count())->toBe(1)
+        ->and($version->refresh()->is_windows)->toBeTrue();
+});
+
+it('force reprocess downloads and persists an existing version when no DenKit archive exists', function () {
+    ensureSyncLanguage('eng', 'English');
+
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 766,
+        'url' => ['itch_io' => 'https://creator.itch.io/reprocess-missing'],
+        'source_language_id' => 'eng',
+        'game_engine' => "Ren'Py",
+    ]);
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.2',
+    ]);
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/766/uploads')
+        ->andReturn(new Response(200, [], json_encode([
+            'uploads' => [
+                [
+                    'id' => 20,
+                    'filename' => 'Reprocess-1.2-pc.zip',
+                    'display_name' => 'Reprocess 1.2',
+                    'md5_hash' => 'force-missing',
+                    'updated_at' => '2024-04-05T06:07:08Z',
+                    'build_id' => 99,
+                    'build' => [
+                        'user_version' => '1.2',
+                        'updated_at' => '2024-04-05T06:07:09Z',
+                    ],
+                    'traits' => ['p_windows'],
+                    'type' => 'default',
+                ],
+            ],
+        ])));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    $tempDir = storage_path('framework/testing/reprocess-missing-'.uniqid());
+    $tempPath = "{$tempDir}/archive.zip";
+    File::ensureDirectoryExists($tempDir);
+    File::put($tempPath, 'zip');
+
+    $archiveService = Mockery::mock(GameArchiveService::class);
+    $archiveService->shouldReceive('getStoredArchive')
+        ->once()
+        ->with($game->id, $version->id)
+        ->andReturn(null);
+    $archiveService->shouldReceive('getLastArchiveLookupError')
+        ->once()
+        ->andReturn("No completed build found for fvn-li/reprocess-missing:main version 1.2");
+    $archiveService->shouldReceive('downloadAndProcessToTemp')
+        ->once()
+        ->with('https://creator.itch.io/reprocess-missing', 'Reprocess-1.2-pc.zip', 20, $game->id)
+        ->andReturn([
+            'temp_path' => $tempPath,
+            'temp_dir' => $tempDir,
+            'stats' => null,
+            'filename' => 'Reprocess-1.2-pc.zip',
+            'upload_id' => 20,
+        ]);
+    $archiveService->shouldReceive('getLastProcessingError')
+        ->once()
+        ->andReturn(null);
+    $archiveService->shouldReceive('moveFromTempToStorage')
+        ->once()
+        ->with($tempPath, 'Reprocess-1.2-pc.zip', $game->id, $version->id, false);
+    app()->instance(GameArchiveService::class, $archiveService);
+
+    $repository = Mockery::mock(GameVersionArchiveRepositoryService::class);
+    $repository->shouldReceive('persistStoredArchive')
+        ->once()
+        ->with(Mockery::on(fn (Game $argument): bool => $argument->is($game)), Mockery::on(fn (GameVersion $argument): bool => $argument->is($version)), true)
+        ->andReturn([
+            'status' => 'persisted',
+            'target' => 'fvn-li/reprocess-missing:main',
+            'channel' => 'main',
+            'build_id' => 99,
+        ]);
+    app()->instance(GameVersionArchiveRepositoryService::class, $repository);
+
+    try {
+        app(GameDataSyncService::class)->refreshVersion($game, true);
+    } finally {
+        File::deleteDirectory($tempDir);
+    }
 
     expect($game->gameVersions()->count())->toBe(1)
         ->and($version->refresh()->is_windows)->toBeTrue();

@@ -49,12 +49,6 @@ trait ManagesFlareSolverrSession
      */
     protected function executeWithFlareSolverrSession(callable $callback): int
     {
-        // Check if FlareSolverr is enabled
-        if (! config('services.flaresolverr.enabled', true)) {
-            // FlareSolverr disabled, just execute normally
-            return $callback();
-        }
-
         /** @var FlareSolverrSessionManager $sessionManager */
         $sessionManager = app(FlareSolverrSessionManager::class);
 

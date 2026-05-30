@@ -6,6 +6,29 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\Services\GameVersionArchiveRepositoryService;
+
+beforeEach(function () {
+    $this->repositoryRecorder = (object) [
+        'persistStoredArchiveCalls' => [],
+        'result' => [
+            'status' => 'persisted',
+            'target' => 'fvn-li/current-archive:main',
+            'build_id' => 456,
+        ],
+    ];
+
+    $repository = Mockery::mock(GameVersionArchiveRepositoryService::class);
+    $repository->shouldReceive('persistStoredArchive')
+        ->byDefault()
+        ->andReturnUsing(function (Game $game, GameVersion $version, bool $force = false): array {
+            $this->repositoryRecorder->persistStoredArchiveCalls[] = [$game->id, $version->id, $force];
+
+            return $this->repositoryRecorder->result;
+        });
+
+    $this->app->instance(GameVersionArchiveRepositoryService::class, $repository);
+});
 
 test('reprocess current game archive imports stats from stored archive for latest version only', function () {
     $game = Game::factory()->create([
@@ -53,6 +76,9 @@ test('reprocess current game archive imports stats from stored archive for lates
     expect($statsRecorder->saveVersionStatsCalls)->toHaveCount(1);
     expect($statsRecorder->saveVersionStatsCalls[0]['version_id'])->toBe($currentVersion->id);
     expect($statsRecorder->saveVersionStatsCalls[0]['stats'])->toBe(['languages' => []]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
+        [$game->id, $currentVersion->id, true],
+    ]);
 });
 
 test('reprocess current game archive skips when current version has no stored archive', function () {
@@ -90,6 +116,7 @@ test('reprocess current game archive skips when current version has no stored ar
     ]);
     expect($archiveRecorder->processArchiveCalls)->toBe([]);
     expect($statsRecorder->saveVersionStatsCalls)->toBe([]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([]);
 });
 
 class ReprocessRecordingGameArchiveService extends GameArchiveService
