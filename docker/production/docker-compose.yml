@@ -33,13 +33,12 @@ services:
       - RENPY_ANALYZER_URL=${RENPY_ANALYZER_URL:-http://stats-runner:8080/api/renpy-analyzer/analyze}
       - RENPY_ANALYZER_TOKEN=${RENPY_ANALYZER_TOKEN}
       - RENPY_ANALYZER_TIMEOUT=${RENPY_ANALYZER_TIMEOUT:-300}
-      - FLARESOLVERR_ENABLED=${FLARESOLVERR_ENABLED:-true}
       - FLARESOLVERR_URL=${FLARESOLVERR_URL:-http://flaresolverr:8191}
       - DENKIT_STASH_URL=${DENKIT_STASH_URL:-http://denkit-stash:8081}
       - DENKIT_STASH_PUBLIC_URL=${DENKIT_STASH_PUBLIC_URL:-https://denkit-stash.${APP_DOMAIN}}
       - DENKIT_STASH_USERNAME=${DENKIT_STASH_USERNAME:-fvn-li}
       - DENKIT_STASH_API_KEY=${DENKIT_STASH_API_KEY}
-      - BUTLER_CLIENT_PATH=${BUTLER_CLIENT_PATH:-/var/www/butler-client}
+      - BUTLER_CLIENT_PATH=${BUTLER_CLIENT_PATH:-/opt/butler}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost/health" ]
       interval: 30s
@@ -119,7 +118,9 @@ services:
       retries: 12
       start_period: 10s
     networks:
-      - fvnli
+      fvnli:
+        aliases:
+          - api.denkit-stash
     environment:
       - POSTGRES_HOST=${DENKIT_STASH_POSTGRES_HOST:-db}
       - POSTGRES_PORT=${DENKIT_STASH_POSTGRES_PORT:-5432}
