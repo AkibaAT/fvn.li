@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Services\FlareSolverrClient;
 use App\Services\ItchAuthService;
 use App\Services\ItchHttpClientFactory;
 use GuzzleHttp\Client;
@@ -14,7 +15,6 @@ use Illuminate\Support\Facades\Cache;
 beforeEach(function () {
     Cache::flush();
     config([
-        'services.flaresolverr.enabled' => false,
         'services.itch.username' => 'test-user',
         'services.itch.password' => 'test-password',
     ]);
@@ -38,16 +38,76 @@ function itchioLoginFormHtml(string $csrf = 'test-csrf-token'): string
     HTML;
 }
 
+function itchioLoginFlareSolverr(string $html, int $loginStatus = 302, ?int $initialVerifyStatus = null): FlareSolverrClient
+{
+    $flareSolverr = Mockery::mock(FlareSolverrClient::class);
+
+    if ($initialVerifyStatus !== null) {
+        $flareSolverr->shouldReceive('request')
+            ->once()
+            ->with('https://itch.io/dashboard', 'GET', [], Mockery::type(CookieJar::class))
+            ->andReturn([
+                'status' => $initialVerifyStatus,
+                'response' => '',
+                'cookies' => [],
+            ]);
+    }
+
+    $flareSolverr->shouldReceive('request')
+        ->once()
+        ->with('https://itch.io/login', 'GET', [], Mockery::type(CookieJar::class))
+        ->andReturn([
+            'status' => 200,
+            'response' => $html,
+            'cookies' => [],
+        ]);
+    $flareSolverr->shouldReceive('request')
+        ->once()
+        ->with(
+            'https://itch.io/login',
+            'POST',
+            Mockery::on(fn (array $formData): bool => ($formData['username'] ?? null) === 'test-user'
+                && ($formData['password'] ?? null) === 'test-password'),
+            Mockery::type(CookieJar::class)
+        )
+        ->andReturn([
+            'status' => $loginStatus,
+            'response' => '',
+            'cookies' => [],
+        ]);
+
+    if ($loginStatus === 200 || $loginStatus === 302) {
+        $flareSolverr->shouldReceive('request')
+            ->once()
+            ->with('https://itch.io/dashboard', 'GET', [], Mockery::type(CookieJar::class))
+            ->andReturn([
+                'status' => 200,
+                'response' => '<html>Dashboard</html>',
+                'cookies' => [],
+            ]);
+    }
+
+    return $flareSolverr;
+}
+
+function itchioSessionVerificationFlareSolverr(int $status): FlareSolverrClient
+{
+    $flareSolverr = Mockery::mock(FlareSolverrClient::class);
+    $flareSolverr->shouldReceive('request')
+        ->once()
+        ->with('https://itch.io/dashboard', 'GET', [], Mockery::type(CookieJar::class))
+        ->andReturn([
+            'status' => $status,
+            'response' => '',
+            'cookies' => [],
+        ]);
+
+    return $flareSolverr;
+}
+
 describe('ItchAuthService authentication', function () {
     test('successfully authenticates with valid credentials', function () {
-        $mockHandler = new MockHandler([
-            // First request: get login form
-            new Response(200, [], itchioLoginFormHtml()),
-            // Second request: login
-            new Response(302, ['Location' => 'https://itch.io/dashboard']),
-            // Third request: verify login
-            new Response(200, [], '<html>Dashboard</html>'),
-        ]);
+        $mockHandler = new MockHandler([]);
 
         $handlerStack = HandlerStack::create($mockHandler);
         $cookieJar = new CookieJar;
@@ -60,18 +120,13 @@ describe('ItchAuthService authentication', function () {
         $factory->method('createCookieJar')->willReturn($cookieJar);
         $factory->method('createClient')->willReturn($client);
 
-        $service = new ItchAuthService($factory);
+        $service = new ItchAuthService($factory, itchioLoginFlareSolverr(itchioLoginFormHtml()));
 
         expect($service->getClient())->toBeInstanceOf(Client::class);
     });
 
     test('throws exception when authentication fails', function () {
-        $mockHandler = new MockHandler([
-            // First request: get login form
-            new Response(200, [], itchioLoginFormHtml()),
-            // Second request: login fails
-            new Response(401, [], 'Unauthorized'),
-        ]);
+        $mockHandler = new MockHandler([]);
 
         $handlerStack = HandlerStack::create($mockHandler);
         $cookieJar = new CookieJar;
@@ -84,7 +139,7 @@ describe('ItchAuthService authentication', function () {
         $factory->method('createCookieJar')->willReturn($cookieJar);
         $factory->method('createClient')->willReturn($client);
 
-        $service = new ItchAuthService($factory);
+        $service = new ItchAuthService($factory, itchioLoginFlareSolverr(itchioLoginFormHtml(), 401));
 
         expect(fn () => $service->getClient())
             ->toThrow(RuntimeException::class, 'Failed to authenticate with itch.io');
@@ -119,7 +174,7 @@ describe('ItchAuthService authentication', function () {
         $factory->method('createCookieJar')->willReturn($cookieJar);
         $factory->method('createClient')->willReturn($client);
 
-        $service = new ItchAuthService($factory);
+        $service = new ItchAuthService($factory, itchioSessionVerificationFlareSolverr(200));
 
         expect($service->getClient())->toBeInstanceOf(Client::class);
     });
@@ -137,16 +192,7 @@ describe('ItchAuthService authentication', function () {
         ];
         Cache::put('itch_cookies', $cachedCookies, now()->addWeek());
 
-        $mockHandler = new MockHandler([
-            // Verify session - fails (redirect)
-            new Response(302, ['Location' => 'https://itch.io/login']),
-            // Get login form
-            new Response(200, [], itchioLoginFormHtml()),
-            // Login
-            new Response(302, ['Location' => 'https://itch.io/dashboard']),
-            // Verify login
-            new Response(200, [], '<html>Dashboard</html>'),
-        ]);
+        $mockHandler = new MockHandler([]);
 
         $handlerStack = HandlerStack::create($mockHandler);
         $cookieJar = new CookieJar;
@@ -159,7 +205,7 @@ describe('ItchAuthService authentication', function () {
         $factory->method('createCookieJar')->willReturn($cookieJar);
         $factory->method('createClient')->willReturn($client);
 
-        $service = new ItchAuthService($factory);
+        $service = new ItchAuthService($factory, itchioLoginFlareSolverr(itchioLoginFormHtml(), initialVerifyStatus: 302));
 
         expect($service->getClient())->toBeInstanceOf(Client::class)
             ->and(Cache::has('itch_cookies'))->toBeTrue();

@@ -4,6 +4,7 @@ use App\Http\Middleware\PreventRequestForgery;
 use App\Models\Game;
 use App\Models\Tag;
 use App\Observers\TagObserver;
+use App\Services\FlareSolverrSessionManager;
 use App\Services\ItchIoProvider;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -67,8 +68,18 @@ function testableItchProvider(?MockHandler $mockHandler = null): TestableItchIoP
     return $provider;
 }
 
+function executeZeroCoverageCommandWithoutRealFlareSolverr(): void
+{
+    $sessionManager = Mockery::mock(FlareSolverrSessionManager::class);
+    $sessionManager->shouldReceive('executeWithSession')
+        ->byDefault()
+        ->andReturnUsing(fn (string $commandName, callable $callback): mixed => $callback());
+
+    app()->instance(FlareSolverrSessionManager::class, $sessionManager);
+}
+
 test('refresh feedless games command validates selection and handles empty selections', function () {
-    Config::set('services.flaresolverr.enabled', false);
+    executeZeroCoverageCommandWithoutRealFlareSolverr();
 
     $this
         ->artisan('games:refresh-feedless')

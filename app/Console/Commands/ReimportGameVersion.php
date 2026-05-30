@@ -6,8 +6,10 @@ namespace App\Console\Commands;
 
 use App\Console\Traits\SelectsGames;
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\Services\GameVersionArchiveRepositoryService;
 use DateTime;
 use Exception;
 use Illuminate\Console\Command;
@@ -30,7 +32,8 @@ class ReimportGameVersion extends Command
 
     public function __construct(
         private readonly GameStatsService $statsService,
-        private readonly GameArchiveService $archiveService
+        private readonly GameArchiveService $archiveService,
+        private readonly GameVersionArchiveRepositoryService $repository
     ) {
         parent::__construct();
     }
@@ -143,7 +146,7 @@ class ReimportGameVersion extends Command
                         try {
                             $stats = $this->archiveService->processArchive($storedArchive);
                         } catch (Exception $e) {
-                            $this->error('Failed to process archive: '.$e->getMessage());
+                            $this->error('Failed to process archive: ' . $e->getMessage());
                             DB::rollBack();
 
                             continue;
@@ -159,9 +162,13 @@ class ReimportGameVersion extends Command
 
                         DB::commit();
 
+                        if ($stats) {
+                            $this->persistStoredArchive($game, $version);
+                        }
+
                     } catch (Exception $e) {
                         DB::rollBack();
-                        $this->error("Error processing version {$version->version}: ".$e->getMessage());
+                        $this->error("Error processing version {$version->version}: " . $e->getMessage());
                         Log::error('Version reimport failed', [
                             'game_id' => $game->id,
                             'version' => $version->version,
@@ -177,10 +184,38 @@ class ReimportGameVersion extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error during reimport process: '.$e->getMessage());
+            $this->error('Error during reimport process: ' . $e->getMessage());
             Log::error('Version reimport process failed', ['exception' => $e]);
 
             return 1;
         }
+    }
+
+    private function persistStoredArchive(Game $game, GameVersion $version): void
+    {
+        $this->line('Optimizing and persisting archive...');
+
+        try {
+            $result = $this->repository->persistStoredArchive($game, $version, true);
+        } catch (\Throwable $throwable) {
+            $this->warn('Archive persistence failed: ' . $throwable->getMessage());
+            Log::warning('Archive persistence failed after version reimport', [
+                'game_id' => $game->id,
+                'version_id' => $version->id,
+                'error' => $throwable->getMessage(),
+                'exception' => $throwable,
+            ]);
+
+            return;
+        }
+
+        if ($result['status'] === 'persisted') {
+            $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
+            $this->info("Persisted optimized archive to DenKit Stash {$result['target']}{$build}");
+
+            return;
+        }
+
+        $this->warn('Archive persistence skipped: ' . ($result['reason'] ?? 'already persisted'));
     }
 }

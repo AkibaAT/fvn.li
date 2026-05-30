@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
+use App\Services\GameVersionArchiveRepositoryService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -24,8 +25,11 @@ class ReprocessCurrentGameArchive extends Command
 
     protected $description = 'Import stats for the current game version from its already stored archive';
 
-    public function handle(GameArchiveService $archiveService, GameStatsService $statsService): int
-    {
+    public function handle(
+        GameArchiveService $archiveService,
+        GameStatsService $statsService,
+        GameVersionArchiveRepositoryService $repository
+    ): int {
         if (! $this->validateGameSelectionOptions()) {
             return self::FAILURE;
         }
@@ -79,6 +83,7 @@ class ReprocessCurrentGameArchive extends Command
 
                 $statsService->saveVersionStats($version, $stats, $game->source_language_id ?? 'eng', $game);
                 $this->info("Imported stats for current version {$version->version}");
+                $this->persistStoredArchive($repository, $game, $version);
                 $processed++;
             } catch (Throwable $e) {
                 $this->error("Failed to reprocess archive for {$game->name}: {$e->getMessage()}");
@@ -96,6 +101,21 @@ class ReprocessCurrentGameArchive extends Command
         $this->info("Reprocess complete: {$processed} processed, {$skipped} skipped, {$failed} failed");
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function persistStoredArchive(GameVersionArchiveRepositoryService $repository, Game $game, GameVersion $version): void
+    {
+        $this->line('Optimizing and persisting archive...');
+        $result = $repository->persistStoredArchive($game, $version, true);
+
+        if ($result['status'] === 'persisted') {
+            $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
+            $this->info("Persisted optimized archive to DenKit Stash {$result['target']}{$build}");
+
+            return;
+        }
+
+        $this->warn('Archive persistence skipped: ' . ($result['reason'] ?? 'already persisted'));
     }
 
     private function getCurrentVersion(Game $game): ?GameVersion

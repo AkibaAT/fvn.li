@@ -70,7 +70,7 @@ it('runs the docker analyzer only for archives under the shared analyzer path', 
     }
 });
 
-it('returns a generic extraction failure instead of raw analyzer output', function () {
+it('returns the analyzer extraction diagnostic', function () {
     $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-'.uniqid());
     File::makeDirectory($sharedPath, 0755, true);
     $archivePath = "{$sharedPath}/game.zip";
@@ -87,7 +87,9 @@ it('returns a generic extraction failure instead of raw analyzer output', functi
         ->once()
         ->with(realpath($archivePath))
         ->andReturn(null);
-    $runner->shouldReceive('getLastError')->never();
+    $runner->shouldReceive('getLastError')
+        ->once()
+        ->andReturn('Analyzer container failed: Stats file not generated');
     $this->app->instance(RenpyAnalyzerDockerRunner::class, $runner);
 
     try {
@@ -96,8 +98,7 @@ it('returns a generic extraction failure instead of raw analyzer output', functi
                 'archive_path' => $archivePath,
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'No stats could be extracted')
-            ->assertDontSee('SECRET_FROM_STDERR');
+            ->assertJsonPath('message', 'Analyzer container failed: Stats file not generated');
     } finally {
         File::deleteDirectory($sharedPath);
     }

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Game;
+use App\Models\GameVersion;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveService;
 use GuzzleHttp\Client;
@@ -10,6 +12,9 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 
 function invokeDenKitStashMethod(DenKitStashPersistenceService $service, string $method, array $arguments = []): mixed
 {
@@ -20,19 +25,13 @@ function invokeDenKitStashMethod(DenKitStashPersistenceService $service, string 
     return $methodReflection->invokeArgs($service, $arguments);
 }
 
-it('requires explicit opt in before enabling DenKit Stash auto persist', function () {
+it('is enabled when DenKit Stash has an API key', function () {
     Config::set('services.denkit_stash.enabled', true);
     Config::set('services.denkit_stash.api_key', 'secret-key');
-    Config::set('services.denkit_stash.auto_persist', false);
 
     $service = new DenKitStashPersistenceService(Mockery::mock(GameArchiveService::class));
 
-    expect($service->isEnabled())->toBeTrue()
-        ->and($service->isAutoPersistEnabled())->toBeFalse();
-
-    Config::set('services.denkit_stash.auto_persist', true);
-
-    expect($service->isAutoPersistEnabled())->toBeTrue();
+    expect($service->isEnabled())->toBeTrue();
 });
 
 it('looks up existing DenKit Stash builds through the HTTP API', function () {
@@ -85,4 +84,240 @@ it('treats missing DenKit Stash builds as absent archives', function () {
     );
 
     expect(invokeDenKitStashMethod($service, 'latestBuildId', ['fvn-li', 'missing', 'main', '9.9.9']))->toBeNull();
+});
+
+it('downloads DenKit Stash build archives returned directly with HTTP 200', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $archivePath = storage_path('framework/testing/denkit-direct-'.uniqid().'.zip');
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => HandlerStack::create(new MockHandler([
+            new Response(200, ['Content-Type' => 'application/zip'], 'zip-bytes'),
+        ]))])
+    );
+
+    try {
+        invokeDenKitStashMethod($service, 'downloadBuildArchive', [4, $archivePath]);
+
+        expect(File::get($archivePath))->toBe('zip-bytes');
+    } finally {
+        File::delete($archivePath);
+    }
+});
+
+it('downloads DenKit Stash build archives from JSON URL responses', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $archivePath = storage_path('framework/testing/denkit-json-url-'.uniqid().'.zip');
+    $recorder = (object) [
+        'downloadArchiveUrlCalls' => [],
+    ];
+    $service = new class($recorder, Mockery::mock(GameArchiveService::class), new Client(['handler' => HandlerStack::create(new MockHandler([
+        new Response(200, ['Content-Type' => 'application/json'], json_encode([
+            'url' => 'http://minio.example/archive.zip',
+        ])),
+    ]))])) extends DenKitStashPersistenceService
+    {
+        public function __construct(private object $recorder, GameArchiveService $archiveService, Client $httpClient)
+        {
+            parent::__construct($archiveService, $httpClient);
+        }
+
+        protected function downloadArchiveUrl(string $url, string $archivePath): void
+        {
+            $this->recorder->downloadArchiveUrlCalls[] = [$url, $archivePath];
+            File::put($archivePath, 'zip-bytes-from-url');
+        }
+    };
+
+    try {
+        invokeDenKitStashMethod($service, 'downloadBuildArchive', [4, $archivePath]);
+
+        expect($recorder->downloadArchiveUrlCalls)->toBe([
+            ['http://minio.example/archive.zip', $archivePath],
+        ])->and(File::get($archivePath))->toBe('zip-bytes-from-url');
+    } finally {
+        File::delete($archivePath);
+    }
+});
+
+it('names restored DenKit archives from optimization metadata', function () {
+    $archiveService = Mockery::mock(GameArchiveService::class);
+    $archiveService->shouldReceive('readArchiveMetadata')
+        ->once()
+        ->andReturn([
+            'schema' => 'fvn.archive_optimization.v1',
+            'original_archive' => [
+                'filename' => 'PASSWORD-b0.85-linux.tar.bz2',
+                'format' => 'tar.bz2',
+            ],
+        ]);
+
+    $service = new DenKitStashPersistenceService($archiveService);
+
+    expect(invokeDenKitStashMethod($service, 'restoredArchiveFilename', ['/tmp/archive-download.tmp', 4]))
+        ->toBe('PASSWORD-b0.85-linux.optimized.tar.bz2');
+});
+
+it('restores preserved DenKit archive bodies with their original optimized format', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $sourceDir = storage_path('framework/testing/denkit-preserved-source-'.uniqid());
+    $archivePath = storage_path('framework/testing/denkit-preserved-'.uniqid().'.tar.bz2');
+    File::makeDirectory("{$sourceDir}/game", 0755, true);
+    File::put("{$sourceDir}/game/script.rpy", 'label start: return');
+    File::put("{$sourceDir}/.fvn-archive-metadata.json", json_encode([
+        'schema' => 'fvn.archive_optimization.v1',
+        'original_archive' => [
+            'filename' => 'PASSWORD-b0.85-linux.tar.bz2',
+            'format' => 'tar.bz2',
+        ],
+    ]));
+
+    $process = new Process(['tar', '-cjf', $archivePath, '-C', $sourceDir, '--', 'game', '.fvn-archive-metadata.json']);
+    $process->run();
+    expect($process->isSuccessful())->toBeTrue();
+
+    $game = Game::factory()->create(['name' => 'Password', 'slug' => 'password']);
+    $version = GameVersion::factory()->for($game)->create(['version' => '0.85']);
+    $storagePath = "games/{$game->id}/{$version->id}";
+
+    $service = new DenKitStashPersistenceService(
+        app(GameArchiveService::class),
+        new Client(['handler' => HandlerStack::create(new MockHandler([
+            new Response(200, [], json_encode(['build' => ['id' => 4]])),
+            new Response(200, ['Content-Type' => 'application/x-bzip2'], File::get($archivePath)),
+        ]))])
+    );
+
+    try {
+        $result = $service->restorePersistedArchive($game, $version, $storagePath);
+
+        expect($result)->toMatchArray([
+            'status' => 'restored',
+            'build_id' => 4,
+        ]);
+
+        $restoredPath = $result['archive_path'] ?? '';
+        expect($restoredPath)->toEndWith('/PASSWORD-b0.85-linux.optimized.tar.bz2')
+            ->and(File::exists($restoredPath))->toBeTrue()
+            ->and(app(GameArchiveService::class)->readArchiveMetadata($restoredPath)['original_archive']['format'])->toBe('tar.bz2');
+    } finally {
+        Storage::deleteDirectory($storagePath);
+        File::deleteDirectory($sourceDir);
+        File::delete($archivePath);
+    }
+});
+
+it('uses the synchronous butler push result after pushing an optimized archive', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $archiveService = Mockery::mock(GameArchiveService::class);
+    $archiveService->shouldReceive('readArchiveMetadata')
+        ->once()
+        ->andReturn(['schema' => 'fvn.archive_optimization.v1']);
+
+    $history = [];
+    $handlerStack = HandlerStack::create(new MockHandler([]));
+    $handlerStack->push(Middleware::history($history));
+
+    $service = new class($archiveService, new Client(['handler' => $handlerStack])) extends DenKitStashPersistenceService
+    {
+        protected function runButlerPush(string $archivePath, string $target, string $userVersion): string
+        {
+            return json_encode([
+                'type' => 'result',
+                'value' => [
+                    'buildId' => 789,
+                    'channel' => 'main',
+                    'dryRun' => false,
+                    'skipped' => false,
+                ],
+            ]);
+        }
+    };
+
+    $archivePath = storage_path('framework/testing/denkit-wait-'.uniqid().'.zip');
+    File::ensureDirectoryExists(dirname($archivePath));
+    $zip = new \ZipArchive;
+    expect($zip->open($archivePath, \ZipArchive::CREATE))->toBeTrue();
+    $zip->addFromString('game/script.rpy', 'label start:');
+    $zip->close();
+
+    try {
+        $game = Game::factory()->create([
+            'name' => 'Password',
+            'slug' => 'password',
+        ]);
+        $version = GameVersion::factory()->create([
+            'game_id' => $game->id,
+            'version' => '0.85',
+        ]);
+
+        expect($service->persistOptimizedArchive($game, $version, $archivePath, 'main', true))->toMatchArray([
+            'status' => 'persisted',
+            'build_id' => 789,
+        ]);
+        expect($history)->toBe([]);
+    } finally {
+        File::delete($archivePath);
+    }
+});
+
+it('fails when butler push does not synchronously report a build id', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $archiveService = Mockery::mock(GameArchiveService::class);
+    $archiveService->shouldReceive('readArchiveMetadata')
+        ->once()
+        ->andReturn(['schema' => 'fvn.archive_optimization.v1']);
+
+    $history = [];
+    $handlerStack = HandlerStack::create(new MockHandler([]));
+    $handlerStack->push(Middleware::history($history));
+
+    $service = new class($archiveService, new Client(['handler' => $handlerStack])) extends DenKitStashPersistenceService
+    {
+        protected function runButlerPush(string $archivePath, string $target, string $userVersion): string
+        {
+            return json_encode([
+                'type' => 'result',
+                'value' => [
+                    'channel' => 'main',
+                    'dryRun' => false,
+                    'skipped' => false,
+                ],
+            ]);
+        }
+    };
+
+    $archivePath = storage_path('framework/testing/denkit-status-'.uniqid().'.zip');
+    File::ensureDirectoryExists(dirname($archivePath));
+    $zip = new \ZipArchive;
+    expect($zip->open($archivePath, \ZipArchive::CREATE))->toBeTrue();
+    $zip->addFromString('game/script.rpy', 'label start:');
+    $zip->close();
+
+    try {
+        $game = Game::factory()->create([
+            'name' => 'Password',
+            'slug' => 'password',
+        ]);
+        $version = GameVersion::factory()->create([
+            'game_id' => $game->id,
+            'version' => '0.85',
+        ]);
+
+        expect(fn () => $service->persistOptimizedArchive($game, $version, $archivePath, 'main', true))
+            ->toThrow(RuntimeException::class, 'butler push finished, but did not report a completed build');
+        expect($history)->toBe([]);
+    } finally {
+        File::delete($archivePath);
+    }
 });
