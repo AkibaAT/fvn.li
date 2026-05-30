@@ -110,7 +110,6 @@ return [
     'flaresolverr' => [
         'url' => env('FLARESOLVERR_URL', 'http://flaresolverr:8191'),
         'max_timeout' => env('FLARESOLVERR_MAX_TIMEOUT', 60000),
-        'enabled' => env('FLARESOLVERR_ENABLED', false),
         'allowed_itch_hosts' => array_filter(array_map('trim', explode(',', env(
             'FLARESOLVERR_ALLOWED_ITCH_HOSTS',
             'itch.io'
@@ -123,13 +122,12 @@ return [
 
     'denkit_stash' => [
         'enabled' => filter_var(env('DENKIT_STASH_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-        'auto_persist' => filter_var(env('DENKIT_STASH_AUTO_PERSIST', false), FILTER_VALIDATE_BOOLEAN),
         'delete_local_after_push' => filter_var(env('DENKIT_STASH_DELETE_LOCAL_AFTER_PUSH', true), FILTER_VALIDATE_BOOLEAN),
         'url' => env('DENKIT_STASH_URL', 'http://denkit-stash:8081'),
         'public_url' => env('DENKIT_STASH_PUBLIC_URL', 'https://denkit-stash-fvn-li.ddev.site'),
         'username' => env('DENKIT_STASH_USERNAME', 'fvn-li'),
         'api_key' => env('DENKIT_STASH_API_KEY'),
-        'client_path' => env('BUTLER_CLIENT_PATH', '/var/www/butler-client'),
+        'client_path' => env('BUTLER_CLIENT_PATH', '/opt/butler'),
     ],
 
 ];

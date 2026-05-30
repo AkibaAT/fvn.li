@@ -21,8 +21,8 @@ class GameVersionArchiveRepositoryService
      */
     public function persistStoredArchive(Game $game, GameVersion $version, bool $force = false): array
     {
-        if (! $this->stash->isAutoPersistEnabled()) {
-            return ['status' => 'skipped', 'reason' => 'DenKit Stash auto-persist is not configured'];
+        if (! $this->stash->isEnabled()) {
+            return ['status' => 'skipped', 'reason' => 'DenKit Stash is not configured'];
         }
 
         $optimization = $this->optimizer->optimizeStoredArchive(
