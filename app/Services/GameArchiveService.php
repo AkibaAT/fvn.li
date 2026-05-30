@@ -25,6 +25,7 @@ use Throwable;
 class GameArchiveService
 {
     private ?string $lastProcessingError;
+    private ?string $lastArchiveLookupError = null;
 
     public function __construct(
         private readonly GameStatsService $statsService
@@ -37,32 +38,45 @@ class GameArchiveService
      */
     public function getStoredArchive(int $gameId, int $versionId): ?string
     {
+        $this->lastArchiveLookupError = null;
         $storagePath = $this->getStoragePath($gameId, $versionId);
+        $game = Game::query()->find($gameId);
+        $version = GameVersion::query()->where('game_id', $gameId)->find($versionId);
+
+        if ($game && $version) {
+            /** @var DenKitStashPersistenceService $stash */
+            $stash = app(DenKitStashPersistenceService::class);
+
+            try {
+                $restored = $stash->restorePersistedArchive($game, $version, $storagePath);
+
+                if (isset($restored['archive_path'])) {
+                    return $restored['archive_path'];
+                }
+
+                $this->lastArchiveLookupError = $stash->getLastRestoreDiagnostic();
+            } catch (Throwable $throwable) {
+                $this->lastArchiveLookupError = $throwable->getMessage();
+                Log::warning('Failed to restore game version archive from DenKit Stash', [
+                    'game_id' => $gameId,
+                    'version_id' => $versionId,
+                    'error' => $throwable->getMessage(),
+                ]);
+            }
+        }
+
         $files = Storage::files($storagePath);
 
         if (! empty($files)) {
             return Storage::path($files[0]);
         }
 
-        $game = Game::query()->find($gameId);
-        $version = GameVersion::query()->where('game_id', $gameId)->find($versionId);
-        if (! $game || ! $version) {
-            return null;
-        }
+        return null;
+    }
 
-        try {
-            $restored = app(DenKitStashPersistenceService::class)->restorePersistedArchive($game, $version, $storagePath);
-
-            return $restored['archive_path'] ?? null;
-        } catch (Throwable $throwable) {
-            Log::warning('Failed to restore game version archive from DenKit Stash', [
-                'game_id' => $gameId,
-                'version_id' => $versionId,
-                'error' => $throwable->getMessage(),
-            ]);
-
-            return null;
-        }
+    public function getLastArchiveLookupError(): ?string
+    {
+        return $this->lastArchiveLookupError;
     }
 
     /**

@@ -16,10 +16,6 @@ use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
 
-beforeEach(function () {
-    config(['services.flaresolverr.enabled' => false]);
-});
-
 function itchClientServiceForResponses(array $responses, int $maxRetries = 0, int $baseCooldown = 0): ItchHttpClientService
 {
     $client = new Client(['handler' => HandlerStack::create(new MockHandler($responses))]);
@@ -131,9 +127,7 @@ it('uses the authenticated client by default and can invalidate Cloudflare-chall
         ->and(Cache::has('itch_cookies'))->toBeFalse();
 });
 
-it('routes non-API HTML requests through FlareSolverr when enabled', function () {
-    config(['services.flaresolverr.enabled' => true]);
-
+it('routes non-API HTML requests through FlareSolverr', function () {
     $factory = Mockery::mock(ItchHttpClientFactory::class);
     $factory->shouldReceive('createClient')->andReturn(new Client);
 
@@ -166,8 +160,6 @@ it('routes non-API HTML requests through FlareSolverr when enabled', function ()
 });
 
 it('passes the active command FlareSolverr session to HTML requests', function () {
-    config(['services.flaresolverr.enabled' => true]);
-
     $factory = Mockery::mock(ItchHttpClientFactory::class);
     $factory->shouldReceive('createClient')->andReturn(new Client);
 
@@ -201,8 +193,6 @@ it('passes the active command FlareSolverr session to HTML requests', function (
 });
 
 it('does not route API-like URLs through FlareSolverr', function () {
-    config(['services.flaresolverr.enabled' => true]);
-
     $client = new Client(['handler' => HandlerStack::create(new MockHandler([
         new Response(200, [], '{"api":true}'),
     ]))]);
@@ -226,8 +216,6 @@ it('does not route API-like URLs through FlareSolverr', function () {
 });
 
 it('rejects unsafe URLs before FlareSolverr or direct HTTP can fetch them', function (string $url) {
-    config(['services.flaresolverr.enabled' => true]);
-
     $factory = Mockery::mock(ItchHttpClientFactory::class);
     $factory->shouldReceive('createClient')->andReturn(new Client);
 
@@ -296,7 +284,6 @@ it('allows retry configuration to be updated fluently', function () {
 
 it('resolves with string retry configuration from environment-backed config', function () {
     config([
-        'services.flaresolverr.enabled' => false,
         'services.itch.max_retries' => '7',
         'services.itch.retry_cooldown' => '45',
     ]);

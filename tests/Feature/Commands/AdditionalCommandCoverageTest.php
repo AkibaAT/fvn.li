@@ -6,6 +6,7 @@ use App\Models\GameJam;
 use App\Models\ImportState;
 use App\Models\ProcessedEvent;
 use App\Services\GameDataSyncService;
+use App\Services\FlareSolverrSessionManager;
 use App\Services\ItchAuthService;
 use App\Services\ItchHttpClientService;
 use App\Services\SteamDataSyncService;
@@ -18,6 +19,16 @@ use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+
+function executeConsoleCommandsWithoutRealFlareSolverr(): void
+{
+    $sessionManager = Mockery::mock(FlareSolverrSessionManager::class);
+    $sessionManager->shouldReceive('executeWithSession')
+        ->byDefault()
+        ->andReturnUsing(fn (string $commandName, callable $callback): mixed => $callback());
+
+    app()->instance(FlareSolverrSessionManager::class, $sessionManager);
+}
 
 test('anonymize click stat ips validates batch size and exits cleanly when no records need work', function () {
     $this
@@ -412,7 +423,7 @@ test('cleanup game downloads validates selection and cleans all or selected game
 });
 
 test('process feed clears import state when the feed has no content', function () {
-    Config::set('services.flaresolverr.enabled', false);
+    executeConsoleCommandsWithoutRealFlareSolverr();
     Config::set('scout.queue', true);
 
     ImportState::create([
@@ -447,7 +458,7 @@ test('process feed clears import state when the feed has no content', function (
 });
 
 test('process feed logs and fails when the authenticated client fails', function () {
-    Config::set('services.flaresolverr.enabled', false);
+    executeConsoleCommandsWithoutRealFlareSolverr();
     Log::spy();
 
     $client = new Client([
@@ -475,7 +486,7 @@ test('process feed logs and fails when the authenticated client fails', function
 });
 
 test('backfill feed handles empty feed pages', function () {
-    Config::set('services.flaresolverr.enabled', false);
+    executeConsoleCommandsWithoutRealFlareSolverr();
 
     $game = Game::factory()->create();
     ProcessedEvent::create([
@@ -502,7 +513,7 @@ test('backfill feed handles empty feed pages', function () {
 });
 
 test('backfill feed logs and fails when the authenticated client fails', function () {
-    Config::set('services.flaresolverr.enabled', false);
+    executeConsoleCommandsWithoutRealFlareSolverr();
     Log::spy();
 
     $failingClient = new Client([

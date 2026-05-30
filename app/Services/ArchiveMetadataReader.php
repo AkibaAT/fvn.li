@@ -75,6 +75,20 @@ class ArchiveMetadataReader
 
     private function archiveExtension(string $archivePath): string
     {
+        $header = (string) file_get_contents($archivePath, false, null, 0, 512);
+        if (str_starts_with($header, "PK\x03\x04") || str_starts_with($header, "PK\x05\x06") || str_starts_with($header, "PK\x07\x08")) {
+            return 'zip';
+        }
+        if (str_starts_with($header, "\x1F\x8B")) {
+            return 'tar.gz';
+        }
+        if (str_starts_with($header, 'BZh')) {
+            return 'tar.bz2';
+        }
+        if (substr($header, 257, 5) === 'ustar') {
+            return 'tar';
+        }
+
         $basename = strtolower(basename($archivePath));
 
         return match (true) {

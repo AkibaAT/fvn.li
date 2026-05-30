@@ -39,12 +39,10 @@ class ItchHttpClientService
         $this->anonymousClient = $this->clientFactory->createClient();
         $this->challengeDetector = app(ItchCloudflareChallengeDetector::class);
 
-        // Always use FlareSolverr for HTML requests (Cloudflare-protected)
-        // API requests are automatically skipped (not Cloudflare-protected)
-        if (config('services.flaresolverr.enabled', true)) {
-            $this->flareSolverr = app(FlareSolverrClient::class);
-            $this->sessionManager = app(FlareSolverrSessionManager::class);
-        }
+        // Always use FlareSolverr for HTML requests (Cloudflare-protected).
+        // API requests are automatically skipped below.
+        $this->flareSolverr = app(FlareSolverrClient::class);
+        $this->sessionManager = app(FlareSolverrSessionManager::class);
     }
 
     /**
