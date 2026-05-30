@@ -9,6 +9,7 @@ use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameArchiveService;
+use App\Services\GameVersionArchiveRepositoryService;
 use App\ValueObjects\Upload;
 use Exception;
 use Illuminate\Console\Command;
@@ -28,12 +29,12 @@ class DownloadLatestGameArchive extends Command
 
     protected $description = 'Download and keep the latest processable itch.io file for selected games';
 
-    public function handle(GameArchiveService $archiveService): int
+    public function handle(GameArchiveService $archiveService, GameVersionArchiveRepositoryService $repository): int
     {
-        return $this->executeWithFlareSolverrSession(fn () => $this->executeDownload($archiveService));
+        return $this->executeWithFlareSolverrSession(fn () => $this->executeDownload($archiveService, $repository));
     }
 
-    private function executeDownload(GameArchiveService $archiveService): int
+    private function executeDownload(GameArchiveService $archiveService, GameVersionArchiveRepositoryService $repository): int
     {
         if (! $this->validateGameSelectionOptions()) {
             return self::FAILURE;
@@ -70,7 +71,7 @@ class DownloadLatestGameArchive extends Command
             foreach ($games as $game) {
                 $lastId = (int) $game->id;
                 $processed++;
-                $result = $this->processGame($archiveService, $game, $processed, $totalGames);
+                $result = $this->processGame($archiveService, $repository, $game, $processed, $totalGames);
 
                 match ($result) {
                     'downloaded' => $downloaded++,
@@ -97,8 +98,13 @@ class DownloadLatestGameArchive extends Command
         return $this->applyGameSelectionFilters($query);
     }
 
-    private function processGame(GameArchiveService $archiveService, Game $game, int $index, int $totalGames): string
-    {
+    private function processGame(
+        GameArchiveService $archiveService,
+        GameVersionArchiveRepositoryService $repository,
+        Game $game,
+        int $index,
+        int $totalGames
+    ): string {
         $this->newLine();
         $this->info("Game {$index}/{$totalGames}: {$game->name} (ID: {$game->id})");
 
@@ -117,8 +123,10 @@ class DownloadLatestGameArchive extends Command
                 return 'skipped';
             }
 
-            if (! $this->option('force') && $archiveService->archiveExists($game->id, $version->id, $bestUpload->filename)) {
-                $this->line("Archive already stored for version {$version->version}: {$bestUpload->filename}");
+            $storedArchive = $archiveService->getStoredArchive($game->id, $version->id);
+            if ($storedArchive !== null) {
+                $this->line("Archive already available for version {$version->version}: " . basename($storedArchive));
+                $this->persistStoredArchive($repository, $game, $version, (bool) $this->option('force'));
 
                 return 'skipped';
             }
@@ -176,6 +184,7 @@ class DownloadLatestGameArchive extends Command
             }
 
             $this->info("Stored archive for version {$version->version}: {$archivePath}");
+            $this->persistStoredArchive($repository, $game, $version, (bool) $this->option('force'));
 
             return 'downloaded';
         } catch (Exception $e) {
@@ -189,6 +198,25 @@ class DownloadLatestGameArchive extends Command
 
             return 'failed';
         }
+    }
+
+    private function persistStoredArchive(
+        GameVersionArchiveRepositoryService $repository,
+        Game $game,
+        GameVersion $version,
+        bool $force
+    ): void {
+        $this->line('Optimizing and persisting archive...');
+        $result = $repository->persistStoredArchive($game, $version, $force);
+
+        if ($result['status'] === 'persisted') {
+            $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
+            $this->info("Persisted optimized archive to DenKit Stash {$result['target']}{$build}");
+
+            return;
+        }
+
+        $this->warn('Archive persistence skipped: ' . ($result['reason'] ?? 'already persisted'));
     }
 
     private function getLatestVersion(Game $game): ?GameVersion

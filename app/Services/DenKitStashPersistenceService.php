@@ -19,6 +19,8 @@ class DenKitStashPersistenceService
 {
     private const OPTIMIZATION_METADATA_SCHEMA = 'fvn.archive_optimization.v1';
 
+    private ?string $lastRestoreDiagnostic = null;
+
     public function __construct(
         private readonly GameArchiveService $archiveService,
         private readonly ?Client $httpClient = null
@@ -40,8 +42,7 @@ class DenKitStashPersistenceService
         $targetName = $this->targetName($game);
         $target = "{$username}/{$targetName}:{$channel}";
 
-        $apiKey = $this->apiKey();
-        if (! $force && $this->versionAlreadyPersisted($username, $targetName, $channel, (string) $version->version)) {
+        if (! $force && $this->versionAlreadyPersisted($target, $username, $targetName, $channel, (string) $version->version)) {
             return [
                 'status' => 'skipped',
                 'target' => $target,
@@ -54,30 +55,10 @@ class DenKitStashPersistenceService
             File::makeDirectory($workDir, 0755, true);
             $this->extractArchive($archivePath, $workDir);
 
-            $process = new Process([
-                $this->butlerBinary(),
-                '--address=' . $this->serverUrl(),
-                '--assume-yes',
-                'push',
-                $this->pushDirectory($workDir),
-                $target,
-                '--userversion',
-                (string) $version->version,
-            ]);
-            $process->setTimeout(null);
-            $process->setEnv([
-                'BUTLER_API_KEY' => $apiKey,
-                'HOME' => getenv('HOME') ?: '/tmp',
-            ]);
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                throw new RuntimeException(trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'butler push failed');
-            }
-
-            $buildId = $this->latestBuildId($username, $targetName, $channel, (string) $version->version);
+            $output = $this->runButlerPush($this->pushDirectory($workDir), $target, (string) $version->version);
+            $buildId = $this->buildIdFromPushOutput($output);
             if ($buildId === null) {
-                throw new RuntimeException("butler push finished, but no completed build was recorded for {$target}");
+                throw new RuntimeException("butler push finished, but did not report a completed build for {$target}");
             }
 
             return [
@@ -85,7 +66,7 @@ class DenKitStashPersistenceService
                 'target' => $target,
                 'channel' => $channel,
                 'build_id' => $buildId,
-                'output' => trim($process->getOutput()),
+                'output' => $output,
             ];
         } finally {
             if (File::exists($workDir)) {
@@ -101,11 +82,6 @@ class DenKitStashPersistenceService
             && Config::get('services.denkit_stash.api_key') !== '';
     }
 
-    public function isAutoPersistEnabled(): bool
-    {
-        return $this->isEnabled() && (bool) Config::get('services.denkit_stash.auto_persist', false);
-    }
-
     public function shouldDeleteLocalAfterPush(): bool
     {
         return (bool) Config::get('services.denkit_stash.delete_local_after_push', false);
@@ -116,18 +92,24 @@ class DenKitStashPersistenceService
      */
     public function restorePersistedArchive(Game $game, GameVersion $version, string $storagePath, string $channel = 'main'): ?array
     {
+        $this->lastRestoreDiagnostic = null;
+
         if (! $this->isEnabled()) {
+            $this->lastRestoreDiagnostic = 'DenKit Stash is not configured';
+
             return null;
         }
 
         $username = $this->username();
         $targetName = $this->targetName($game);
+        $target = "{$username}/{$targetName}:{$channel}";
         $buildId = $this->latestBuildId($username, $targetName, $channel, (string) $version->version);
         if ($buildId === null) {
+            $this->lastRestoreDiagnostic = "No completed build found for {$target} version {$version->version}";
+
             return null;
         }
 
-        $target = "{$username}/{$targetName}:{$channel}";
         $workDir = storage_path('app/temp/' . uniqid('butler_restore_', true));
         $archivePath = "{$workDir}/archive-{$buildId}.zip";
 
@@ -135,7 +117,7 @@ class DenKitStashPersistenceService
             File::makeDirectory($workDir, 0755, true);
             $this->downloadBuildArchive($buildId, $archivePath);
 
-            $filename = "denkit-stash-{$buildId}.zip";
+            $filename = $this->restoredArchiveFilename($archivePath, $buildId);
             Storage::makeDirectory($storagePath);
             Storage::putFileAs($storagePath, $archivePath, $filename);
 
@@ -146,6 +128,10 @@ class DenKitStashPersistenceService
                 'archive_path' => Storage::path("{$storagePath}/{$filename}"),
                 'build_id' => $buildId,
             ];
+        } catch (\Throwable $throwable) {
+            $this->lastRestoreDiagnostic = "Failed to restore {$target} build #{$buildId}: {$throwable->getMessage()}";
+
+            throw $throwable;
         } finally {
             if (File::exists($workDir)) {
                 File::deleteDirectory($workDir);
@@ -158,19 +144,39 @@ class DenKitStashPersistenceService
         return 'main';
     }
 
+    public function getLastRestoreDiagnostic(): ?string
+    {
+        return $this->lastRestoreDiagnostic;
+    }
+
     private function downloadBuildArchive(int $buildId, string $archivePath): void
     {
-        $client = new Client([
+        $client = $this->httpClient([
             'timeout' => 600,
             'connect_timeout' => 30,
             'allow_redirects' => false,
         ]);
         $response = $client->get($this->serverUrl() . "/builds/{$buildId}/download/archive/default", [
+            'http_errors' => false,
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey(),
                 'Accept' => 'application/json',
             ],
         ]);
+
+        if ($response->getStatusCode() === 200) {
+            $payload = json_decode((string) $response->getBody(), true);
+            $url = is_array($payload) ? ($payload['url'] ?? null) : null;
+            if (is_string($url) && $url !== '') {
+                $this->downloadArchiveUrl($url, $archivePath);
+
+                return;
+            }
+
+            File::put($archivePath, (string) $response->getBody());
+
+            return;
+        }
 
         if ($response->getStatusCode() !== 307) {
             throw new RuntimeException("Expected DenKit Stash archive redirect for build {$buildId}, got HTTP {$response->getStatusCode()}");
@@ -181,17 +187,41 @@ class DenKitStashPersistenceService
             throw new RuntimeException("DenKit Stash archive redirect for build {$buildId} did not include a Location header");
         }
 
+        $this->downloadArchiveUrl($location, $archivePath);
+    }
+
+    protected function downloadArchiveUrl(string $url, string $archivePath): void
+    {
         $download = (new Client([
             'timeout' => 600,
             'connect_timeout' => 30,
             'allow_redirects' => true,
-        ]))->get($location, [
+        ]))->get($url, [
             'sink' => $archivePath,
         ]);
 
         if ($download->getStatusCode() < 200 || $download->getStatusCode() >= 300) {
-            throw new RuntimeException("Failed to download DenKit Stash archive for build {$buildId}: HTTP {$download->getStatusCode()}");
+            throw new RuntimeException("Failed to download DenKit Stash archive: HTTP {$download->getStatusCode()}");
         }
+    }
+
+    private function restoredArchiveFilename(string $archivePath, int $buildId): string
+    {
+        $metadata = $this->archiveService->readArchiveMetadata($archivePath);
+        $format = is_array($metadata) ? ($metadata['original_archive']['format'] ?? null) : null;
+        $originalFilename = is_array($metadata) ? ($metadata['original_archive']['filename'] ?? null) : null;
+
+        if (! is_string($format) || $format === '' || ! is_string($originalFilename) || $originalFilename === '') {
+            return "denkit-stash-{$buildId}.".$this->archiveExtension($archivePath);
+        }
+
+        $suffix = '.'.$format;
+        $base = basename($originalFilename);
+        if (str_ends_with(strtolower($base), strtolower($suffix))) {
+            return substr($base, 0, -strlen($suffix)).'.optimized.'.$format;
+        }
+
+        return "denkit-stash-{$buildId}.optimized.{$format}";
     }
 
     private function assertOptimizedArchive(string $archivePath): void
@@ -229,7 +259,11 @@ class DenKitStashPersistenceService
         }
 
         if (! File::isDirectory($clientPath)) {
-            throw new RuntimeException("butler-client checkout is not mounted at {$clientPath}");
+            throw new RuntimeException("butler binary was not found at {$binary}");
+        }
+
+        if (! File::isFile("{$clientPath}/go.mod")) {
+            throw new RuntimeException("butler binary was not found at {$binary}");
         }
 
         $builtBinary = storage_path('app/temp/fvn-butler-client');
@@ -246,6 +280,33 @@ class DenKitStashPersistenceService
         return $builtBinary;
     }
 
+    protected function runButlerPush(string $pushPath, string $target, string $userVersion): string
+    {
+        $process = new Process([
+            $this->butlerBinary(),
+            '--address=' . $this->serverUrl(),
+            '--assume-yes',
+            'push',
+            $pushPath,
+            $target,
+            '--userversion',
+            $userVersion,
+            '--json',
+        ]);
+        $process->setTimeout(null);
+        $process->setEnv([
+            'BUTLER_API_KEY' => $this->apiKey(),
+            'HOME' => getenv('HOME') ?: '/tmp',
+        ]);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException(trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'butler push failed');
+        }
+
+        return trim($process->getOutput());
+    }
+
     private function apiKey(): string
     {
         $apiKey = Config::get('services.denkit_stash.api_key');
@@ -256,7 +317,7 @@ class DenKitStashPersistenceService
         return $apiKey;
     }
 
-    private function versionAlreadyPersisted(string $username, string $targetName, string $channel, string $userVersion): bool
+    private function versionAlreadyPersisted(string $target, string $username, string $targetName, string $channel, string $userVersion): bool
     {
         return $this->latestBuildId($username, $targetName, $channel, $userVersion) !== null;
     }
@@ -291,6 +352,22 @@ class DenKitStashPersistenceService
         $id = $data['build']['id'] ?? null;
 
         return is_numeric($id) ? (int) $id : null;
+    }
+
+    private function buildIdFromPushOutput(string $output): ?int
+    {
+        foreach (preg_split('/\R/', trim($output)) ?: [] as $line) {
+            $data = json_decode($line, true);
+            if (! is_array($data) || ($data['type'] ?? null) !== 'result') {
+                continue;
+            }
+
+            $buildId = $data['value']['buildId'] ?? null;
+
+            return is_numeric($buildId) ? (int) $buildId : null;
+        }
+
+        return null;
     }
 
     /**

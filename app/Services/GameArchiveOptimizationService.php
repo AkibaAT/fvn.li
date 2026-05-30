@@ -131,9 +131,15 @@ class GameArchiveOptimizationService
             $savedBytes = $originalSize - $optimizedSize;
 
             if ($validate && $this->statsService->extractGameStats($optimizedArchive) === null) {
+                $validationError = $this->statsService->getLastExtractionError();
+                $reason = 'Optimized archive did not pass stats extraction';
+                if ($validationError !== null && $validationError !== '') {
+                    $reason .= ": {$validationError}";
+                }
+
                 return [
                     'status' => 'skipped',
-                    'reason' => 'Optimized archive did not pass stats extraction',
+                    'reason' => $reason,
                     'original_path' => $archivePath,
                     'optimized_path' => $optimizedArchive,
                     'original_size' => $originalSize,

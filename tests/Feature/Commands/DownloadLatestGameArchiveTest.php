@@ -5,6 +5,29 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameArchiveService;
+use App\Services\GameVersionArchiveRepositoryService;
+
+beforeEach(function () {
+    $this->repositoryRecorder = (object) [
+        'persistStoredArchiveCalls' => [],
+        'result' => [
+            'status' => 'persisted',
+            'target' => 'fvn-li/archive-test:main',
+            'build_id' => 123,
+        ],
+    ];
+
+    $repository = Mockery::mock(GameVersionArchiveRepositoryService::class);
+    $repository->shouldReceive('persistStoredArchive')
+        ->byDefault()
+        ->andReturnUsing(function (Game $game, GameVersion $version, bool $force = false): array {
+            $this->repositoryRecorder->persistStoredArchiveCalls[] = [$game->id, $version->id, $force];
+
+            return $this->repositoryRecorder->result;
+        });
+
+    $this->app->instance(GameVersionArchiveRepositoryService::class, $repository);
+});
 
 test('download latest game archive stores best processable upload for selected game', function () {
     $game = Game::factory()->create([
@@ -52,8 +75,8 @@ test('download latest game archive stores best processable upload for selected g
     ]);
 
     $recorder = (object) [
-        'archiveExists' => false,
-        'archiveExistsCalls' => [],
+        'storedArchive' => null,
+        'getStoredArchiveCalls' => [],
         'downloadAndStoreCalls' => [],
     ];
     $archiveService = new RecordingGameArchiveService($recorder);
@@ -65,8 +88,8 @@ test('download latest game archive stores best processable upload for selected g
         ->expectsOutputToContain('Stored archive for version 2.0')
         ->assertExitCode(0);
 
-    expect($recorder->archiveExistsCalls)->toBe([
-        [$game->id, $version->id, 'archive-test-linux.tar.bz2'],
+    expect($recorder->getStoredArchiveCalls)->toBe([
+        [$game->id, $version->id],
     ]);
     expect($recorder->downloadAndStoreCalls)->toBe([
         [
@@ -77,6 +100,9 @@ test('download latest game archive stores best processable upload for selected g
             $version->id,
             false,
         ],
+    ]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
+        [$game->id, $version->id, false],
     ]);
 });
 
@@ -115,8 +141,8 @@ test('download latest game archive prefers newer upload when version compare wou
     ]);
 
     $recorder = (object) [
-        'archiveExists' => false,
-        'archiveExistsCalls' => [],
+        'storedArchive' => null,
+        'getStoredArchiveCalls' => [],
         'downloadAndStoreCalls' => [],
     ];
     $archiveService = new RecordingGameArchiveService($recorder);
@@ -128,8 +154,8 @@ test('download latest game archive prefers newer upload when version compare wou
         ->expectsOutputToContain('Selected upload from database file ID 16624241')
         ->assertExitCode(0);
 
-    expect($recorder->archiveExistsCalls)->toBe([
-        [$game->id, $version->id, 'game-0.5.5-pc.zip'],
+    expect($recorder->getStoredArchiveCalls)->toBe([
+        [$game->id, $version->id],
     ]);
     expect($recorder->downloadAndStoreCalls)->toBe([
         [
@@ -140,6 +166,9 @@ test('download latest game archive prefers newer upload when version compare wou
             $version->id,
             false,
         ],
+    ]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
+        [$game->id, $version->id, false],
     ]);
 });
 
@@ -178,8 +207,8 @@ test('download latest game archive treats near timestamps as same release and pr
     ]);
 
     $recorder = (object) [
-        'archiveExists' => false,
-        'archiveExistsCalls' => [],
+        'storedArchive' => null,
+        'getStoredArchiveCalls' => [],
         'downloadAndStoreCalls' => [],
     ];
     $archiveService = new RecordingGameArchiveService($recorder);
@@ -191,8 +220,8 @@ test('download latest game archive treats near timestamps as same release and pr
         ->expectsOutputToContain('Selected upload from database file ID 100')
         ->assertExitCode(0);
 
-    expect($recorder->archiveExistsCalls)->toBe([
-        [$game->id, $version->id, 'release-batch-linux.zip'],
+    expect($recorder->getStoredArchiveCalls)->toBe([
+        [$game->id, $version->id],
     ]);
     expect($recorder->downloadAndStoreCalls)->toBe([
         [
@@ -204,9 +233,12 @@ test('download latest game archive treats near timestamps as same release and pr
             false,
         ],
     ]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
+        [$game->id, $version->id, false],
+    ]);
 });
 
-test('download latest game archive skips already stored archive unless forced', function () {
+test('download latest game archive uses existing archive without downloading even when forced', function () {
     $game = Game::factory()->create([
         'name' => 'Already Stored',
         'uploads' => [
@@ -229,8 +261,8 @@ test('download latest game archive skips already stored archive unless forced', 
     ]);
 
     $recorder = (object) [
-        'archiveExists' => true,
-        'archiveExistsCalls' => [],
+        'storedArchive' => '/tmp/already-stored.zip',
+        'getStoredArchiveCalls' => [],
         'downloadAndStoreCalls' => [],
     ];
     $archiveService = new RecordingGameArchiveService($recorder);
@@ -238,14 +270,18 @@ test('download latest game archive skips already stored archive unless forced', 
 
     $this->artisan('games:download-latest', [
         '--game-id' => $game->id,
+        '--force' => true,
     ])
-        ->expectsOutputToContain('Archive already stored for version 1.0')
+        ->expectsOutputToContain('Archive already available for version 1.0')
         ->assertExitCode(0);
 
-    expect($recorder->archiveExistsCalls)->toBe([
-        [$game->id, $version->id, 'already-stored.zip'],
+    expect($recorder->getStoredArchiveCalls)->toBe([
+        [$game->id, $version->id],
     ]);
     expect($recorder->downloadAndStoreCalls)->toBe([]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
+        [$game->id, $version->id, true],
+    ]);
 });
 
 test('download latest game archive does not select non renpy games', function () {
@@ -272,8 +308,8 @@ test('download latest game archive does not select non renpy games', function ()
     ]);
 
     $recorder = (object) [
-        'archiveExists' => false,
-        'archiveExistsCalls' => [],
+        'storedArchive' => null,
+        'getStoredArchiveCalls' => [],
         'downloadAndStoreCalls' => [],
     ];
     $archiveService = new RecordingGameArchiveService($recorder);
@@ -285,8 +321,9 @@ test('download latest game archive does not select non renpy games', function ()
         ->expectsOutputToContain("No visible Ren'Py itch.io games found matching the selection criteria")
         ->assertExitCode(1);
 
-    expect($recorder->archiveExistsCalls)->toBe([]);
+    expect($recorder->getStoredArchiveCalls)->toBe([]);
     expect($recorder->downloadAndStoreCalls)->toBe([]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([]);
 });
 
 test('download latest game archive shows current game progress', function () {
@@ -312,8 +349,8 @@ test('download latest game archive shows current game progress', function () {
     ]);
 
     $recorder = (object) [
-        'archiveExists' => false,
-        'archiveExistsCalls' => [],
+        'storedArchive' => null,
+        'getStoredArchiveCalls' => [],
         'downloadAndStoreCalls' => [],
     ];
     $archiveService = new RecordingGameArchiveService($recorder);
@@ -333,11 +370,11 @@ class RecordingGameArchiveService extends GameArchiveService
         private readonly object $recorder
     ) {}
 
-    public function archiveExists(int $gameId, int $versionId, ?string $filename = null): bool
+    public function getStoredArchive(int $gameId, int $versionId): ?string
     {
-        $this->recorder->archiveExistsCalls[] = [$gameId, $versionId, $filename];
+        $this->recorder->getStoredArchiveCalls[] = [$gameId, $versionId];
 
-        return $this->recorder->archiveExists;
+        return $this->recorder->storedArchive;
     }
 
     public function downloadAndStore(
