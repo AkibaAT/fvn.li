@@ -21,7 +21,7 @@
         params: {} as Record<string, string>,
     });
 
-    const user = $derived(($page?.props as any)?.auth?.user as User | null);
+    const user = $derived(((page as any)?.props?.auth?.user ?? null) as User | null);
 
     // Handle dialog open/close
     $effect(() => {
