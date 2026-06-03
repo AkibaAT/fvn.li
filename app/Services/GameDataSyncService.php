@@ -834,6 +834,13 @@ class GameDataSyncService
                     'game_name' => $game->name,
                     'jam_id' => $jamId,
                 ]);
+
+                GameFilterService::clearCache();
+
+                if ($game->is_visible) {
+                    $game->loadMissing(['tags', 'gameJams', 'gameVersions']);
+                    $game->searchable();
+                }
             }
         }
 

@@ -115,6 +115,19 @@ test('approve request', function () {
     expect($request->rejection_reason)->toBeNull();
 });
 
+test('approve request keeps linked game when no replacement game is provided', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+    $game = Game::factory()->create();
+    $request = AdditionRequest::factory()->create([
+        'status' => AdditionRequest::STATUS_PENDING,
+        'game_id' => $game->id,
+    ]);
+
+    $request->approve($admin);
+
+    expect($request->game_id)->toBe($game->id);
+});
+
 test('reject request', function () {
     $admin = User::factory()->create(['is_admin' => true]);
     $request = AdditionRequest::factory()->create(['status' => AdditionRequest::STATUS_PENDING]);

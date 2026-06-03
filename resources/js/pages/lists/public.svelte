@@ -257,18 +257,15 @@
     <div class="rounded-xl bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:bg-gray-800/70">
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
             {#each tabs as tab (tab.key)}
-                <Link
-                    href={route('lists.public', tab.key === 'all' ? {} : { type: tab.key })}
-                    onclick={(e: MouseEvent) => {
-                        e.preventDefault();
-                        handleTabChange(tab.key);
-                    }}
+                <button
+                    type="button"
+                    onclick={() => handleTabChange(tab.key)}
                     class="rounded-t-lg px-4 py-2 text-sm font-medium transition-colors {type === tab.key
                         ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
                 >
                     {tab.label} ({tab.count})
-                </Link>
+                </button>
             {/each}
         </div>
     </div>

@@ -261,6 +261,7 @@ class GamesSearchController extends Controller
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
                 'page' => $games->currentPage(),
+                'noDefaults' => $request->boolean('noDefaults'),
                 'usingDefaultLanguages' => $usingDefaultLanguages,
                 'usingDefaultExcludedTags' => $usingDefaultExcludedTags,
             ],

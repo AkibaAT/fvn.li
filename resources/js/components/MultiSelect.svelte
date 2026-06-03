@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { tick } from 'svelte';
     import type { Snippet } from 'svelte';
 
     interface SelectItem {
@@ -25,14 +26,42 @@
 
     let isOpen = $state(false);
     let search = $state('');
-    let containerEl: HTMLDivElement;
+    let opensUp = $state(false);
+    let containerEl = $state<HTMLDivElement>();
+    let dropdownEl = $state<HTMLDivElement>();
 
-    const itemEntries = $derived(Object.entries(items || {}));
+    const normalizeSearchText = (value: string) =>
+        value
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+    const getDisplayLabel = (value: string, item: string | SelectItem | undefined): string => {
+        if (!item) return value;
+        if (typeof item === 'string') return item;
+        return item.name || item.ref_name || value;
+    };
+    const getSortLabel = (value: string, item: string | SelectItem) => {
+        const label = normalizeSearchText(getDisplayLabel(value, item)).replace(/^[^\p{L}\p{N}]+/gu, '');
+
+        return label || getDisplayLabel(value, item);
+    };
+    const compareLabels = ([leftValue, leftItem]: [string, string | SelectItem], [rightValue, rightItem]: [string, string | SelectItem]) =>
+        getSortLabel(leftValue, leftItem).localeCompare(getSortLabel(rightValue, rightItem), undefined, {
+            sensitivity: 'base',
+            numeric: true,
+        });
+    const itemEntries = $derived(Object.entries(items || {}).sort(compareLabels));
+    const compactSearchText = (value: string) => normalizeSearchText(value).replace(/[^\p{L}\p{N}]+/gu, '');
+    const matchesSearch = (label: string, query: string) => {
+        const normalizedLabel = normalizeSearchText(label);
+        const normalizedQuery = normalizeSearchText(query);
+
+        return normalizedLabel.includes(normalizedQuery) || compactSearchText(label).includes(compactSearchText(query));
+    };
     const filteredItems = $derived(
         search
             ? itemEntries.filter(([value, item]) => {
-                  const label = typeof item === 'string' ? item : item.name || item.ref_name || value;
-                  return label.toLowerCase().includes(search.toLowerCase());
+                  return matchesSearch(getDisplayLabel(value, item), search);
               })
             : itemEntries,
     );
@@ -52,10 +81,42 @@
         return () => document.removeEventListener('mousedown', handleClickOutside);
     });
 
-    function getDisplayLabel(value: string, item: string | SelectItem | undefined): string {
-        if (!item) return value;
-        if (typeof item === 'string') return item;
-        return item.name || item.ref_name || value;
+    $effect(() => {
+        if (!isOpen) return;
+
+        const updatePlacement = () => positionDropdown();
+
+        window.addEventListener('resize', updatePlacement);
+        window.addEventListener('scroll', updatePlacement, true);
+        return () => {
+            window.removeEventListener('resize', updatePlacement);
+            window.removeEventListener('scroll', updatePlacement, true);
+        };
+    });
+
+    async function toggleDropdown() {
+        if (isOpen) {
+            isOpen = false;
+            search = '';
+            return;
+        }
+
+        isOpen = true;
+        opensUp = false;
+        await tick();
+        positionDropdown();
+    }
+
+    function positionDropdown() {
+        if (!containerEl || !dropdownEl) return;
+
+        const gap = 8;
+        const containerRect = containerEl.getBoundingClientRect();
+        const dropdownHeight = dropdownEl.offsetHeight;
+        const availableBelow = window.innerHeight - containerRect.bottom - gap;
+        const availableAbove = containerRect.top - gap;
+
+        opensUp = availableBelow < dropdownHeight && availableAbove > availableBelow;
     }
 </script>
 
@@ -63,11 +124,11 @@
     <div
         role="button"
         tabindex="0"
-        onclick={() => (isOpen = !isOpen)}
+        onclick={toggleDropdown}
         onkeydown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                isOpen = !isOpen;
+                toggleDropdown();
             }
         }}
         class="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -124,7 +185,10 @@
     {#if isOpen}
         <div
             id="{title}-options"
-            class="absolute z-10 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700"
+            bind:this={dropdownEl}
+            class="absolute z-10 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700 {opensUp
+                ? 'bottom-full mb-1'
+                : 'top-full mt-1'}"
             role="listbox"
             aria-label="{title} options"
             aria-multiselectable="true"

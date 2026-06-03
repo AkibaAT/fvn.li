@@ -382,8 +382,27 @@ class AdditionRequestResource extends Resource
 
                                 return $record->name . ' (' . $urlDisplay . ')';
                             })
+                            ->getSearchResultsUsing(function (string $search): array {
+                                $search = trim($search);
+
+                                if (mb_strlen($search) < 3) {
+                                    return [];
+                                }
+
+                                return Game::query()
+                                    ->where('name', 'ilike', $search . '%')
+                                    ->orderBy('name')
+                                    ->limit(50)
+                                    ->get()
+                                    ->mapWithKeys(function (Game $record): array {
+                                        $platformUrl = $record->getPrimaryUrl();
+                                        $urlDisplay = $platformUrl ? self::extractUrlIdentifier($platformUrl) : 'No URL';
+
+                                        return [$record->id => $record->name . ' (' . $urlDisplay . ')'];
+                                    })
+                                    ->all();
+                            })
                             ->searchable(['name'])
-                            ->preload()
                             ->nullable()
                             ->helperText('Select the game if this request has been approved and added to the site'),
 

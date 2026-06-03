@@ -34,9 +34,11 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - fvnli
-      - flaresolverr
-      - web
+      fvnli:
+        aliases:
+          - laravel-app
+      flaresolverr:
+      web:
     volumes:
       - app_storage:/app/storage
       - caddy_data:/data
@@ -219,8 +221,6 @@ services:
     restart: "no"
     user: pwuser
     ipc: host
-    security_opt:
-      - seccomp=${PWD}/seccomp_profile.json
     profiles:
       - tools
     depends_on:
@@ -229,7 +229,7 @@ services:
     networks:
       - fvnli
     environment:
-      - BASE_URL=https://${APP_DOMAIN}
+      - BASE_URL=http://laravel-app
       - OUTPUT_DIR=/app/storage/app/public/social-images
     volumes:
       - app_storage:/app/storage

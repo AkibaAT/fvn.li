@@ -167,9 +167,12 @@ class UpdateWatchlist extends Command
                 $this->info("  - Source language from blurb: {$langCode}");
             }
 
-            // Parse custom tags (e.g. "tag:ai-assets tag:kinetic-novel")
-            if (preg_match_all('/\btag:([\w-]+)/', $blurb, $tagMatches)) {
-                $blurbTags = $tagMatches[1];
+            // Parse custom tags (e.g. "tag:ai-generated" or "tag:\"AI Generated\"")
+            if (preg_match_all('/\btag:(?:"([^"]+)"|\'([^\']+)\'|([\w-]+))/i', $blurb, $tagMatches, PREG_SET_ORDER)) {
+                $blurbTags = array_map(
+                    fn (array $match) => $match[1] ?: ($match[2] ?: $match[3]),
+                    $tagMatches
+                );
                 $this->info('  - Tags from blurb: ' . implode(', ', $blurbTags));
             }
         }
@@ -397,12 +400,9 @@ class UpdateWatchlist extends Command
                 }
             }
 
-            // Store blurb tags in custom_tags — this is the source of truth
-            // for watchlist-managed tags. They get merged into the game_tag
-            // pivot table automatically during tag sync.
-            $game->custom_tags = ! empty($blurbTags)
-                ? implode(', ', array_map(fn ($slug) => ucwords(str_replace('-', ' ', $slug)), $blurbTags))
-                : '';
+            if (! empty($blurbTags)) {
+                $game->custom_tags = $this->mergeCustomTags($game->custom_tags, $blurbTags);
+            }
 
             $game->save();
 
@@ -427,5 +427,45 @@ class UpdateWatchlist extends Command
                 'exception' => $e,
             ]);
         }
+    }
+
+    /**
+     * Merge tags declared in an itch.io collection blurb into the game's
+     * custom tag field. Collection tags are additive so a watchlist update
+     * cannot wipe manually-curated custom tags when the blurb has no markers.
+     *
+     * @param  array<int, string>  $blurbTags
+     */
+    private function mergeCustomTags(?string $existingTags, array $blurbTags): string
+    {
+        $tagNames = array_filter(array_map('trim', explode(',', $existingTags ?? '')));
+
+        foreach ($blurbTags as $slug) {
+            $tagName = $this->formatCollectionTag($slug);
+            if ($tagName !== '') {
+                $tagNames[] = $tagName;
+            }
+        }
+
+        $uniqueTags = [];
+        foreach ($tagNames as $tagName) {
+            $key = str($tagName)->slug()->toString();
+            if ($key === '' || isset($uniqueTags[$key])) {
+                continue;
+            }
+            $uniqueTags[$key] = $tagName;
+        }
+
+        return implode(', ', array_values($uniqueTags));
+    }
+
+    private function formatCollectionTag(string $slug): string
+    {
+        $tag = trim(preg_replace('/\s+/', ' ', str_replace(['-', '_'], ' ', $slug)) ?? '');
+
+        return implode(' ', array_map(
+            fn (string $word) => strtolower($word) === 'ai' ? 'AI' : ucfirst(strtolower($word)),
+            array_filter(explode(' ', $tag), fn (string $word) => $word !== '')
+        ));
     }
 }

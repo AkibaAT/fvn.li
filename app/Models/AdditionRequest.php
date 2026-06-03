@@ -268,7 +268,7 @@ class AdditionRequest extends Model
             'status' => self::STATUS_APPROVED,
             'reviewed_at' => now(),
             'reviewed_by' => $reviewer->id,
-            'game_id' => $game?->id,
+            'game_id' => $game?->id ?? $this->game_id,
             'rejection_reason' => null,
         ]);
     }

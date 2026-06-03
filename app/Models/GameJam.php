@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Services\ItchHttpClientService;
+use App\Services\GameFilterService;
 use DateTime;
 use Dom\HTMLDocument;
 use Exception;
@@ -704,7 +705,9 @@ class GameJam extends Model
             ]);
 
             // Use a database transaction to ensure all updates are atomic
-            DB::transaction(function () use ($rankingData, &$rankingsFound) {
+            $changedGameIds = [];
+
+            DB::transaction(function () use ($rankingData, &$rankingsFound, &$changedGameIds) {
                 foreach ($rankingData as $data) {
                     $game = $data['game'];
                     $ranking = $data['ranking'];
@@ -721,6 +724,7 @@ class GameJam extends Model
                     if ($game->gameJams()->where('game_jam_id', $this->id)->exists()) {
                         // Update the existing pivot record
                         $game->gameJams()->updateExistingPivot($this->id, $pivotData);
+                        $changedGameIds[] = $game->id;
                         Log::info('Updated existing game jam ranking', [
                             'game_id' => $game->id,
                             'game' => $game->name,
@@ -733,6 +737,7 @@ class GameJam extends Model
                     } else {
                         // Create a new association
                         $game->gameJams()->attach($this->id, $pivotData);
+                        $changedGameIds[] = $game->id;
                         Log::info('Created new game jam ranking', [
                             'game_id' => $game->id,
                             'game' => $game->name,
@@ -752,6 +757,18 @@ class GameJam extends Model
                 'game_jam_id' => $this->id,
                 'rankings_updated' => $rankingsFound,
             ]);
+
+            if (! empty($changedGameIds)) {
+                GameFilterService::clearCache();
+
+                Game::query()
+                    ->whereIn('id', array_unique($changedGameIds))
+                    ->where('is_visible', true)
+                    ->with(['tags', 'gameJams', 'gameVersions'])
+                    ->chunk(100, function ($games) {
+                        $games->searchable();
+                    });
+            }
         }
 
         Log::info('Rankings extraction complete for current page', [

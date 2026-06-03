@@ -6,6 +6,7 @@ namespace App\Models\Concerns;
 
 use App\Models\GameJam;
 use App\Models\Tag;
+use App\Services\GameFilterService;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -144,6 +145,13 @@ trait HasGameTags
                     'game_name' => $this->name,
                     'jam_id' => $jamId,
                 ]);
+
+                GameFilterService::clearCache();
+
+                if ($this->is_visible) {
+                    $this->loadMissing(['tags', 'gameJams', 'gameVersions']);
+                    $this->searchable();
+                }
             }
         }
 

@@ -17,6 +17,10 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
         const params = {
             ...getCurrentFilters(),
             ...newFilters,
+            ...((Array.isArray(newFilters.selectedLanguages) && newFilters.selectedLanguages.length === 0) ||
+            (Array.isArray(newFilters.excludedTags) && newFilters.excludedTags.length === 0)
+                ? { noDefaults: true }
+                : {}),
             ...(hasFilterChanges ? { page: 1 } : {}),
         };
 

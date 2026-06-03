@@ -46,19 +46,14 @@
 {:else}
     <div class="relative" bind:this={userMenuRef}>
         <button
-            onclick={() => showUserMenu = !showUserMenu}
+            onclick={() => (showUserMenu = !showUserMenu)}
             class="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 transition-colors duration-200 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             aria-expanded={showUserMenu}
             aria-haspopup="menu"
             aria-controls="user-menu"
         >
             {#if user.avatar}
-                <img
-                    src={user.avatar}
-                    alt={user.name}
-                    class="h-6 w-6 rounded-full"
-                    referrerpolicy="no-referrer"
-                />
+                <img src={user.avatar} alt={user.name} class="h-6 w-6 rounded-full" referrerpolicy="no-referrer" />
             {:else}
                 <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
                     <span class="text-xs font-bold text-white">
@@ -75,12 +70,7 @@
                 stroke="currentColor"
                 viewBox="0 0 24 24"
             >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 9l-7 7-7-7"
-                />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
         </button>
 
@@ -95,12 +85,7 @@
                     <!-- User Info -->
                     <div class="mb-4 flex items-center space-x-3">
                         {#if user.avatar}
-                            <img
-                                src={user.avatar}
-                                alt={user.name}
-                                class="h-10 w-10 rounded-full"
-                                referrerpolicy="no-referrer"
-                            />
+                            <img src={user.avatar} alt={user.name} class="h-10 w-10 rounded-full" referrerpolicy="no-referrer" />
                         {:else}
                             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-500">
                                 <span class="text-lg font-bold text-white">
@@ -130,13 +115,7 @@
                             onclick={closeMenu}
                             role="menuitem"
                         >
-                            <svg
-                                class="h-5 w-5 drop-shadow-sm"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
+                            <svg class="h-5 w-5 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path
                                     stroke-linecap="round"
                                     stroke-linejoin="round"
@@ -144,9 +123,7 @@
                                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                                 />
                             </svg>
-                            <span class="font-medium">
-                                Dashboard
-                            </span>
+                            <span class="font-medium"> Dashboard </span>
                         </Link>
 
                         <Link
@@ -155,13 +132,7 @@
                             onclick={closeMenu}
                             role="menuitem"
                         >
-                            <svg
-                                class="h-5 w-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path
                                     stroke-linecap="round"
                                     stroke-linejoin="round"
@@ -169,9 +140,7 @@
                                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                                 />
                             </svg>
-                            <span>
-                                My VN Lists
-                            </span>
+                            <span> My VN Lists </span>
                         </Link>
 
                         <button
@@ -179,13 +148,7 @@
                             onclick={handleLogout}
                             role="menuitem"
                         >
-                            <svg
-                                class="h-5 w-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path
                                     stroke-linecap="round"
                                     stroke-linejoin="round"
@@ -193,9 +156,7 @@
                                     d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                                 />
                             </svg>
-                            <span>
-                                Sign Out
-                            </span>
+                            <span> Sign Out </span>
                         </button>
                     </div>
                 </div>
