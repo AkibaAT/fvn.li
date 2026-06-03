@@ -294,7 +294,7 @@
     }: GameShowProps = $props();
 
     // Auth from Inertia
-    const auth = $derived(($page.props as any).auth);
+    const auth = $derived((page as any)?.props?.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
 
     // Review text styles
