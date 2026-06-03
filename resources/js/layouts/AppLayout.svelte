@@ -16,7 +16,7 @@
 
     let { children, title }: Props = $props();
 
-    const flash = $derived((($page.props as any).flash ?? {}) as { message?: string; error?: string });
+    const flash = $derived((((page as any)?.props?.flash as any) ?? {}) as { message?: string; error?: string });
 
     // Initialize route accessibility for Inertia.js navigation announcements
     useRouteAccessibility();

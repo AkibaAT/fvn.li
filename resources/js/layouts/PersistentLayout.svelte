@@ -17,9 +17,9 @@
     let { children, title }: Props = $props();
 
     const FULL_WIDTH_PAGES = new Set(['home', 'games/route-map']);
-    let isFullWidth = $derived(FULL_WIDTH_PAGES.has(($page as any).component as string));
+    let isFullWidth = $derived(FULL_WIDTH_PAGES.has(((page as any)?.component ?? '') as string));
 
-    const flash = $derived((($page.props as any).flash ?? {}) as { message?: string; error?: string });
+    const flash = $derived((((page as any)?.props?.flash as any) ?? {}) as { message?: string; error?: string });
 
     // Initialize route accessibility for Inertia.js navigation announcements
     useRouteAccessibility();
