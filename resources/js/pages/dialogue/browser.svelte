@@ -26,7 +26,7 @@
 
     let { initial }: InitialProps = $props();
 
-    const inertiaPage = $derived($page);
+    const inertiaPage = $derived(page);
 
     const gameId = $derived(initial.gameId);
     const gameName = $derived(initial.gameName);

@@ -43,7 +43,7 @@ function installZiggyGlobals(ziggy?: SharedZiggyConfig): void {
 }
 
 createServer((page) => {
-    installZiggyGlobals(page.props.ziggy as SharedZiggyConfig | undefined);
+    installZiggyGlobals(page.props?.ziggy as SharedZiggyConfig | undefined);
 
     return createInertiaApp({
         page,
