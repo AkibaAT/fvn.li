@@ -57,10 +57,8 @@ export function useStableRoutes() {
     let routes = $state<Routes>(computeRoutes());
 
     $effect(() => {
-        return page.subscribe(($page) => {
-            currentUrl = $page.url;
-            routes = computeRoutes(currentUrl);
-        });
+        currentUrl = page.url;
+        routes = computeRoutes(currentUrl);
     });
 
     return {
