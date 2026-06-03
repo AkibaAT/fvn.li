@@ -31,3 +31,37 @@ test('extract archive handles tar bz2 payload with misleading zip extension', fu
         }
     }
 });
+
+test('translation tree detection ignores RenPy placeholder language directory', function () {
+    $basePath = sys_get_temp_dir().'/game_stats_test_'.uniqid();
+    mkdir("{$basePath}/game/tl/None", 0755, true);
+
+    try {
+        $service = app(GameStatsService::class);
+        $method = new ReflectionMethod($service, 'hasTranslationTree');
+
+        expect($method->invoke($service, $basePath))->toBeFalse();
+    } finally {
+        if (is_dir($basePath)) {
+            $cleanup = new Process(['rm', '-rf', $basePath]);
+            $cleanup->run();
+        }
+    }
+});
+
+test('translation tree detection finds real language directories', function () {
+    $basePath = sys_get_temp_dir().'/game_stats_test_'.uniqid();
+    mkdir("{$basePath}/game/tl/spanish", 0755, true);
+
+    try {
+        $service = app(GameStatsService::class);
+        $method = new ReflectionMethod($service, 'hasTranslationTree');
+
+        expect($method->invoke($service, $basePath))->toBeTrue();
+    } finally {
+        if (is_dir($basePath)) {
+            $cleanup = new Process(['rm', '-rf', $basePath]);
+            $cleanup->run();
+        }
+    }
+});
