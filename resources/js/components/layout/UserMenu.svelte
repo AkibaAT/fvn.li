@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Link, page, router } from '@inertiajs/svelte';
+    import { Link, router, usePage } from '@inertiajs/svelte';
 
     interface User {
         id: number;
@@ -12,7 +12,8 @@
     let showUserMenu = $state(false);
     let userMenuRef: HTMLDivElement | undefined = $state();
 
-    const user = $derived((($page.props as any)?.auth?.user ?? null) as User | null);
+    const inertiaPage = usePage();
+    const user = $derived((inertiaPage.props.auth?.user ?? null) as User | null);
 
     $effect(() => {
         const handleClickOutside = (event: MouseEvent) => {
