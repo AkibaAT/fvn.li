@@ -124,7 +124,7 @@ class DownloadLatestGameArchive extends Command
             }
 
             $storedArchive = $archiveService->getStoredArchive($game->id, $version->id);
-            if ($storedArchive !== null) {
+            if ($storedArchive !== null && ! (bool) $this->option('force')) {
                 $this->line("Archive already available for version {$version->version}: " . basename($storedArchive));
                 $this->persistStoredArchive($repository, $game, $version, (bool) $this->option('force'));
 

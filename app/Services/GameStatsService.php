@@ -459,6 +459,11 @@ readonly class GameStatsService
         return $this->localExtractor->findGameDirectory($basePath);
     }
 
+    private function hasTranslationTree(string $gameDir): bool
+    {
+        return $this->localExtractor->hasTranslationTree($gameDir);
+    }
+
     /**
      * Extract statistics using the Ren'Py SDK
      *

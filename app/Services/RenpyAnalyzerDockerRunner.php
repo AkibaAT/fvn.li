@@ -154,7 +154,7 @@ class RenpyAnalyzerDockerRunner
             '--tmpfs',
             '/tmp:rw,nosuid,nodev,noexec,mode=1777,size='.(string) config('services.renpy.analyzer_tmp_size', '256m'),
             '--tmpfs',
-            '/work:rw,nosuid,nodev,mode=1777,size='.(string) config('services.renpy.analyzer_work_size', '4g'),
+            '/work:rw,nosuid,nodev,exec,mode=1777,size='.(string) config('services.renpy.analyzer_work_size', '4g'),
             '--mount',
             "type=bind,source={$hostJobDir}/input,target=/input,readonly",
             '--mount',

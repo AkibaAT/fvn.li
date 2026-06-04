@@ -56,23 +56,6 @@ class RenpyStatsLocalExtractor
                 'game_dir' => basename($gameDir),
             ]);
 
-            Log::info('GameStats: Looking for Linux executable');
-            $linuxExecutable = $this->findLinuxExecutable($gameDir);
-            if ($linuxExecutable) {
-                Log::info('Found Linux executable, attempting to run it', [
-                    'executable' => $linuxExecutable,
-                ]);
-
-                $stats = $this->extractStatsWithNativeExecutable($gameDir, $linuxExecutable);
-                if ($stats) {
-                    Log::info('Successfully extracted stats using native Linux executable');
-
-                    return $stats;
-                }
-
-                Log::info('Failed to extract stats with native executable, falling back to Ren\'Py SDK');
-            }
-
             Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
             if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
@@ -388,7 +371,7 @@ class RenpyStatsLocalExtractor
         }
     }
 
-    private function hasTranslationTree(string $gameDir): bool
+    public function hasTranslationTree(string $gameDir): bool
     {
         $translationPath = $gameDir.'/game/tl';
         if (! File::isDirectory($translationPath)) {

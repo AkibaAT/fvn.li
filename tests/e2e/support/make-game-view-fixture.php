@@ -76,7 +76,7 @@ $game = Game::factory()->create([
     'status' => 'Published',
     'platform' => 'itch_io',
     'url' => [
-        'itch_io' => "https://e2e-owner-{$suffix}.itch.io/main-game",
+        'itch_io' => "https://e2e-owner-{$suffix}.itch.io/main-game-{$suffix}",
     ],
     'has_custom_page' => true,
     'view_mode' => 'original',

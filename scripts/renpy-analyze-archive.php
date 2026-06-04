@@ -47,21 +47,67 @@ try {
         throw new RuntimeException('Failed to copy json_stats.rpy');
     }
 
-    $result = runProcess([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir, 300);
-    if ($result['exit_code'] !== 0) {
-        writeDiagnosticOutput($result['stderr']);
-        writeDiagnosticOutput($result['stdout']);
+    $renpyHome = $workPath.'/home';
+    $renpyTokens = $renpyHome.'/.renpy/tokens';
+    if (! is_dir($renpyTokens)) {
+        mkdir($renpyTokens, 0777, true);
     }
 
+    $diagnostics = [];
     $statsPath = $gameDir.'/stats.json';
+
+    $result = runProcess([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir, 300, [
+        'HOME' => $renpyHome,
+        'RENPY_PATH_TO_SAVES' => $renpyHome.'/.renpy',
+    ]);
+    if ($result['exit_code'] !== 0) {
+        $diagnostics[] = "SDK analysis failed:\n".$result['stderr'].$result['stdout'];
+    }
+
+    if (copyValidStats($statsPath, $outputPath)) {
+        exit(0);
+    }
+
+    $linuxExecutable = findLinuxExecutable($gameDir);
+    if ($linuxExecutable !== null) {
+        $nativeTest = runNativeStatsCommand($gameDir, $linuxExecutable, nativeCommand($linuxExecutable, ['game', 'test']), 'native test', [
+            'HOME' => $renpyHome,
+            'RENPY_PATH_TO_SAVES' => $renpyHome.'/.renpy',
+        ]);
+        if (copyValidStats($statsPath, $outputPath)) {
+            exit(0);
+        }
+        if ($nativeTest !== '') {
+            $diagnostics[] = $nativeTest;
+        }
+
+        if (! hasTranslationTree($gameDir)) {
+            $nativeLauncher = runNativeStatsCommand($gameDir, $linuxExecutable, nativeCommand($linuxExecutable), 'native launcher', [
+                'HOME' => $renpyHome,
+                'RENPY_PATH_TO_SAVES' => $renpyHome.'/.renpy',
+            ]);
+            if (copyValidStats($statsPath, $outputPath)) {
+                exit(0);
+            }
+            if ($nativeLauncher !== '') {
+                $diagnostics[] = $nativeLauncher;
+            }
+        }
+    }
+
+    foreach ($diagnostics as $diagnostic) {
+        writeDiagnosticOutput($diagnostic);
+    }
+
     if (! is_file($statsPath)) {
         fwrite(STDERR, "Stats file not generated\n");
         exit(4);
     }
 
-    $stats = json_decode((string) file_get_contents($statsPath), true);
+    $statsContent = (string) file_get_contents($statsPath);
+    $stats = json_decode($statsContent, true);
     if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
-        fwrite(STDERR, "Invalid stats file format\n");
+        fwrite(STDERR, "Invalid stats file format: ".invalidStatsDiagnostic($statsContent, $stats)."\n");
         exit(5);
     }
 
@@ -83,15 +129,160 @@ function writeDiagnosticOutput(string $output): void
     fwrite(STDERR, $output);
 }
 
+function invalidStatsDiagnostic(string $statsContent, mixed $decoded): string
+{
+    if (! is_array($decoded)) {
+        return 'JSON decode failed or root value was not an object; preview='.substr(str_replace("\0", '', $statsContent), 0, 500);
+    }
+
+    return 'top-level keys='.implode(',', array_slice(array_map('strval', array_keys($decoded)), 0, 20));
+}
+
+function copyValidStats(string $statsPath, string $outputPath): bool
+{
+    if (! is_file($statsPath)) {
+        return false;
+    }
+
+    $statsContent = (string) file_get_contents($statsPath);
+    $stats = json_decode($statsContent, true);
+    if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
+        return false;
+    }
+
+    copy($statsPath, $outputPath);
+
+    return true;
+}
+
+function runNativeStatsCommand(string $gameDir, string $executablePath, array $command, string $mode, array $env): string
+{
+    $statsPath = $gameDir.'/stats.json';
+    if (is_file($statsPath)) {
+        unlink($statsPath);
+    }
+
+    $result = runProcess($command, dirname($executablePath), 300, $env);
+    if (is_file($statsPath)) {
+        return '';
+    }
+
+    $status = $result['exit_code'] === 0
+        ? 'produced no stats'
+        : 'failed';
+
+    return "{$mode} {$status}:\n".$result['stderr'].$result['stdout'];
+}
+
+/**
+ * @return array<int, string>
+ */
+function nativeCommand(string $executablePath, array $arguments = []): array
+{
+    if (preg_match('/\.sh$/i', basename($executablePath))) {
+        return array_merge(['sh', $executablePath], $arguments);
+    }
+
+    return array_merge([$executablePath], $arguments);
+}
+
+function findLinuxExecutable(string $gameDir): ?string
+{
+    makeExecutables($gameDir);
+    $executableFiles = [];
+
+    foreach (findAllFiles($gameDir) as $file) {
+        if (preg_match('/\.sh$/i', basename($file))) {
+            return $file;
+        }
+
+        if (is_file($file) && is_executable($file)) {
+            $executableFiles[] = $file;
+        }
+    }
+
+    if ($executableFiles === []) {
+        return null;
+    }
+
+    return $executableFiles[0];
+}
+
+function makeExecutables(string $dir): void
+{
+    foreach (glob($dir.'/*') ?: [] as $file) {
+        if (is_file($file)) {
+            chmod($file, 0755);
+        }
+    }
+
+    $lib = $dir.DIRECTORY_SEPARATOR.'lib';
+    if (! is_dir($lib)) {
+        return;
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::LEAVES_ONLY
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->isFile()) {
+            chmod($file->getPathname(), 0755);
+        }
+    }
+}
+
+/**
+ * @return array<int, string>
+ */
+function findAllFiles(string $dir): array
+{
+    $files = [];
+
+    foreach (glob($dir.'/*') ?: [] as $path) {
+        if (is_file($path)) {
+            $files[] = $path;
+        }
+    }
+
+    foreach (glob($dir.'/*', GLOB_ONLYDIR) ?: [] as $subdir) {
+        if (basename($subdir) === 'game') {
+            continue;
+        }
+
+        $files = array_merge($files, findAllFiles($subdir));
+    }
+
+    return $files;
+}
+
+function hasTranslationTree(string $gameDir): bool
+{
+    $translationPath = $gameDir.'/game/tl';
+    if (! is_dir($translationPath)) {
+        return false;
+    }
+
+    foreach (glob($translationPath.'/*', GLOB_ONLYDIR) ?: [] as $languageDir) {
+        $language = basename($languageDir);
+        if ($language !== 'None' && $language !== 'common') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /**
  * @return array{exit_code: int, stdout: string, stderr: string}
  */
-function runProcess(array $command, string $cwd, int $timeout): array
+function runProcess(array $command, string $cwd, int $timeout, array $env = []): array
 {
     $process = proc_open($command, [
         1 => ['pipe', 'w'],
         2 => ['pipe', 'w'],
-    ], $pipes, $cwd);
+    ], $pipes, $cwd, $env === [] ? null : array_replace($_ENV, $env));
 
     if (! is_resource($process)) {
         throw new RuntimeException('Failed to start process');
