@@ -14,7 +14,7 @@
     let userMenuRef: HTMLDivElement | undefined = $state();
 
     const inertiaPage = usePage();
-    const user = $derived((inertiaPage.props.auth?.user ?? null) as User | null);
+    const user = $derived((inertiaPage.props?.auth?.user ?? null) as User | null);
 
     $effect(() => {
         const handleClickOutside = (event: MouseEvent) => {

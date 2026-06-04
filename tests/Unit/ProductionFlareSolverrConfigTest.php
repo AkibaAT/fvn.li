@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\Yaml\Yaml;
+
 test('flaresolverr has no runtime disable switch', function () {
     expect(config('services.flaresolverr'))->not->toHaveKey('enabled');
 });
@@ -11,6 +13,7 @@ test('production flaresolverr is isolated from the application data network', fu
     $exampleEnv = file_get_contents(base_path('.env.example'));
     $appService = dockerComposeServiceBlock($compose, 'app');
     $flareSolverrService = dockerComposeServiceBlock($compose, 'flaresolverr');
+    $services = Yaml::parse($compose)['services'];
 
     expect($compose)->not->toBeFalse()
         ->and($exampleEnv)->not->toBeFalse()
@@ -19,7 +22,9 @@ test('production flaresolverr is isolated from the application data network', fu
         ->and($compose)->toContain('- flaresolverr')
         ->and($compose)->toContain('${COMPOSE_PROJECT_NAME}_flaresolverr');
 
-    expect($appService)->toContain("    networks:\n      - fvnli\n      - flaresolverr\n      - web")
+    expect(dockerComposeNetworkNames($services['app']['networks']))->toBe(['fvnli', 'flaresolverr', 'web'])
+        ->and(dockerComposeNetworkNames($services['flaresolverr']['networks']))->toBe(['flaresolverr'])
+        ->and($appService)->toContain("    networks:\n      fvnli:")
         ->and($flareSolverrService)->toContain("    networks:\n      - flaresolverr")
         ->and($flareSolverrService)->not->toContain('      - fvnli')
         ->and($flareSolverrService)->not->toContain('      - web');
@@ -45,4 +50,13 @@ function dockerComposeServiceBlock(string $compose, string $service): string
     expect($matched)->toBe(1);
 
     return $matches[0];
+}
+
+function dockerComposeNetworkNames(array $networks): array
+{
+    if (array_is_list($networks)) {
+        return $networks;
+    }
+
+    return array_keys($networks);
 }

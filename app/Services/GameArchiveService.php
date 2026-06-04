@@ -65,7 +65,10 @@ class GameArchiveService
             }
         }
 
-        $files = Storage::files($storagePath);
+        $files = array_values(array_filter(
+            Storage::files($storagePath),
+            fn (string $file): bool => $this->isStoredArchiveFile($file)
+        ));
 
         if (! empty($files)) {
             return Storage::path($files[0]);
@@ -257,11 +260,7 @@ class GameArchiveService
             'storage_path' => $storagePath,
         ]);
 
-        // Ensure directory exists and store file
-        Storage::makeDirectory($storagePath);
-        Storage::putFileAs($storagePath, $tempPath, $filename);
-
-        $finalPath = Storage::path("{$storagePath}/{$filename}");
+        $finalPath = $this->storeFileAtomically($storagePath, $tempPath, $filename);
         Log::info('GameArchive: File moved successfully', [
             'game_id' => $gameId,
             'version_id' => $versionId,
@@ -355,16 +354,12 @@ class GameArchiveService
                 }
             }
 
-            // Ensure directory exists and store file
             Log::info('GameArchive: Storing file', [
                 'game_id' => $gameId,
                 'storage_path' => $storagePath,
             ]);
 
-            Storage::makeDirectory($storagePath);
-            Storage::putFileAs($storagePath, $tempFile, $downloadFilename);
-
-            $finalPath = Storage::path("{$storagePath}/{$downloadFilename}");
+            $finalPath = $this->storeFileAtomically($storagePath, $tempFile, $downloadFilename);
             Log::info('GameArchive: File stored successfully', [
                 'game_id' => $gameId,
                 'final_path' => $finalPath,
@@ -393,8 +388,9 @@ class GameArchiveService
             return Storage::exists("{$storagePath}/{$filename}");
         }
 
-        // If no specific filename, check if directory has any files
-        return ! empty(Storage::files($storagePath));
+        // If no specific filename, check if directory has any completed archive files.
+        return collect(Storage::files($storagePath))
+            ->contains(fn (string $file): bool => $this->isStoredArchiveFile($file));
     }
 
     /**
@@ -614,6 +610,31 @@ class GameArchiveService
     private function getStoragePath(int $gameId, int $versionId): string
     {
         return "games/{$gameId}/{$versionId}";
+    }
+
+    private function storeFileAtomically(string $storagePath, string $sourcePath, string $filename): string
+    {
+        Storage::makeDirectory($storagePath);
+
+        $partFilename = sprintf('.%s.part.%s', $filename, bin2hex(random_bytes(6)));
+        $partStoragePath = "{$storagePath}/{$partFilename}";
+        $finalPath = Storage::path("{$storagePath}/{$filename}");
+
+        try {
+            Storage::putFileAs($storagePath, $sourcePath, $partFilename);
+            File::move(Storage::path($partStoragePath), $finalPath);
+        } catch (Throwable $throwable) {
+            Storage::delete($partStoragePath);
+
+            throw $throwable;
+        }
+
+        return $finalPath;
+    }
+
+    private function isStoredArchiveFile(string $file): bool
+    {
+        return ! str_starts_with(basename($file), '.');
     }
 
     private function createDownloadTempDirectory(): string

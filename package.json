@@ -12,9 +12,9 @@
         "types": "svelte-check --tsconfig ./tsconfig.json",
         "test:js": "vitest run --config vitest.config.ts",
         "test:js:coverage": "vitest run --config vitest.config.ts --coverage",
-        "test:e2e": "SESSION_DRIVER=${SESSION_DRIVER:-database} E2E_START_LARAVEL_SERVER=${E2E_START_LARAVEL_SERVER:-1} E2E_BASE_URL=${E2E_BASE_URL:-http://web:8088} PW_TEST_CONNECT_WS_ENDPOINT=${PW_TEST_CONNECT_WS_ENDPOINT:-ws://playwright:3000/} playwright test --grep-invert @accessibility",
+        "test:e2e": "bash scripts/playwright-ddev.sh test --grep-invert @accessibility",
         "test:e2e:ui": "PW_TEST_CONNECT_WS_ENDPOINT=${PW_TEST_CONNECT_WS_ENDPOINT:-ws://playwright:3000/} playwright test --ui",
-        "test:a11y": "SESSION_DRIVER=${SESSION_DRIVER:-database} E2E_START_LARAVEL_SERVER=${E2E_START_LARAVEL_SERVER:-1} E2E_BASE_URL=${E2E_BASE_URL:-http://web:8088} PW_TEST_CONNECT_WS_ENDPOINT=${PW_TEST_CONNECT_WS_ENDPOINT:-ws://playwright:3000/} playwright test tests/e2e/specs/accessibility.spec.ts --grep @accessibility",
+        "test:a11y": "bash scripts/playwright-ddev.sh test tests/e2e/specs/accessibility.spec.ts --grep @accessibility",
         "test:a11y:headed": "SESSION_DRIVER=${SESSION_DRIVER:-database} E2E_START_LARAVEL_SERVER=${E2E_START_LARAVEL_SERVER:-1} E2E_BASE_URL=${E2E_BASE_URL:-http://web:8088} PW_TEST_CONNECT_WS_ENDPOINT=${PW_TEST_CONNECT_WS_ENDPOINT:-ws://playwright:3000/} playwright test tests/e2e/specs/accessibility.spec.ts --grep @accessibility --headed",
         "test:a11y:report": "playwright show-report"
     },
