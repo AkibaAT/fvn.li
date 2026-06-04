@@ -294,6 +294,22 @@ test('stored archive lookup archive existence and temp moves use version storage
     }
 });
 
+test('stored archive lookup ignores incomplete atomic part files', function () {
+    $game = Game::factory()->create();
+    $version = GameVersion::factory()->for($game)->create();
+    $storagePath = "games/{$game->id}/{$version->id}";
+
+    Storage::put("{$storagePath}/.download.zip.part.abcdef123456", 'partial archive');
+
+    expect($this->archiveService->archiveExists($game->id, $version->id))->toBeFalse()
+        ->and($this->archiveService->getStoredArchive($game->id, $version->id))->toBeNull();
+
+    Storage::put("{$storagePath}/download.zip", 'complete archive');
+
+    expect($this->archiveService->archiveExists($game->id, $version->id))->toBeTrue()
+        ->and($this->archiveService->getStoredArchive($game->id, $version->id))->toBe(Storage::path("{$storagePath}/download.zip"));
+});
+
 test('stored archive lookup restores missing versions from DenKit Stash', function () {
     $game = Game::factory()->create(['name' => 'Stash Restored']);
     $version = GameVersion::factory()->create(['game_id' => $game->id]);

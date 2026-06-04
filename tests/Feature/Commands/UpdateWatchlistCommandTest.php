@@ -81,7 +81,7 @@ it('updates existing watchlist games with paid pricing sale data and custom tags
         ->and((float) $game->min_price)->toBe(7.99)
         ->and($game->is_on_sale)->toBeTrue()
         ->and($game->sale_discount_percent)->toBe(25)
-        ->and($game->custom_tags)->toBe('Ai Assets, Kinetic Novel')
+        ->and($game->custom_tags)->toBe('AI Assets, Kinetic Novel')
         ->and($game->tags()->pluck('slug')->all())->toContain('ai-assets', 'kinetic-novel');
 });
 

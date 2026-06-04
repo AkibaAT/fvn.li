@@ -76,6 +76,9 @@ class ReprocessCurrentGameArchive extends Command
                 $stats = $archiveService->processArchive($archivePath);
                 if (! $stats) {
                     $this->warn("No stats could be extracted from current version {$version->version}, skipping");
+                    if ($archiveService->getLastProcessingError()) {
+                        $this->warn('Stats extraction reason: '.$archiveService->getLastProcessingError());
+                    }
                     $skipped++;
 
                     continue;
