@@ -10,7 +10,7 @@ use Illuminate\Console\OutputStyle;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
-function processWatchlistGame(Game $game, ?string $blurb): void
+function processExistingWatchlistGame(Game $game, ?string $blurb): void
 {
     $command = new UpdateWatchlist(Mockery::mock(ItchAuthService::class));
     $command->setLaravel(app());
@@ -38,7 +38,7 @@ test('watchlist collection blurbs can tag existing games', function () {
         'is_paid' => false,
     ]);
 
-    processWatchlistGame($game, 'tag:ai-generated tag:"confirmed use" tag:ai-generated');
+    processExistingWatchlistGame($game, 'tag:ai-generated tag:"confirmed use" tag:ai-generated');
 
     $game->refresh()->load('tags');
 
@@ -61,7 +61,7 @@ test('watchlist collection tags reuse existing database tags', function () {
         'is_paid' => false,
     ]);
 
-    processWatchlistGame($game, 'tag:ai-generated');
+    processExistingWatchlistGame($game, 'tag:ai-generated');
 
     $game->refresh()->load('tags');
 
@@ -80,7 +80,7 @@ test('watchlist collection sync without tag markers preserves existing custom ta
         'is_paid' => false,
     ]);
 
-    processWatchlistGame($game, null);
+    processExistingWatchlistGame($game, null);
 
     $game->refresh()->load('tags');
 

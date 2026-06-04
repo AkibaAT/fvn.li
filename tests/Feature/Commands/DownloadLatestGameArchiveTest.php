@@ -238,9 +238,10 @@ test('download latest game archive treats near timestamps as same release and pr
     ]);
 });
 
-test('download latest game archive uses existing archive without downloading even when forced', function () {
+test('download latest game archive redownloads existing archive when forced', function () {
     $game = Game::factory()->create([
         'name' => 'Already Stored',
+        'url' => ['itch_io' => 'https://creator.itch.io/already-stored'],
         'uploads' => [
             20 => [
                 'filename' => 'already-stored.zip',
@@ -272,13 +273,23 @@ test('download latest game archive uses existing archive without downloading eve
         '--game-id' => $game->id,
         '--force' => true,
     ])
-        ->expectsOutputToContain('Archive already available for version 1.0')
+        ->expectsOutputToContain('Selected upload from database file ID 20')
+        ->expectsOutputToContain('Stored archive for version 1.0')
         ->assertExitCode(0);
 
     expect($recorder->getStoredArchiveCalls)->toBe([
         [$game->id, $version->id],
     ]);
-    expect($recorder->downloadAndStoreCalls)->toBe([]);
+    expect($recorder->downloadAndStoreCalls)->toBe([
+        [
+            'https://creator.itch.io/already-stored',
+            'already-stored.zip',
+            20,
+            $game->id,
+            $version->id,
+            true,
+        ],
+    ]);
     expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
         [$game->id, $version->id, true],
     ]);

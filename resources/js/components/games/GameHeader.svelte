@@ -205,7 +205,7 @@
         <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <Link href={route('login')} class="text-blue-600 hover:underline dark:text-blue-400">Log in</Link>
+                    <Link href={route('login')} class="text-blue-600 underline underline-offset-2 dark:text-blue-400">Log in</Link>
                     to track your reading progress
                 </div>
             </div>

@@ -113,7 +113,7 @@
 {#if !isAuthenticated}
     <Card variant="soft" padding="sm" class="text-center">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            <a href={route('login')} class="text-blue-600 hover:underline dark:text-blue-400">Sign in</a>
+            <a href={route('login')} class="text-blue-600 underline underline-offset-2 dark:text-blue-400">Sign in</a>
             to leave a review for this game.
         </p>
     </Card>
