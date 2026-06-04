@@ -119,6 +119,48 @@ test('reprocess current game archive skips when current version has no stored ar
     expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([]);
 });
 
+test('reprocess current game archive reports stats extraction reason when archive yields no stats', function () {
+    $game = Game::factory()->create([
+        'name' => 'Broken Archive',
+        'game_engine' => "Ren'Py",
+        'is_visible' => true,
+    ]);
+    $currentVersion = GameVersion::factory()->latest()->create([
+        'game_id' => $game->id,
+        'version' => '2.0',
+    ]);
+
+    $archiveRecorder = (object) [
+        'storedArchive' => '/tmp/broken-archive.zip',
+        'stats' => null,
+        'lastProcessingError' => 'Analyzer container failed: Failed to open zip archive: 35',
+        'getStoredArchiveCalls' => [],
+        'processArchiveCalls' => [],
+    ];
+    $statsRecorder = (object) [
+        'saveVersionStatsCalls' => [],
+    ];
+
+    $this->app->instance(GameArchiveService::class, new ReprocessRecordingGameArchiveService($archiveRecorder));
+    $this->app->instance(GameStatsService::class, new ReprocessRecordingGameStatsService($statsRecorder));
+
+    $this->artisan('games:reprocess-current-archive', [
+        '--game-id' => $game->id,
+    ])
+        ->expectsOutputToContain('No stats could be extracted from current version 2.0')
+        ->expectsOutputToContain('Stats extraction reason: Analyzer container failed: Failed to open zip archive: 35')
+        ->assertExitCode(0);
+
+    expect($archiveRecorder->getStoredArchiveCalls)->toBe([
+        [$game->id, $currentVersion->id],
+    ]);
+    expect($archiveRecorder->processArchiveCalls)->toBe([
+        ['/tmp/broken-archive.zip'],
+    ]);
+    expect($statsRecorder->saveVersionStatsCalls)->toBe([]);
+    expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([]);
+});
+
 class ReprocessRecordingGameArchiveService extends GameArchiveService
 {
     public function __construct(
@@ -137,6 +179,11 @@ class ReprocessRecordingGameArchiveService extends GameArchiveService
         $this->recorder->processArchiveCalls[] = [$archivePath];
 
         return $this->recorder->stats;
+    }
+
+    public function getLastProcessingError(): ?string
+    {
+        return $this->recorder->lastProcessingError ?? null;
     }
 }
 

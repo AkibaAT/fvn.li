@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '@inertiajs/svelte';
+  import { usePage } from '@inertiajs/svelte';
   import { notify } from '@/components/Toast.svelte';
   import { Button, Dialog, TextInput, Textarea } from '@/components/ui';
 
@@ -17,7 +17,8 @@
     params: {} as Record<string, string>,
   });
 
-  const user = $derived((page.props as any)?.auth?.user as User | null);
+  const inertiaPage = usePage();
+  const user = $derived((inertiaPage.props?.auth?.user ?? null) as User | null);
 
   // Capture page info when modal opens
   $effect(() => {
