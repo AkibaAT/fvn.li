@@ -18,7 +18,7 @@
 
     const FULL_WIDTH_PAGES = new Set(['home', 'games/route-map']);
     let isFullWidth = $derived(FULL_WIDTH_PAGES.has((page as any).component as string));
-    const flash = $derived(((page.props as any).flash ?? {}) as { message?: string; error?: string });
+    const flash = $derived(((page.props as any)?.flash ?? {}) as { message?: string; error?: string });
 
     useRouteAccessibility();
 
