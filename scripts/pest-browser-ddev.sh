@@ -17,14 +17,30 @@ export SESSION_DRIVER="${SESSION_DRIVER:-database}"
 SERVER_PID=""
 SCREENSHOT_DIR="tests/Browser/Screenshots"
 SCREENSHOT_BACKUP=""
+HOT_FILE="public/hot"
+HOT_BACKUP=""
+
+kill_port_server() {
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -f "php.*0\\.0\\.0\\.0:${PORT}" >/dev/null 2>&1 || true
+        pkill -f "php.*127\\.0\\.0\\.1:${PORT}" >/dev/null 2>&1 || true
+    fi
+}
 
 cleanup() {
+    exit_code=$?
+
     if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" >/dev/null 2>&1; then
         kill "${SERVER_PID}" >/dev/null 2>&1 || true
         wait "${SERVER_PID}" >/dev/null 2>&1 || true
     fi
+    kill_port_server
 
-    if [[ -n "${SCREENSHOT_BACKUP}" && -d "${SCREENSHOT_BACKUP}" ]]; then
+    if [[ -n "${HOT_BACKUP}" && -f "${HOT_BACKUP}" ]]; then
+        mv "${HOT_BACKUP}" "${HOT_FILE}"
+    fi
+
+    if [[ "${exit_code}" -eq 0 && -n "${SCREENSHOT_BACKUP}" && -d "${SCREENSHOT_BACKUP}" ]]; then
         rm -rf "${SCREENSHOT_DIR}"
         mkdir -p "$(dirname "${SCREENSHOT_DIR}")"
         cp -a "${SCREENSHOT_BACKUP}" "${SCREENSHOT_DIR}"
@@ -33,6 +49,13 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+kill_port_server
+
+if [[ -f "${HOT_FILE}" ]]; then
+    HOT_BACKUP="$(mktemp)"
+    mv "${HOT_FILE}" "${HOT_BACKUP}"
+fi
 
 if [[ -d "${SCREENSHOT_DIR}" ]]; then
     SCREENSHOT_BACKUP="$(mktemp -d)"
