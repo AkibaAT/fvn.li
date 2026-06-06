@@ -94,3 +94,31 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
 
     return response;
 }
+
+function responseMessage(data: unknown): string | undefined {
+    if (typeof data === 'object' && data !== null && 'message' in data) {
+        const message = (data as { message?: unknown }).message;
+        return typeof message === 'string' ? message : undefined;
+    }
+
+    return undefined;
+}
+
+export async function readJsonResponse<T = unknown>(response: Response): Promise<T> {
+    const body = await response.text();
+    let data: unknown = {};
+
+    if (body.trim() !== '') {
+        try {
+            data = JSON.parse(body);
+        } catch {
+            throw new Error(response.ok ? 'Server returned invalid JSON.' : `Request failed with status ${response.status}.`);
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(responseMessage(data) || `Request failed with status ${response.status}.`);
+    }
+
+    return data as T;
+}

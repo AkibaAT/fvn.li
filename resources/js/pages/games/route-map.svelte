@@ -49,11 +49,18 @@
     };
     let elkPromise: Promise<ElkLayoutEngine> | null = null;
 
-    let colorMode = $state<'light' | 'dark'>(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    const getColorMode = (): 'light' | 'dark' =>
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+
+    let colorMode = $state<'light' | 'dark'>(getColorMode());
 
     $effect(() => {
+        if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+            return;
+        }
+
         const observer = new MutationObserver(() => {
-            colorMode = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            colorMode = getColorMode();
         });
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         return () => observer.disconnect();

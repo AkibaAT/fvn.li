@@ -1,6 +1,6 @@
 <script lang="ts">
     import { untrack } from 'svelte';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
     import { Link, router } from '@inertiajs/svelte';
 
     interface VnList {
@@ -42,7 +42,7 @@
                 body: JSON.stringify(formData),
             });
 
-            const data = await response.json();
+            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
 
             if (data.success) {
                 router.visit(route('lists.show', vnList.id));
@@ -67,7 +67,7 @@
         try {
             const response = await authenticatedFetch(route('api.vn-lists.destroy', vnList.id), { method: 'DELETE' });
 
-            const data = await response.json();
+            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
 
             if (data.success) {
                 router.visit(route('lists.index'));

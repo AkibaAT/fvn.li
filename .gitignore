@@ -37,7 +37,6 @@ yarn-error.log
 /caddy
 /stats.html
 frankenphp
-frankenphp-worker.php
 .aider*
 
 # Writerside build artifacts

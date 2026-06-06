@@ -26,7 +26,6 @@
 /package-lock.json
 /package.json
 /phpunit.xml
-/public/frankenphp-worker.php
 /public/sitemap.xml
 /robots.txt
 /scripts/create-env-deploy.sh

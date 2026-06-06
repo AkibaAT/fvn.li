@@ -11,8 +11,8 @@ use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
 use App\Observers\CharacterObserver;
-use App\Observers\GameObserver;
 use App\Observers\GameJamObserver;
+use App\Observers\GameObserver;
 use App\Observers\GameVersionObserver;
 use App\Observers\RatingObserver;
 use App\Observers\TagObserver;
@@ -23,6 +23,7 @@ use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\ItchIoProvider;
 use App\Services\LanguageMappingService;
+use App\Support\Diagnostics\DiagnosticLogManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->forgetInstance('log');
+        $this->app->singleton('log', fn ($app) => new DiagnosticLogManager($app));
+
         $this->app->singleton(LanguageMappingService::class, function () {
             return new LanguageMappingService;
         });
@@ -122,7 +126,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $modelFiles = glob($modelPath . '/*.php');
+        $modelFiles = glob($modelPath.'/*.php');
 
         foreach ($modelFiles as $file) {
             $fileName = basename($file, '.php');

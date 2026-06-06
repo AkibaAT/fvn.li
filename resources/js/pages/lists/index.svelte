@@ -6,7 +6,7 @@
     import VnListCard from '@/components/VnListCard.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { toast } from '@/utils/toast';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
 
     interface Props {
         lists: { data: VnList[]; current_page: number; last_page: number; per_page: number; total: number };
@@ -95,8 +95,8 @@
                 },
             });
             if (!response.ok) throw new Error('Failed to toggle visibility');
-            const data = await response.json();
-            toast.success(data.message);
+            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
+            toast.success(data.message || 'List visibility updated successfully.');
         } catch {
             localLists = lists.data;
             localCounts = counts;
@@ -114,8 +114,8 @@
 
         try {
             const response = await authenticatedFetch(route('api.vn-lists.destroy', list.id), { method: 'DELETE' });
-            const data = await response.json();
-            if (data.success) toast.success(data.message);
+            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
+            if (data.success) toast.success(data.message || 'List deleted successfully.');
             else throw new Error(data.message || 'Failed to delete list');
         } catch {
             localLists = lists.data;
