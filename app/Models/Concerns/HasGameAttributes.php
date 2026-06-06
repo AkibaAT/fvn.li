@@ -66,29 +66,6 @@ trait HasGameAttributes
         return ! empty($this->additional_links);
     }
 
-    private function sortAdditionalLinks($value): array
-    {
-        if (! $value) {
-            return [];
-        }
-
-        $links = is_string($value) ? json_decode($value, true) : $value;
-        if (! is_array($links)) {
-            return [];
-        }
-
-        usort($links, function ($a, $b) {
-            $orderA = $a['sort_order'] ?? 0;
-            $orderB = $b['sort_order'] ?? 0;
-
-            return $orderA === $orderB
-                ? ($a['id'] ?? 0) <=> ($b['id'] ?? 0)
-                : $orderA <=> $orderB;
-        });
-
-        return $links;
-    }
-
     /**
      * Get the devlog attribute from latest version
      */
@@ -133,5 +110,28 @@ trait HasGameAttributes
                 'web' => $this->latestVersion?->is_web ?? false,
             ],
         );
+    }
+
+    private function sortAdditionalLinks($value): array
+    {
+        if (! $value) {
+            return [];
+        }
+
+        $links = is_string($value) ? json_decode($value, true) : $value;
+        if (! is_array($links)) {
+            return [];
+        }
+
+        usort($links, function ($a, $b) {
+            $orderA = $a['sort_order'] ?? 0;
+            $orderB = $b['sort_order'] ?? 0;
+
+            return $orderA === $orderB
+                ? ($a['id'] ?? 0) <=> ($b['id'] ?? 0)
+                : $orderA <=> $orderB;
+        });
+
+        return $links;
     }
 }

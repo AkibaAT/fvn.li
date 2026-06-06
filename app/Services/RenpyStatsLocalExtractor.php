@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Exception;
-use FilesystemIterator;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use ZipArchive;
@@ -30,7 +27,7 @@ class RenpyStatsLocalExtractor
             'archive_path' => basename($archivePath),
         ]);
 
-        $extractPath = storage_path('app/temp/'.uniqid('game_', true));
+        $extractPath = storage_path('app/temp/' . uniqid('game_', true));
         File::makeDirectory($extractPath, 0755, true);
 
         try {
@@ -58,7 +55,7 @@ class RenpyStatsLocalExtractor
 
             Log::info('GameStats: Attempting to use Ren\'Py SDK');
             $sdkPath = config('services.renpy.sdk_path');
-            if (! $sdkPath || ! File::exists($sdkPath.'/renpy.sh')) {
+            if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
                 $this->lastError = 'Ren\'Py SDK path not configured or invalid';
                 Log::error('Ren\'Py SDK path not configured or invalid', [
                     'sdk_path' => $sdkPath,
@@ -107,7 +104,7 @@ class RenpyStatsLocalExtractor
         if ($archiveFormat === 'tar.gz' || $archiveFormat === 'tar.bz2') {
             $process = new Process([
                 'tar',
-                '-x'.($archiveFormat === 'tar.gz' ? 'z' : 'j'),
+                '-x' . ($archiveFormat === 'tar.gz' ? 'z' : 'j'),
                 '-f',
                 $archivePath,
                 '-C',
@@ -118,7 +115,7 @@ class RenpyStatsLocalExtractor
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
+                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
             }
 
             return;
@@ -156,7 +153,7 @@ class RenpyStatsLocalExtractor
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
+                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
             }
 
             return;
@@ -208,172 +205,16 @@ class RenpyStatsLocalExtractor
 
     public function findGameDirectory(string $basePath): ?string
     {
-        if (File::isDirectory($basePath.'/game')) {
+        if (File::isDirectory($basePath . '/game')) {
             return $basePath;
         }
 
-        return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir.'/game'));
-    }
-
-    private function findLinuxExecutable(string $gameDir): ?string
-    {
-        $this->makeExecutables($gameDir);
-
-        $executableFiles = array_filter($this->findAllFiles($gameDir), fn ($file) => is_file($file) && is_executable($file));
-
-        if (empty($executableFiles)) {
-            Log::info('No executable files found in game directory');
-
-            return null;
-        }
-
-        foreach ($executableFiles as $file) {
-            $filename = basename($file);
-            if (preg_match('/\.sh$/i', $filename)) {
-                Log::info("Found bash script: {$filename}");
-
-                return $file;
-            }
-        }
-
-        $firstExecutable = reset($executableFiles);
-        $filename = basename($firstExecutable);
-        Log::info("Using first available executable: {$filename}");
-
-        return $firstExecutable;
-    }
-
-    private function makeExecutables(string $dir): void
-    {
-        foreach (File::files($dir) as $file) {
-            chmod($file->getPathname(), 0755);
-        }
-
-        $lib = $dir.DIRECTORY_SEPARATOR.'lib';
-        if (! File::isDirectory($lib)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY
-        );
-
-        foreach ($iterator as $file) {
-            if ($file->isFile()) {
-                chmod($file->getPathname(), 0755);
-            }
-        }
-    }
-
-    private function findAllFiles(string $dir): array
-    {
-        $files = [];
-
-        foreach (File::files($dir) as $file) {
-            $files[] = $file->getPathname();
-        }
-
-        foreach (File::directories($dir) as $subdir) {
-            if (basename($subdir) === 'game') {
-                continue;
-            }
-
-            $files = array_merge($files, $this->findAllFiles($subdir));
-        }
-
-        return $files;
-    }
-
-    private function extractStatsWithNativeExecutable(string $gameDir, string $executablePath): ?array
-    {
-        try {
-            File::copy(
-                resource_path('renpy/json_stats.rpy'),
-                $gameDir.'/game/json_stats.rpy'
-            );
-        } catch (Exception $e) {
-            Log::warning('Failed to copy analysis script', [
-                'error' => $e->getMessage(),
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        $stats = $this->runNativeStatsCommand($gameDir, $executablePath, [$executablePath, 'game', 'test'], 'test');
-        if ($stats !== null) {
-            return $stats;
-        }
-
-        if ($this->hasTranslationTree($gameDir)) {
-            Log::warning('Skipping native launcher fallback after test-mode stats extraction failed for translated game', [
-                'executable' => $executablePath,
-                'game_dir' => $gameDir,
-            ]);
-
-            return null;
-        }
-
-        return $this->runNativeStatsCommand($gameDir, $executablePath, [$executablePath], 'launcher');
-    }
-
-    private function runNativeStatsCommand(string $gameDir, string $executablePath, array $command, string $mode): ?array
-    {
-        $statsFile = $gameDir.'/stats.json';
-        if (File::exists($statsFile)) {
-            File::delete($statsFile);
-        }
-
-        $process = new Process($command, dirname($executablePath));
-        $process->setTimeout(300);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            Log::warning('Native executable completed with non-zero exit code', [
-                'output' => $process->getOutput(),
-                'error_output' => $process->getErrorOutput(),
-                'exit_code' => $process->getExitCode(),
-                'executable' => $executablePath,
-                'mode' => $mode,
-            ]);
-        }
-
-        if (! File::exists($statsFile)) {
-            Log::info('Stats file not generated by native executable', [
-                'executable' => $executablePath,
-                'mode' => $mode,
-            ]);
-
-            return null;
-        }
-
-        try {
-            $stats = json_decode(File::get($statsFile), true);
-            if (! $stats || ! isset($stats['languages'])) {
-                Log::warning('Invalid stats file format from native executable', [
-                    'executable' => $executablePath,
-                    'mode' => $mode,
-                ]);
-
-                return null;
-            }
-
-            return $stats;
-        } catch (Exception $e) {
-            Log::warning('Error reading stats file from native executable', [
-                'error' => $e->getMessage(),
-                'executable' => $executablePath,
-                'mode' => $mode,
-            ]);
-
-            return null;
-        }
+        return array_find(File::directories($basePath), fn ($dir) => File::isDirectory($dir . '/game'));
     }
 
     public function hasTranslationTree(string $gameDir): bool
     {
-        $translationPath = $gameDir.'/game/tl';
+        $translationPath = $gameDir . '/game/tl';
         if (! File::isDirectory($translationPath)) {
             return false;
         }
@@ -396,10 +237,10 @@ class RenpyStatsLocalExtractor
         try {
             File::copy(
                 resource_path('renpy/json_stats.rpy'),
-                $gameDir.'/game/json_stats.rpy'
+                $gameDir . '/game/json_stats.rpy'
             );
         } catch (Exception $e) {
-            $this->lastError = 'Failed to copy analysis script: '.$e->getMessage();
+            $this->lastError = 'Failed to copy analysis script: ' . $e->getMessage();
             Log::warning('Failed to copy analysis script', [
                 'error' => $e->getMessage(),
                 'game_dir' => $gameDir,
@@ -408,7 +249,7 @@ class RenpyStatsLocalExtractor
             return null;
         }
 
-        $process = new Process([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir);
+        $process = new Process([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir);
         $process->setTimeout(300);
         $process->run();
 
@@ -423,7 +264,7 @@ class RenpyStatsLocalExtractor
             ]);
         }
 
-        $statsFile = $gameDir.'/stats.json';
+        $statsFile = $gameDir . '/stats.json';
         if (! File::exists($statsFile)) {
             throw new RuntimeException('Stats file not generated');
         }

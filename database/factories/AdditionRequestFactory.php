@@ -19,7 +19,7 @@ class AdditionRequestFactory extends Factory
      */
     public function definition(): array
     {
-        $url = 'https://'.$this->faker->userName().'.itch.io/'.$this->faker->slug();
+        $url = 'https://' . $this->faker->userName() . '.itch.io/' . $this->faker->slug();
 
         return [
             'game_url' => $url,

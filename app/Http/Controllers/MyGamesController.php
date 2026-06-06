@@ -220,7 +220,7 @@ class MyGamesController extends Controller
                     }
                 },
             ],
-            'links.*.platform' => 'nullable|string|in:'.implode(',', array_keys(Game::getAvailablePlatforms())),
+            'links.*.platform' => 'nullable|string|in:' . implode(',', array_keys(Game::getAvailablePlatforms())),
             'links.*.release_at' => [
                 'nullable',
                 'date',
@@ -329,11 +329,6 @@ class MyGamesController extends Controller
         ]);
     }
 
-    private function sanitizeAdditionalLinkUrl(string $url): string
-    {
-        return filter_var(trim($url), FILTER_SANITIZE_URL);
-    }
-
     /**
      * Upload or update game thumbnail
      */
@@ -356,7 +351,7 @@ class MyGamesController extends Controller
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed: '.$e->getMessage(),
+                'message' => 'Validation failed: ' . $e->getMessage(),
                 'errors' => $e->errors(),
             ], 422);
         }
@@ -376,7 +371,7 @@ class MyGamesController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload thumbnail: '.$e->getMessage(),
+                'message' => 'Failed to upload thumbnail: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -401,7 +396,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete thumbnail: '.$e->getMessage(),
+                'message' => 'Failed to delete thumbnail: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -435,7 +430,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload screenshots: '.$e->getMessage(),
+                'message' => 'Failed to upload screenshots: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -473,7 +468,7 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete screenshot: '.$e->getMessage(),
+                'message' => 'Failed to delete screenshot: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -507,9 +502,14 @@ class MyGamesController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reorder screenshots: '.$e->getMessage(),
+                'message' => 'Failed to reorder screenshots: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function sanitizeAdditionalLinkUrl(string $url): string
+    {
+        return filter_var(trim($url), FILTER_SANITIZE_URL);
     }
 
     /**
@@ -519,5 +519,4 @@ class MyGamesController extends Controller
     {
         return $user->is_admin || (method_exists($user, 'ownsGame') && $user->ownsGame($game));
     }
-
 }

@@ -49,10 +49,10 @@ class RouteGraphMenuAnalyzer
             $parentMenuLine = $this->choiceAccessor->parentMenuLine($choice);
             $parentChoiceLine = $this->choiceAccessor->parentChoiceLine($choice);
             $groupKey = implode('|', [
-                $menuLine > 0 ? 'menu:'.$menuLine : 'choice:'.$line,
-                'branch:'.($menuBranch ?? ''),
-                'parent_menu:'.$parentMenuLine,
-                'parent_choice:'.$parentChoiceLine,
+                $menuLine > 0 ? 'menu:' . $menuLine : 'choice:' . $line,
+                'branch:' . ($menuBranch ?? ''),
+                'parent_menu:' . $parentMenuLine,
+                'parent_choice:' . $parentChoiceLine,
             ]);
 
             if (! isset($groups[$groupKey])) {
@@ -99,7 +99,7 @@ class RouteGraphMenuAnalyzer
 
     public function menuGroupNodeId(string $labelName, int $startLine, int $index): string
     {
-        return $labelName.':menu_'.($startLine > 0 ? $startLine : $index);
+        return $labelName . ':menu_' . ($startLine > 0 ? $startLine : $index);
     }
 
     public function choiceEnclosingCondition($choice): ?string
@@ -205,7 +205,7 @@ class RouteGraphMenuAnalyzer
                 return true;
             }
 
-            $contextKey = $labelName.'|menu_choice:'.($choice->text ?? '');
+            $contextKey = $labelName . '|menu_choice:' . ($choice->text ?? '');
             $choiceVarChanges = $this->getVariableChangesForChoice(
                 $choice,
                 collect($varChangesByContext[$contextKey] ?? []),
@@ -340,9 +340,9 @@ class RouteGraphMenuAnalyzer
             return null;
         }
 
-        $conditionParts = array_map(fn (string $condition) => '('.$condition.')', array_values($conditions));
+        $conditionParts = array_map(fn (string $condition) => '(' . $condition . ')', array_values($conditions));
 
-        return 'not ('.implode(' or ', $conditionParts).')';
+        return 'not (' . implode(' or ', $conditionParts) . ')';
     }
 
     public function getContinuationEdgesForChoice($choice, Collection $continuationEdges, Collection $targetlessChoices, ?int $stopBeforeLine = null): Collection
@@ -575,6 +575,6 @@ class RouteGraphMenuAnalyzer
             return false;
         }
 
-        return (bool) preg_match('/(?:^|\/)menu:\d+:choice:'.preg_quote((string) $choiceLine, '/').'(?:\/|$)/', $branch);
+        return (bool) preg_match('/(?:^|\/)menu:\d+:choice:' . preg_quote((string) $choiceLine, '/') . '(?:\/|$)/', $branch);
     }
 }

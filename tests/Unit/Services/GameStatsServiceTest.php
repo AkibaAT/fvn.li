@@ -6,7 +6,7 @@ use App\Services\GameStatsService;
 use Symfony\Component\Process\Process;
 
 test('extract archive handles tar bz2 payload with misleading zip extension', function () {
-    $basePath = sys_get_temp_dir().'/game_stats_test_'.uniqid();
+    $basePath = sys_get_temp_dir() . '/game_stats_test_' . uniqid();
     $sourcePath = "{$basePath}/source";
     $extractPath = "{$basePath}/extract";
     $archivePath = "{$basePath}/misleading.zip";
@@ -33,7 +33,7 @@ test('extract archive handles tar bz2 payload with misleading zip extension', fu
 });
 
 test('translation tree detection ignores RenPy placeholder language directory', function () {
-    $basePath = sys_get_temp_dir().'/game_stats_test_'.uniqid();
+    $basePath = sys_get_temp_dir() . '/game_stats_test_' . uniqid();
     mkdir("{$basePath}/game/tl/None", 0755, true);
 
     try {
@@ -50,7 +50,7 @@ test('translation tree detection ignores RenPy placeholder language directory', 
 });
 
 test('translation tree detection finds real language directories', function () {
-    $basePath = sys_get_temp_dir().'/game_stats_test_'.uniqid();
+    $basePath = sys_get_temp_dir() . '/game_stats_test_' . uniqid();
     mkdir("{$basePath}/game/tl/spanish", 0755, true);
 
     try {

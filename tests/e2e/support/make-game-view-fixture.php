@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-require __DIR__.'/../../../vendor/autoload.php';
+require __DIR__ . '/../../../vendor/autoload.php';
 
 putenv('APP_ENV=testing');
 putenv('DB_DATABASE=db_test');
@@ -37,7 +37,7 @@ $_SERVER['SCOUT_DRIVER'] = 'collection';
 $_SERVER['MEILISEARCH_HOST'] = 'http://localhost:9999';
 $_SERVER['SESSION_DRIVER'] = 'database';
 
-$app = require __DIR__.'/../../../bootstrap/app.php';
+$app = require __DIR__ . '/../../../bootstrap/app.php';
 $app->loadEnvironmentFrom('.env.testing');
 $app->make(Kernel::class)->bootstrap();
 
@@ -231,7 +231,7 @@ $session->save();
 
 $sessionCookieName = Config::get('session.cookie');
 $encryptedSessionId = app('encrypter')->encrypt(
-    CookieValuePrefix::create($sessionCookieName, app('encrypter')->getKey()).$session->getId(),
+    CookieValuePrefix::create($sessionCookieName, app('encrypter')->getKey()) . $session->getId(),
     false,
 );
 

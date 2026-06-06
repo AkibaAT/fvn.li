@@ -90,12 +90,12 @@ class RouteGraphSimplifier
 
         foreach ($chains as $chain) {
             $first = $chain[0];
-            $collapsedId = 'chain_'.implode('_', array_slice($chain, 0, 3)).'_'.count($chain);
+            $collapsedId = 'chain_' . implode('_', array_slice($chain, 0, 3)) . '_' . count($chain);
             $chainWordCount = array_sum(array_map(fn ($n) => $wordCounts[$n] ?? 0, $chain));
 
             $simplifiedNodes[] = [
                 'id' => $collapsedId,
-                'label' => count($chain).' nodes',
+                'label' => count($chain) . ' nodes',
                 'type' => 'chain',
                 'chain_labels' => $chain,
                 'first_label' => $first,
@@ -120,7 +120,7 @@ class RouteGraphSimplifier
             if ($sourceId === $targetId) {
                 continue;
             }
-            $edgeKey = $sourceId.':'.$targetId.':'.$edge->edge_type;
+            $edgeKey = $sourceId . ':' . $targetId . ':' . $edge->edge_type;
             if (isset($seen[$edgeKey])) {
                 continue;
             }

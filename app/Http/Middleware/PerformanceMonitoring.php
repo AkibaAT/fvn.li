@@ -41,8 +41,8 @@ class PerformanceMonitoring
 
             // Add performance headers to response (useful for debugging)
             if ($response instanceof Response) {
-                $response->headers->set('X-Execution-Time', round($executionTime, 2).'ms');
-                $response->headers->set('X-Memory-Usage', round($memoryUsed / 1024 / 1024, 2).'MB');
+                $response->headers->set('X-Execution-Time', round($executionTime, 2) . 'ms');
+                $response->headers->set('X-Memory-Usage', round($memoryUsed / 1024 / 1024, 2) . 'MB');
                 $response->headers->set('X-Query-Count', $queryCount);
             }
 

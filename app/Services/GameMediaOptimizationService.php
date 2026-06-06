@@ -31,7 +31,7 @@ class GameMediaOptimizationService
                 $image->cover($width, $height);
                 $encoded = $image->encode(new WebpEncoder(quality: 80));
 
-                $optimizedPath = "games/{$gameId}/thumbnails/{$variant}_".time().'.webp';
+                $optimizedPath = "games/{$gameId}/thumbnails/{$variant}_" . time() . '.webp';
                 Storage::disk('public')->put($optimizedPath, (string) $encoded);
 
                 $optimized[$variant] = [
@@ -69,7 +69,7 @@ class GameMediaOptimizationService
                 $image->scale($width, $height);
                 $encoded = $image->encode(new WebpEncoder(quality: 80));
 
-                $optimizedPath = "games/{$gameId}/screenshots/{$screenshotIndex}_{$variant}_".time().'.webp';
+                $optimizedPath = "games/{$gameId}/screenshots/{$screenshotIndex}_{$variant}_" . time() . '.webp';
                 Storage::disk('public')->put($optimizedPath, (string) $encoded);
 
                 $optimized[$variant] = [

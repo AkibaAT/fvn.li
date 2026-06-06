@@ -66,7 +66,7 @@ class RouteGraphVariableChangeFormatter
         }
 
         if (preg_match("/^Str\(s='(.+)'\)$/", $value, $m)) {
-            return "'".$m[1]."'";
+            return "'" . $m[1] . "'";
         }
 
         if (preg_match("/^Name\(id='(.+?)'.*\)$/", $value, $m)) {

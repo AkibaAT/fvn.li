@@ -73,7 +73,7 @@ class Kernel extends HttpKernel
         'api' => [
             PerformanceMonitoring::class,
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            ThrottleRequests::class.':api',
+            ThrottleRequests::class . ':api',
             SubstituteBindings::class,
         ],
 

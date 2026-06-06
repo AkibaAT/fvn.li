@@ -72,16 +72,6 @@ class SocialAuthController extends Controller
         }
     }
 
-    private function safeIntendedUrlFromRequest(): ?string
-    {
-        $intendedUrl = request('intended');
-        if (! is_string($intendedUrl) || $intendedUrl === '') {
-            return null;
-        }
-
-        return SafeRedirectUrl::intended($intendedUrl, request());
-    }
-
     /**
      * Handle provider callback.
      */
@@ -218,7 +208,7 @@ class SocialAuthController extends Controller
             return redirect($redirectTo);
         } catch (Exception $e) {
             // Log the error for debugging
-            Log::error("Social auth error with {$provider}: ".$this->redactSensitiveText($e->getMessage()), [
+            Log::error("Social auth error with {$provider}: " . $this->redactSensitiveText($e->getMessage()), [
                 'exception_class' => $e::class,
                 'exception_code' => $e->getCode(),
                 'request_keys' => $this->requestInputKeys(),
@@ -226,10 +216,20 @@ class SocialAuthController extends Controller
             ]);
 
             // Flash error message to session
-            session()->flash('error', 'Failed to authenticate with '.$provider);
+            session()->flash('error', 'Failed to authenticate with ' . $provider);
 
             return redirect(route('games.index'));
         }
+    }
+
+    private function safeIntendedUrlFromRequest(): ?string
+    {
+        $intendedUrl = request('intended');
+        if (! is_string($intendedUrl) || $intendedUrl === '') {
+            return null;
+        }
+
+        return SafeRedirectUrl::intended($intendedUrl, request());
     }
 
     /**
@@ -304,18 +304,18 @@ class SocialAuthController extends Controller
                 return $userData['given_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
 
             case 'discord':
                 return $userData['global_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
 
             default:
                 return $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
         }
     }
 
@@ -342,7 +342,7 @@ class SocialAuthController extends Controller
         // Generate placeholder values as needed
         $name = $socialiteUser->getName()
             ?? $socialiteUser->getNickname()
-            ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
+            ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
 
         $email = $socialiteUser->getEmail();
         $avatar = $socialiteUser->getAvatar();

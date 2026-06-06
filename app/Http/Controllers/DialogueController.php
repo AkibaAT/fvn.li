@@ -52,7 +52,7 @@ class DialogueController extends Controller
 
         return Inertia::render('dialogue/browser', [
             'initial' => $initial,
-            'metaTags' => ['title' => 'Dialogue Browser - '.$game->name],
+            'metaTags' => ['title' => 'Dialogue Browser - ' . $game->name],
         ]);
     }
 
@@ -158,7 +158,7 @@ class DialogueController extends Controller
 
         $itemsQuery = clone $base;
         if ($q !== '') {
-            $like = '%'.str_replace('%', '\\%', $q).'%';
+            $like = '%' . str_replace('%', '\\%', $q) . '%';
             $driver = DB::getDriverName();
             if ($driver === 'pgsql') {
                 // Search within JSON display_names and character_id for Postgres

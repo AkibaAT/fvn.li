@@ -42,7 +42,7 @@ test('production redis save command passes interval and change count separately'
 function dockerComposeServiceBlock(string $compose, string $service): string
 {
     $matched = preg_match(
-        '/^  '.preg_quote($service, '/').":\n(?:(?!^  [A-Za-z0-9_-]+:).*\n?)*/m",
+        '/^  ' . preg_quote($service, '/') . ":\n(?:(?!^  [A-Za-z0-9_-]+:).*\n?)*/m",
         $compose,
         $matches
     );

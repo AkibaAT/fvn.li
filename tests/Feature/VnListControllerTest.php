@@ -180,11 +180,11 @@ it('bounds public list search length and keeps meaningful searches', function ()
         'type' => 'custom',
         'is_public' => true,
     ], [
-        'name' => 'Alpha '.str_repeat('x', 120),
+        'name' => 'Alpha ' . str_repeat('x', 120),
     ]);
 
     $response = $this->get(route('lists.public', [
-        'search' => 'Alpha '.str_repeat('x', 120),
+        'search' => 'Alpha ' . str_repeat('x', 120),
     ]));
 
     $response->assertOk();

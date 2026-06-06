@@ -447,21 +447,29 @@ test('itch file download URLs accept public hosts from the authenticated itch do
         ->and(fn () => invokeGameArchiveServiceMethod(
             $this->archiveService,
             'validateItchFileDownloadUrl',
-            ['https://127.0.0.1:8765/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
+            ['https://127.0.0.1/internal-metadata', 'https://creator.itch.io/game', 'itch.io file download URL']
         ))->toThrow(RuntimeException::class, 'cannot resolve to a private or reserved IP address');
 });
 
 test('itch file download requests pin the validated DNS answer', function () {
     $request = app(ItchDownloadUrlResolver::class)->validatedItchFileDownloadRequest(
-        'https://example.com:9443/game.zip',
+        'https://example.com/game.zip',
         'https://creator.itch.io/game',
         'itch.io file download URL'
     );
     $resolve = $request['options']['curl'][constant('CURLOPT_RESOLVE')] ?? [];
 
-    expect($request['url'])->toBe('https://example.com:9443/game.zip')
+    expect($request['url'])->toBe('https://example.com/game.zip')
         ->and($resolve)->toHaveCount(1)
-        ->and($resolve[0])->toStartWith('example.com:9443:');
+        ->and($resolve[0])->toStartWith('example.com:443:');
+});
+
+test('itch file download URLs reject custom HTTPS ports', function () {
+    expect(fn () => app(ItchDownloadUrlResolver::class)->validatedItchFileDownloadRequest(
+        'https://example.com:9443/game.zip',
+        'https://creator.itch.io/game',
+        'itch.io file download URL'
+    ))->toThrow(RuntimeException::class, 'standard HTTPS port');
 });
 
 test('download filename sanitization rejects paths and falls back for empty names', function () {

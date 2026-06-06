@@ -138,7 +138,7 @@ it('stores SQL-looking batch keys as JSON data when claiming notifications', fun
 
     $batchKey = 'poc"\'::jsonb || to_jsonb((SELECT true FROM pg_sleep(5))) || \'"tail';
 
-    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key='.urlencode($batchKey))
+    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key=' . urlencode($batchKey))
         ->assertOk()
         ->assertJsonPath('batch_key', $batchKey)
         ->assertJsonPath('notifications.0.notification_id', $notification->id);
@@ -185,7 +185,7 @@ it('does not let batch keys alter the pending notification update predicate', fu
 
     $batchKey = 'ok"\') WHERE 1=1 --';
 
-    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key='.urlencode($batchKey))
+    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key=' . urlencode($batchKey))
         ->assertOk()
         ->assertJsonPath('batch_key', $batchKey);
 

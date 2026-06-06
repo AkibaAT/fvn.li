@@ -30,7 +30,7 @@ class RouteGraphEdgePruner
                 continue;
             }
 
-            if ($this->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
+            if ($this->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label . ':' . $edge->to_label] ?? [])) {
                 continue;
             }
 

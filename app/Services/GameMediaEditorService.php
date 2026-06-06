@@ -31,7 +31,7 @@ class GameMediaEditorService
         $this->deleteOptimizedVariants($game->optimized_thumbnails ?? []);
 
         $game->update([
-            'thumb_url' => asset('storage/'.$path),
+            'thumb_url' => asset('storage/' . $path),
             'optimized_thumbnails' => $optimizedThumbnails,
             'custom_page_updated_at' => now(),
             'custom_page_updated_by' => $user->id,
@@ -79,8 +79,8 @@ class GameMediaEditorService
             );
 
             $newScreenshots[] = [
-                'url' => asset('storage/'.$path),
-                'thumbnail_url' => asset('storage/'.$path),
+                'url' => asset('storage/' . $path),
+                'thumbnail_url' => asset('storage/' . $path),
                 'optimized' => $optimized,
                 'uploaded_at' => now()->toISOString(),
             ];

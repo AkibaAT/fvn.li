@@ -78,7 +78,7 @@ class UserResource extends Resource
                     ->circular()
                     ->extraImgAttributes(['referrerpolicy' => 'no-referrer'])
                     ->defaultImageUrl(function ($record) {
-                        return 'https://ui-avatars.com/api/?name='.urlencode($record->name).'&color=FFFFFF&background=6366F1';
+                        return 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=FFFFFF&background=6366F1';
                     }),
                 TextColumn::make('name')
                     ->searchable(),
@@ -161,7 +161,7 @@ class UserResource extends Resource
                             ->circular()
                             ->extraImgAttributes(['referrerpolicy' => 'no-referrer'])
                             ->defaultImageUrl(function ($record) {
-                                return 'https://ui-avatars.com/api/?name='.urlencode($record->name).'&color=FFFFFF&background=6366F1';
+                                return 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=FFFFFF&background=6366F1';
                             }),
                         IconEntry::make('is_admin')
                             ->boolean(),

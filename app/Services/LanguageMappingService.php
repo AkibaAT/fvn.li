@@ -98,9 +98,9 @@ class LanguageMappingService
         if ($lastChar === 'z') {
             $middleChar = substr($current, -2, 1);
 
-            return 'q'.chr(ord($middleChar) + 1).'a';
+            return 'q' . chr(ord($middleChar) + 1) . 'a';
         }
 
-        return substr($current, 0, -1).chr(ord($lastChar) + 1);
+        return substr($current, 0, -1) . chr(ord($lastChar) + 1);
     }
 }

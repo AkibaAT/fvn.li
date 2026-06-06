@@ -39,7 +39,7 @@ class ArchiveDownloadPathService
     public function tempPathForFilename(string $tempDir, string $filename): string
     {
         $filename = $this->sanitizeFilename($filename);
-        $path = $tempDir.DIRECTORY_SEPARATOR.$filename;
+        $path = $tempDir . DIRECTORY_SEPARATOR . $filename;
 
         $this->ensurePathIsInsideDirectory(dirname($path), $tempDir);
 
@@ -94,7 +94,7 @@ class ArchiveDownloadPathService
         }
 
         if ($pathRealPath !== $directoryRealPath &&
-            ! str_starts_with($pathRealPath, $directoryRealPath.DIRECTORY_SEPARATOR)) {
+            ! str_starts_with($pathRealPath, $directoryRealPath . DIRECTORY_SEPARATOR)) {
             throw new RuntimeException('Temporary archive path escaped its working directory');
         }
     }

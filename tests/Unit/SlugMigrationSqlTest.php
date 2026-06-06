@@ -6,14 +6,14 @@ function simulateSlugMigrationSlug(string $name, int $id, array $existingSlugs =
     $baseSlug = trim($baseSlug, '-');
 
     if ($baseSlug === '') {
-        $baseSlug = 'game-'.$id;
+        $baseSlug = 'game-' . $id;
     }
 
     $newSlug = $baseSlug;
     $counter = 1;
 
     while (in_array($newSlug, $existingSlugs, true)) {
-        $newSlug = $baseSlug.'-'.$counter;
+        $newSlug = $baseSlug . '-' . $counter;
         $counter++;
     }
 

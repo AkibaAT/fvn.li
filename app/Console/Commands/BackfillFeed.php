@@ -80,7 +80,7 @@ class BackfillFeed extends Command
         // Build a map of the latest event ID we've already processed for each game
         $this->info('Building map of latest processed events per game...');
         $this->buildLatestEventMap();
-        $this->info('Found '.count($this->latestEventPerGame).' games with processed events');
+        $this->info('Found ' . count($this->latestEventPerGame) . ' games with processed events');
 
         try {
             $currentPage = null;
@@ -88,7 +88,7 @@ class BackfillFeed extends Command
 
             while (true) {
                 $pageCount++;
-                $this->info("\nProcessing page {$pageCount}".($currentPage ? " (from event {$currentPage})" : ' (initial)'));
+                $this->info("\nProcessing page {$pageCount}" . ($currentPage ? " (from event {$currentPage})" : ' (initial)'));
 
                 // Get authenticated client for feed page
                 $client = $this->authService->getClient();
@@ -121,7 +121,7 @@ class BackfillFeed extends Command
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Error during backfill: '.$e->getMessage());
+            $this->error('Error during backfill: ' . $e->getMessage());
             Log::error('Feed backfill failed', ['exception' => $e]);
 
             return 1;
