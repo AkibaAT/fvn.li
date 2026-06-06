@@ -158,12 +158,12 @@ class UserAccountController extends Controller
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Successfully disconnected '.ucfirst($provider).' account.',
+                'message' => 'Successfully disconnected ' . ucfirst($provider) . ' account.',
                 'provider' => $provider,
             ]);
         }
 
         return redirect()->route('dashboard')
-            ->with('success', 'Successfully disconnected '.ucfirst($provider).' account.');
+            ->with('success', 'Successfully disconnected ' . ucfirst($provider) . ' account.');
     }
 }

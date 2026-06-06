@@ -70,7 +70,7 @@ class ProcessPushNotifications extends Command
                 ->limit($limit)
                 ->get();
 
-            $this->info('Found '.count($notifications).' notifications to process');
+            $this->info('Found ' . count($notifications) . ' notifications to process');
 
             if ($notifications->isEmpty()) {
                 $this->info('No notifications to process');
@@ -156,7 +156,7 @@ class ProcessPushNotifications extends Command
                 throw $e;
             }
         } catch (Exception $e) {
-            $this->error('Error processing push notifications: '.$e->getMessage());
+            $this->error('Error processing push notifications: ' . $e->getMessage());
             Log::error('Error in ProcessPushNotifications command', [
                 'exception' => $e,
                 'message' => $e->getMessage(),
@@ -208,7 +208,7 @@ class ProcessPushNotifications extends Command
             $title = 'Weekly Game Updates';
         }
 
-        $body = count($games).' games you follow have been updated.';
+        $body = count($games) . ' games you follow have been updated.';
 
         $payload = [
             'title' => $title,

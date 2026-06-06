@@ -52,11 +52,11 @@ class ItchIoProvider extends AbstractProvider
 
     protected function getUserByToken($token): array
     {
-        $response = $this->getHttpClient()->get('https://itch.io/api/1/'.$token.'/me');
+        $response = $this->getHttpClient()->get('https://itch.io/api/1/' . $token . '/me');
         $data = json_decode((string) $response->getBody(), true);
 
         if (isset($data['errors'])) {
-            throw new Exception('itch.io API error: '.implode(', ', $data['errors']));
+            throw new Exception('itch.io API error: ' . implode(', ', $data['errors']));
         }
 
         return $data['user'];

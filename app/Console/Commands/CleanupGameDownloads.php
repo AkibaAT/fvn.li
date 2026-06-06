@@ -66,7 +66,7 @@ class CleanupGameDownloads extends Command
                 $archiveService->cleanupOldVersionDownloads($game->id);
             }
 
-            $this->info('Cleanup completed successfully for '.$games->count().' game(s)');
+            $this->info('Cleanup completed successfully for ' . $games->count() . ' game(s)');
         }
 
         return 0;

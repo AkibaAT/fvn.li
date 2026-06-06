@@ -20,7 +20,7 @@ class StoreVnListRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                'unique:vn_lists,name,NULL,id,user_id,'.($this->user()->id ?? 'NULL'),
+                'unique:vn_lists,name,NULL,id,user_id,' . ($this->user()->id ?? 'NULL'),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_public' => ['boolean'],

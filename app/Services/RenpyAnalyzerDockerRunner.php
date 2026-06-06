@@ -21,7 +21,7 @@ class RenpyAnalyzerDockerRunner
             throw new RuntimeException("Archive file not found: {$archivePath}");
         }
 
-        $jobId = 'renpy-analyzer-'.bin2hex(random_bytes(8));
+        $jobId = 'renpy-analyzer-' . bin2hex(random_bytes(8));
         $containerWorkDir = rtrim((string) config('services.renpy.analyzer_container_work_dir'), '/');
         $hostWorkDir = rtrim((string) config('services.renpy.analyzer_host_work_dir'), '/');
         $containerJobDir = "{$containerWorkDir}/{$jobId}";
@@ -47,7 +47,7 @@ class RenpyAnalyzerDockerRunner
                 $diagnostic = trim($process->getErrorOutput()) ?: trim($process->getOutput());
                 $this->lastError = 'Analyzer container failed';
                 if ($diagnostic !== '') {
-                    $this->lastError .= ': '.$this->sanitizeDiagnosticOutput($diagnostic);
+                    $this->lastError .= ': ' . $this->sanitizeDiagnosticOutput($diagnostic);
                 }
                 Log::warning('RenPy analyzer container failed', [
                     'exit_code' => $process->getExitCode(),
@@ -83,35 +83,6 @@ class RenpyAnalyzerDockerRunner
     public function getLastError(): ?string
     {
         return $this->lastError;
-    }
-
-    private function sanitizeDiagnosticOutput(string $output): string
-    {
-        $output = str_replace("\0", '', $output);
-        $limit = 4096;
-
-        if (strlen($output) <= $limit) {
-            return $output;
-        }
-
-        return substr($output, 0, $limit)."\n[truncated]";
-    }
-
-    private function cleanupStaleJobDirectories(string $workDir): void
-    {
-        $maxAge = (int) config('services.renpy.analyzer_stale_cleanup_seconds', 7200);
-        $expiresBefore = time() - max(60, $maxAge);
-
-        foreach (File::directories($workDir) as $directory) {
-            if (! str_starts_with(basename($directory), 'renpy-analyzer-')) {
-                continue;
-            }
-
-            $modifiedAt = @filemtime($directory);
-            if ($modifiedAt !== false && $modifiedAt < $expiresBefore) {
-                File::deleteDirectory($directory);
-            }
-        }
     }
 
     /**
@@ -152,9 +123,9 @@ class RenpyAnalyzerDockerRunner
             '--memory-swap',
             (string) config('services.renpy.analyzer_memory', '1g'),
             '--tmpfs',
-            '/tmp:rw,nosuid,nodev,noexec,mode=1777,size='.(string) config('services.renpy.analyzer_tmp_size', '256m'),
+            '/tmp:rw,nosuid,nodev,noexec,mode=1777,size=' . (string) config('services.renpy.analyzer_tmp_size', '256m'),
             '--tmpfs',
-            '/work:rw,nosuid,nodev,exec,mode=1777,size='.(string) config('services.renpy.analyzer_work_size', '4g'),
+            '/work:rw,nosuid,nodev,noexec,mode=1777,size=' . (string) config('services.renpy.analyzer_work_size', '4g'),
             '--mount',
             "type=bind,source={$hostJobDir}/input,target=/input,readonly",
             '--mount',
@@ -168,5 +139,38 @@ class RenpyAnalyzerDockerRunner
             $sdkContainerPath,
             '/input/json_stats.rpy',
         ];
+    }
+
+    private function sanitizeDiagnosticOutput(string $output): string
+    {
+        $output = preg_replace('/[^\P{C}\t\r\n]/u', '', str_replace("\0", '', $output));
+        if (! is_string($output)) {
+            $output = '';
+        }
+
+        $limit = 4096;
+
+        if (strlen($output) <= $limit) {
+            return $output;
+        }
+
+        return substr($output, 0, $limit) . "\n[truncated]";
+    }
+
+    private function cleanupStaleJobDirectories(string $workDir): void
+    {
+        $maxAge = (int) config('services.renpy.analyzer_stale_cleanup_seconds', 7200);
+        $expiresBefore = time() - max(60, $maxAge);
+
+        foreach (File::directories($workDir) as $directory) {
+            if (! str_starts_with(basename($directory), 'renpy-analyzer-')) {
+                continue;
+            }
+
+            $modifiedAt = @filemtime($directory);
+            if ($modifiedAt !== false && $modifiedAt < $expiresBefore) {
+                File::deleteDirectory($directory);
+            }
+        }
     }
 }

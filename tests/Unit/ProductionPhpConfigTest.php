@@ -9,7 +9,7 @@ function productionDockerFile(string $path): string
 
 function productionIniValue(string $contents, string $key): ?string
 {
-    if (! preg_match('/^'.preg_quote($key, '/').'\s*=\s*(.+)$/m', $contents, $matches)) {
+    if (! preg_match('/^' . preg_quote($key, '/') . '\s*=\s*(.+)$/m', $contents, $matches)) {
         return null;
     }
 

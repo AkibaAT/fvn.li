@@ -6,12 +6,12 @@ use App\Services\RenpySaveParser;
 
 function pickleShortString(int $opcode, string $value): string
 {
-    return chr($opcode).chr(strlen($value)).$value;
+    return chr($opcode) . chr(strlen($value)) . $value;
 }
 
 function pickleLongString(int $opcode, string $value): string
 {
-    return chr($opcode).pack('V', strlen($value)).$value;
+    return chr($opcode) . pack('V', strlen($value)) . $value;
 }
 
 it('decompresses gzip, zlib, and raw save payloads', function () {
@@ -37,13 +37,13 @@ it('rejects payloads that exceed the save parser decompression limit', function 
 
 it('extracts pickle string opcodes and ignores malformed lengths', function () {
     $parser = new RenpySaveParser;
-    $huge = chr(0x58).pack('V', 1048576).'ignored';
-    $truncated = chr(0x8C).chr(20).'short';
+    $huge = chr(0x58) . pack('V', 1048576) . 'ignored';
+    $truncated = chr(0x8C) . chr(20) . 'short';
     $payload = implode('', [
         'noise',
         pickleShortString(0x8C, 'start'),
         pickleLongString(0x58, 'chapter_one'),
-        chr(0x8D).pack('P', strlen('wide_label')).'wide_label',
+        chr(0x8D) . pack('P', strlen('wide_label')) . 'wide_label',
         pickleShortString(0x55, 'legacy_short'),
         pickleLongString(0x54, 'legacy_long'),
         pickleShortString(0x43, 'bytes_short'),

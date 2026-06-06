@@ -31,7 +31,7 @@ class RefreshGames extends Command
         {--update-version : Refresh version information}
         {--update-info : Refresh base game information}
         {--update-metadata : Refresh metadata (tags, ratings, descriptions, screenshots, game jams)}
-        {--force : Force refresh even for abandoned/canceled games}
+        {--force : Include abandoned/canceled games and reprocess existing version stats}
         {--max-retries=3 : Maximum number of retries for rate-limited requests}
         {--retry-cooldown=30 : Base cooldown time in seconds between retries (increases with each retry)}';
 
@@ -86,14 +86,14 @@ class RefreshGames extends Command
             $this->info("Starting refresh for games matching name: \"{$this->option('game-name')}\"");
         }
 
-        $this->info('Force mode: '.($force ? 'Yes' : 'No'));
+        $this->info('Force mode: ' . ($force ? 'Yes' : 'No'));
         $this->info('Options selected:');
-        $this->info('- Version: '.($this->option('update-version') ? 'Yes' : 'No'));
-        $this->info('- Base Info: '.($this->option('update-info') ? 'Yes' : 'No'));
-        $this->info('- Metadata: '.($this->option('update-metadata') ? 'Yes' : 'No'));
+        $this->info('- Version: ' . ($this->option('update-version') ? 'Yes' : 'No'));
+        $this->info('- Base Info: ' . ($this->option('update-info') ? 'Yes' : 'No'));
+        $this->info('- Metadata: ' . ($this->option('update-metadata') ? 'Yes' : 'No'));
         $this->info('Retry settings:');
-        $this->info('- Max retries: '.$this->option('max-retries'));
-        $this->info('- Base cooldown: '.$this->option('retry-cooldown').' seconds');
+        $this->info('- Max retries: ' . $this->option('max-retries'));
+        $this->info('- Base cooldown: ' . $this->option('retry-cooldown') . ' seconds');
 
         // Build query for games - only itch.io games for now
         $query = Game::query()

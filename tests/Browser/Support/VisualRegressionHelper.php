@@ -107,7 +107,7 @@ class VisualRegressionHelper
         $cutoff = time() - ($daysOld * 24 * 60 * 60);
 
         foreach ([$this->currentDir, $this->diffDir] as $dir) {
-            $files = glob($dir.'/*.png');
+            $files = glob($dir . '/*.png');
             foreach ($files as $file) {
                 if (filemtime($file) < $cutoff) {
                     unlink($file);
@@ -124,9 +124,9 @@ class VisualRegressionHelper
      */
     public function getStatistics(): array
     {
-        $baselineCount = count(glob($this->baselineDir.'/*.png'));
-        $currentCount = count(glob($this->currentDir.'/*.png'));
-        $diffCount = count(glob($this->diffDir.'/*.png'));
+        $baselineCount = count(glob($this->baselineDir . '/*.png'));
+        $currentCount = count(glob($this->currentDir . '/*.png'));
+        $diffCount = count(glob($this->diffDir . '/*.png'));
 
         return [
             'baseline_screenshots' => $baselineCount,
@@ -198,7 +198,7 @@ class VisualRegressionHelper
      */
     private function getBaselinePath(string $testName): string
     {
-        return $this->baselineDir.'/'.$this->sanitizeFilename($testName).'.png';
+        return $this->baselineDir . '/' . $this->sanitizeFilename($testName) . '.png';
     }
 
     /**
@@ -206,7 +206,7 @@ class VisualRegressionHelper
      */
     private function getCurrentPath(string $testName): string
     {
-        return $this->currentDir.'/'.$this->sanitizeFilename($testName).'.png';
+        return $this->currentDir . '/' . $this->sanitizeFilename($testName) . '.png';
     }
 
     /**
@@ -214,7 +214,7 @@ class VisualRegressionHelper
      */
     private function getDiffPath(string $testName): string
     {
-        return $this->diffDir.'/'.$this->sanitizeFilename($testName).'.png';
+        return $this->diffDir . '/' . $this->sanitizeFilename($testName) . '.png';
     }
 
     /**

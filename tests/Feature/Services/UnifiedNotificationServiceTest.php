@@ -43,7 +43,7 @@ function unifiedNotificationUser(Game $game, bool $browser, bool $discord, bool 
         SocialAccount::factory()->create([
             'user_id' => $user->id,
             'provider_name' => 'discord',
-            'provider_id' => 'discord-'.$user->id,
+            'provider_id' => 'discord-' . $user->id,
         ]);
     }
 

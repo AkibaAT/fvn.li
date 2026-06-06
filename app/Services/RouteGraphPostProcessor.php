@@ -210,14 +210,14 @@ class RouteGraphPostProcessor
                 return;
             }
 
-            $key = $source."\0".$target;
+            $key = $source . "\0" . $target;
             if (isset($scopeEdgeKeys[$key])) {
                 return;
             }
 
             $scopeEdgeKeys[$key] = true;
             $transformedEdges[] = [
-                'id' => 'condition_scope:'.md5($key),
+                'id' => 'condition_scope:' . md5($key),
                 'source' => $source,
                 'target' => $target,
                 'edge_type' => 'condition_scope',
@@ -250,7 +250,7 @@ class RouteGraphPostProcessor
                     $previous = $scope['id'];
                 }
 
-                $edge['id'] = ((string) ($edge['id'] ?? md5(json_encode($edge) ?: 'edge'))).':condition_scope_target';
+                $edge['id'] = ((string) ($edge['id'] ?? md5(json_encode($edge) ?: 'edge'))) . ':condition_scope_target';
                 $edge['source'] = $previous;
                 $edge['condition'] = null;
                 $transformedEdges[] = $edge;
@@ -265,7 +265,7 @@ class RouteGraphPostProcessor
 
             if ($scope !== null) {
                 $addScopeEdge($source, $scope['id'], $edge);
-                $edge['id'] = ((string) ($edge['id'] ?? md5(json_encode($edge) ?: 'edge'))).':condition_scope';
+                $edge['id'] = ((string) ($edge['id'] ?? md5(json_encode($edge) ?: 'edge'))) . ':condition_scope';
                 $edge['source'] = $scope['id'];
                 $edge['condition'] = null;
             }
@@ -381,7 +381,7 @@ class RouteGraphPostProcessor
             $bridgeSource = $lastReachableMenuNode;
 
             $edges[] = [
-                'id' => $bridgeSource.':'.$bestBridge.':bridge',
+                'id' => $bridgeSource . ':' . $bestBridge . ':bridge',
                 'source' => $bridgeSource,
                 'target' => $bestBridge,
                 'edge_type' => 'flow',
@@ -443,8 +443,8 @@ class RouteGraphPostProcessor
 
             // For remaining unconditional flow edges, infer the else condition
             if (! empty($conditions) && ! empty($unconditionalFlowIndices)) {
-                $conditionParts = array_map(fn (string $condition) => '('.$condition.')', array_values(array_unique($conditions)));
-                $elseCondition = 'not ('.implode(' or ', $conditionParts).')';
+                $conditionParts = array_map(fn (string $condition) => '(' . $condition . ')', array_values(array_unique($conditions)));
+                $elseCondition = 'not (' . implode(' or ', $conditionParts) . ')';
 
                 foreach ($unconditionalFlowIndices as $i) {
                     if (isset($edges[$i])) {

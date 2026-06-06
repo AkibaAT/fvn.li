@@ -440,5 +440,4 @@ class Game extends Model
             get: fn () => $this->getEffectiveDescription()
         );
     }
-
 }

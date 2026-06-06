@@ -103,13 +103,13 @@ class ArchiveMediaOptimizer
             $original = $contents;
 
             foreach ($replacements as $oldPath => $newPath) {
-                $contents = str_replace([$oldPath, 'game/'.$oldPath], [$newPath, 'game/'.$newPath], $contents);
+                $contents = str_replace([$oldPath, 'game/' . $oldPath], [$newPath, 'game/' . $newPath], $contents);
 
                 $oldBasename = basename($oldPath);
                 if (($basenameCounts[$oldBasename] ?? 0) === 1) {
                     $contents = str_replace(
-                        ['"'.$oldBasename.'"', "'".$oldBasename."'"],
-                        ['"'.basename($newPath).'"', "'".basename($newPath)."'"],
+                        ['"' . $oldBasename . '"', "'" . $oldBasename . "'"],
+                        ['"' . basename($newPath) . '"', "'" . basename($newPath) . "'"],
                         $contents
                     );
                 }
@@ -276,12 +276,12 @@ class ArchiveMediaOptimizer
             return null;
         }
 
-        $candidateRealPath = realpath($baseRealPath.'/'.$relativePath);
+        $candidateRealPath = realpath($baseRealPath . '/' . $relativePath);
         if ($candidateRealPath === false) {
             return null;
         }
 
-        $baseRealPath = rtrim(str_replace('\\', '/', $baseRealPath), '/').'/';
+        $baseRealPath = rtrim(str_replace('\\', '/', $baseRealPath), '/') . '/';
         $candidateRealPath = str_replace('\\', '/', $candidateRealPath);
 
         return str_starts_with($candidateRealPath, $baseRealPath) ? $candidateRealPath : null;
@@ -318,7 +318,7 @@ class ArchiveMediaOptimizer
             return false;
         }
 
-        return str_starts_with($resolvedPath, rtrim($resolvedBase, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
+        return str_starts_with($resolvedPath, rtrim($resolvedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
     }
 
     private function binary(string $name): ?string
@@ -331,7 +331,7 @@ class ArchiveMediaOptimizer
 
     private function relativeGamePath(string $gameDir, string $path): string
     {
-        return ltrim(str_replace('\\', '/', substr($path, strlen($gameDir.'/game/'))), '/');
+        return ltrim(str_replace('\\', '/', substr($path, strlen($gameDir . '/game/'))), '/');
     }
 
     private function relativeArchivePath(string $sourceDir, string $path): string

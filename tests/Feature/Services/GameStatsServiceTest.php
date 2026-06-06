@@ -141,7 +141,7 @@ it('normalizes ordinary text but strips excessive combining marks', function () 
 
 it('bounds zalgo detection memory for very long combining mark text', function () {
     $service = app(GameStatsService::class);
-    $zalgo = 'a'.str_repeat("\u{0301}", 100000);
+    $zalgo = 'a' . str_repeat("\u{0301}", 100000);
 
     $before = memory_get_usage(true);
     $processed = invokeGameStatsServiceMethod($service, 'processText', [$zalgo]);
@@ -196,7 +196,7 @@ it('creates new characters with all relevant display languages and preserves exi
 
 it('detects archive formats from file signatures and extracts zip archives', function () {
     $service = app(GameStatsService::class);
-    $workDir = storage_path('framework/testing/game-stats-'.uniqid());
+    $workDir = storage_path('framework/testing/game-stats-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
 
     try {
@@ -225,7 +225,7 @@ it('detects archive formats from file signatures and extracts zip archives', fun
 });
 
 it('extracts game stats from a zipped RenPy game through the public sandbox workflow', function () {
-    $workDir = storage_path('framework/testing/game-stats-public-'.uniqid());
+    $workDir = storage_path('framework/testing/game-stats-public-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
 
     try {
@@ -234,7 +234,7 @@ it('extracts game stats from a zipped RenPy game through the public sandbox work
         $zip = new ZipArchive;
         expect($zip->open($archivePath, ZipArchive::CREATE))->toBeTrue();
         $zip->addFromString('RenpyGame/game/script.rpy', 'label start: return');
-        $zip->addFromString('RenpyGame/runner.sh', "#!/bin/sh\ntouch ".escapeshellarg($markerPath)."\n");
+        $zip->addFromString('RenpyGame/runner.sh', "#!/bin/sh\ntouch " . escapeshellarg($markerPath) . "\n");
         $zip->close();
 
         $sandboxClient = Mockery::mock(RenpyStatsSandboxClient::class);
@@ -264,7 +264,7 @@ it('returns null from local trusted archive extraction when no game directory or
     config(['services.renpy.analysis_mode' => 'local_trusted']);
 
     $service = app(GameStatsService::class);
-    $workDir = storage_path('framework/testing/game-stats-public-null-'.uniqid());
+    $workDir = storage_path('framework/testing/game-stats-public-null-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
 
     try {
@@ -294,8 +294,8 @@ it('local trusted archive extraction ignores game-provided launchers and uses th
     config(['services.renpy.analysis_mode' => 'local_trusted']);
 
     $service = app(GameStatsService::class);
-    $workDir = storage_path('framework/testing/game-stats-local-sdk-'.uniqid());
-    $sdkDir = storage_path('framework/testing/renpy-sdk-'.uniqid());
+    $workDir = storage_path('framework/testing/game-stats-local-sdk-' . uniqid());
+    $sdkDir = storage_path('framework/testing/renpy-sdk-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
     File::makeDirectory($sdkDir, 0755, true);
 
@@ -305,7 +305,7 @@ it('local trusted archive extraction ignores game-provided launchers and uses th
         $zip = new ZipArchive;
         expect($zip->open($archivePath, ZipArchive::CREATE))->toBeTrue();
         $zip->addFromString('RenpyGame/game/script.rpy', 'label start: return');
-        $zip->addFromString('RenpyGame/runner.sh', "#!/bin/sh\ntouch ".escapeshellarg($markerPath)."\n");
+        $zip->addFromString('RenpyGame/runner.sh', "#!/bin/sh\ntouch " . escapeshellarg($markerPath) . "\n");
         $zip->close();
 
         $renpy = "{$sdkDir}/renpy.sh";
@@ -324,8 +324,8 @@ it('local trusted archive extraction ignores game-provided launchers and uses th
 
 it('extracts game stats with a configured sdk and reports invalid sdk output', function () {
     $service = app(GameStatsService::class);
-    $workDir = storage_path('framework/testing/game-stats-sdk-'.uniqid());
-    $sdkDir = storage_path('framework/testing/renpy-sdk-'.uniqid());
+    $workDir = storage_path('framework/testing/game-stats-sdk-' . uniqid());
+    $sdkDir = storage_path('framework/testing/renpy-sdk-' . uniqid());
     File::makeDirectory("{$workDir}/game", 0755, true);
     File::makeDirectory($sdkDir, 0755, true);
 

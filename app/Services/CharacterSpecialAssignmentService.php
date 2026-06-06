@@ -172,7 +172,7 @@ class CharacterSpecialAssignmentService
                 $linesReassigned++;
             } else {
                 // No valid previous line found or previous line has null character_id - assign to narrator instead
-                Log::warning("No valid previous line found for {$characterName} line {$specialLine->id} (previous character_id: ".($previousLine->character_id ?? 'null').'), assigning to narrator');
+                Log::warning("No valid previous line found for {$characterName} line {$specialLine->id} (previous character_id: " . ($previousLine->character_id ?? 'null') . '), assigning to narrator');
                 $linesReassigned += $this->reassignToNarrator([$specialLine], $versionId, $characterName,
                     $specialCharacterId, $dryRun);
             }

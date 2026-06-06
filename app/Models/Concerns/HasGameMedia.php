@@ -94,7 +94,7 @@ trait HasGameMedia
 
         $path = $this->optimized_thumbnails[$variant]['path'];
 
-        return asset('storage/'.$path);
+        return asset('storage/' . $path);
     }
 
     /**
@@ -110,7 +110,7 @@ trait HasGameMedia
 
         // If we have optimized data for this variant, use it
         if (isset($firstScreenshot['optimized'][$variant]['path'])) {
-            return asset('storage/'.$firstScreenshot['optimized'][$variant]['path']);
+            return asset('storage/' . $firstScreenshot['optimized'][$variant]['path']);
         }
 
         return null;
@@ -191,7 +191,7 @@ trait HasGameMedia
     private function getOptimizedScreenshotUrl(array $screenshot, string $variant): ?string
     {
         if (isset($screenshot['optimized'][$variant]['path'])) {
-            return asset('storage/'.$screenshot['optimized'][$variant]['path']);
+            return asset('storage/' . $screenshot['optimized'][$variant]['path']);
         }
 
         return null;

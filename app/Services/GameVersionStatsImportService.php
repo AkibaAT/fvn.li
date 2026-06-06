@@ -79,7 +79,7 @@ class GameVersionStatsImportService
 
         // Check for JSON decode errors
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Invalid JSON format: '.json_last_error_msg());
+            throw new Exception('Invalid JSON format: ' . json_last_error_msg());
         }
 
         // Validate the stats structure
