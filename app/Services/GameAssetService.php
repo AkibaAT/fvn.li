@@ -209,7 +209,7 @@ class GameAssetService
                 $variants[$size] = $variantPath;
             } catch (Exception $e) {
                 // Log error but don't fail the upload
-                Log::warning("Failed to create {$size} variant for {$filename}: ".$e->getMessage());
+                Log::warning("Failed to create {$size} variant for {$filename}: " . $e->getMessage());
             }
         }
 
@@ -223,7 +223,7 @@ class GameAssetService
     {
         $pathInfo = pathinfo($originalFilename);
 
-        return $pathInfo['filename']."_{$size}.".$pathInfo['extension'];
+        return $pathInfo['filename'] . "_{$size}." . $pathInfo['extension'];
     }
 
     /**

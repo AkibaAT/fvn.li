@@ -10,6 +10,7 @@ use Dom\HTMLDocument;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 
 class ItchGameMetadataExtractor
 {
@@ -136,7 +137,7 @@ class ItchGameMetadataExtractor
     {
         $customCss = '';
         if (preg_match('/<style[^>]*id="game_theme"[^>]*>([\s\S]*?)<\/style>/i', $html, $matches)) {
-            $customCss .= trim($matches[1])."\n\n";
+            $customCss .= trim($matches[1]) . "\n\n";
             Log::info('Found game theme CSS', ['css' => $matches[1]]);
         }
         if (preg_match('/<style[^>]*id="custom_css"[^>]*>([\s\S]*?)<\/style>/i', $html, $matches)) {
@@ -202,7 +203,7 @@ class ItchGameMetadataExtractor
                     } elseif (str_starts_with($href, 'http')) {
                         $jamUrl = $href;
                     } else {
-                        $jamUrl = 'https://itch.io'.$href;
+                        $jamUrl = 'https://itch.io' . $href;
                     }
                     break;
                 }
@@ -214,7 +215,7 @@ class ItchGameMetadataExtractor
         try {
             $safeJamUrl = GameJam::normalizeAndValidateJamUrl($jamUrl);
             $gameJam = GameJam::findOrCreateFromUrl($safeJamUrl, $jamName);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             Log::warning('Discarded non-itch game jam URL', [
                 'game_id' => $game->id,
                 'game_name' => $game->name,

@@ -32,7 +32,7 @@ it('uses optimized thumbnail for social media meta tags', function () {
 
     // Use model fallback logic directly to simulate meta image selection
     $metaTags = [
-        'image' => '/storage/'.$game->optimized_thumbnails['default']['path'],
+        'image' => '/storage/' . $game->optimized_thumbnails['default']['path'],
     ];
 
     // Should use the cached thumbnail URL, not the external one

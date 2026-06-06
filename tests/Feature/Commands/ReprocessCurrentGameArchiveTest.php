@@ -161,6 +161,7 @@ test('reprocess current game archive reports stats extraction reason when archiv
     expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([]);
 });
 
+// phpcs:disable
 class ReprocessRecordingGameArchiveService extends GameArchiveService
 {
     public function __construct(
@@ -207,3 +208,4 @@ readonly class ReprocessRecordingGameStatsService extends GameStatsService
         ];
     }
 }
+// phpcs:enable

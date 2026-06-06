@@ -161,5 +161,4 @@ class SanitizeReviewHtml extends Command
 
         return array_values(array_unique($parsed));
     }
-
 }

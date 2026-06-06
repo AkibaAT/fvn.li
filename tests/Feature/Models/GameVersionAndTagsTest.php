@@ -9,6 +9,8 @@ use App\Models\Language;
 use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Scout\EngineManager;
+use Laravel\Scout\Engines\CollectionEngine;
 
 function gameVersionTagsLanguage(string $id, string $name, ?string $part1 = null, ?string $flag = null): Language
 {
@@ -138,6 +140,65 @@ it('processes pending game jam associations only after the game exists', functio
 
     expect($game->fresh()->gameJams()->pluck('game_jams.id')->all())->toBe([$jam->id])
         ->and($game->pendingGameJamId)->toBe([]);
+});
+
+it('defers pending game jam search indexing until the database transaction commits', function () {
+    config([
+        'scout.driver' => 'recording',
+        'scout.queue' => false,
+    ]);
+
+    $recorder = (object) ['updates' => []];
+    app(EngineManager::class)->extend(
+        'recording',
+        fn () => new class($recorder) extends CollectionEngine
+        {
+            public function __construct(private readonly object $recorder) {}
+
+            public function update($models): void
+            {
+                foreach ($models as $model) {
+                    $this->recorder->updates[] = $model->getKey();
+                }
+            }
+        }
+    );
+    app(EngineManager::class)->forgetDrivers();
+
+    $game = Game::factory()->create(['is_visible' => true]);
+    $rollbackJam = GameJam::create([
+        'name' => 'Rollback Jam',
+        'url' => 'https://itch.io/jam/rollback',
+        'needs_details_fetch' => false,
+    ]);
+    $commitJam = GameJam::create([
+        'name' => 'Commit Jam',
+        'url' => 'https://itch.io/jam/commit',
+        'needs_details_fetch' => false,
+    ]);
+    $recorder->updates = [];
+
+    DB::beginTransaction();
+    $game->pendingGameJamId = [$rollbackJam->id];
+    $game->processPendingGameJams();
+
+    expect($recorder->updates)->toBe([]);
+
+    DB::rollBack();
+
+    expect($recorder->updates)->toBe([])
+        ->and($game->fresh()->gameJams()->whereKey($rollbackJam->id)->exists())->toBeFalse();
+
+    DB::beginTransaction();
+    $game->pendingGameJamId = [$commitJam->id];
+    $game->processPendingGameJams();
+
+    expect($recorder->updates)->toBe([]);
+
+    DB::commit();
+
+    expect($recorder->updates)->toBe([$game->id])
+        ->and($game->fresh()->gameJams()->whereKey($commitJam->id)->exists())->toBeTrue();
 });
 
 it('normalizes custom tags to an empty string instead of null', function () {

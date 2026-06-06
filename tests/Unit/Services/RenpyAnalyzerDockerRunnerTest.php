@@ -40,7 +40,7 @@ it('builds a locked down docker command for per-archive analysis', function () {
         ->and($command)->toContain('--memory')
         ->and($command)->toContain('768m')
         ->and($command)->toContain('/tmp:rw,nosuid,nodev,noexec,mode=1777,size=128m')
-        ->and($command)->toContain('/work:rw,nosuid,nodev,exec,mode=1777,size=2g')
+        ->and($command)->toContain('/work:rw,nosuid,nodev,noexec,mode=1777,size=2g')
         ->and($command)->toContain('type=bind,source=/host/work/job/input,target=/input,readonly')
         ->and($command)->toContain('type=bind,source=/host/work/job/output,target=/output')
         ->and($command)->toContain('type=bind,source=/host/renpy-sdk,target=/opt/renpy-sdk,readonly')
@@ -53,7 +53,7 @@ it('builds a locked down docker command for per-archive analysis', function () {
 });
 
 it('cleans up stale analyzer job directories without deleting active or unrelated directories', function () {
-    $workDir = storage_path('framework/testing/renpy-runner-work-'.uniqid());
+    $workDir = storage_path('framework/testing/renpy-runner-work-' . uniqid());
     $oldJobDir = "{$workDir}/renpy-analyzer-old";
     $freshJobDir = "{$workDir}/renpy-analyzer-fresh";
     $unrelatedDir = "{$workDir}/not-analyzer-old";
@@ -78,4 +78,13 @@ it('cleans up stale analyzer job directories without deleting active or unrelate
     } finally {
         File::deleteDirectory($workDir);
     }
+});
+
+it('sanitizes analyzer diagnostics before storing or logging them', function () {
+    $method = new ReflectionMethod(RenpyAnalyzerDockerRunner::class, 'sanitizeDiagnosticOutput');
+    $method->setAccessible(true);
+
+    $sanitized = $method->invoke(new RenpyAnalyzerDockerRunner, "safe\nbad\0\x1B[31mhidden");
+
+    expect($sanitized)->toBe("safe\nbad[31mhidden");
 });

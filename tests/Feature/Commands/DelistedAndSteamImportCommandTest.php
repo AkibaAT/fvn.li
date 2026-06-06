@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 namespace App\Console\Commands {
-    if (! function_exists(__NAMESPACE__.'\\sleep')) {
+    if (! function_exists(__NAMESPACE__ . '\\sleep')) {
         function sleep(int $seconds): int
         {
             return 0;

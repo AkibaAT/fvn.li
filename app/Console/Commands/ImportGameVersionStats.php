@@ -109,7 +109,7 @@ class ImportGameVersionStats extends Command
                 throw $e;
             }
         } catch (Exception $e) {
-            $this->error('Error importing stats: '.$e->getMessage());
+            $this->error('Error importing stats: ' . $e->getMessage());
             Log::error('Stats import failed', [
                 'game_id' => $gameId,
                 'version_id' => $versionId,

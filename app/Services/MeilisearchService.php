@@ -171,6 +171,55 @@ class MeilisearchService
         return $search->paginate($perPage, 'page', $page);
     }
 
+    /**
+     * Search for unique dialogue texts with filters and pagination.
+     */
+    public function searchDialogue(
+        string $query,
+        array $filters = [],
+        int $perPage = 20,
+        int $page = 1
+    ): LengthAwarePaginator {
+        return app(DialogueSearchService::class)->search($query, $filters, $perPage, $page);
+    }
+
+    /**
+     * Search for tags with filters and pagination.
+     */
+    public function searchTags(
+        string $query,
+        array $filters = [],
+        int $perPage = 20,
+        int $page = 1
+    ): LengthAwarePaginator {
+        $search = Tag::search(trim($query));
+
+        if (isset($filters['min_game_count'])) {
+            $search->where('game_count', '>=', $filters['min_game_count']);
+        }
+
+        return $search->paginate($perPage, 'page', $page);
+    }
+
+    /**
+     * Perform a global search across all content types.
+     */
+    public function globalSearch(string $query, int $limit = 10): array
+    {
+        $games = $this->searchGames($query, ['show_hidden' => false], $limit, 1);
+        $dialogue = $this->searchDialogue($query, [], $limit, 1);
+        $tags = $this->searchTags($query, [], $limit, 1);
+
+        return [
+            'games' => $games->items(),
+            'dialogue' => $dialogue->items(),
+            'tags' => $tags->items(),
+            'total_games' => $games->total(),
+            'total_dialogue' => $dialogue->total(),
+            'total_tags' => $tags->total(),
+        ];
+    }
+
     private function searchGamesFromDatabase(
         string $query,
         array $filters,
@@ -184,7 +233,7 @@ class MeilisearchService
         $searchTerm = trim($query);
 
         if ($searchTerm !== '' && $searchTerm !== '*') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm).'%';
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm) . '%';
             $games->where(function (Builder $builder) use ($like) {
                 $builder
                     ->where('name', 'ilike', $like)
@@ -272,54 +321,5 @@ class MeilisearchService
             'trending', 'trending_score' => $games->orderBy('rating_score', $direction)->orderBy('rating_count', $direction),
             default => $games->orderBy('first_visible_at', 'desc'),
         };
-    }
-
-    /**
-     * Search for unique dialogue texts with filters and pagination.
-     */
-    public function searchDialogue(
-        string $query,
-        array $filters = [],
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
-        return app(DialogueSearchService::class)->search($query, $filters, $perPage, $page);
-    }
-
-    /**
-     * Search for tags with filters and pagination.
-     */
-    public function searchTags(
-        string $query,
-        array $filters = [],
-        int $perPage = 20,
-        int $page = 1
-    ): LengthAwarePaginator {
-        $search = Tag::search(trim($query));
-
-        if (isset($filters['min_game_count'])) {
-            $search->where('game_count', '>=', $filters['min_game_count']);
-        }
-
-        return $search->paginate($perPage, 'page', $page);
-    }
-
-    /**
-     * Perform a global search across all content types.
-     */
-    public function globalSearch(string $query, int $limit = 10): array
-    {
-        $games = $this->searchGames($query, ['show_hidden' => false], $limit, 1);
-        $dialogue = $this->searchDialogue($query, [], $limit, 1);
-        $tags = $this->searchTags($query, [], $limit, 1);
-
-        return [
-            'games' => $games->items(),
-            'dialogue' => $dialogue->items(),
-            'tags' => $tags->items(),
-            'total_games' => $games->total(),
-            'total_dialogue' => $dialogue->total(),
-            'total_tags' => $tags->total(),
-        ];
     }
 }

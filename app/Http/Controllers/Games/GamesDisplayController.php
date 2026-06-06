@@ -311,7 +311,7 @@ class GamesDisplayController extends Controller
             $similarGames = collect();
         }
 
-        $developerCacheKey = "game.{$game->id}.developer.".md5((string) $game->authors).".v{$recommendationCacheVersion}";
+        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
         $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
             ->map(fn (Game $g) => [
                 'id' => $g->id,
@@ -430,25 +430,6 @@ class GamesDisplayController extends Controller
         ]);
     }
 
-    private function formatSupportedLanguages(GameVersion $version)
-    {
-        return $version->supportedLanguages
-            ->filter(fn ($sl) => $sl->is_available
-                && $sl->language !== null
-                && ! str_starts_with($sl->iso_code, 'q'))
-            ->map(fn ($sl) => [
-                'iso_code' => $sl->iso_code,
-                'language' => [
-                    'id' => $sl->language->id,
-                    'iso_code' => $sl->language->id,
-                    'ref_name' => $sl->language->ref_name,
-                    'flag_code' => $sl->language->flag_code,
-                ],
-                'is_available' => $sl->is_available,
-            ])
-            ->values();
-    }
-
     /**
      * Get game details for API consumption
      */
@@ -496,6 +477,25 @@ class GamesDisplayController extends Controller
             'initially_published_at' => $game->initially_published_at,
             'first_visible_at' => $game->first_visible_at,
         ]);
+    }
+
+    private function formatSupportedLanguages(GameVersion $version)
+    {
+        return $version->supportedLanguages
+            ->filter(fn ($sl) => $sl->is_available
+                && $sl->language !== null
+                && ! str_starts_with($sl->iso_code, 'q'))
+            ->map(fn ($sl) => [
+                'iso_code' => $sl->iso_code,
+                'language' => [
+                    'id' => $sl->language->id,
+                    'iso_code' => $sl->language->id,
+                    'ref_name' => $sl->language->ref_name,
+                    'flag_code' => $sl->language->flag_code,
+                ],
+                'is_available' => $sl->is_available,
+            ])
+            ->values();
     }
 
     private function prepareSocialMetaTags(Game $game, $reviews, ?array $englishStats = null): void

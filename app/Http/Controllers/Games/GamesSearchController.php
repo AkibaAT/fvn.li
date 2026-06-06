@@ -481,5 +481,4 @@ class GamesSearchController extends Controller
 
         return $games;
     }
-
 }

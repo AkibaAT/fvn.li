@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use SocialiteProviders\Manager\Config as SocialiteConfig;
 
+// phpcs:disable
 class TestableItchIoProvider extends ItchIoProvider
 {
     public function exposedAuthUrl(string $state): string
@@ -49,6 +50,7 @@ class TestableItchIoProvider extends ItchIoProvider
         return $this->getCodeFields($state);
     }
 }
+// phpcs:enable
 
 function testableItchProvider(?MockHandler $mockHandler = null): TestableItchIoProvider
 {

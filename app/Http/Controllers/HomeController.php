@@ -42,7 +42,7 @@ class HomeController extends Controller
 
         // Use versioning for active invalidation, with a TTL as a backstop for old variants.
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.v{$teaserVersion}.".md5(implode(',', $ignoredGameIds));
+        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
 
         $sharedTeasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
             return [

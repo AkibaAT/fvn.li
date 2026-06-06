@@ -239,8 +239,8 @@ class DashboardController extends Controller
                         $avatar = $account->provider_data['avatarfull'] ?? null;
                         break;
                     case 'telegram':
-                        $displayName = $account->provider_data['first_name'].
-                            (isset($account->provider_data['last_name']) ? ' '.$account->provider_data['last_name'] : '');
+                        $displayName = $account->provider_data['first_name'] .
+                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
                         $avatar = $account->provider_data['photo_url'] ?? null;
                         break;
                     case 'itchio':

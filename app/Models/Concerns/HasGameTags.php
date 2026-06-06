@@ -9,6 +9,7 @@ use App\Models\Tag;
 use App\Services\GameFilterService;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -149,8 +150,7 @@ trait HasGameTags
                 GameFilterService::clearCache();
 
                 if ($this->is_visible) {
-                    $this->loadMissing(['tags', 'gameJams', 'gameVersions']);
-                    $this->searchable();
+                    $this->queueSearchIndexRefreshAfterCommit();
                 }
             }
         }
@@ -239,5 +239,18 @@ trait HasGameTags
     {
         Cache::add('games.recommendations.version', 1);
         Cache::increment('games.recommendations.version');
+    }
+
+    private function queueSearchIndexRefreshAfterCommit(): void
+    {
+        $gameId = $this->id;
+        $gameClass = static::class;
+
+        DB::afterCommit(static function () use ($gameClass, $gameId): void {
+            $game = $gameClass::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+            if ($game?->is_visible) {
+                $game->searchable();
+            }
+        });
     }
 }

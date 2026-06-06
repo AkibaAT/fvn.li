@@ -224,9 +224,9 @@ class GameJamScrapeService
 
         try {
             // Construct the results page URL with page number
-            $resultsUrl = GameJam::normalizeAndValidateJamUrl($gameJam->url).'/results';
+            $resultsUrl = GameJam::normalizeAndValidateJamUrl($gameJam->url) . '/results';
             if ($pageNumber > 1) {
-                $resultsUrl .= '?page='.$pageNumber;
+                $resultsUrl .= '?page=' . $pageNumber;
             }
 
             Log::info('Fetching game jam results page', [

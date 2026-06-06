@@ -141,19 +141,6 @@ class Upload
         return 0;
     }
 
-    private function compareRelaxedTimestamps(self $other): int
-    {
-        $timestamp = $this->buildUpdatedAt ?? $this->updatedAt;
-        $otherTimestamp = $other->buildUpdatedAt ?? $other->updatedAt;
-        $diffSeconds = abs($timestamp->getTimestamp() - $otherTimestamp->getTimestamp());
-
-        if ($diffSeconds <= self::TIMESTAMP_TIE_WINDOW_DAYS * 86400) {
-            return 0;
-        }
-
-        return $otherTimestamp <=> $timestamp;
-    }
-
     public function isLinux(): bool
     {
         return in_array('p_linux', $this->traits);
@@ -269,6 +256,19 @@ class Upload
     public function isAndroid(): bool
     {
         return in_array('p_android', $this->traits);
+    }
+
+    private function compareRelaxedTimestamps(self $other): int
+    {
+        $timestamp = $this->buildUpdatedAt ?? $this->updatedAt;
+        $otherTimestamp = $other->buildUpdatedAt ?? $other->updatedAt;
+        $diffSeconds = abs($timestamp->getTimestamp() - $otherTimestamp->getTimestamp());
+
+        if ($diffSeconds <= self::TIMESTAMP_TIE_WINDOW_DAYS * 86400) {
+            return 0;
+        }
+
+        return $otherTimestamp <=> $timestamp;
     }
 
     private function compareVersions(?string $a, ?string $b): int

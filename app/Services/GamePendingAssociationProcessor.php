@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class GamePendingAssociationProcessor
@@ -46,8 +47,7 @@ class GamePendingAssociationProcessor
             GameFilterService::clearCache();
 
             if ($game->is_visible) {
-                $game->loadMissing(['tags', 'gameJams', 'gameVersions']);
-                $game->searchable();
+                $this->queueSearchIndexRefreshAfterCommit($game->id);
             }
         }
 
@@ -79,5 +79,15 @@ class GamePendingAssociationProcessor
         ]);
 
         $game->pendingTagIds = [];
+    }
+
+    private function queueSearchIndexRefreshAfterCommit(int $gameId): void
+    {
+        DB::afterCommit(static function () use ($gameId): void {
+            $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+            if ($game?->is_visible) {
+                $game->searchable();
+            }
+        });
     }
 }

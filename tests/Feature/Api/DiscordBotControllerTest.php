@@ -75,8 +75,8 @@ it('searches visible itch games for the Discord bot', function () {
         ->assertJsonPath('games.0.name', 'Moonlight Match')
         ->assertJsonPath('games.0.version', '2.0')
         ->assertJsonPath('games.0.primary_url', 'https://developer.itch.io/discord-bot-match')
-        ->assertJsonPath('games.0.url', config('app.url').'/games/'.$game->slug)
-        ->assertJsonPath('search_url', config('app.url').'/games/search?q=Moonlight');
+        ->assertJsonPath('games.0.url', config('app.url') . '/games/' . $game->slug)
+        ->assertJsonPath('search_url', config('app.url') . '/games/search?q=Moonlight');
 
     $this->postJson('/api/discord/search', [])
         ->assertUnprocessable()
@@ -186,7 +186,7 @@ it('finds games by URL, slug fallback, bulk URL lookup, and id', function () {
         ->assertJsonPath('game.itch_id', $game->itch_id)
         ->assertJsonPath('game.steam_app_id', 555);
 
-    $this->postJson('/api/bot/find-by-url', ['url' => 'https://someone.itch.io/'.$game->slug])
+    $this->postJson('/api/bot/find-by-url', ['url' => 'https://someone.itch.io/' . $game->slug])
         ->assertOk()
         ->assertJsonPath('found', true)
         ->assertJsonPath('game.id', $game->id);
@@ -225,14 +225,14 @@ it('finds games by URL, slug fallback, bulk URL lookup, and id', function () {
         ->and($bulkResponse->json('results')['https://someone.itch.io/hidden-slug-game']['found'])->toBeFalse()
         ->and($bulkResponse->json('results')['https://missing.itch.io/nope']['found'])->toBeFalse();
 
-    $this->getJson('/api/bot/games/'.$game->id)
+    $this->getJson('/api/bot/games/' . $game->id)
         ->assertOk()
         ->assertJsonPath('found', true)
         ->assertJsonPath('game.id', $game->id)
         ->assertJsonPath('game.latest_version.version', '3.0')
-        ->assertJsonPath('game.fvn_li_url', config('app.url').'/games/'.$game->slug);
+        ->assertJsonPath('game.fvn_li_url', config('app.url') . '/games/' . $game->slug);
 
-    $this->getJson('/api/bot/games/'.$hiddenByUrl->id)
+    $this->getJson('/api/bot/games/' . $hiddenByUrl->id)
         ->assertNotFound()
         ->assertJsonPath('found', false)
         ->assertJsonMissing(['description' => 'Hidden URL description']);

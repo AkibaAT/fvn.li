@@ -49,7 +49,7 @@ trait HasSocialMetaTags
 
         if (method_exists($this, 'getHeading')) {
             $totalRecords = $this->getAllTableRecordsCount();
-            $title = "{$totalRecords} ".Str::plural(rtrim(strtolower($this->getHeading()), 's'), $totalRecords);
+            $title = "{$totalRecords} " . Str::plural(rtrim(strtolower($this->getHeading()), 's'), $totalRecords);
         }
 
         // For list-like views with a games paginator/collection
@@ -71,7 +71,7 @@ trait HasSocialMetaTags
             }
 
             if (property_exists($this, 'selectedPlatforms') && ! empty($this->selectedPlatforms)) {
-                $platforms = array_map(fn ($p) => 'for '.ucfirst($p),
+                $platforms = array_map(fn ($p) => 'for ' . ucfirst($p),
                     $this->selectedPlatforms);
                 $filters[] = implode(' and ', $platforms);
             }
@@ -93,7 +93,7 @@ trait HasSocialMetaTags
             }
 
             if (! empty($filters)) {
-                $title .= ' that are '.implode(', ', $filters);
+                $title .= ' that are ' . implode(', ', $filters);
             }
         }
 
@@ -125,7 +125,7 @@ trait HasSocialMetaTags
 
             // Build engine filter
             if (property_exists($this, 'selectedEngines') && ! empty($this->selectedEngines)) {
-                $filters[] = 'created with '.implode(' and ', $this->selectedEngines);
+                $filters[] = 'created with ' . implode(' and ', $this->selectedEngines);
             }
 
             // Add NSFW/SFW status
@@ -138,14 +138,14 @@ trait HasSocialMetaTags
             // Add platform information
             if (property_exists($this, 'selectedPlatforms') && ! empty($this->selectedPlatforms)) {
                 $platforms = array_map('ucfirst', $this->selectedPlatforms);
-                $description .= ' '.implode('/', $platforms);
+                $description .= ' ' . implode('/', $platforms);
             }
 
             $description .= ' FVNs';
 
             // Add filters
             if (! empty($filters)) {
-                $description .= ' that are '.implode(' and ', $filters);
+                $description .= ' that are ' . implode(' and ', $filters);
             }
 
             // Add language information
@@ -177,7 +177,7 @@ trait HasSocialMetaTags
                     $this->getSortLabel($this->sortField) :
                     ucfirst(str_replace('_', ' ', $this->sortField));
 
-                $description .= ", sorted by {$sortLabel} ".
+                $description .= ", sorted by {$sortLabel} " .
                     ($this->sortDirection === 'asc' ? 'ascending' : 'descending');
             }
 

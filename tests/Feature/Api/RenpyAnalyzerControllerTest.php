@@ -25,7 +25,7 @@ it('requires the analyzer bearer token', function () {
 });
 
 it('runs the docker analyzer only for archives under the shared analyzer path', function () {
-    $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-'.uniqid());
+    $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-' . uniqid());
     File::makeDirectory($sharedPath, 0755, true);
     $archivePath = "{$sharedPath}/game.zip";
     File::put($archivePath, 'archive');
@@ -55,7 +55,7 @@ it('runs the docker analyzer only for archives under the shared analyzer path', 
             ->assertOk()
             ->assertJsonPath('stats.languages.eng.words', 2);
 
-        $outsidePath = storage_path('framework/testing/outside-'.uniqid().'.zip');
+        $outsidePath = storage_path('framework/testing/outside-' . uniqid() . '.zip');
         File::put($outsidePath, 'archive');
         $this->withToken('secret')
             ->postJson('/api/renpy-analyzer/analyze', [
@@ -70,8 +70,8 @@ it('runs the docker analyzer only for archives under the shared analyzer path', 
     }
 });
 
-it('returns the analyzer extraction diagnostic', function () {
-    $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-'.uniqid());
+it('does not expose the analyzer extraction diagnostic in api responses', function () {
+    $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-' . uniqid());
     File::makeDirectory($sharedPath, 0755, true);
     $archivePath = "{$sharedPath}/game.zip";
     File::put($archivePath, 'archive');
@@ -88,8 +88,7 @@ it('returns the analyzer extraction diagnostic', function () {
         ->with(realpath($archivePath))
         ->andReturn(null);
     $runner->shouldReceive('getLastError')
-        ->once()
-        ->andReturn('Analyzer container failed: Stats file not generated');
+        ->never();
     $this->app->instance(RenpyAnalyzerDockerRunner::class, $runner);
 
     try {
@@ -98,7 +97,7 @@ it('returns the analyzer extraction diagnostic', function () {
                 'archive_path' => $archivePath,
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Analyzer container failed: Stats file not generated');
+            ->assertJsonPath('message', 'No stats could be extracted');
     } finally {
         File::deleteDirectory($sharedPath);
     }

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class RenpyStatsSandboxClient
 {
@@ -30,7 +31,7 @@ class RenpyStatsSandboxClient
         }
 
         $requestDir = $this->createRequestDirectory();
-        $requestArchive = $requestDir.'/'.basename($archivePath);
+        $requestArchive = $requestDir . '/' . basename($archivePath);
 
         try {
             File::copy($archivePath, $requestArchive);
@@ -68,7 +69,7 @@ class RenpyStatsSandboxClient
             }
 
             return $stats;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->lastError = $e->getMessage();
             Log::warning('GameStats: sandbox analyzer request errored', [
                 'error' => $e->getMessage(),
@@ -95,7 +96,7 @@ class RenpyStatsSandboxClient
             return $output;
         }
 
-        return substr($output, 0, $limit)."\n[truncated]";
+        return substr($output, 0, $limit) . "\n[truncated]";
     }
 
     private function createRequestDirectory(): string
@@ -108,7 +109,7 @@ class RenpyStatsSandboxClient
         File::ensureDirectoryExists($basePath, 0700);
         $this->cleanupStaleDirectories($basePath, 'request-');
 
-        $requestDir = rtrim($basePath, '/').'/request-'.bin2hex(random_bytes(12));
+        $requestDir = rtrim($basePath, '/') . '/request-' . bin2hex(random_bytes(12));
         File::makeDirectory($requestDir, 0700, true);
 
         return $requestDir;

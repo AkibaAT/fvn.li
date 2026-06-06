@@ -390,13 +390,13 @@ it('thumbnail command reports empty selections', function () {
 });
 
 it('imports Discord JSON games by creating updating skipping and reporting invalid directories', function () {
-    $missingDir = sys_get_temp_dir().'/missing-discord-vns-'.uniqid();
+    $missingDir = sys_get_temp_dir() . '/missing-discord-vns-' . uniqid();
 
     $this->artisan('games:import-discord', ['--path' => $missingDir])
         ->expectsOutput("Directory not found: {$missingDir}")
         ->assertExitCode(1);
 
-    $importDir = sys_get_temp_dir().'/discord-vns-'.uniqid();
+    $importDir = sys_get_temp_dir() . '/discord-vns-' . uniqid();
     mkdir($importDir);
 
     $existing = Game::factory()->create([
@@ -407,7 +407,7 @@ it('imports Discord JSON games by creating updating skipping and reporting inval
         'status' => 'In development',
     ]);
 
-    file_put_contents($importDir.'/existing.json', json_encode([
+    file_put_contents($importDir . '/existing.json', json_encode([
         'Name' => 'Existing Discord Game',
         'Page_url' => 'https://creator.itch.io/existing',
         'Description' => 'Imported description',
@@ -416,7 +416,7 @@ it('imports Discord JSON games by creating updating skipping and reporting inval
         'Likes' => ['alice'],
         'Dislikes' => ['bob'],
     ]));
-    file_put_contents($importDir.'/new-steam.json', json_encode([
+    file_put_contents($importDir . '/new-steam.json', json_encode([
         'Name' => 'New Steam Game',
         'Page_url' => 'https://store.steampowered.com/app/123456/New_Steam_Game/',
         'Description' => 'Steam import',
@@ -424,8 +424,8 @@ it('imports Discord JSON games by creating updating skipping and reporting inval
         'Project_Status' => 'Released',
         'Thumbnail_url' => 'https://cdn.example/steam.jpg',
     ]));
-    file_put_contents($importDir.'/invalid.json', json_encode(['Name' => 'Broken']));
-    file_put_contents($importDir.'/notes.txt', 'ignored');
+    file_put_contents($importDir . '/invalid.json', json_encode(['Name' => 'Broken']));
+    file_put_contents($importDir . '/notes.txt', 'ignored');
 
     try {
         $this->artisan('games:import-discord', ['--path' => $importDir])
@@ -447,7 +447,7 @@ it('imports Discord JSON games by creating updating skipping and reporting inval
             ->and($created->content_type)->toBe('visual_novel')
             ->and($created->is_visible)->toBeFalse();
     } finally {
-        foreach (glob($importDir.'/*') ?: [] as $path) {
+        foreach (glob($importDir . '/*') ?: [] as $path) {
             @unlink($path);
         }
         @rmdir($importDir);
@@ -455,9 +455,9 @@ it('imports Discord JSON games by creating updating skipping and reporting inval
 });
 
 it('previews Discord JSON imports in dry run mode without writing games', function () {
-    $importDir = sys_get_temp_dir().'/discord-vns-dry-'.uniqid();
+    $importDir = sys_get_temp_dir() . '/discord-vns-dry-' . uniqid();
     mkdir($importDir);
-    file_put_contents($importDir.'/dry.json', json_encode([
+    file_put_contents($importDir . '/dry.json', json_encode([
         'Name' => 'Dry Run Game',
         'Page_url' => 'https://example.com/dry-run-game',
         'Description' => 'Dry run description',
@@ -479,7 +479,7 @@ it('previews Discord JSON imports in dry run mode without writing games', functi
 
         expect(Game::where('name', 'Dry Run Game')->exists())->toBeFalse();
     } finally {
-        @unlink($importDir.'/dry.json');
+        @unlink($importDir . '/dry.json');
         @rmdir($importDir);
     }
 });

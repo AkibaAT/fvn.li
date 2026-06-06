@@ -206,7 +206,7 @@ HELP;
     {
         $names = array_map(fn ($platform) => $this->platformNames[$platform], $missingPlatforms);
 
-        return '<fg=red>'.implode(', ', $names).'</fg=red>';
+        return '<fg=red>' . implode(', ', $names) . '</fg=red>';
     }
 
     private function displaySummary(): void

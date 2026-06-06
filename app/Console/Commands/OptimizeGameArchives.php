@@ -8,6 +8,7 @@ use App\Console\Traits\SelectsGames;
 use App\Models\Game;
 use App\Services\GameArchiveOptimizationService;
 use Illuminate\Console\Command;
+use Throwable;
 
 class OptimizeGameArchives extends Command
 {
@@ -77,7 +78,7 @@ class OptimizeGameArchives extends Command
                         $validate,
                         fn (string $message) => $this->line("  - {$message}")
                     );
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $failed++;
                     $this->error("Failed to optimize {$game->name} {$version->version}: {$e->getMessage()}");
 
@@ -108,7 +109,7 @@ class OptimizeGameArchives extends Command
                 }
 
                 $skipped++;
-                $message = "Skipped {$game->name} {$version->version}: ".($result['reason'] ?? 'Skipped');
+                $message = "Skipped {$game->name} {$version->version}: " . ($result['reason'] ?? 'Skipped');
                 if (isset($result['original_size'], $result['optimized_size'])) {
                     $message .= sprintf(
                         ' (%s -> %s, %s %s)',

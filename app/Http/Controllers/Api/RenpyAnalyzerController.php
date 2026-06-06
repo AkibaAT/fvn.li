@@ -34,7 +34,7 @@ class RenpyAnalyzerController extends Controller
         if (
             $archivePath === false
             || $allowedBasePath === false
-            || ! str_starts_with($archivePath, rtrim($allowedBasePath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)
+            || ! str_starts_with($archivePath, rtrim($allowedBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
             || ! File::isFile($archivePath)
         ) {
             return response()->json(['message' => 'Archive path is not allowed'], 422);
@@ -43,7 +43,7 @@ class RenpyAnalyzerController extends Controller
         $stats = $runner->analyze($archivePath);
         if ($stats === null) {
             return response()->json([
-                'message' => $runner->getLastError() ?: 'No stats could be extracted',
+                'message' => 'No stats could be extracted',
             ], 422);
         }
 
