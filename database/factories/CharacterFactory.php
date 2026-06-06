@@ -38,7 +38,7 @@ class CharacterFactory extends Factory
 
         return [
             'game_id' => Game::factory(),
-            'character_id' => fake()->randomElement($characterNames).'_'.fake()->unique()->numberBetween(1, 1000),
+            'character_id' => fake()->randomElement($characterNames) . '_' . fake()->unique()->numberBetween(1, 1000),
             'display_names' => fake()->randomElement($displayNames),
             'first_seen_in_version_id' => null,
             'last_seen_in_version_id' => null,

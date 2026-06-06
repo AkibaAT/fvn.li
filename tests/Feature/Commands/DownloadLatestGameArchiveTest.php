@@ -375,6 +375,7 @@ test('download latest game archive shows current game progress', function () {
         ->assertExitCode(0);
 });
 
+// phpcs:disable
 class RecordingGameArchiveService extends GameArchiveService
 {
     public function __construct(
@@ -409,3 +410,4 @@ class RecordingGameArchiveService extends GameArchiveService
         return "/tmp/{$filename}";
     }
 }
+// phpcs:enable

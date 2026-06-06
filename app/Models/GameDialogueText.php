@@ -6,8 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\LazyCollection;
 use Laravel\Scout\Searchable;
 use Meilisearch\Client;
 
@@ -55,7 +55,7 @@ class GameDialogueText extends Model
             ->distinct()
             ->pluck('gv.game_id');
 
-        echo 'Found '.$gameIds->count()." games with dialogue to index\n";
+        echo 'Found ' . $gameIds->count() . " games with dialogue to index\n";
 
         // Process each game's dialogue texts
         return $gameIds->map(function ($gameId) {
@@ -202,6 +202,88 @@ class GameDialogueText extends Model
         return $indexed;
     }
 
+    public static function deleteSearchDocumentsForGame(int $gameId): void
+    {
+        app(Client::class)
+            ->index('game_dialogue_texts')
+            ->deleteDocuments(['filter' => 'game_id = ' . $gameId]);
+    }
+
+    public static function deleteAllSearchDocuments(): void
+    {
+        app(Client::class)
+            ->index('game_dialogue_texts')
+            ->deleteAllDocuments();
+    }
+
+    protected static function fromIndexRow(object $row, ?array $characterNameMap = null): self
+    {
+        $characterIds = is_array($row->character_ids)
+            ? $row->character_ids
+            : static::parsePostgresArray($row->character_ids);
+
+        $characterNames = [];
+        if (! empty($characterIds)) {
+            if ($characterNameMap !== null) {
+                foreach ($characterIds as $characterId) {
+                    if (isset($characterNameMap[$characterId])) {
+                        $characterNames[] = $characterNameMap[$characterId];
+                    }
+                }
+            } else {
+                $characters = Character::whereIn('id', $characterIds)->get();
+                foreach ($characters as $character) {
+                    $displayNames = $character->display_names;
+                    if (is_array($displayNames) && ! empty($displayNames)) {
+                        $characterNames[] = reset($displayNames);
+                    } else {
+                        $characterNames[] = $character->character_id;
+                    }
+                }
+            }
+        }
+
+        $model = new static;
+        $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
+        $model->text_id = $row->text_id;
+        $model->game_id = $row->game_id;
+        $model->text_content = $row->text_content;
+        $model->language = $row->language;
+        $model->game_name = $row->game_name;
+        $model->current_version_id = (int) $row->current_version_id;
+        $model->current_version = $row->current_version;
+        $model->current_version_published_at = $row->current_version_published_at;
+        $model->version_ids = [(int) $row->current_version_id];
+        $model->character_ids = $characterIds;
+        $model->character_names = $characterNames;
+        $model->first_seen_version_id = (int) $row->first_seen_version_id;
+        $model->first_seen_version = $row->first_seen_version;
+        $model->first_seen_published_at = $row->first_seen_published_at;
+        $model->exists = true;
+
+        return $model;
+    }
+
+    /**
+     * Parse PostgreSQL array format to PHP array.
+     */
+    protected static function parsePostgresArray(?string $pgArray): array
+    {
+        if (empty($pgArray) || $pgArray === '{}') {
+            return [];
+        }
+
+        // Remove curly braces
+        $pgArray = trim($pgArray, '{}');
+
+        if (empty($pgArray)) {
+            return [];
+        }
+
+        // Split by comma and convert to integers
+        return array_map('intval', explode(',', $pgArray));
+    }
+
     private static function indexSearchDocumentBatch(Collection $batch, ?callable $afterBatch, int $indexedBeforeBatch): int
     {
         $count = $batch->count();
@@ -286,88 +368,6 @@ class GameDialogueText extends Model
                 return [$character->id => $name];
             })
             ->all();
-    }
-
-    public static function deleteSearchDocumentsForGame(int $gameId): void
-    {
-        app(Client::class)
-            ->index('game_dialogue_texts')
-            ->deleteDocuments(['filter' => 'game_id = '.$gameId]);
-    }
-
-    public static function deleteAllSearchDocuments(): void
-    {
-        app(Client::class)
-            ->index('game_dialogue_texts')
-            ->deleteAllDocuments();
-    }
-
-    protected static function fromIndexRow(object $row, ?array $characterNameMap = null): self
-    {
-        $characterIds = is_array($row->character_ids)
-            ? $row->character_ids
-            : static::parsePostgresArray($row->character_ids);
-
-        $characterNames = [];
-        if (! empty($characterIds)) {
-            if ($characterNameMap !== null) {
-                foreach ($characterIds as $characterId) {
-                    if (isset($characterNameMap[$characterId])) {
-                        $characterNames[] = $characterNameMap[$characterId];
-                    }
-                }
-            } else {
-                $characters = Character::whereIn('id', $characterIds)->get();
-                foreach ($characters as $character) {
-                    $displayNames = $character->display_names;
-                    if (is_array($displayNames) && ! empty($displayNames)) {
-                        $characterNames[] = reset($displayNames);
-                    } else {
-                        $characterNames[] = $character->character_id;
-                    }
-                }
-            }
-        }
-
-        $model = new static;
-        $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
-        $model->text_id = $row->text_id;
-        $model->game_id = $row->game_id;
-        $model->text_content = $row->text_content;
-        $model->language = $row->language;
-        $model->game_name = $row->game_name;
-        $model->current_version_id = (int) $row->current_version_id;
-        $model->current_version = $row->current_version;
-        $model->current_version_published_at = $row->current_version_published_at;
-        $model->version_ids = [(int) $row->current_version_id];
-        $model->character_ids = $characterIds;
-        $model->character_names = $characterNames;
-        $model->first_seen_version_id = (int) $row->first_seen_version_id;
-        $model->first_seen_version = $row->first_seen_version;
-        $model->first_seen_published_at = $row->first_seen_published_at;
-        $model->exists = true;
-
-        return $model;
-    }
-
-    /**
-     * Parse PostgreSQL array format to PHP array.
-     */
-    protected static function parsePostgresArray(?string $pgArray): array
-    {
-        if (empty($pgArray) || $pgArray === '{}') {
-            return [];
-        }
-
-        // Remove curly braces
-        $pgArray = trim($pgArray, '{}');
-
-        if (empty($pgArray)) {
-            return [];
-        }
-
-        // Split by comma and convert to integers
-        return array_map('intval', explode(',', $pgArray));
     }
 
     /**

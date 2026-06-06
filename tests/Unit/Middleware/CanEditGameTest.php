@@ -27,7 +27,7 @@ describe('can edit game middleware', function () {
         // Set the authenticated user
         Auth::setUser($admin);
 
-        $request = Request::create('/api/games/'.$game->slug, 'POST');
+        $request = Request::create('/api/games/' . $game->slug, 'POST');
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
@@ -60,7 +60,7 @@ describe('can edit game middleware', function () {
         // Set the authenticated user
         Auth::setUser($user);
 
-        $request = Request::create('/api/games/'.$game->slug, 'POST');
+        $request = Request::create('/api/games/' . $game->slug, 'POST');
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
@@ -92,7 +92,7 @@ describe('can edit game middleware', function () {
         // Set the authenticated user
         Auth::setUser($user);
 
-        $request = Request::create('/api/games/'.$game->slug, 'POST');
+        $request = Request::create('/api/games/' . $game->slug, 'POST');
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
@@ -116,7 +116,7 @@ describe('can edit game middleware', function () {
         // No authenticated user - don't set any user, Auth::user() will return null
         // (The test uses RefreshDatabase which resets auth state between tests)
 
-        $request = Request::create('/api/games/'.$game->slug, 'POST');
+        $request = Request::create('/api/games/' . $game->slug, 'POST');
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
@@ -177,7 +177,7 @@ describe('ownership verification', function () {
         // Set the authenticated user
         Auth::setUser($user);
 
-        $request = Request::create('/api/games/'.$game->slug, 'POST');
+        $request = Request::create('/api/games/' . $game->slug, 'POST');
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
@@ -200,7 +200,7 @@ describe('ownership verification', function () {
         // Set the authenticated user
         Auth::setUser($user);
 
-        $request = Request::create('/api/games/'.$game->slug, 'POST');
+        $request = Request::create('/api/games/' . $game->slug, 'POST');
 
         // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
@@ -231,7 +231,7 @@ describe('ownership verification', function () {
         Auth::setUser($user);
 
         // Test game1
-        $request1 = Request::create('/api/games/'.$game1->slug, 'POST');
+        $request1 = Request::create('/api/games/' . $game1->slug, 'POST');
         $request1->setRouteResolver(function () use ($game1) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -243,7 +243,7 @@ describe('ownership verification', function () {
         $response1 = $this->middleware->handle($request1, fn ($req) => response()->json(['success' => true]));
 
         // Test game2
-        $request2 = Request::create('/api/games/'.$game2->slug, 'POST');
+        $request2 = Request::create('/api/games/' . $game2->slug, 'POST');
         $request2->setRouteResolver(function () use ($game2) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));

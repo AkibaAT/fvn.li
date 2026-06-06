@@ -18,7 +18,7 @@ class RatingStatsCacheService
 
     public static function key(string $name): string
     {
-        return "{$name}:v".self::version();
+        return "{$name}:v" . self::version();
     }
 
     public static function clear(): void

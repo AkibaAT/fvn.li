@@ -38,23 +38,23 @@ class DialogueSearchService
             $filterParts[] = "language = '{$safeLanguage}'";
         }
         if (! empty($filters['game_id'])) {
-            $filterParts[] = 'game_id = '.(int) $filters['game_id'];
+            $filterParts[] = 'game_id = ' . (int) $filters['game_id'];
         }
         if (! empty($filters['version_id'])) {
             // Filter by version_ids array
-            $filterParts[] = 'version_ids = '.(int) $filters['version_id'];
+            $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
         }
         if (! empty($filters['character_id'])) {
             $characterDatabaseId = $this->resolveCharacterDatabaseId($filters);
             if ($characterDatabaseId !== null) {
                 // Filter by character_ids array
-                $filterParts[] = 'character_ids = '.$characterDatabaseId;
+                $filterParts[] = 'character_ids = ' . $characterDatabaseId;
             }
         }
 
         // If exact match is requested, wrap the search term in quotes for phrase matching
         // This ensures whole word matching rather than substring matching
-        $actualSearchTerm = $exactMatch ? '"'.addslashes($searchTerm).'"' : $searchTerm;
+        $actualSearchTerm = $exactMatch ? '"' . addslashes($searchTerm) . '"' : $searchTerm;
 
         // Execute search with highlighting
         $searchParams = [

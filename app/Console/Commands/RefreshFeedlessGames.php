@@ -103,7 +103,7 @@ class RefreshFeedlessGames extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error during refresh process: '.$e->getMessage());
+            $this->error('Error during refresh process: ' . $e->getMessage());
             Log::error('Feedless games refresh failed', ['exception' => $e]);
 
             return 1;

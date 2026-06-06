@@ -183,6 +183,7 @@ test('persist optimized versions can target specific version ids', function () {
     ]);
 });
 
+// phpcs:disable
 class RecordingButlerArchiveOptimizer extends GameArchiveOptimizationService
 {
     public function __construct(private object $recorder) {}
@@ -234,9 +235,10 @@ class RecordingDenKitStashPersistenceService extends DenKitStashPersistenceServi
 
         return [
             'status' => 'persisted',
-            'target' => 'fvn-li/'.$game->slug.':'.$channel,
+            'target' => 'fvn-li/' . $game->slug . ':' . $channel,
             'channel' => $channel,
             'build_id' => 99 + count($this->recorder->calls),
         ];
     }
 }
+// phpcs:enable

@@ -182,10 +182,10 @@ test('optimize game archives reuses previous optimized media when source invento
     createAudioArchive($game->id, $newer->id, 'newer-audio.zip', str_repeat('same source audio', 20));
 
     $oldPath = getenv('PATH') ?: '';
-    $binDir = sys_get_temp_dir().'/fake-ffmpeg-'.bin2hex(random_bytes(4));
-    $callLog = $binDir.'/ffmpeg.log';
+    $binDir = sys_get_temp_dir() . '/fake-ffmpeg-' . bin2hex(random_bytes(4));
+    $callLog = $binDir . '/ffmpeg.log';
     mkdir($binDir);
-    $fakeFfmpeg = $binDir.'/ffmpeg';
+    $fakeFfmpeg = $binDir . '/ffmpeg';
     file_put_contents($fakeFfmpeg, <<<'SH'
 #!/bin/sh
 target=""
@@ -196,10 +196,10 @@ printf '%s\n' "$target" >> "$FFMPEG_CALL_LOG"
 printf 'optimized:%s\n' "$FFMPEG_MARKER" > "$target"
 SH);
     chmod($fakeFfmpeg, 0755);
-    putenv('PATH='.$binDir.PATH_SEPARATOR.$oldPath);
-    putenv('FFMPEG_CALL_LOG='.$callLog);
-    $_SERVER['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
-    $_ENV['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+    putenv('PATH=' . $binDir . PATH_SEPARATOR . $oldPath);
+    putenv('FFMPEG_CALL_LOG=' . $callLog);
+    $_SERVER['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
+    $_ENV['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
     $_SERVER['FFMPEG_CALL_LOG'] = $callLog;
     $_ENV['FFMPEG_CALL_LOG'] = $callLog;
 
@@ -226,7 +226,7 @@ SH);
             ->and($newerResult['audio_reused'])->toBe(1)
             ->and(trim(File::get($callLog)))->toBe('');
     } finally {
-        putenv('PATH='.$oldPath);
+        putenv('PATH=' . $oldPath);
         putenv('FFMPEG_CALL_LOG');
         putenv('FFMPEG_MARKER');
         $_SERVER['PATH'] = $oldPath;
@@ -278,9 +278,9 @@ test('previous optimized archive metadata cannot reuse paths outside extracted a
     createAudioArchive($game->id, $newer->id, 'newer-audio.zip', $audioContents);
 
     $oldPath = getenv('PATH') ?: '';
-    $binDir = sys_get_temp_dir().'/fake-ffmpeg-'.bin2hex(random_bytes(4));
+    $binDir = sys_get_temp_dir() . '/fake-ffmpeg-' . bin2hex(random_bytes(4));
     mkdir($binDir);
-    $fakeFfmpeg = $binDir.'/ffmpeg';
+    $fakeFfmpeg = $binDir . '/ffmpeg';
     file_put_contents($fakeFfmpeg, <<<'SH'
 #!/bin/sh
 target=""
@@ -290,15 +290,15 @@ done
 printf 'optimized:newer\n' > "$target"
 SH);
     chmod($fakeFfmpeg, 0755);
-    putenv('PATH='.$binDir.PATH_SEPARATOR.$oldPath);
-    $_SERVER['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
-    $_ENV['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+    putenv('PATH=' . $binDir . PATH_SEPARATOR . $oldPath);
+    $_SERVER['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
+    $_ENV['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
 
     try {
         $result = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
             ->optimizeStoredArchive($game->id, $newer->id, dryRun: false, force: true);
     } finally {
-        putenv('PATH='.$oldPath);
+        putenv('PATH=' . $oldPath);
         $_SERVER['PATH'] = $oldPath;
         $_ENV['PATH'] = $oldPath;
         @unlink($fakeFfmpeg);
@@ -322,15 +322,15 @@ SH);
 });
 
 test('tar archive repacking treats option-like top level entries as filenames', function () {
-    $sourceDir = sys_get_temp_dir().'/archive_tar_option_source_'.bin2hex(random_bytes(4));
-    $targetPath = sys_get_temp_dir().'/archive_tar_option_target_'.bin2hex(random_bytes(4)).'.tar';
-    $sentinelName = 'PWNED_BY_TAR_OPTION_TEST_'.bin2hex(random_bytes(4));
+    $sourceDir = sys_get_temp_dir() . '/archive_tar_option_source_' . bin2hex(random_bytes(4));
+    $targetPath = sys_get_temp_dir() . '/archive_tar_option_target_' . bin2hex(random_bytes(4)) . '.tar';
+    $sentinelName = 'PWNED_BY_TAR_OPTION_TEST_' . bin2hex(random_bytes(4));
     $sentinelPath = base_path($sentinelName);
 
-    File::makeDirectory($sourceDir.'/GoodGame/game', 0755, true);
-    File::put($sourceDir.'/GoodGame/game/script.rpy', "label start:\n    return\n");
-    File::put($sourceDir.'/--checkpoint=1', '');
-    File::put($sourceDir.'/--checkpoint-action=exec=touch '.$sentinelName, '');
+    File::makeDirectory($sourceDir . '/GoodGame/game', 0755, true);
+    File::put($sourceDir . '/GoodGame/game/script.rpy', "label start:\n    return\n");
+    File::put($sourceDir . '/--checkpoint=1', '');
+    File::put($sourceDir . '/--checkpoint-action=exec=touch ' . $sentinelName, '');
 
     try {
         $service = new GameArchiveOptimizationService(passingArchiveOptimizationStatsService());
@@ -343,7 +343,7 @@ test('tar archive repacking treats option-like top level entries as filenames', 
         $list->mustRun();
 
         expect($list->getOutput())->toContain('--checkpoint=1')
-            ->toContain('--checkpoint-action=exec=touch '.$sentinelName)
+            ->toContain('--checkpoint-action=exec=touch ' . $sentinelName)
             ->toContain('GoodGame/game/script.rpy');
     } finally {
         File::deleteDirectory($sourceDir);
@@ -366,7 +366,7 @@ test('optimize game archives skips archives with symlinked game directories', fu
     try {
         $result = (new GameArchiveOptimizationService(passingArchiveOptimizationStatsService()))
             ->optimizeStoredArchive($game->id, $version->id, dryRun: false, force: true);
-        $outsideScriptExistsAfter = File::exists($outsideDir.'/script.rpy');
+        $outsideScriptExistsAfter = File::exists($outsideDir . '/script.rpy');
     } finally {
         File::deleteDirectory($outsideDir);
     }
@@ -412,10 +412,10 @@ test('optimize game archives skips rpyc files that fail to decompile', function 
     createArchiveWithMissingRpySources($game->id, $version->id, 'partial-rpyc.zip');
 
     $oldPath = getenv('PATH') ?: '';
-    $binDir = sys_get_temp_dir().'/fake-rpycdec-'.bin2hex(random_bytes(4));
+    $binDir = sys_get_temp_dir() . '/fake-rpycdec-' . bin2hex(random_bytes(4));
     mkdir($binDir);
-    $fakeRpycdec = $binDir.'/rpycdec';
-    $fakeUnrpyc = $binDir.'/unrpyc';
+    $fakeRpycdec = $binDir . '/rpycdec';
+    $fakeUnrpyc = $binDir . '/unrpyc';
     $fakeDecompiler = <<<'SH'
 #!/bin/sh
 for arg do
@@ -433,9 +433,9 @@ SH;
     file_put_contents($fakeUnrpyc, $fakeDecompiler);
     chmod($fakeRpycdec, 0755);
     chmod($fakeUnrpyc, 0755);
-    putenv('PATH='.$binDir.PATH_SEPARATOR.$oldPath);
-    $_SERVER['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
-    $_ENV['PATH'] = $binDir.PATH_SEPARATOR.$oldPath;
+    putenv('PATH=' . $binDir . PATH_SEPARATOR . $oldPath);
+    $_SERVER['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
+    $_ENV['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
 
     try {
         $progress = [];
@@ -454,7 +454,7 @@ SH;
             ->and($result['rpyc_decompile_failed'])->toBe(1)
             ->and($progress)->toContain('Skipped decompiling bad.rpyc: fake decompile failure');
     } finally {
-        putenv('PATH='.$oldPath);
+        putenv('PATH=' . $oldPath);
         $_SERVER['PATH'] = $oldPath;
         $_ENV['PATH'] = $oldPath;
         @unlink($fakeRpycdec);
@@ -542,9 +542,9 @@ function createOptimizableArchive(int $gameId, int $versionId, string $filename,
     expect($zip->open(Storage::path("{$storagePath}/{$filename}"), ZipArchive::CREATE | ZipArchive::OVERWRITE))->toBeTrue();
 
     try {
-        $prefix = $rootFolder === null ? '' : trim($rootFolder, '/').'/';
-        $zip->addFromString($prefix.'game/script.rpy', "image bg = \"images/bg.png\"\nlabel start:\n    scene bg\n");
-        $zip->addFile($imagePath, $prefix.'game/images/bg.png');
+        $prefix = $rootFolder === null ? '' : trim($rootFolder, '/') . '/';
+        $zip->addFromString($prefix . 'game/script.rpy', "image bg = \"images/bg.png\"\nlabel start:\n    scene bg\n");
+        $zip->addFile($imagePath, $prefix . 'game/images/bg.png');
     } finally {
         $zip->close();
         unlink($imagePath);
@@ -556,9 +556,9 @@ function createOptimizableTarArchive(int $gameId, int $versionId, string $filena
     $storagePath = "games/{$gameId}/{$versionId}";
     Storage::makeDirectory($storagePath);
 
-    $sourceDir = sys_get_temp_dir().'/archive_tar_source_'.bin2hex(random_bytes(4));
-    $gameDir = $sourceDir.'/'.$rootFolder.'/game';
-    mkdir($gameDir.'/images', 0755, true);
+    $sourceDir = sys_get_temp_dir() . '/archive_tar_source_' . bin2hex(random_bytes(4));
+    $gameDir = $sourceDir . '/' . $rootFolder . '/game';
+    mkdir($gameDir . '/images', 0755, true);
 
     $imagePath = tempnam(sys_get_temp_dir(), 'archive_image_');
     $image = imagecreatetruecolor(512, 512);
@@ -571,8 +571,8 @@ function createOptimizableTarArchive(int $gameId, int $versionId, string $filena
     imagepng($image, $imagePath);
     imagedestroy($image);
 
-    copy($imagePath, $gameDir.'/images/bg.png');
-    file_put_contents($gameDir.'/script.rpy', "image bg = \"images/bg.png\"\nlabel start:\n    scene bg\n");
+    copy($imagePath, $gameDir . '/images/bg.png');
+    file_put_contents($gameDir . '/script.rpy', "image bg = \"images/bg.png\"\nlabel start:\n    scene bg\n");
 
     try {
         $process = new Process([
@@ -595,13 +595,13 @@ function createSymlinkedGameDirectoryArchive(int $gameId, int $versionId, string
     $storagePath = "games/{$gameId}/{$versionId}";
     Storage::makeDirectory($storagePath);
 
-    $sourceDir = sys_get_temp_dir().'/archive_symlink_source_'.bin2hex(random_bytes(4));
-    $outsideDir = sys_get_temp_dir().'/archive_symlink_outside_'.bin2hex(random_bytes(4));
+    $sourceDir = sys_get_temp_dir() . '/archive_symlink_source_' . bin2hex(random_bytes(4));
+    $outsideDir = sys_get_temp_dir() . '/archive_symlink_outside_' . bin2hex(random_bytes(4));
     File::makeDirectory($sourceDir, 0755, true);
     File::makeDirectory($outsideDir, 0755, true);
-    File::put($outsideDir.'/script.rpy', "label start:\n    return\n");
+    File::put($outsideDir . '/script.rpy', "label start:\n    return\n");
 
-    symlink($outsideDir, $sourceDir.'/game');
+    symlink($outsideDir, $sourceDir . '/game');
 
     try {
         (new Process([
@@ -627,15 +627,15 @@ function createSymlinkedMediaOutputArchive(int $gameId, int $versionId, string $
     $storagePath = "games/{$gameId}/{$versionId}";
     Storage::makeDirectory($storagePath);
 
-    $sourceDir = sys_get_temp_dir().'/archive_symlink_output_source_'.bin2hex(random_bytes(4));
-    $victimPath = sys_get_temp_dir().'/archive_symlink_output_victim_'.bin2hex(random_bytes(4)).'.txt';
+    $sourceDir = sys_get_temp_dir() . '/archive_symlink_output_source_' . bin2hex(random_bytes(4));
+    $victimPath = sys_get_temp_dir() . '/archive_symlink_output_victim_' . bin2hex(random_bytes(4)) . '.txt';
     $originalContents = "do not overwrite\n";
-    File::makeDirectory($sourceDir.'/game/images', 0755, true);
-    File::put($sourceDir.'/game/script.rpy', "image bg = \"images/payload.png\"\nlabel start:\n    scene bg\n");
-    File::put($sourceDir.'/game/images/payload.png', 'fake png contents');
+    File::makeDirectory($sourceDir . '/game/images', 0755, true);
+    File::put($sourceDir . '/game/script.rpy', "image bg = \"images/payload.png\"\nlabel start:\n    scene bg\n");
+    File::put($sourceDir . '/game/images/payload.png', 'fake png contents');
     File::put($victimPath, $originalContents);
 
-    symlink($victimPath, $sourceDir.'/game/images/payload.webp');
+    symlink($victimPath, $sourceDir . '/game/images/payload.webp');
 
     try {
         (new Process([

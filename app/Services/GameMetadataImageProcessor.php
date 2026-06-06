@@ -60,6 +60,22 @@ class GameMetadataImageProcessor
             || $this->screenshotsMissingOptimizedVariants($screenshots);
     }
 
+    public function extractScreenshotUrls(?array $screenshots): array
+    {
+        if (empty($screenshots)) {
+            return [];
+        }
+
+        $urls = [];
+        foreach ($screenshots as $screenshot) {
+            if (isset($screenshot['url'])) {
+                $urls[] = $screenshot['url'];
+            }
+        }
+
+        return $urls;
+    }
+
     private function processThumbnail(Game $game, ImageProcessingService $imageService, string $logPrefix): void
     {
         try {
@@ -128,21 +144,5 @@ class GameMetadataImageProcessor
         }
 
         return false;
-    }
-
-    public function extractScreenshotUrls(?array $screenshots): array
-    {
-        if (empty($screenshots)) {
-            return [];
-        }
-
-        $urls = [];
-        foreach ($screenshots as $screenshot) {
-            if (isset($screenshot['url'])) {
-                $urls[] = $screenshot['url'];
-            }
-        }
-
-        return $urls;
     }
 }

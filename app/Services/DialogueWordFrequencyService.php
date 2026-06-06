@@ -165,14 +165,14 @@ class DialogueWordFrequencyService
         }
 
         for ($i = 0; $i < count($words) - 1; $i++) {
-            $phrase = $words[$i].' '.$words[$i + 1];
+            $phrase = $words[$i] . ' ' . $words[$i + 1];
             if (! (in_array($words[$i], self::STOP_WORDS, true) && in_array($words[$i + 1], self::STOP_WORDS, true))) {
                 $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
             }
         }
 
         for ($i = 0; $i < count($words) - 2; $i++) {
-            $phrase = $words[$i].' '.$words[$i + 1].' '.$words[$i + 2];
+            $phrase = $words[$i] . ' ' . $words[$i + 1] . ' ' . $words[$i + 2];
             $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
         }
     }

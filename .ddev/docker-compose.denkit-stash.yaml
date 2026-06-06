@@ -6,6 +6,14 @@ services:
       DENKIT_STASH_USERNAME: fvn-li
       DENKIT_STASH_API_KEY: fvn-li-local-denkit-api-key
       BUTLER_CLIENT_PATH: /opt/butler
+      ARCHIVE_OPTIMIZER_IMAGE: ddev/ddev-webserver:${DDEV_VERSION}-${DDEV_SITENAME}-built
+      ARCHIVE_OPTIMIZER_PHP_BINARY: php8.5
+      ARCHIVE_OPTIMIZER_APP_PATH: /var/www/html
+      ARCHIVE_OPTIMIZER_HOST_WORK_DIR: ${DDEV_APPROOT}/.ddev/.archive-optimizer
+      ARCHIVE_OPTIMIZER_CONTAINER_WORK_DIR: /optimizer-work
+    volumes:
+      - ${DDEV_APPROOT}/.ddev/.archive-optimizer:/optimizer-work
+      - /var/run/docker.sock:/var/run/docker.sock
 
   denkit-stash:
     container_name: ddev-${DDEV_SITENAME}-denkit-stash

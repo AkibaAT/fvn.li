@@ -134,7 +134,7 @@ class AnonymizeClickStatIPs extends Command
                     } catch (Exception $e) {
                         $errors++;
                         $this->line(''); // New line to not interfere with progress bar
-                        $this->error("Error processing record {$record->id}: ".$e->getMessage());
+                        $this->error("Error processing record {$record->id}: " . $e->getMessage());
                     }
                 }
             });

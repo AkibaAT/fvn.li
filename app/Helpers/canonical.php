@@ -16,9 +16,9 @@ if (! function_exists('canonical')) {
         }
 
         if (count($build)) {
-            $query = '?'.http_build_query($build);
+            $query = '?' . http_build_query($build);
         }
 
-        return Config::get('app.url').Request::getPathInfo().$query;
+        return Config::get('app.url') . Request::getPathInfo() . $query;
     }
 }

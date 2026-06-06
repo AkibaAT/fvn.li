@@ -47,47 +47,6 @@ class RenpySaveParser
         return $data;
     }
 
-    private function decodeCompressedSave(string $data, string $decoder): string
-    {
-        $decoded = @$decoder($data, self::MAX_DECOMPRESSED_BYTES);
-
-        if ($decoded === false) {
-            throw new LengthException('Compressed Ren\'Py save files must be valid and no larger than 8 MiB after decompression.');
-        }
-
-        $this->ensurePayloadSizeIsAllowed($decoded);
-
-        return $decoded;
-    }
-
-    private function ensurePayloadSizeIsAllowed(string $data): void
-    {
-        if (strlen($data) > self::MAX_DECOMPRESSED_BYTES) {
-            throw new LengthException('Ren\'Py save files must be no larger than 8 MiB after decompression.');
-        }
-    }
-
-    private function isGzip(string $data): bool
-    {
-        return strlen($data) >= 2
-            && ord($data[0]) === 0x1F
-            && ord($data[1]) === 0x8B;
-    }
-
-    private function isZlib(string $data): bool
-    {
-        if (strlen($data) < 2) {
-            return false;
-        }
-
-        $compressionMethodAndFlags = ord($data[0]);
-        $flags = ord($data[1]);
-
-        return ($compressionMethodAndFlags & 0x0F) === 8
-            && ($compressionMethodAndFlags >> 4) <= 7
-            && (($compressionMethodAndFlags << 8) + $flags) % 31 === 0;
-    }
-
     public function extractPickleStrings(string $data): array
     {
         $strings = [];
@@ -171,5 +130,46 @@ class RenpySaveParser
         }
 
         return $strings;
+    }
+
+    private function decodeCompressedSave(string $data, string $decoder): string
+    {
+        $decoded = @$decoder($data, self::MAX_DECOMPRESSED_BYTES);
+
+        if ($decoded === false) {
+            throw new LengthException('Compressed Ren\'Py save files must be valid and no larger than 8 MiB after decompression.');
+        }
+
+        $this->ensurePayloadSizeIsAllowed($decoded);
+
+        return $decoded;
+    }
+
+    private function ensurePayloadSizeIsAllowed(string $data): void
+    {
+        if (strlen($data) > self::MAX_DECOMPRESSED_BYTES) {
+            throw new LengthException('Ren\'Py save files must be no larger than 8 MiB after decompression.');
+        }
+    }
+
+    private function isGzip(string $data): bool
+    {
+        return strlen($data) >= 2
+            && ord($data[0]) === 0x1F
+            && ord($data[1]) === 0x8B;
+    }
+
+    private function isZlib(string $data): bool
+    {
+        if (strlen($data) < 2) {
+            return false;
+        }
+
+        $compressionMethodAndFlags = ord($data[0]);
+        $flags = ord($data[1]);
+
+        return ($compressionMethodAndFlags & 0x0F) === 8
+            && ($compressionMethodAndFlags >> 4) <= 7
+            && (($compressionMethodAndFlags << 8) + $flags) % 31 === 0;
     }
 }

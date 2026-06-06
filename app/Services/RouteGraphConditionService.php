@@ -40,7 +40,7 @@ class RouteGraphConditionService
             return null;
         }
 
-        return 'not (('.$condition.'))';
+        return 'not ((' . $condition . '))';
     }
 
     public function conditionsCanOverlap(?string $choiceCondition, ?string $edgeCondition): bool
@@ -197,7 +197,7 @@ class RouteGraphConditionService
 
         $combined = $conditions->shift();
         foreach ($conditions as $condition) {
-            $combined = '('.$combined.') and ('.$condition.')';
+            $combined = '(' . $combined . ') and (' . $condition . ')';
         }
 
         return $combined;
@@ -205,7 +205,7 @@ class RouteGraphConditionService
 
     public function conditionScopeNodeId(string $source, ?string $prefixCondition): string
     {
-        return 'condition_scope:'.md5($source."\0".$this->normalizedConditionForComparison($prefixCondition));
+        return 'condition_scope:' . md5($source . "\0" . $this->normalizedConditionForComparison($prefixCondition));
     }
 
     public function conditionScopeLabel(?string $condition): string
@@ -219,7 +219,7 @@ class RouteGraphConditionService
             return 'else';
         }
 
-        return 'if '.$condition;
+        return 'if ' . $condition;
     }
 
     public function isUnconditional(?string $condition): bool
@@ -237,8 +237,8 @@ class RouteGraphConditionService
         }
 
         $patterns = [
-            'not('.$negatedTerm.')',
-            'not(('.$negatedTerm.'))',
+            'not(' . $negatedTerm . ')',
+            'not((' . $negatedTerm . '))',
         ];
 
         foreach ($patterns as $pattern) {

@@ -59,5 +59,4 @@ class Rating extends Model
     {
         return $this->user_id !== null;
     }
-
 }

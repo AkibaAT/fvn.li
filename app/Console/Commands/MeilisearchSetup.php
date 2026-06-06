@@ -100,6 +100,61 @@ class MeilisearchSetup extends Command
     }
 
     /**
+     * Verify that the setup actually worked by testing a search.
+     */
+    protected function verifySetup(): bool
+    {
+        try {
+            $this->info('🔍 Verifying setup...');
+
+            $gameCount = $this->visibleGameCount();
+            if ($gameCount === 0) {
+                $this->info('    ✅ Search verification successful');
+
+                return true;
+            }
+
+            // Meilisearch document updates are asynchronous. Give submitted Scout
+            // tasks a short window to become searchable before failing setup.
+            for ($attempt = 1; $attempt <= self::SEARCH_VERIFICATION_ATTEMPTS; $attempt++) {
+                if ($this->hasSearchableGameResult()) {
+                    $this->info('    ✅ Search verification successful');
+
+                    return true;
+                }
+
+                if ($attempt < self::SEARCH_VERIFICATION_ATTEMPTS) {
+                    $this->line('    Waiting for indexed games to become searchable...');
+                    $this->sleepBeforeSearchRetry();
+                }
+            }
+
+            $this->warn("    ⚠️  Search returned no results but database has {$gameCount} visible game(s). Index may still be processing.");
+
+            return false;
+        } catch (Exception $e) {
+            $this->error("    ❌ Verification failed: {$e->getMessage()}");
+
+            return false;
+        }
+    }
+
+    protected function visibleGameCount(): int
+    {
+        return Game::where('is_visible', true)->count();
+    }
+
+    protected function hasSearchableGameResult(): bool
+    {
+        return ! Game::search('*')->take(1)->get()->isEmpty();
+    }
+
+    protected function sleepBeforeSearchRetry(): void
+    {
+        usleep(self::SEARCH_VERIFICATION_RETRY_DELAY_MICROSECONDS);
+    }
+
+    /**
      * Check if Meilisearch is accessible.
      */
     private function checkMeilisearchConnection(): bool
@@ -157,7 +212,7 @@ class MeilisearchSetup extends Command
 
             return true;
         } catch (Exception $e) {
-            $this->error('    ❌ Error setting up indexes: '.$e->getMessage());
+            $this->error('    ❌ Error setting up indexes: ' . $e->getMessage());
 
             return false;
         }
@@ -243,7 +298,7 @@ class MeilisearchSetup extends Command
                     $this->line("      • {$error}");
                 }
                 if (count($errors) > 5) {
-                    $this->line('      • ... and '.(count($errors) - 5).' more');
+                    $this->line('      • ... and ' . (count($errors) - 5) . ' more');
                 }
             }
 
@@ -290,60 +345,5 @@ class MeilisearchSetup extends Command
 
             return false;
         }
-    }
-
-    /**
-     * Verify that the setup actually worked by testing a search.
-     */
-    protected function verifySetup(): bool
-    {
-        try {
-            $this->info('🔍 Verifying setup...');
-
-            $gameCount = $this->visibleGameCount();
-            if ($gameCount === 0) {
-                $this->info('    ✅ Search verification successful');
-
-                return true;
-            }
-
-            // Meilisearch document updates are asynchronous. Give submitted Scout
-            // tasks a short window to become searchable before failing setup.
-            for ($attempt = 1; $attempt <= self::SEARCH_VERIFICATION_ATTEMPTS; $attempt++) {
-                if ($this->hasSearchableGameResult()) {
-                    $this->info('    ✅ Search verification successful');
-
-                    return true;
-                }
-
-                if ($attempt < self::SEARCH_VERIFICATION_ATTEMPTS) {
-                    $this->line('    Waiting for indexed games to become searchable...');
-                    $this->sleepBeforeSearchRetry();
-                }
-            }
-
-            $this->warn("    ⚠️  Search returned no results but database has {$gameCount} visible game(s). Index may still be processing.");
-
-            return false;
-        } catch (Exception $e) {
-            $this->error("    ❌ Verification failed: {$e->getMessage()}");
-
-            return false;
-        }
-    }
-
-    protected function visibleGameCount(): int
-    {
-        return Game::where('is_visible', true)->count();
-    }
-
-    protected function hasSearchableGameResult(): bool
-    {
-        return ! Game::search('*')->take(1)->get()->isEmpty();
-    }
-
-    protected function sleepBeforeSearchRetry(): void
-    {
-        usleep(self::SEARCH_VERIFICATION_RETRY_DELAY_MICROSECONDS);
     }
 }

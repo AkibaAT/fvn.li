@@ -15,7 +15,7 @@ if (! is_string($outputPath) || $outputPath === '') {
     exit(2);
 }
 
-if (! is_string($sdkPath) || ! is_file($sdkPath.'/renpy.sh')) {
+if (! is_string($sdkPath) || ! is_file($sdkPath . '/renpy.sh')) {
     fwrite(STDERR, "Ren'Py SDK is missing\n");
     exit(2);
 }
@@ -30,7 +30,7 @@ if (! is_file($jsonStatsPath)) {
 }
 
 $workPath = rtrim(getenv('RENPY_ANALYZER_WORK_DIR') ?: '/work', '/');
-$extractPath = $workPath.'/extract';
+$extractPath = $workPath . '/extract';
 mkdir($extractPath, 0777, true);
 
 try {
@@ -43,56 +43,29 @@ try {
         exit(3);
     }
 
-    if (! copy($jsonStatsPath, $gameDir.'/game/json_stats.rpy')) {
+    if (! copy($jsonStatsPath, $gameDir . '/game/json_stats.rpy')) {
         throw new RuntimeException('Failed to copy json_stats.rpy');
     }
 
-    $renpyHome = $workPath.'/home';
-    $renpyTokens = $renpyHome.'/.renpy/tokens';
+    $renpyHome = $workPath . '/home';
+    $renpyTokens = $renpyHome . '/.renpy/tokens';
     if (! is_dir($renpyTokens)) {
         mkdir($renpyTokens, 0777, true);
     }
 
     $diagnostics = [];
-    $statsPath = $gameDir.'/stats.json';
+    $statsPath = $gameDir . '/stats.json';
 
-    $result = runProcess([$sdkPath.'/renpy.sh', 'game', 'test'], $gameDir, 300, [
+    $result = runProcess([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir, 300, [
         'HOME' => $renpyHome,
-        'RENPY_PATH_TO_SAVES' => $renpyHome.'/.renpy',
+        'RENPY_PATH_TO_SAVES' => $renpyHome . '/.renpy',
     ]);
     if ($result['exit_code'] !== 0) {
-        $diagnostics[] = "SDK analysis failed:\n".$result['stderr'].$result['stdout'];
+        $diagnostics[] = "SDK analysis failed:\n" . $result['stderr'] . $result['stdout'];
     }
 
     if (copyValidStats($statsPath, $outputPath)) {
         exit(0);
-    }
-
-    $linuxExecutable = findLinuxExecutable($gameDir);
-    if ($linuxExecutable !== null) {
-        $nativeTest = runNativeStatsCommand($gameDir, $linuxExecutable, nativeCommand($linuxExecutable, ['game', 'test']), 'native test', [
-            'HOME' => $renpyHome,
-            'RENPY_PATH_TO_SAVES' => $renpyHome.'/.renpy',
-        ]);
-        if (copyValidStats($statsPath, $outputPath)) {
-            exit(0);
-        }
-        if ($nativeTest !== '') {
-            $diagnostics[] = $nativeTest;
-        }
-
-        if (! hasTranslationTree($gameDir)) {
-            $nativeLauncher = runNativeStatsCommand($gameDir, $linuxExecutable, nativeCommand($linuxExecutable), 'native launcher', [
-                'HOME' => $renpyHome,
-                'RENPY_PATH_TO_SAVES' => $renpyHome.'/.renpy',
-            ]);
-            if (copyValidStats($statsPath, $outputPath)) {
-                exit(0);
-            }
-            if ($nativeLauncher !== '') {
-                $diagnostics[] = $nativeLauncher;
-            }
-        }
     }
 
     foreach ($diagnostics as $diagnostic) {
@@ -107,13 +80,13 @@ try {
     $statsContent = (string) file_get_contents($statsPath);
     $stats = json_decode($statsContent, true);
     if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
-        fwrite(STDERR, "Invalid stats file format: ".invalidStatsDiagnostic($statsContent, $stats)."\n");
+        fwrite(STDERR, 'Invalid stats file format: ' . invalidStatsDiagnostic($statsContent, $stats) . "\n");
         exit(5);
     }
 
     copy($statsPath, $outputPath);
 } catch (Throwable $e) {
-    fwrite(STDERR, $e->getMessage()."\n");
+    fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
 
@@ -123,7 +96,7 @@ function writeDiagnosticOutput(string $output): void
     $limit = 4096;
 
     if (strlen($output) > $limit) {
-        $output = substr($output, 0, $limit)."\n[truncated]\n";
+        $output = substr($output, 0, $limit) . "\n[truncated]\n";
     }
 
     fwrite(STDERR, $output);
@@ -132,10 +105,10 @@ function writeDiagnosticOutput(string $output): void
 function invalidStatsDiagnostic(string $statsContent, mixed $decoded): string
 {
     if (! is_array($decoded)) {
-        return 'JSON decode failed or root value was not an object; preview='.substr(str_replace("\0", '', $statsContent), 0, 500);
+        return 'JSON decode failed or root value was not an object; preview=' . substr(str_replace("\0", '', $statsContent), 0, 500);
     }
 
-    return 'top-level keys='.implode(',', array_slice(array_map('strval', array_keys($decoded)), 0, 20));
+    return 'top-level keys=' . implode(',', array_slice(array_map('strval', array_keys($decoded)), 0, 20));
 }
 
 function copyValidStats(string $statsPath, string $outputPath): bool
@@ -153,125 +126,6 @@ function copyValidStats(string $statsPath, string $outputPath): bool
     copy($statsPath, $outputPath);
 
     return true;
-}
-
-function runNativeStatsCommand(string $gameDir, string $executablePath, array $command, string $mode, array $env): string
-{
-    $statsPath = $gameDir.'/stats.json';
-    if (is_file($statsPath)) {
-        unlink($statsPath);
-    }
-
-    $result = runProcess($command, dirname($executablePath), 300, $env);
-    if (is_file($statsPath)) {
-        return '';
-    }
-
-    $status = $result['exit_code'] === 0
-        ? 'produced no stats'
-        : 'failed';
-
-    return "{$mode} {$status}:\n".$result['stderr'].$result['stdout'];
-}
-
-/**
- * @return array<int, string>
- */
-function nativeCommand(string $executablePath, array $arguments = []): array
-{
-    if (preg_match('/\.sh$/i', basename($executablePath))) {
-        return array_merge(['sh', $executablePath], $arguments);
-    }
-
-    return array_merge([$executablePath], $arguments);
-}
-
-function findLinuxExecutable(string $gameDir): ?string
-{
-    makeExecutables($gameDir);
-    $executableFiles = [];
-
-    foreach (findAllFiles($gameDir) as $file) {
-        if (preg_match('/\.sh$/i', basename($file))) {
-            return $file;
-        }
-
-        if (is_file($file) && is_executable($file)) {
-            $executableFiles[] = $file;
-        }
-    }
-
-    if ($executableFiles === []) {
-        return null;
-    }
-
-    return $executableFiles[0];
-}
-
-function makeExecutables(string $dir): void
-{
-    foreach (glob($dir.'/*') ?: [] as $file) {
-        if (is_file($file)) {
-            chmod($file, 0755);
-        }
-    }
-
-    $lib = $dir.DIRECTORY_SEPARATOR.'lib';
-    if (! is_dir($lib)) {
-        return;
-    }
-
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($lib, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::LEAVES_ONLY
-    );
-
-    foreach ($iterator as $file) {
-        if ($file->isFile()) {
-            chmod($file->getPathname(), 0755);
-        }
-    }
-}
-
-/**
- * @return array<int, string>
- */
-function findAllFiles(string $dir): array
-{
-    $files = [];
-
-    foreach (glob($dir.'/*') ?: [] as $path) {
-        if (is_file($path)) {
-            $files[] = $path;
-        }
-    }
-
-    foreach (glob($dir.'/*', GLOB_ONLYDIR) ?: [] as $subdir) {
-        if (basename($subdir) === 'game') {
-            continue;
-        }
-
-        $files = array_merge($files, findAllFiles($subdir));
-    }
-
-    return $files;
-}
-
-function hasTranslationTree(string $gameDir): bool
-{
-    $translationPath = $gameDir.'/game/tl';
-    if (! is_dir($translationPath)) {
-        return false;
-    }
-
-    foreach (glob($translationPath.'/*', GLOB_ONLYDIR) ?: [] as $languageDir) {
-        $language = basename($languageDir);
-        if ($language !== 'None' && $language !== 'common') {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 /**
@@ -363,7 +217,7 @@ function extractZip(string $archivePath, string $extractPath): void
 
             assertSafeArchiveEntry($name);
 
-            $targetPath = $extractPath.'/'.$name;
+            $targetPath = $extractPath . '/' . $name;
             if (str_ends_with($name, '/')) {
                 mkdir($targetPath, 0777, true);
 
@@ -400,7 +254,7 @@ function extractTar(string $archivePath, string $extractPath, string $format): v
     $listCommand = ['tar', '-tf', $archivePath];
     $list = runProcess($listCommand, '/', 120);
     if ($list['exit_code'] !== 0) {
-        throw new RuntimeException('Failed to list tar archive: '.$list['stderr']);
+        throw new RuntimeException('Failed to list tar archive: ' . $list['stderr']);
     }
 
     foreach (preg_split('/\r?\n/', trim($list['stdout'])) ?: [] as $entry) {
@@ -428,7 +282,7 @@ function extractTar(string $archivePath, string $extractPath, string $format): v
     ], '/', 300);
 
     if ($extract['exit_code'] !== 0) {
-        throw new RuntimeException('Failed to extract tar archive: '.$extract['stderr']);
+        throw new RuntimeException('Failed to extract tar archive: ' . $extract['stderr']);
     }
 }
 
@@ -456,7 +310,7 @@ function rejectSymlinks(string $path): void
 
     foreach ($iterator as $item) {
         if ($item->isLink()) {
-            throw new RuntimeException('Archive contains symlink: '.$item->getPathname());
+            throw new RuntimeException('Archive contains symlink: ' . $item->getPathname());
         }
     }
 }
@@ -486,12 +340,12 @@ function detectArchiveFormat(string $archivePath): string
 
 function findGameDirectory(string $basePath): ?string
 {
-    if (is_dir($basePath.'/game')) {
+    if (is_dir($basePath . '/game')) {
         return $basePath;
     }
 
-    foreach (glob($basePath.'/*', GLOB_ONLYDIR) ?: [] as $directory) {
-        if (is_dir($directory.'/game')) {
+    foreach (glob($basePath . '/*', GLOB_ONLYDIR) ?: [] as $directory) {
+        if (is_dir($directory . '/game')) {
             return $directory;
         }
     }
