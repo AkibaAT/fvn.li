@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\GameVersion;
+use DirectoryIterator;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,8 @@ use ZipArchive;
 class GameArchiveOptimizationService
 {
     public function __construct(
-        private readonly GameStatsService $statsService
+        private readonly GameStatsService $statsService,
+        private readonly ?GameArchiveOptimizerDockerRunner $sandboxRunner = null
     ) {}
 
     /**
@@ -59,8 +61,137 @@ class GameArchiveOptimizationService
         }
 
         $originalSize = File::size($archivePath);
-        $workDir = storage_path('app/temp/'.uniqid('archive_opt_', true));
-        $optimizedArchiveBase = tempnam(sys_get_temp_dir(), 'optimized_');
+        $previousOptimizedArchivePath = $this->previousOptimizedArchivePath($gameId, $versionId);
+        $optimizedArchive = null;
+
+        try {
+            $this->reportProgress(
+                $progress,
+                $this->shouldUseSandbox() ? 'Optimizing archive in sandbox' : 'Optimizing archive locally'
+            );
+            $optimization = $this->shouldUseSandbox()
+                ? $this->sandboxRunner->optimize($archivePath, $previousOptimizedArchivePath)
+                : $this->optimizeArchiveFile($archivePath, $previousOptimizedArchivePath, $progress);
+
+            if ($optimization['status'] !== 'optimized' || ! isset($optimization['optimized_path'])) {
+                return array_merge($optimization, [
+                    'original_path' => $archivePath,
+                    'original_size' => $originalSize,
+                ]);
+            }
+
+            $optimizedArchive = $optimization['optimized_path'];
+            $optimizedSize = File::size($optimizedArchive);
+            $savedBytes = $originalSize - $optimizedSize;
+
+            if ($validate && $this->statsService->extractGameStats($optimizedArchive) === null) {
+                $validationError = $this->statsService->getLastExtractionError();
+                $reason = 'Optimized archive did not pass stats extraction';
+                if ($validationError !== null && $validationError !== '') {
+                    $reason .= ": {$validationError}";
+                }
+
+                return [
+                    'status' => 'skipped',
+                    'reason' => $reason,
+                    'original_path' => $archivePath,
+                    'optimized_path' => $optimizedArchive,
+                    'original_size' => $originalSize,
+                    'optimized_size' => $optimizedSize,
+                    'saved_bytes' => $savedBytes,
+                    'rpa_files' => $optimization['rpa_files'] ?? 0,
+                    'rpyc_files' => $optimization['rpyc_files'] ?? 0,
+                    'images_optimized' => $optimization['images_optimized'] ?? 0,
+                    'audio_optimized' => $optimization['audio_optimized'] ?? 0,
+                    'images_reused' => $optimization['images_reused'] ?? 0,
+                    'audio_reused' => $optimization['audio_reused'] ?? 0,
+                    'references_updated' => $optimization['references_updated'] ?? 0,
+                    'rpyc_decompile_failed' => $optimization['rpyc_decompile_failed'] ?? 0,
+                ];
+            }
+
+            if (! $force && $savedBytes <= 0) {
+                return [
+                    'status' => 'skipped',
+                    'reason' => 'Optimized archive would not be smaller',
+                    'original_path' => $archivePath,
+                    'optimized_path' => $optimizedArchive,
+                    'original_size' => $originalSize,
+                    'optimized_size' => $optimizedSize,
+                    'saved_bytes' => $savedBytes,
+                    'rpa_files' => $optimization['rpa_files'] ?? 0,
+                    'rpyc_files' => $optimization['rpyc_files'] ?? 0,
+                    'images_optimized' => $optimization['images_optimized'] ?? 0,
+                    'audio_optimized' => $optimization['audio_optimized'] ?? 0,
+                    'images_reused' => $optimization['images_reused'] ?? 0,
+                    'audio_reused' => $optimization['audio_reused'] ?? 0,
+                    'references_updated' => $optimization['references_updated'] ?? 0,
+                    'rpyc_decompile_failed' => $optimization['rpyc_decompile_failed'] ?? 0,
+                ];
+            }
+
+            $result = [
+                'status' => $dryRun ? 'would_optimize' : 'optimized',
+                'original_path' => $archivePath,
+                'optimized_path' => Storage::path($storagePath . '/' . $this->optimizedFilename($archivePath)),
+                'original_size' => $originalSize,
+                'optimized_size' => $optimizedSize,
+                'saved_bytes' => $savedBytes,
+                'rpa_files' => $optimization['rpa_files'] ?? 0,
+                'rpyc_files' => $optimization['rpyc_files'] ?? 0,
+                'images_optimized' => $optimization['images_optimized'] ?? 0,
+                'audio_optimized' => $optimization['audio_optimized'] ?? 0,
+                'images_reused' => $optimization['images_reused'] ?? 0,
+                'audio_reused' => $optimization['audio_reused'] ?? 0,
+                'references_updated' => $optimization['references_updated'] ?? 0,
+                'rpyc_decompile_failed' => $optimization['rpyc_decompile_failed'] ?? 0,
+            ];
+
+            if (! $dryRun) {
+                Storage::putFileAs($storagePath, $optimizedArchive, $this->optimizedFilename($archivePath));
+
+                if ($replace) {
+                    Storage::delete($this->storageRelativePath($archivePath));
+                }
+            }
+
+            return $result;
+        } finally {
+            if (is_string($optimizedArchive) && File::exists($optimizedArchive)) {
+                File::delete($optimizedArchive);
+            }
+
+            if (is_string($optimizedArchive) && $this->shouldUseSandbox()) {
+                $this->deleteSandboxJobDirectory($optimizedArchive);
+            }
+        }
+    }
+
+    /**
+     * @return array{
+     *     status: string,
+     *     reason?: string,
+     *     original_path?: string,
+     *     optimized_path?: string,
+     *     original_size?: int,
+     *     optimized_size?: int,
+     *     saved_bytes?: int,
+     *     rpa_files?: int,
+     *     rpyc_files?: int,
+     *     images_optimized?: int,
+     *     audio_optimized?: int,
+     *     images_reused?: int,
+     *     audio_reused?: int,
+     *     references_updated?: int,
+     *     rpyc_decompile_failed?: int
+     * }
+     */
+    public function optimizeArchiveFile(string $archivePath, ?string $previousOptimizedArchivePath = null, ?callable $progress = null): array
+    {
+        $originalSize = File::size($archivePath);
+        $tempRoot = $this->optimizerTempRoot();
+        $workDir = $tempRoot . '/' . uniqid('archive_opt_', true);
+        $optimizedArchiveBase = tempnam($tempRoot, 'optimized_');
         $previousOptimizedContext = null;
 
         if ($optimizedArchiveBase === false) {
@@ -68,7 +199,7 @@ class GameArchiveOptimizationService
         }
 
         File::delete($optimizedArchiveBase);
-        $optimizedArchive = $optimizedArchiveBase.'.'.$this->archiveExtension($archivePath);
+        $optimizedArchive = $optimizedArchiveBase . '.' . $this->archiveExtension($archivePath);
 
         try {
             File::makeDirectory($workDir, 0755, true);
@@ -96,8 +227,8 @@ class GameArchiveOptimizationService
 
             $metadataService = app(ArchiveOptimizationMetadataService::class);
             $originalFileInventory = $metadataService->inventory($workDir);
-            $previousOptimizedContext = $this->previousOptimizedArchiveContext($gameId, $versionId);
-            $contentDir = $gameDir.'/game';
+            $previousOptimizedContext = $this->previousOptimizedArchiveContext($previousOptimizedArchivePath);
+            $contentDir = $gameDir . '/game';
 
             $rpaFiles = app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpa']);
             $this->reportProgress($progress, sprintf('Unpacking %d RPA file(s)', count($rpaFiles)));
@@ -128,61 +259,14 @@ class GameArchiveOptimizationService
             $this->reportProgress($progress, 'Repacking optimized archive');
             $this->createArchiveFromDirectory($workDir, $optimizedArchive, $archivePath);
             $optimizedSize = File::size($optimizedArchive);
-            $savedBytes = $originalSize - $optimizedSize;
 
-            if ($validate && $this->statsService->extractGameStats($optimizedArchive) === null) {
-                $validationError = $this->statsService->getLastExtractionError();
-                $reason = 'Optimized archive did not pass stats extraction';
-                if ($validationError !== null && $validationError !== '') {
-                    $reason .= ": {$validationError}";
-                }
-
-                return [
-                    'status' => 'skipped',
-                    'reason' => $reason,
-                    'original_path' => $archivePath,
-                    'optimized_path' => $optimizedArchive,
-                    'original_size' => $originalSize,
-                    'optimized_size' => $optimizedSize,
-                    'saved_bytes' => $savedBytes,
-                    'rpa_files' => count($rpaFiles),
-                    'rpyc_files' => count($rpycFiles),
-                    'images_optimized' => $imageResult['optimized'],
-                    'audio_optimized' => $audioResult['optimized'],
-                    'images_reused' => $imageResult['reused'],
-                    'audio_reused' => $audioResult['reused'],
-                    'references_updated' => $referencesUpdated,
-                    'rpyc_decompile_failed' => $rpycDecompileFailures,
-                ];
-            }
-
-            if (! $force && $savedBytes <= 0) {
-                return [
-                    'status' => 'skipped',
-                    'reason' => 'Optimized archive would not be smaller',
-                    'original_path' => $archivePath,
-                    'optimized_path' => $optimizedArchive,
-                    'original_size' => $originalSize,
-                    'optimized_size' => $optimizedSize,
-                    'saved_bytes' => $savedBytes,
-                    'rpa_files' => count($rpaFiles),
-                    'rpyc_files' => count($rpycFiles),
-                    'images_optimized' => $imageResult['optimized'],
-                    'audio_optimized' => $audioResult['optimized'],
-                    'images_reused' => $imageResult['reused'],
-                    'audio_reused' => $audioResult['reused'],
-                    'references_updated' => $referencesUpdated,
-                    'rpyc_decompile_failed' => $rpycDecompileFailures,
-                ];
-            }
-
-            $result = [
-                'status' => $dryRun ? 'would_optimize' : 'optimized',
+            return [
+                'status' => 'optimized',
                 'original_path' => $archivePath,
-                'optimized_path' => Storage::path($storagePath.'/'.$this->optimizedFilename($archivePath)),
+                'optimized_path' => $optimizedArchive,
                 'original_size' => $originalSize,
                 'optimized_size' => $optimizedSize,
-                'saved_bytes' => $savedBytes,
+                'saved_bytes' => $originalSize - $optimizedSize,
                 'rpa_files' => count($rpaFiles),
                 'rpyc_files' => count($rpycFiles),
                 'images_optimized' => $imageResult['optimized'],
@@ -192,16 +276,6 @@ class GameArchiveOptimizationService
                 'references_updated' => $referencesUpdated,
                 'rpyc_decompile_failed' => $rpycDecompileFailures,
             ];
-
-            if (! $dryRun) {
-                Storage::putFileAs($storagePath, $optimizedArchive, $this->optimizedFilename($archivePath));
-
-                if ($replace) {
-                    Storage::delete($this->storageRelativePath($archivePath));
-                }
-            }
-
-            return $result;
         } finally {
             if (File::exists($workDir)) {
                 File::deleteDirectory($workDir);
@@ -209,10 +283,6 @@ class GameArchiveOptimizationService
 
             if (is_array($previousOptimizedContext) && File::exists($previousOptimizedContext['extract_path'])) {
                 File::deleteDirectory($previousOptimizedContext['extract_path']);
-            }
-
-            if (File::exists($optimizedArchive)) {
-                File::delete($optimizedArchive);
             }
         }
     }
@@ -240,6 +310,43 @@ class GameArchiveOptimizationService
         return $archive === null ? null : Storage::path($archive);
     }
 
+    private function previousOptimizedArchivePath(int $gameId, int $versionId): ?string
+    {
+        $currentVersion = GameVersion::find($versionId);
+        if ($currentVersion === null) {
+            return null;
+        }
+
+        $previousVersions = GameVersion::query()
+            ->where('game_id', $gameId)
+            ->where(function ($query) use ($currentVersion): void {
+                if ($currentVersion->published_at === null) {
+                    $query->where('id', '<', $currentVersion->id);
+
+                    return;
+                }
+
+                $query->where('published_at', '<', $currentVersion->published_at)
+                    ->orWhere(function ($query) use ($currentVersion): void {
+                        $query->where('published_at', $currentVersion->published_at)
+                            ->where('id', '<', $currentVersion->id);
+                    });
+            })
+            ->reorder()
+            ->orderBy('published_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($previousVersions as $previousVersion) {
+            $archivePath = $this->optimizedArchivePath("games/{$gameId}/{$previousVersion->id}");
+            if ($archivePath !== null) {
+                return $archivePath;
+            }
+        }
+
+        return null;
+    }
+
     private function extractArchive(string $archivePath, string $extractPath): void
     {
         $ext = $this->archiveExtension($archivePath);
@@ -247,7 +354,7 @@ class GameArchiveOptimizationService
         if ($ext === 'tar.gz' || $ext === 'tgz' || $ext === 'tar.bz2' || $ext === 'tbz2') {
             $process = new Process([
                 'tar',
-                '-x'.($ext === 'tar.gz' || $ext === 'tgz' ? 'z' : 'j'),
+                '-x' . ($ext === 'tar.gz' || $ext === 'tgz' ? 'z' : 'j'),
                 '-f',
                 $archivePath,
                 '-C',
@@ -257,7 +364,7 @@ class GameArchiveOptimizationService
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
+                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
             }
 
             return;
@@ -288,7 +395,7 @@ class GameArchiveOptimizationService
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to extract tar archive: '.$process->getErrorOutput());
+                throw new RuntimeException('Failed to extract tar archive: ' . $process->getErrorOutput());
             }
 
             return;
@@ -334,7 +441,7 @@ class GameArchiveOptimizationService
 
     private function hasSafeGameDirectory(string $candidateDir, string $basePath): bool
     {
-        $gamePath = $candidateDir.'/game';
+        $gamePath = $candidateDir . '/game';
         if (! File::isDirectory($gamePath) || is_link($gamePath)) {
             return false;
         }
@@ -345,7 +452,7 @@ class GameArchiveOptimizationService
             return false;
         }
 
-        return str_starts_with($resolvedGame, rtrim($resolvedBase, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
+        return str_starts_with($resolvedGame, rtrim($resolvedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
     }
 
     /**
@@ -370,7 +477,7 @@ class GameArchiveOptimizationService
             $process->run();
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('Failed to unpack RPA file: '.$process->getErrorOutput());
+                throw new RuntimeException('Failed to unpack RPA file: ' . $process->getErrorOutput());
             }
 
             File::delete($rpaFile);
@@ -473,74 +580,44 @@ class GameArchiveOptimizationService
         $process->run();
 
         if (! $process->isSuccessful()) {
-            throw new RuntimeException('Failed to create optimized archive: '.$process->getErrorOutput());
+            throw new RuntimeException('Failed to create optimized archive: ' . $process->getErrorOutput());
         }
     }
 
     /**
      * @return array{extract_path: string, source_hashes: array<string, string>, target_paths: array<string, string>}|null
      */
-    private function previousOptimizedArchiveContext(int $gameId, int $versionId): ?array
+    private function previousOptimizedArchiveContext(?string $archivePath): ?array
     {
-        $currentVersion = GameVersion::find($versionId);
-        if ($currentVersion === null) {
+        if ($archivePath === null) {
             return null;
         }
 
-        $previousVersions = GameVersion::query()
-            ->where('game_id', $gameId)
-            ->where(function ($query) use ($currentVersion): void {
-                if ($currentVersion->published_at === null) {
-                    $query->where('id', '<', $currentVersion->id);
+        $extractPath = $this->optimizerTempRoot() . '/' . uniqid('previous_archive_opt_', true);
+        File::makeDirectory($extractPath, 0755, true);
+        $this->extractArchive($archivePath, $extractPath);
 
-                    return;
-                }
+        $metadataService = app(ArchiveOptimizationMetadataService::class);
+        $metadata = $metadataService->readExtracted($extractPath);
+        if (! is_array($metadata)) {
+            File::deleteDirectory($extractPath);
 
-                $query->where('published_at', '<', $currentVersion->published_at)
-                    ->orWhere(function ($query) use ($currentVersion): void {
-                        $query->where('published_at', $currentVersion->published_at)
-                            ->where('id', '<', $currentVersion->id);
-                    });
-            })
-            ->reorder()
-            ->orderBy('published_at', 'desc')
-            ->orderBy('id', 'desc')
-            ->get();
-
-        foreach ($previousVersions as $previousVersion) {
-            $archivePath = $this->optimizedArchivePath("games/{$gameId}/{$previousVersion->id}");
-            if ($archivePath === null) {
-                continue;
-            }
-
-            $extractPath = storage_path('app/temp/'.uniqid('previous_archive_opt_', true));
-            File::makeDirectory($extractPath, 0755, true);
-            $this->extractArchive($archivePath, $extractPath);
-
-            $metadataService = app(ArchiveOptimizationMetadataService::class);
-            $metadata = $metadataService->readExtracted($extractPath);
-            if (! is_array($metadata)) {
-                File::deleteDirectory($extractPath);
-
-                continue;
-            }
-
-            $sourceHashes = $metadataService->sourceHashesFrom($metadata);
-            $targetPaths = $metadataService->targetPathsFrom($metadata);
-            if ($sourceHashes === []) {
-                File::deleteDirectory($extractPath);
-
-                continue;
-            }
-
-            return [
-                'extract_path' => $extractPath,
-                'source_hashes' => $sourceHashes,
-                'target_paths' => $targetPaths,
-            ];
+            return null;
         }
 
-        return null;
+        $sourceHashes = $metadataService->sourceHashesFrom($metadata);
+        $targetPaths = $metadataService->targetPathsFrom($metadata);
+        if ($sourceHashes === []) {
+            File::deleteDirectory($extractPath);
+
+            return null;
+        }
+
+        return [
+            'extract_path' => $extractPath,
+            'source_hashes' => $sourceHashes,
+            'target_paths' => $targetPaths,
+        ];
     }
 
     private function createZipFromDirectory(string $sourceDir, string $targetPath): void
@@ -573,7 +650,7 @@ class GameArchiveOptimizationService
     {
         $entries = [];
 
-        foreach (new \DirectoryIterator($sourceDir) as $entry) {
+        foreach (new DirectoryIterator($sourceDir) as $entry) {
             if ($entry->isDot()) {
                 continue;
             }
@@ -598,14 +675,45 @@ class GameArchiveOptimizationService
         return trim($process->getOutput()) ?: null;
     }
 
+    private function shouldUseSandbox(): bool
+    {
+        return $this->sandboxRunner !== null
+            && (bool) config('services.archive_optimizer.sandbox_enabled', true);
+    }
+
+    private function optimizerTempRoot(): string
+    {
+        $path = rtrim(getenv('ARCHIVE_OPTIMIZER_WORK_DIR') ?: storage_path('app/temp'), '/');
+        File::ensureDirectoryExists($path, 0755);
+
+        return $path;
+    }
+
+    private function deleteSandboxJobDirectory(string $optimizedArchive): void
+    {
+        $outputDir = dirname($optimizedArchive);
+        $jobDir = dirname($outputDir);
+        $workDir = rtrim((string) config('services.archive_optimizer.container_work_dir'), '/');
+        $resolvedWorkDir = realpath($workDir);
+        $resolvedJobDir = realpath($jobDir);
+
+        if ($resolvedWorkDir === false || $resolvedJobDir === false) {
+            return;
+        }
+
+        if (str_starts_with($resolvedJobDir, $resolvedWorkDir . DIRECTORY_SEPARATOR)) {
+            File::deleteDirectory($resolvedJobDir);
+        }
+    }
+
     private function optimizedFilename(string $archivePath): string
     {
         $extension = $this->archiveExtension($archivePath);
-        $suffixLength = strlen('.'.$extension);
+        $suffixLength = strlen('.' . $extension);
         $basename = basename($archivePath);
         $name = substr($basename, 0, -$suffixLength);
 
-        return $name.'.optimized.'.$extension;
+        return $name . '.optimized.' . $extension;
     }
 
     private function archiveExtension(string $archivePath): string

@@ -151,7 +151,7 @@ class ProcessGameScreenshots extends Command
             return;
         }
 
-        $this->info('Processing '.count($game->screenshots).' screenshots');
+        $this->info('Processing ' . count($game->screenshots) . ' screenshots');
 
         $updatedScreenshots = [];
 
@@ -219,7 +219,7 @@ class ProcessGameScreenshots extends Command
                 foreach (self::VARIANTS as $variant => $config) {
                     $this->info("Processing {$variant} variant...");
 
-                    $variantFilename = $baseFilename."_{$variant}.webp";
+                    $variantFilename = $baseFilename . "_{$variant}.webp";
                     $variantPath = $this->getStoragePath($variantFilename);
 
                     $dimensions = $this->processStaticVariant(
@@ -307,7 +307,7 @@ class ProcessGameScreenshots extends Command
      */
     private function getStoragePath(string $filename): string
     {
-        return self::SCREENSHOTS_PATH.'/'.$filename;
+        return self::SCREENSHOTS_PATH . '/' . $filename;
     }
 
     /**

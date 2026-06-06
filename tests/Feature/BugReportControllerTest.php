@@ -64,7 +64,7 @@ it('bounds stored bug report metadata and user agent', function () {
     $response = $this->actingAs($user)
         ->withHeader('User-Agent', str_repeat('A', 2048))
         ->postJson(route('browser-api.bug-reports.store'), [
-            'page_url' => 'https://fvn.li/games/example?'.str_repeat('q', 100),
+            'page_url' => 'https://fvn.li/games/example?' . str_repeat('q', 100),
             'page_title' => 'Example',
             'description' => 'The route map modal freezes after this action.',
             'request_parameters' => [

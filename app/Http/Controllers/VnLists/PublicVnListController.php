@@ -210,10 +210,10 @@ class PublicVnListController extends Controller
 
         $metaTags = [
             'title' => 'Public Visual Novel Lists',
-            'description' => 'Browse public visual novel lists shared by the community. '.
-                "Currently featuring {$lists->total()} public lists".
-                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
-                    return "{$list->name} by {$list->user->name} (".$list->entries->count().' games)';
+            'description' => 'Browse public visual novel lists shared by the community. ' .
+                "Currently featuring {$lists->total()} public lists" .
+                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
+                    return "{$list->name} by {$list->user->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
             'image' => asset(config('social.images.public_lists', config('social.images.default'))),
             'structuredData' => [
@@ -311,8 +311,8 @@ class PublicVnListController extends Controller
         // Apply search filter if provided
         if (! empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('description', 'like', '%'.$search.'%');
+                $q->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
             });
         }
 
@@ -356,10 +356,10 @@ class PublicVnListController extends Controller
 
         $metaTags = [
             'title' => "{$user->name}'s Visual Novel Lists",
-            'description' => "Browse {$user->name}'s public visual novel lists. ".
-                "Currently featuring {$lists->total()} public lists".
-                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
-                    return "{$list->name} (".$list->entries->count().' games)';
+            'description' => "Browse {$user->name}'s public visual novel lists. " .
+                "Currently featuring {$lists->total()} public lists" .
+                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
+                    return "{$list->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
             'image' => ($lists->isNotEmpty() && $lists->first()->entries->isNotEmpty())
                 ? ($lists->first()->entries->first()->game?->getThumbnailUrl('default') ?? asset(config('social.images.default')))

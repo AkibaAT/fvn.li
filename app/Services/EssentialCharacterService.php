@@ -86,7 +86,7 @@ class EssentialCharacterService
             $menuChoiceDisplayNames
         );
 
-        Log::info("Created/updated essential characters for game {$gameId} with languages: ".implode(', ',
+        Log::info("Created/updated essential characters for game {$gameId} with languages: " . implode(', ',
             array_keys($narratorDisplayNames)));
 
         return [

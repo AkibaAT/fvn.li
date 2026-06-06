@@ -469,7 +469,7 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
         ])));
     app()->instance(ItchHttpClientService::class, $client);
 
-    $tempDir = storage_path('framework/testing/reprocess-missing-'.uniqid());
+    $tempDir = storage_path('framework/testing/reprocess-missing-' . uniqid());
     $tempPath = "{$tempDir}/archive.zip";
     File::ensureDirectoryExists($tempDir);
     File::put($tempPath, 'zip');
@@ -481,7 +481,7 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
         ->andReturn(null);
     $archiveService->shouldReceive('getLastArchiveLookupError')
         ->once()
-        ->andReturn("No completed build found for fvn-li/reprocess-missing:main version 1.2");
+        ->andReturn('No completed build found for fvn-li/reprocess-missing:main version 1.2');
     $archiveService->shouldReceive('downloadAndProcessToTemp')
         ->once()
         ->with('https://creator.itch.io/reprocess-missing', 'Reprocess-1.2-pc.zip', 20, $game->id)

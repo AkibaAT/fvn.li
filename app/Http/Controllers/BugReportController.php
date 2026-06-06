@@ -70,7 +70,7 @@ class BugReportController extends Controller
             'page_url' => 'required|string|max:2048',
             'page_title' => 'nullable|string|max:255',
             'description' => 'required|string|min:10|max:5000',
-            'request_parameters' => 'nullable|array|max:'.self::MAX_REQUEST_PARAMETER_COUNT,
+            'request_parameters' => 'nullable|array|max:' . self::MAX_REQUEST_PARAMETER_COUNT,
         ]);
 
         $user = User::findOrFail($authId);
@@ -91,55 +91,6 @@ class BugReportController extends Controller
             'message' => 'Thank you for your bug report! We will review it shortly.',
             'report_id' => $bugReport->id,
         ]);
-    }
-
-    /**
-     * @param  array<mixed>|null  $parameters
-     * @return array<string, string>|null
-     */
-    private function sanitizeRequestParameters(?array $parameters): ?array
-    {
-        if ($parameters === null || $parameters === []) {
-            return null;
-        }
-
-        $sanitized = [];
-        foreach ($parameters as $key => $value) {
-            if (count($sanitized) >= self::MAX_REQUEST_PARAMETER_COUNT) {
-                break;
-            }
-
-            if (! is_scalar($value) && $value !== null) {
-                continue;
-            }
-
-            $key = $this->truncateNullableString((string) $key, self::MAX_REQUEST_PARAMETER_KEY_LENGTH);
-            if ($key === null || $key === '') {
-                continue;
-            }
-
-            $sanitized[$key] = $this->truncateNullableString($this->stringifyRequestParameterValue($value), self::MAX_REQUEST_PARAMETER_VALUE_LENGTH) ?? '';
-        }
-
-        return $sanitized === [] ? null : $sanitized;
-    }
-
-    private function stringifyRequestParameterValue(mixed $value): string
-    {
-        return match (true) {
-            $value === null => '',
-            is_bool($value) => $value ? 'true' : 'false',
-            default => (string) $value,
-        };
-    }
-
-    private function truncateNullableString(?string $value, int $maxLength): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return mb_substr($value, 0, $maxLength);
     }
 
     /**
@@ -269,5 +220,54 @@ class BugReportController extends Controller
             'message' => 'Bug report closed successfully.',
             'is_closed' => true,
         ]);
+    }
+
+    /**
+     * @param  array<mixed>|null  $parameters
+     * @return array<string, string>|null
+     */
+    private function sanitizeRequestParameters(?array $parameters): ?array
+    {
+        if ($parameters === null || $parameters === []) {
+            return null;
+        }
+
+        $sanitized = [];
+        foreach ($parameters as $key => $value) {
+            if (count($sanitized) >= self::MAX_REQUEST_PARAMETER_COUNT) {
+                break;
+            }
+
+            if (! is_scalar($value) && $value !== null) {
+                continue;
+            }
+
+            $key = $this->truncateNullableString((string) $key, self::MAX_REQUEST_PARAMETER_KEY_LENGTH);
+            if ($key === null || $key === '') {
+                continue;
+            }
+
+            $sanitized[$key] = $this->truncateNullableString($this->stringifyRequestParameterValue($value), self::MAX_REQUEST_PARAMETER_VALUE_LENGTH) ?? '';
+        }
+
+        return $sanitized === [] ? null : $sanitized;
+    }
+
+    private function stringifyRequestParameterValue(mixed $value): string
+    {
+        return match (true) {
+            $value === null => '',
+            is_bool($value) => $value ? 'true' : 'false',
+            default => (string) $value,
+        };
+    }
+
+    private function truncateNullableString(?string $value, int $maxLength): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return mb_substr($value, 0, $maxLength);
     }
 }

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
@@ -103,9 +106,9 @@ class HtmlSanitizerService
         }
 
         $previous = libxml_use_internal_errors(true);
-        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom = new DOMDocument('1.0', 'UTF-8');
         $loaded = $dom->loadHTML(
-            '<?xml encoding="UTF-8"><div id="fvn-sanitizer-root">'.$html.'</div>',
+            '<?xml encoding="UTF-8"><div id="fvn-sanitizer-root">' . $html . '</div>',
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
         );
         libxml_clear_errors();
@@ -115,9 +118,9 @@ class HtmlSanitizerService
             return $html;
         }
 
-        $xpath = new \DOMXPath($dom);
+        $xpath = new DOMXPath($dom);
         foreach ($xpath->query('//*[@style]') ?: [] as $element) {
-            if (! $element instanceof \DOMElement) {
+            if (! $element instanceof DOMElement) {
                 continue;
             }
 

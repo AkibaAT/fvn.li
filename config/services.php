@@ -101,6 +101,22 @@ return [
         'sdk_host_path' => env('RENPY_SDK_DOCKER_HOST_PATH', env('RENPY_SDK_PATH')),
     ],
 
+    'archive_optimizer' => [
+        'sandbox_enabled' => filter_var(env('ARCHIVE_OPTIMIZER_SANDBOX_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'image' => env('ARCHIVE_OPTIMIZER_IMAGE', env('DOCKER_IMAGE', 'fvn.li:latest')),
+        'php_binary' => env('ARCHIVE_OPTIMIZER_PHP_BINARY', 'php'),
+        'app_path' => env('ARCHIVE_OPTIMIZER_APP_PATH', '/app'),
+        'container_work_dir' => env('ARCHIVE_OPTIMIZER_CONTAINER_WORK_DIR', '/optimizer-work'),
+        'host_work_dir' => env('ARCHIVE_OPTIMIZER_HOST_WORK_DIR', '/var/lib/fvn-archive-optimizer'),
+        'timeout' => (int) env('ARCHIVE_OPTIMIZER_TIMEOUT', 900),
+        'memory' => env('ARCHIVE_OPTIMIZER_MEMORY', '2g'),
+        'cpus' => env('ARCHIVE_OPTIMIZER_CPUS', '1'),
+        'pids_limit' => (int) env('ARCHIVE_OPTIMIZER_PIDS_LIMIT', 128),
+        'tmp_size' => env('ARCHIVE_OPTIMIZER_TMP_SIZE', '512m'),
+        'work_size' => env('ARCHIVE_OPTIMIZER_WORK_SIZE', '6g'),
+        'stale_cleanup_seconds' => (int) env('ARCHIVE_OPTIMIZER_STALE_CLEANUP_SECONDS', 7200),
+    ],
+
     'android' => [
         'keystore_password' => env('ANDROID_KEYSTORE_PASSWORD', 'fvnli'),
         'key_password' => env('ANDROID_KEY_PASSWORD', 'fvnli'),
@@ -128,6 +144,8 @@ return [
         'username' => env('DENKIT_STASH_USERNAME', 'fvn-li'),
         'api_key' => env('DENKIT_STASH_API_KEY'),
         'client_path' => env('BUTLER_CLIENT_PATH', '/opt/butler'),
+        'max_archive_entries' => env('DENKIT_STASH_MAX_ARCHIVE_ENTRIES', 20000),
+        'max_extracted_bytes' => env('DENKIT_STASH_MAX_EXTRACTED_BYTES', 2147483648),
     ],
 
 ];

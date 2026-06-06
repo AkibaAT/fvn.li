@@ -86,7 +86,7 @@ class ManageAuditPrivacy extends Command
         $clickEntries = $clickStatsData['total_entries'] ?? 0;
         $totalEntries = $auditEntries + $clickEntries;
 
-        $this->info("Exported {$totalEntries} total entries ({$auditEntries} audit logs, {$clickEntries} click stats) to: ".Storage::path($outputPath));
+        $this->info("Exported {$totalEntries} total entries ({$auditEntries} audit logs, {$clickEntries} click stats) to: " . Storage::path($outputPath));
 
         $this->table(['Field', 'Value'], [
             ['User ID', $exportData['user_id'] ?? $user->id],
@@ -140,13 +140,13 @@ class ManageAuditPrivacy extends Command
     private function formatBytes(int $bytes): string
     {
         if ($bytes >= 1073741824) {
-            return round($bytes / 1073741824, 2).' GB';
+            return round($bytes / 1073741824, 2) . ' GB';
         } elseif ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2).' MB';
+            return round($bytes / 1048576, 2) . ' MB';
         } elseif ($bytes >= 1024) {
-            return round($bytes / 1024, 2).' KB';
+            return round($bytes / 1024, 2) . ' KB';
         } else {
-            return $bytes.' bytes';
+            return $bytes . ' bytes';
         }
     }
 
@@ -225,7 +225,7 @@ class ManageAuditPrivacy extends Command
         $anonymizedAuditCount = ChangeLog::anonymizeUserData($user->id);
         $anonymizedClickCount = ClickStat::anonymizePersonalDataForUser($user->id);
 
-        $this->info("Successfully anonymized {$anonymizedAuditCount} audit log entries and ".($anonymizedClickCount ? 'anonymized' : 'no')." click statistics for user {$user->name}.");
+        $this->info("Successfully anonymized {$anonymizedAuditCount} audit log entries and " . ($anonymizedClickCount ? 'anonymized' : 'no') . " click statistics for user {$user->name}.");
 
         return self::SUCCESS;
     }
@@ -288,11 +288,11 @@ class ManageAuditPrivacy extends Command
             ['Stats with IP Addresses', number_format($clickStatsWithIP), "{$clickStatsIPPercentage}%"],
             [
                 'Stats with User Agents', number_format($clickStatsWithUserAgent),
-                $totalClickStats > 0 ? round(($clickStatsWithUserAgent / $totalClickStats) * 100, 2).'%' : '0%',
+                $totalClickStats > 0 ? round(($clickStatsWithUserAgent / $totalClickStats) * 100, 2) . '%' : '0%',
             ],
             [
                 'Stats with Session IDs', number_format($clickStatsWithSession),
-                $totalClickStats > 0 ? round(($clickStatsWithSession / $totalClickStats) * 100, 2).'%' : '0%',
+                $totalClickStats > 0 ? round(($clickStatsWithSession / $totalClickStats) * 100, 2) . '%' : '0%',
             ],
             ['Anonymized Click Stats', number_format($anonymizedClickStats), "{$clickStatsAnonymizedPercentage}%"],
         ]);
@@ -307,24 +307,24 @@ class ManageAuditPrivacy extends Command
         $this->table(['Click Type', 'Count', 'Percentage'], [
             [
                 'Page Views', number_format($pageViews),
-                $totalClickStats > 0 ? round(($pageViews / $totalClickStats) * 100, 2).'%' : '0%',
+                $totalClickStats > 0 ? round(($pageViews / $totalClickStats) * 100, 2) . '%' : '0%',
             ],
             [
                 'External Project Visits', number_format($externalClicks),
-                $totalClickStats > 0 ? round(($externalClicks / $totalClickStats) * 100, 2).'%' : '0%',
+                $totalClickStats > 0 ? round(($externalClicks / $totalClickStats) * 100, 2) . '%' : '0%',
             ],
             [
                 'Custom Link Downloads', number_format($customLinkClicks),
-                $totalClickStats > 0 ? round(($customLinkClicks / $totalClickStats) * 100, 2).'%' : '0%',
+                $totalClickStats > 0 ? round(($customLinkClicks / $totalClickStats) * 100, 2) . '%' : '0%',
             ],
         ]);
 
         $this->info('');
         $this->info('Retention Configuration:');
         $this->table(['Setting', 'Value'], [
-            ['General Retention', ($retentionConfig['days'] ?? 'Not set').' days'],
-            ['Sensitive Data Retention', ($retentionConfig['sensitive_data_retention_days'] ?? 'Not set').' days'],
-            ['IP Address Retention', ($retentionConfig['ip_address_retention_days'] ?? 'Not set').' days'],
+            ['General Retention', ($retentionConfig['days'] ?? 'Not set') . ' days'],
+            ['Sensitive Data Retention', ($retentionConfig['sensitive_data_retention_days'] ?? 'Not set') . ' days'],
+            ['IP Address Retention', ($retentionConfig['ip_address_retention_days'] ?? 'Not set') . ' days'],
             ['Cleanup Command Enabled', ($retentionConfig['cleanup_command'] ?? false) ? 'Yes' : 'No'],
         ]);
 

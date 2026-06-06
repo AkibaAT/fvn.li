@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
 it('copies archives to the shared analyzer path and returns sandbox stats', function () {
-    $sharedPath = storage_path('framework/testing/renpy-analyzer-shared-'.uniqid());
-    $archivePath = storage_path('framework/testing/source-archive-'.uniqid().'.zip');
+    $sharedPath = storage_path('framework/testing/renpy-analyzer-shared-' . uniqid());
+    $archivePath = storage_path('framework/testing/source-archive-' . uniqid() . '.zip');
     File::ensureDirectoryExists(dirname($archivePath));
     File::put($archivePath, 'archive');
 
@@ -65,7 +65,7 @@ it('returns null when the sandbox analyzer is not configured', function () {
         'services.renpy.analyzer_token' => null,
     ]);
 
-    $archivePath = storage_path('framework/testing/source-archive-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/source-archive-' . uniqid() . '.zip');
     File::put($archivePath, 'archive');
 
     try {
@@ -75,9 +75,9 @@ it('returns null when the sandbox analyzer is not configured', function () {
     }
 });
 
-it('keeps the sandbox analyzer failure diagnostic as the extraction error', function () {
-    $sharedPath = storage_path('framework/testing/renpy-analyzer-shared-'.uniqid());
-    $archivePath = storage_path('framework/testing/source-archive-'.uniqid().'.zip');
+it('keeps the generic sandbox analyzer failure message as the extraction error', function () {
+    $sharedPath = storage_path('framework/testing/renpy-analyzer-shared-' . uniqid());
+    $archivePath = storage_path('framework/testing/source-archive-' . uniqid() . '.zip');
     File::ensureDirectoryExists(dirname($archivePath));
     File::put($archivePath, 'archive');
 
@@ -89,7 +89,7 @@ it('keeps the sandbox analyzer failure diagnostic as the extraction error', func
 
     Http::fake([
         'stats-runner:8080/*' => Http::response([
-            'message' => 'Analyzer container failed: Stats file not generated',
+            'message' => 'No stats could be extracted',
         ], 422),
     ]);
 
@@ -97,7 +97,7 @@ it('keeps the sandbox analyzer failure diagnostic as the extraction error', func
 
     try {
         expect($client->extract($archivePath))->toBeNull()
-            ->and($client->getLastError())->toBe('Analyzer container failed: Stats file not generated');
+            ->and($client->getLastError())->toBe('No stats could be extracted');
     } finally {
         File::delete($archivePath);
         File::deleteDirectory($sharedPath);

@@ -9,7 +9,7 @@ class RouteGraphIdFactory
     public function edgeIdentity($edge): string
     {
         if (! empty($edge->id)) {
-            return 'id:'.$edge->id;
+            return 'id:' . $edge->id;
         }
 
         return implode('|', [
@@ -25,23 +25,23 @@ class RouteGraphIdFactory
     public function routeEdgeId($edge): string
     {
         if (! empty($edge->id)) {
-            return 'route_edge:'.$edge->id;
+            return 'route_edge:' . $edge->id;
         }
 
-        return 'route_edge:'.md5($this->edgeIdentity($edge));
+        return 'route_edge:' . md5($this->edgeIdentity($edge));
     }
 
     public function generatedChoiceEdgeId(string $choiceId, $edge): string
     {
         if (! empty($edge->id)) {
-            return $choiceId.':route_edge:'.$edge->id;
+            return $choiceId . ':route_edge:' . $edge->id;
         }
 
-        return $choiceId.':route_edge:'.md5($this->edgeIdentity($edge));
+        return $choiceId . ':route_edge:' . md5($this->edgeIdentity($edge));
     }
 
     public function syntheticEndingId(string $labelName): string
     {
-        return $labelName.':ending';
+        return $labelName . ':ending';
     }
 }

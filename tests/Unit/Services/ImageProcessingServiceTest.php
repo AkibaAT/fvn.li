@@ -125,14 +125,14 @@ test('gif conversion failures clean up temporary frame files', function () {
     $sourcePath = tempnam(sys_get_temp_dir(), 'gif_source_');
     file_put_contents($sourcePath, base64_decode('R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='));
 
-    $fakeBinDir = sys_get_temp_dir().'/fake-convert-'.uniqid();
+    $fakeBinDir = sys_get_temp_dir() . '/fake-convert-' . uniqid();
     mkdir($fakeBinDir);
-    $fakeConvert = $fakeBinDir.'/convert';
+    $fakeConvert = $fakeBinDir . '/convert';
     file_put_contents($fakeConvert, "#!/bin/sh\nexit 1\n");
     chmod($fakeConvert, 0755);
 
     $originalPath = getenv('PATH') ?: '';
-    $before = glob(sys_get_temp_dir().'/image_frame_*') ?: [];
+    $before = glob(sys_get_temp_dir() . '/image_frame_*') ?: [];
 
     putenv("PATH={$fakeBinDir}");
 
@@ -157,7 +157,7 @@ test('gif conversion failures clean up temporary frame files', function () {
         }
     }
 
-    $after = glob(sys_get_temp_dir().'/image_frame_*') ?: [];
+    $after = glob(sys_get_temp_dir() . '/image_frame_*') ?: [];
     $newTempFiles = array_values(array_diff($after, $before));
 
     foreach ($newTempFiles as $newTempFile) {

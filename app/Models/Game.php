@@ -199,7 +199,7 @@ class Game extends Model
                 $counter = 1;
 
                 while (static::where('slug', $slug)->where('id', '!=', $game->id ?? 0)->exists()) {
-                    $slug = $baseSlug.'-'.$counter++;
+                    $slug = $baseSlug . '-' . $counter++;
                 }
 
                 $game->slug = $slug;
@@ -208,7 +208,7 @@ class Game extends Model
             // Validate that platform is set before saving
             if ($game->isDirty('platform') && $game->platform === null) {
                 throw new InvalidArgumentException(
-                    'Game platform must be explicitly set. Cannot save game without a platform. '.
+                    'Game platform must be explicitly set. Cannot save game without a platform. ' .
                     "Use one of: 'itch_io', 'steam', 'other'"
                 );
             }
@@ -216,7 +216,7 @@ class Game extends Model
             // If platform is being set for the first time (new game), ensure it's valid
             if ($game->wasRecentlyCreated && $game->platform === null) {
                 throw new InvalidArgumentException(
-                    'Game platform must be explicitly set when creating a new game. '.
+                    'Game platform must be explicitly set when creating a new game. ' .
                     "Use one of: 'itch_io', 'steam', 'other'"
                 );
             }
@@ -241,7 +241,7 @@ class Game extends Model
 
         // Keep trying with incrementing numbers until we find a unique slug
         while (static::where('slug', $slug)->where('id', '!=', $this->id ?? 0)->exists()) {
-            $slug = $baseSlug.'-'.$counter;
+            $slug = $baseSlug . '-' . $counter;
             $counter++;
         }
 
@@ -440,5 +440,4 @@ class Game extends Model
             get: fn () => $this->getEffectiveDescription()
         );
     }
-
 }

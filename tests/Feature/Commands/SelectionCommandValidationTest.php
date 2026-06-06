@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Console\Commands\RefreshGames;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameArchiveService;
@@ -76,6 +77,9 @@ it('validates delisted check selection options before external calls', function 
 });
 
 it('validates itch refresh options and selection before external calls', function () {
+    expect(app(RefreshGames::class)->getDefinition()->getOption('force')->getDescription())
+        ->toBe('Include abandoned/canceled games and reprocess existing version stats');
+
     $this->artisan('games:refresh', ['--all' => true])
         ->expectsOutput('No refresh options selected. Please use at least one of: --update-version, --update-info, --update-metadata')
         ->assertExitCode(1);

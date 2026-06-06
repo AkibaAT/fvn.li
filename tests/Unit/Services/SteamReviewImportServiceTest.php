@@ -58,7 +58,7 @@ test('steam review sync preserves local reviews omitted by steam response', func
         'external_metadata' => [],
     ]);
 
-    $service = new SteamReviewImportService();
+    $service = new SteamReviewImportService;
     setSteamReviewImportClient($service, [
         'success' => 1,
         'reviews' => [

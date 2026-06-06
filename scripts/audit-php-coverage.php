@@ -62,8 +62,8 @@ echo sprintf(
     $totalStatements,
     $minimumStatementCoverage,
 );
-echo 'Files with zero covered statements: '.count($uncoveredFiles)."\n";
-echo 'Files with uncovered methods: '.count($undercoveredClasses)."\n\n";
+echo 'Files with zero covered statements: ' . count($uncoveredFiles) . "\n";
+echo 'Files with uncovered methods: ' . count($undercoveredClasses) . "\n\n";
 
 if ($uncoveredFiles !== []) {
     echo "Zero-covered files:\n";

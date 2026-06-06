@@ -69,9 +69,9 @@ class ImportSteamGame extends Command
         $existingGame = Game::where('steam_app_id', $appId)->first();
         if ($existingGame) {
             $this->error("Game already exists: {$existingGame->name} (ID: {$existingGame->id})");
-            $this->info('URL: '.route('games.show', $existingGame));
+            $this->info('URL: ' . route('games.show', $existingGame));
             $this->newLine();
-            $this->warn('If you want to refresh this game data, use: php artisan games:refresh-steam --game-id='.$existingGame->id.' --update-data');
+            $this->warn('If you want to refresh this game data, use: php artisan games:refresh-steam --game-id=' . $existingGame->id . ' --update-data');
 
             return 1;
         }
@@ -80,14 +80,14 @@ class ImportSteamGame extends Command
         $existingByUrl = Game::byUrl($url)->first();
         if ($existingByUrl) {
             $this->error("Game already exists (found by URL): {$existingByUrl->name} (ID: {$existingByUrl->id})");
-            $this->info('URL: '.route('games.show', $existingByUrl));
+            $this->info('URL: ' . route('games.show', $existingByUrl));
 
             return 1;
         }
 
         // Validate content type
         if (! $contentType) {
-            $this->error('Invalid content type: '.$this->option('content-type').'. Valid options: visual_novel, adjacent, other (aliases: adjacent_game, other_content)');
+            $this->error('Invalid content type: ' . $this->option('content-type') . '. Valid options: visual_novel, adjacent, other (aliases: adjacent_game, other_content)');
 
             return 1;
         }
@@ -132,7 +132,7 @@ class ImportSteamGame extends Command
                     ['Name', $game->name],
                     ['Developer', $game->developer ?? 'N/A'],
                     ['Status', $game->status],
-                    ['Price', $game->is_paid ? ($game->currency.' '.$game->min_price) : 'Free'],
+                    ['Price', $game->is_paid ? ($game->currency . ' ' . $game->min_price) : 'Free'],
                     ['NSFW', $game->is_nsfw ? 'Yes' : 'No'],
                     ['Has Demo', $game->has_demo ? 'Yes' : 'No'],
                     ['Visible', $game->is_visible ? 'Yes' : 'No'],
@@ -187,7 +187,7 @@ class ImportSteamGame extends Command
         } catch (Exception $e) {
             DB::rollBack();
 
-            $this->error('Failed to import game: '.$e->getMessage());
+            $this->error('Failed to import game: ' . $e->getMessage());
             Log::error('Steam game import failed', [
                 'url' => $url,
                 'app_id' => $appId,

@@ -73,10 +73,10 @@ class FetchGameJamDetails extends Command
         // Display retry settings and whether we're fetching results
         $this->info("Processing {$count} game jams...");
         $this->info('Fetch settings:');
-        $this->info('- Fetching rankings: '.($forceResults ? 'Yes' : 'No'));
+        $this->info('- Fetching rankings: ' . ($forceResults ? 'Yes' : 'No'));
         $this->info('Retry settings:');
-        $this->info('- Max retries: '.$this->option('max-retries'));
-        $this->info('- Base cooldown: '.$this->option('retry-cooldown').' seconds');
+        $this->info('- Max retries: ' . $this->option('max-retries'));
+        $this->info('- Base cooldown: ' . $this->option('retry-cooldown') . ' seconds');
 
         $successCount = 0;
         $failCount = 0;
@@ -86,7 +86,7 @@ class FetchGameJamDetails extends Command
 
             try {
                 // Fetch details from the game jam page with retry logic
-                $this->info('Fetching details for game jam: '.$gameJam->name.' (ID: '.$gameJam->id.')');
+                $this->info('Fetching details for game jam: ' . $gameJam->name . ' (ID: ' . $gameJam->id . ')');
 
                 // Configure the ItchHttpClientService with the command options
                 $itchClient = App::make(ItchHttpClientService::class);
@@ -104,7 +104,7 @@ class FetchGameJamDetails extends Command
 
                 // If we're forcing results and the fetch was successful, fetch the results page with retry logic
                 if ($success && $forceResults) {
-                    $this->info('Fetching rankings for game jam: '.$gameJam->name.' (ID: '.$gameJam->id.')');
+                    $this->info('Fetching rankings for game jam: ' . $gameJam->name . ' (ID: ' . $gameJam->id . ')');
 
                     // Get retry settings from command options
                     $maxRetries = (int) $this->option('max-retries');

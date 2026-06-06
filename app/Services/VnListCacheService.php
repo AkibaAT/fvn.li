@@ -14,7 +14,7 @@ class VnListCacheService
      */
     public function clearPublicListsCache(): void
     {
-        $cacheKeys = Cache::getStore()->getPrefix().'public_lists:*';
+        $cacheKeys = Cache::getStore()->getPrefix() . 'public_lists:*';
 
         // If Redis is used, delete matching keys efficiently
         if (app()->cache->getStore() instanceof RedisStore) {

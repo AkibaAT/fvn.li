@@ -40,16 +40,16 @@ class GameSocialMetaBuilder
     private function description(Game $game, string $description, array $platforms, $reviews, ?array $englishStats): string
     {
         if ($game->authors) {
-            $description .= ' by '.strip_tags($game->authors);
+            $description .= ' by ' . strip_tags($game->authors);
         }
         if ($game->status) {
             $description .= " ({$game->status})";
         }
         if ($englishStats && isset($englishStats['words']) && is_numeric($englishStats['words']) && (int) $englishStats['words'] > 0) {
-            $description .= ' - '.number_format((int) $englishStats['words']).' words';
+            $description .= ' - ' . number_format((int) $englishStats['words']) . ' words';
         }
         if (! empty($platforms)) {
-            $description .= ' - Available on: '.implode(', ', $platforms);
+            $description .= ' - Available on: ' . implode(', ', $platforms);
         }
         if ($reviews->total() > 0) {
             $description .= " - {$reviews->total()} reviews";

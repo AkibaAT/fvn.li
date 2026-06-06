@@ -53,7 +53,12 @@ class ImageDownloadUrlValidator
             throw new InvalidArgumentException('Image URL must not contain credentials');
         }
 
-        return [$url, $host, (int) ($parts['port'] ?? 443)];
+        $port = (int) ($parts['port'] ?? 443);
+        if ($port !== 443) {
+            throw new InvalidArgumentException('Image downloads must use the standard HTTPS port');
+        }
+
+        return [$url, $host, $port];
     }
 
     private function publiclyRoutableIpForHost(string $host): string

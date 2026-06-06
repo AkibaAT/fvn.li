@@ -57,7 +57,7 @@ class CalculateWordFrequencies extends Command
             return 0;
         }
 
-        $this->info('Found '.count($combinations).' version+language combinations to process.');
+        $this->info('Found ' . count($combinations) . ' version+language combinations to process.');
         $bar = $this->output->createProgressBar(count($combinations));
         $bar->start();
 
@@ -183,7 +183,7 @@ class CalculateWordFrequencies extends Command
             if ($includePhrases && count($words) >= 2) {
                 // Bigrams (2-word phrases)
                 for ($i = 0; $i < count($words) - 1; $i++) {
-                    $phrase = $words[$i].' '.$words[$i + 1];
+                    $phrase = $words[$i] . ' ' . $words[$i + 1];
                     // Only count if phrase is meaningful (not all stop words)
                     if (! (in_array($words[$i], $stopWords, true) && in_array($words[$i + 1], $stopWords, true))) {
                         $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
@@ -192,7 +192,7 @@ class CalculateWordFrequencies extends Command
 
                 // Trigrams (3-word phrases)
                 for ($i = 0; $i < count($words) - 2; $i++) {
-                    $phrase = $words[$i].' '.$words[$i + 1].' '.$words[$i + 2];
+                    $phrase = $words[$i] . ' ' . $words[$i + 1] . ' ' . $words[$i + 2];
                     $phraseCounts[$phrase] = ($phraseCounts[$phrase] ?? 0) + 1;
                 }
             }

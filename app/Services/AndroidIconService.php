@@ -46,11 +46,11 @@ class AndroidIconService
                 'thumb_url' => $thumbnailUrl,
             ]);
 
-            $tempDir = storage_path('app/temp/android_icon_'.$game->id);
+            $tempDir = storage_path('app/temp/android_icon_' . $game->id);
             File::makeDirectory($tempDir, 0755, true, true);
 
             $tempFile = $this->stageThumbnail($thumbnailUrl, $tempDir);
-            $foregroundPath = $gameDir.'/android-icon_foreground.png';
+            $foregroundPath = $gameDir . '/android-icon_foreground.png';
             $image = $this->imageManager->decodePath($tempFile);
 
             $width = $image->width();
@@ -81,16 +81,16 @@ class AndroidIconService
         if ($this->isLocalThumbnail($thumbnailUrl)) {
             $localPath = $this->getLocalThumbnailPath($thumbnailUrl);
             if (! $localPath || ! file_exists($localPath)) {
-                throw new Exception('Local thumbnail not found: '.$localPath);
+                throw new Exception('Local thumbnail not found: ' . $localPath);
             }
 
-            $tempFile = $tempDir.'/thumbnail'.pathinfo($localPath, PATHINFO_EXTENSION);
+            $tempFile = $tempDir . '/thumbnail' . pathinfo($localPath, PATHINFO_EXTENSION);
             copy($localPath, $tempFile);
 
             return $tempFile;
         }
 
-        $tempFile = $tempDir.'/thumbnail.jpg';
+        $tempFile = $tempDir . '/thumbnail.jpg';
         $request = $this->imageUrlValidator->validatedRequest($thumbnailUrl);
         $response = $this->httpClient->get($request['url'], array_replace_recursive([
             'timeout' => 30,

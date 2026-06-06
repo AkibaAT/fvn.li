@@ -58,7 +58,7 @@ class DashboardAdditionRequestController extends Controller
         }
 
         if (! empty($result['errors'])) {
-            $message .= ' Errors: '.implode(', ', $result['errors']);
+            $message .= ' Errors: ' . implode(', ', $result['errors']);
         }
 
         return response()->json([

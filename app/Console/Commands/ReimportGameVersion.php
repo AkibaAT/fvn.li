@@ -16,6 +16,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ReimportGameVersion extends Command
 {
@@ -197,7 +198,7 @@ class ReimportGameVersion extends Command
 
         try {
             $result = $this->repository->persistStoredArchive($game, $version, true);
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             $this->warn('Archive persistence failed: ' . $throwable->getMessage());
             Log::warning('Archive persistence failed after version reimport', [
                 'game_id' => $game->id,

@@ -200,7 +200,7 @@ class ImageProcessingService
             return;
         }
 
-        echo '    [Images] Processing '.count($game->screenshots)." screenshots\n";
+        echo '    [Images] Processing ' . count($game->screenshots) . " screenshots\n";
 
         $updatedScreenshots = [];
 
@@ -260,7 +260,7 @@ class ImageProcessingService
                 foreach (self::SCREENSHOT_VARIANTS as $variant => $config) {
                     echo "    [Images] Processing {$variant} variant...\n";
 
-                    $variantFilename = $baseFilename."_{$variant}.webp";
+                    $variantFilename = $baseFilename . "_{$variant}.webp";
                     $variantPath = $this->getStoragePath($variantFilename, self::SCREENSHOTS_PATH);
 
                     $dimensions = $this->processImageVariant($tempFile, $variantPath, $config, $quality);
@@ -382,7 +382,7 @@ class ImageProcessingService
             foreach (self::THUMBNAIL_VARIANTS as $variant => $config) {
                 echo "    [Images] Processing {$variant} variant...\n";
 
-                $variantFilename = $baseFilename."_{$variant}.webp";
+                $variantFilename = $baseFilename . "_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH);
 
                 $dimensions = $this->processImageVariant($tempFile, $variantPath, $config, $quality);
@@ -503,7 +503,7 @@ class ImageProcessingService
      */
     private function getStoragePath(string $filename, string $basePath): string
     {
-        return $basePath.'/'.$filename;
+        return $basePath . '/' . $filename;
     }
 
     /**
