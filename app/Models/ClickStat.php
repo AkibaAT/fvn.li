@@ -238,7 +238,7 @@ class ClickStat extends Model
                     'description' => match ($stat->type) {
                         self::TYPE_PAGE_VIEW => 'Page view on FVN.li',
                         self::TYPE_EXTERNAL_PROJECT => 'Visit to itch.io project page',
-                        self::TYPE_CUSTOM_LINK => 'Download link click: '.($stat->link_id ?? 'Unknown'),
+                        self::TYPE_CUSTOM_LINK => 'Download link click: ' . ($stat->link_id ?? 'Unknown'),
                         default => 'Unknown click type'
                     },
                     // Note: session_id, ip_address, and user_agent are excluded for privacy

@@ -16,7 +16,7 @@ function discordApiOwnerWithServer(array $serverAttributes = []): array
     Sanctum::actingAs($user);
 
     $server = DiscordServer::create($serverAttributes + [
-        'discord_server_id' => 'guild-api-'.uniqid(),
+        'discord_server_id' => 'guild-api-' . uniqid(),
         'discord_server_name' => 'API Guild',
         'owner_user_id' => $user->id,
         'is_active' => true,
@@ -112,7 +112,7 @@ it('filters shows summarizes resends tests and clears Discord notification histo
         'sent_at' => now()->subDays(45),
     ]);
 
-    $this->getJson("/api/discord-servers/{$server->id}/notifications?status=sent&type=new_game&from_date=".now()->subDays(3)->toDateString())
+    $this->getJson("/api/discord-servers/{$server->id}/notifications?status=sent&type=new_game&from_date=" . now()->subDays(3)->toDateString())
         ->assertOk()
         ->assertJsonPath('data.0.id', $sent->id)
         ->assertJsonPath('data.0.game.name', 'History Game');
@@ -154,7 +154,7 @@ it('filters shows summarizes resends tests and clears Discord notification histo
 it('blocks access to notification history records from another server and unconfigured test sends', function () {
     [$user, $server] = discordApiOwnerWithServer();
     $otherServer = DiscordServer::create([
-        'discord_server_id' => 'guild-other-'.uniqid(),
+        'discord_server_id' => 'guild-other-' . uniqid(),
         'discord_server_name' => 'Other Guild',
         'owner_user_id' => $user->id,
         'is_active' => true,

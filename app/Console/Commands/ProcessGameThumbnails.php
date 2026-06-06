@@ -132,7 +132,7 @@ class ProcessGameThumbnails extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error during thumbnail processing: '.$e->getMessage());
+            $this->error('Error during thumbnail processing: ' . $e->getMessage());
             Log::error('Thumbnail processing failed', ['exception' => $e]);
 
             return 1;
@@ -228,7 +228,7 @@ class ProcessGameThumbnails extends Command
                 'file_start' => $fileStart,
                 'file_size' => filesize($tempFile),
             ]);
-            throw new Exception('Invalid or corrupted image file: '.$e->getMessage());
+            throw new Exception('Invalid or corrupted image file: ' . $e->getMessage());
         }
 
         try {
@@ -246,7 +246,7 @@ class ProcessGameThumbnails extends Command
             foreach (self::VARIANTS as $variant => $config) {
                 $this->info("Processing {$variant} variant...");
 
-                $variantFilename = $baseFilename."_{$variant}.webp";
+                $variantFilename = $baseFilename . "_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename);
 
                 $dimensions = $this->processStaticVariant(
@@ -368,7 +368,7 @@ class ProcessGameThumbnails extends Command
      */
     private function getStoragePath(string $filename): string
     {
-        return self::THUMBNAIL_PATH.'/'.$filename;
+        return self::THUMBNAIL_PATH . '/' . $filename;
     }
 
     /**

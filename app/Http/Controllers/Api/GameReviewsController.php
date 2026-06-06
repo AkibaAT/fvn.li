@@ -260,10 +260,10 @@ class GameReviewsController extends Controller
             $normalizedUrl = $this->normalizeUrl($url);
             $game = Game::where(function ($query) use ($url, $normalizedUrl) {
                 $query->byUrl($url)
-                    ->orByUrl('https://'.$normalizedUrl)
-                    ->orByUrl('http://'.$normalizedUrl)
-                    ->orByUrl('https://www.'.$normalizedUrl)
-                    ->orByUrl('http://www.'.$normalizedUrl);
+                    ->orByUrl('https://' . $normalizedUrl)
+                    ->orByUrl('http://' . $normalizedUrl)
+                    ->orByUrl('https://www.' . $normalizedUrl)
+                    ->orByUrl('http://www.' . $normalizedUrl);
             })
                 ->fromItchio()
                 ->first();

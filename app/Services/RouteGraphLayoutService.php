@@ -62,7 +62,7 @@ class RouteGraphLayoutService
         $process->run();
 
         if (! $process->isSuccessful()) {
-            throw new RuntimeException('GraphViz route-map layout failed: '.$process->getErrorOutput());
+            throw new RuntimeException('GraphViz route-map layout failed: ' . $process->getErrorOutput());
         }
 
         try {
@@ -149,7 +149,7 @@ class RouteGraphLayoutService
         foreach ($edges as $edge) {
             $source = (string) $edge['source'];
             $target = (string) $edge['target'];
-            $key = $source."\0".$target;
+            $key = $source . "\0" . $target;
 
             if (! isset($groups[$key])) {
                 $groups[$key] = [];
@@ -205,13 +205,13 @@ class RouteGraphLayoutService
         $conditionLabel = null;
 
         if ($condition !== '' && $condition !== 'True') {
-            $conditionLabel = str_starts_with($condition, 'not (') ? 'else' : 'if '.$condition;
+            $conditionLabel = str_starts_with($condition, 'not (') ? 'else' : 'if ' . $condition;
         }
 
         $choiceText = trim((string) ($edge['choice_text'] ?? ''));
 
         if ($choiceText !== '' && $conditionLabel !== null) {
-            return $choiceText.' · '.$conditionLabel;
+            return $choiceText . ' · ' . $conditionLabel;
         }
 
         return $choiceText !== '' ? $choiceText : $conditionLabel;
@@ -219,12 +219,12 @@ class RouteGraphLayoutService
 
     private function visualEdgeId(string $source, string $target): string
     {
-        return 'connection:'.$this->encodeURIComponent($source).':'.$this->encodeURIComponent($target);
+        return 'connection:' . $this->encodeURIComponent($source) . ':' . $this->encodeURIComponent($target);
     }
 
     private function conditionNodeId(string $source, string $label): string
     {
-        return 'condition:'.$this->encodeURIComponent($source).':'.$this->encodeURIComponent($label);
+        return 'condition:' . $this->encodeURIComponent($source) . ':' . $this->encodeURIComponent($label);
     }
 
     private function encodeURIComponent(string $value): string
@@ -312,16 +312,16 @@ class RouteGraphLayoutService
             $size = $this->estimateNodeSize($node);
             $width = $this->formatDotNumber($size['width'] / self::POINTS_PER_INCH);
             $height = $this->formatDotNumber($size['height'] / self::POINTS_PER_INCH);
-            $lines[] = $this->dotQuote($id).' [width="'.$width.'", height="'.$height.'"];';
+            $lines[] = $this->dotQuote($id) . ' [width="' . $width . '", height="' . $height . '"];';
         }
 
         foreach ($edges as $edge) {
-            $lines[] = $this->dotQuote($edge['source']).' -> '.$this->dotQuote($edge['target']).';';
+            $lines[] = $this->dotQuote($edge['source']) . ' -> ' . $this->dotQuote($edge['target']) . ';';
         }
 
         $lines[] = '}';
 
-        return implode("\n", $lines)."\n";
+        return implode("\n", $lines) . "\n";
     }
 
     private function dotQuote(string $value): string
@@ -332,7 +332,7 @@ class RouteGraphLayoutService
             $value
         );
 
-        return '"'.$value.'"';
+        return '"' . $value . '"';
     }
 
     private function formatDotNumber(float $value): string
@@ -383,7 +383,7 @@ class RouteGraphLayoutService
 
         $missing = array_values(array_diff(array_keys($nodeSizes), array_keys($positions)));
         if ($missing !== []) {
-            throw new RuntimeException('GraphViz route-map layout omitted '.count($missing).' nodes, including ['.$missing[0].'].');
+            throw new RuntimeException('GraphViz route-map layout omitted ' . count($missing) . ' nodes, including [' . $missing[0] . '].');
         }
 
         return [

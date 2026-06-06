@@ -48,7 +48,7 @@ class ItchDownloadUrlResolver
         }
 
         $downloadEndpoint = $this->validateItchControlUrl(
-            $this->extractDownloadUrlEndpoint($gamePage) ?? rtrim($gameUrl, '/').'/download_url',
+            $this->extractDownloadUrlEndpoint($gamePage) ?? rtrim($gameUrl, '/') . '/download_url',
             $gameUrl,
             'itch.io download URL endpoint'
         );
@@ -131,7 +131,7 @@ class ItchDownloadUrlResolver
 
     public function uploadDownloadEndpoint(string $gameUrl, int $uploadId): string
     {
-        return rtrim($gameUrl, '/').'/file/'.$uploadId;
+        return rtrim($gameUrl, '/') . '/file/' . $uploadId;
     }
 
     /**
@@ -215,6 +215,10 @@ class ItchDownloadUrlResolver
         $parts = $this->validatedUrlParts($url, $description);
         $host = $this->normalizeHost((string) $parts['host']);
         $port = (int) ($parts['port'] ?? 443);
+        if ($port !== 443) {
+            throw new RuntimeException("The {$description} must use the standard HTTPS port");
+        }
+
         $ip = $this->publiclyRoutableIpForHost($host, $description);
 
         return [
@@ -242,7 +246,7 @@ class ItchDownloadUrlResolver
     {
         $errors = $downloadInfo['errors'] ?? null;
         if (is_array($errors) && $errors !== []) {
-            return $message.': '.implode(', ', array_map('strval', $errors));
+            return $message . ': ' . implode(', ', array_map('strval', $errors));
         }
 
         return $message;
@@ -297,19 +301,19 @@ class ItchDownloadUrlResolver
             throw new RuntimeException('Invalid itch.io game URL');
         }
 
-        $origin = strtolower((string) $baseParts['scheme']).'://'.$this->normalizeHost((string) $baseParts['host']);
+        $origin = strtolower((string) $baseParts['scheme']) . '://' . $this->normalizeHost((string) $baseParts['host']);
         if (str_starts_with($url, '//')) {
-            return strtolower((string) $baseParts['scheme']).':'.$url;
+            return strtolower((string) $baseParts['scheme']) . ':' . $url;
         }
 
         if (str_starts_with($url, '/')) {
-            return $origin.$url;
+            return $origin . $url;
         }
 
         $basePath = (string) ($baseParts['path'] ?? '/');
         $directory = preg_replace('#/[^/]*$#', '/', $basePath) ?: '/';
 
-        return $origin.$directory.$url;
+        return $origin . $directory . $url;
     }
 
     private function isItchHost(string $host): bool

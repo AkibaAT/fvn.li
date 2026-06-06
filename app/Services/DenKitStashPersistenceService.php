@@ -13,11 +13,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use Throwable;
 use ZipArchive;
 
 class DenKitStashPersistenceService
 {
     private const OPTIMIZATION_METADATA_SCHEMA = 'fvn.archive_optimization.v1';
+    private const DEFAULT_MAX_ARCHIVE_ENTRIES = 20000;
+    private const DEFAULT_MAX_EXTRACTED_BYTES = 2147483648;
 
     private ?string $lastRestoreDiagnostic = null;
 
@@ -128,7 +131,7 @@ class DenKitStashPersistenceService
                 'archive_path' => Storage::path("{$storagePath}/{$filename}"),
                 'build_id' => $buildId,
             ];
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             $this->lastRestoreDiagnostic = "Failed to restore {$target} build #{$buildId}: {$throwable->getMessage()}";
 
             throw $throwable;
@@ -147,6 +150,48 @@ class DenKitStashPersistenceService
     public function getLastRestoreDiagnostic(): ?string
     {
         return $this->lastRestoreDiagnostic;
+    }
+
+    protected function downloadArchiveUrl(string $url, string $archivePath): void
+    {
+        $download = (new Client([
+            'timeout' => 600,
+            'connect_timeout' => 30,
+            'allow_redirects' => true,
+        ]))->get($url, [
+            'sink' => $archivePath,
+        ]);
+
+        if ($download->getStatusCode() < 200 || $download->getStatusCode() >= 300) {
+            throw new RuntimeException("Failed to download DenKit Stash archive: HTTP {$download->getStatusCode()}");
+        }
+    }
+
+    protected function runButlerPush(string $pushPath, string $target, string $userVersion): string
+    {
+        $process = new Process([
+            $this->butlerBinary(),
+            '--address=' . $this->serverUrl(),
+            '--assume-yes',
+            'push',
+            $pushPath,
+            $target,
+            '--userversion',
+            $userVersion,
+            '--json',
+        ]);
+        $process->setTimeout(null);
+        $process->setEnv([
+            'BUTLER_API_KEY' => $this->apiKey(),
+            'HOME' => getenv('HOME') ?: '/tmp',
+        ]);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException(trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'butler push failed');
+        }
+
+        return trim($process->getOutput());
     }
 
     private function downloadBuildArchive(int $buildId, string $archivePath): void
@@ -190,21 +235,6 @@ class DenKitStashPersistenceService
         $this->downloadArchiveUrl($location, $archivePath);
     }
 
-    protected function downloadArchiveUrl(string $url, string $archivePath): void
-    {
-        $download = (new Client([
-            'timeout' => 600,
-            'connect_timeout' => 30,
-            'allow_redirects' => true,
-        ]))->get($url, [
-            'sink' => $archivePath,
-        ]);
-
-        if ($download->getStatusCode() < 200 || $download->getStatusCode() >= 300) {
-            throw new RuntimeException("Failed to download DenKit Stash archive: HTTP {$download->getStatusCode()}");
-        }
-    }
-
     private function restoredArchiveFilename(string $archivePath, int $buildId): string
     {
         $metadata = $this->archiveService->readArchiveMetadata($archivePath);
@@ -212,13 +242,13 @@ class DenKitStashPersistenceService
         $originalFilename = is_array($metadata) ? ($metadata['original_archive']['filename'] ?? null) : null;
 
         if (! is_string($format) || $format === '' || ! is_string($originalFilename) || $originalFilename === '') {
-            return "denkit-stash-{$buildId}.".$this->archiveExtension($archivePath);
+            return "denkit-stash-{$buildId}." . $this->archiveExtension($archivePath);
         }
 
-        $suffix = '.'.$format;
+        $suffix = '.' . $format;
         $base = basename($originalFilename);
         if (str_ends_with(strtolower($base), strtolower($suffix))) {
-            return substr($base, 0, -strlen($suffix)).'.optimized.'.$format;
+            return substr($base, 0, -strlen($suffix)) . '.optimized.' . $format;
         }
 
         return "denkit-stash-{$buildId}.optimized.{$format}";
@@ -230,6 +260,15 @@ class DenKitStashPersistenceService
         if (($metadata['schema'] ?? null) !== self::OPTIMIZATION_METADATA_SCHEMA) {
             throw new RuntimeException("Archive is not an optimized fvn.li archive: {$archivePath}");
         }
+    }
+
+    private function validateOptimizedArchiveMembers(string $archivePath): void
+    {
+        match ($this->archiveExtension($archivePath)) {
+            'zip' => $this->validateZipArchiveMembers($archivePath),
+            'tar', 'tar.gz', 'tgz', 'tar.bz2', 'tbz2' => $this->validateTarArchiveMembers($archivePath),
+            default => throw new RuntimeException("Unsupported optimized archive format: {$this->archiveExtension($archivePath)}"),
+        };
     }
 
     private function username(): string
@@ -278,33 +317,6 @@ class DenKitStashPersistenceService
         }
 
         return $builtBinary;
-    }
-
-    protected function runButlerPush(string $pushPath, string $target, string $userVersion): string
-    {
-        $process = new Process([
-            $this->butlerBinary(),
-            '--address=' . $this->serverUrl(),
-            '--assume-yes',
-            'push',
-            $pushPath,
-            $target,
-            '--userversion',
-            $userVersion,
-            '--json',
-        ]);
-        $process->setTimeout(null);
-        $process->setEnv([
-            'BUTLER_API_KEY' => $this->apiKey(),
-            'HOME' => getenv('HOME') ?: '/tmp',
-        ]);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            throw new RuntimeException(trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: 'butler push failed');
-        }
-
-        return trim($process->getOutput());
     }
 
     private function apiKey(): string
@@ -370,6 +382,164 @@ class DenKitStashPersistenceService
         return null;
     }
 
+    private function validateZipArchiveMembers(string $archivePath): void
+    {
+        $zip = new ZipArchive;
+        $result = $zip->open($archivePath);
+        if ($result !== true) {
+            throw new RuntimeException("Failed to open optimized archive: {$result}");
+        }
+
+        $totalBytes = 0;
+        try {
+            for ($index = 0; $index < $zip->numFiles; $index++) {
+                $stat = $zip->statIndex($index);
+                if (! is_array($stat)) {
+                    throw new RuntimeException("Failed to inspect optimized archive entry #{$index}");
+                }
+
+                $name = (string) ($stat['name'] ?? '');
+                $this->assertSafeArchiveEntryPath($name);
+                $this->assertAllowedZipEntryType($zip, $index, $name);
+
+                if (! str_ends_with($name, '/')) {
+                    $totalBytes += (int) ($stat['size'] ?? 0);
+                    $this->assertArchiveSizeLimit($totalBytes);
+                }
+            }
+
+            $this->assertArchiveEntryCount($zip->numFiles);
+        } finally {
+            $zip->close();
+        }
+    }
+
+    private function validateTarArchiveMembers(string $archivePath): void
+    {
+        $names = $this->runTarList($archivePath, verbose: false);
+        $details = $this->runTarList($archivePath, verbose: true);
+
+        if (count($names) !== count($details)) {
+            throw new RuntimeException('Failed to inspect optimized archive entries');
+        }
+
+        $this->assertArchiveEntryCount(count($names));
+
+        $totalBytes = 0;
+        foreach ($names as $index => $name) {
+            $this->assertSafeArchiveEntryPath($name);
+
+            $detail = $details[$index] ?? '';
+            $type = $detail[0] ?? '';
+            if (! in_array($type, ['-', 'd'], true)) {
+                throw new RuntimeException("Optimized archive entry is not a regular file or directory: {$name}");
+            }
+
+            if ($type === '-') {
+                $parts = preg_split('/\s+/', $detail, 6);
+                if (! is_array($parts) || ! isset($parts[2]) || ! is_numeric($parts[2])) {
+                    throw new RuntimeException("Failed to inspect optimized archive entry size: {$name}");
+                }
+
+                $totalBytes += (int) $parts[2];
+                $this->assertArchiveSizeLimit($totalBytes);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function runTarList(string $archivePath, bool $verbose): array
+    {
+        $extension = $this->archiveExtension($archivePath);
+        $args = ['tar', '--list', '--file', $archivePath];
+        if ($verbose) {
+            $args[] = '--verbose';
+        }
+
+        match ($extension) {
+            'tar.gz', 'tgz' => $args[] = '--gzip',
+            'tar.bz2', 'tbz2' => $args[] = '--bzip2',
+            'tar' => null,
+            default => throw new RuntimeException("Unsupported optimized archive format: {$extension}"),
+        };
+
+        $process = new Process($args);
+        $process->setTimeout(600);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException('Failed to inspect optimized archive: ' . $process->getErrorOutput());
+        }
+
+        return array_values(array_filter(preg_split('/\R/', trim($process->getOutput())) ?: [], static fn (string $line) => $line !== ''));
+    }
+
+    private function assertSafeArchiveEntryPath(string $path): void
+    {
+        $path = trim($path);
+        if ($path === '') {
+            throw new RuntimeException('Optimized archive contains an empty entry path');
+        }
+
+        $normalized = str_replace('\\', '/', $path);
+        $segments = explode('/', $normalized);
+        if (
+            str_starts_with($normalized, '/')
+            || preg_match('/^[A-Za-z]:\//', $normalized) === 1
+            || in_array('..', $segments, true)
+            || preg_match('/[\x00-\x1F\x7F]/', $path) === 1
+        ) {
+            throw new RuntimeException("Optimized archive contains an unsafe entry path: {$path}");
+        }
+    }
+
+    private function assertAllowedZipEntryType(ZipArchive $zip, int $index, string $name): void
+    {
+        if (! method_exists($zip, 'getExternalAttributesIndex')) {
+            return;
+        }
+
+        $opsys = 0;
+        $attributes = 0;
+        if (! $zip->getExternalAttributesIndex($index, $opsys, $attributes)) {
+            throw new RuntimeException("Failed to inspect optimized archive entry attributes: {$name}");
+        }
+
+        if ($opsys !== ZipArchive::OPSYS_UNIX) {
+            return;
+        }
+
+        $fileType = (($attributes >> 16) & 0170000);
+        if ($fileType !== 0 && ! in_array($fileType, [0040000, 0100000], true)) {
+            throw new RuntimeException("Optimized archive entry is not a regular file or directory: {$name}");
+        }
+    }
+
+    private function assertArchiveEntryCount(int $entryCount): void
+    {
+        if ($entryCount > $this->maxArchiveEntries()) {
+            throw new RuntimeException("Optimized archive contains too many entries: {$entryCount}");
+        }
+    }
+
+    private function assertArchiveSizeLimit(int $totalBytes): void
+    {
+        if ($totalBytes > $this->maxExtractedBytes()) {
+            throw new RuntimeException("Optimized archive expands beyond the configured byte limit: {$totalBytes}");
+        }
+    }
+
+    private function maxArchiveEntries(): int
+    {
+        return max(1, (int) Config::get('services.denkit_stash.max_archive_entries', self::DEFAULT_MAX_ARCHIVE_ENTRIES));
+    }
+
+    private function maxExtractedBytes(): int
+    {
+        return max(1, (int) Config::get('services.denkit_stash.max_extracted_bytes', self::DEFAULT_MAX_EXTRACTED_BYTES));
+    }
+
     /**
      * @param  array<string, mixed>  $options
      */
@@ -380,6 +550,8 @@ class DenKitStashPersistenceService
 
     private function extractArchive(string $archivePath, string $targetPath): void
     {
+        $this->validateOptimizedArchiveMembers($archivePath);
+
         $extension = $this->archiveExtension($archivePath);
         if ($extension === 'zip') {
             $zip = new ZipArchive;

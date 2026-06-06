@@ -89,7 +89,7 @@ class ProcessFeed extends Command
             $lastEventId = $lastProcessed?->event_id;
 
             while (true) {
-                $this->info('Processing page '.($currentPage ? "from event {$currentPage}" : '(initial)'));
+                $this->info('Processing page ' . ($currentPage ? "from event {$currentPage}" : '(initial)'));
 
                 // Get authenticated client for feed page
                 $client = $this->authService->getClient();
@@ -125,7 +125,7 @@ class ProcessFeed extends Command
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Error processing feed: '.$e->getMessage());
+            $this->error('Error processing feed: ' . $e->getMessage());
             Log::error('Feed processing failed', ['exception' => $e]);
 
             return 1;
@@ -308,7 +308,7 @@ class ProcessFeed extends Command
             sleep(10); // Rate limiting between games
         } catch (Exception $e) {
             DB::rollBack();
-            $this->error("Error updating game {$gameId}: ".$e->getMessage());
+            $this->error("Error updating game {$gameId}: " . $e->getMessage());
 
             // Save error state outside transaction
             try {

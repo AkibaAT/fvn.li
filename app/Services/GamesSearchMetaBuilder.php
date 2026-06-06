@@ -36,7 +36,7 @@ class GamesSearchMetaBuilder
         $this->appendBooleanFilterParts($request, $titleParts, $descriptionParts);
 
         $description = count($descriptionParts) > 0
-            ? implode(' • ', $descriptionParts).' - Browse and discover visual novels on FVN.li'
+            ? implode(' • ', $descriptionParts) . ' - Browse and discover visual novels on FVN.li'
             : 'Browse and discover visual novels on FVN.li';
 
         if ($totalGames > 0) {
@@ -48,7 +48,7 @@ class GamesSearchMetaBuilder
         return [
             'browserTitle' => 'Visual Novels',
             'socialTitle' => count($titleParts) > 0
-                ? implode(' - ', array_slice($titleParts, 0, 3)).' Visual Novels'
+                ? implode(' - ', array_slice($titleParts, 0, 3)) . ' Visual Novels'
                 : 'Visual Novels',
             'description' => $description,
             'image' => asset(config('social.images.games_list', config('social.images.default'))),
@@ -67,7 +67,7 @@ class GamesSearchMetaBuilder
 
         if (count($platformLabels) > 0) {
             $titleParts[] = implode(', ', $platformLabels);
-            $descriptionParts[] = 'Available on '.implode(', ', $platformLabels);
+            $descriptionParts[] = 'Available on ' . implode(', ', $platformLabels);
         }
     }
 
@@ -82,7 +82,7 @@ class GamesSearchMetaBuilder
 
         if (count($languageLabels) > 0 && count($languageLabels) <= 3) {
             $titleParts[] = implode(', ', $languageLabels);
-            $descriptionParts[] = 'In '.implode(', ', $languageLabels);
+            $descriptionParts[] = 'In ' . implode(', ', $languageLabels);
         }
     }
 
@@ -130,7 +130,7 @@ class GamesSearchMetaBuilder
 
         if (count($tagLabels) > 0) {
             $titleParts[] = implode(', ', $tagLabels);
-            $descriptionParts[] = 'Tagged: '.implode(', ', $tagLabels);
+            $descriptionParts[] = 'Tagged: ' . implode(', ', $tagLabels);
         }
     }
 
@@ -177,7 +177,7 @@ class GamesSearchMetaBuilder
             return $description;
         }
 
-        $description .= '. Including: '.implode(', ', $gameNames);
+        $description .= '. Including: ' . implode(', ', $gameNames);
         if ($totalGames > count($gameNames)) {
             $description .= ', and more';
         }

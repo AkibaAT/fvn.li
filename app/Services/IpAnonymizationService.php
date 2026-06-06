@@ -88,7 +88,7 @@ class IpAnonymizationService
             $binary = inet_pton($ipAddress);
             if ($binary !== false) {
                 // Zero out the last 8 bytes (64 bits)
-                $binary = substr($binary, 0, 8).str_repeat("\0", 8);
+                $binary = substr($binary, 0, 8) . str_repeat("\0", 8);
 
                 return inet_ntop($binary) ?: $ipAddress;
             }
@@ -106,6 +106,6 @@ class IpAnonymizationService
         $salt = Config::get('app.key', 'audit-salt');
 
         // Create a truncated hash for privacy while maintaining some uniqueness
-        return 'hash_'.substr(hash('sha256', $salt.$ipAddress), 0, 12);
+        return 'hash_' . substr(hash('sha256', $salt . $ipAddress), 0, 12);
     }
 }

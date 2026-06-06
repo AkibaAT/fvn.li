@@ -156,7 +156,7 @@ class RatingAnalyticsService
     {
         $allPhrases = [];
         $processedWords = 0;
-        $boundaryMarker = '|||BOUNDARY_'.uniqid().'|||';
+        $boundaryMarker = '|||BOUNDARY_' . uniqid() . '|||';
 
         foreach ($reviews as $review) {
             if ($processedWords >= self::MAX_TOTAL_WORDS) {
@@ -236,7 +236,7 @@ class RatingAnalyticsService
 
     private function matchingSentences(string $phrase, array $sentences, array $lowerSentences): array
     {
-        $pattern = '/\b'.implode('[-\s]+', array_map(fn ($word) => preg_quote($word, '/'), explode(' ', $phrase))).'\b/';
+        $pattern = '/\b' . implode('[-\s]+', array_map(fn ($word) => preg_quote($word, '/'), explode(' ', $phrase))) . '\b/';
         $matchingSentences = [];
 
         foreach ($lowerSentences as $index => $lowerSentence) {

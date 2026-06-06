@@ -57,7 +57,7 @@ beforeEach(function () {
             ->create([
                 'text_id' => $uniqueText->id,
                 'iso_code' => 'eng',
-                'file_path' => 'chapter1/scene'.($index + 1).'.rpy',
+                'file_path' => 'chapter1/scene' . ($index + 1) . '.rpy',
                 'line_number' => ($index + 1) * 10,
             ]);
     }

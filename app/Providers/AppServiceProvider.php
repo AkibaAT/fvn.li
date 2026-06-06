@@ -20,6 +20,9 @@ use App\Observers\TagObserver;
 use App\Observers\UniversalAuditObserver;
 use App\Services\FlareSolverrClient;
 use App\Services\FlareSolverrSessionManager;
+use App\Services\GameArchiveOptimizationService;
+use App\Services\GameArchiveOptimizerDockerRunner;
+use App\Services\GameStatsService;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\ItchIoProvider;
@@ -67,6 +70,13 @@ class AppServiceProvider extends ServiceProvider
                 App::make(ItchUrlSafetyValidator::class),
                 (int) config('services.itch.max_retries'),
                 (int) config('services.itch.retry_cooldown')
+            );
+        });
+
+        $this->app->bind(GameArchiveOptimizationService::class, function ($app) {
+            return new GameArchiveOptimizationService(
+                $app->make(GameStatsService::class),
+                $app->environment('testing') ? null : $app->make(GameArchiveOptimizerDockerRunner::class)
             );
         });
     }

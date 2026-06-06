@@ -20,12 +20,12 @@ test('it accepts public https image hosts from metadata fetches', function (stri
 ]);
 
 test('it pins the validated DNS answer for image fetches', function () {
-    $request = $this->validator->validatedRequest('https://example.com:8443/image.png');
+    $request = $this->validator->validatedRequest('https://example.com/image.png');
     $resolve = $request['options']['curl'][constant('CURLOPT_RESOLVE')] ?? [];
 
-    expect($request['url'])->toBe('https://example.com:8443/image.png')
+    expect($request['url'])->toBe('https://example.com/image.png')
         ->and($resolve)->toHaveCount(1)
-        ->and($resolve[0])->toStartWith('example.com:8443:');
+        ->and($resolve[0])->toStartWith('example.com:443:');
 });
 
 test('it rejects untrusted or unsafe image urls', function (string $url, string $message) {
@@ -39,4 +39,5 @@ test('it rejects untrusted or unsafe image urls', function (string $url, string 
     'unresolvable host' => ['https://img.itch.zone.evil.test/file.png', 'Could not resolve image host'],
     'credentials' => ['https://user:pass@img.itch.zone/file.png', 'credentials'],
     'missing host' => ['https:///file.png', 'Invalid image URL'],
+    'custom https port' => ['https://example.com:8443/image.png', 'standard HTTPS port'],
 ]);

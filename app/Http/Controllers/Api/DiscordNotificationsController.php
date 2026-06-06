@@ -247,7 +247,7 @@ class DiscordNotificationsController extends Controller
                     'notifications' => [],
                     'count' => 0,
                     'since' => $since,
-                    'admin_panel_url' => config('app.url').'/admin/addition-requests',
+                    'admin_panel_url' => config('app.url') . '/admin/addition-requests',
                 ]);
             }
 
@@ -278,7 +278,7 @@ class DiscordNotificationsController extends Controller
                 'notifications' => $notifications,
                 'count' => $notifications->count(),
                 'since' => $since,
-                'admin_panel_url' => config('app.url').'/admin/addition-requests',
+                'admin_panel_url' => config('app.url') . '/admin/addition-requests',
             ]);
 
         } catch (Exception $e) {
@@ -337,7 +337,7 @@ class DiscordNotificationsController extends Controller
                         ? mb_substr(strip_tags($report->rating->review), 0, 200)
                         : null,
                     'created_at' => $report->created_at->toISOString(),
-                    'admin_panel_url' => config('app.url').'/admin/review-reports/'.$report->id,
+                    'admin_panel_url' => config('app.url') . '/admin/review-reports/' . $report->id,
                 ];
             });
 

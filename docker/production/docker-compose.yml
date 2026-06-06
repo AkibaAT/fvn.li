@@ -39,6 +39,9 @@ services:
       - DENKIT_STASH_USERNAME=${DENKIT_STASH_USERNAME:-fvn-li}
       - DENKIT_STASH_API_KEY=${DENKIT_STASH_API_KEY}
       - BUTLER_CLIENT_PATH=${BUTLER_CLIENT_PATH:-/opt/butler}
+      - ARCHIVE_OPTIMIZER_IMAGE=${DOCKER_IMAGE}
+      - ARCHIVE_OPTIMIZER_HOST_WORK_DIR=/var/lib/fvn-archive-optimizer/${COMPOSE_PROJECT_NAME}
+      - ARCHIVE_OPTIMIZER_CONTAINER_WORK_DIR=/optimizer-work
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost/health" ]
       interval: 30s
@@ -56,7 +59,9 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - /opt/renpy-sdk:/opt/renpy-sdk:ro
+      - /var/lib/fvn-archive-optimizer/${COMPOSE_PROJECT_NAME}:/optimizer-work
       - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app/
     labels:
       - "traefik.enable=true"

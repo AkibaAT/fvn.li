@@ -42,6 +42,18 @@ class ItchGameMetadataRefresher
         ]);
     }
 
+    public function hasNoindexTag(HTMLDocument $doc): bool
+    {
+        foreach ($doc->querySelectorAll('meta[name="robots"]') as $meta) {
+            $content = strtolower($meta->getAttribute('content') ?? '');
+            if (str_contains($content, 'noindex')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function refreshStatus(Game $game, HTMLDocument $doc): void
     {
         if (in_array($game->status, ['Abandoned', 'Canceled'])) {
@@ -99,17 +111,5 @@ class ItchGameMetadataRefresher
                 $author->textContent
             );
         }
-    }
-
-    public function hasNoindexTag(HTMLDocument $doc): bool
-    {
-        foreach ($doc->querySelectorAll('meta[name="robots"]') as $meta) {
-            $content = strtolower($meta->getAttribute('content') ?? '');
-            if (str_contains($content, 'noindex')) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

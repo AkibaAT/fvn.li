@@ -22,7 +22,7 @@ final class ExternalBrowserHttpServer implements HttpServer
             return $url;
         }
 
-        return rtrim($this->baseUrl, '/').'/'.ltrim($url, '/');
+        return rtrim($this->baseUrl, '/') . '/' . ltrim($url, '/');
     }
 
     public function flush(): void {}

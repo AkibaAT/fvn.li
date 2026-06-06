@@ -77,27 +77,6 @@ readonly class GameStatsService
         }
     }
 
-    private function sanitizeArchiveFilename(string $filename): string
-    {
-        $filename = trim($filename);
-
-        if ($filename === '') {
-            return 'archive';
-        }
-
-        if (
-            str_contains($filename, "\0") ||
-            str_contains($filename, '/') ||
-            str_contains($filename, '\\') ||
-            $filename === '.' ||
-            $filename === '..'
-        ) {
-            throw new RuntimeException('Archive filenames must not contain path separators or traversal segments.');
-        }
-
-        return $filename;
-    }
-
     /**
      * Extract statistics from a game archive
      */
@@ -127,15 +106,6 @@ readonly class GameStatsService
     public function getLastExtractionError(): ?string
     {
         return $this->sandboxClient->getLastError() ?? $this->localExtractor->getLastError();
-    }
-
-    /**
-     * Extract statistics locally. This mode is intended only for trusted local
-     * fixtures and explicit development fallback, never untrusted production input.
-     */
-    private function extractGameStatsLocally(string $archivePath): ?array
-    {
-        return $this->localExtractor->extract($archivePath);
     }
 
     /**
@@ -328,14 +298,6 @@ readonly class GameStatsService
         echo "    [Stats] Version stats processing complete\n";
     }
 
-    private function clearVersionAggregateStats(GameVersion $version): void
-    {
-        echo "    [Stats] Clearing previous aggregate stats\n";
-        $version->languageStats()->delete();
-        $version->characterStats()->delete();
-        $version->supportedLanguages()->delete();
-    }
-
     /**
      * Save route graph data (labels, edges, menu choices) for a game version
      */
@@ -434,6 +396,44 @@ readonly class GameStatsService
     protected function queueWordFrequencyCalculations(int $versionId): void
     {
         $this->dialoguePersister->queueWordFrequencyCalculations($versionId);
+    }
+
+    private function sanitizeArchiveFilename(string $filename): string
+    {
+        $filename = trim($filename);
+
+        if ($filename === '') {
+            return 'archive';
+        }
+
+        if (
+            str_contains($filename, "\0") ||
+            str_contains($filename, '/') ||
+            str_contains($filename, '\\') ||
+            $filename === '.' ||
+            $filename === '..'
+        ) {
+            throw new RuntimeException('Archive filenames must not contain path separators or traversal segments.');
+        }
+
+        return $filename;
+    }
+
+    /**
+     * Extract statistics locally. This mode is intended only for trusted local
+     * fixtures and explicit development fallback, never untrusted production input.
+     */
+    private function extractGameStatsLocally(string $archivePath): ?array
+    {
+        return $this->localExtractor->extract($archivePath);
+    }
+
+    private function clearVersionAggregateStats(GameVersion $version): void
+    {
+        echo "    [Stats] Clearing previous aggregate stats\n";
+        $version->languageStats()->delete();
+        $version->characterStats()->delete();
+        $version->supportedLanguages()->delete();
     }
 
     /**

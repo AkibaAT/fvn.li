@@ -184,8 +184,8 @@ class UserDataExportController extends Controller
                 ];
             })->values();
 
-        $filename = 'user-data-'.($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
-            strtolower($user->name)) : 'export').'-'.now()->format('Ymd-His').'.zip';
+        $filename = 'user-data-' . ($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
+            strtolower($user->name)) : 'export') . '-' . now()->format('Ymd-His') . '.zip';
 
         return new StreamedResponse(function () use (
             $profile,
@@ -242,7 +242,7 @@ class UserDataExportController extends Controller
             fclose($tmp);
         }, 200, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
             'Cache-Control' => 'no-store, no-cache, must-revalidate',
             'Pragma' => 'no-cache',
         ]);

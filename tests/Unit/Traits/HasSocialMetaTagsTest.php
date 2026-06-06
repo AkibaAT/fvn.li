@@ -7,6 +7,7 @@ use App\Traits\HasSocialMetaTags;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
+// phpcs:disable
 class SocialMetaTagsHarness
 {
     use HasSocialMetaTags;
@@ -93,6 +94,7 @@ class NoGamesMetaTagsHarness
         return $this->getMetaDescription();
     }
 }
+// phpcs:enable
 
 function socialMetaPaginator(Collection $games, int $total): LengthAwarePaginator
 {

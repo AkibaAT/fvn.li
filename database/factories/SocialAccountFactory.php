@@ -94,7 +94,7 @@ class SocialAccountFactory extends Factory
             ],
             'itchio' => [
                 'username' => fake()->userName(),
-                'url' => 'https://'.fake()->userName().'.itch.io',
+                'url' => 'https://' . fake()->userName() . '.itch.io',
                 'display_name' => fake()->name(),
             ],
             default => [],

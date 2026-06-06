@@ -268,7 +268,7 @@ class GameStatsDialoguePersister
                     '--force' => true,
                 ]);
             } catch (Throwable $e) {
-                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: ".$e->getMessage());
+                Log::warning("Failed to calculate word frequencies for version {$versionId}, language {$language}: " . $e->getMessage());
             }
         }
     }
@@ -287,7 +287,7 @@ class GameStatsDialoguePersister
 
         echo "    [Dialogue] Processing {$totalLines} lines for language {$isoCode}\n";
         foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
-            echo '    [Dialogue] Processing chunk '.($chunkIndex + 1)."\n";
+            echo '    [Dialogue] Processing chunk ' . ($chunkIndex + 1) . "\n";
             $chunk = $this->normalizeChunkText($chunk);
             $textIdMapping = $this->persistUniqueTexts($chunk, $now);
             $dialogueBatch = $this->buildDialogueBatch(
@@ -301,7 +301,7 @@ class GameStatsDialoguePersister
                 $textIdMapping
             );
 
-            echo '    [Dialogue] Dialogue batch built ('.count($dialogueBatch)." lines)\n";
+            echo '    [Dialogue] Dialogue batch built (' . count($dialogueBatch) . " lines)\n";
 
             if (! empty($dialogueBatch)) {
                 echo "    [Dialogue] Inserting batch into database...\n";
@@ -343,7 +343,7 @@ class GameStatsDialoguePersister
                 'updated_at' => $now,
             ];
         }
-        echo '    [Dialogue] Collected '.count($uniqueTexts)." unique texts\n";
+        echo '    [Dialogue] Collected ' . count($uniqueTexts) . " unique texts\n";
 
         echo "    [Dialogue] Bulk inserting unique dialogue texts...\n";
         if (! empty($uniqueTexts)) {
@@ -360,7 +360,7 @@ class GameStatsDialoguePersister
         foreach ($texts as $text) {
             $textIdMapping[$text->text_hash] = $text->id;
         }
-        echo '    [Dialogue] Mapped '.count($textIdMapping)." text IDs\n";
+        echo '    [Dialogue] Mapped ' . count($textIdMapping) . " text IDs\n";
 
         return $textIdMapping;
     }

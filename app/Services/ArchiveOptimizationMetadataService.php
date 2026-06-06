@@ -71,12 +71,12 @@ class ArchiveOptimizationMetadataService
             throw new RuntimeException('Failed to encode archive optimization metadata');
         }
 
-        File::put($workDir.'/'.self::METADATA_FILENAME, $json."\n");
+        File::put($workDir . '/' . self::METADATA_FILENAME, $json . "\n");
     }
 
     public function readExtracted(string $extractPath): ?array
     {
-        $metadataPath = $extractPath.'/'.self::METADATA_FILENAME;
+        $metadataPath = $extractPath . '/' . self::METADATA_FILENAME;
         if (! File::isFile($metadataPath)) {
             return null;
         }
@@ -139,7 +139,7 @@ class ArchiveOptimizationMetadataService
             $archiveTargetPath = collect($optimizedFiles)
                 ->map(fn (array $file): ?string => $this->safeRelativeArchivePath((string) $file['path']))
                 ->filter()
-                ->first(fn (string $path): bool => $path === 'game/'.$targetPath || str_ends_with($path, '/game/'.$targetPath));
+                ->first(fn (string $path): bool => $path === 'game/' . $targetPath || str_ends_with($path, '/game/' . $targetPath));
 
             if ($archiveTargetPath !== null) {
                 $targetPaths[$sourcePath] = $archiveTargetPath;
@@ -200,7 +200,7 @@ class ArchiveOptimizationMetadataService
             return false;
         }
 
-        return str_starts_with($resolvedPath, rtrim($resolvedBase, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
+        return str_starts_with($resolvedPath, rtrim($resolvedBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
     }
 
     private function relativeArchivePath(string $sourceDir, string $path): string

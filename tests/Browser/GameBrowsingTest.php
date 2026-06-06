@@ -221,7 +221,7 @@ test('infinite scroll works on games listing', function () {
 
     $page->scroll('[data-testid="games-list"]', 'bottom')
         ->wait(2) // Wait for new games to load
-        ->evaluate('() => document.querySelectorAll("[data-testid=game-card]").length > '.$initialCount)
+        ->evaluate('() => document.querySelectorAll("[data-testid=game-card]").length > ' . $initialCount)
         ->assertNoJavascriptErrors();
 });
 

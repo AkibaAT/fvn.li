@@ -64,7 +64,7 @@ it('validates review lookup identifiers', function () {
 it('returns aggregate review data by game id', function () {
     [$game, $rater, $newest] = createGameReviewApiFixture();
 
-    $this->getJson('/api/game-reviews?game_id='.$game->id)
+    $this->getJson('/api/game-reviews?game_id=' . $game->id)
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('has_reviews', true)
@@ -102,7 +102,7 @@ it('resolves hidden games but excludes non-visible ratings from broad review API
         'published_at' => now()->addMinute(),
     ]);
 
-    $this->getJson('/api/game-reviews?game_id='.$game->id)
+    $this->getJson('/api/game-reviews?game_id=' . $game->id)
         ->assertOk()
         ->assertJsonPath('game.id', $game->id)
         ->assertJsonPath('game.name', 'Hidden Reviewed API Game')
@@ -111,7 +111,7 @@ it('resolves hidden games but excludes non-visible ratings from broad review API
         ->assertJsonMissing(['id' => $hiddenReview->id])
         ->assertJsonMissing(['review' => 'Moderation-hidden API review text.']);
 
-    $this->getJson('/api/game-reviews/paginated?'.http_build_query([
+    $this->getJson('/api/game-reviews/paginated?' . http_build_query([
         'game_id' => $game->id,
         'show_all_ratings' => 'true',
         'per_page' => 10,
@@ -138,19 +138,19 @@ it('finds games by itch id, direct URL, normalized URL, and extracted itch game 
         ->andReturn(111222);
     $this->app->instance(ItchAuthService::class, $itchAuth);
 
-    $this->getJson('/api/game-reviews?itch_game_id='.$game->itch_id)
+    $this->getJson('/api/game-reviews?itch_game_id=' . $game->itch_id)
         ->assertOk()
         ->assertJsonPath('game.id', $game->id);
 
-    $this->getJson('/api/game-reviews?url='.urlencode('https://developer.itch.io/reviewed-api-game'))
+    $this->getJson('/api/game-reviews?url=' . urlencode('https://developer.itch.io/reviewed-api-game'))
         ->assertOk()
         ->assertJsonPath('game.id', $game->id);
 
-    $this->getJson('/api/game-reviews?url='.urlencode('http://developer.itch.io/reviewed-api-game/?source=launcher'))
+    $this->getJson('/api/game-reviews?url=' . urlencode('http://developer.itch.io/reviewed-api-game/?source=launcher'))
         ->assertOk()
         ->assertJsonPath('game.id', $game->id);
 
-    $this->getJson('/api/game-reviews?url='.urlencode('https://unknown.itch.io/id-game'))
+    $this->getJson('/api/game-reviews?url=' . urlencode('https://unknown.itch.io/id-game'))
         ->assertOk()
         ->assertJsonPath('game.id', $fallbackGame->id);
 });
@@ -162,7 +162,7 @@ it('returns not found when no matching itch game exists', function () {
         ->andThrow(new RuntimeException('No game id'));
     $this->app->instance(ItchAuthService::class, $itchAuth);
 
-    $this->getJson('/api/game-reviews?url='.urlencode('https://missing.itch.io/game'))
+    $this->getJson('/api/game-reviews?url=' . urlencode('https://missing.itch.io/game'))
         ->assertNotFound()
         ->assertJsonPath('error', 'Game not found')
         ->assertJsonPath('has_reviews', false)
@@ -174,12 +174,12 @@ it('does not fetch non itch urls when resolving review lookups', function () {
     $itchAuth->shouldNotReceive('getGameId');
     $this->app->instance(ItchAuthService::class, $itchAuth);
 
-    $this->getJson('/api/game-reviews?url='.urlencode('http://127.0.0.1:8765/internal-only?token=secret'))
+    $this->getJson('/api/game-reviews?url=' . urlencode('http://127.0.0.1:8765/internal-only?token=secret'))
         ->assertNotFound()
         ->assertJsonPath('error', 'Game not found')
         ->assertJsonPath('has_reviews', false);
 
-    $this->getJson('/api/game-reviews/paginated?url='.urlencode('http://169.254.169.254/latest/meta-data/'))
+    $this->getJson('/api/game-reviews/paginated?url=' . urlencode('http://169.254.169.254/latest/meta-data/'))
         ->assertNotFound()
         ->assertJsonPath('error', 'Game not found');
 });
@@ -189,7 +189,7 @@ it('does not fetch non https itch urls when resolving review lookups', function 
     $itchAuth->shouldNotReceive('getGameId');
     $this->app->instance(ItchAuthService::class, $itchAuth);
 
-    $this->getJson('/api/game-reviews?url='.urlencode('http://missing.itch.io/game'))
+    $this->getJson('/api/game-reviews?url=' . urlencode('http://missing.itch.io/game'))
         ->assertNotFound()
         ->assertJsonPath('error', 'Game not found')
         ->assertJsonPath('has_reviews', false);
@@ -198,7 +198,7 @@ it('does not fetch non https itch urls when resolving review lookups', function 
 it('returns paginated reviews with rating and review-only filters', function () {
     [$game, , $newest, $olderRatingOnly] = createGameReviewApiFixture();
 
-    $this->getJson('/api/game-reviews/paginated?'.http_build_query([
+    $this->getJson('/api/game-reviews/paginated?' . http_build_query([
         'game_id' => $game->id,
         'rating_filter' => 5,
         'per_page' => 1,
@@ -214,7 +214,7 @@ it('returns paginated reviews with rating and review-only filters', function () 
         ->assertJsonPath('filters.rating_filter', 5)
         ->assertJsonPath('filters.show_all_ratings', false);
 
-    $this->getJson('/api/game-reviews/paginated?'.http_build_query([
+    $this->getJson('/api/game-reviews/paginated?' . http_build_query([
         'game_id' => $game->id,
         'show_all_ratings' => 'true',
         'per_page' => 5,
