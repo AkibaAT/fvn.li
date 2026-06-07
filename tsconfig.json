@@ -11,6 +11,7 @@
         "strict": true,
         "noImplicitAny": true,
         "skipLibCheck": true,
+        "ignoreDeprecations": "6.0",
         "baseUrl": ".",
         "paths": {
             "@/*": ["./resources/js/*"],
