@@ -42,7 +42,7 @@
 
     let { review: initialReview, metaTags }: Props = $props();
 
-    const auth = $derived(($page.props as SharedData).auth);
+    const auth = $derived((page.props as SharedData).auth);
     const currentUserId = $derived(auth?.user?.id ?? null);
 
     let review = $state(untrack(() => initialReview));
