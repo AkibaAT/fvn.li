@@ -18,7 +18,7 @@
   });
 
   const inertiaPage = usePage();
-  const user = $derived(($inertiaPage.props?.auth?.user ?? null) as User | null);
+  const user = $derived((inertiaPage.props?.auth?.user ?? null) as User | null);
 
   // Capture page info when modal opens
   $effect(() => {
