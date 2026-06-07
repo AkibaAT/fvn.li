@@ -57,8 +57,10 @@ export function useStableRoutes() {
     let routes = $state<Routes>(computeRoutes());
 
     $effect(() => {
-        currentUrl = page.url;
-        routes = computeRoutes(currentUrl);
+        return page.subscribe((inertiaPage) => {
+            currentUrl = inertiaPage.url;
+            routes = computeRoutes(currentUrl);
+        });
     });
 
     return {
