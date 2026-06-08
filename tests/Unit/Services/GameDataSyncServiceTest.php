@@ -11,6 +11,7 @@ use App\ValueObjects\Upload;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -180,4 +181,124 @@ HTML;
     app(GameDataSyncService::class)->refreshMetadata($game);
 
     expect($game->screenshots[0]['optimized']['default']['path'])->toBe('screenshots/screenshot_default.webp');
+});
+
+test('itch metadata refresh reprocesses thumbnail when base info already changed thumb url', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('thumbnails/old-cover.webp', 'old optimized cover');
+
+    $game = Game::factory()->create([
+        'name' => 'Changed Cover',
+        'platform' => 'itch_io',
+        'url' => ['itch_io' => 'https://example.itch.io/changed-cover'],
+        'thumb_url' => 'https://img.itch.zone/new-cover.png',
+        'optimized_thumbnails' => [
+            'default' => ['path' => 'thumbnails/old-cover.webp'],
+        ],
+        'screenshots' => [],
+    ]);
+
+    $html = <<<'HTML'
+<!DOCTYPE html>
+<html>
+<body>
+    <div class="formatted_description">Updated store description</div>
+</body>
+</html>
+HTML;
+
+    $mockClient = Mockery::mock(ItchHttpClientService::class);
+    $mockClient->shouldReceive('get')
+        ->once()
+        ->with($game->getPrimaryUrl(), [], true)
+        ->andReturn(new Response(200, [], $html));
+    $this->app->instance(ItchHttpClientService::class, $mockClient);
+
+    $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('processGameThumbnail')
+        ->once()
+        ->with(Mockery::on(function (Game $processedGame) use ($game): bool {
+            expect($processedGame->is($game))->toBeTrue()
+                ->and($processedGame->optimized_thumbnails)->toBeNull();
+
+            return true;
+        }))
+        ->andReturnUsing(function (Game $processedGame): void {
+            $processedGame->optimized_thumbnails = [
+                'default' => ['path' => 'thumbnails/new-cover.webp'],
+            ];
+        });
+    $this->app->instance(ImageProcessingService::class, $imageService);
+
+    app(GameDataSyncService::class)->refreshMetadata(
+        $game,
+        'https://img.itch.zone/old-cover.png',
+        []
+    );
+
+    Storage::disk('public')->assertMissing('thumbnails/old-cover.webp');
+    expect($game->optimized_thumbnails['default']['path'])->toBe('thumbnails/new-cover.webp');
+});
+
+test('itch metadata refresh reprocesses screenshots and removes stale optimized gallery images when source urls change', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('screenshots/old-gallery.webp', 'old optimized screenshot');
+
+    $game = Game::factory()->create([
+        'name' => 'Changed Gallery',
+        'platform' => 'itch_io',
+        'url' => ['itch_io' => 'https://example.itch.io/changed-gallery'],
+        'thumb_url' => 'https://img.itch.zone/cover.png',
+        'optimized_thumbnails' => [
+            'default' => ['path' => 'thumbnails/cover.webp'],
+        ],
+        'screenshots' => [
+            [
+                'url' => 'https://img.itch.zone/old-gallery.png',
+                'thumbnail_url' => 'https://img.itch.zone/old-gallery-thumb.png',
+                'optimized' => [
+                    'default' => ['path' => 'screenshots/old-gallery.webp'],
+                ],
+            ],
+        ],
+    ]);
+
+    $html = <<<'HTML'
+<!DOCTYPE html>
+<html>
+<body>
+    <div class="screenshot_list">
+        <a class="screenshot_link" href="https://img.itch.zone/new-gallery.png">
+            <img src="https://img.itch.zone/new-gallery-thumb.png">
+        </a>
+    </div>
+</body>
+</html>
+HTML;
+
+    $mockClient = Mockery::mock(ItchHttpClientService::class);
+    $mockClient->shouldReceive('get')
+        ->once()
+        ->with($game->getPrimaryUrl(), [], true)
+        ->andReturn(new Response(200, [], $html));
+    $this->app->instance(ItchHttpClientService::class, $mockClient);
+
+    $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('processGameScreenshots')
+        ->once()
+        ->with(Mockery::on(fn (Game $processedGame): bool => $processedGame->is($game)))
+        ->andReturnUsing(function (Game $processedGame): void {
+            $screenshots = $processedGame->screenshots;
+            $screenshots[0]['optimized'] = [
+                'default' => ['path' => 'screenshots/new-gallery.webp'],
+            ];
+            $processedGame->screenshots = $screenshots;
+        });
+    $this->app->instance(ImageProcessingService::class, $imageService);
+
+    app(GameDataSyncService::class)->refreshMetadata($game);
+
+    Storage::disk('public')->assertMissing('screenshots/old-gallery.webp');
+    expect($game->screenshots[0]['url'])->toBe('https://img.itch.zone/new-gallery.png')
+        ->and($game->screenshots[0]['optimized']['default']['path'])->toBe('screenshots/new-gallery.webp');
 });

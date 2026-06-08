@@ -139,6 +139,8 @@ class RefreshGames extends Command
             $this->info("\nProcessing game: {$game->name}");
             try {
                 $game->error = null;
+                $originalThumbUrl = $game->thumb_url;
+                $originalScreenshots = $game->screenshots;
 
                 // Check if we need to auto-enable version refresh for games without versions
                 $needsVersionRefresh = $this->option('update-version');
@@ -173,8 +175,8 @@ class RefreshGames extends Command
                     $this->info('→ Refreshing metadata (tags, ratings, descriptions, screenshots, game jams)...');
 
                     $itchClient->executeWithRetry(
-                        function () use ($game) {
-                            $game->refreshMetadata();
+                        function () use ($game, $originalThumbUrl, $originalScreenshots) {
+                            $game->refreshMetadata($originalThumbUrl, $originalScreenshots);
                             $game->save();
                         },
                         'Metadata',

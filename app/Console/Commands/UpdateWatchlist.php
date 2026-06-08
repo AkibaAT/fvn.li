@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\Game;
 use App\Models\Language;
 use App\Services\HomePageCacheService;
+use App\Services\ImageProcessingService;
 use App\Services\ItchAuthService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
@@ -201,6 +202,7 @@ class UpdateWatchlist extends Command
             $shouldRefreshVersion = false;
             $isNew = ! $game->exists;
             $wasInvisible = $game->exists && ! $game->is_visible;
+            $originalThumbUrl = $game->thumb_url;
 
             // Update if game exists but isn't visible
             if ($game->exists) {
@@ -404,6 +406,8 @@ class UpdateWatchlist extends Command
                 $game->custom_tags = $this->mergeCustomTags($game->custom_tags, $blurbTags);
             }
 
+            $this->processThumbnailIfSourceChanged($game, $originalThumbUrl);
+
             $game->save();
 
             // Process any pending associations now that the game is saved
@@ -426,6 +430,30 @@ class UpdateWatchlist extends Command
                 'error' => $e->getMessage(),
                 'exception' => $e,
             ]);
+        }
+    }
+
+    private function processThumbnailIfSourceChanged(Game $game, ?string $originalThumbUrl): void
+    {
+        if (! $game->thumb_url || $game->thumb_url === $originalThumbUrl) {
+            return;
+        }
+
+        try {
+            if ($game->optimized_thumbnails) {
+                $game->clearOptimizedThumbnails();
+            }
+
+            app(ImageProcessingService::class)->processGameThumbnail($game);
+            $this->info('  - Thumbnail changed; optimized image reprocessed');
+        } catch (Exception $e) {
+            Log::error('Failed to process thumbnail after watchlist cover update', [
+                'game_id' => $game->id,
+                'old_thumb_url' => $originalThumbUrl,
+                'new_thumb_url' => $game->thumb_url,
+                'error' => $e->getMessage(),
+            ]);
+            $this->warn('  - Thumbnail changed but optimized image processing failed: ' . $e->getMessage());
         }
     }
 

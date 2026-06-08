@@ -134,7 +134,7 @@ class GameDataSyncService
 
         // Process uploads data to detect changes
         if (isset($uploadsData['uploads'])) {
-            echo '    [Version] Processing '.count($uploadsData['uploads'])." uploads\n";
+            echo '    [Version] Processing ' . count($uploadsData['uploads']) . " uploads\n";
             foreach ($uploadsData['uploads'] as $upload) {
                 $fileId = (int) $upload['id'];
                 $currentFilename = $upload['filename'] ?? '';
@@ -228,7 +228,7 @@ class GameDataSyncService
             $newVersion = $versionParserService->extractVersion($seenUploads[$bestUpload->id], true);
             $uploadTimestamp = $bestUpload->updatedAt;
 
-            echo '    [Version] Extracted version: '.($newVersion ?: '(empty)')."\n";
+            echo '    [Version] Extracted version: ' . ($newVersion ?: '(empty)') . "\n";
 
             // Check if this is a new version
             $existingVersion = $game->gameVersions()
@@ -241,7 +241,7 @@ class GameDataSyncService
             // When force is enabled and version exists, we should reprocess stats for that version
             $shouldReprocessExistingVersion = $force && $existingVersion;
 
-            echo '    [Version] Should create version: '.($shouldCreateVersion ? 'yes' : 'no').' (existing: '.($existingVersion ? 'yes' : 'no').', force: '.($force ? 'yes' : 'no').")\n";
+            echo '    [Version] Should create version: ' . ($shouldCreateVersion ? 'yes' : 'no') . ' (existing: ' . ($existingVersion ? 'yes' : 'no') . ', force: ' . ($force ? 'yes' : 'no') . ")\n";
             if ($shouldReprocessExistingVersion) {
                 echo "    [Version] Force mode: will reprocess stats for existing version\n";
             }
@@ -261,12 +261,12 @@ class GameDataSyncService
             ($shouldCreateVersion || $shouldReprocessExistingVersion) &&
             (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
 
-        echo "    [Version] Should process Ren'Py: ".($shouldProcessRenPy ? 'yes' : 'no').
-             ' (bestUpload: '.($bestUpload ? 'yes' : 'no').
-             ', shouldCreate: '.($shouldCreateVersion ? 'yes' : 'no').
-             ', shouldReprocess: '.($shouldReprocessExistingVersion ? 'yes' : 'no').
-             ', statsDisabled: '.($game->is_stats_extraction_disabled ? 'yes' : 'no').
-             ', engine: '.($game->game_engine ?: 'null').")\n";
+        echo "    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
+             ' (bestUpload: ' . ($bestUpload ? 'yes' : 'no') .
+             ', shouldCreate: ' . ($shouldCreateVersion ? 'yes' : 'no') .
+             ', shouldReprocess: ' . ($shouldReprocessExistingVersion ? 'yes' : 'no') .
+             ', statsDisabled: ' . ($game->is_stats_extraction_disabled ? 'yes' : 'no') .
+             ', engine: ' . ($game->game_engine ?: 'null') . ")\n";
 
         if ($shouldProcessRenPy) {
             try {
@@ -488,7 +488,7 @@ class GameDataSyncService
      * @throws BindingResolutionException
      * @throws Throwable
      */
-    public function refreshMetadata(Game $game): void
+    public function refreshMetadata(Game $game, ?string $originalThumbUrl = null, ?array $originalScreenshots = null): void
     {
         // ========================================
         // PHASE 1: Fetch metadata (NO TRANSACTION - no locks held)
@@ -499,9 +499,10 @@ class GameDataSyncService
 
         $extractor = app(ItchGameMetadataExtractor::class);
 
-        // Store original values to detect changes
-        $originalThumbUrl = $game->thumb_url;
-        $originalScreenshots = $game->screenshots;
+        // Store original values to detect changes. Full sync callers pass the
+        // pre-sync media state because base info can update thumb_url first.
+        $originalThumbUrl ??= $game->thumb_url;
+        $originalScreenshots ??= $game->screenshots;
 
         // Check for demo availability
         $extractor->checkForDemo($game, $doc);
@@ -664,6 +665,9 @@ class GameDataSyncService
     private function loadFullDetailsItchio(Game $game): void
     {
         try {
+            $originalThumbUrl = $game->thumb_url;
+            $originalScreenshots = $game->screenshots;
+
             Log::info('GameDataSync: Refreshing base info', ['game_id' => $game->id]);
             echo "    [Sync] Refreshing base info...\n";
             $this->refreshBaseInfo($game);
@@ -682,7 +686,7 @@ class GameDataSyncService
 
             Log::info('GameDataSync: Refreshing metadata', ['game_id' => $game->id]);
             echo "    [Sync] Refreshing metadata...\n";
-            $this->refreshMetadata($game);
+            $this->refreshMetadata($game, $originalThumbUrl, $originalScreenshots);
             Log::info('GameDataSync: Metadata refreshed', ['game_id' => $game->id]);
             echo "    [Sync] Metadata refreshed\n";
 
@@ -733,7 +737,7 @@ class GameDataSyncService
      */
     private function getCachedResponse(Game $game, string $url, array $options = [], bool $anonymous = false): array
     {
-        $urlKey = md5($url.serialize($options).($anonymous ? 'anon' : 'auth'));
+        $urlKey = md5($url . serialize($options) . ($anonymous ? 'anon' : 'auth'));
 
         if (! isset(self::$httpCache[$game->id][$urlKey])) {
             $itchClient = App::make(ItchHttpClientService::class);
