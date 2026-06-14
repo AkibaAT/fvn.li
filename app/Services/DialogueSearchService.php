@@ -45,10 +45,13 @@ class DialogueSearchService
             $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
         }
         if (! empty($filters['character_id'])) {
-            $characterDatabaseId = $this->resolveCharacterDatabaseId($filters);
-            if ($characterDatabaseId !== null) {
+            $characterDatabaseIds = $this->resolveCharacterDatabaseIds($filters);
+            if (! empty($characterDatabaseIds)) {
                 // Filter by character_ids array
-                $filterParts[] = 'character_ids = ' . $characterDatabaseId;
+                $characterFilters = collect($characterDatabaseIds)
+                    ->map(fn (int $id) => 'character_ids = ' . $id)
+                    ->implode(' OR ');
+                $filterParts[] = count($characterDatabaseIds) === 1 ? $characterFilters : '(' . $characterFilters . ')';
             }
         }
 
@@ -117,12 +120,9 @@ class DialogueSearchService
             $query->where('iso_code', $filters['language']);
         }
         if (! empty($filters['character_id'])) {
-            if (is_numeric($filters['character_id'])) {
-                $query->where('character_id', (int) $filters['character_id']);
-            } else {
-                $query->whereHas('character', function ($q) use ($filters) {
-                    $q->where('character_id', $filters['character_id']);
-                });
+            $characterDatabaseIds = $this->resolveCharacterDatabaseIds($filters);
+            if (! empty($characterDatabaseIds)) {
+                $query->whereIn('character_id', $characterDatabaseIds);
             }
         }
         if (! empty($filters['context'])) {
@@ -203,8 +203,9 @@ class DialogueSearchService
         }
 
         if (! empty($filters['character_id'])) {
+            $characterIds = $this->parseCharacterIds($filters['character_id']);
             $query->join('characters', 'version_dialogue_lines.character_id', '=', 'characters.id')
-                ->where('characters.character_id', '=', $filters['character_id']);
+                ->whereIn('characters.character_id', $characterIds);
         }
 
         $query->where('version_dialogue_lines.iso_code', '=', $language);
@@ -392,24 +393,41 @@ class DialogueSearchService
         return 'search_vector';
     }
 
-    private function resolveCharacterDatabaseId(array $filters): ?int
+    private function resolveCharacterDatabaseIds(array $filters): array
     {
-        $characterId = $filters['character_id'] ?? null;
-        if (empty($characterId)) {
-            return null;
+        $characterIds = $this->parseCharacterIds($filters['character_id'] ?? null);
+        if (empty($characterIds)) {
+            return [];
         }
 
-        if (is_numeric($characterId)) {
-            return (int) $characterId;
+        $numericIds = array_values(array_filter($characterIds, fn (string $characterId) => is_numeric($characterId)));
+        $characterKeys = array_values(array_filter($characterIds, fn (string $characterId) => ! is_numeric($characterId)));
+        $databaseIds = array_map('intval', $numericIds);
+
+        if (empty($characterKeys)) {
+            return $databaseIds;
         }
 
-        $query = DB::table('characters')->where('character_id', '=', $characterId);
+        $query = DB::table('characters')->whereIn('character_id', $characterKeys);
         if (! empty($filters['game_id'])) {
             $query->where('game_id', '=', $filters['game_id']);
         }
 
-        $databaseId = $query->value('id');
+        $resolvedIds = $query->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        return $databaseId ? (int) $databaseId : null;
+        return array_values(array_unique([...$databaseIds, ...$resolvedIds]));
+    }
+
+    private function parseCharacterIds(mixed $characterId): array
+    {
+        if (empty($characterId)) {
+            return [];
+        }
+
+        if (is_array($characterId)) {
+            return array_values(array_filter(array_map('strval', $characterId)));
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', (string) $characterId))));
     }
 }
