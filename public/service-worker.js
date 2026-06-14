@@ -1,4 +1,8 @@
-var CACHE_NAME = 'fvn-cache-v1';
+var CACHE_NAME = 'fvn-cache-v2';
+
+self.addEventListener('install', function (event) {
+    event.waitUntil(self.skipWaiting());
+});
 
 // Cache game page responses for offline browsing
 self.addEventListener('fetch', function (event) {
@@ -41,6 +45,8 @@ self.addEventListener('activate', function (event) {
                     return caches.delete(name);
                 })
             );
+        }).then(function () {
+            return self.clients.claim();
         })
     );
 });
@@ -50,7 +56,7 @@ self.addEventListener('push', function (event) {
     event.waitUntil(
         self.registration.showNotification(payload.title || 'New Update', {
             body: payload.body || 'A game you follow has been updated.',
-            icon: payload.icon || '/icon.png',
+            icon: payload.icon || '/icon-192.png',
             badge: payload.badge || '/badge.png',
             tag: payload.tag || 'game-update',
             data: payload.data || {},

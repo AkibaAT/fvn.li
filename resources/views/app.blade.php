@@ -2,6 +2,11 @@
 @php
     $appearance = request()->cookie('appearance');
     $isDark = $appearance === 'dark';
+    $iconVersion = max(
+        filemtime(public_path('favicon.ico')),
+        filemtime(public_path('icon-192.png')),
+        filemtime(public_path('apple-touch-icon.png')),
+    );
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="{{ $isDark ? 'dark' : '' }}">
 <head>
@@ -14,10 +19,12 @@
     <link rel="canonical" href="{{ canonical() }}"/>
 
     <!-- Favicon -->
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" href="{{ asset('favicon.ico') }}?v={{ $iconVersion }}" sizes="any">
+    <link rel="icon" href="{{ asset('icon-192.png') }}?v={{ $iconVersion }}" type="image/png" sizes="192x192">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v={{ $iconVersion }}">
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ $iconVersion }}">
 
     <!-- RSS Feeds -->
     <link rel="alternate" type="application/rss+xml" title="FVN.li - New Visual Novels" href="{{ route('feed.new') }}">

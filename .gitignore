@@ -9,6 +9,8 @@
 /public/css/filament
 /public/js/filament
 /public/hot
+/public/manifest.json
+/public/site.webmanifest
 /public/storage
 /public/sitemap.xml
 /resources/js/ziggy.js

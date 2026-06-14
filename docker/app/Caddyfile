@@ -59,6 +59,25 @@
 			header Cache-Control "public, max-age=31536000, immutable"
 		}
 
+		# Browser and app icons are not content-hashed; keep them revalidatable.
+		@app_icons {
+			path /favicon.ico /icon.png /icon-192.png /icon-512.png /apple-touch-icon.png
+		}
+		handle @app_icons {
+			try_files {path}
+			header Cache-Control "no-cache, max-age=0, must-revalidate"
+			file_server
+		}
+
+		@app_manifests {
+			path /manifest.json /site.webmanifest
+		}
+		handle @app_manifests {
+			try_files {path}
+			header Cache-Control "no-cache, max-age=0, must-revalidate"
+			file_server
+		}
+
 		# Serve static files directly and efficiently (but not Livewire requests)
 		@static_files {
 			path_regexp \.(css|js|jpg|jpeg|png|gif|ico|svg|webp|woff|woff2|ttf|eot|otf|map|json|xml|txt|pdf|zip|mp4|webm|ogg)$

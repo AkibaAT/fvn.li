@@ -2,11 +2,12 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
-        "build:ssr": "vite build && vite build --ssr",
+        "build": "bun run manifest && vite build",
+        "build:ssr": "bun run manifest && vite build && vite build --ssr",
         "dev": "vite",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
+        "manifest": "node scripts/generate-web-manifest.mjs",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "types": "svelte-check --tsconfig ./tsconfig.json",
@@ -74,6 +75,7 @@
         "devalue": "5.8.1",
         "flatted": "3.4.2",
         "lodash-es": "4.18.1",
-        "picomatch": "4.0.4"
+        "picomatch": "4.0.4",
+        "shell-quote": "1.8.4"
     }
 }
