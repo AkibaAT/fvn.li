@@ -319,19 +319,19 @@ class DialogueController extends Controller
             $characters = DB::table('version_dialogue_lines as vdl')
                 ->join('characters as c', 'c.id', '=', 'vdl.character_id')
                 ->where('vdl.game_version_id', '=', $versionId)
+                ->whereNotIn('c.character_id', ['narrator', 'menu_choice', 'alt'])
                 ->when($language, fn ($q) => $q->where('vdl.iso_code', '=', $language))
-                ->select('c.id', 'c.character_id', 'c.display_names')
+                ->select('c.id', 'c.character_id', 'c.display_names', 'c.display_name_corrections')
                 ->distinct()
                 ->get()
                 ->map(function ($r) use ($language) {
-                    $displayNames = [];
-                    if ($r->display_names) {
-                        $decoded = json_decode((string) $r->display_names, true);
-                        if (is_array($decoded)) {
-                            $displayNames = $decoded;
-                        }
-                    }
-                    $name = $displayNames[$language] ?? ($displayNames['eng'] ?? (string) $r->character_id);
+                    $displayNames = $this->decodeJsonObject($r->display_names);
+                    $displayNameCorrections = $this->decodeJsonObject($r->display_name_corrections);
+                    $name = $displayNameCorrections[$language]
+                        ?? $displayNames[$language]
+                        ?? $displayNameCorrections['eng']
+                        ?? $displayNames['eng']
+                        ?? (string) $r->character_id;
 
                     return [
                         'id' => (int) $r->id,
@@ -339,7 +339,13 @@ class DialogueController extends Controller
                         'name' => $name,
                     ];
                 })
-                ->sortBy('name')
+                ->groupBy('name')
+                ->map(fn ($rows, string $name) => [
+                    'id' => (int) $rows->min('id'),
+                    'character_id' => $rows->pluck('character_id')->sort()->implode(','),
+                    'name' => $name,
+                ])
+                ->sortBy(fn ($character) => strtolower($character['name']), SORT_NATURAL)
                 ->values();
 
             $contexts = DB::table('version_dialogue_lines as vdl')
@@ -561,5 +567,20 @@ class DialogueController extends Controller
         unset($result['status']);
 
         return response()->json($result, $status);
+    }
+
+    private function decodeJsonObject(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (empty($value)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) $value, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 }
