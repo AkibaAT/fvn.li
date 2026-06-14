@@ -79,9 +79,6 @@ export default defineConfig({
                     if (id.includes('/node_modules/elkjs/')) {
                         return 'elk';
                     }
-                    if (id.includes('/node_modules/@xyflow/')) {
-                        return 'xyflow';
-                    }
                 },
             },
         },

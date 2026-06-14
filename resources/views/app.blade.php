@@ -130,8 +130,6 @@
         <script type="application/ld+json">{!! $structuredDataJson !!}</script>
     @endif
 
-    @routes
-
     <!-- Prevent theme flash: set dark class ASAP based on localStorage/cookie/system -->
     <script>
         (function () {
@@ -152,6 +150,7 @@
     </script>
 
     @vite('resources/js/app.ts')
+    @routes
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen antialiased">
 @inertia

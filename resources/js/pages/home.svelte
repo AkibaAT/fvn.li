@@ -4,6 +4,7 @@
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
     import type { OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
     import { Link } from '@inertiajs/svelte';
+    import { onMount } from 'svelte';
 
     interface Game {
         id: number;
@@ -72,6 +73,21 @@
     }
 
     let { stats, teasers, metaTags, ignoredGameIds = [] }: Props = $props();
+    let showHeroCards = $state(false);
+
+    onMount(() => {
+        const mediaQuery = window.matchMedia('(min-width: 1024px)');
+        const updateHeroCards = () => {
+            showHeroCards = mediaQuery.matches;
+        };
+
+        updateHeroCards();
+        mediaQuery.addEventListener('change', updateHeroCards);
+
+        return () => {
+            mediaQuery.removeEventListener('change', updateHeroCards);
+        };
+    });
 </script>
 
 <SeoHead {metaTags} />
@@ -158,24 +174,26 @@
                     <!-- Right - Featured Game Cards Preview -->
                     <div class="relative hidden lg:flex lg:items-center lg:justify-end">
                         {#if teasers?.recentlyAdded?.[0]}
-                            <div class="relative h-[620px] w-full max-w-[30rem]">
-                                <!-- Card 1 - Back Left -->
-                                {#if teasers.recentlyAdded[1]}
-                                    <div class="absolute top-12 left-2 w-64 scale-90 rotate-[-8deg] transform opacity-60">
-                                        <GameCard game={teasers.recentlyAdded[1]} fixedHeight={true} {ignoredGameIds} />
+                            {#if showHeroCards}
+                                <div class="relative h-[620px] w-full max-w-[30rem]">
+                                    <!-- Card 1 - Back Left -->
+                                    {#if teasers.recentlyAdded[1]}
+                                        <div class="absolute top-12 left-2 w-64 scale-90 rotate-[-8deg] transform opacity-60">
+                                            <GameCard game={teasers.recentlyAdded[1]} fixedHeight={true} {ignoredGameIds} />
+                                        </div>
+                                    {/if}
+                                    <!-- Card 2 - Front Center -->
+                                    <div class="absolute top-0 left-[4.5rem] z-20 w-64 rotate-[3deg] transform shadow-2xl">
+                                        <GameCard game={teasers.recentlyAdded[0]} fixedHeight={true} {ignoredGameIds} />
                                     </div>
-                                {/if}
-                                <!-- Card 2 - Front Center -->
-                                <div class="absolute top-0 left-[4.5rem] z-20 w-64 rotate-[3deg] transform shadow-2xl">
-                                    <GameCard game={teasers.recentlyAdded[0]} fixedHeight={true} {ignoredGameIds} />
+                                    <!-- Card 3 - Back Right -->
+                                    {#if teasers.recentlyAdded[2]}
+                                        <div class="absolute top-16 right-0 w-64 scale-90 rotate-[10deg] transform opacity-60">
+                                            <GameCard game={teasers.recentlyAdded[2]} fixedHeight={true} {ignoredGameIds} />
+                                        </div>
+                                    {/if}
                                 </div>
-                                <!-- Card 3 - Back Right -->
-                                {#if teasers.recentlyAdded[2]}
-                                    <div class="absolute top-16 right-0 w-64 scale-90 rotate-[10deg] transform opacity-60">
-                                        <GameCard game={teasers.recentlyAdded[2]} fixedHeight={true} {ignoredGameIds} />
-                                    </div>
-                                {/if}
-                            </div>
+                            {/if}
                         {/if}
                     </div>
                 </div>

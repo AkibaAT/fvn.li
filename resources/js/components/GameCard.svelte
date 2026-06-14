@@ -33,14 +33,8 @@
         handleSaleToggle,
         handleDelistedToggle,
         orderedTags,
-        tagContainerRef,
-        hiddenTagCount,
-        setTagRef,
         tagsExpanded,
         setTagsExpanded,
-        languageContainerRef,
-        hiddenLanguageCount,
-        setLanguageRef,
         languagesExpanded,
         setLanguagesExpanded,
     } = untrack(() => useGameCard(props));
@@ -173,11 +167,8 @@
             <GameLanguageSection
                 languages={game.supported_languages}
                 {selectedLanguages}
-                {hiddenLanguageCount}
                 {languagesExpanded}
                 {setLanguagesExpanded}
-                {languageContainerRef}
-                {setLanguageRef}
                 {handleLanguage}
             />
 
@@ -185,11 +176,8 @@
             <GameTagSection
                 {orderedTags}
                 {selectedTags}
-                {hiddenTagCount}
                 {tagsExpanded}
                 {setTagsExpanded}
-                {tagContainerRef}
-                {setTagRef}
                 {handleTag}
             />
 

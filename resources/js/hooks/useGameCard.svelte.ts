@@ -1,4 +1,3 @@
-import { useTagResizeObserver } from '@/hooks/useTagResizeObserver.svelte';
 import { router } from '@inertiajs/svelte';
 import { SvelteURLSearchParams } from 'svelte/reactivity';
 import type { GameCardPlatform } from './usePlatformIcons';
@@ -187,18 +186,7 @@ export function useGameCard({
               })
             : [];
 
-    // Tag resize observer
-    const tagObserver = useTagResizeObserver({
-        enabled: orderedTags.length > 0,
-    });
-
     let tagsExpanded = $state(false);
-
-    // Language resize observer
-    const languageObserver = useTagResizeObserver({
-        enabled: (game.supported_languages?.length ?? 0) > 0,
-    });
-
     let languagesExpanded = $state(false);
 
     return {
@@ -222,13 +210,6 @@ export function useGameCard({
 
         // Tags
         orderedTags,
-        get tagContainerRef() {
-            return tagObserver.containerRef;
-        },
-        get hiddenTagCount() {
-            return tagObserver.hiddenTagCount;
-        },
-        setTagRef: tagObserver.setTagRef,
         get tagsExpanded() {
             return tagsExpanded;
         },
@@ -237,13 +218,6 @@ export function useGameCard({
         },
 
         // Languages
-        get languageContainerRef() {
-            return languageObserver.containerRef;
-        },
-        get hiddenLanguageCount() {
-            return languageObserver.hiddenTagCount;
-        },
-        setLanguageRef: languageObserver.setTagRef,
         get languagesExpanded() {
             return languagesExpanded;
         },

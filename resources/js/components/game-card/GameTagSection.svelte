@@ -4,44 +4,31 @@
     let {
         orderedTags,
         selectedTags = [],
-        hiddenTagCount,
         tagsExpanded,
         setTagsExpanded,
-        tagContainerRef = $bindable(null),
-        setTagRef,
         handleTag,
     }: {
         orderedTags: GameCardGame['tags'];
         selectedTags?: string[];
-        hiddenTagCount: number;
         tagsExpanded: boolean;
         setTagsExpanded: (expanded: boolean) => void;
-        tagContainerRef?: HTMLDivElement | null;
-        setTagRef: (index: number) => (element: HTMLButtonElement | null) => void;
         handleTag: (tagId: number) => void;
     } = $props();
 
-    function tagRefAction(node: HTMLButtonElement, index: number) {
-        setTagRef(index)(node);
-        return {
-            destroy() {
-                setTagRef(index)(null);
-            }
-        };
-    }
+    const COLLAPSED_TAG_LIMIT = 10;
+    const renderedTags = $derived(tagsExpanded ? orderedTags : (orderedTags ?? []).slice(0, COLLAPSED_TAG_LIMIT));
+    const totalHiddenTagCount = $derived(tagsExpanded ? 0 : Math.max(0, (orderedTags?.length ?? 0) - renderedTags.length));
 </script>
 
 {#if orderedTags && orderedTags.length > 0}
     <div class="border-t border-gray-100 pt-2 dark:border-gray-700/50">
         <div class="flex items-center gap-1.5">
             <div
-                bind:this={tagContainerRef}
                 class="relative flex flex-1 flex-wrap items-start gap-1.5 transition-all duration-300 {tagsExpanded ? 'max-h-none' : 'h-15 overflow-hidden'}"
             >
-                {#each orderedTags as tag, index (tag.id)}
+                {#each renderedTags as tag (tag.id)}
                     {@const isActive = selectedTags.includes(String(tag.id))}
                     <button
-                        use:tagRefAction={index}
                         data-tag-id={tag.id}
                         onclick={() => handleTag(tag.id)}
                         class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-200 {isActive
@@ -53,12 +40,12 @@
                     </button>
                 {/each}
             </div>
-            {#if hiddenTagCount > 0 && !tagsExpanded}
+            {#if totalHiddenTagCount > 0 && !tagsExpanded}
                 <button
                     onclick={() => setTagsExpanded(!tagsExpanded)}
                     class="group flex h-6 w-6 flex-shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title="Show {hiddenTagCount} more tags"
-                    aria-label="Show {hiddenTagCount} more tags"
+                    title="Show {totalHiddenTagCount} more tags"
+                    aria-label="Show {totalHiddenTagCount} more tags"
                 >
                     <svg
                         class="h-4 w-4 rotate-0 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"

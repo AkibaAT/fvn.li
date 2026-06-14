@@ -2,14 +2,38 @@
     import Container from '@/components/Container.svelte';
     import Logo from '@/components/layout/Logo.svelte';
     import Navigation from '@/components/layout/Navigation.svelte';
-    import SearchBar from '@/components/layout/SearchBar.svelte';
-    import MobileSearch from '@/components/layout/MobileSearch.svelte';
     import UserMenu from '@/components/layout/UserMenu.svelte';
     import AppearanceDropdown from '@/components/AppearanceDropdown.svelte';
+    import { onMount } from 'svelte';
 
     let showMobileSearch = $state(false);
+    let SearchBarComponent = $state<any>(null);
+    let MobileSearchComponent = $state<any>(null);
+
+    async function loadSearchBar() {
+        SearchBarComponent ??= (await import('@/components/layout/SearchBar.svelte')).default;
+    }
+
+    async function loadMobileSearch() {
+        MobileSearchComponent ??= (await import('@/components/layout/MobileSearch.svelte')).default;
+    }
+
+    onMount(() => {
+        const mediaQuery = window.matchMedia('(min-width: 1024px)');
+        const updateSearchBar = () => {
+            if (mediaQuery.matches) void loadSearchBar();
+        };
+
+        updateSearchBar();
+        mediaQuery.addEventListener('change', updateSearchBar);
+
+        return () => {
+            mediaQuery.removeEventListener('change', updateSearchBar);
+        };
+    });
 
     function toggleMobileSearch() {
+        if (!showMobileSearch) void loadMobileSearch();
         showMobileSearch = !showMobileSearch;
     }
 
@@ -33,7 +57,9 @@
 
             <!-- Search Bar -->
             <div class="mx-8 hidden max-w-lg flex-1 lg:flex" role="search">
-                <SearchBar />
+                {#if SearchBarComponent}
+                    <SearchBarComponent />
+                {/if}
             </div>
 
             <!-- Mobile Search Button (toggle) -->
@@ -65,4 +91,6 @@
 </header>
 
 <!-- Mobile Search Modal -->
-<MobileSearch isOpen={showMobileSearch} onClose={closeMobileSearch} />
+{#if MobileSearchComponent}
+    <MobileSearchComponent isOpen={showMobileSearch} onClose={closeMobileSearch} />
+{/if}
