@@ -8,6 +8,8 @@
 
 <footer class="border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#0a0f1e]">
     <Container class="py-8">
+        <h2 class="sr-only">Site information</h2>
+
         <div class="grid gap-6 border-b border-gray-200 pb-6 md:grid-cols-3 dark:border-zinc-800">
             <!-- Mission Statement -->
             <div class="text-xs leading-5 text-gray-500 dark:text-zinc-400">
