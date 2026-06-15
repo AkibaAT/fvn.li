@@ -31,7 +31,6 @@ export {
 } from './useSSR.svelte';
 export { useStablePageInfo } from './useStablePageInfo.svelte';
 export { useStableRoutes } from './useStableRoutes.svelte';
-export { useTagResizeObserver } from './useTagResizeObserver.svelte';
 export {
     useAnnouncement,
     useFocusTrap,
