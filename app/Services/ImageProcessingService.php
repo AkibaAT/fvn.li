@@ -182,6 +182,8 @@ class ImageProcessingService
         echo '    [Images] Processing ' . count($game->screenshots) . " screenshots\n";
 
         $updatedScreenshots = [];
+        $processableScreenshots = 0;
+        $optimizedScreenshots = 0;
 
         foreach ($game->screenshots as $index => $screenshot) {
             $sourceUrl = $screenshot['url'] ?? null;
@@ -192,6 +194,7 @@ class ImageProcessingService
                 continue;
             }
 
+            $processableScreenshots++;
             echo "    [Images] Processing screenshot {$index}: {$sourceUrl}\n";
 
             try {
@@ -199,6 +202,7 @@ class ImageProcessingService
                 if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
                     echo "    [Images] Screenshot already optimized, skipping\n";
                     $updatedScreenshots[] = $screenshot;
+                    $optimizedScreenshots++;
 
                     continue;
                 }
@@ -259,6 +263,7 @@ class ImageProcessingService
                     'url' => $sourceUrl,
                     'optimized' => $optimizedVariants,
                 ];
+                $optimizedScreenshots++;
 
                 unlink($tempFile);
             } catch (Exception $e) {
@@ -275,6 +280,10 @@ class ImageProcessingService
 
         // Update the game with processed screenshots
         $game->screenshots = $updatedScreenshots;
+
+        if ($processableScreenshots > 0 && $optimizedScreenshots === 0) {
+            throw new Exception('Failed to optimize any screenshots');
+        }
     }
 
     /**

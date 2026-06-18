@@ -666,10 +666,12 @@ class SteamDataSyncService
     {
         $imageService = app(ImageProcessingService::class);
 
-        // Process screenshots if they changed (compare only source URLs, not optimized data)
-        if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots) && ! empty($game->screenshots)) {
+        $screenshotsChanged = $this->screenshotUrlsChanged($game->screenshots, $originalScreenshots);
+
+        // Process screenshots if source URLs changed, or if existing rows never got optimized.
+        if (! empty($game->screenshots) && ($screenshotsChanged || $this->hasUnoptimizedScreenshots($game->screenshots))) {
             try {
-                echo "    [Steam] Screenshots changed, processing...\n";
+                echo "    [Steam] Screenshots need processing...\n";
                 $imageService->processGameScreenshots($game);
                 echo "    [Steam] Screenshots processed successfully\n";
             } catch (Exception $e) {
@@ -677,7 +679,7 @@ class SteamDataSyncService
                     'game_id' => $game->id,
                     'error' => $e->getMessage(),
                 ]);
-                // Continue anyway - we'll save the URLs at least
+                throw $e;
             }
         }
 
@@ -703,7 +705,7 @@ class SteamDataSyncService
                 ]);
                 // Continue anyway
             }
-        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
+        } elseif (! $game->thumb_url && ! empty($game->screenshots) && $screenshotsChanged) {
             // No thumbnail but have screenshots - process first screenshot as thumbnail
             try {
                 echo "    [Steam] No thumbnail, processing first screenshot as fallback...\n";
@@ -736,6 +738,24 @@ class SteamDataSyncService
         $urls2 = $this->extractScreenshotUrls($screenshots2);
 
         return $urls1 !== $urls2;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>|null  $screenshots
+     */
+    private function hasUnoptimizedScreenshots(?array $screenshots): bool
+    {
+        if (empty($screenshots)) {
+            return false;
+        }
+
+        foreach ($screenshots as $screenshot) {
+            if (empty($screenshot['optimized'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

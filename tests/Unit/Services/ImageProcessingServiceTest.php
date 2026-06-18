@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\Game;
 use App\Services\ImageProcessingService;
 use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -72,3 +76,24 @@ test('process image variant preserves aspect ratio', function () {
         unlink($tempFile);
     }
 });
+
+test('process game screenshots throws when every screenshot fails to optimize', function () {
+    $mock = new MockHandler([
+        new Response(500, [], 'upstream failed'),
+    ]);
+
+    $service = new ImageProcessingService(new Client([
+        'handler' => HandlerStack::create($mock),
+    ]));
+
+    $game = Game::factory()->make([
+        'id' => 123,
+        'screenshots' => [
+            [
+                'url' => 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4222040/example/ss_example.1920x1080.jpg',
+            ],
+        ],
+    ]);
+
+    $service->processGameScreenshots($game);
+})->throws(Exception::class, 'Failed to optimize any screenshots');
