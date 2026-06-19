@@ -16,7 +16,7 @@
     } = $props();
 
     const COLLAPSED_TAG_LIMIT = 10;
-    const renderedTags = $derived(tagsExpanded ? orderedTags : (orderedTags ?? []).slice(0, COLLAPSED_TAG_LIMIT));
+    const renderedTags = $derived(tagsExpanded ? (orderedTags ?? []) : (orderedTags ?? []).slice(0, COLLAPSED_TAG_LIMIT));
     const totalHiddenTagCount = $derived(tagsExpanded ? 0 : Math.max(0, (orderedTags?.length ?? 0) - renderedTags.length));
 </script>
 
