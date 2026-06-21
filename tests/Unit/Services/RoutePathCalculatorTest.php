@@ -38,21 +38,39 @@ function routePathEdge(GameVersion $version, string $from, string $to): void
     ]);
 }
 
-it('stores shortest route paths with menu choice metadata', function () {
+function routePathChoice(GameVersion $version, string $from, string $text, string $target, int $line = 10): VersionRouteMenuChoice
+{
+    return VersionRouteMenuChoice::create([
+        'game_version_id' => $version->id,
+        'from_label' => $from,
+        'text' => $text,
+        'target_label' => $target,
+        'menu_line' => $line - 1,
+        'condition' => 'True',
+        'enclosing_condition' => null,
+        'choice_condition' => 'True',
+        'edge_type' => 'jump',
+        'file_path' => 'script.rpy',
+        'line_number' => $line,
+    ]);
+}
+
+it('stores shortest route paths derived from the built route graph', function () {
     $version = routePathVersion();
     foreach (['start', 'branch', 'long_way', 'ending_good', 'ending_bad'] as $label) {
         routePathLabel($version, $label, str_starts_with($label, 'ending_'));
     }
     routePathEdge($version, 'start', 'branch');
-    routePathEdge($version, 'branch', 'ending_good');
     routePathEdge($version, 'branch', 'long_way');
     routePathEdge($version, 'long_way', 'ending_bad');
-    VersionRouteMenuChoice::create([
+    routePathChoice($version, 'branch', 'Take the good ending', 'ending_good', 10);
+    // The menu_choice edge that backs the choice above.
+    VersionRouteEdge::create([
         'game_version_id' => $version->id,
         'from_label' => 'branch',
-        'text' => 'Take the good ending',
-        'target_label' => 'ending_good',
-        'edge_type' => 'menu',
+        'to_label' => 'ending_good',
+        'edge_type' => 'menu_choice',
+        'condition' => 'True',
         'file_path' => 'script.rpy',
         'line_number' => 10,
     ]);
@@ -66,8 +84,10 @@ it('stores shortest route paths with menu choice metadata', function () {
         ->where('ending_label', 'ending_bad')
         ->firstOrFail();
 
-    expect($good->path_labels)->toBe(['start', 'branch', 'ending_good'])
-        ->and($good->step_count)->toBe(3)
+    // The expanded menu inserts a branch:choice_0 node between branch and its target,
+    // so the path reflects what the route map actually navigates.
+    expect($good->path_labels)->toBe(['start', 'branch', 'branch:choice_0', 'ending_good'])
+        ->and($good->step_count)->toBe(4)
         ->and($good->choice_count)->toBe(1)
         ->and($good->choices)->toBe([
             [
@@ -116,4 +136,48 @@ it('replaces stale paths and accepts labels.start as start label', function () {
 
     expect($version->routePaths()->count())->toBe(1)
         ->and($version->routePaths()->first()->path_labels)->toBe(['labels.start', 'ending']);
+});
+
+it('strips condition scope nodes from stored path labels', function () {
+    // A conditional edge produces a condition_scope node in the built graph.
+    // The stored path should not include that structural wiring node.
+    $version = routePathVersion();
+    foreach (['start', 'choice_room', 'finale'] as $label) {
+        routePathLabel($version, $label, $label === 'finale');
+    }
+    routePathEdge($version, 'start', 'choice_room');
+    // Conditional edge with a 2-deep stack triggers condition-scope factoring.
+    VersionRouteEdge::create([
+        'game_version_id' => $version->id,
+        'from_label' => 'choice_room',
+        'to_label' => 'finale',
+        'edge_type' => 'jump',
+        'condition' => '(route_a == True) and (route_b == True)',
+        'file_path' => 'script.rpy',
+        'line_number' => 5,
+    ]);
+
+    (new RoutePathCalculator)->calculateAndStore($version);
+
+    $path = $version->routePaths()->where('ending_label', 'finale')->firstOrFail();
+
+    expect($path->path_labels)->toBe(['start', 'choice_room', 'finale'])
+        ->and($path->step_count)->toBe(3)
+        // No condition_scope:... ids leak into the stored labels.
+        ->and(collect($path->path_labels)->every(fn (string $label) => ! str_starts_with($label, 'condition_scope:')))->toBeTrue();
+});
+
+it('skips endings that are unreachable from the start node', function () {
+    $version = routePathVersion();
+    routePathLabel($version, 'start');
+    routePathLabel($version, 'reachable', true);
+    routePathLabel($version, 'stranded', true); // an ending with no path from start
+    routePathEdge($version, 'start', 'reachable');
+
+    (new RoutePathCalculator)->calculateAndStore($version);
+
+    $endings = $version->routePaths()->pluck('ending_label')->all();
+
+    expect($endings)->toBe(['reachable'])
+        ->and($version->routePaths()->count())->toBe(1);
 });
