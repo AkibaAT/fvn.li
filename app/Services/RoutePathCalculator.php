@@ -7,83 +7,63 @@ namespace App\Services;
 use App\Models\GameVersion;
 use App\Models\VersionRoutePath;
 
+/**
+ * Computes the shortest playable route from a game's start label to each of
+ * its endings, persisted to version_route_paths for detail-page stats.
+ *
+ * Paths are derived from the *built* RouteGraph (the same node/edge set the
+ * route-map view and the frontend pathfinder traverse), so a stored path
+ * matches what a player sees as a navigable route — including expanded menus,
+ * collapsed return helpers, and condition factoring. Raw route_edges alone
+ * bypass all of that and describe routes the visual map does not show.
+ */
 class RoutePathCalculator
 {
+    public function __construct(
+        private readonly RouteGraphService $routeGraphService = new RouteGraphService,
+    ) {}
+
     public function calculateAndStore(GameVersion $version): void
     {
-        $labels = $version->routeLabels()->get();
-        $edges = $version->routeEdges()->get();
-        $menuChoices = $version->routeMenuChoices()->get();
-        $wordCounts = RouteGraphService::getWordCountsByLabel($version);
+        $version->routePaths()->delete();
 
-        // Build adjacency list
-        $adjacency = [];
-        foreach ($edges as $edge) {
-            $adjacency[$edge->from_label][] = $edge;
-        }
+        $graph = $this->routeGraphService->buildGraph($version);
 
-        // Find start and ending labels
-        $startLabel = null;
-        $endings = [];
-        foreach ($labels as $label) {
-            if ($label->name === 'start' || $label->name === 'labels.start') {
-                $startLabel = $label->name;
-            }
-            if ($label->is_ending) {
-                $endings[] = $label->name;
-            }
-        }
+        $startNodeId = $this->findStartNodeId($graph['nodes'] ?? []);
+        $endings = $graph['endings'] ?? [];
 
-        if ($startLabel === null || empty($endings)) {
-            // Delete any existing paths and return
-            $version->routePaths()->delete();
-
+        if ($startNodeId === null || $endings === []) {
             return;
         }
 
-        // BFS to find shortest path from start to each ending
-        $paths = $this->findPaths($startLabel, $endings, $adjacency);
+        $nodeByLabel = $this->indexNodesByLabel($graph['nodes'] ?? []);
+        $adjacency = $this->buildAdjacency($graph['edges'] ?? []);
 
-        // Build menu choice lookup: from_label -> [target_label -> choice text]
-        $choiceLookup = [];
-        foreach ($menuChoices as $mc) {
-            if (! empty($mc->target_label)) {
-                $choiceLookup[$mc->from_label][$mc->target_label] = $mc->text;
+        // Parent-pointer BFS over every edge (matches the frontend pathfinder
+        // and RouteGraphPostProcessor::filterReachableFromStart, which both
+        // traverse the edge set without filtering by edge_type).
+        $parentEdge = $this->findShortestPathEdges($startNodeId, $endings, $adjacency);
+
+        foreach ($endings as $endingLabel) {
+            if (! isset($parentEdge[$endingLabel])) {
+                continue;
             }
-        }
 
-        // Delete existing paths for this version
-        $version->routePaths()->delete();
+            [$pathLabels, $pathEdges] = $this->reconstructLabelPath($endingLabel, $parentEdge);
 
-        // Store each path
-        foreach ($paths as $endingLabel => $pathLabels) {
-            $pathWordCount = 0;
-            $choiceCount = 0;
-            $choices = [];
-
-            foreach ($pathLabels as $i => $label) {
-                $pathWordCount += $wordCounts[$label] ?? 0;
-
-                // Check if the transition to the next label is a menu choice
-                if (isset($pathLabels[$i + 1])) {
-                    $nextLabel = $pathLabels[$i + 1];
-                    if (isset($choiceLookup[$label][$nextLabel])) {
-                        $choiceCount++;
-                        $choices[] = [
-                            'from' => $label,
-                            'to' => $nextLabel,
-                            'text' => $choiceLookup[$label][$nextLabel],
-                        ];
-                    }
-                }
+            if ($pathLabels === []) {
+                continue;
             }
+
+            $wordCount = $this->sumWordCounts($pathLabels, $nodeByLabel);
+            [$choiceCount, $choices] = $this->collectChoices($pathLabels, $pathEdges, $nodeByLabel);
 
             VersionRoutePath::create([
                 'game_version_id' => $version->id,
                 'ending_label' => $endingLabel,
                 'path_labels' => $pathLabels,
                 'step_count' => count($pathLabels),
-                'word_count' => $pathWordCount,
+                'word_count' => $wordCount,
                 'choice_count' => $choiceCount,
                 'choices' => $choices ?: null,
             ]);
@@ -91,49 +71,204 @@ class RoutePathCalculator
     }
 
     /**
-     * BFS from start to find shortest paths to each ending.
-     * Uses parent-pointer backtracking instead of array_merge per step
-     * to avoid O(path_length) copies at each BFS iteration.
-     *
-     * @param  array<string, array>  $adjacency
-     * @return array<string, array<string>> ending_label => [ordered label names]
+     * @param  array<int, array<string, mixed>>  $nodes
      */
-    private function findPaths(string $start, array $endings, array $adjacency): array
+    private function findStartNodeId(array $nodes): ?string
     {
-        $endingSet = array_flip($endings);
-        $paths = [];
-
-        $queue = [$start];
-        $parent = [$start => null]; // node => parent node
-
-        while (! empty($queue)) {
-            $current = array_shift($queue);
-
-            if (isset($endingSet[$current]) && $current !== $start) {
-                // Reconstruct path by backtracking through parent pointers
-                $path = [];
-                $node = $current;
-                while ($node !== null) {
-                    array_unshift($path, $node);
-                    $node = $parent[$node];
-                }
-                $paths[$current] = $path;
-                unset($endingSet[$current]);
-
-                if (empty($endingSet)) {
-                    break;
-                }
-            }
-
-            foreach ($adjacency[$current] ?? [] as $edge) {
-                $next = $edge->to_label;
-                if (! isset($parent[$next])) {
-                    $parent[$next] = $current;
-                    $queue[] = $next;
-                }
+        foreach ($nodes as $node) {
+            if (! empty($node['is_start'])) {
+                return (string) $node['id'];
             }
         }
 
-        return $paths;
+        return null;
+    }
+
+    /**
+     * Index graph nodes by id, skipping condition-scope nodes (display-only).
+     *
+     * @param  array<int, array<string, mixed>>  $nodes
+     * @return array<string, array<string, mixed>>
+     */
+    private function indexNodesByLabel(array $nodes): array
+    {
+        $indexed = [];
+        foreach ($nodes as $node) {
+            $id = (string) ($node['id'] ?? '');
+            if ($id === '' || ! empty($node['is_condition_scope'])) {
+                continue;
+            }
+            $indexed[$id] = $node;
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $edges
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function buildAdjacency(array $edges): array
+    {
+        $adjacency = [];
+        foreach ($edges as $edge) {
+            $source = (string) ($edge['source'] ?? '');
+            if ($source === '') {
+                continue;
+            }
+            $adjacency[$source][] = $edge;
+        }
+
+        return $adjacency;
+    }
+
+    /**
+     * BFS from start, recording the inbound edge used to first reach each node.
+     *
+     * @param  array<string>  $endings
+     * @param  array<string, array<int, array<string, mixed>>>  $adjacency
+     * @return array<string, array<string, mixed>> node id => edge that reached it
+     */
+    private function findShortestPathEdges(string $start, array $endings, array $adjacency): array
+    {
+        $endingSet = array_flip($endings);
+        $remaining = count($endingSet);
+
+        $parentEdge = [$start => []]; // start has no inbound edge
+        $queue = [$start];
+
+        while ($queue !== []) {
+            if ($remaining === 0) {
+                break;
+            }
+
+            $current = array_shift($queue);
+
+            foreach ($adjacency[$current] ?? [] as $edge) {
+                $target = (string) ($edge['target'] ?? '');
+                if ($target === '' || isset($parentEdge[$target])) {
+                    continue;
+                }
+
+                $parentEdge[$target] = $edge;
+                if (isset($endingSet[$target])) {
+                    $remaining--;
+                }
+                $queue[] = $target;
+            }
+        }
+
+        return $parentEdge;
+    }
+
+    /**
+     * Walk parent edges back from the ending, dropping condition-scope nodes
+     * so path_labels stays real-label-only (condition nodes carry word_count 0
+     * and exist only to render edge conditions on the map).
+     *
+     * @param  array<string, array<string, mixed>>  $parentEdge
+     * @return array{0: array<int, string>, 1: array<int, array<string, mixed>>}
+     */
+    private function reconstructLabelPath(string $ending, array $parentEdge): array
+    {
+        $reversedLabels = [];
+        $reversedEdges = [];
+        $node = $ending;
+
+        while (isset($parentEdge[$node])) {
+            $edge = $parentEdge[$node];
+
+            // Only emit real labels into path_labels; condition-scope nodes are
+            // structural wiring between a source and its factored condition.
+            if (! str_starts_with($node, 'condition_scope:')) {
+                $reversedLabels[] = $node;
+            }
+
+            if ($edge === []) {
+                break; // reached the start node
+            }
+
+            $reversedEdges[] = $edge;
+            $node = (string) ($edge['source'] ?? '');
+        }
+
+        return [array_reverse($reversedLabels), array_reverse($reversedEdges)];
+    }
+
+    /**
+     * @param  array<int, string>  $pathLabels
+     * @param  array<string, array<string, mixed>>  $nodeByLabel
+     */
+    private function sumWordCounts(array $pathLabels, array $nodeByLabel): int
+    {
+        $total = 0;
+        foreach ($pathLabels as $label) {
+            $total += (int) ($nodeByLabel[$label]['word_count'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
+     * A player "choice" is the act of selecting a menu option — represented in
+     * the built graph by a `choice` edge entering a choice node. We count one
+     * choice per such edge on the path and capture the choice text.
+     *
+     * @param  array<int, string>  $pathLabels
+     * @param  array<int, array<string, mixed>>  $pathEdges
+     * @param  array<string, array<string, mixed>>  $nodeByLabel
+     * @return array{0: int, 1: array<int, array{from: string, to: string, text: string}>}
+     */
+    private function collectChoices(array $pathLabels, array $pathEdges, array $nodeByLabel): array
+    {
+        unset($pathLabels); // kept in signature for clarity; not needed here
+
+        $choices = [];
+        $seenChoiceNodes = [];
+
+        foreach ($pathEdges as $edge) {
+            $edgeType = (string) ($edge['edge_type'] ?? '');
+            $target = (string) ($edge['target'] ?? '');
+
+            // An edge into a choice node marks the point the player picked it.
+            $isChoiceEdge = $edgeType === 'choice'
+                || ($edgeType === 'menu_choice' && ! empty($edge['choice_text']));
+
+            if (! $isChoiceEdge || ! isset($nodeByLabel[$target]) || isset($seenChoiceNodes[$target])) {
+                continue;
+            }
+
+            $choiceNode = $nodeByLabel[$target];
+            if (($choiceNode['node_type'] ?? null) !== 'choice' && $edgeType !== 'menu_choice') {
+                continue;
+            }
+
+            $seenChoiceNodes[$target] = true;
+            $from = (string) ($choiceNode['parent_label'] ?? $edge['source'] ?? '');
+            $to = $this->nextRealLabelAfter($target, $pathEdges) ?? $from;
+            $text = (string) ($choiceNode['choice_text'] ?? $edge['choice_text'] ?? $choiceNode['label'] ?? '');
+
+            $choices[] = ['from' => $from, 'to' => $to, 'text' => $text];
+        }
+
+        return [count($choices), $choices];
+    }
+
+    /**
+     * Find the destination the choice node leads toward: the target of the
+     * edge leaving the choice node on the path. Falls back to the choice's
+     * parent label when the choice has no outgoing edge on this path.
+     *
+     * @param  array<int, array<string, mixed>>  $pathEdges
+     */
+    private function nextRealLabelAfter(string $choiceNodeId, array $pathEdges): ?string
+    {
+        foreach ($pathEdges as $edge) {
+            if (($edge['source'] ?? null) === $choiceNodeId) {
+                return (string) ($edge['target'] ?? '');
+            }
+        }
+
+        return null;
     }
 }

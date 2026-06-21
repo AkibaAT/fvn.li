@@ -291,6 +291,10 @@ readonly class GameStatsService
             echo "    [Stats] Pre-computing route graph\n";
             app(RouteGraphService::class)->computeAndStore($version);
             echo "    [Stats] Route graph computed and stored\n";
+
+            echo "    [Stats] Calculating route paths\n";
+            app(RoutePathCalculator::class)->calculateAndStore($version);
+            echo "    [Stats] Route paths calculated and stored\n";
         }
 
         Cache::forget('dialogue.games_list');

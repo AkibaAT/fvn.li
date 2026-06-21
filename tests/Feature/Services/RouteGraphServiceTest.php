@@ -748,6 +748,33 @@ test('missing route targets are surfaced as unresolved nodes', function () {
         ->and($nodesById['missing_label']['is_unresolved'])->toBeTrue();
 });
 
+test('real labels referenced as source or target are never marked as unresolved', function () {
+    // Regression guard: only nodes that genuinely lack a `label` statement in
+    // the original script may be flagged dangling. A label referenced by edges
+    // (even only as a target, or only as a source) is a real node and must not
+    // be mislabeled as unresolved.
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'middle'); // referenced as both source and target
+    createRouteLabel($this->version, 'sink'); // referenced only as a target
+    createRouteLabel($this->version, 'source_only'); // referenced only as a source
+    createRouteEdge($this->version, 'start', 'middle', 'jump', 5);
+    createRouteEdge($this->version, 'middle', 'sink', 'jump', 10);
+    createRouteEdge($this->version, 'source_only', 'middle', 'jump', 15);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version, includeUnreachable: true);
+    $nodesById = collect($graph['nodes'])->keyBy('id');
+
+    foreach (['start', 'middle', 'sink', 'source_only'] as $realLabel) {
+        expect($nodesById)->toHaveKey($realLabel)
+            ->and($nodesById[$realLabel]['is_unresolved'] ?? false)->toBeFalse();
+    }
+
+    $anyRealLabelFlagged = collect($graph['nodes'])
+        ->contains(fn (array $node) => ! empty($node['is_unresolved']) && in_array($node['id'], ['start', 'middle', 'sink', 'source_only'], true));
+
+    expect($anyRealLabelFlagged)->toBeFalse();
+});
+
 test('high fan in trivial return helpers are collapsed out of the playable route graph', function () {
     createRouteLabel($this->version, 'start');
     createRouteLabel($this->version, 'scene_a');
