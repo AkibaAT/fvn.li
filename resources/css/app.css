@@ -71,6 +71,12 @@
     margin: 1rem 0;
 }
 
+.game_description.prose pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: visible;
+}
+
 /* TinyMCE Editor Improvements */
 .tox-tinymce {
     min-height: 600px !important;
