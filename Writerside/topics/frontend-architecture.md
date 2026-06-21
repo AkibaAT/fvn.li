@@ -13,7 +13,7 @@ FVN.li uses a Svelte 5 frontend with Inertia.js. Laravel owns routing, auth, val
 ### UI And Styling
 - **Tailwind CSS 4.2**: Utility-first styling and theme tokens.
 - **TinyMCE 8**: Rich text editing for custom game descriptions.
-- **Chart.js + svelte5-chartjs**: Analytics and dashboard charts.
+- **Chart.js**: Analytics and dashboard charts.
 - **@xyflow/svelte**: Route-map graph rendering.
 - **@dnd-kit-svelte/svelte**: Sortable lists and drag interactions.
 - **Ziggy**: Laravel route helper exposed to TypeScript and Svelte.
