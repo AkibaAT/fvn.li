@@ -101,7 +101,9 @@ init 10000 python:
     route_labels_with_screen_calls = set()
     route_menu_metadata = {}  # id(Menu node) -> enclosing condition and structural scope
     route_literal_variables = collections.defaultdict(dict)
+    route_code_sources = []
     screen_action_exprs = collections.defaultdict(list)
+    screen_includes = collections.defaultdict(list)
     all_route_label_names = set()
 
     # File statistics by type
@@ -268,23 +270,24 @@ init 10000 python:
             return False
 
         found_terminal_jump = False
-        top_level_expr_ids = set(id(stmt) for stmt in getattr(tree, 'body', []) if isinstance(stmt, pyast.Expr))
+        top_level_call_ids = set(
+            id(getattr(stmt, 'value', None))
+            for stmt in getattr(tree, 'body', [])
+            if isinstance(stmt, pyast.Expr) and isinstance(getattr(stmt, 'value', None), pyast.Call)
+        )
         for node in pyast.walk(tree):
-            if not isinstance(node, pyast.Expr):
+            if not isinstance(node, pyast.Call):
                 continue
-            call_node = getattr(node, 'value', None)
-            if call_node is None or not isinstance(call_node, pyast.Call):
-                continue
-            func_name = get_renpy_control_call(call_node)
+            func_name = get_renpy_control_call(node)
             if not func_name:
                 continue
             # Get the first positional argument as the target label
-            args = getattr(call_node, 'args', [])
+            args = getattr(node, 'args', [])
             if not args:
                 continue
             for target in dynamic_route_targets_from_arg(args[0]):
                 add_route_edge(from_label, target, func_name, filename, linenumber, condition=condition)
-            if func_name == 'jump' and id(node) in top_level_expr_ids:
+            if func_name == 'jump' and id(node) in top_level_call_ids:
                 found_terminal_jump = True
 
         return found_terminal_jump
@@ -434,26 +437,71 @@ init 10000 python:
             elif isinstance(node.func, pyast.Attribute):
                 func_name = node.func.attr
 
-            if func_name not in ("Jump", "Call"):
+            if func_name in ("Jump", "Call", "Start"):
+                if not node.args:
+                    continue
+
+                first_arg = node.args[0]
+                target_value = None
+
+                literal_arg = string_literal_from_ast(first_arg)
+                if isinstance(literal_arg, str):
+                    target_value = literal_arg
+                elif isinstance(first_arg, pyast.Name):
+                    resolved = variables.get(first_arg.id, None)
+                    if isinstance(resolved, str):
+                        target_value = resolved
+
+                if isinstance(target_value, str):
+                    edge_type = "screen_" + ("jump" if func_name == "Start" else func_name.lower())
+                    targets.append({"target": target_value, "type": edge_type})
+
+            if func_name == "Function" and len(node.args) >= 2:
+                callback = node.args[0]
+                first_callback_arg = node.args[1]
+
+                if not isinstance(callback, pyast.Name) or callback.id != "locked_call":
+                    continue
+                callback_target = string_literal_from_ast(first_callback_arg)
+                if not isinstance(callback_target, str):
+                    continue
+
+                targets.append({"target": callback_target, "type": "screen_call"})
+
+        return targets
+
+    def collect_screens_from_action_expr(expr):
+        if not expr:
+            return []
+
+        try:
+            tree = pyast.parse(expr, mode="eval")
+        except Exception:
+            return []
+
+        screens = []
+
+        for node in pyast.walk(tree):
+            if not isinstance(node, pyast.Call):
                 continue
 
+            func_name = None
+            if isinstance(node.func, pyast.Name):
+                func_name = node.func.id
+            elif isinstance(node.func, pyast.Attribute):
+                func_name = node.func.attr
+
+            if func_name not in ("Show", "ShowTransient", "ToggleScreen"):
+                continue
             if not node.args:
                 continue
 
             first_arg = node.args[0]
-            target_value = None
+            screen_name = string_literal_from_ast(first_arg)
+            if isinstance(screen_name, str):
+                screens.append(screen_name)
 
-            if isinstance(first_arg, pyast.Constant) and isinstance(first_arg.value, str):
-                target_value = first_arg.value
-            elif isinstance(first_arg, pyast.Name):
-                resolved = variables.get(first_arg.id, None)
-                if isinstance(resolved, str):
-                    target_value = resolved
-
-            if isinstance(target_value, str):
-                targets.append({"target": target_value, "type": "screen_" + func_name.lower()})
-
-        return targets
+        return screens
 
     def collect_screen_targets():
         collected = collections.defaultdict(list)
@@ -463,6 +511,13 @@ init 10000 python:
             existing = collected[screen_name]
             if expr not in existing:
                 existing.append(expr)
+            for included_screen in collect_screens_from_action_expr(expr):
+                add_screen_include(screen_name, included_screen)
+
+        def add_screen_include(screen_name, included_screen):
+            existing = screen_includes[screen_name]
+            if included_screen not in existing:
+                existing.append(included_screen)
 
         def walk_screen_node(screen_name, node):
             if node is None:
@@ -487,6 +542,7 @@ init 10000 python:
 
             target_name = getattr(node, "target", None)
             if isinstance(target_name, str):
+                add_screen_include(screen_name, target_name)
                 nested_screen = renpy.display.screen.get_screen_variant(target_name)
                 if nested_screen is not None and nested_screen.ast is not None:
                     walk_screen_ast(target_name, nested_screen.ast)
@@ -505,17 +561,36 @@ init 10000 python:
                 continue
             walk_screen_ast(screen_name, screen.ast)
 
+        for screen_name, targets in list(collected.items()):
+            if screen_name.startswith("examine_"):
+                for target_info in targets:
+                    if target_info not in collected["examine"]:
+                        collected["examine"].append(target_info)
+
         return collected
 
-    def resolve_screen_targets(screen_name, variables):
+    def resolve_screen_targets(screen_name, variables, visited_screens=None):
+        if visited_screens is None:
+            visited_screens = set()
+        if screen_name in visited_screens:
+            return []
+
+        visited_screens.add(screen_name)
         targets = []
+
         for expr in screen_action_exprs.get(screen_name, []):
             for target_info in collect_targets_from_action_expr(expr, variables):
                 if target_info not in targets:
                     targets.append(target_info)
+
+        for included_screen in screen_includes.get(screen_name, []):
+            for target_info in resolve_screen_targets(included_screen, variables, visited_screens):
+                if target_info not in targets:
+                    targets.append(target_info)
+
         return targets
 
-    def get_call_screen_name(stmt):
+    def get_screen_statement_name(stmt, expected_name):
         if isinstance(stmt, renpy.ast.UserStatement):
             parsed = stmt.parsed
             if parsed is None:
@@ -523,11 +598,17 @@ init 10000 python:
                 stmt.parsed = parsed
 
             name, parsed_data = parsed
-            if " ".join(name) == "call screen":
+            if " ".join(name) == expected_name:
                 if not parsed_data.get("expression", False):
                     return parsed_data.get("name", None)
 
         return None
+
+    def get_call_screen_name(stmt):
+        return get_screen_statement_name(stmt, "call screen")
+
+    def get_show_screen_name(stmt):
+        return get_screen_statement_name(stmt, "show screen")
 
     def combine_conditions(outer_condition, inner_condition):
         if not outer_condition or outer_condition == "True":
@@ -587,6 +668,22 @@ init 10000 python:
                 condition=condition,
             )
 
+    def handle_show_screen(from_label, screen_name, filename, linenumber, condition=None):
+        if not from_label or not screen_name:
+            return
+
+        variables = route_literal_variables.get(from_label, {})
+
+        for target_info in resolve_screen_targets(screen_name, variables):
+            add_route_edge(
+                from_label,
+                target_info["target"],
+                target_info["type"],
+                filename,
+                linenumber,
+                condition=condition,
+            )
+
     def add_edge_from_statement(from_label, stmt, filename, condition=None):
         if not from_label or stmt is None:
             return
@@ -595,6 +692,11 @@ init 10000 python:
         screen_name = get_call_screen_name(stmt)
         if screen_name:
             handle_call_screen(from_label, screen_name, filename, linenumber, condition=condition)
+            return
+
+        screen_name = get_show_screen_name(stmt)
+        if screen_name:
+            handle_show_screen(from_label, screen_name, filename, linenumber, condition=condition)
             return
 
         if isinstance(stmt, renpy.ast.Jump):
@@ -666,6 +768,207 @@ init 10000 python:
             return []
         return [stmt for stmt in items if is_ast_statement(stmt)]
 
+    def annotate_following_statement_conditions(block, active_condition=None):
+        """
+        Annotate statements guarded by earlier terminal branches in the same block.
+        """
+        block_items = statement_block_items(block)
+        if not block_items:
+            return
+
+        current_condition = active_condition
+
+        for stmt in block_items:
+            if isinstance(stmt, renpy.ast.Menu) and current_condition:
+                existing = route_menu_metadata.get(id(stmt), {})
+                route_menu_metadata[id(stmt)] = dict(existing, enclosing_condition=combine_conditions(
+                    existing.get("enclosing_condition"),
+                    current_condition
+                ))
+
+            if isinstance(stmt, renpy.ast.If):
+                terminal_conditions = []
+
+                for branch_condition, sub_block in iter_if_entries_with_effective_conditions(
+                    getattr(stmt, "entries", []),
+                    current_condition
+                ):
+                    if not sub_block:
+                        continue
+
+                    annotate_following_statement_conditions(sub_block, branch_condition)
+
+                    if block_has_terminal(sub_block):
+                        terminal_conditions.append(branch_condition)
+
+                if terminal_conditions:
+                    remaining_condition = negate_condition_group(terminal_conditions)
+                    if remaining_condition == "False":
+                        return
+
+                    current_condition = combine_conditions(current_condition, remaining_condition)
+
+                continue
+
+            nested_block = getattr(stmt, "block", None)
+            if nested_block:
+                annotate_following_statement_conditions(nested_block, current_condition)
+
+    def remaining_condition_after_terminal_branches(stmt, active_condition=None):
+        if not isinstance(stmt, renpy.ast.If):
+            return None
+
+        terminal_conditions = []
+        for branch_condition, sub_block in iter_if_entries_with_effective_conditions(
+            getattr(stmt, "entries", []),
+            active_condition
+        ):
+            if sub_block and block_has_terminal(sub_block):
+                terminal_conditions.append(branch_condition)
+
+        return negate_condition_group(terminal_conditions)
+
+    def add_dynamic_label_value(values, key, label_name):
+        if not key or not label_name or label_name not in route_labels:
+            return
+
+        existing = values[key]
+        if label_name not in existing:
+            existing.append(label_name)
+
+    def collect_dynamic_label_values():
+        values = collections.defaultdict(list)
+
+        def literal_string(node):
+            if isinstance(node, pyast.Constant) and isinstance(node.value, str):
+                return node.value
+            if hasattr(pyast, "Str") and isinstance(node, pyast.Str):
+                return node.s
+            return None
+
+        sources = list(route_code_sources)
+        for expressions in screen_action_exprs.values():
+            sources.extend(expressions)
+
+        for source in sources:
+            if not source or not source.strip():
+                continue
+
+            try:
+                tree = pyast.parse(source)
+            except Exception:
+                try:
+                    tree = pyast.parse(source, mode="eval")
+                except Exception:
+                    continue
+
+            for node in pyast.walk(tree):
+                if isinstance(node, pyast.Call):
+                    func_name = None
+                    if isinstance(node.func, pyast.Name):
+                        func_name = node.func.id
+                    elif isinstance(node.func, pyast.Attribute):
+                        func_name = node.func.attr
+
+                    for keyword in getattr(node, "keywords", []):
+                        key = getattr(keyword, "arg", None)
+                        label_name = literal_string(getattr(keyword, "value", None))
+                        if key and key.lower().endswith("label"):
+                            add_dynamic_label_value(values, key, label_name)
+                            if key == "conclusion_label":
+                                add_dynamic_label_value(values, "conclude_label", label_name)
+
+                    args = getattr(node, "args", [])
+                    if func_name == "PitchSequence" and len(args) >= 2:
+                        label_name = literal_string(args[1])
+                        add_dynamic_label_value(values, "outro_label", label_name)
+                        add_dynamic_label_value(values, "sequence.outro_label", label_name)
+
+                    if func_name == "Call" and len(args) >= 2:
+                        target = literal_string(args[0])
+                        passed_label = literal_string(args[1])
+                        if target == "pitch_v2_conclude":
+                            add_dynamic_label_value(values, "conclude_label", passed_label)
+
+                    if func_name == "add_label_to_move_queue" and len(args) >= 2:
+                        add_dynamic_label_value(values, "queued_label", literal_string(args[1]))
+
+                    if func_name in ("add_howie_hint", "add_wyatt_hint") and len(args) >= 2:
+                        add_dynamic_label_value(values, "hint_label", literal_string(args[1]))
+
+                elif isinstance(node, pyast.Assign):
+                    label_name = literal_string(getattr(node, "value", None))
+                    if not label_name:
+                        continue
+                    for target in getattr(node, "targets", []):
+                        key = None
+                        if isinstance(target, pyast.Name):
+                            key = target.id
+                        elif isinstance(target, pyast.Attribute):
+                            key = target.attr
+                        if key and key.lower().endswith("label"):
+                            add_dynamic_label_value(values, key, label_name)
+
+        return values
+
+    def add_dynamic_label_edges(from_label, dynamic_keys, values, edge_type, filename="", linenumber=0):
+        if from_label not in route_labels:
+            return
+
+        source_info = route_labels.get(from_label, {})
+        edge_file = filename or source_info.get("file", "")
+        edge_line = linenumber or source_info.get("line", 0)
+
+        for key in dynamic_keys:
+            for label_name in values.get(key, []):
+                add_route_edge(
+                    from_label,
+                    label_name,
+                    edge_type,
+                    edge_file,
+                    edge_line,
+                )
+
+    def add_inferred_dynamic_route_edges():
+        dynamic_label_values = collect_dynamic_label_values()
+
+        add_dynamic_label_edges("move_to", ("intro_label", "queued_label", "setup_label"), dynamic_label_values, "dynamic_call")
+        add_dynamic_label_edges("pitch_v2_debrief", ("debrief_label",), dynamic_label_values, "dynamic_call")
+        add_dynamic_label_edges("pitch_v2_conclude", ("conclude_label",), dynamic_label_values, "dynamic_call")
+        add_dynamic_label_edges("pitch_station_conclude", ("conclusion_label",), dynamic_label_values, "dynamic_call")
+        add_dynamic_label_edges("pitch_v2_exit", ("outro_label", "sequence.outro_label"), dynamic_label_values, "dynamic_call")
+        add_dynamic_label_edges("hub", ("hint_label",), dynamic_label_values, "dynamic_call")
+
+        if "pitch_start" in route_labels and "pitch_v2_debrief" in route_labels:
+            source_info = route_labels.get("pitch_start", {})
+            add_route_edge("pitch_start", "pitch_v2_debrief", "dynamic_call", source_info.get("file", ""), source_info.get("line", 0))
+
+        talk_prefixes = []
+
+        for label_name, info in route_labels.items():
+            if label_name.endswith("_hub") and label_name != "hub":
+                talk_prefixes.append(label_name[:-4])
+
+        for prefix in talk_prefixes:
+            hub_label = prefix + "_hub"
+            hub_exit_label = prefix + "_hub_exit"
+            hub_info = route_labels.get(hub_label, {})
+            hub_exit_info = route_labels.get(hub_exit_label, hub_info)
+
+            add_route_edge("go_to_talk_from_interaction_hub", hub_label, "dynamic_call", hub_info.get("file", ""), hub_info.get("line", 0))
+            add_route_edge("exit_talk_screen", hub_exit_label, "dynamic_call", hub_exit_info.get("file", ""), hub_exit_info.get("line", 0))
+            add_route_edge("hub_exit_return", hub_exit_label, "dynamic_call", hub_exit_info.get("file", ""), hub_exit_info.get("line", 0))
+
+            for label_name, info in route_labels.items():
+                if not label_name.startswith(prefix + "_"):
+                    continue
+                if label_name in (hub_label, hub_exit_label):
+                    continue
+                if label_name.endswith(":ending"):
+                    continue
+
+                add_route_edge("call_topic_label", label_name, "dynamic_call", info.get("file", ""), info.get("line", 0))
+
     def block_has_terminal(block):
         """Check if a block ends with a jump, call, or return."""
         block_items = statement_block_items(block)
@@ -680,10 +983,27 @@ init 10000 python:
                     return True
             if isinstance(stmt, renpy.ast.If):
                 return is_exhaustive_if(stmt)
+            if isinstance(stmt, renpy.ast.Menu):
+                return is_terminal_menu(stmt)
             if isinstance(stmt, renpy.ast.Pass):
                 continue
             return False
         return False
+
+    def is_terminal_menu(stmt):
+        """Check if every selectable menu choice has terminal flow."""
+        items = getattr(stmt, "items", [])
+        has_choice = False
+
+        for item_l, _item_c, item_b in items:
+            if not item_l:
+                continue
+
+            has_choice = True
+            if not block_has_terminal(item_b):
+                return False
+
+        return has_choice
 
     def is_exhaustive_if(stmt):
         """Check if an If statement has terminal flow in ALL branches including else."""
@@ -776,7 +1096,18 @@ init 10000 python:
                     getattr(stmt, "linenumber", 0),
                     condition=active_condition,
                 )
-            elif isinstance(stmt, renpy.ast.Jump):
+            else:
+                screen_name = get_show_screen_name(stmt)
+                if screen_name:
+                    handle_show_screen(
+                        from_label,
+                        screen_name,
+                        filename,
+                        getattr(stmt, "linenumber", 0),
+                        condition=active_condition,
+                    )
+                    continue
+            if isinstance(stmt, renpy.ast.Jump):
                 add_route_edge(
                     from_label,
                     stmt.target,
@@ -836,6 +1167,7 @@ init 10000 python:
             elif isinstance(stmt, renpy.ast.Python):
                 source = getattr(stmt.code, "source", "")
                 if source:
+                    route_code_sources.append(source)
                     extract_assignments(
                         source, from_label, filename,
                         getattr(stmt, "linenumber", 0), from_type,
@@ -873,13 +1205,14 @@ init 10000 python:
                             next_condition_stack,
                         )
             elif isinstance(stmt, renpy.ast.Menu):
+                existing = route_menu_metadata.get(id(stmt), {})
                 route_menu_metadata[id(stmt)] = {
-                    "enclosing_condition": active_condition,
-                    "branch_key": menu_branch_key(branch_path),
-                    "parent_menu_line": parent_menu_line,
-                    "parent_choice_line": parent_choice_line,
-                    "branch_path": list(branch_path),
-                    "condition_stack": list(condition_stack),
+                    "enclosing_condition": combine_conditions(existing.get("enclosing_condition"), active_condition),
+                    "branch_key": existing.get("branch_key") or menu_branch_key(branch_path),
+                    "parent_menu_line": existing.get("parent_menu_line") or parent_menu_line,
+                    "parent_choice_line": existing.get("parent_choice_line") or parent_choice_line,
+                    "branch_path": existing.get("branch_path") or list(branch_path),
+                    "condition_stack": existing.get("condition_stack") or list(condition_stack),
                 }
             elif statement_block_items(getattr(stmt, "block", None)):
                 walk_for_edges(
@@ -926,6 +1259,8 @@ init 10000 python:
             if isinstance(node, renpy.ast.Define):
                 varname = node.varname
                 code_str = getattr(node.code, "source", "").strip()
+                if is_game_file(node.filename):
+                    route_code_sources.append(code_str)
 
                 display_name = None
 
@@ -959,10 +1294,12 @@ init 10000 python:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
 
             elif isinstance(node, renpy.ast.Default):
+                default_value = getattr(node.code, "source", "").strip()
                 if is_game_file(node.filename):
+                    route_code_sources.append(default_value)
                     route_variables.append({
                         "name": node.varname,
-                        "default_value": getattr(node.code, "source", "").strip(),
+                        "default_value": default_value,
                         "type": "default",
                         "file": node.filename,
                         "line": getattr(node, "linenumber", 0),
@@ -1037,15 +1374,19 @@ init 10000 python:
                         ensure_route_label(node.name, node.filename, getattr(node, "linenumber", 0))
 
                     if route_context and getattr(node, "block", None):
+                        annotate_following_statement_conditions(node.block)
                         walk_for_edges(node.block, route_context, node.filename, "label_block")
                         if block_has_terminal(node.block):
                             next_stmt = None
+                            next_condition = None
                         else:
                             block_items = statement_block_items(node.block)
                             trailing_stmt = block_items[-1] if block_items else None
                             next_stmt = getattr(trailing_stmt, "next", None)
+                            next_condition = remaining_condition_after_terminal_branches(trailing_stmt)
                     else:
                         next_stmt = getattr(node, "next", None)
+                        next_condition = None
 
                     # Follow the .next chain until we find a label, jump, call,
                     # return, or end of statements. This captures implicit
@@ -1056,27 +1397,36 @@ init 10000 python:
                     while next_stmt is not None and id(next_stmt) not in seen_next:
                         seen_next.add(id(next_stmt))
                         if isinstance(next_stmt, (renpy.ast.Jump, renpy.ast.Return)):
-                            add_edge_from_statement(route_context, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                             break
                         if isinstance(next_stmt, renpy.ast.Call):
                             # Calls return — process edge but keep walking
-                            add_edge_from_statement(route_context, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                         if isinstance(next_stmt, renpy.ast.Label):
                             if is_route_label(next_stmt.name):
-                                add_edge_from_statement(route_context, next_stmt, node.filename)
+                                add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                                 break
                             # Filtered label — skip past it and keep walking
                         # Non-terminal control flow: process edges but keep walking
-                        if get_call_screen_name(next_stmt):
-                            add_edge_from_statement(route_context, next_stmt, node.filename)
+                        if get_call_screen_name(next_stmt) or get_show_screen_name(next_stmt):
+                            add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                         elif isinstance(next_stmt, renpy.ast.If):
-                            add_edge_from_statement(route_context, next_stmt, node.filename)
+                            add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                             # Only stop if ALL branches have terminal flow (jump/return)
                             # meaning execution can't continue past this If
+                            remaining_condition = remaining_condition_after_terminal_branches(next_stmt, next_condition)
+                            if remaining_condition == "False":
+                                break
+                            next_condition = combine_conditions(next_condition, remaining_condition)
                             if is_exhaustive_if(next_stmt):
                                 break
                         elif isinstance(next_stmt, renpy.ast.Menu):
-                            pass  # menus are handled separately in the main loop
+                            if next_condition:
+                                existing = route_menu_metadata.get(id(next_stmt), {})
+                                route_menu_metadata[id(next_stmt)] = dict(existing, enclosing_condition=combine_conditions(
+                                    existing.get("enclosing_condition"),
+                                    next_condition
+                                ))
                         next_stmt = getattr(next_stmt, "next", None)
 
             # Older versions (without TranslateSay) - handle both Say and Menu blocks
@@ -1365,6 +1715,8 @@ init 10000 python:
             if label_name in called_route_labels and label_name in route_labels:
                 route_labels[label_name]["is_ending"] = False
                 route_labels[label_name]["returns_to_caller"] = True
+
+        add_inferred_dynamic_route_edges()
 
         collect_file_statistics()
         report_stats()

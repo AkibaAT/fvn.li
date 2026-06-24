@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class RouteGraphService
 {
-    private const GRAPH_REVISION = 27;
+    private const GRAPH_REVISION = 28;
 
     public function __construct(
         private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
@@ -65,6 +65,8 @@ class RouteGraphService
         $menuChoices = $version->routeMenuChoices()->get();
         $variables = $version->routeVariables()->get();
         $variableChanges = $version->routeVariableChanges()->get();
+
+        [$edges, $menuChoices] = $this->conditions->filterDeveloperOnlyRoutes($edges, $menuChoices);
 
         $wordCounts = self::getWordCountsByLabel($version);
 

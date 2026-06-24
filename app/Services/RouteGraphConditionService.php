@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
+
 class RouteGraphConditionService
 {
     public function normalizeDisplayConditions(array $edges): array
@@ -227,6 +229,37 @@ class RouteGraphConditionService
         $condition = trim((string) $condition);
 
         return $condition === '' || $condition === 'True';
+    }
+
+    /**
+     * Drop routes that are explicitly gated to Ren'Py developer mode.
+     * Production gates such as `config.developer == False` are kept.
+     *
+     * @return array{0: Collection, 1: Collection}
+     */
+    public function filterDeveloperOnlyRoutes(Collection $edges, Collection $menuChoices): array
+    {
+        return [
+            $edges
+                ->reject(fn ($edge) => $this->isDeveloperOnlyCondition($edge->condition ?? null))
+                ->values(),
+            $menuChoices
+                ->reject(fn ($choice) => $this->isDeveloperOnlyCondition($choice->condition ?? null))
+                ->values(),
+        ];
+    }
+
+    public function isDeveloperOnlyCondition(?string $condition): bool
+    {
+        $condition = trim((string) $condition);
+        if ($condition === '' || ! str_contains(strtolower($condition), 'config.developer')) {
+            return false;
+        }
+
+        return preg_match('/not\s*(?:\(\s*)+config\.developer\s*(?:==|is)\s*false/i', $condition) === 1
+            || preg_match('/config\.developer\s*(?:!=|is\s+not)\s*false/i', $condition) === 1
+            || preg_match('/config\.developer\s*(?:==|is)\s*true/i', $condition) === 1
+            || preg_match('/^\(?\s*config\.developer\s*\)?$/i', $condition) === 1;
     }
 
     private function conditionContainsDirectNegation(string $condition, string $negatedTerm): bool
