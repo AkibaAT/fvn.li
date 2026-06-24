@@ -85,27 +85,11 @@ class Upload
             return false;
         }
 
-        $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
-
-        $isArchive = in_array($ext, self::PROCESSABLE_EXTENSIONS);
-
-        // Special handling for tar.gz and tar.bz2
-        if ($ext === 'gz' || $ext === 'bz2') {
-            $basename = basename($this->filename, ".{$ext}");
-            if (strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar') {
-                $isArchive = true;
-            }
-        }
-
-        if (! $isArchive) {
+        if (! $this->isArchive()) {
             return false;
         }
 
-        if ($this->isMac()) {
-            return false;
-        }
-
-        return true;
+        return $this->statsExtractionPriority() !== null;
     }
 
     public function isDemo(): bool
@@ -127,6 +111,7 @@ class Upload
     public function compareTo(self $other): int
     {
         $criteria = [
+            fn ($a, $b) => $a->statsExtractionPriority() <=> $b->statsExtractionPriority(),
             // itch.io upload timestamps are the most reliable signal for the
             // currently available downloadable file. Some games use non-semver
             // version schemes where PHP's version_compare() can rank an older
@@ -182,7 +167,7 @@ class Upload
 
     public function hasLinuxFileName(): bool
     {
-        $patterns = ['/linux/i', '/.tar/i'];
+        $patterns = ['/linux/i'];
         $names = array_filter([$this->filename, $this->displayName]);
 
         return array_any($patterns, fn ($pattern) => array_any($names, fn ($name) => preg_match($pattern, $name)));
@@ -199,6 +184,67 @@ class Upload
     public function isZip(): bool
     {
         return strtolower(pathinfo($this->filename, PATHINFO_EXTENSION)) === 'zip';
+    }
+
+    private function isArchive(): bool
+    {
+        $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
+
+        if (in_array($ext, self::PROCESSABLE_EXTENSIONS, true)) {
+            return true;
+        }
+
+        // Special handling for tar.gz and tar.bz2
+        if ($ext === 'gz' || $ext === 'bz2') {
+            $basename = basename($this->filename, ".{$ext}");
+
+            return strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'tar';
+        }
+
+        return false;
+    }
+
+    private function statsExtractionPriority(): ?int
+    {
+        if ($this->isAndroid() || $this->hasAndroidFileName()) {
+            return null;
+        }
+
+        if ($this->isLinux() || $this->hasLinuxFileName()) {
+            return 0;
+        }
+
+        if ($this->isWindows() || $this->hasPcFileName()) {
+            return 1;
+        }
+
+        if ($this->hasAnyPlatformTrait() || $this->hasMacFileName()) {
+            return null;
+        }
+
+        return $this->isZip() ? 2 : null;
+    }
+
+    private function hasAnyPlatformTrait(): bool
+    {
+        return array_any($this->traits, fn ($trait) => str_starts_with((string) $trait, 'p_'));
+    }
+
+    private function hasAndroidFileName(): bool
+    {
+        return $this->matchesNamePattern('/(?:^|[^a-z0-9])android(?:[^a-z0-9]|$)/i');
+    }
+
+    private function hasMacFileName(): bool
+    {
+        return $this->matchesNamePattern('/(?:^|[^a-z0-9])(?:mac|macos|osx)(?:[^a-z0-9]|$)/i');
+    }
+
+    private function matchesNamePattern(string $pattern): bool
+    {
+        $names = array_filter([$this->filename, $this->displayName]);
+
+        return array_any($names, fn ($name) => preg_match($pattern, $name) === 1);
     }
 
     public function toArray(): array
