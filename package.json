@@ -23,7 +23,7 @@
         "@eslint/js": "10.0.1",
         "@playwright/test": "1.61.0",
         "@testing-library/jest-dom": "6.9.1",
-        "@testing-library/svelte": "5.3.1",
+        "@testing-library/svelte": "5.4.1",
         "@types/node": "25.9.3",
         "@vitest/coverage-v8": "4.1.9",
         "eslint": "10.5.0",
@@ -59,7 +59,7 @@
         "tinymce": "8.6.0"
     },
     "optionalDependencies": {
-        "@rollup/rollup-linux-x64-gnu": "4.62.0",
+        "@rollup/rollup-linux-x64-gnu": "4.62.2",
         "@tailwindcss/oxide-linux-x64-gnu": "4.3.1",
         "lightningcss-linux-x64-gnu": "1.32.0"
     },
