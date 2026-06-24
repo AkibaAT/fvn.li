@@ -10,7 +10,7 @@
         "manifest": "node scripts/generate-web-manifest.mjs",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
-        "types": "svelte-check --tsconfig ./tsconfig.json",
+        "types": "node scripts/svelte-check.mjs --tsconfig ./tsconfig.json",
         "test:js": "vitest run --config vitest.config.ts",
         "test:js:coverage": "vitest run --config vitest.config.ts --coverage",
         "test:e2e": "bash scripts/playwright-ddev.sh test --grep-invert @accessibility",
