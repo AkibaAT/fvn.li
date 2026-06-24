@@ -196,11 +196,23 @@ class Upload
             return null;
         }
 
-        if ($this->isLinux() || $this->hasLinuxFileName()) {
+        if ($this->isLinux()) {
             return 0;
         }
 
-        if ($this->isWindows() || $this->hasPcFileName()) {
+        if ($this->isWindows()) {
+            return 1;
+        }
+
+        if ($this->isMac()) {
+            return null;
+        }
+
+        if ($this->hasLinuxFileName()) {
+            return 0;
+        }
+
+        if ($this->hasPcFileName()) {
             return 1;
         }
 
