@@ -142,10 +142,31 @@ test('buildGraph refreshes stale cached graph revisions', function () {
 
     $graph = app(RouteGraphService::class)->buildGraph($this->version->fresh());
 
-    expect($graph['graph_revision'])->toBe(27)
+    expect($graph['graph_revision'])->toBe(28)
         ->and(collect($graph['nodes'])->pluck('id'))->toContain('start')
         ->and(collect($graph['nodes'])->pluck('id'))->not->toContain('stale')
-        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(27);
+        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(28);
+});
+
+test('developer gated route choices are excluded while production developer false paths remain', function () {
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'introcutscene', 20, true);
+    createRouteLabel($this->version, 'debug_jump_table', 40);
+
+    createRouteEdge($this->version, 'start', 'introcutscene', 'jump', 10, 'config.developer == False');
+    createRouteChoice($this->version, 'start', 'Debug menu', 30, 'debug_jump_table', 'not ((config.developer == False))');
+    createRouteEdge($this->version, 'start', 'debug_jump_table', 'menu_choice', 30, 'not ((config.developer == False))');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+    $nodesById = collect($graph['nodes'])->keyBy('id');
+
+    expect($nodesById)->toHaveKey('start')
+        ->and($nodesById)->toHaveKey('introcutscene')
+        ->and($nodesById)->not->toHaveKey('debug_jump_table')
+        ->and($nodesById->keys()->filter(fn (string $id) => str_starts_with($id, 'start:choice_'))->count())->toBe(0)
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'start' && $edge['target'] === 'introcutscene'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'start' && $edge['target'] === 'debug_jump_table'))->toBeFalse();
 });
 
 test('computed route graphs include precomputed GraphViz layout positions', function () {
