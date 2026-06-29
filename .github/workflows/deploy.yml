@@ -233,7 +233,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -258,7 +258,7 @@ jobs:
         run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
-        uses: burnett01/rsync-deployments@66257cad6bfeb2171d3b6bfa6c9a22279dd9c3a1 # 8.0.5
+        uses: burnett01/rsync-deployments@4d419d1dc46d4a8a2b6ceab2f951f0f93b2da8f5 # 9
         with:
           switches: -rlptvz --delete --dirs --exclude-from=scripts/rsync-exclude.txt --chmod=D2775,F664,F+X
           path: ./
