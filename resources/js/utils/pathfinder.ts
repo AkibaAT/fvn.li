@@ -27,12 +27,7 @@ export function buildAdjacency(edges: RouteEdge[]): AdjacencyList {
     return adjacency;
 }
 
-export function findPath(
-    startNodeId: string,
-    targetNodeId: string,
-    edges: RouteEdge[],
-    options: PathfinderOptions = {},
-): RoutePath | null {
+export function findPath(startNodeId: string, targetNodeId: string, edges: RouteEdge[], options: PathfinderOptions = {}): RoutePath | null {
     if (options.preferences && options.preferences.length > 0) {
         return findPreferredPath(startNodeId, targetNodeId, edges, options);
     }
@@ -63,21 +58,12 @@ export function findShortestPath(startNodeId: string, targetNodeId: string, edge
     return null;
 }
 
-function findPreferredPath(
-    startNodeId: string,
-    targetNodeId: string,
-    edges: RouteEdge[],
-    options: PathfinderOptions,
-): RoutePath | null {
+function findPreferredPath(startNodeId: string, targetNodeId: string, edges: RouteEdge[], options: PathfinderOptions): RoutePath | null {
     const preferences = options.preferences ?? [];
     const adjacency = buildAdjacency(edges);
     const nodeMap = new Map((options.nodes ?? []).map((node) => [node.id, node]));
     const preferenceNames = new Set(preferences.map((pref) => pref.variable));
-    const startValues = applyNodeChanges(
-        getInitialValues(options.variables ?? [], preferences),
-        nodeMap.get(startNodeId),
-        preferenceNames,
-    );
+    const startValues = applyNodeChanges(getInitialValues(options.variables ?? [], preferences), nodeMap.get(startNodeId), preferenceNames);
     const bestByNode = new Map<string, PreferredPathState>([
         [
             startNodeId,
@@ -118,10 +104,7 @@ function findPreferredPath(
     return bestByNode.get(targetNodeId)?.path ?? findShortestPath(startNodeId, targetNodeId, edges);
 }
 
-function reconstructPath(
-    targetNodeId: string,
-    parent: Map<string, { nodeId: string; edge: RouteEdge } | null>,
-): RoutePath {
+function reconstructPath(targetNodeId: string, parent: Map<string, { nodeId: string; edge: RouteEdge } | null>): RoutePath {
     const path: RoutePath = [];
     let node: string | null = targetNodeId;
 
@@ -153,11 +136,7 @@ function getInitialValues(variables: RouteVariable[], preferences: RoutePreferen
     return values;
 }
 
-function applyNodeChanges(
-    values: Record<string, unknown>,
-    node: RouteNode | undefined,
-    preferenceNames: Set<string>,
-): Record<string, unknown> {
+function applyNodeChanges(values: Record<string, unknown>, node: RouteNode | undefined, preferenceNames: Set<string>): Record<string, unknown> {
     const next = { ...values };
     if (!node?.variable_changes) return next;
 

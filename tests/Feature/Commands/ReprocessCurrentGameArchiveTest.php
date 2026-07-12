@@ -7,6 +7,8 @@ use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
 use App\Services\GameVersionArchiveRepositoryService;
+use Tests\Support\ReprocessRecordingGameArchiveService;
+use Tests\Support\ReprocessRecordingGameStatsService;
 
 beforeEach(function () {
     $this->repositoryRecorder = (object) [
@@ -160,52 +162,3 @@ test('reprocess current game archive reports stats extraction reason when archiv
     expect($statsRecorder->saveVersionStatsCalls)->toBe([]);
     expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([]);
 });
-
-// phpcs:disable
-class ReprocessRecordingGameArchiveService extends GameArchiveService
-{
-    public function __construct(
-        private readonly object $recorder
-    ) {}
-
-    public function getStoredArchive(int $gameId, int $versionId): ?string
-    {
-        $this->recorder->getStoredArchiveCalls[] = [$gameId, $versionId];
-
-        return $this->recorder->storedArchive;
-    }
-
-    public function processArchive(string $archivePath): ?array
-    {
-        $this->recorder->processArchiveCalls[] = [$archivePath];
-
-        return $this->recorder->stats;
-    }
-
-    public function getLastProcessingError(): ?string
-    {
-        return $this->recorder->lastProcessingError ?? null;
-    }
-}
-
-readonly class ReprocessRecordingGameStatsService extends GameStatsService
-{
-    public function __construct(
-        private object $recorder
-    ) {}
-
-    public function saveVersionStats(
-        GameVersion $version,
-        array $stats,
-        string $defaultLanguage = 'eng',
-        ?Game $game = null
-    ): void {
-        $this->recorder->saveVersionStatsCalls[] = [
-            'version_id' => $version->id,
-            'stats' => $stats,
-            'default_language' => $defaultLanguage,
-            'game_id' => $game?->id,
-        ];
-    }
-}
-// phpcs:enable

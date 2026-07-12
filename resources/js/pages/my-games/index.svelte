@@ -62,7 +62,9 @@
                         After connecting, we'll show your owned games here for quick editing and analytics.
                     </div>
                 </div>
-                <Button href={route('auth.redirect', { provider: 'itchio', intended: route('my-games.index') })} inertia={false} size="sm">Connect itch.io</Button>
+                <Button href={route('auth.redirect', { provider: 'itchio', intended: route('my-games.index') })} inertia={false} size="sm"
+                    >Connect itch.io</Button
+                >
             </div>
         </div>
     {/if}

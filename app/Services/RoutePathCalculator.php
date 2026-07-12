@@ -245,7 +245,9 @@ class RoutePathCalculator
 
             $seenChoiceNodes[$target] = true;
             $from = (string) ($choiceNode['parent_label'] ?? $edge['source'] ?? '');
-            $to = $this->nextRealLabelAfter($target, $pathEdges) ?? $from;
+            $to = $edgeType === 'menu_choice'
+                ? $target
+                : ($this->nextRealLabelAfter($target, $pathEdges) ?? $from);
             $text = (string) ($choiceNode['choice_text'] ?? $edge['choice_text'] ?? $choiceNode['label'] ?? '');
 
             $choices[] = ['from' => $from, 'to' => $to, 'text' => $text];
@@ -263,10 +265,25 @@ class RoutePathCalculator
      */
     private function nextRealLabelAfter(string $choiceNodeId, array $pathEdges): ?string
     {
-        foreach ($pathEdges as $edge) {
-            if (($edge['source'] ?? null) === $choiceNodeId) {
-                return (string) ($edge['target'] ?? '');
+        $current = $choiceNodeId;
+        for ($hops = 0; $hops <= count($pathEdges); $hops++) {
+            $next = null;
+            foreach ($pathEdges as $edge) {
+                if (($edge['source'] ?? null) === $current) {
+                    $next = (string) ($edge['target'] ?? '');
+                    break;
+                }
             }
+
+            if ($next === null || $next === '') {
+                return null;
+            }
+
+            if (! str_starts_with($next, 'condition_scope:')) {
+                return $next;
+            }
+
+            $current = $next;
         }
 
         return null;

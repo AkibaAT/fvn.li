@@ -50,7 +50,7 @@
         <env name="CACHE_DRIVER" value="array"/>
         <env name="DB_DATABASE" value="db_test"/>
         <env name="MAIL_MAILER" value="array"/>
-        <env name="MEILISEARCH_HOST" value="http://meilisearch:7700"/>
+        <env name="MEILISEARCH_HOST" value="http://meilisearch-test:7700"/>
         <env name="MEILISEARCH_KEY" value="dev-master-key-change-in-production"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

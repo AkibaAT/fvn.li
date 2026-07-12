@@ -6,6 +6,8 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveOptimizationService;
+use Tests\Support\RecordingButlerArchiveOptimizer;
+use Tests\Support\RecordingDenKitStashPersistenceService;
 
 test('persist optimized versions optimizes every selected version before pushing to butler in version order', function () {
     $game = Game::factory()->create([
@@ -182,63 +184,3 @@ test('persist optimized versions can target specific version ids', function () {
         $last->id,
     ]);
 });
-
-// phpcs:disable
-class RecordingButlerArchiveOptimizer extends GameArchiveOptimizationService
-{
-    public function __construct(private object $recorder) {}
-
-    public function optimizeStoredArchive(
-        int $gameId,
-        int $versionId,
-        bool $dryRun = true,
-        bool $replace = false,
-        bool $force = false,
-        bool $validate = true,
-        ?callable $progress = null
-    ): array {
-        $this->recorder->calls[] = [
-            'game_id' => $gameId,
-            'version_id' => $versionId,
-            'dry_run' => $dryRun,
-            'replace' => $replace,
-            'force' => $force,
-            'validate' => $validate,
-        ];
-
-        return $this->recorder->results[$versionId] ?? [
-            'status' => 'optimized',
-            'optimized_path' => "/tmp/optimized-{$versionId}.zip",
-            'saved_bytes' => 1,
-        ];
-    }
-}
-
-class RecordingDenKitStashPersistenceService extends DenKitStashPersistenceService
-{
-    public function __construct(private object $recorder) {}
-
-    public function persistOptimizedArchive(
-        Game $game,
-        GameVersion $version,
-        string $archivePath,
-        string $channel = 'main',
-        bool $force = false
-    ): array {
-        $this->recorder->calls[] = [
-            'game_id' => $game->id,
-            'version_id' => $version->id,
-            'archive_path' => $archivePath,
-            'channel' => $channel,
-            'force' => $force,
-        ];
-
-        return [
-            'status' => 'persisted',
-            'target' => 'fvn-li/' . $game->slug . ':' . $channel,
-            'channel' => $channel,
-            'build_id' => 99 + count($this->recorder->calls),
-        ];
-    }
-}
-// phpcs:enable

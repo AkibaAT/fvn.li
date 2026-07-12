@@ -172,6 +172,31 @@ class Upload
         return strtolower(pathinfo($this->filename, PATHINFO_EXTENSION)) === 'zip';
     }
 
+    public function toArray(): array
+    {
+        return [
+            'filename' => $this->filename,
+            'display_name' => $this->displayName,
+            'md5_hash' => $this->md5Hash,
+            'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
+            'build_id' => $this->buildId,
+            'build_updated_at' => $this->buildUpdatedAt?->format('Y-m-d H:i:s'),
+            'user_version' => $this->userVersion,
+            'traits' => $this->traits,
+            'type' => $this->type,
+        ];
+    }
+
+    public function isMac(): bool
+    {
+        return in_array('p_osx', $this->traits);
+    }
+
+    public function isAndroid(): bool
+    {
+        return in_array('p_android', $this->traits);
+    }
+
     private function isArchive(): bool
     {
         $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));
@@ -243,31 +268,6 @@ class Upload
         $names = array_filter([$this->filename, $this->displayName]);
 
         return array_any($names, fn ($name) => preg_match($pattern, $name) === 1);
-    }
-
-    public function toArray(): array
-    {
-        return [
-            'filename' => $this->filename,
-            'display_name' => $this->displayName,
-            'md5_hash' => $this->md5Hash,
-            'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
-            'build_id' => $this->buildId,
-            'build_updated_at' => $this->buildUpdatedAt?->format('Y-m-d H:i:s'),
-            'user_version' => $this->userVersion,
-            'traits' => $this->traits,
-            'type' => $this->type,
-        ];
-    }
-
-    public function isMac(): bool
-    {
-        return in_array('p_osx', $this->traits);
-    }
-
-    public function isAndroid(): bool
-    {
-        return in_array('p_android', $this->traits);
     }
 
     private function compareRelaxedTimestamps(self $other): int

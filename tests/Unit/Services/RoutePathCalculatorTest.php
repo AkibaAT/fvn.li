@@ -7,6 +7,7 @@ use App\Models\VersionRouteEdge;
 use App\Models\VersionRouteLabel;
 use App\Models\VersionRouteMenuChoice;
 use App\Models\VersionRoutePath;
+use App\Models\VersionRouteVariableChange;
 use App\Services\RoutePathCalculator;
 
 function routePathVersion(): GameVersion
@@ -180,4 +181,97 @@ it('skips endings that are unreachable from the start node', function () {
 
     expect($endings)->toBe(['reachable'])
         ->and($version->routePaths()->count())->toBe(1);
+});
+
+it('stores hub menu choice destinations as the choice target label', function () {
+    $version = routePathVersion();
+    routePathLabel($version, 'start');
+    routePathLabel($version, 'chapterselect');
+    routePathEdge($version, 'start', 'chapterselect');
+
+    // 12 same-menu function-menu choices keep chapterselect a hub node whose
+    // raw menu_choice edges survive with choice_text attached.
+    for ($i = 1; $i <= 12; $i++) {
+        routePathLabel($version, 'chapter' . $i, $i === 1);
+        routePathChoice($version, 'chapterselect', 'Chapter ' . $i, 'chapter' . $i, 10);
+        VersionRouteEdge::create([
+            'game_version_id' => $version->id,
+            'from_label' => 'chapterselect',
+            'to_label' => 'chapter' . $i,
+            'edge_type' => 'menu_choice',
+            'condition' => 'True',
+            'file_path' => 'script.rpy',
+            'line_number' => 10,
+        ]);
+    }
+
+    (new RoutePathCalculator)->calculateAndStore($version);
+
+    $path = $version->routePaths()->where('ending_label', 'chapter1')->firstOrFail();
+
+    // The raw edge already lands on the destination label — no lookahead: the
+    // old code walked one hop past it and fell back to to == from at endings.
+    expect($path->choices)->toBe([
+        ['from' => 'chapterselect', 'to' => 'chapter1', 'text' => 'Chapter 1'],
+    ]);
+});
+
+it('does not persist condition scope wiring nodes as choice destinations', function () {
+    $version = routePathVersion();
+    routePathLabel($version, 'start');
+    routePathLabel($version, 'choice_room');
+    routePathLabel($version, 'finale', true);
+    routePathEdge($version, 'start', 'choice_room');
+
+    // First menu: a targetless choice that sequences to the second menu.
+    VersionRouteMenuChoice::create([
+        'game_version_id' => $version->id,
+        'from_label' => 'choice_room',
+        'text' => 'Proceed',
+        'target_label' => null,
+        'menu_line' => 9,
+        'condition' => 'True',
+        'enclosing_condition' => null,
+        'choice_condition' => 'True',
+        'file_path' => 'script.rpy',
+        'line_number' => 10,
+    ]);
+    VersionRouteVariableChange::create([
+        'game_version_id' => $version->id,
+        'label' => 'choice_room',
+        'context' => 'menu_choice:Proceed',
+        'variable_name' => 'proceeded',
+        'value' => 'Constant(value=True)',
+        'file_path' => 'script.rpy',
+        'line_number' => 11,
+    ]);
+
+    // Second menu behind a 2-deep condition stack: the menu_sequence edge from
+    // the first choice gets factored through condition_scope wiring nodes.
+    foreach (['Go left', 'Go right'] as $index => $text) {
+        VersionRouteMenuChoice::create([
+            'game_version_id' => $version->id,
+            'from_label' => 'choice_room',
+            'text' => $text,
+            'target_label' => 'finale',
+            'edge_type' => 'jump',
+            'menu_line' => 29,
+            'condition' => '(route_a == True) and (route_b == True)',
+            'enclosing_condition' => '(route_a == True) and (route_b == True)',
+            'choice_condition' => 'True',
+            'menu_condition_stack' => ['route_a == True', 'route_b == True'],
+            'file_path' => 'script.rpy',
+            'line_number' => 30 + $index,
+        ]);
+    }
+
+    (new RoutePathCalculator)->calculateAndStore($version);
+
+    $path = $version->routePaths()->where('ending_label', 'finale')->firstOrFail();
+
+    expect($path->choices)->not->toBeNull();
+    foreach ($path->choices as $choice) {
+        expect(str_starts_with($choice['to'], 'condition_scope:'))->toBeFalse()
+            ->and(str_starts_with($choice['from'], 'condition_scope:'))->toBeFalse();
+    }
 });
