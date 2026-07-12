@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use App\Models\DiscordNotificationHistory;
 use App\Models\DiscordServer;
-use App\Models\SocialAccount;
 use App\Models\Game;
+use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -15,6 +15,7 @@ beforeEach(function () {
     Game::unsetEventDispatcher();
 
     $this->user = User::factory()->create();
+    $this->botToken = $this->user->createToken('discord-bot-test', ['discord-bot'])->plainTextToken;
     $this->server = DiscordServer::factory()->create([
         'discord_server_id' => '99999999',
         'owner_user_id' => $this->user->id,
@@ -39,7 +40,7 @@ describe('Bot server endpoints', function () {
             'payload' => ['content' => 'Test notification'],
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->getJson('/api/bot/servers/pending-notifications?limit=10');
 
         $response->assertStatus(200);
@@ -57,7 +58,7 @@ describe('Bot server endpoints', function () {
             'delivery_status' => 'processing',
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson("/api/bot/servers/notifications/{$notification->id}/delivered", [
                 'message_id' => '987654321',
             ]);
@@ -76,7 +77,7 @@ describe('Bot server endpoints', function () {
             'delivery_status' => 'processing',
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson("/api/bot/servers/notifications/{$notification->id}/failed", [
                 'error_message' => 'Channel not found',
             ]);
@@ -92,7 +93,7 @@ describe('Bot server endpoints', function () {
             ['id' => '222', 'name' => 'updates', 'type' => 0],
         ];
 
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/sync-channels', [
                 'discord_server_id' => '99999999',
                 'channels' => $channels,
@@ -105,7 +106,7 @@ describe('Bot server endpoints', function () {
     });
 
     test('sync channels returns 404 for unknown server', function () {
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/sync-channels', [
                 'discord_server_id' => 'nonexistent',
                 'channels' => [['id' => '123', 'name' => 'general', 'type' => 0]],
@@ -121,7 +122,7 @@ describe('Bot server endpoints', function () {
             'provider_id' => '55555555',
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/bot-joined', [
                 'discord_server_id' => '88888888',
                 'discord_server_name' => 'New Server',
@@ -138,7 +139,7 @@ describe('Bot server endpoints', function () {
     });
 
     test('bot left marks server inactive', function () {
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/99999999/bot-left');
 
         $response->assertStatus(200);
@@ -146,7 +147,7 @@ describe('Bot server endpoints', function () {
     });
 
     test('bot left handles nonexistent server gracefully', function () {
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/nonexistent/bot-left');
 
         $response->assertStatus(200);
@@ -160,7 +161,7 @@ describe('Bot server endpoints', function () {
             'provider_id' => '111',
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/sync-members', [
                 'discord_server_id' => '99999999',
                 'members' => [
@@ -178,5 +179,13 @@ describe('Bot server endpoints', function () {
     test('unauthenticated requests are rejected', function () {
         $response = $this->getJson('/api/bot/servers/pending-notifications?limit=10');
         $response->assertStatus(401);
+    });
+
+    test('tokens without the discord-bot ability are rejected', function () {
+        $token = $this->user->createToken('profile-test', ['profile'])->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson('/api/bot/servers/pending-notifications')
+            ->assertForbidden();
     });
 });

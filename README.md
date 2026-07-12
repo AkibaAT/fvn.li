@@ -122,18 +122,30 @@ This will start the following containers:
 
 ## Discord Bot Integration
 
-The application includes a Discord bot integration that provides:
+The Discord bot authenticates with a Laravel Sanctum bearer token. Issue one for
+an existing local user:
 
-- Game update notifications for subscribers
-- Game search functionality
-- User subscription management
+```bash
+ddev artisan discord:issue-api-token bot@example.com
+```
 
-Bot API endpoints are available at:
+Use `--replace` when rotating a token with the same name. Store the printed value
+in the bot's environment as its fvn.li API token and send it with every request:
 
-- `/api/search` - Search for games
-- `/api/updates` - Get recent game updates
-- `/api/subscribe` - Subscribe to update notifications
-- `/api/unsubscribe` - Unsubscribe from notifications
+```http
+Authorization: Bearer <token>
+Accept: application/json
+```
+
+The issued token has two narrowly checked abilities:
+
+- `discord-bot`: game search/lookup and `/api/bot/servers/*` server lifecycle,
+  channel/member sync, and queued-delivery endpoints.
+- `discord-notifications`: `/api/discord-notifications/*` notification polling
+  and delivery-status endpoints.
+
+Browser-facing `/browser-api/discord/*` routes use the logged-in web session and
+are not bot APIs.
 
 ## Contributing
 
