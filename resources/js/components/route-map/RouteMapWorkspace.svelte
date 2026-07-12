@@ -170,13 +170,13 @@
             {endingsCount}
             {isUploadingSave}
             {saveUploadError}
-            onLoadVersion={onLoadVersion}
-            onChangeLanguage={onChangeLanguage}
-            onSearch={onSearch}
-            onToggleUnreachable={onToggleUnreachable}
-            onToggleSidebar={onToggleSidebar}
-            onUploadSaveFile={onUploadSaveFile}
-            onClearSeenData={onClearSeenData}
+            {onLoadVersion}
+            {onChangeLanguage}
+            {onSearch}
+            {onToggleUnreachable}
+            {onToggleSidebar}
+            {onUploadSaveFile}
+            {onClearSeenData}
         />
 
         <div class="flex gap-6" style="height: calc(100vh - 200px);">
@@ -195,6 +195,7 @@
 
                         onSelectNode(event.node?.id ?? null);
                     }}
+                    onpaneclick={() => onSelectNode(null)}
                     class=""
                 >
                     <RouteMapFitView {layoutVersion} />
@@ -232,7 +233,7 @@
                             {routeWordCount}
                             {routePreferences}
                             {startNodeId}
-                            onClearPath={onClearPath}
+                            {onClearPath}
                             onSelectNode={(nodeId) => onSelectNode(nodeId)}
                         />
                     {/if}
@@ -243,13 +244,13 @@
                         {preferenceVariable}
                         {preferenceMode}
                         {preferenceValue}
-                        onMovePreference={onMovePreference}
-                        onRemovePreference={onRemovePreference}
-                        onPreferenceVariableChange={onPreferenceVariableChange}
-                        onPreferenceModeChange={onPreferenceModeChange}
-                        onPreferenceValueChange={onPreferenceValueChange}
-                        onAddPreference={onAddPreference}
-                        onClearPreferences={onClearPreferences}
+                        {onMovePreference}
+                        {onRemovePreference}
+                        {onPreferenceVariableChange}
+                        {onPreferenceModeChange}
+                        {onPreferenceValueChange}
+                        {onAddPreference}
+                        {onClearPreferences}
                     />
 
                     <RouteMapSelectedNodePanel
@@ -258,10 +259,10 @@
                         {startNodeId}
                         {navigationTarget}
                         onSelectNode={(nodeId) => onSelectNode(nodeId)}
-                        onNavigateTo={onNavigateTo}
+                        {onNavigateTo}
                     />
 
-                    <RouteMapSummaryListsPanel {endings} {variables} onSelectEnding={onSelectEnding} />
+                    <RouteMapSummaryListsPanel {endings} {variables} {onSelectEnding} />
                 </Card>
             {/if}
         </div>

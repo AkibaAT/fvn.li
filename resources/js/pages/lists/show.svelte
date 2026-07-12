@@ -405,16 +405,16 @@
 
     const borderColorClass = $derived(
         color === 'blue'
-            ? 'border-blue-500'
+            ? 'border-blue-500 dark:border-blue-500'
             : color === 'green'
-              ? 'border-green-500'
+              ? 'border-green-500 dark:border-green-500'
               : color === 'yellow'
-                ? 'border-yellow-500'
+                ? 'border-yellow-500 dark:border-yellow-500'
                 : color === 'orange'
-                  ? 'border-orange-500'
+                  ? 'border-orange-500 dark:border-orange-500'
                   : color === 'red'
-                    ? 'border-red-500'
-                    : 'border-gray-500',
+                    ? 'border-red-500 dark:border-red-500'
+                    : 'border-gray-500 dark:border-gray-500',
     );
 
     $effect(() => {
@@ -539,7 +539,7 @@
 
     <!-- List Edit Form -->
     {#if isEditingList && isOwner}
-        <Card padding="sm" class="mb-4 border-l-4 border-yellow-500">
+        <Card padding="sm" class="mb-4 border-l-4 border-yellow-500 dark:border-yellow-500">
             <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Edit List</h3>
             <div class="space-y-4">
                 <div>
@@ -561,8 +561,7 @@
                         bind:value={listFormData.description}
                         rows={3}
                         class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        placeholder="Enter list description"
-                    ></textarea>
+                        placeholder="Enter list description"></textarea>
                 </div>
                 <div class="flex justify-end space-x-2">
                     <Button

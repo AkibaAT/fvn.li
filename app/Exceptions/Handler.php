@@ -6,6 +6,8 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Facades\Facade;
+use ReflectionClass;
+use ReflectionObject;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -36,6 +38,16 @@ class Handler extends ExceptionHandler
     }
 
     /**
+     * Register the exception handling callbacks for the application.
+     */
+    public function register(): void
+    {
+        $this->reportable(function (Throwable $e) {
+            $this->writeNativeErrorLog('Laravel exception fallback', $e);
+        });
+    }
+
+    /**
      * Reports error based on report method on exception or to logger.
      */
     protected function reportThrowable(Throwable $e): void
@@ -49,21 +61,11 @@ class Handler extends ExceptionHandler
         }
     }
 
-    /**
-     * Register the exception handling callbacks for the application.
-     */
-    public function register(): void
-    {
-        $this->reportable(function (Throwable $e) {
-            $this->writeNativeErrorLog('Laravel exception fallback', $e);
-        });
-    }
-
     private function writeNativeErrorLog(string $label, Throwable $e): void
     {
         $requestLabel = app()->runningInConsole()
             ? 'CLI'
-            : request()->method().' '.request()->path();
+            : request()->method() . ' ' . request()->path();
 
         error_log(sprintf(
             '[%s] %s %s: %s in %s:%d',
@@ -78,7 +80,7 @@ class Handler extends ExceptionHandler
         error_log($e->getTraceAsString());
 
         if ($previous = $e->getPrevious()) {
-            $this->writeNativeErrorLog($label.' previous', $previous);
+            $this->writeNativeErrorLog($label . ' previous', $previous);
         }
     }
 
@@ -98,7 +100,7 @@ class Handler extends ExceptionHandler
                 ? $this->container->make('config')::class
                 : null;
         } catch (Throwable $e) {
-            $diagnostics['container_config_error'] = $e::class.': '.$e->getMessage();
+            $diagnostics['container_config_error'] = $e::class . ': ' . $e->getMessage();
         }
 
         try {
@@ -106,22 +108,22 @@ class Handler extends ExceptionHandler
             $diagnostics['log_manager_class'] = $log ? $log::class : null;
             $diagnostics['log_manager_app_class'] = $log ? $this->readObjectPropertyClass($log, 'app') : null;
         } catch (Throwable $e) {
-            $diagnostics['log_manager_error'] = $e::class.': '.$e->getMessage();
+            $diagnostics['log_manager_error'] = $e::class . ': ' . $e->getMessage();
         }
 
         try {
             $facadeApplication = $this->readStaticProperty(Facade::class, 'app');
             $diagnostics['facade_app_class'] = is_object($facadeApplication) ? $facadeApplication::class : get_debug_type($facadeApplication);
         } catch (Throwable $e) {
-            $diagnostics['facade_app_error'] = $e::class.': '.$e->getMessage();
+            $diagnostics['facade_app_error'] = $e::class . ': ' . $e->getMessage();
         }
 
-        error_log('[Laravel logging diagnostics] '.$label.' '.json_encode($diagnostics));
+        error_log('[Laravel logging diagnostics] ' . $label . ' ' . json_encode($diagnostics));
     }
 
     private function readObjectPropertyClass(object $object, string $property): string
     {
-        $reflection = new \ReflectionObject($object);
+        $reflection = new ReflectionObject($object);
 
         while (! $reflection->hasProperty($property)) {
             $parent = $reflection->getParentClass();
@@ -140,7 +142,7 @@ class Handler extends ExceptionHandler
 
     private function readStaticProperty(string $class, string $property): mixed
     {
-        $reflection = new \ReflectionClass($class);
+        $reflection = new ReflectionClass($class);
 
         while (! $reflection->hasProperty($property)) {
             $parent = $reflection->getParentClass();

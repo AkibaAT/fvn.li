@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class RouteGraphService
 {
-    private const GRAPH_REVISION = 28;
+    private const GRAPH_REVISION = 30;
 
     public function __construct(
         private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
@@ -79,7 +79,7 @@ class RouteGraphService
         }
 
         $edges = $this->edgePruner->removeInputRetrySelfLoopEdges($edges);
-        $edges = $this->edgePruner->removeUnreachableFallthroughEdges($edges, $choiceLookup);
+        $edges = $this->edgePruner->removeUnreachableFallthroughEdges($edges, $choiceLookup, $menuChoices);
         $collapseResult = $this->collapseTrivialReturnHelperCalls($labels, $edges, $menuChoices, $variableChanges, $wordCounts);
         $edges = $collapseResult['edges'];
         $collapsedReturnHelperContinuations = $collapseResult['collapsed'];
@@ -296,6 +296,29 @@ class RouteGraphService
                     }
 
                     if ($renderAsHub) {
+                        $hubChoicesByTarget = [];
+                        foreach ($groupChoices as $mc) {
+                            $hubTarget = $this->collapsedReturnHelperTarget((string) $mc->target_label, $collapsedReturnHelperContinuations);
+                            if ($hubTarget === null) {
+                                continue;
+                            }
+                            $hubChoicesByTarget[$hubTarget][] = $mc;
+                        }
+
+                        foreach ($hubChoicesByTarget as $hubTarget => $hubChoices) {
+                            $onlyChoice = count($hubChoices) === 1 ? $hubChoices[0] : null;
+                            $processedEdges[] = [
+                                'id' => $sourceId . ':' . $hubTarget . ':hub_choice',
+                                'source' => $sourceId,
+                                'target' => $hubTarget,
+                                'edge_type' => 'menu_choice',
+                                'choice_text' => $onlyChoice?->text,
+                                'condition' => $onlyChoice
+                                    ? $this->conditions->deduplicatedContinuationCondition($menuCondition, $this->menuAnalyzer->choiceCondition($onlyChoice))
+                                    : null,
+                            ];
+                        }
+
                         $choiceIndex += $groupChoices->count();
 
                         continue;
@@ -357,7 +380,7 @@ class RouteGraphService
                             );
                         $continuesToNextMenu = ! $hasHardTarget && ! $hasChildMenu && $choiceContinuationEdges->isEmpty() && $nextMenuSourceId !== null;
                         $continuesToChildSkip = ! $hasHardTarget && $hasChildMenu && $childSkipCondition !== null && $childSkipTargetId !== null;
-                        $continuesPastConditionalNextMenu = ! $hasHardTarget && ! $hasChildMenu && $nextMenuSkip !== null;
+                        $continuesPastConditionalNextMenu = $continuesToNextMenu && $nextMenuSkip !== null;
                         $usesSyntheticEnding = ! $hasHardTarget && ! $hasChildMenu && ! $continuesToNextMenu && $choiceContinuationEdges->isEmpty() && $syntheticEndingId !== null;
                         $outCount = $hasHardTarget
                             ? 1

@@ -3,98 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\Game;
-use App\Traits\HasSocialMetaTags;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-
-// phpcs:disable
-class SocialMetaTagsHarness
-{
-    use HasSocialMetaTags;
-
-    public ?LengthAwarePaginator $games = null;
-
-    public array $selectedStatuses = [];
-
-    public array $selectedEngines = [];
-
-    public array $selectedPlatforms = [];
-
-    public array $selectedLanguages = [];
-
-    public array $selectedGameJams = [];
-
-    public array $selectedTags = [];
-
-    public string $search = '';
-
-    public bool $nsfw = false;
-
-    public bool $sfw = false;
-
-    public string $sortField = 'first_visible_at';
-
-    public string $sortDirection = 'desc';
-
-    public function title(): string
-    {
-        return $this->getMetaTitle();
-    }
-
-    public function description(): string
-    {
-        return $this->getMetaDescription();
-    }
-
-    public function image(): string
-    {
-        return $this->getMetaImage();
-    }
-
-    public function activeFilters(): bool
-    {
-        return $this->hasActiveFilters();
-    }
-
-    public function getSortLabel(string $field): string
-    {
-        return match ($field) {
-            'rating_score' => 'Rating',
-            default => ucfirst(str_replace('_', ' ', $field)),
-        };
-    }
-}
-
-class HeadingMetaTagsHarness
-{
-    use HasSocialMetaTags;
-
-    public function getHeading(): string
-    {
-        return 'Games';
-    }
-
-    public function getAllTableRecordsCount(): int
-    {
-        return 1;
-    }
-
-    public function title(): string
-    {
-        return $this->getMetaTitle();
-    }
-}
-
-class NoGamesMetaTagsHarness
-{
-    use HasSocialMetaTags;
-
-    public function description(): string
-    {
-        return $this->getMetaDescription();
-    }
-}
-// phpcs:enable
+use Tests\Support\HeadingMetaTagsHarness;
+use Tests\Support\NoGamesMetaTagsHarness;
+use Tests\Support\SocialMetaTagsHarness;
 
 function socialMetaPaginator(Collection $games, int $total): LengthAwarePaginator
 {

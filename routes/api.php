@@ -28,12 +28,9 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Legacy Discord bot routes
+// Discord bot game search
 Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('discord')->group(function () {
     Route::post('search', [DiscordBotController::class, 'searchGames']);
-    Route::post('updates', [DiscordBotController::class, 'getUpdates']);
-    Route::post('subscribe', [DiscordBotController::class, 'subscribe']);
-    Route::post('unsubscribe', [DiscordBotController::class, 'unsubscribe']);
 });
 
 // Bot API routes (for migration and ongoing integration)
@@ -43,12 +40,14 @@ Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot')-
     Route::get('games/{id}', [DiscordBotController::class, 'getGame']);
 });
 
-// New Discord notification routes
+// Discord notification routes (per-user DMs, channel announcements, admin alerts)
 Route::middleware(['auth:sanctum', 'sanctum.token:discord-notifications'])->prefix('discord-notifications')->group(function () {
     Route::get('pending', [DiscordNotificationsController::class, 'getPendingNotifications']);
+    Route::post('status', [DiscordNotificationsController::class, 'recordDeliveryStatus']);
+    Route::get('channel-updates', [DiscordNotificationsController::class, 'getChannelUpdates']);
+    Route::post('channel-status', [DiscordNotificationsController::class, 'recordChannelDeliveryStatus']);
     Route::get('addition-requests', [DiscordNotificationsController::class, 'getPendingAdditionRequests']);
     Route::get('review-reports', [DiscordNotificationsController::class, 'getPendingReviewReports']);
-    Route::post('status', [DiscordNotificationsController::class, 'recordDeliveryStatus']);
 });
 
 // User notification service routes

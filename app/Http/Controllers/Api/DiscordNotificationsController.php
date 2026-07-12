@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdditionRequest;
+use App\Models\DiscordChannelAnnouncement;
 use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
 use App\Models\ReviewReport;
@@ -201,6 +202,152 @@ class DiscordNotificationsController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Error recording Discord notification delivery status', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    public function getChannelUpdates(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'integer|min:1|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        $limit = $request->input('limit', 50);
+        $batchKey = Carbon::now()->format('YmdHis') . '-' . bin2hex(random_bytes(4));
+
+        try {
+            DB::beginTransaction();
+
+            $announcements = DiscordChannelAnnouncement::query()
+                ->with(['game', 'gameVersion'])
+                ->where(function ($query) {
+                    $query->where('status', 'pending')
+                        ->orWhere(function ($query) {
+                            // Recover batches that were fetched but never acknowledged
+                            $query->where('status', 'processing')
+                                ->where('updated_at', '<', now()->subMinutes(15));
+                        });
+                })
+                ->orderBy('id')
+                ->limit($limit)
+                ->lockForUpdate()
+                ->get();
+
+            if ($announcements->isEmpty()) {
+                DB::commit();
+
+                return response()->json(['notifications' => [], 'batch_key' => $batchKey]);
+            }
+
+            DiscordChannelAnnouncement::whereIn('id', $announcements->pluck('id'))
+                ->update([
+                    'status' => 'processing',
+                    'batch_key' => $batchKey,
+                    'updated_at' => now(),
+                ]);
+
+            DB::commit();
+
+            $notifications = $announcements->map(function ($announcement) {
+                $game = $announcement->game;
+                $version = $announcement->gameVersion;
+
+                if (! $game || ! $version) {
+                    return null;
+                }
+
+                return [
+                    'announcement_id' => $announcement->id,
+                    'name' => $game->name,
+                    'version' => $version->version,
+                    'published_at' => $version->published_at?->timestamp ?? $version->created_at->timestamp,
+                    'url' => $game->url, // Multi-platform URLs as JSONB object
+                    'devlog' => $version->devlog,
+                ];
+            })->filter()->values();
+
+            return response()->json([
+                'notifications' => $notifications,
+                'batch_key' => $batchKey,
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Error fetching Discord channel updates', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * Record the delivery status of channel update announcements.
+     * Failed announcements are requeued until they exhaust their attempts.
+     */
+    public function recordChannelDeliveryStatus(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'batch_key' => 'required|string',
+            'results' => 'required|array',
+            'results.*.announcement_id' => 'required|exists:discord_channel_announcements,id',
+            'results.*.success' => 'required|boolean',
+            'results.*.error' => 'string|nullable',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($request->input('results') as $result) {
+                $announcement = DiscordChannelAnnouncement::query()
+                    ->where('id', $result['announcement_id'])
+                    ->where('batch_key', $request->input('batch_key'))
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $announcement) {
+                    continue;
+                }
+
+                if ($result['success']) {
+                    $announcement->update([
+                        'status' => 'sent',
+                        'error' => null,
+                        'processed_at' => now(),
+                    ]);
+
+                    continue;
+                }
+
+                $attempts = $announcement->attempts + 1;
+                $announcement->update([
+                    'status' => $attempts < DiscordChannelAnnouncement::MAX_ATTEMPTS ? 'pending' : 'failed',
+                    'attempts' => $attempts,
+                    'error' => $result['error'] ?? null,
+                    'processed_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json(['message' => 'Channel delivery status recorded successfully']);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Error recording Discord channel delivery status', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

@@ -180,13 +180,7 @@
             />
 
             <!-- Tags -->
-            <GameTagSection
-                {orderedTags}
-                {selectedTags}
-                {tagsExpanded}
-                {setTagsExpanded}
-                {handleTag}
-            />
+            <GameTagSection {orderedTags} {selectedTags} {tagsExpanded} {setTagsExpanded} {handleTag} />
 
             <!-- Footer badges -->
             {#if showFooterBadges}

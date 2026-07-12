@@ -176,7 +176,9 @@ class ItchCssProcessor
 
     private function escapeHtmlDelimiters(string $css): string
     {
-        return str_replace(['<', '>'], ['\\3C ', '\\3E '], $css);
+        // Only '<' can open a `</style>` breakout; '>' must stay literal so
+        // child combinators (`.a > .b`) keep working.
+        return str_replace('<', '\\3C ', $css);
     }
 
     private function filterRules(CSSList $list): void

@@ -152,6 +152,7 @@ class FlareSolverrClient
 
             return [
                 'status' => $solution['status'] ?? 200,
+                'url' => $solution['url'] ?? $url,
                 'headers' => $solution['headers'] ?? [],
                 'cookies' => $solution['cookies'] ?? [],
                 'userAgent' => $solution['userAgent'] ?? null,

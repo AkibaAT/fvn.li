@@ -16,7 +16,7 @@
     } = $props();
 
     const COLLAPSED_LANGUAGE_LIMIT = 8;
-    const renderedLanguages = $derived((languagesExpanded ? (languages ?? []) : (languages ?? []).slice(0, COLLAPSED_LANGUAGE_LIMIT)));
+    const renderedLanguages = $derived(languagesExpanded ? (languages ?? []) : (languages ?? []).slice(0, COLLAPSED_LANGUAGE_LIMIT));
     const totalHiddenLanguageCount = $derived(languagesExpanded ? 0 : Math.max(0, (languages?.length ?? 0) - renderedLanguages.length));
 </script>
 

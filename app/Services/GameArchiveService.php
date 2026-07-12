@@ -40,6 +40,16 @@ class GameArchiveService
     {
         $this->lastArchiveLookupError = null;
         $storagePath = $this->getStoragePath($gameId, $versionId);
+
+        $localFiles = array_values(array_filter(
+            Storage::files($storagePath),
+            fn (string $file): bool => $this->isStoredArchiveFile($file)
+        ));
+
+        if (! empty($localFiles)) {
+            return Storage::path($localFiles[0]);
+        }
+
         $game = Game::query()->find($gameId);
         $version = GameVersion::query()->where('game_id', $gameId)->find($versionId);
 
@@ -193,6 +203,9 @@ class GameArchiveService
             $downloadResponse = $downloadClient->get($downloadUrl, array_replace_recursive($downloadRequest['options'], [
                 'sink' => $tempFile,
             ]));
+            if ($downloadResponse->getStatusCode() !== 200) {
+                throw new RuntimeException("Archive download returned unexpected HTTP status {$downloadResponse->getStatusCode()}");
+            }
             $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
             $namedTempFile = $this->tempPathForDownloadFilename($tempDir, $downloadFilename);
             File::move($tempFile, $namedTempFile);
@@ -332,6 +345,9 @@ class GameArchiveService
                 'sink' => $tempFile,
                 'progress' => $progress,
             ]));
+            if ($downloadResponse->getStatusCode() !== 200) {
+                throw new RuntimeException("Archive download returned unexpected HTTP status {$downloadResponse->getStatusCode()}");
+            }
             $downloadFilename = $this->getDownloadFilename($downloadResponse, $filename);
 
             $fileSize = File::exists($tempFile) ? File::size($tempFile) : 0;
@@ -513,6 +529,26 @@ class GameArchiveService
         return $count;
     }
 
+    public function storeFileAtomically(string $storagePath, string $sourcePath, string $filename): string
+    {
+        Storage::makeDirectory($storagePath);
+
+        $partFilename = sprintf('.%s.part.%s', $filename, bin2hex(random_bytes(6)));
+        $partStoragePath = "{$storagePath}/{$partFilename}";
+        $finalPath = Storage::path("{$storagePath}/{$filename}");
+
+        try {
+            Storage::putFileAs($storagePath, $sourcePath, $partFilename);
+            File::move(Storage::path($partStoragePath), $finalPath);
+        } catch (Throwable $throwable) {
+            Storage::delete($partStoragePath);
+
+            throw $throwable;
+        }
+
+        return $finalPath;
+    }
+
     /**
      * Resolve an itch.io CDN URL for a specific upload.
      *
@@ -610,26 +646,6 @@ class GameArchiveService
     private function getStoragePath(int $gameId, int $versionId): string
     {
         return "games/{$gameId}/{$versionId}";
-    }
-
-    private function storeFileAtomically(string $storagePath, string $sourcePath, string $filename): string
-    {
-        Storage::makeDirectory($storagePath);
-
-        $partFilename = sprintf('.%s.part.%s', $filename, bin2hex(random_bytes(6)));
-        $partStoragePath = "{$storagePath}/{$partFilename}";
-        $finalPath = Storage::path("{$storagePath}/{$filename}");
-
-        try {
-            Storage::putFileAs($storagePath, $sourcePath, $partFilename);
-            File::move(Storage::path($partStoragePath), $finalPath);
-        } catch (Throwable $throwable) {
-            Storage::delete($partStoragePath);
-
-            throw $throwable;
-        }
-
-        return $finalPath;
     }
 
     private function isStoredArchiveFile(string $file): bool

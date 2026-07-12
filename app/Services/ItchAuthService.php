@@ -144,7 +144,27 @@ class ItchAuthService
                 $this->cookieJar
             );
 
-            return $response['status'] === 200;
+            if ($response['status'] !== 200) {
+                return false;
+            }
+
+            // FlareSolverr follows redirects, so an expired session lands on
+            // the login page with a 200. Only reaching the dashboard itself
+            // (no redirect to /login, no login form) proves the session.
+            $finalUrl = (string) ($response['url'] ?? '');
+            if ($finalUrl !== '' && str_contains($finalUrl, '/login')) {
+                Log::info('Session verification failed: redirected to login page');
+
+                return false;
+            }
+
+            if (str_contains((string) ($response['response'] ?? ''), 'login_form_widget')) {
+                Log::info('Session verification failed: login form rendered');
+
+                return false;
+            }
+
+            return true;
         } catch (Exception $e) {
             Log::warning('Session verification failed', ['error' => $e->getMessage()]);
 

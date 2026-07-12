@@ -62,7 +62,10 @@
     }
 
     export function jsonForScriptTag(value: unknown): string {
-        return JSON.stringify(value).replace(/[<>&'"]/g, (character) => {
+        // Only <, > and & need escaping; they occur solely inside JSON string
+        // literals, so \uXXXX escapes keep the payload valid JSON. Escaping
+        // quotes would corrupt the structural quotes of the JSON itself.
+        return JSON.stringify(value).replace(/[<>&]/g, (character) => {
             switch (character) {
                 case '<':
                     return '\\u003C';
@@ -70,10 +73,6 @@
                     return '\\u003E';
                 case '&':
                     return '\\u0026';
-                case "'":
-                    return '\\u0027';
-                case '"':
-                    return '\\u0022';
             }
 
             return character;

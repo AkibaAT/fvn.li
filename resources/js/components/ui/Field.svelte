@@ -27,8 +27,8 @@
     {@render children?.()}
 
     {#if error}
-        <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+        <p id={id ? `${id}-message` : undefined} class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
     {:else if help}
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{help}</p>
+        <p id={id ? `${id}-message` : undefined} class="mt-1 text-sm text-gray-500 dark:text-gray-400">{help}</p>
     {/if}
 </div>

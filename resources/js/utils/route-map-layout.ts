@@ -18,7 +18,11 @@ export function getLayoutPosition(nodeId: string, layoutNodes: Record<string, St
     const position = layoutNodes?.[nodeId];
 
     if (!position) {
-        throw new Error(`Route map node [${nodeId}] has no stored layout position.`);
+        // A missing stored position (e.g. server/client id derivation drift)
+        // degrades that node's placement instead of crashing the whole page.
+        console.warn(`Route map node [${nodeId}] has no stored layout position; falling back to origin.`);
+
+        return { x: 0, y: 0 };
     }
 
     return { x: position.x, y: position.y };
@@ -75,6 +79,7 @@ export function buildRouteLayoutElements(
     const displayNodes = [...nodes];
     const displayEdges: DisplayEdge[] = [];
     const conditionNodes = new Map<string, DisplayNode>();
+    const conditionInEdges = new Map<string, DisplayEdge>();
 
     for (const edge of edges) {
         const label = edge.label?.trim();
@@ -90,10 +95,23 @@ export function buildRouteLayoutElements(
             conditionNode = createConditionNode(edge, label, layoutNodes);
             conditionNodes.set(conditionNodeId, conditionNode);
             displayNodes.push(conditionNode);
-            displayEdges.push(createSplitEdge(edge, 'condition-in', edge.source, conditionNode.id));
+            const conditionInEdge = createSplitEdge(edge, 'condition-in', edge.source, conditionNode.id);
+            conditionInEdges.set(conditionNodeId, conditionInEdge);
+            displayEdges.push(conditionInEdge);
         } else {
             conditionNode.data.edgeIds = [...(conditionNode.data.edgeIds ?? []), ...edge.data.edgeIds];
             conditionNode.data.targets_unresolved_node = Boolean(conditionNode.data.targets_unresolved_node || edge.data.targets_unresolved_node);
+
+            // The shared incoming split edge must reflect every merged edge,
+            // otherwise path/selection highlighting misses all but the first.
+            const conditionInEdge = conditionInEdges.get(conditionNodeId);
+            if (conditionInEdge) {
+                conditionInEdge.data = {
+                    ...conditionInEdge.data,
+                    edgeIds: conditionNode.data.edgeIds,
+                    targets_unresolved_node: conditionNode.data.targets_unresolved_node,
+                };
+            }
         }
 
         displayEdges.push(createSplitEdge(edge, 'condition-out', conditionNode.id, edge.target));
