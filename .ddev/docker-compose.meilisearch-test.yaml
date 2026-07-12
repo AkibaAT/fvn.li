@@ -1,6 +1,6 @@
 services:
   meilisearch-test:
-    image: getmeili/meilisearch:v1.44
+    image: getmeili/meilisearch:v1.49
     restart: unless-stopped
     container_name: ddev-${DDEV_SITENAME}-meilisearch-test
     hostname: ${DDEV_SITENAME}-meilisearch-test
