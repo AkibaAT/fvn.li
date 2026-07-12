@@ -1,7 +1,7 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:18.4@sha256:775a0820dd34e907ec63277e388d145056d427548e461d7953a070edb5de3a3a
+  image: postgres:18.4@sha256:22c89fe0d0f507606260237fd55e51f6137f58b2d5bcf6152242b96d9fe8f9a4
 x-meilisearch: &meilisearch
   image: getmeili/meilisearch:v1.49@sha256:bdc7d7e7939911c40d88d6bcd01f9c72c81f7293135916d48bce241569f721bd
 x-redis: &redis
