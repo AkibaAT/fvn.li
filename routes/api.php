@@ -95,7 +95,7 @@ Route::middleware('auth:sanctum')->prefix('discord-servers')->group(function () 
 });
 
 // Bot-facing server notification delivery
-Route::middleware('auth:sanctum')->prefix('bot/servers')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot/servers')->group(function () {
     Route::get('pending-notifications', [DiscordBotServerController::class, 'pendingNotifications']);
     Route::post('notifications/{notification}/delivered', [DiscordBotServerController::class, 'markDelivered']);
     Route::post('notifications/{notification}/failed', [DiscordBotServerController::class, 'markFailed']);
