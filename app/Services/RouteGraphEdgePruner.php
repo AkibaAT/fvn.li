@@ -12,7 +12,7 @@ class RouteGraphEdgePruner
         private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
     ) {}
 
-    public function removeUnreachableFallthroughEdges(Collection $edges, array $choiceLookup = []): Collection
+    public function removeUnreachableFallthroughEdges(Collection $edges, array $choiceLookup = [], ?Collection $menuChoices = null): Collection
     {
         $terminalLineBySource = [];
 
@@ -35,6 +35,10 @@ class RouteGraphEdgePruner
             }
 
             $source = (string) $edge->from_label;
+            $terminalLineBySource[$source] = min($terminalLineBySource[$source] ?? $line, $line);
+        }
+
+        foreach ($this->terminalMenuLinesBySource($menuChoices ?? collect()) as $source => $line) {
             $terminalLineBySource[$source] = min($terminalLineBySource[$source] ?? $line, $line);
         }
 
@@ -139,6 +143,56 @@ class RouteGraphEdgePruner
         }
 
         return false;
+    }
+
+    /**
+     * A top-level menu whose every choice unconditionally hard-jumps is as
+     * terminal as a bare jump: control can never continue past it, so
+     * fall-through flow edges behind it are unreachable (and mislead the
+     * pathfinder into paths that skip a required player choice).
+     *
+     * @return array<string, int> from_label => terminal line
+     */
+    private function terminalMenuLinesBySource(Collection $menuChoices): array
+    {
+        $result = [];
+
+        $groups = $menuChoices->groupBy(fn ($mc) => $mc->from_label . ':' . (int) ($mc->menu_line ?? 0));
+        foreach ($groups as $choices) {
+            $first = $choices->first();
+            if ((int) ($first->menu_line ?? 0) <= 0) {
+                continue;
+            }
+
+            // Nested menus only terminate their own branch, not the label.
+            $topLevel = $choices->every(
+                fn ($mc) => (int) ($mc->parent_choice_line ?? 0) <= 0 && (int) ($mc->parent_menu_line ?? 0) <= 0
+            );
+            if (! $topLevel) {
+                continue;
+            }
+
+            // The menu itself must always run (no enclosing condition), every
+            // choice must hard-jump (calls return, so they fall through), and
+            // at least one choice must always be available so the menu can
+            // never be skipped as empty.
+            $allJump = $choices->every(fn ($mc) => ! empty($mc->target_label) && ($mc->edge_type ?? null) === 'jump');
+            $alwaysRuns = $choices->every(fn ($mc) => $this->conditions->isUnconditional($mc->enclosing_condition ?? null));
+            $neverEmpty = $choices->contains(fn ($mc) => $this->conditions->isUnconditional($mc->choice_condition ?? null));
+            if (! $allJump || ! $alwaysRuns || ! $neverEmpty) {
+                continue;
+            }
+
+            $endLine = (int) $choices->max(fn ($mc) => (int) ($mc->line_number ?? 0));
+            if ($endLine <= 0) {
+                continue;
+            }
+
+            $source = (string) $first->from_label;
+            $result[$source] = min($result[$source] ?? $endLine, $endLine);
+        }
+
+        return $result;
     }
 
     private function choiceEffectiveCondition($choice): ?string

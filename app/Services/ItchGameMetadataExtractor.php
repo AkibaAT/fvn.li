@@ -248,6 +248,8 @@ class ItchGameMetadataExtractor
         }
         $currentUrls = collect($game->screenshots)->pluck('url')->toArray();
         $newUrls = collect($newScreenshots)->pluck('url')->toArray();
+        $cleanupScreenshots = [];
+        $keptScreenshots = [];
         foreach ($game->screenshots as $index => $currentScreenshot) {
             $shouldCleanup = false;
             if (! in_array($currentScreenshot['url'], $newUrls)) {
@@ -255,27 +257,60 @@ class ItchGameMetadataExtractor
             } elseif (isset($newScreenshots[$index]) && $newScreenshots[$index]['url'] !== $currentScreenshot['url']) {
                 $shouldCleanup = true;
             }
-            if ($shouldCleanup && isset($currentScreenshot['optimized']) && ! empty($currentScreenshot['optimized'])) {
-                $this->cleanupScreenshotOptimizedImages($game, $currentScreenshot);
+            if ($shouldCleanup) {
+                $cleanupScreenshots[] = $currentScreenshot;
+            } else {
+                $keptScreenshots[] = $currentScreenshot;
+            }
+        }
+        foreach ($cleanupScreenshots as $screenshot) {
+            if (! empty($screenshot['optimized'])) {
+                $this->cleanupScreenshotOptimizedImages($game, $screenshot, $keptScreenshots);
             }
         }
     }
 
     /**
      * @param  array<string, mixed>  $screenshot
+     * @param  array<int, array<string, mixed>>  $keptScreenshots
      */
-    private function cleanupScreenshotOptimizedImages(Game $game, array $screenshot): void
+    private function cleanupScreenshotOptimizedImages(Game $game, array $screenshot, array $keptScreenshots = []): void
     {
         try {
             if (($screenshot['optimized'] ?? null) === true) {
-                foreach (Storage::disk('public')->files('screenshots') as $file) {
-                    if (str_starts_with($file, "screenshots/{$game->id}_screenshot_")) {
-                        Storage::disk('public')->delete($file);
-                        Log::info('Cleaned up legacy optimized screenshot', [
-                            'game_id' => $game->id,
-                            'file' => $file,
-                        ]);
+                $preservedPaths = [];
+                $preservedPrefixes = [];
+                foreach ($keptScreenshots as $kept) {
+                    if (isset($kept['url'])) {
+                        $keptUrlHash = substr(md5($kept['url']), 0, 8);
+                        $preservedPrefixes[] = "screenshots/{$game->id}_screenshot_{$keptUrlHash}_";
                     }
+                    if (is_array($kept['optimized'] ?? null)) {
+                        foreach ($kept['optimized'] as $variant) {
+                            if (is_array($variant) && isset($variant['path'])) {
+                                $preservedPaths[] = $variant['path'];
+                            }
+                        }
+                    }
+                }
+
+                foreach (Storage::disk('public')->files('screenshots') as $file) {
+                    if (! str_starts_with($file, "screenshots/{$game->id}_screenshot_")) {
+                        continue;
+                    }
+                    if (in_array($file, $preservedPaths, true)) {
+                        continue;
+                    }
+                    foreach ($preservedPrefixes as $prefix) {
+                        if (str_starts_with($file, $prefix)) {
+                            continue 2;
+                        }
+                    }
+                    Storage::disk('public')->delete($file);
+                    Log::info('Cleaned up legacy optimized screenshot', [
+                        'game_id' => $game->id,
+                        'file' => $file,
+                    ]);
                 }
 
                 return;

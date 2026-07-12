@@ -128,6 +128,16 @@ class DialogueSearchService
         if (! empty($filters['context'])) {
             $query->where('context', $filters['context']);
         }
+        if (! empty($filters['game_names'])) {
+            $query->whereHas('gameVersion.game', function ($q) use ($filters) {
+                $q->whereIn('name', (array) $filters['game_names']);
+            });
+        }
+        if (! empty($filters['character_names'])) {
+            $query->whereHas('character', function ($q) use ($filters) {
+                $q->whereIn('name', (array) $filters['character_names']);
+            });
+        }
 
         $dialogueLines = $query
             ->orderBy('text_id')

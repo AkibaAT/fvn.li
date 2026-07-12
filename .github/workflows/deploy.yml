@@ -45,6 +45,8 @@ jobs:
           sudo mkdir -p /tmp/fvn-empty-renpy-sdk
           # The Butler DDEV service mounts developer-local checkouts that are not present in CI.
           rm -f .ddev/docker-compose.butler-server.yaml
+          # Tests use the isolated Meilisearch instance and must not start the persistent development service.
+          rm -f .ddev/docker-compose.meilisearch.yaml
           ddev start -y
           ddev describe
 
@@ -77,9 +79,8 @@ jobs:
       - name: Lint frontend
         run: ddev bun lint:check
 
-      - name: Wait for Meilisearch
-        run: |
-          ddev exec bash -lc 'for i in {1..30}; do curl -fsS http://meilisearch:7700/health && exit 0; sleep 2; done; exit 1'
+      - name: Wait for test Meilisearch
+        run: ddev exec bash -lc 'for i in {1..30}; do curl -fsS http://meilisearch-test:7700/health && exit 0; sleep 2; done; exit 1'
 
       - name: Run test suite
         run: ddev composer test

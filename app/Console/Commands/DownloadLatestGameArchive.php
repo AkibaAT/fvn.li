@@ -15,6 +15,7 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DownloadLatestGameArchive extends Command
 {
@@ -187,7 +188,7 @@ class DownloadLatestGameArchive extends Command
             $this->persistStoredArchive($repository, $game, $version, (bool) $this->option('force'));
 
             return 'downloaded';
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->error("Failed to download archive for {$game->name}: {$e->getMessage()}");
             Log::error('Latest game archive download failed', [
                 'game_id' => $game->id,

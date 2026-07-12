@@ -64,3 +64,10 @@ updates:
       interval: 'weekly'
     cooldown:
       default-days: 3
+
+  - package-ecosystem: 'docker-compose'
+    directory: '/.ddev'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 3

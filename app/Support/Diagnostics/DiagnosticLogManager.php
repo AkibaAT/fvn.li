@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Diagnostics;
 
+use ArrayAccess;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Log\Logger;
@@ -141,7 +142,7 @@ class DiagnosticLogManager extends LogManager
     private function configRepository(): ?Repository
     {
         try {
-            if (! is_array($this->app) && ! $this->app instanceof \ArrayAccess) {
+            if (! is_array($this->app) && ! $this->app instanceof ArrayAccess) {
                 return null;
             }
 
@@ -156,7 +157,7 @@ class DiagnosticLogManager extends LogManager
     private function eventsDispatcher(): ?Dispatcher
     {
         try {
-            if (! is_array($this->app) && ! $this->app instanceof \ArrayAccess) {
+            if (! is_array($this->app) && ! $this->app instanceof ArrayAccess) {
                 return null;
             }
 
@@ -189,13 +190,13 @@ class DiagnosticLogManager extends LogManager
             //
         }
 
-        return dirname(__DIR__, 3).'/storage/logs/laravel.log';
+        return dirname(__DIR__, 3) . '/storage/logs/laravel.log';
     }
 
     private function safeConfigClass(mixed $app): ?string
     {
         try {
-            if (! is_array($app) && ! $app instanceof \ArrayAccess) {
+            if (! is_array($app) && ! $app instanceof ArrayAccess) {
                 return null;
             }
 
@@ -203,14 +204,14 @@ class DiagnosticLogManager extends LogManager
 
             return is_object($config) ? $config::class : get_debug_type($config);
         } catch (Throwable $e) {
-            return 'error: '.$e::class.': '.$e->getMessage();
+            return 'error: ' . $e::class . ': ' . $e->getMessage();
         }
     }
 
     private function safeConfigValue(mixed $app, string $key): mixed
     {
         try {
-            if (! is_array($app) && ! $app instanceof \ArrayAccess) {
+            if (! is_array($app) && ! $app instanceof ArrayAccess) {
                 return null;
             }
 
@@ -220,20 +221,20 @@ class DiagnosticLogManager extends LogManager
                 return $config->get($key);
             }
 
-            if (is_array($config) || $config instanceof \ArrayAccess) {
+            if (is_array($config) || $config instanceof ArrayAccess) {
                 return $config[$key] ?? null;
             }
 
             return null;
         } catch (Throwable $e) {
-            return 'error: '.$e::class.': '.$e->getMessage();
+            return 'error: ' . $e::class . ': ' . $e->getMessage();
         }
     }
 
     private function compactTrace(): array
     {
         return array_map(
-            static fn (array $frame): string => ($frame['class'] ?? '').($frame['type'] ?? '').($frame['function'] ?? '').'@'.($frame['file'] ?? 'unknown').':'.($frame['line'] ?? '?'),
+            static fn (array $frame): string => ($frame['class'] ?? '') . ($frame['type'] ?? '') . ($frame['function'] ?? '') . '@' . ($frame['file'] ?? 'unknown') . ':' . ($frame['line'] ?? '?'),
             array_slice(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS), 2, 8),
         );
     }
@@ -246,7 +247,7 @@ class DiagnosticLogManager extends LogManager
 
         @file_put_contents(
             'php://stderr',
-            '[Laravel log manager diagnostics] '.$event.' '.json_encode($context).PHP_EOL,
+            '[Laravel log manager diagnostics] ' . $event . ' ' . json_encode($context) . PHP_EOL,
         );
     }
 

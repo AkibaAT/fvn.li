@@ -72,8 +72,11 @@
     let seenNodeIds = new SvelteSet<string>();
     let isUploadingSave = $state(false);
 
-    // Web worker for pathfinding (prevents UI freezing on large graphs)
+    // Web worker for pathfinding (prevents UI freezing on large graphs).
+    // The manager is a module-level singleton that outlives Inertia page
+    // navigations, so drop any cached paths from a previously viewed graph.
     const pathfinder = usePathfinderWorker();
+    pathfinder.clearCache();
     let navigationPath = $state<Array<{ nodeId: string; edge: RouteEdge | null }> | null>(null);
     let isCalculatingPath = $state(false);
     let saveUploadError = $state<string | null>(null);

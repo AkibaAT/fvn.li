@@ -11,8 +11,16 @@ test('sanitize css escapes html delimiters from legacy stored styles', function 
 
     expect($result)->not->toContain('</style>')
         ->not->toContain('<script')
-        ->toContain('\\3C /style\\3E ')
+        ->toContain('\\3C /style>')
         ->toContain('margin:10px');
+});
+
+test('sanitize css preserves child combinator selectors', function () {
+    $sanitizer = new HtmlSanitizerService;
+
+    $result = $sanitizer->sanitizeCss('.header > .title{color:red}');
+
+    expect($result)->toBe('.header > .title{color:red}');
 });
 
 test('sanitize description preserves safe inline image dimensions', function () {

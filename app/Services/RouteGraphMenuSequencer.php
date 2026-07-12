@@ -24,8 +24,24 @@ class RouteGraphMenuSequencer
 
             if (isset($lastBySequence[$sequenceKey])) {
                 $previousIndex = $lastBySequence[$sequenceKey];
-                $previousByIndex[$index] = $previousIndex;
-                $nextByIndex[$previousIndex] = $index;
+
+                if (! isset($nextByIndex[$previousIndex])) {
+                    $previousByIndex[$index] = $previousIndex;
+                    $nextByIndex[$previousIndex] = $index;
+                } else {
+                    while (isset($nextByIndex[$previousIndex])) {
+                        $previousIndex = $nextByIndex[$previousIndex];
+                    }
+
+                    $tailGroup = $menuGroups[$previousIndex] ?? null;
+                    $tailEndLine = (int) ($tailGroup['end_line'] ?? 0);
+                    $groupStartLine = (int) (($group['menu_line'] ?? 0) ?: ($group['start_line'] ?? 0));
+
+                    if ($previousIndex !== $index && $tailEndLine > 0 && $groupStartLine > 0 && $tailEndLine < $groupStartLine) {
+                        $previousByIndex[$index] = $previousIndex;
+                        $nextByIndex[$previousIndex] = $index;
+                    }
+                }
             }
 
             if (! isset($previousByIndex[$index]) && $this->isRootMenuGroup($group) && $lastRootIndex !== null) {

@@ -44,12 +44,7 @@ class PathfinderWorkerManager {
         }
     }
 
-    async findPath(
-        startNodeId: string,
-        targetNodeId: string,
-        edges: RouteEdge[],
-        options: PathfinderOptions = {},
-    ): Promise<RoutePath | null> {
+    async findPath(startNodeId: string, targetNodeId: string, edges: RouteEdge[], options: PathfinderOptions = {}): Promise<RoutePath | null> {
         if (!this.worker) {
             return findPath(startNodeId, targetNodeId, edges, options);
         }
@@ -58,12 +53,14 @@ class PathfinderWorkerManager {
 
         return new Promise((resolve, reject) => {
             this.pendingRequests.set(requestId, { resolve, reject });
+            // Callers typically pass $state/$derived proxies; postMessage's
+            // structured clone rejects them, so snapshot to plain values.
             this.worker!.postMessage({
                 type: 'findPath',
                 startNodeId,
                 targetNodeId,
-                edges,
-                options,
+                edges: $state.snapshot(edges),
+                options: $state.snapshot(options),
                 requestId,
             });
 
