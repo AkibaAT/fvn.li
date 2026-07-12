@@ -142,10 +142,10 @@ test('buildGraph refreshes stale cached graph revisions', function () {
 
     $graph = app(RouteGraphService::class)->buildGraph($this->version->fresh());
 
-    expect($graph['graph_revision'])->toBe(28)
+    expect($graph['graph_revision'])->toBe(30)
         ->and(collect($graph['nodes'])->pluck('id'))->toContain('start')
         ->and(collect($graph['nodes'])->pluck('id'))->not->toContain('stale')
-        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(28);
+        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(30);
 });
 
 test('developer gated route choices are excluded while production developer false paths remain', function () {
@@ -983,4 +983,146 @@ test('literal true conditions are omitted from graph output', function () {
 
     expect($choiceNode['condition'])->toBeNull()
         ->and($choiceEdge['condition'])->toBeNull();
+});
+
+test('conditional sibling menus between root menus survive and stay sequenced', function () {
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'scene', 5);
+    createRouteEdge($this->version, 'start', 'scene', 'jump', 2);
+
+    // menu A (root), an if-gated menu B, then menu C (root). B previously lost
+    // its incoming link when C overwrote A's next-link and was deleted as
+    // unreachable.
+    createRouteChoice($this->version, 'scene', 'A1', 11, condition: 'True', prompt: 'First?', menuLine: 10);
+    createRouteChoice($this->version, 'scene', 'A2', 12, condition: 'True', prompt: 'First?', menuLine: 10);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:A1', 'a_one', line: 11);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:A2', 'a_two', line: 12);
+
+    createRouteChoice($this->version, 'scene', 'B1', 26, condition: 'True', prompt: 'Gated?', menuLine: 25, enclosingCondition: 'y == True', menuBranch: 'if:24:0');
+    createRouteChoice($this->version, 'scene', 'B2', 27, condition: 'True', prompt: 'Gated?', menuLine: 25, enclosingCondition: 'y == True', menuBranch: 'if:24:0');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:B1', 'b_one', line: 26);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:B2', 'b_two', line: 27);
+
+    createRouteChoice($this->version, 'scene', 'C1', 41, condition: 'True', prompt: 'Last?', menuLine: 40);
+    createRouteChoice($this->version, 'scene', 'C2', 42, condition: 'True', prompt: 'Last?', menuLine: 40);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:C1', 'c_one', line: 41);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:C2', 'c_two', line: 42);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodesById = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodesById->has('scene:menu_26'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['target'] === 'scene:menu_26'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_2' && $edge['target'] === 'scene:menu_41'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'scene:choice_0' && $edge['target'] === 'scene:menu_41'))->toBeFalse();
+});
+
+test('function menu hubs inside expanded labels keep their targets reachable', function () {
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'daymenu', 10);
+    createRouteEdge($this->version, 'start', 'daymenu', 'jump', 2);
+
+    // A small gameplay menu forces the label to expand its menu groups.
+    createRouteChoice($this->version, 'daymenu', 'Talk', 21, condition: 'True', prompt: 'What now?', menuLine: 20);
+    createRouteChoice($this->version, 'daymenu', 'Rest', 22, condition: 'True', prompt: 'What now?', menuLine: 20);
+    createRouteVariableChange($this->version, 'daymenu', 'menu_choice:Talk', 'talked', line: 21);
+    createRouteVariableChange($this->version, 'daymenu', 'menu_choice:Rest', 'rested', line: 22);
+
+    // A >10-choice chapter-select group in the same label renders as a hub.
+    for ($i = 1; $i <= 12; $i++) {
+        $target = 'chapter' . $i;
+        createRouteLabel($this->version, $target, 100 + $i);
+        createRouteChoice($this->version, 'daymenu', 'Chapter ' . $i, 50 + $i, $target, prompt: 'Chapter Select', menuLine: 50);
+        createRouteEdge($this->version, 'daymenu', $target, 'menu_choice', 50 + $i);
+    }
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodesById = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    $hubNode = $nodesById->first(fn (array $node) => ($node['node_type'] ?? null) === 'hub' && ($node['parent_label'] ?? null) === 'daymenu');
+
+    expect($hubNode)->not->toBeNull();
+
+    foreach (range(1, 12) as $i) {
+        $target = 'chapter' . $i;
+        expect($nodesById->has($target))->toBeTrue()
+            ->and($edges->contains(fn (array $edge) => $edge['source'] === $hubNode['id'] && $edge['target'] === $target && $edge['edge_type'] === 'menu_choice' && ($edge['choice_text'] ?? null) === 'Chapter ' . $i))->toBeTrue();
+    }
+});
+
+test('choice nodes report exactly as many outgoing edges as the graph contains', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'sidequest', 50);
+    createRouteLabel($this->version, 'finale', 100);
+
+    // First menu: targetless choices with their own continuation edge, so they
+    // do not sequence to the next menu.
+    createRouteChoice($this->version, 'scene', 'Stay', 11, condition: 'True', prompt: 'Evening plans?', menuLine: 10);
+    createRouteChoice($this->version, 'scene', 'Leave', 12, condition: 'True', prompt: 'Evening plans?', menuLine: 10);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Stay', 'stayed', line: 11);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Leave', 'left', line: 12);
+    createRouteEdge($this->version, 'scene', 'sidequest', 'jump', 15);
+
+    // Conditional second menu with a unique continuation past it — previously
+    // counted a conditional_menu_skip edge that is never emitted for choices
+    // that do not sequence to the next menu.
+    createRouteChoice($this->version, 'scene', 'Opt A', 31, condition: 'True', prompt: 'And then?', menuLine: 30, enclosingCondition: 'flag == True');
+    createRouteChoice($this->version, 'scene', 'Opt B', 32, condition: 'True', prompt: 'And then?', menuLine: 30, enclosingCondition: 'flag == True');
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Opt A', 'opt_a', line: 31);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Opt B', 'opt_b', line: 32);
+    createRouteEdge($this->version, 'scene', 'finale', 'jump', 40);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+    $choiceNodes = collect($graph['nodes'])->filter(fn (array $node) => ($node['node_type'] ?? null) === 'choice');
+
+    expect($choiceNodes->isEmpty())->toBeFalse();
+
+    foreach ($choiceNodes as $node) {
+        expect($node['outgoing_count'])->toBe(
+            $edges->where('source', $node['id'])->count(),
+            "choice node {$node['id']} outgoing_count does not match its emitted edges"
+        );
+    }
+});
+
+test('fall-through flow edges behind an all-jump menu are pruned as unreachable', function () {
+    createRouteLabel($this->version, 'retry_menu', 1);
+    createRouteLabel($this->version, 'him', 50);
+    createRouteLabel($this->version, 'voice', 60);
+
+    // Every choice hard-jumps, so control can never fall past the menu; the
+    // label-adjacency flow edge into `him` is unreachable and previously let
+    // the pathfinder skip the required choice.
+    createRouteChoice($this->version, 'retry_menu', 'What are you to him?', 11, 'him', prompt: 'And now?', menuLine: 10);
+    createRouteChoice($this->version, 'retry_menu', 'Let your voice be heard', 12, 'voice', prompt: 'And now?', menuLine: 10);
+    createRouteEdge($this->version, 'retry_menu', 'him', 'menu_choice', 11);
+    createRouteEdge($this->version, 'retry_menu', 'voice', 'menu_choice', 12);
+    createRouteEdge($this->version, 'retry_menu', 'him', 'flow', 49);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['source'] === 'retry_menu' && $edge['target'] === 'him' && $edge['edge_type'] === 'flow'))->toBeFalse()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'retry_menu:choice_0' && $edge['target'] === 'him'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'retry_menu:choice_1' && $edge['target'] === 'voice'))->toBeTrue();
+});
+
+test('fall-through flow edges survive menus that can be skipped or fallen out of', function () {
+    createRouteLabel($this->version, 'scene', 1);
+    createRouteLabel($this->version, 'aftermath', 50);
+
+    // A targetless choice means control resumes after the menu, so the
+    // fall-through flow edge is genuinely reachable and must survive.
+    createRouteChoice($this->version, 'scene', 'Leave', 11, 'aftermath', prompt: 'Stay or go?', menuLine: 10);
+    createRouteChoice($this->version, 'scene', 'Stay a while', 12, condition: 'True', prompt: 'Stay or go?', menuLine: 10);
+    createRouteVariableChange($this->version, 'scene', 'menu_choice:Stay a while', 'stayed', line: 12);
+    createRouteEdge($this->version, 'scene', 'aftermath', 'flow', 20);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $edges = collect($graph['edges']);
+
+    expect($edges->contains(fn (array $edge) => $edge['target'] === 'aftermath' && $edge['edge_type'] === 'flow'))->toBeTrue();
 });

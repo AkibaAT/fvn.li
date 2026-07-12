@@ -198,7 +198,6 @@ class Upload
 
         return $otherTimestamp <=> $timestamp;
     }
-
     private function isArchive(): bool
     {
         $ext = strtolower(pathinfo($this->filename, PATHINFO_EXTENSION));

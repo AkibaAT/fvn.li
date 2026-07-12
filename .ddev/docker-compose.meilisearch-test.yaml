@@ -1,0 +1,22 @@
+services:
+  meilisearch-test:
+    image: getmeili/meilisearch:v1.44
+    restart: unless-stopped
+    container_name: ddev-${DDEV_SITENAME}-meilisearch-test
+    hostname: ${DDEV_SITENAME}-meilisearch-test
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: $DDEV_APPROOT
+    environment:
+      - MEILI_MASTER_KEY=dev-master-key-change-in-production
+      - MEILI_ENV=development
+      - MEILI_HTTP_ADDR=0.0.0.0:7700
+      - MEILI_LOG_LEVEL=WARN
+    networks:
+      - ddev_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

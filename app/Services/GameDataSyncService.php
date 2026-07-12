@@ -15,6 +15,7 @@ use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -162,14 +163,13 @@ class GameDataSyncService
         } elseif ($this->hasOnlyDemoProcessableUploads($processableUploads)) {
             $game->is_stats_extraction_disabled = true;
             echo "    [Version] Only demo archives are processable; skipping stats extraction\n";
-        } elseif ($processableUploads !== [] && $game->is_stats_extraction_disabled) {
-            $game->is_stats_extraction_disabled = false;
-            echo "    [Version] Full processable archive is available; enabling stats extraction\n";
         }
 
         // Exit early if no changes detected and game already has versions
         if (! $hasChanges && ! $force && ! $hadNoVersions) {
-            $this->updateLatestVersionPlatformFlags($game, $isWindows, $isLinux, $isMac, $isAndroid, $isWeb);
+            if (! empty($uploadsData['uploads'])) {
+                $this->updateLatestVersionPlatformFlags($game, $isWindows, $isLinux, $isMac, $isAndroid, $isWeb);
+            }
             echo "    [Version] No changes detected\n";
 
             return;
@@ -432,6 +432,26 @@ class GameDataSyncService
         }
     }
 
+    /**
+     * Refresh all metadata for the game from its itch.io page
+     *
+     * @throws BindingResolutionException
+     * @throws Throwable
+     */
+    public function refreshMetadata(Game $game, ?string $originalThumbUrl = null, ?array $originalScreenshots = null): void
+    {
+        $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
+        app(ItchGameMetadataRefresher::class)->refresh($game, $response['body'], $originalThumbUrl, $originalScreenshots);
+    }
+
+    /**
+     * Clear HTTP cache for a game
+     */
+    public function clearHttpCache(Game $game): void
+    {
+        unset(self::$httpCache[$game->id]);
+    }
+
     private function updateLatestVersionPlatformFlags(
         Game $game,
         bool $isWindows,
@@ -477,26 +497,6 @@ class GameDataSyncService
             $latestVersion->save();
             echo "    [Version] Platform flags updated\n";
         }
-    }
-
-    /**
-     * Refresh all metadata for the game from its itch.io page
-     *
-     * @throws BindingResolutionException
-     * @throws Throwable
-     */
-    public function refreshMetadata(Game $game, ?string $originalThumbUrl = null, ?array $originalScreenshots = null): void
-    {
-        $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
-        app(ItchGameMetadataRefresher::class)->refresh($game, $response['body'], $originalThumbUrl, $originalScreenshots);
-    }
-
-    /**
-     * Clear HTTP cache for a game
-     */
-    public function clearHttpCache(Game $game): void
-    {
-        unset(self::$httpCache[$game->id]);
     }
 
     /**
@@ -627,27 +627,41 @@ class GameDataSyncService
                 false
             );
             echo "    [Version] Archive staged for version {$version->id}\n";
-
-            $result = app(GameVersionArchiveRepositoryService::class)->persistStoredArchive($game, $version, $force);
-            if ($result['status'] === 'persisted') {
-                $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
-                echo "    [Version] Archive persisted to DenKit Stash {$result['target']}{$build}\n";
-
-                return;
-            }
-
-            if ($result['status'] === 'skipped') {
-                echo '    [Version] DenKit Stash persistence skipped: ' . ($result['reason'] ?? 'already persisted') . "\n";
-            }
         } catch (Throwable $throwable) {
-            Log::error('Failed to persist game version archive to DenKit Stash', [
+            Log::error('Failed to stage game version archive', [
                 'game_id' => $game->id,
                 'version_id' => $version->id,
                 'error' => $throwable->getMessage(),
                 'exception' => $throwable,
             ]);
-            echo "    [Version] Error persisting archive to DenKit Stash: {$throwable->getMessage()}\n";
+            echo "    [Version] Error staging archive: {$throwable->getMessage()}\n";
+
+            return;
         }
+
+        DB::afterCommit(function () use ($game, $version, $force): void {
+            try {
+                $result = app(GameVersionArchiveRepositoryService::class)->persistStoredArchive($game, $version, $force);
+                if ($result['status'] === 'persisted') {
+                    $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
+                    echo "    [Version] Archive persisted to DenKit Stash {$result['target']}{$build}\n";
+
+                    return;
+                }
+
+                if ($result['status'] === 'skipped') {
+                    echo '    [Version] DenKit Stash persistence skipped: ' . ($result['reason'] ?? 'already persisted') . "\n";
+                }
+            } catch (Throwable $throwable) {
+                Log::error('Failed to persist game version archive to DenKit Stash', [
+                    'game_id' => $game->id,
+                    'version_id' => $version->id,
+                    'error' => $throwable->getMessage(),
+                    'exception' => $throwable,
+                ]);
+                echo "    [Version] Error persisting archive to DenKit Stash: {$throwable->getMessage()}\n";
+            }
+        });
     }
 
     /**

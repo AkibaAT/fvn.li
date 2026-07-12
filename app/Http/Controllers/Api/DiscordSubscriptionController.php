@@ -261,14 +261,16 @@ class DiscordSubscriptionController extends Controller
                 $metadataUpdates['discord_updated_at'] = now();
                 $metadataUpdates['updated_at'] = now();
 
-                DB::table('discord_server_games')->updateOrInsert(
+                DB::table('discord_server_games')->upsert(
                     [
-                        'discord_server_id' => $server->id,
-                        'game_id' => $game->id,
+                        $metadataUpdates + [
+                            'discord_server_id' => $server->id,
+                            'game_id' => $game->id,
+                            'created_at' => now(),
+                        ],
                     ],
-                    $metadataUpdates + [
-                        'created_at' => now(),
-                    ]
+                    ['discord_server_id', 'game_id'],
+                    array_keys($metadataUpdates)
                 );
             }
         }
@@ -333,16 +335,12 @@ class DiscordSubscriptionController extends Controller
 
     private function getOrCreateServerGameMetadata(DiscordServer $server, Game $game): object
     {
-        DB::table('discord_server_games')->updateOrInsert(
-            [
-                'discord_server_id' => $server->id,
-                'game_id' => $game->id,
-            ],
-            [
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
-        );
+        DB::table('discord_server_games')->insertOrIgnore([
+            'discord_server_id' => $server->id,
+            'game_id' => $game->id,
+            'updated_at' => now(),
+            'created_at' => now(),
+        ]);
 
         return DB::table('discord_server_games')
             ->where('discord_server_id', $server->id)

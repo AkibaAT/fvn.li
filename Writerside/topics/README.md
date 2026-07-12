@@ -185,7 +185,7 @@ The application uses several key models:
 - **DialogueLine**: Game dialogue content
 - **Character**: Characters in games
 - **Language**: Supported languages for games
-- **DiscordUser**: Discord users subscribed to game updates
+- **DiscordChannelAnnouncement**: Game updates queued for announcement in the Discord notifications channel
 
 ## Docker Deployment
 

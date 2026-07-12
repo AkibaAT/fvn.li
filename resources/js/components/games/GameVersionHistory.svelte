@@ -180,7 +180,7 @@
                                 <div class="flex flex-wrap gap-1">
                                     {#each (version.supportedLanguages || [])
                                         .filter((language: SupportedLanguage) => language.is_available)
-                                        .sort( (a: SupportedLanguage, b: SupportedLanguage) => a.language.ref_name.localeCompare(b.language.ref_name), ) as supportedLanguage (supportedLanguage.iso_code)}
+                                        .sort( (a: SupportedLanguage, b: SupportedLanguage) => a.language.ref_name.localeCompare(b.language.ref_name) ) as supportedLanguage (supportedLanguage.iso_code)}
                                         <img
                                             src={getLanguageFlag(supportedLanguage.language.flag_code)}
                                             alt={supportedLanguage.language.ref_name}

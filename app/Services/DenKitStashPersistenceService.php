@@ -9,7 +9,6 @@ use App\Models\GameVersion;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -121,14 +120,13 @@ class DenKitStashPersistenceService
             $this->downloadBuildArchive($buildId, $archivePath);
 
             $filename = $this->restoredArchiveFilename($archivePath, $buildId);
-            Storage::makeDirectory($storagePath);
-            Storage::putFileAs($storagePath, $archivePath, $filename);
+            $restoredPath = $this->archiveService->storeFileAtomically($storagePath, $archivePath, $filename);
 
             return [
                 'status' => 'restored',
                 'target' => $target,
                 'channel' => $channel,
-                'archive_path' => Storage::path("{$storagePath}/{$filename}"),
+                'archive_path' => $restoredPath,
                 'build_id' => $buildId,
             ];
         } catch (Throwable $throwable) {

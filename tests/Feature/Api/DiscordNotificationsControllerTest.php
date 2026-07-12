@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\AdditionRequest;
+use App\Models\DiscordChannelAnnouncement;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationHistory;
@@ -315,4 +316,126 @@ it('returns and marks pending review report notifications', function () {
         ->assertJsonPath('notifications.0.review_excerpt', 'This review has a spoiler.');
 
     expect($report->fresh()->discord_notified_at)->not->toBeNull();
+});
+
+it('claims pending channel announcements and formats update payloads', function () {
+    authenticateDiscordBot();
+    $game = Game::factory()->create([
+        'name' => 'Announced VN',
+        'url' => ['itch_io' => 'https://developer.itch.io/announced-vn'],
+    ]);
+    $version = latestGameVersionFor($game, [
+        'version' => '3.0',
+        'devlog' => 'https://developer.itch.io/announced-vn/devlog/3',
+    ]);
+    $announcement = DiscordChannelAnnouncement::create([
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'status' => 'pending',
+    ]);
+
+    $response = $this->getJson('/api/discord-notifications/channel-updates')
+        ->assertOk()
+        ->assertJsonPath('notifications.0.announcement_id', $announcement->id)
+        ->assertJsonPath('notifications.0.name', 'Announced VN')
+        ->assertJsonPath('notifications.0.version', '3.0')
+        ->assertJsonPath('notifications.0.url.itch_io', 'https://developer.itch.io/announced-vn')
+        ->assertJsonPath('notifications.0.devlog', 'https://developer.itch.io/announced-vn/devlog/3');
+
+    $announcement->refresh();
+    expect($announcement->status)->toBe('processing')
+        ->and($announcement->batch_key)->toBe($response->json('batch_key'));
+
+    // A second fetch must not re-serve the freshly claimed announcement
+    $this->getJson('/api/discord-notifications/channel-updates')
+        ->assertOk()
+        ->assertJsonPath('notifications', []);
+});
+
+it('recovers channel announcements stuck in processing after a bot crash', function () {
+    authenticateDiscordBot();
+    $game = Game::factory()->create(['name' => 'Stuck VN']);
+    $version = latestGameVersionFor($game);
+    $announcement = DiscordChannelAnnouncement::create([
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'status' => 'processing',
+        'batch_key' => 'lost-batch',
+    ]);
+    DiscordChannelAnnouncement::where('id', $announcement->id)
+        ->update(['updated_at' => now()->subMinutes(20)]);
+
+    $this->getJson('/api/discord-notifications/channel-updates')
+        ->assertOk()
+        ->assertJsonPath('notifications.0.announcement_id', $announcement->id);
+
+    expect($announcement->fresh()->batch_key)->not->toBe('lost-batch');
+});
+
+it('records channel announcement delivery status with requeue on failure', function () {
+    authenticateDiscordBot();
+    $game = Game::factory()->create(['name' => 'Ack VN']);
+    $sentVersion = latestGameVersionFor($game, ['version' => '1.0']);
+    $failedGame = Game::factory()->create(['name' => 'Failing VN']);
+    $failedVersion = latestGameVersionFor($failedGame, ['version' => '1.0']);
+    $exhaustedGame = Game::factory()->create(['name' => 'Exhausted VN']);
+    $exhaustedVersion = latestGameVersionFor($exhaustedGame, ['version' => '1.0']);
+
+    $sent = DiscordChannelAnnouncement::create([
+        'game_id' => $game->id,
+        'game_version_id' => $sentVersion->id,
+        'status' => 'processing',
+        'batch_key' => 'batch-ack',
+    ]);
+    $failed = DiscordChannelAnnouncement::create([
+        'game_id' => $failedGame->id,
+        'game_version_id' => $failedVersion->id,
+        'status' => 'processing',
+        'batch_key' => 'batch-ack',
+    ]);
+    $exhausted = DiscordChannelAnnouncement::create([
+        'game_id' => $exhaustedGame->id,
+        'game_version_id' => $exhaustedVersion->id,
+        'status' => 'processing',
+        'batch_key' => 'batch-ack',
+        'attempts' => DiscordChannelAnnouncement::MAX_ATTEMPTS - 1,
+    ]);
+
+    $this->postJson('/api/discord-notifications/channel-status', [
+        'batch_key' => 'batch-ack',
+        'results' => [
+            ['announcement_id' => $sent->id, 'success' => true],
+            ['announcement_id' => $failed->id, 'success' => false, 'error' => 'Missing permissions'],
+            ['announcement_id' => $exhausted->id, 'success' => false, 'error' => 'Channel gone'],
+        ],
+    ])->assertOk();
+
+    expect($sent->fresh()->status)->toBe('sent')
+        ->and($sent->fresh()->processed_at)->not->toBeNull()
+        ->and($failed->fresh()->status)->toBe('pending')
+        ->and($failed->fresh()->attempts)->toBe(1)
+        ->and($failed->fresh()->error)->toBe('Missing permissions')
+        ->and($exhausted->fresh()->status)->toBe('failed')
+        ->and($exhausted->fresh()->attempts)->toBe(DiscordChannelAnnouncement::MAX_ATTEMPTS);
+});
+
+it('ignores channel announcement acks with a mismatched batch key', function () {
+    authenticateDiscordBot();
+    $game = Game::factory()->create(['name' => 'Foreign Batch VN']);
+    $version = latestGameVersionFor($game);
+    $announcement = DiscordChannelAnnouncement::create([
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'status' => 'processing',
+        'batch_key' => 'batch-a',
+    ]);
+
+    $this->postJson('/api/discord-notifications/channel-status', [
+        'batch_key' => 'batch-b',
+        'results' => [
+            ['announcement_id' => $announcement->id, 'success' => true],
+        ],
+    ])->assertOk();
+
+    expect($announcement->fresh()->status)->toBe('processing');
 });

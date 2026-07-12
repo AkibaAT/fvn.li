@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\DiscordChannelAnnouncement;
 use App\Models\Game;
 use App\Models\NotificationQueue;
 use App\Services\NotificationService;
@@ -115,6 +116,14 @@ class QueueGameUpdateNotifications extends Command
 
                     continue;
                 }
+
+                DiscordChannelAnnouncement::insertOrIgnore([
+                    'game_id' => $game->id,
+                    'game_version_id' => $game->latestVersion->id,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
                 // Find users who follow this game and should receive updates
                 $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
