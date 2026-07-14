@@ -3,11 +3,69 @@
 declare(strict_types=1);
 
 use App\Models\DiscordServer;
+use App\Models\DiscordServerConfig;
+use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 
 describe('Discord guild filtering', function () {
+    test('empty embed previews use the notification type default', function () {
+        $user = User::factory()->createQuietly();
+        $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
+        Game::factory()->create([
+            'name' => 'Preview VN',
+            'is_visible' => true,
+        ]);
+
+        $response = $this->actingAs($user)->postJson(
+            route('browser-api.discord.servers.preview-embed', ['server' => $server->id]),
+            [
+                'embed_template' => [],
+                'notification_type' => 'update',
+            ],
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('embed.title', 'Preview VN')
+            ->assertJsonPath('embed.footer.text', 'fvn.li');
+    });
+
+    test('test notifications queue a complete routable update payload', function () {
+        $user = User::factory()->createQuietly();
+        $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
+        DiscordServerConfig::create([
+            'discord_server_id' => $server->id,
+            'notification_channel_id' => 'channel-123',
+            'notification_format' => 'detailed',
+            'update_embed' => null,
+        ]);
+        $game = Game::factory()->create([
+            'name' => 'Delivery Test VN',
+            'slug' => 'delivery-test-vn',
+            'is_visible' => true,
+            'is_nsfw' => false,
+            'thumb_url' => 'https://example.com/thumbnail.webp',
+        ]);
+        GameVersion::factory()->latest()->create([
+            'game_id' => $game->id,
+            'version' => '2.0',
+        ]);
+
+        $response = $this->actingAs($user)->postJson(
+            route('browser-api.discord.servers.test-notification', ['server' => $server->id]),
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('notification.notification_type', 'update')
+            ->assertJsonPath('notification.channel_id', 'channel-123')
+            ->assertJsonPath('notification.delivery_status', 'pending')
+            ->assertJsonPath('notification.payload.embeds.0.title', 'Delivery Test VN')
+            ->assertJsonPath('notification.payload.embeds.0.fields.0.value', '2.0')
+            ->assertJsonPath('notification.payload.embeds.0.url', route('games.show', $game->slug));
+    });
+
     test('guilds endpoint only returns servers the user can manage', function () {
         $user = User::factory()->createQuietly();
 
@@ -58,6 +116,41 @@ describe('Discord guild filtering', function () {
 
         expect(collect($response->json('guilds'))->pluck('id')->all())
             ->toBe(['owner-guild', 'admin-guild', 'manage-guild']);
+    });
+
+    test('guilds endpoint records Discord managers as local server admins', function () {
+        $user = User::factory()->createQuietly();
+        $user->socialAccounts()->create([
+            'provider_name' => 'discord',
+            'provider_id' => 'discord-admin',
+            'token' => 'test-token',
+            'provider_data' => ['guilds' => []],
+        ]);
+        $server = DiscordServer::factory()->create([
+            'discord_server_id' => 'managed-guild',
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response([[
+                'id' => 'managed-guild',
+                'name' => 'Managed Guild',
+                'owner' => false,
+                'permissions' => '32',
+            ]], 200),
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('browser-api.discord.guilds'));
+
+        $response->assertOk()
+            ->assertJsonPath('guilds.0.id', 'managed-guild')
+            ->assertJsonPath('guilds.0.has_bot', true);
+        $this->assertDatabaseHas('discord_server_members', [
+            'discord_server_id' => $server->id,
+            'discord_user_id' => 'discord-admin',
+            'user_id' => $user->id,
+            'is_admin' => true,
+        ]);
     });
 
     test('roles endpoint fetches non-managed guild roles with the bot token', function () {

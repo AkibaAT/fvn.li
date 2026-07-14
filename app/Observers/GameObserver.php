@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\Game;
 use App\Services\GameFilterService;
+use App\Services\Discord\DiscordCatalogMessageSyncService;
 use App\Services\HomePageCacheService;
 use App\Services\RatingStatsCacheService;
 use Illuminate\Support\Facades\Cache;
@@ -191,6 +192,15 @@ class GameObserver
         }
 
         Log::debug('Game updated event complete', ['game_id' => $game->id]);
+
+        if ($game->wasChanged([
+            'name', 'custom_name', 'description', 'custom_description', 'status', 'thumb_url', 'optimized_thumbnails',
+            'screenshots', 'custom_screenshots', 'developer', 'authors', 'game_engine', 'platform', 'is_paid', 'min_price',
+            'source_language_id', 'content_type', 'is_visible',
+        ])) {
+            $gameId = $game->id;
+            dispatch(fn () => app(DiscordCatalogMessageSyncService::class)->queueForGame($gameId))->afterCommit();
+        }
     }
 
     /**

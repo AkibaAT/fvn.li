@@ -25,6 +25,8 @@ class DiscordNotificationHistory extends Model
         'error_message',
         'payload',
         'batch_key',
+        'delivery_mode',
+        'payload_hash',
     ];
 
     protected $casts = [

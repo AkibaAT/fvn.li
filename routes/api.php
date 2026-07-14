@@ -101,6 +101,7 @@ Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot/se
     Route::post('notifications/{notification}/failed', [DiscordBotServerController::class, 'markFailed']);
     Route::post('sync-channels', [DiscordBotServerController::class, 'syncChannels']);
     Route::post('sync-members', [DiscordBotServerController::class, 'syncMembers']);
+    Route::post('reconcile-guilds', [DiscordBotServerController::class, 'reconcileGuilds']);
     Route::post('bot-joined', [DiscordBotServerController::class, 'botJoined']);
     Route::post('{server}/bot-left', [DiscordBotServerController::class, 'botLeft']);
 });

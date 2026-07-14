@@ -62,16 +62,39 @@ class DiscordConfigController extends Controller
             ->get()
             ->keyBy('discord_server_id');
 
+        $managedGuilds->each(function (array $guild) use ($existingServers, $discordAccount, $user): void {
+            $server = $existingServers->get($guild['id']);
+
+            if ($server?->is_active !== true) {
+                return;
+            }
+
+            DiscordServerMember::updateOrCreate(
+                [
+                    'discord_server_id' => $server->id,
+                    'discord_user_id' => (string) $discordAccount->provider_id,
+                ],
+                [
+                    'user_id' => $user->id,
+                    'discord_username' => $user->name,
+                    'is_admin' => true,
+                ],
+            );
+        });
+
         $ownedServerIds = DiscordServer::where('owner_user_id', $user->id)->pluck('discord_server_id');
-        $adminMemberServerIds = DiscordServerMember::where('user_id', $user->id)
-            ->where('is_admin', true)
-            ->pluck('discord_server_id');
+        $adminMemberServerIds = DiscordServer::whereIn(
+            'id',
+            DiscordServerMember::where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->select('discord_server_id'),
+        )->pluck('discord_server_id');
         $managedServerIds = $ownedServerIds->merge($adminMemberServerIds)->unique()->values()->all();
 
         $result = $managedGuilds->filter(function ($guild) use ($existingServers, $managedServerIds) {
             $server = $existingServers->get($guild['id']);
 
-            if ($server !== null) {
+            if ($server?->is_active === true) {
                 return in_array($guild['id'], $managedServerIds, false);
             }
 
@@ -84,9 +107,9 @@ class DiscordConfigController extends Controller
                 'name' => $guild['name'],
                 'icon' => $guild['icon'] ?? null,
                 'owner' => $guild['owner'] ?? false,
-                'has_bot' => $server !== null,
+                'has_bot' => $server?->is_active === true,
                 'server' => $server,
-                'bot_install_url' => $server === null
+                'bot_install_url' => $server?->is_active !== true
                     ? $this->getBotInstallUrl($guild['id'])
                     : null,
             ];
@@ -428,13 +451,16 @@ class DiscordConfigController extends Controller
         $this->authorize('view', $server);
 
         $validated = $request->validate([
-            'embed_template' => 'required|array',
+            'embed_template' => 'present|array',
             'game_id' => 'nullable|exists:games,id',
             'notification_type' => 'string|in:new_game,update',
         ]);
 
         $renderer = app(DiscordEmbedRendererService::class);
         $notificationType = $validated['notification_type'] ?? 'update';
+        $template = $validated['embed_template'] ?: ($notificationType === 'new_game'
+            ? $renderer->getDefaultNewGameEmbed()
+            : $renderer->getDefaultUpdateEmbed());
 
         $game = isset($validated['game_id'])
             ? Game::with(['tags', 'sourceLanguage', 'latestVersion'])->find($validated['game_id'])
@@ -447,7 +473,7 @@ class DiscordConfigController extends Controller
         $gameVersion = $game->latestVersion ?? null;
 
         $embed = $renderer->renderEmbed(
-            $validated['embed_template'],
+            $template,
             $game,
             $notificationType,
             $gameVersion,
@@ -508,6 +534,15 @@ class DiscordConfigController extends Controller
         $renderer = app(DiscordEmbedRendererService::class);
 
         $game = Game::with(['tags', 'sourceLanguage', 'latestVersion'])
+            ->where('is_visible', true)
+            ->where('is_nsfw', false)
+            ->whereHas('latestVersion')
+            ->where(function ($query) {
+                $query->where(function ($thumbnailQuery) {
+                    $thumbnailQuery->whereNotNull('thumb_url')
+                        ->where('thumb_url', '!=', '');
+                })->orWhereNotNull('optimized_thumbnails');
+            })
             ->inRandomOrder()
             ->first();
 
@@ -541,10 +576,9 @@ class DiscordConfigController extends Controller
 
         $notification = $server->notificationHistory()->create([
             'game_id' => $game->id,
-            'notification_type' => 'manual',
+            'notification_type' => 'update',
             'channel_id' => $target['channel_id'],
             'delivery_status' => 'pending',
-            'sent_at' => now(),
             'payload' => $payload,
         ]);
 

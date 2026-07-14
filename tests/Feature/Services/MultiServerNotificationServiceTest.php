@@ -38,7 +38,10 @@ function discordServerWithConfig(array $serverAttributes = [], array $configAttr
 
 it('queues update notifications for directly subscribed Discord servers', function () {
     $service = app(MultiServerNotificationService::class);
-    $game = Game::factory()->create(['name' => 'Direct VN']);
+    $game = Game::factory()->create([
+        'name' => 'Direct VN',
+        'is_nsfw' => false,
+    ]);
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
     $server = discordServerWithConfig();
     $inactiveServer = discordServerWithConfig(['is_active' => false]);
@@ -69,7 +72,10 @@ it('queues update notifications for directly subscribed Discord servers', functi
 
 it('skips unconfigured servers and queues tag subscriptions without duplicating direct subscriptions', function () {
     $service = app(MultiServerNotificationService::class);
-    $game = Game::factory()->create(['name' => 'Tagged VN']);
+    $game = Game::factory()->create([
+        'name' => 'Tagged VN',
+        'is_nsfw' => false,
+    ]);
     $tag = Tag::create(['name' => 'Drama']);
     $game->tags()->attach($tag->id);
 

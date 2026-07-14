@@ -29,6 +29,7 @@ use App\Console\Commands\RefreshSteamGames;
 use App\Console\Commands\RefreshTrendingScores;
 use App\Console\Commands\ReprocessCurrentGameArchive;
 use App\Console\Commands\SanitizeReviewHtml;
+use App\Console\Commands\SyncDiscordCatalogMessages;
 use App\Console\Commands\UpdateWatchlist;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -63,6 +64,7 @@ class Kernel extends ConsoleKernel
         RefreshTrendingScores::class,
         SanitizeReviewHtml::class,
         UpdateWatchlist::class,
+        SyncDiscordCatalogMessages::class,
     ];
 
     /**
@@ -86,6 +88,7 @@ class Kernel extends ConsoleKernel
         // Notification commands (performance optimized: reduced from everyMinute to everyFiveMinutes)
         $schedule->command('notifications:queue-game-updates')->everyFiveMinutes()->withoutOverlapping();
         $schedule->command('notifications:process-push')->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command('discord:sync-catalog-messages')->everyFiveMinutes()->withoutOverlapping();
 
         // Cleanup commands
         $schedule->command('games:cleanup-downloads',

@@ -1,0 +1,34 @@
+services:
+  discord-bot:
+    container_name: ddev-${DDEV_SITENAME}-discord-bot
+    image: oven/bun:1-alpine
+    init: true
+    restart: unless-stopped
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        if [ ! -f package.json ]; then
+          echo "Discord bot checkout not configured; set DISCORD_BOT_HOST_PATH and restart DDEV."
+          exec tail -f /dev/null
+        fi
+
+        bun install --frozen-lockfile
+
+        echo "Waiting for the Laravel web service..."
+        until nc -z web 80; do
+          sleep 1
+        done
+
+        exec bun run src/index.ts
+    environment:
+      LARAVEL_API_URL: http://web
+    volumes:
+      - ${DISCORD_BOT_HOST_PATH:-/tmp/fvn-empty-discord-bot}:/app
+      - discord-bot-node-modules:/app/node_modules
+    depends_on:
+      - web
+
+volumes:
+  discord-bot-node-modules:
