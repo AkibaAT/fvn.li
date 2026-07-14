@@ -7,9 +7,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DiscordNotificationHistory;
 use App\Models\DiscordServer;
-use App\Models\Game;
-use App\Services\Discord\DiscordEmbedRendererService;
-use App\Services\Discord\DiscordRoutingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -133,50 +130,12 @@ class DiscordNotificationHistoryController extends Controller
             ], 400);
         }
 
-        $config = $server->config;
-        $routingService = app(DiscordRoutingService::class);
-        $renderer = app(DiscordEmbedRendererService::class);
-
-        $game = Game::with(['tags', 'sourceLanguage', 'latestVersion'])
-            ->where('is_visible', true)
-            ->inRandomOrder()
-            ->first();
-
-        if (! $game) {
-            return response()->json(['error' => 'No games available for test'], 404);
-        }
-
-        $gameVersion = $game->latestVersion;
-        $notificationType = 'update';
-
-        $result = $routingService->evaluateRoutes($server, $game, $notificationType, $gameVersion);
-
-        if ($result->shouldSkip || ! $result->hasChannels()) {
-            return response()->json([
-                'message' => 'Routing rules would skip or found no channels for this notification',
-            ], 422);
-        }
-
-        $target = $result->getTargetChannels()[0];
-
-        $embedTemplate = $target['embed_override']
-            ?? ($config->update_embed ?? $renderer->getDefaultUpdateEmbed());
-
-        $payload = [
-            'embeds' => [$renderer->renderEmbed($embedTemplate, $game, $notificationType, $gameVersion, $server)],
-        ];
-
-        if ($config->ping_role_id) {
-            $payload['content'] = "<@&{$config->ping_role_id}>";
-        }
-
         $testNotification = DiscordNotificationHistory::create([
             'discord_server_id' => $server->id,
-            'game_id' => $game->id,
+            'game_id' => null,
             'notification_type' => 'manual',
-            'channel_id' => $target['channel_id'],
+            'channel_id' => $server->config->notification_channel_id,
             'delivery_status' => 'pending',
-            'payload' => $payload,
         ]);
 
         return response()->json([

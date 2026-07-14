@@ -115,6 +115,7 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let saving = $state(false);
+    let sendingTest = $state(false);
     let channelPickerOpen = $state(false);
     let channelSearch = $state('');
     let channelPickerEl: HTMLDivElement | undefined = $state();
@@ -210,6 +211,23 @@
         }
     }
 
+    async function sendTestNotification() {
+        if (!server || !config.notification_channel_id) return;
+
+        sendingTest = true;
+        try {
+            const data = await apiFetch<{ message: string }>(route('browser-api.discord.servers.test-notification', { server: serverId }), {
+                method: 'POST',
+                body: JSON.stringify({}),
+            });
+            toast.success(data.message);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Failed to queue test notification');
+        } finally {
+            sendingTest = false;
+        }
+    }
+
     function handleConfigChange(key: keyof ServerConfig, value: unknown) {
         config = { ...config, [key]: value };
     }
@@ -238,12 +256,12 @@
     }
 
     function getSelectedChannelName(): string {
-        if (! config.notification_channel_id) return '';
+        if (!config.notification_channel_id) return '';
         return channels.find((channel) => channel.id === config.notification_channel_id)?.name ?? config.notification_channel_id;
     }
 
     function getSelectedChannel(): DiscordChannel | undefined {
-        if (! config.notification_channel_id) return undefined;
+        if (!config.notification_channel_id) return undefined;
 
         return channels.find((channel) => channel.id === config.notification_channel_id);
     }
@@ -291,22 +309,18 @@
     ];
 
     const filteredChannels = $derived(
-        channelSearch.trim()
-            ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase()))
-            : channels,
+        channelSearch.trim() ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase())) : channels,
     );
 
     const filteredRoles = $derived(
-        roleSearch.trim()
-            ? roles.filter((role) => role.name.toLowerCase().includes(roleSearch.trim().toLowerCase()))
-            : roles,
+        roleSearch.trim() ? roles.filter((role) => role.name.toLowerCase().includes(roleSearch.trim().toLowerCase())) : roles,
     );
 
     $effect(() => {
-        if (! channelPickerOpen) return;
+        if (!channelPickerOpen) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (channelPickerEl && ! channelPickerEl.contains(event.target as Node)) {
+            if (channelPickerEl && !channelPickerEl.contains(event.target as Node)) {
                 channelPickerOpen = false;
                 channelSearch = '';
             }
@@ -318,10 +332,10 @@
     });
 
     $effect(() => {
-        if (! rolePickerOpen) return;
+        if (!rolePickerOpen) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (rolePickerEl && ! rolePickerEl.contains(event.target as Node)) {
+            if (rolePickerEl && !rolePickerEl.contains(event.target as Node)) {
                 rolePickerOpen = false;
                 roleSearch = '';
             }
@@ -353,28 +367,37 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">Discord server configuration</p>
             </div>
         </div>
-        <button
-            onclick={() => saveConfig()}
-            disabled={saving}
-            class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-        >
-            {#if saving}
-                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                </svg>
-                Saving...
-            {:else}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Save All
-            {/if}
-        </button>
+        <div class="flex items-center gap-2">
+            <button
+                onclick={sendTestNotification}
+                disabled={sendingTest || !config.notification_channel_id}
+                class="inline-flex items-center gap-2 rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+            >
+                {sendingTest ? 'Sending test...' : 'Send Test Notification'}
+            </button>
+            <button
+                onclick={() => saveConfig()}
+                disabled={saving}
+                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            >
+                {#if saving}
+                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                    </svg>
+                    Saving...
+                {:else}
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save All
+                {/if}
+            </button>
+        </div>
     </div>
 
     {#if loading}
@@ -464,11 +487,17 @@
                                     aria-haspopup="listbox"
                                 >
                                     <span class="flex min-w-0 items-center gap-2">
-                                        <span class="{config.notification_channel_id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'} truncate">
+                                        <span
+                                            class="{config.notification_channel_id
+                                                ? 'text-gray-900 dark:text-white'
+                                                : 'text-gray-500 dark:text-gray-400'} truncate"
+                                        >
                                             {config.notification_channel_id ? `#${getSelectedChannelName()}` : 'Select a channel...'}
                                         </span>
                                         {#if getSelectedChannel()?.nsfw}
-                                            <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                            <span
+                                                class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                            >
                                                 NSFW
                                             </span>
                                         {/if}
@@ -485,7 +514,9 @@
                                 </button>
 
                                 {#if channelPickerOpen}
-                                    <div class="absolute z-20 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                    <div
+                                        class="absolute z-20 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                                    >
                                         <div class="p-2">
                                             <input
                                                 type="text"
@@ -503,7 +534,13 @@
                                             >
                                                 <span>Default / none</span>
                                                 {#if !config.notification_channel_id}
-                                                    <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <svg
+                                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                    >
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                     </svg>
                                                 {/if}
@@ -521,13 +558,21 @@
                                                         <span class="flex min-w-0 items-center gap-2">
                                                             <span class="truncate">#{ch.name}</span>
                                                             {#if ch.nsfw}
-                                                                <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                                <span
+                                                                    class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                                >
                                                                     NSFW
                                                                 </span>
                                                             {/if}
                                                         </span>
                                                         {#if config.notification_channel_id === ch.id}
-                                                            <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <svg
+                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                                stroke-width="2"
+                                                            >
                                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                             </svg>
                                                         {/if}
@@ -571,7 +616,9 @@
                                     aria-expanded={rolePickerOpen}
                                     aria-haspopup="listbox"
                                 >
-                                    <span class="{config.ping_role_id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'} truncate">
+                                    <span
+                                        class="{config.ping_role_id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'} truncate"
+                                    >
                                         {config.ping_role_id ? `@${getSelectedRoleName()}` : 'Select a role...'}
                                     </span>
                                     <svg
@@ -586,7 +633,9 @@
                                 </button>
 
                                 {#if rolePickerOpen}
-                                    <div class="absolute z-20 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                    <div
+                                        class="absolute z-20 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                                    >
                                         <div class="p-2">
                                             <input
                                                 type="text"
@@ -604,7 +653,13 @@
                                             >
                                                 <span>No ping role</span>
                                                 {#if !config.ping_role_id}
-                                                    <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <svg
+                                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                    >
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                     </svg>
                                                 {/if}
@@ -621,7 +676,13 @@
                                                     >
                                                         <span class="truncate">@{role.name}</span>
                                                         {#if config.ping_role_id === role.id}
-                                                            <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <svg
+                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                                stroke-width="2"
+                                                            >
                                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                             </svg>
                                                         {/if}

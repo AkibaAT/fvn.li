@@ -10,6 +10,7 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
     const response = await fetch(url, {
         ...options,
         headers: {
+            Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': getCsrfToken(),
             ...options.headers,

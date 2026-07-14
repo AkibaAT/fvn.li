@@ -134,31 +134,49 @@
         return '#5865F2';
     }
 
-    let title = $derived(stringField(template, 'title'));
-    let desc = $derived(stringField(template, 'description'));
-    let tmplUrl = $derived(stringField(template, 'url'));
-    let tmplColor = $derived(stringField(template, 'color'));
-    let thumbnailUrl = $derived(stringField(template, 'thumbnail.url'));
-    let imageUrl = $derived(stringField(template, 'image.url'));
-    let footerText = $derived(stringField(template, 'footer.text'));
-    let footerIconUrl = $derived(stringField(template, 'footer.icon_url'));
-    let fields = $derived(arrayField(template, 'fields'));
+    let title = $state('');
+    let desc = $state('');
+    let tmplUrl = $state('');
+    let tmplColor = $state('#5865F2');
+    let thumbnailUrl = $state('');
+    let imageUrl = $state('');
+    let footerText = $state('');
+    let footerIconUrl = $state('');
+    let fields = $state<EmbedField[]>([]);
+
+    $effect(() => {
+        title = stringField(template, 'title');
+        desc = stringField(template, 'description');
+        tmplUrl = stringField(template, 'url');
+        tmplColor = colorIntToHex(template.color);
+        thumbnailUrl = stringField(template, 'thumbnail.url');
+        imageUrl = stringField(template, 'image.url');
+        footerText = stringField(template, 'footer.text');
+        footerIconUrl = stringField(template, 'footer.icon_url');
+        fields = arrayField(template, 'fields');
+    });
 
     function buildTemplate(): Record<string, unknown> {
-        const result: Record<string, unknown> = {};
+        const result: Record<string, unknown> = { ...template };
         if (title) result.title = title;
+        else delete result.title;
         if (tmplUrl) result.url = tmplUrl;
+        else delete result.url;
         if (desc) result.description = desc;
-        const colorNum = parseInt(tmplColor.replace('#', ''), 16);
+        else delete result.description;
+        const colorNum = tmplColor.startsWith('#') ? parseInt(tmplColor.slice(1), 16) : parseInt(tmplColor, 10);
         if (!isNaN(colorNum)) result.color = colorNum;
+        else delete result.color;
         if (thumbnailUrl) result.thumbnail = { url: thumbnailUrl };
+        else delete result.thumbnail;
         if (imageUrl) result.image = { url: imageUrl };
+        else delete result.image;
         if (footerText || footerIconUrl) {
             const footer: Record<string, unknown> = {};
             if (footerText) footer.text = footerText;
             if (footerIconUrl) footer.icon_url = footerIconUrl;
             result.footer = footer;
-        }
+        } else delete result.footer;
         const validFields = fields.filter((f) => f.name || f.value);
         if (validFields.length > 0) {
             result.fields = validFields.map((f) => ({
@@ -166,7 +184,7 @@
                 value: f.value || '\u200b',
                 inline: f.inline ?? false,
             }));
-        }
+        } else delete result.fields;
         return result;
     }
 
@@ -218,13 +236,16 @@
         previewError = null;
 
         try {
-            const data = await apiFetch<{ embed: Record<string, unknown> }>(route('browser-api.discord.servers.preview-embed', { server: serverId }), {
-                method: 'POST',
-                body: JSON.stringify({
-                    embed_template: template,
-                    notification_type: notificationType,
-                }),
-            });
+            const data = await apiFetch<{ embed: Record<string, unknown> }>(
+                route('browser-api.discord.servers.preview-embed', { server: serverId }),
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        embed_template: template,
+                        notification_type: notificationType,
+                    }),
+                },
+            );
 
             if (requestId !== previewRequestSeq) {
                 return;
@@ -382,8 +403,7 @@
                 bind:value={jsonText}
                 rows={16}
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                spellcheck="false"
-            ></textarea>
+                spellcheck="false"></textarea>
         {:else}
             <div class="space-y-3">
                 <div>
@@ -391,7 +411,7 @@
                     <input
                         type="text"
                         value={title}
-                        onchange={(e) =>
+                        oninput={(e) =>
                             applyUpdate(() => {
                                 title = (e.target as HTMLInputElement).value;
                             })}
@@ -404,7 +424,7 @@
                     <input
                         type="text"
                         value={tmplUrl}
-                        onchange={(e) =>
+                        oninput={(e) =>
                             applyUpdate(() => {
                                 tmplUrl = (e.target as HTMLInputElement).value;
                             })}
@@ -416,7 +436,7 @@
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Description</label>
                     <textarea
                         value={desc}
-                        onchange={(e) =>
+                        oninput={(e) =>
                             applyUpdate(() => {
                                 desc = (e.target as HTMLTextAreaElement).value;
                             })}
@@ -431,7 +451,7 @@
                         <input
                             type="color"
                             value={colorIntToHex(tmplColor)}
-                            onchange={(e) =>
+                            oninput={(e) =>
                                 applyUpdate(() => {
                                     tmplColor = (e.target as HTMLInputElement).value;
                                 })}
@@ -440,7 +460,7 @@
                         <input
                             type="text"
                             value={tmplColor}
-                            onchange={(e) =>
+                            oninput={(e) =>
                                 applyUpdate(() => {
                                     tmplColor = (e.target as HTMLInputElement).value;
                                 })}
@@ -454,7 +474,7 @@
                     <input
                         type="text"
                         value={thumbnailUrl}
-                        onchange={(e) =>
+                        oninput={(e) =>
                             applyUpdate(() => {
                                 thumbnailUrl = (e.target as HTMLInputElement).value;
                             })}
@@ -467,7 +487,7 @@
                     <input
                         type="text"
                         value={imageUrl}
-                        onchange={(e) =>
+                        oninput={(e) =>
                             applyUpdate(() => {
                                 imageUrl = (e.target as HTMLInputElement).value;
                             })}
@@ -481,7 +501,7 @@
                         <input
                             type="text"
                             value={footerText}
-                            onchange={(e) =>
+                            oninput={(e) =>
                                 applyUpdate(() => {
                                     footerText = (e.target as HTMLInputElement).value;
                                 })}
@@ -491,7 +511,7 @@
                         <input
                             type="text"
                             value={footerIconUrl}
-                            onchange={(e) =>
+                            oninput={(e) =>
                                 applyUpdate(() => {
                                     footerIconUrl = (e.target as HTMLInputElement).value;
                                 })}
@@ -515,14 +535,14 @@
                                         type="text"
                                         value={field.name}
                                         placeholder="Field name"
-                                        onchange={(e) => updateField(i, 'name', (e.target as HTMLInputElement).value)}
+                                        oninput={(e) => updateField(i, 'name', (e.target as HTMLInputElement).value)}
                                         class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     />
                                     <input
                                         type="text"
                                         value={field.value}
                                         placeholder="Field value"
-                                        onchange={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
+                                        oninput={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
                                         class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     />
                                 </div>
@@ -625,7 +645,9 @@
             {#if previewLoading && previewData}
                 <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Refreshing preview...</div>
             {:else if previewInitialized && !previewError}
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Preview is rendered with the same backend limits used for live Discord sends.</div>
+                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Preview is rendered with the same backend limits used for live Discord sends.
+                </div>
             {/if}
         </div>
     </div>

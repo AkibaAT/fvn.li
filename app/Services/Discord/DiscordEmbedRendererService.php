@@ -82,7 +82,7 @@ class DiscordEmbedRendererService
         ?GameVersion $gameVersion = null,
         ?DiscordServer $server = null,
     ): array {
-        $gameUrl = route('games.show', $game->slug, false);
+        $gameUrl = route('games.show', $game->slug);
         $thumbnail = $game->optimized_thumbnail_url ?? $game->thumb_url;
         $developer = $this->resolveDeveloperName($game);
         $screenshot = null;

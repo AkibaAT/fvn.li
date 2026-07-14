@@ -43,6 +43,8 @@ class DiscordBotServerController extends Controller
                 'payload' => $notification->payload,
                 'game_name' => $notification->game?->name,
                 'notification_type' => $notification->notification_type,
+                'delivery_mode' => $notification->delivery_mode,
+                'message_id' => $notification->message_id,
             ]);
 
             return response()->json([
@@ -64,6 +66,21 @@ class DiscordBotServerController extends Controller
             'message_id' => $validated['message_id'] ?? null,
             'sent_at' => now(),
         ]);
+
+        if ($notification->notification_type === 'new_game' && $notification->game_id) {
+            DB::table('discord_server_games')->upsert([[
+                'discord_server_id' => $notification->discord_server_id,
+                'game_id' => $notification->game_id,
+                'discord_channel_id' => $notification->channel_id,
+                'discord_message_id' => $validated['message_id'] ?? $notification->message_id,
+                'discord_payload_hash' => $notification->payload_hash,
+                'discord_updated_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]], ['discord_server_id', 'game_id'], [
+                'discord_channel_id', 'discord_message_id', 'discord_payload_hash', 'discord_updated_at', 'updated_at',
+            ]);
+        }
 
         return response()->json(['message' => 'Marked as delivered']);
     }
@@ -197,6 +214,64 @@ class DiscordBotServerController extends Controller
             'message' => 'Server registration updated',
             'server' => $server->load('config'),
         ]);
+    }
+
+    public function reconcileGuilds(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'guilds' => 'present|array',
+            'guilds.*.discord_server_id' => 'required|string',
+            'guilds.*.discord_server_name' => 'required|string|max:255',
+            'guilds.*.owner_discord_id' => 'nullable|string',
+            'guilds.*.channels' => 'nullable|array',
+        ]);
+
+        return DB::transaction(function () use ($validated) {
+            $activeGuildIds = collect($validated['guilds'])
+                ->pluck('discord_server_id')
+                ->all();
+
+            DiscordServer::where('is_active', true)
+                ->when($activeGuildIds !== [], fn ($query) => $query->whereNotIn('discord_server_id', $activeGuildIds))
+                ->update(['is_active' => false]);
+
+            foreach ($validated['guilds'] as $guild) {
+                $server = DiscordServer::updateOrCreate(
+                    ['discord_server_id' => $guild['discord_server_id']],
+                    [
+                        'discord_server_name' => $guild['discord_server_name'],
+                        'is_active' => true,
+                        'bot_joined_at' => now(),
+                        'available_channels' => $guild['channels'] ?? null,
+                        'channels_synced_at' => ! empty($guild['channels']) ? now() : null,
+                    ],
+                );
+
+                if (empty($server->owner_user_id) && ! empty($guild['owner_discord_id'])) {
+                    $ownerUserId = SocialAccount::where('provider_name', 'discord')
+                        ->where('provider_id', $guild['owner_discord_id'])
+                        ->value('user_id');
+
+                    if ($ownerUserId) {
+                        $server->update(['owner_user_id' => $ownerUserId]);
+                    }
+                }
+
+                DiscordServerConfig::firstOrCreate(
+                    ['discord_server_id' => $server->id],
+                    ['notification_format' => 'detailed'],
+                );
+            }
+
+            Log::info('Discord bot guild state reconciled', [
+                'active_guild_count' => count($activeGuildIds),
+            ]);
+
+            return response()->json([
+                'message' => 'Guild state reconciled',
+                'count' => count($activeGuildIds),
+            ]);
+        });
     }
 
     public function botLeft(Request $request, string $server): JsonResponse

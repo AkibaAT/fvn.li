@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+## Description: Manage the optional Discord bot development service
+## Usage: bot [status|logs|restart|shell|typecheck]
+## Example: "ddev bot status" or "ddev bot logs"
+
+container="ddev-${DDEV_SITENAME}-discord-bot"
+
+case "${1:-status}" in
+    status)
+        if ! docker inspect "$container" >/dev/null 2>&1; then
+            echo "Discord bot container is not running. Start DDEV first."
+            exit 1
+        fi
+
+        if docker exec "$container" test -f /app/package.json; then
+            echo "Discord bot checkout is mounted and the service is configured."
+            docker ps --filter "name=^/${container}$" --format 'Status: {{.Status}}'
+        else
+            echo "Discord bot checkout is not configured."
+            echo "Set DISCORD_BOT_HOST_PATH to the checkout's absolute path, then run: ddev restart"
+        fi
+        ;;
+    logs)
+        exec ddev logs -s discord-bot -f
+        ;;
+    restart)
+        exec docker restart "$container"
+        ;;
+    shell)
+        exec docker exec -it "$container" /bin/sh
+        ;;
+    typecheck)
+        exec docker exec "$container" bunx tsc --noEmit
+        ;;
+    help|--help|-h)
+        echo "Usage: ddev bot [status|logs|restart|shell|typecheck]"
+        ;;
+    *)
+        echo "Unknown Discord bot command: $1"
+        echo "Usage: ddev bot [status|logs|restart|shell|typecheck]"
+        exit 1
+        ;;
+esac

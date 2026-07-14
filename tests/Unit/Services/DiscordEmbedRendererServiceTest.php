@@ -47,7 +47,7 @@ describe('DiscordEmbedRendererService', function () {
 
         expect($result['title'])->toBe('Test VN')
             ->and($result['description'])->toBe('Version 1.0.0 released!')
-            ->and($result['url'])->toBe(route('games.show', $this->game->slug, false));
+            ->and($result['url'])->toBe(route('games.show', $this->game->slug));
     });
 
     test('handles missing game version gracefully', function () {
