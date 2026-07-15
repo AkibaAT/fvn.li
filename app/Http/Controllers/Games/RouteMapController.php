@@ -26,8 +26,7 @@ class RouteMapController extends Controller
     {
         $game->load(['gameVersions']);
         $game->append('tags_list');
-        $canInspectFullRouteMap = $game->canUserEdit($request->user());
-        $includeUnreachable = $canInspectFullRouteMap && $request->boolean('include_unreachable');
+        $canEdit = $game->canUserEdit($request->user());
 
         $versionId = $request->query('version_id');
         $version = $versionId
@@ -38,19 +37,21 @@ class RouteMapController extends Controller
             abort(404, 'No game version found');
         }
 
-        // If the graph is already pre-computed on the version, use it directly
-        // (buildGraph returns the cached data without hitting the route tables).
-        // Only check routeLabels existence when there's no cached graph.
-        $graphData = $version->route_graph_data
-            ? $this->routeGraphService->buildGraph($version, includeUnreachable: $includeUnreachable)
-            : ($version->routeLabels()->exists()
-                ? $this->routeGraphService->buildGraph($version, includeUnreachable: $includeUnreachable)
-                : ['has_graph_data' => false]);
+        $includeUnreachable = $canEdit && $request->boolean('include_unreachable');
+        $graphData = $this->routeGraphService->storedGraph($version, $includeUnreachable);
+        abort_if($graphData === null, 404, 'Route map data has not been generated for this version.');
+        $canInspectFullRouteMap = $canEdit && $this->routeGraphService->storedGraph($version, includeUnreachable: true) !== null;
 
         $gameVersions = $game->gameVersions()
-            ->whereHas('routeLabels')
+            ->whereNotNull('route_graph_data')
             ->orderBy('published_at', 'desc')
-            ->get(['id', 'version', 'published_at']);
+            ->get(['id', 'version', 'published_at', 'route_graph_data'])
+            ->filter(function (GameVersion $candidate) use ($canInspectFullRouteMap) {
+                return $this->routeGraphService->storedGraph($candidate) !== null
+                    && (! $canInspectFullRouteMap || $this->routeGraphService->storedGraph($candidate, includeUnreachable: true) !== null);
+            })
+            ->map(fn (GameVersion $candidate) => $candidate->only(['id', 'version', 'published_at']))
+            ->values();
 
         $availableLanguages = $this->getAvailableLanguageCodes($version);
         $requestedLanguage = $request->query('lang');
@@ -86,20 +87,11 @@ class RouteMapController extends Controller
     {
         $includeUnreachable = $game->canUserEdit($request->user()) && $request->boolean('include_unreachable');
 
-        // Fast path: if pre-computed graph exists, return it without querying route tables
-        if ($version->route_graph_data) {
-            return response()->json($this->withAvailableLanguages(
-                $this->routeGraphService->buildGraph($version, includeUnreachable: $includeUnreachable),
-                $version
-            ));
-        }
-
-        if (! $version->routeLabels()->exists()) {
-            return response()->json($this->withAvailableLanguages(['has_graph_data' => false], $version));
-        }
+        $graph = $this->routeGraphService->storedGraph($version, $includeUnreachable);
+        abort_if($graph === null, 404, 'Route map data has not been generated for this version.');
 
         return response()->json($this->withAvailableLanguages(
-            $this->routeGraphService->buildGraph($version, includeUnreachable: $includeUnreachable),
+            $graph,
             $version
         ));
     }

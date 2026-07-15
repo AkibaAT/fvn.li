@@ -211,6 +211,45 @@ it('reapplies character key filters when expanding meilisearch hits', function (
         ->and($results->items()[0]->character_id)->toBe($character->id);
 });
 
+it('returns no dialogue for an unknown character key without searching meilisearch', function () {
+    [$game] = makeDialogueSearchFixture();
+
+    app()->instance(Client::class, new class
+    {
+        public function index(string $name): never
+        {
+            throw new RuntimeException("Meilisearch index {$name} should not be queried");
+        }
+    });
+
+    $results = app(DialogueSearchService::class)->search('moonlight', [
+        'game_id' => $game->id,
+        'character_id' => 'unknown-character',
+    ], 10, 2);
+
+    expect($results->total())->toBe(0)
+        ->and($results->items())->toBe([])
+        ->and($results->perPage())->toBe(10)
+        ->and($results->currentPage())->toBe(2);
+});
+
+it('applies a zero character identifier instead of treating it as no filter', function () {
+    [$game] = makeDialogueSearchFixture();
+
+    bindDialogueMeilisearch([], 0, function (string $term, array $params) use ($game) {
+        expect($term)->toBe('moonlight')
+            ->and($params['filter'])->toBe("game_id = {$game->id} AND character_ids = 0");
+    });
+
+    $results = app(DialogueSearchService::class)->search('moonlight', [
+        'game_id' => $game->id,
+        'character_id' => '0',
+    ]);
+
+    expect($results->total())->toBe(0)
+        ->and($results->items())->toBe([]);
+});
+
 it('returns an empty paginator when meilisearch finds no dialogue hits', function () {
     bindDialogueMeilisearch([], 0, function (string $term, array $params) {
         expect($term)->toBe('nothing')

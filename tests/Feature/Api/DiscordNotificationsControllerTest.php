@@ -352,6 +352,37 @@ it('claims pending channel announcements and formats update payloads', function 
         ->assertJsonPath('notifications', []);
 });
 
+it('does not claim channel announcements for games hidden after queueing', function () {
+    authenticateDiscordBot();
+    $hiddenGame = Game::factory()->create([
+        'name' => 'Hidden VN',
+        'is_visible' => false,
+    ]);
+    $hiddenVersion = latestGameVersionFor($hiddenGame);
+    $hiddenAnnouncement = DiscordChannelAnnouncement::create([
+        'game_id' => $hiddenGame->id,
+        'game_version_id' => $hiddenVersion->id,
+        'status' => 'pending',
+    ]);
+    $visibleGame = Game::factory()->create(['name' => 'Visible VN']);
+    $visibleVersion = latestGameVersionFor($visibleGame);
+    $visibleAnnouncement = DiscordChannelAnnouncement::create([
+        'game_id' => $visibleGame->id,
+        'game_version_id' => $visibleVersion->id,
+        'status' => 'pending',
+    ]);
+
+    $this->getJson('/api/discord-notifications/channel-updates')
+        ->assertOk()
+        ->assertJsonCount(1, 'notifications')
+        ->assertJsonPath('notifications.0.announcement_id', $visibleAnnouncement->id)
+        ->assertJsonPath('notifications.0.name', 'Visible VN');
+
+    expect($hiddenAnnouncement->fresh()->status)->toBe('pending')
+        ->and($hiddenAnnouncement->fresh()->batch_key)->toBeNull()
+        ->and($visibleAnnouncement->fresh()->status)->toBe('processing');
+});
+
 it('recovers channel announcements stuck in processing after a bot crash', function () {
     authenticateDiscordBot();
     $game = Game::factory()->create(['name' => 'Stuck VN']);

@@ -14,6 +14,7 @@ use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -330,6 +331,12 @@ test('game show exposes rich version review progress analytics and recommendatio
         'created_at' => now(),
         'updated_at' => now(),
     ]);
+    $version->forceFill([
+        'route_graph_data' => [
+            'graph_revision' => RouteGraphService::GRAPH_REVISION,
+            'has_graph_data' => true,
+        ],
+    ])->saveQuietly();
 
     $rater = Rater::factory()->create(['name' => 'Imported Rater']);
     Rating::create([

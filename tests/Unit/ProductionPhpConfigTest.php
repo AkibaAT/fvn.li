@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\Yaml\Yaml;
+
 function productionDockerFile(string $path): string
 {
     return base_path($path);
@@ -54,6 +56,28 @@ test('production docker base image is pinned to an immutable php patch image dig
         ->toMatch('/^dunglas\/frankenphp:\d+\.\d+\.\d+-php8\.5\.\d+@sha256:[a-f0-9]{64}$/')
         ->toContain('@sha256:')
         ->not->toMatch('/^dunglas\/frankenphp:php8\.5(@|$)/');
+});
+
+test('dependabot scans all maintained container definitions', function () {
+    $dependabot = Yaml::parseFile(base_path('.github/dependabot.yml'));
+    $expectedContainerUpdates = [
+        'docker:/docker/app',
+        'docker:/docker/social-images',
+        'docker-compose:/docker/production',
+        'docker-compose:/.ddev',
+    ];
+    $containerUpdates = collect($dependabot['updates'] ?? [])
+        ->map(fn (array $update): string => ($update['package-ecosystem'] ?? '') . ':' . ($update['directory'] ?? ''));
+
+    expect($containerUpdates)->toContain(...$expectedContainerUpdates);
+
+    collect($dependabot['updates'] ?? [])
+        ->filter(fn (array $update): bool => in_array(
+            ($update['package-ecosystem'] ?? '') . ':' . ($update['directory'] ?? ''),
+            $expectedContainerUpdates,
+            true,
+        ))
+        ->each(fn (array $update) => expect($update['schedule']['interval'] ?? null)->toBe('weekly'));
 });
 
 test('frankenphp web override remains bounded separately from global cli config', function () {

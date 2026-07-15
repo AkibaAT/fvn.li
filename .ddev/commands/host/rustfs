@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+## Description: Launch a browser with the RustFS console
+## Usage: rustfs
+## Example: "ddev rustfs"
+
+echo "Login using 'ddevrustfs' user and 'ddevrustfs' password"
+
+ddev launch https://${DDEV_SITENAME}.${DDEV_TLD}:9091/rustfs/console/

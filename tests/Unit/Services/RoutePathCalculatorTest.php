@@ -8,11 +8,18 @@ use App\Models\VersionRouteLabel;
 use App\Models\VersionRouteMenuChoice;
 use App\Models\VersionRoutePath;
 use App\Models\VersionRouteVariableChange;
+use App\Services\RouteGraphService;
 use App\Services\RoutePathCalculator;
 
 function routePathVersion(): GameVersion
 {
     return GameVersion::factory()->create();
+}
+
+function calculateImportedRoutePaths(GameVersion $version): void
+{
+    app(RouteGraphService::class)->computeAndStore($version);
+    (new RoutePathCalculator)->calculateAndStore($version);
 }
 
 function routePathLabel(GameVersion $version, string $name, bool $isEnding = false): void
@@ -76,7 +83,7 @@ it('stores shortest route paths derived from the built route graph', function ()
         'line_number' => 10,
     ]);
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     $good = VersionRoutePath::where('game_version_id', $version->id)
         ->where('ending_label', 'ending_good')
@@ -114,7 +121,7 @@ it('clears existing paths when start or endings are missing', function () {
     ]);
     routePathLabel($version, 'start');
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     expect($version->routePaths()->count())->toBe(0);
 });
@@ -133,7 +140,7 @@ it('replaces stale paths and accepts labels.start as start label', function () {
     routePathLabel($version, 'ending', true);
     routePathEdge($version, 'labels.start', 'ending');
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     expect($version->routePaths()->count())->toBe(1)
         ->and($version->routePaths()->first()->path_labels)->toBe(['labels.start', 'ending']);
@@ -158,7 +165,7 @@ it('strips condition scope nodes from stored path labels', function () {
         'line_number' => 5,
     ]);
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     $path = $version->routePaths()->where('ending_label', 'finale')->firstOrFail();
 
@@ -175,12 +182,62 @@ it('skips endings that are unreachable from the start node', function () {
     routePathLabel($version, 'stranded', true); // an ending with no path from start
     routePathEdge($version, 'start', 'reachable');
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     $endings = $version->routePaths()->pluck('ending_label')->all();
 
     expect($endings)->toBe(['reachable'])
         ->and($version->routePaths()->count())->toBe(1);
+});
+
+it('stores every ending path for an imported route graph', function () {
+    $version = routePathVersion();
+    routePathLabel($version, 'start');
+
+    for ($index = 1; $index <= 205; $index++) {
+        $ending = 'ending_' . $index;
+        routePathLabel($version, $ending, true);
+        routePathEdge($version, 'start', $ending);
+    }
+
+    calculateImportedRoutePaths($version);
+
+    expect($version->routePaths()->count())->toBe(205);
+});
+
+it('stores route paths deeper than 500 steps', function () {
+    $version = routePathVersion();
+    routePathLabel($version, 'start');
+    $previous = 'start';
+
+    for ($index = 1; $index <= 500; $index++) {
+        $label = $index === 500 ? 'ending_deep' : 'step_' . $index;
+        routePathLabel($version, $label, $label === 'ending_deep');
+        routePathEdge($version, $previous, $label);
+        $previous = $label;
+    }
+
+    calculateImportedRoutePaths($version);
+
+    expect($version->routePaths()->firstOrFail()->step_count)->toBe(501);
+});
+
+it('stores all path labels for many deep endings', function () {
+    $version = routePathVersion();
+    routePathLabel($version, 'start');
+    $previous = 'start';
+
+    for ($index = 1; $index <= 200; $index++) {
+        $ending = 'ending_chain_' . $index;
+        routePathLabel($version, $ending, true);
+        routePathEdge($version, $previous, $ending);
+        $previous = $ending;
+    }
+
+    calculateImportedRoutePaths($version);
+
+    expect($version->routePaths()->sum('step_count'))->toBe(20300)
+        ->and($version->routePaths()->count())->toBe(200);
 });
 
 it('stores hub menu choice destinations as the choice target label', function () {
@@ -205,7 +262,7 @@ it('stores hub menu choice destinations as the choice target label', function ()
         ]);
     }
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     $path = $version->routePaths()->where('ending_label', 'chapter1')->firstOrFail();
 
@@ -265,7 +322,7 @@ it('does not persist condition scope wiring nodes as choice destinations', funct
         ]);
     }
 
-    (new RoutePathCalculator)->calculateAndStore($version);
+    calculateImportedRoutePaths($version);
 
     $path = $version->routePaths()->where('ending_label', 'finale')->firstOrFail();
 

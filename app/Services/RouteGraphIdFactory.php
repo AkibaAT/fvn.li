@@ -6,6 +6,8 @@ namespace App\Services;
 
 class RouteGraphIdFactory
 {
+    public const MAX_SYNTHETIC_ID_LENGTH = 255;
+
     public function edgeIdentity($edge): string
     {
         if (! empty($edge->id)) {
@@ -42,6 +44,15 @@ class RouteGraphIdFactory
 
     public function syntheticEndingId(string $labelName): string
     {
-        return $labelName . ':ending';
+        $suffix = ':ending';
+        $id = $labelName . $suffix;
+        if (mb_strlen($id) <= self::MAX_SYNTHETIC_ID_LENGTH) {
+            return $id;
+        }
+
+        $hashSuffix = ':' . substr(hash('sha256', $labelName), 0, 16) . $suffix;
+        $prefixLength = self::MAX_SYNTHETIC_ID_LENGTH - mb_strlen($hashSuffix);
+
+        return mb_substr($labelName, 0, $prefixLength) . $hashSuffix;
     }
 }

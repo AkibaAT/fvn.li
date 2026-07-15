@@ -228,6 +228,9 @@ class DiscordNotificationsController extends Controller
 
             $announcements = DiscordChannelAnnouncement::query()
                 ->with(['game', 'gameVersion'])
+                ->whereHas('game', function ($query) {
+                    $query->where('is_visible', true);
+                })
                 ->where(function ($query) {
                     $query->where('status', 'pending')
                         ->orWhere(function ($query) {
@@ -260,7 +263,7 @@ class DiscordNotificationsController extends Controller
                 $game = $announcement->game;
                 $version = $announcement->gameVersion;
 
-                if (! $game || ! $version) {
+                if (! $game?->is_visible || ! $version) {
                     return null;
                 }
 

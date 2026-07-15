@@ -11,6 +11,7 @@ use App\Models\GameVersion;
 use App\Models\VnList;
 use App\Services\GameSocialMetaBuilder;
 use App\Services\HtmlSanitizerService;
+use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use App\Traits\HasSocialMetaTags;
 use Exception;
@@ -222,10 +223,7 @@ class GamesDisplayController extends Controller
                 ->select('id')
                 ->selectRaw('EXISTS (SELECT 1 FROM version_file_categories WHERE version_file_categories.game_version_id = game_versions.id) as has_file_stats')
                 ->selectRaw('EXISTS (SELECT 1 FROM version_dialogue_lines WHERE version_dialogue_lines.game_version_id = game_versions.id) as has_dialogue_lines')
-                ->selectRaw('(
-                    game_versions.route_graph_data IS NOT NULL
-                    OR EXISTS (SELECT 1 FROM version_route_labels WHERE version_route_labels.game_version_id = game_versions.id)
-                ) as has_route_data')
+                ->selectRaw("(game_versions.route_graph_data->>'graph_revision' = ?) as has_route_data", [(string) RouteGraphService::GRAPH_REVISION])
                 ->get();
 
             foreach ($versionCapabilities as $version) {

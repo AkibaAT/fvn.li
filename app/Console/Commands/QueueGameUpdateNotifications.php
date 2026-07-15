@@ -75,6 +75,7 @@ class QueueGameUpdateNotifications extends Command
                     ->where('is_latest', true);
             })
                 ->where('is_paid', false)
+                ->where('is_visible', true)
                 ->exists();
 
             if (! $hasRecentUpdates) {
@@ -98,6 +99,7 @@ class QueueGameUpdateNotifications extends Command
                     ->where('is_latest', true);
             })
                 ->where('is_paid', false) // Only include free games
+                ->where('is_visible', true)
                 ->with(['latestVersion'])
                 ->limit($limit)
                 ->get();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\DiscordServer;
 use App\Models\DiscordServerConfig;
+use App\Models\DiscordServerMember;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\SocialAccount;
@@ -153,6 +154,85 @@ describe('Discord guild filtering', function () {
         ]);
     });
 
+    test('guilds endpoint does not grant local admin from cached guilds when Discord lookup fails', function () {
+        $user = User::factory()->createQuietly();
+        $user->socialAccounts()->create([
+            'provider_name' => 'discord',
+            'provider_id' => 'stale-discord-admin',
+            'token' => 'invalid-token',
+            'provider_data' => [
+                'guilds' => [[
+                    'id' => 'stale-managed-guild',
+                    'name' => 'Stale Managed Guild',
+                    'owner' => false,
+                    'permissions' => '32',
+                ]],
+            ],
+        ]);
+        $server = DiscordServer::factory()->create([
+            'discord_server_id' => 'stale-managed-guild',
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response(['message' => 'Unauthorized'], 401),
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('browser-api.discord.guilds'));
+
+        $response->assertOk();
+        expect($response->json('guilds'))->toBeEmpty();
+        $this->assertDatabaseMissing('discord_server_members', [
+            'discord_server_id' => $server->id,
+            'discord_user_id' => 'stale-discord-admin',
+            'user_id' => $user->id,
+            'is_admin' => true,
+        ]);
+        expect($user->can('update', $server))->toBeFalse();
+    });
+
+    test('guilds endpoint revokes local admin when fresh Discord permissions are removed', function () {
+        $user = User::factory()->createQuietly();
+        $user->socialAccounts()->create([
+            'provider_name' => 'discord',
+            'provider_id' => 'former-discord-admin',
+            'token' => 'test-token',
+            'provider_data' => ['guilds' => []],
+        ]);
+        $server = DiscordServer::factory()->create([
+            'discord_server_id' => 'former-managed-guild',
+            'is_active' => true,
+        ]);
+        DiscordServerMember::create([
+            'discord_server_id' => $server->id,
+            'discord_user_id' => 'former-discord-admin',
+            'user_id' => $user->id,
+            'discord_username' => $user->name,
+            'is_admin' => true,
+        ]);
+
+        Http::fake([
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response([[
+                'id' => 'former-managed-guild',
+                'name' => 'Former Managed Guild',
+                'owner' => false,
+                'permissions' => '2048',
+            ]], 200),
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('browser-api.discord.guilds'));
+
+        $response->assertOk();
+        expect($response->json('guilds'))->toBeEmpty();
+        $this->assertDatabaseHas('discord_server_members', [
+            'discord_server_id' => $server->id,
+            'discord_user_id' => 'former-discord-admin',
+            'user_id' => $user->id,
+            'is_admin' => false,
+        ]);
+        expect($user->can('update', $server))->toBeFalse();
+    });
+
     test('roles endpoint fetches non-managed guild roles with the bot token', function () {
         $user = User::factory()->createQuietly();
         $server = DiscordServer::factory()->create([
@@ -235,6 +315,15 @@ describe('Discord guild filtering', function () {
             ],
         ]);
 
+        Http::fake([
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response([[
+                'id' => 'managed-guild',
+                'name' => 'Managed Guild',
+                'owner' => false,
+                'permissions' => '32',
+            ]], 200),
+        ]);
+
         $response = $this->actingAs($user)
             ->withSession([
                 'discord_bot_install' => [
@@ -258,5 +347,47 @@ describe('Discord guild filtering', function () {
             ->and($server->is_active)->toBeTrue()
             ->and($server->config)->not->toBeNull()
             ->and($server->members()->where('user_id', $user->id)->where('is_admin', true)->exists())->toBeTrue();
+    });
+
+    test('install callback does not register a server from cached guild permissions', function () {
+        $user = User::factory()->createQuietly();
+
+        SocialAccount::factory()->discord()->create([
+            'user_id' => $user->id,
+            'provider_id' => 'stale-discord-user',
+            'token' => 'invalid-token',
+            'provider_data' => [
+                'guilds' => [[
+                    'id' => 'stale-install-guild',
+                    'name' => 'Stale Install Guild',
+                    'owner' => false,
+                    'permissions' => '32',
+                ]],
+            ],
+        ]);
+
+        Http::fake([
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response(['message' => 'Unauthorized'], 401),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withSession([
+                'discord_bot_install' => [
+                    'state' => 'install-state',
+                    'guild_id' => 'stale-install-guild',
+                    'user_id' => $user->id,
+                ],
+            ])
+            ->get(route('dashboard.discord.install.callback', [
+                'state' => 'install-state',
+                'guild_id' => 'stale-install-guild',
+                'code' => 'oauth-code',
+            ]));
+
+        $response->assertRedirect(route('dashboard.discord.index'))
+            ->assertSessionHas('error', 'You no longer have permission to manage that Discord server.');
+        $this->assertDatabaseMissing('discord_servers', [
+            'discord_server_id' => 'stale-install-guild',
+        ]);
     });
 });

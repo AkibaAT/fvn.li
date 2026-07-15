@@ -1,7 +1,7 @@
 services:
   flaresolverr:
     container_name: ddev-${DDEV_SITENAME}-flaresolverr
-    image: flaresolverr/flaresolverr:latest
+    image: flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
     restart: unless-stopped
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -19,4 +19,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-

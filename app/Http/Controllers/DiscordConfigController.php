@@ -54,7 +54,11 @@ class DiscordConfigController extends Controller
             return response()->json(['guilds' => [], 'has_discord' => false]);
         }
 
-        $managedGuilds = $this->getManagedGuildsForDiscordAccount($discordAccount);
+        $managedGuildsLoadedFromDiscord = false;
+        $managedGuilds = $this->getManagedGuildsForDiscordAccount(
+            $discordAccount,
+            $managedGuildsLoadedFromDiscord,
+        );
 
         $managedGuildIds = $managedGuilds->pluck('id')->all();
         $existingServers = DiscordServer::whereIn('discord_server_id', $managedGuildIds)
@@ -62,25 +66,32 @@ class DiscordConfigController extends Controller
             ->get()
             ->keyBy('discord_server_id');
 
-        $managedGuilds->each(function (array $guild) use ($existingServers, $discordAccount, $user): void {
-            $server = $existingServers->get($guild['id']);
+        if ($managedGuildsLoadedFromDiscord) {
+            $managedGuilds->each(function (array $guild) use ($existingServers, $discordAccount, $user): void {
+                $server = $existingServers->get($guild['id']);
 
-            if ($server?->is_active !== true) {
-                return;
-            }
+                if ($server?->is_active !== true) {
+                    return;
+                }
 
-            DiscordServerMember::updateOrCreate(
-                [
-                    'discord_server_id' => $server->id,
-                    'discord_user_id' => (string) $discordAccount->provider_id,
-                ],
-                [
-                    'user_id' => $user->id,
-                    'discord_username' => $user->name,
-                    'is_admin' => true,
-                ],
-            );
-        });
+                DiscordServerMember::updateOrCreate(
+                    [
+                        'discord_server_id' => $server->id,
+                        'discord_user_id' => (string) $discordAccount->provider_id,
+                    ],
+                    [
+                        'user_id' => $user->id,
+                        'discord_username' => $user->name,
+                        'is_admin' => true,
+                    ],
+                );
+            });
+
+            DiscordServerMember::where('discord_user_id', (string) $discordAccount->provider_id)
+                ->where('user_id', $user->id)
+                ->whereNotIn('discord_server_id', $existingServers->pluck('id')->all())
+                ->update(['is_admin' => false]);
+        }
 
         $ownedServerIds = DiscordServer::where('owner_user_id', $user->id)->pluck('discord_server_id');
         $adminMemberServerIds = DiscordServer::whereIn(
@@ -129,10 +140,11 @@ class DiscordConfigController extends Controller
 
         abort_unless($discordAccount !== null, 404);
 
-        $guild = $this->getManagedGuildsForDiscordAccount($discordAccount)
+        $managedGuildsLoadedFromDiscord = false;
+        $guild = $this->getManagedGuildsForDiscordAccount($discordAccount, $managedGuildsLoadedFromDiscord)
             ->firstWhere('id', $guildId);
 
-        abort_unless($guild !== null, 403);
+        abort_unless($managedGuildsLoadedFromDiscord && $guild !== null, 403);
 
         $state = Str::random(40);
         $request->session()->put(self::DISCORD_BOT_INSTALL_SESSION_KEY, [
@@ -179,10 +191,11 @@ class DiscordConfigController extends Controller
                 ->with('error', 'Your Discord account is no longer connected.');
         }
 
-        $guild = $this->getManagedGuildsForDiscordAccount($discordAccount)
+        $managedGuildsLoadedFromDiscord = false;
+        $guild = $this->getManagedGuildsForDiscordAccount($discordAccount, $managedGuildsLoadedFromDiscord)
             ->firstWhere('id', $guildId);
 
-        if (! $guild) {
+        if (! $managedGuildsLoadedFromDiscord || ! $guild) {
             return redirect()->route('dashboard.discord.index')
                 ->with('error', 'You no longer have permission to manage that Discord server.');
         }
@@ -726,11 +739,14 @@ class DiscordConfigController extends Controller
         ], '', '&', PHP_QUERY_RFC3986);
     }
 
-    private function getManagedGuildsForDiscordAccount(SocialAccount $discordAccount)
-    {
+    private function getManagedGuildsForDiscordAccount(
+        SocialAccount $discordAccount,
+        ?bool &$loadedFromDiscord = null,
+    ) {
         $guilds = $this->fetchFreshGuilds($discordAccount);
+        $loadedFromDiscord = $guilds !== null;
 
-        if ($guilds === null) {
+        if (! $loadedFromDiscord) {
             $guilds = $discordAccount->provider_data['guilds'] ?? [];
         }
 
