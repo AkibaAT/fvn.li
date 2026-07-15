@@ -3,11 +3,11 @@ RUN rm -f /etc/apt/sources.list.d/mariadb*.list /etc/apt/sources.list.d/mariadb*
     && apt-get install -y --no-install-recommends ca-certificates curl docker-cli golang-go pipx postgresql-client unzip \
     && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install unrpa \
     && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install rpycdec \
-    && BUTLER_VERSION=15.27.0 \
+    && BUTLER_VERSION=15.29.0 \
     && ARCH="$(dpkg --print-architecture)" \
     && case "$ARCH" in \
-        amd64) BUTLER_ARCH=amd64; BUTLER_SHA256=b78ca81ed566c2daa54d68b7e300dd32888168163212293909ce90f16e0ec75d ;; \
-        arm64) BUTLER_ARCH=arm64; BUTLER_SHA256=7d7e26aae6204585b1124515e87eb6b89c5b0f01c60a30e2344d58d783614778 ;; \
+        amd64) BUTLER_ARCH=amd64; BUTLER_SHA256=bbb2eb17747aeec5f5d7ec0f0e5ffcd595af075fb5b75336b5b6740916470fde ;; \
+        arm64) BUTLER_ARCH=arm64; BUTLER_SHA256=5268faa7dc0ac71c8137a7691a01430f21d20084759b2ed4bf2b954418b60457 ;; \
         *) echo "Unsupported architecture for butler: $ARCH" >&2; exit 1 ;; \
     esac \
     && curl -fsSL "https://github.com/itchio/butler/releases/download/v${BUTLER_VERSION}/butler-linux-${BUTLER_ARCH}.zip" -o /tmp/butler.zip \

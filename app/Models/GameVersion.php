@@ -30,6 +30,7 @@ class GameVersion extends Model
 
     protected $hidden = [
         'route_graph_data',
+        'route_graph_unreachable_data',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class GameVersion extends Model
         'is_web' => 'boolean',
         'is_latest' => 'boolean',
         'route_graph_data' => 'array',
+        'route_graph_unreachable_data' => 'array',
     ];
 
     /**

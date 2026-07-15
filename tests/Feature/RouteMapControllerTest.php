@@ -5,9 +5,11 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Language;
+use App\Models\User;
 use App\Models\VersionRouteLabel;
 use App\Models\VersionSupportedLanguage;
 use App\Services\RenpySaveParser;
+use App\Services\RouteGraphService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
 
@@ -81,6 +83,7 @@ test('route map only exposes languages that are available for the selected versi
         'line_number' => 1,
         'is_ending' => true,
     ]);
+    app(RouteGraphService::class)->computeAndStore($version);
 
     $disabledLanguageResponse = $this->get(route('games.route-map', [
         'game' => $game->slug,
@@ -112,6 +115,102 @@ test('route map only exposes languages that are available for the selected versi
     ]))
         ->assertOk()
         ->assertJsonPath('available_languages', ['eng']);
+});
+
+test('route map frontend and API require a current precomputed graph', function () {
+    $game = Game::withoutEvents(fn () => Game::factory()->create([
+        'slug' => 'route-map-cache-required',
+        'is_visible' => true,
+    ]));
+    $version = GameVersion::withoutEvents(fn () => GameVersion::factory()->for($game)->create([
+        'is_latest' => true,
+    ]));
+    VersionRouteLabel::create([
+        'game_version_id' => $version->id,
+        'name' => 'start',
+        'file_path' => 'script.rpy',
+        'line_number' => 1,
+    ]);
+
+    $this->get(route('games.route-map', ['game' => $game->slug]))->assertNotFound();
+    $this->getJson(route('browser-api.games.version.route-graph', [
+        'game' => $game->slug,
+        'version' => $version->id,
+    ]))->assertNotFound();
+
+    expect($version->fresh()->route_graph_data)->toBeNull();
+
+    $version->forceFill([
+        'route_graph_data' => [
+            'graph_revision' => RouteGraphService::GRAPH_REVISION - 1,
+            'has_graph_data' => true,
+        ],
+    ])->saveQuietly();
+
+    $this->get(route('games.route-map', ['game' => $game->slug]))->assertNotFound();
+    expect($version->fresh()->route_graph_data['graph_revision'])->toBe(RouteGraphService::GRAPH_REVISION - 1);
+});
+
+test('version listings only advertise current precomputed route maps', function () {
+    $game = Game::withoutEvents(fn () => Game::factory()->create(['is_visible' => true]));
+    $cachedVersion = GameVersion::withoutEvents(fn () => GameVersion::factory()->for($game)->create([
+        'version' => 'cached',
+        'route_graph_data' => [
+            'graph_revision' => RouteGraphService::GRAPH_REVISION,
+            'has_graph_data' => true,
+        ],
+    ]));
+    $uncachedVersion = GameVersion::withoutEvents(fn () => GameVersion::factory()->for($game)->create([
+        'version' => 'uncached',
+    ]));
+
+    foreach ([$cachedVersion, $uncachedVersion] as $version) {
+        VersionRouteLabel::create([
+            'game_version_id' => $version->id,
+            'name' => 'start',
+            'file_path' => 'script.rpy',
+            'line_number' => 1,
+        ]);
+    }
+
+    $response = $this->getJson(route('browser-api.games.versions', ['game' => $game->id]))
+        ->assertOk();
+
+    $versions = collect($response->json('versions.data'))->keyBy('id');
+    expect($versions[$cachedVersion->id]['has_route_data'])->toBeTrue()
+        ->and($versions[$uncachedVersion->id]['has_route_data'])->toBeFalse();
+});
+
+test('unreachable route controls require their own precomputed graph', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+    $game = Game::withoutEvents(fn () => Game::factory()->create([
+        'slug' => 'route-map-unreachable-cache-required',
+        'is_visible' => true,
+    ]));
+    $version = GameVersion::withoutEvents(fn () => GameVersion::factory()->for($game)->create([
+        'is_latest' => true,
+        'route_graph_data' => [
+            'graph_revision' => RouteGraphService::GRAPH_REVISION,
+            'has_graph_data' => true,
+            'nodes' => [],
+            'edges' => [],
+        ],
+    ]));
+
+    $response = $this->actingAs($admin)->get(route('games.route-map', ['game' => $game->slug]));
+    $response->assertOk();
+    expect($response->viewData('page')['props']['canInspectFullRouteMap'])->toBeFalse();
+
+    $this->get(route('games.route-map', [
+        'game' => $game->slug,
+        'include_unreachable' => 1,
+    ]))->assertNotFound();
+
+    $this->getJson(route('browser-api.games.version.route-graph', [
+        'game' => $game->slug,
+        'version' => $version->id,
+        'include_unreachable' => 1,
+    ]))->assertNotFound();
 });
 
 test('parse save route is throttled separately from general browser api traffic', function () {

@@ -19,6 +19,7 @@ class GameStatsRouteGraphPersister
         $now = now();
 
         $version->route_graph_data = null;
+        $version->route_graph_unreachable_data = null;
         $version->saveQuietly();
 
         $version->routeLabels()->delete();

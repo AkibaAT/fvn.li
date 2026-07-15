@@ -16,6 +16,12 @@ class RouteGraphLayoutService
 
     private const POINTS_PER_INCH = 72.0;
 
+    private const PROCESS_TIMEOUT_SECONDS = 600.0;
+
+    private const PROCESS_MEMORY_BYTES = 1073741824;
+
+    private const PROCESS_CPU_SECONDS = 600;
+
     private const NODE_DIMENSIONS = [
         'choiceWidth' => 184.0,
         'choiceBaseHeight' => 34.0,
@@ -56,9 +62,17 @@ class RouteGraphLayoutService
         }
 
         $dot = $this->toDot($layout['nodes'], $layout['edges']);
-        $process = new Process(['dot', '-Tjson']);
+
+        $process = new Process([
+            '/usr/bin/prlimit',
+            '--as=' . self::PROCESS_MEMORY_BYTES,
+            '--cpu=' . self::PROCESS_CPU_SECONDS,
+            '--',
+            'dot',
+            '-Tjson',
+        ]);
         $process->setInput($dot);
-        $process->setTimeout((float) config('services.route_graph_layout.timeout', 300));
+        $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
         $process->run();
 
         if (! $process->isSuccessful()) {

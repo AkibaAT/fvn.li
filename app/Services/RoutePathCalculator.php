@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\Models\GameVersion;
 use App\Models\VersionRoutePath;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * Computes the shortest playable route from a game's start label to each of
@@ -19,20 +21,29 @@ use App\Models\VersionRoutePath;
  */
 class RoutePathCalculator
 {
+    public const MAX_CALCULATION_SECONDS = 30.0;
+
     public function __construct(
         private readonly RouteGraphService $routeGraphService = new RouteGraphService,
     ) {}
 
     public function calculateAndStore(GameVersion $version): void
     {
+        DB::transaction(fn () => $this->calculateAndStoreWithinTransaction($version));
+    }
+
+    private function calculateAndStoreWithinTransaction(GameVersion $version): void
+    {
         $version->routePaths()->delete();
+        $startedAt = hrtime(true);
+        $deadline = $startedAt + (int) (self::MAX_CALCULATION_SECONDS * 1_000_000_000);
 
         $graph = $this->routeGraphService->buildGraph($version);
 
         $startNodeId = $this->findStartNodeId($graph['nodes'] ?? []);
-        $endings = $graph['endings'] ?? [];
+        $allEndings = array_values(array_unique(array_map('strval', $graph['endings'] ?? [])));
 
-        if ($startNodeId === null || $endings === []) {
+        if ($startNodeId === null || $allEndings === []) {
             return;
         }
 
@@ -42,14 +53,16 @@ class RoutePathCalculator
         // Parent-pointer BFS over every edge (matches the frontend pathfinder
         // and RouteGraphPostProcessor::filterReachableFromStart, which both
         // traverse the edge set without filtering by edge_type).
-        $parentEdge = $this->findShortestPathEdges($startNodeId, $endings, $adjacency);
+        $parentEdge = $this->findShortestPathEdges($startNodeId, $allEndings, $adjacency, $deadline);
 
-        foreach ($endings as $endingLabel) {
+        foreach ($allEndings as $endingLabel) {
+            $this->ensureWithinDeadline($deadline);
+
             if (! isset($parentEdge[$endingLabel])) {
                 continue;
             }
 
-            [$pathLabels, $pathEdges] = $this->reconstructLabelPath($endingLabel, $parentEdge);
+            [$pathLabels, $pathEdges] = $this->reconstructLabelPath($endingLabel, $parentEdge, $deadline);
 
             if ($pathLabels === []) {
                 continue;
@@ -57,6 +70,7 @@ class RoutePathCalculator
 
             $wordCount = $this->sumWordCounts($pathLabels, $nodeByLabel);
             [$choiceCount, $choices] = $this->collectChoices($pathLabels, $pathEdges, $nodeByLabel);
+            $this->ensureWithinDeadline($deadline);
 
             VersionRoutePath::create([
                 'game_version_id' => $version->id,
@@ -129,20 +143,22 @@ class RoutePathCalculator
      * @param  array<string, array<int, array<string, mixed>>>  $adjacency
      * @return array<string, array<string, mixed>> node id => edge that reached it
      */
-    private function findShortestPathEdges(string $start, array $endings, array $adjacency): array
+    private function findShortestPathEdges(string $start, array $endings, array $adjacency, int $deadline): array
     {
         $endingSet = array_flip($endings);
         $remaining = count($endingSet);
 
         $parentEdge = [$start => []]; // start has no inbound edge
         $queue = [$start];
+        $queueIndex = 0;
 
-        while ($queue !== []) {
+        while (isset($queue[$queueIndex])) {
             if ($remaining === 0) {
                 break;
             }
+            $this->ensureWithinDeadline($deadline);
 
-            $current = array_shift($queue);
+            $current = $queue[$queueIndex++];
 
             foreach ($adjacency[$current] ?? [] as $edge) {
                 $target = (string) ($edge['target'] ?? '');
@@ -169,13 +185,14 @@ class RoutePathCalculator
      * @param  array<string, array<string, mixed>>  $parentEdge
      * @return array{0: array<int, string>, 1: array<int, array<string, mixed>>}
      */
-    private function reconstructLabelPath(string $ending, array $parentEdge): array
+    private function reconstructLabelPath(string $ending, array $parentEdge, int $deadline): array
     {
         $reversedLabels = [];
         $reversedEdges = [];
         $node = $ending;
 
         while (isset($parentEdge[$node])) {
+            $this->ensureWithinDeadline($deadline);
             $edge = $parentEdge[$node];
 
             // Only emit real labels into path_labels; condition-scope nodes are
@@ -193,6 +210,13 @@ class RoutePathCalculator
         }
 
         return [array_reverse($reversedLabels), array_reverse($reversedEdges)];
+    }
+
+    private function ensureWithinDeadline(int $deadline): void
+    {
+        if (hrtime(true) >= $deadline) {
+            throw new RuntimeException('Route path calculation exceeded its 30 second deadline.');
+        }
     }
 
     /**

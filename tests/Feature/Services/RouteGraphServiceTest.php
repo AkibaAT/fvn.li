@@ -11,6 +11,7 @@ use App\Models\VersionRouteLabel;
 use App\Models\VersionRouteMenuChoice;
 use App\Models\VersionRouteVariableChange;
 use App\Services\RouteGraphService;
+use App\Services\RoutePathCalculator;
 use Illuminate\Database\Eloquent\Model;
 
 uses()->group('route-graph');
@@ -129,7 +130,7 @@ function createRouteVariableChange(
     ]);
 }
 
-test('buildGraph refreshes stale cached graph revisions', function () {
+test('buildGraph rejects stale cached graph revisions without recomputing them', function () {
     createRouteLabel($this->version, 'start');
 
     $this->version->route_graph_data = [
@@ -140,12 +141,9 @@ test('buildGraph refreshes stale cached graph revisions', function () {
     ];
     $this->version->saveQuietly();
 
-    $graph = app(RouteGraphService::class)->buildGraph($this->version->fresh());
-
-    expect($graph['graph_revision'])->toBe(30)
-        ->and(collect($graph['nodes'])->pluck('id'))->toContain('start')
-        ->and(collect($graph['nodes'])->pluck('id'))->not->toContain('stale')
-        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(30);
+    expect(fn () => app(RouteGraphService::class)->buildGraph($this->version->fresh()))
+        ->toThrow(RuntimeException::class, 'has not been precomputed')
+        ->and($this->version->fresh()->route_graph_data['graph_revision'])->toBe(1);
 });
 
 test('developer gated route choices are excluded while production developer false paths remain', function () {
@@ -618,6 +616,26 @@ test('targetless choices on ending labels route to a synthetic ending node', fun
         ->and($edges->contains(fn (array $edge) => $edge['source'] === 'start:choice_1' && $edge['target'] === 'start:ending' && $edge['edge_type'] === 'return'))->toBeTrue();
 });
 
+test('overlong synthetic ending IDs can be persisted as route paths', function () {
+    $ending = str_repeat('a', 249);
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, $ending, 10, true);
+    createRouteEdge($this->version, 'start', $ending, 'jump', 5);
+    createRouteChoice($this->version, $ending, 'Sword', 20, menuLine: 19);
+    createRouteChoice($this->version, $ending, 'Axe', 30, menuLine: 19);
+    createRouteVariableChange($this->version, $ending, 'menu_choice:Sword', 'sword', 'Constant(value=1)', 21);
+    createRouteVariableChange($this->version, $ending, 'menu_choice:Axe', 'axe', 'Constant(value=1)', 31);
+
+    $graph = app(RouteGraphService::class)->computeAndStore($this->version);
+    app(RoutePathCalculator::class)->calculateAndStore($this->version);
+    $path = $this->version->routePaths()->firstOrFail();
+
+    expect($graph['endings'])->toHaveCount(1)
+        ->and(mb_strlen($graph['endings'][0]))->toBe(255)
+        ->and($path->ending_label)->toBe($graph['endings'][0])
+        ->and(mb_strlen($path->ending_label))->toBe(255);
+});
+
 test('targetless choices with continuation edges are hidden without route effects', function () {
     createRouteLabel($this->version, 'town', 1);
     createRouteLabel($this->version, 'nap', 40);
@@ -659,6 +677,10 @@ test('route graph endpoint only includes unreachable script nodes for admins and
     createRouteLabel($this->version, 'unfinished_intro', 20);
     createRouteLabel($this->version, 'unfinished_end', 30, true);
     createRouteEdge($this->version, 'unfinished_intro', 'unfinished_end', 'jump', 25);
+    app(RouteGraphService::class)->computeAndStore($this->version);
+
+    $this->version->routeLabels()->delete();
+    $this->version->routeEdges()->delete();
 
     $url = route('browser-api.games.version.route-graph', [
         'game' => $this->game->slug,

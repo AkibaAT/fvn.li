@@ -17,7 +17,7 @@ services:
 
   denkit-stash:
     container_name: ddev-${DDEV_SITENAME}-denkit-stash
-    image: ${DENKIT_STASH_IMAGE:-ghcr.io/akibaat/denkit-stash:development}
+    image: ${DENKIT_STASH_IMAGE:-ghcr.io/akibaat/denkit-stash:development@sha256:f0db94e2b93e695ae041ffa2a00bf490cb451792f09654ac571caef194d9fe71}
     command: ["./denkit-stash", "--port=8081"]
     expose:
       - "8081"
@@ -31,12 +31,13 @@ services:
       POSTGRES_DB: butler
       POSTGRES_USER: db
       POSTGRES_PASSWORD: db
-      MINIO_ENDPOINT: minio:9000
-      MINIO_PUBLIC_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ddevminio
-      MINIO_SECRET_KEY: ddevminio
-      MINIO_BUCKET: butler-storage
-      MINIO_USE_SSL: "false"
+      S3_ENDPOINT: http://rustfs:9000
+      S3_PUBLIC_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY: ddevrustfs
+      S3_SECRET_KEY: ddevrustfs
+      S3_BUCKET: denkit-storage
+      S3_REGION: us-east-1
+      S3_USE_SSL: "false"
       ENABLE_DEV_ENDPOINTS: "false"
       DENKIT_API_KEY_HASH_SECRET: fvn-li-local-denkit-hash-secret
       DENKIT_HTTP_READ_HEADER_TIMEOUT: 5s
@@ -46,7 +47,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8081/"]
@@ -58,40 +59,29 @@ services:
       com.ddev.site-name: ${DDEV_SITENAME}
       com.ddev.approot: ${DDEV_APPROOT}
 
-  minio:
-    container_name: ddev-${DDEV_SITENAME}-minio
-    image: ${MINIO_DOCKER_IMAGE:-minio/minio:latest}
+  rustfs:
+    container_name: ddev-${DDEV_SITENAME}-rustfs
+    image: ${RUSTFS_DOCKER_IMAGE:-rustfs/rustfs:1.0.0-beta.8@sha256:fa19210ac4697c79d7ccca1ec9b0eb91aebacc6691991ffb14014bb3c67e6cc3}
     environment:
-      MINIO_VOLUMES: /data
-      MC_CONFIG_DIR: /root/.mc
-      MINIO_UID: $DDEV_UID
-      MINIO_GID: $DDEV_GID
-      MINIO_ROOT_USER: ddevminio
-      MINIO_ROOT_PASSWORD: ddevminio
-    command: server --console-address :9090 --address :9000
+      RUSTFS_ACCESS_KEY: ddevrustfs
+      RUSTFS_SECRET_KEY: ddevrustfs
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: "0.0.0.0:9001"
+      RUSTFS_REGION: us-east-1
+      VIRTUAL_HOST: ${DDEV_HOSTNAME}
+      HTTPS_EXPOSE: 9091:9001
+    command: ["--address", ":9000", "--console-enable", "/data"]
     expose:
       - "9000"
-      - "9090"
+      - "9001"
     volumes:
-      - denkit-stash-minio:/data
-      - .:/mnt/ddev_config
-      - ddev-global-cache:/mnt/ddev-global-cache
-      - type: volume
-        source: ddev-global-cache
-        target: /root/.minio/certs/CAs
-        volume:
-          subpath: mkcert
-    configs:
-      - source: denkit-stash-mc-config.json
-        target: /root/.mc/config.json
-        mode: "0444"
+      - denkit-stash-rustfs:/data
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}
       com.ddev.approot: ${DDEV_APPROOT}
-    external_links:
-      - ddev-router:${DDEV_SITENAME}.${DDEV_TLD}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/health"]
       interval: 1s
       timeout: 5s
       retries: 120
@@ -102,24 +92,8 @@ services:
     volumes:
       - ./postgres/10-create-denkit-stash-database.sql:/docker-entrypoint-initdb.d/10-create-denkit-stash-database.sql:ro
 
-configs:
-  denkit-stash-mc-config.json:
-    content: |
-      {
-        "version": "10",
-        "aliases": {
-          "minio": {
-            "url": "http://minio:9000",
-            "accessKey": "ddevminio",
-            "secretKey": "ddevminio",
-            "api": "s3v4",
-            "path": "auto"
-          }
-        }
-      }
-
 volumes:
-  denkit-stash-minio:
-    name: ddev-${DDEV_SITENAME}-denkit-stash-minio
+  denkit-stash-rustfs:
+    name: ddev-${DDEV_SITENAME}-denkit-stash-rustfs
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}

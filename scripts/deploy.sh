@@ -87,6 +87,37 @@ read_dotenv_value() {
   printf '%s' "${value}"
 }
 
+require_denkit_stash_config() {
+  local required_keys=(
+    DB_USERNAME
+    DB_PASSWORD
+    DENKIT_STASH_IMAGE
+    DENKIT_STASH_POSTGRES_PASSWORD
+    DENKIT_STASH_S3_ACCESS_KEY
+    DENKIT_STASH_S3_SECRET_KEY
+    DENKIT_API_KEY_HASH_SECRET
+  )
+  local missing_keys=()
+  local key
+  local value
+
+  for key in "${required_keys[@]}"; do
+    value="${!key:-}"
+    if [ -z "${value}" ]; then
+      value="$(read_dotenv_value "${key}")"
+    fi
+    if [ -z "${value}" ]; then
+      missing_keys+=("${key}")
+    fi
+  done
+
+  if [ "${#missing_keys[@]}" -gt 0 ]; then
+    echo "Deployment configuration is incomplete; refusing to modify the running stack."
+    printf 'Missing required value: %s\n' "${missing_keys[@]}"
+    return 1
+  fi
+}
+
 bootstrap_denkit_stash_user() {
   local username="${DENKIT_STASH_USERNAME:-$(read_dotenv_value DENKIT_STASH_USERNAME fvn-li)}"
   local api_key="${DENKIT_STASH_API_KEY:-$(read_dotenv_value DENKIT_STASH_API_KEY)}"
@@ -107,6 +138,7 @@ if [ -f .env.deploy ]; then
   export $(grep -v '^#' .env.deploy | xargs)
 fi
 
+require_denkit_stash_config
 require_deploy_write_access
 ensure_host_write_paths
 

@@ -26,6 +26,15 @@ class DialogueSearchService
     ): LengthAwarePaginator {
         $language = $filters['language'] ?? null;
         $exactMatch = $filters['exact_match'] ?? false;
+        $characterDatabaseIds = [];
+        $hasCharacterFilter = $this->parseCharacterIds($filters['character_id'] ?? null) !== [];
+
+        if ($hasCharacterFilter) {
+            $characterDatabaseIds = $this->resolveCharacterDatabaseIds($filters);
+            if (empty($characterDatabaseIds)) {
+                return $this->emptyPaginator($perPage, $page);
+            }
+        }
 
         // Get raw Meilisearch results with all metadata
         $client = app(Client::class);
@@ -44,15 +53,12 @@ class DialogueSearchService
             // Filter by version_ids array
             $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
         }
-        if (! empty($filters['character_id'])) {
-            $characterDatabaseIds = $this->resolveCharacterDatabaseIds($filters);
-            if (! empty($characterDatabaseIds)) {
-                // Filter by character_ids array
-                $characterFilters = collect($characterDatabaseIds)
-                    ->map(fn (int $id) => 'character_ids = ' . $id)
-                    ->implode(' OR ');
-                $filterParts[] = count($characterDatabaseIds) === 1 ? $characterFilters : '(' . $characterFilters . ')';
-            }
+        if ($hasCharacterFilter) {
+            // Filter by character_ids array
+            $characterFilters = collect($characterDatabaseIds)
+                ->map(fn (int $id) => 'character_ids = ' . $id)
+                ->implode(' OR ');
+            $filterParts[] = count($characterDatabaseIds) === 1 ? $characterFilters : '(' . $characterFilters . ')';
         }
 
         // If exact match is requested, wrap the search term in quotes for phrase matching
@@ -91,16 +97,7 @@ class DialogueSearchService
         });
 
         if (empty($textIds)) {
-            return new LengthAwarePaginator(
-                [],
-                0,
-                $perPage,
-                $page,
-                [
-                    'path' => request()->url(),
-                    'pageName' => 'page',
-                ]
-            );
+            return $this->emptyPaginator($perPage, $page);
         }
 
         // Fetch actual dialogue lines from PostgreSQL with full context
@@ -119,11 +116,8 @@ class DialogueSearchService
         if (! empty($filters['language'])) {
             $query->where('iso_code', $filters['language']);
         }
-        if (! empty($filters['character_id'])) {
-            $characterDatabaseIds = $this->resolveCharacterDatabaseIds($filters);
-            if (! empty($characterDatabaseIds)) {
-                $query->whereIn('character_id', $characterDatabaseIds);
-            }
+        if ($hasCharacterFilter) {
+            $query->whereIn('character_id', $characterDatabaseIds);
         }
         if (! empty($filters['context'])) {
             $query->where('context', $filters['context']);
@@ -428,16 +422,30 @@ class DialogueSearchService
         return array_values(array_unique([...$databaseIds, ...$resolvedIds]));
     }
 
+    private function emptyPaginator(int $perPage, int $page): LengthAwarePaginator
+    {
+        return new LengthAwarePaginator(
+            [],
+            0,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'pageName' => 'page',
+            ]
+        );
+    }
+
     private function parseCharacterIds(mixed $characterId): array
     {
-        if (empty($characterId)) {
+        if ($characterId === null || $characterId === '') {
             return [];
         }
 
         if (is_array($characterId)) {
-            return array_values(array_filter(array_map('strval', $characterId)));
+            return array_values(array_filter(array_map('strval', $characterId), fn (string $id) => $id !== ''));
         }
 
-        return array_values(array_filter(array_map('trim', explode(',', (string) $characterId))));
+        return array_values(array_filter(array_map('trim', explode(',', (string) $characterId)), fn (string $id) => $id !== ''));
     }
 }

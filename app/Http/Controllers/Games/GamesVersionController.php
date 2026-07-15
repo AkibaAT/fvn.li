@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Games;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Services\RouteGraphService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,19 +73,12 @@ class GamesVersionController extends Controller
                 $versionHasFileStats[$versionId] = isset($fileStatsVersionIds[$versionId]);
             }
 
-            $versionsWithCachedRouteGraphs = DB::table('game_versions')
-                ->whereIn('id', $versionIds)
-                ->whereNotNull('route_graph_data')
+            $routeGraphService = app(RouteGraphService::class);
+            $routeDataVersionIds = $versions->getCollection()
+                ->filter(fn (GameVersion $version) => $routeGraphService->storedGraph($version) !== null)
                 ->pluck('id')
-                ->toArray();
-
-            $versionsWithRouteLabels = DB::table('version_route_labels')
-                ->whereIn('game_version_id', $versionIds)
-                ->distinct()
-                ->pluck('game_version_id')
-                ->toArray();
-
-            $routeDataVersionIds = array_flip(array_merge($versionsWithCachedRouteGraphs, $versionsWithRouteLabels));
+                ->flip()
+                ->all();
         }
 
         // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors

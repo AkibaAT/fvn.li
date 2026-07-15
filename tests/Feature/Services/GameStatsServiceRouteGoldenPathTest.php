@@ -156,7 +156,8 @@ test('route stats keep call continuations, choice assignments, and conditional e
             "Constant(value='lake')" => 'menu_choice:Sit with Lake',
         ]);
 
-    $graph = $this->version->fresh()->route_graph_data;
+    $version = $this->version->fresh();
+    $graph = $version->route_graph_data;
     $newGameSettings = collect($graph['nodes'])->firstWhere('id', 'new_game_settings');
     $mikkoChoice = collect($graph['nodes'])->firstWhere('choice_text', 'Sit with Mikko');
 
@@ -164,5 +165,6 @@ test('route stats keep call continuations, choice assignments, and conditional e
         ->and($newGameSettings['returns_to_caller'])->toBeTrue()
         ->and($mikkoChoice)->not->toBeNull()
         ->and($mikkoChoice['variable_changes'])->toHaveCount(1)
-        ->and($mikkoChoice['variable_changes'][0]['variable'])->toBe('lunch_person');
+        ->and($mikkoChoice['variable_changes'][0]['variable'])->toBe('lunch_person')
+        ->and($version->route_graph_unreachable_data['includes_unreachable'])->toBeTrue();
 });

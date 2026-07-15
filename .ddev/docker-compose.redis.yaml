@@ -2,7 +2,7 @@
 services:
   redis:
     container_name: ddev-${DDEV_SITENAME}-redis
-    image: redis:${REDIS_TAG:-6-bullseye}
+    image: redis:8.8.0@sha256:0b13f549ab871acafaa84b673c4e29bd7dce8d12526aaafe3b4ea3366c322daf
     # These labels ensure this service is discoverable by ddev.
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}

@@ -115,7 +115,7 @@ it('downloads DenKit Stash build archives from JSON URL responses', function () 
     $recorder = (object) [
         'downloadArchiveUrlCalls' => [],
     ];
-    $service = new class($recorder, Mockery::mock(GameArchiveService::class), new Client(['handler' => HandlerStack::create(new MockHandler([new Response(200, ['Content-Type' => 'application/json'], json_encode(['url' => 'http://minio.example/archive.zip']))]))])) extends DenKitStashPersistenceService
+    $service = new class($recorder, Mockery::mock(GameArchiveService::class), new Client(['handler' => HandlerStack::create(new MockHandler([new Response(200, ['Content-Type' => 'application/json'], json_encode(['url' => 'http://rustfs.example/archive.zip']))]))])) extends DenKitStashPersistenceService
     {
         public function __construct(private object $recorder, GameArchiveService $archiveService, Client $httpClient)
         {
@@ -133,7 +133,7 @@ it('downloads DenKit Stash build archives from JSON URL responses', function () 
         invokeDenKitStashMethod($service, 'downloadBuildArchive', [4, $archivePath]);
 
         expect($recorder->downloadArchiveUrlCalls)->toBe([
-            ['http://minio.example/archive.zip', $archivePath],
+            ['http://rustfs.example/archive.zip', $archivePath],
         ])->and(File::get($archivePath))->toBe('zip-bytes-from-url');
     } finally {
         File::delete($archivePath);

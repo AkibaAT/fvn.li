@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\DiscordChannelAnnouncement;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationHistory;
@@ -16,13 +17,13 @@ use Illuminate\Support\Collection;
 
 uses(RefreshDatabase::class);
 
-function queueCommandGame(array $versionAttributes = []): array
+function queueCommandGame(array $versionAttributes = [], array $gameAttributes = []): array
 {
-    $game = Game::factory()->create([
+    $game = Game::factory()->create(array_merge([
         'name' => 'Command VN',
         'is_paid' => false,
         'is_visible' => true,
-    ]);
+    ], $gameAttributes));
     $version = GameVersion::factory()->create(array_merge([
         'game_id' => $game->id,
         'version' => '3.0',
@@ -73,6 +74,18 @@ it('exits queue command early when there are no recent free game updates', funct
         ->assertExitCode(0);
 
     expect(NotificationQueue::query()->count())->toBe(0);
+});
+
+it('does not queue notifications or channel announcements for hidden games', function () {
+    [$game] = queueCommandGame(gameAttributes: ['is_visible' => false]);
+    notificationUserFor($game);
+
+    $this->artisan('notifications:queue-game-updates --days=1')
+        ->expectsOutput('No recently updated games found, skipping notification processing')
+        ->assertExitCode(0);
+
+    expect(NotificationQueue::query()->count())->toBe(0)
+        ->and(DiscordChannelAnnouncement::query()->count())->toBe(0);
 });
 
 it('queues browser and Discord notifications for eligible users', function () {

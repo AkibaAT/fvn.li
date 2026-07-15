@@ -56,7 +56,10 @@ it('rejects unsafe processed archive filenames without deleting the temporary so
 it('persists route graph labels edges menu choices variables and variable changes', function () {
     $game = Game::factory()->create();
     $version = GameVersion::factory()->for($game)->create();
-    $version->forceFill(['route_graph_data' => ['stale' => true]])->save();
+    $version->forceFill([
+        'route_graph_data' => ['stale' => true],
+        'route_graph_unreachable_data' => ['stale' => true],
+    ])->save();
 
     $service = app(GameStatsService::class);
 
@@ -120,6 +123,7 @@ it('persists route graph labels edges menu choices variables and variable change
     ]]);
 
     expect($version->fresh()->route_graph_data)->toBeNull()
+        ->and($version->fresh()->route_graph_unreachable_data)->toBeNull()
         ->and(DB::table('version_route_labels')->where('game_version_id', $version->id)->count())->toBe(1)
         ->and(DB::table('version_route_edges')->where('game_version_id', $version->id)->value('condition'))->toBe('points > 3')
         ->and(DB::table('version_route_menu_choices')->where('game_version_id', $version->id)->value('target_label'))->toBe('good_end')

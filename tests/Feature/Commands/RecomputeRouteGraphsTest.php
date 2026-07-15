@@ -42,6 +42,8 @@ test('recompute route graphs refreshes cached graphs and route paths', function 
     $version->refresh();
 
     expect($version->route_graph_data['graph_revision'])->toBeGreaterThan(1)
+        ->and($version->route_graph_unreachable_data['graph_revision'])->toBe($version->route_graph_data['graph_revision'])
+        ->and($version->route_graph_unreachable_data['includes_unreachable'])->toBeTrue()
         ->and($version->routePaths()->where('ending_label', 'finale')->exists())->toBeTrue();
 });
 
