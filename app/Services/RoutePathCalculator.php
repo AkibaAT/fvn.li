@@ -23,6 +23,14 @@ class RoutePathCalculator
 {
     public const MAX_CALCULATION_SECONDS = 30.0;
 
+    public const MAX_ENDINGS = 1000;
+
+    public const MAX_PATH_STEPS = 10_000;
+
+    public const MAX_TOTAL_PATH_STEPS = 250_000;
+
+    public const MAX_TOTAL_JSON_BYTES = 16 * 1024 * 1024;
+
     public function __construct(
         private readonly RouteGraphService $routeGraphService = new RouteGraphService,
     ) {}
@@ -47,6 +55,14 @@ class RoutePathCalculator
             return;
         }
 
+        if (count($allEndings) > self::MAX_ENDINGS) {
+            throw new RuntimeException(sprintf(
+                'Route path calculation found %d endings; the limit is %d.',
+                count($allEndings),
+                self::MAX_ENDINGS,
+            ));
+        }
+
         $nodeByLabel = $this->indexNodesByLabel($graph['nodes'] ?? []);
         $adjacency = $this->buildAdjacency($graph['edges'] ?? []);
 
@@ -54,6 +70,9 @@ class RoutePathCalculator
         // and RouteGraphPostProcessor::filterReachableFromStart, which both
         // traverse the edge set without filtering by edge_type).
         $parentEdge = $this->findShortestPathEdges($startNodeId, $allEndings, $adjacency, $deadline);
+
+        $totalPathSteps = 0;
+        $totalJsonBytes = 0;
 
         foreach ($allEndings as $endingLabel) {
             $this->ensureWithinDeadline($deadline);
@@ -68,15 +87,45 @@ class RoutePathCalculator
                 continue;
             }
 
+            $pathSteps = count($pathLabels);
+            if ($pathSteps > self::MAX_PATH_STEPS) {
+                throw new RuntimeException(sprintf(
+                    'Route path to "%s" has %d steps; the limit is %d.',
+                    $endingLabel,
+                    $pathSteps,
+                    self::MAX_PATH_STEPS,
+                ));
+            }
+
+            $totalPathSteps += $pathSteps;
+            if ($totalPathSteps > self::MAX_TOTAL_PATH_STEPS) {
+                throw new RuntimeException(sprintf(
+                    'Route paths contain more than %d total steps.',
+                    self::MAX_TOTAL_PATH_STEPS,
+                ));
+            }
+
             $wordCount = $this->sumWordCounts($pathLabels, $nodeByLabel);
             [$choiceCount, $choices] = $this->collectChoices($pathLabels, $pathEdges, $nodeByLabel);
+
+            $totalJsonBytes += $this->encodedJsonBytes($pathLabels);
+            if ($choices !== []) {
+                $totalJsonBytes += $this->encodedJsonBytes($choices);
+            }
+            if ($totalJsonBytes > self::MAX_TOTAL_JSON_BYTES) {
+                throw new RuntimeException(sprintf(
+                    'Route path JSON exceeds the %d byte limit.',
+                    self::MAX_TOTAL_JSON_BYTES,
+                ));
+            }
+
             $this->ensureWithinDeadline($deadline);
 
             VersionRoutePath::create([
                 'game_version_id' => $version->id,
                 'ending_label' => $endingLabel,
                 'path_labels' => $pathLabels,
-                'step_count' => count($pathLabels),
+                'step_count' => $pathSteps,
                 'word_count' => $wordCount,
                 'choice_count' => $choiceCount,
                 'choices' => $choices ?: null,
@@ -198,6 +247,13 @@ class RoutePathCalculator
             // Only emit real labels into path_labels; condition-scope nodes are
             // structural wiring between a source and its factored condition.
             if (! str_starts_with($node, 'condition_scope:')) {
+                if (count($reversedLabels) >= self::MAX_PATH_STEPS) {
+                    throw new RuntimeException(sprintf(
+                        'Route path to "%s" has more than %d steps.',
+                        $ending,
+                        self::MAX_PATH_STEPS,
+                    ));
+                }
                 $reversedLabels[] = $node;
             }
 
@@ -217,6 +273,11 @@ class RoutePathCalculator
         if (hrtime(true) >= $deadline) {
             throw new RuntimeException('Route path calculation exceeded its 30 second deadline.');
         }
+    }
+
+    private function encodedJsonBytes(array $value): int
+    {
+        return strlen(json_encode($value, JSON_THROW_ON_ERROR));
     }
 
     /**

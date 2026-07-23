@@ -10,6 +10,7 @@ use App\Models\VersionRoutePath;
 use App\Models\VersionRouteVariableChange;
 use App\Services\RouteGraphService;
 use App\Services\RoutePathCalculator;
+use Mockery\MockInterface;
 
 function routePathVersion(): GameVersion
 {
@@ -20,6 +21,18 @@ function calculateImportedRoutePaths(GameVersion $version): void
 {
     app(RouteGraphService::class)->computeAndStore($version);
     (new RoutePathCalculator)->calculateAndStore($version);
+}
+
+function calculateRoutePathsFromGraph(GameVersion $version, array $graph): void
+{
+    $routeGraphService = Mockery::mock(RouteGraphService::class, function (MockInterface $mock) use ($version, $graph): void {
+        $mock->shouldReceive('buildGraph')
+            ->once()
+            ->with($version)
+            ->andReturn($graph);
+    });
+
+    (new RoutePathCalculator($routeGraphService))->calculateAndStore($version);
 }
 
 function routePathLabel(GameVersion $version, string $name, bool $isEnding = false): void
@@ -238,6 +251,87 @@ it('stores all path labels for many deep endings', function () {
 
     expect($version->routePaths()->sum('step_count'))->toBe(20300)
         ->and($version->routePaths()->count())->toBe(200);
+});
+
+it('rejects excessive ending counts before traversing the graph and retains existing paths', function () {
+    $version = routePathVersion();
+    VersionRoutePath::create([
+        'game_version_id' => $version->id,
+        'ending_label' => 'existing',
+        'path_labels' => ['start', 'existing'],
+        'step_count' => 2,
+        'word_count' => 0,
+        'choice_count' => 0,
+    ]);
+
+    $endings = array_map(
+        fn (int $index): string => 'ending_' . $index,
+        range(1, RoutePathCalculator::MAX_ENDINGS + 1),
+    );
+
+    $graph = [
+        'nodes' => [['id' => 'start', 'is_start' => true]],
+        'edges' => [],
+        'endings' => $endings,
+    ];
+
+    expect(fn () => calculateRoutePathsFromGraph($version, $graph))
+        ->toThrow(RuntimeException::class, 'the limit is ' . RoutePathCalculator::MAX_ENDINGS);
+
+    expect($version->routePaths()->pluck('ending_label')->all())->toBe(['existing']);
+});
+
+it('rejects quadratic aggregate path growth and rolls back partial paths', function () {
+    $version = routePathVersion();
+    $nodeCount = (int) ceil(sqrt(RoutePathCalculator::MAX_TOTAL_PATH_STEPS * 2));
+    $nodes = [['id' => 'start', 'is_start' => true]];
+    $edges = [];
+    $endings = [];
+    $previous = 'start';
+
+    for ($index = 1; $index <= $nodeCount; $index++) {
+        $ending = 'ending_' . $index;
+        $nodes[] = ['id' => $ending];
+        $edges[] = ['source' => $previous, 'target' => $ending, 'edge_type' => 'jump'];
+        $endings[] = $ending;
+        $previous = $ending;
+    }
+
+    $graph = [
+        'nodes' => $nodes,
+        'edges' => $edges,
+        'endings' => $endings,
+    ];
+
+    expect(fn () => calculateRoutePathsFromGraph($version, $graph))
+        ->toThrow(RuntimeException::class, 'more than ' . RoutePathCalculator::MAX_TOTAL_PATH_STEPS . ' total steps');
+
+    expect($version->routePaths()->count())->toBe(0);
+});
+
+it('stops reconstructing a path when it exceeds the per-path step limit', function () {
+    $version = routePathVersion();
+    $nodes = [['id' => 'start', 'is_start' => true]];
+    $edges = [];
+    $previous = 'start';
+
+    for ($index = 1; $index <= RoutePathCalculator::MAX_PATH_STEPS; $index++) {
+        $label = $index === RoutePathCalculator::MAX_PATH_STEPS ? 'ending_deep' : 'step_' . $index;
+        $nodes[] = ['id' => $label];
+        $edges[] = ['source' => $previous, 'target' => $label, 'edge_type' => 'jump'];
+        $previous = $label;
+    }
+
+    $graph = [
+        'nodes' => $nodes,
+        'edges' => $edges,
+        'endings' => ['ending_deep'],
+    ];
+
+    expect(fn () => calculateRoutePathsFromGraph($version, $graph))
+        ->toThrow(RuntimeException::class, 'more than ' . RoutePathCalculator::MAX_PATH_STEPS . ' steps');
+
+    expect($version->routePaths()->count())->toBe(0);
 });
 
 it('stores hub menu choice destinations as the choice target label', function () {
