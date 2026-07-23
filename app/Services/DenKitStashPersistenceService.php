@@ -10,6 +10,7 @@ use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -145,6 +146,38 @@ class DenKitStashPersistenceService
         return 'main';
     }
 
+    /**
+     * Resolve a browser-usable (presigned) download URL for the latest
+     * persisted build of a game version. Authorization is the caller's
+     * responsibility; the returned URL is self-authenticating and short-lived.
+     *
+     * @return array{build_id: int, url: string}|null null when no build exists
+     *                                                or DenKit Stash did not provide an external URL
+     */
+    public function archiveDownloadUrl(Game $game, GameVersion $version, string $channel = 'main'): ?array
+    {
+        if (! $this->isEnabled()) {
+            return null;
+        }
+
+        $username = $this->username();
+        $targetName = $this->targetName($game);
+        $buildId = $this->latestBuildId($username, $targetName, $channel, (string) $version->version);
+        if ($buildId === null) {
+            return null;
+        }
+
+        $url = $this->buildDownloadUrl($buildId);
+        if ($url === null) {
+            return null;
+        }
+
+        return [
+            'build_id' => $buildId,
+            'url' => $url,
+        ];
+    }
+
     public function getLastRestoreDiagnostic(): ?string
     {
         return $this->lastRestoreDiagnostic;
@@ -194,18 +227,7 @@ class DenKitStashPersistenceService
 
     private function downloadBuildArchive(int $buildId, string $archivePath): void
     {
-        $client = $this->httpClient([
-            'timeout' => 600,
-            'connect_timeout' => 30,
-            'allow_redirects' => false,
-        ]);
-        $response = $client->get($this->serverUrl() . "/builds/{$buildId}/download/archive/default", [
-            'http_errors' => false,
-            'headers' => [
-                'Authorization' => 'Bearer ' . $this->apiKey(),
-                'Accept' => 'application/json',
-            ],
-        ]);
+        $response = $this->fetchBuildDownloadResponse($buildId);
 
         if ($response->getStatusCode() === 200) {
             $payload = json_decode((string) $response->getBody(), true);
@@ -231,6 +253,46 @@ class DenKitStashPersistenceService
         }
 
         $this->downloadArchiveUrl($location, $archivePath);
+    }
+
+    /**
+     * Resolve the externally reachable download URL for a build, i.e. the
+     * presigned object-storage URL that stash signs against S3_PUBLIC_ENDPOINT.
+     * Returns null when stash inlines the archive bytes instead of a URL.
+     */
+    private function buildDownloadUrl(int $buildId): ?string
+    {
+        $response = $this->fetchBuildDownloadResponse($buildId);
+
+        if ($response->getStatusCode() === 200) {
+            $payload = json_decode((string) $response->getBody(), true);
+            $url = is_array($payload) ? ($payload['url'] ?? null) : null;
+
+            return is_string($url) && $url !== '' ? $url : null;
+        }
+
+        if ($response->getStatusCode() !== 307) {
+            throw new RuntimeException("Expected DenKit Stash archive redirect for build {$buildId}, got HTTP {$response->getStatusCode()}");
+        }
+
+        $location = $response->getHeaderLine('Location');
+
+        return $location !== '' ? $location : null;
+    }
+
+    private function fetchBuildDownloadResponse(int $buildId): ResponseInterface
+    {
+        return $this->httpClient([
+            'timeout' => 600,
+            'connect_timeout' => 30,
+            'allow_redirects' => false,
+        ])->get($this->serverUrl() . "/builds/{$buildId}/download/archive/default", [
+            'http_errors' => false,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->apiKey(),
+                'Accept' => 'application/json',
+            ],
+        ]);
     }
 
     private function restoredArchiveFilename(string $archivePath, int $buildId): string

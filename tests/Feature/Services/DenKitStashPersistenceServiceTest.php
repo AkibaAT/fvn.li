@@ -439,3 +439,91 @@ it('fails when butler push does not synchronously report a build id', function (
         File::delete($archivePath);
     }
 });
+
+it('resolves presigned download URLs for persisted game versions', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $presignedUrl = 'https://s3.example/denkit-stash-storage/builds/456/archive.zip?X-Amz-Signature=abc';
+    $history = [];
+    $handlerStack = HandlerStack::create(new MockHandler([
+        new Response(200, [], json_encode(['build' => ['id' => 456, 'state' => 'completed', 'user_version' => '1.2.3']])),
+        new Response(307, ['Location' => $presignedUrl]),
+    ]));
+    $handlerStack->push(Middleware::history($history));
+
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => $handlerStack, 'allow_redirects' => false, 'http_errors' => false])
+    );
+
+    $game = Game::factory()->create(['name' => 'Dawn Chorus', 'slug' => 'dawn-chorus']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '1.2.3']);
+
+    expect($service->archiveDownloadUrl($game, $version))->toBe([
+        'build_id' => 456,
+        'url' => $presignedUrl,
+    ]);
+
+    expect($history)->toHaveCount(2);
+    $downloadRequest = $history[1]['request'];
+    expect((string) $downloadRequest->getUri())->toContain('https://stash.example/builds/456/download/archive/default')
+        ->and($downloadRequest->getHeaderLine('Authorization'))->toBe('Bearer secret-key');
+});
+
+it('resolves download URLs returned as JSON payloads', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $presignedUrl = 'https://s3.example/denkit-stash-storage/builds/7/archive.zip?X-Amz-Signature=def';
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => HandlerStack::create(new MockHandler([
+            new Response(200, [], json_encode(['build' => ['id' => 7]])),
+            new Response(200, [], json_encode(['url' => $presignedUrl])),
+        ]))])
+    );
+
+    $game = Game::factory()->create(['slug' => 'json-game']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '2.0']);
+
+    expect($service->archiveDownloadUrl($game, $version))->toBe([
+        'build_id' => 7,
+        'url' => $presignedUrl,
+    ]);
+});
+
+it('returns null when no build has been persisted for the version', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => HandlerStack::create(new MockHandler([
+            new Response(404, [], '{"errors":["build not found"]}'),
+        ]))])
+    );
+
+    $game = Game::factory()->create(['slug' => 'unpersisted-game']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '9.9.9']);
+
+    expect($service->archiveDownloadUrl($game, $version))->toBeNull();
+});
+
+it('returns null when DenKit Stash inlines archive bytes instead of a URL', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => HandlerStack::create(new MockHandler([
+            new Response(200, [], json_encode(['build' => ['id' => 9]])),
+            new Response(200, [], 'raw-archive-bytes'),
+        ]))])
+    );
+
+    $game = Game::factory()->create(['slug' => 'inline-game']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '3.0']);
+
+    expect($service->archiveDownloadUrl($game, $version))->toBeNull();
+});

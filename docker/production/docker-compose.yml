@@ -42,6 +42,7 @@ services:
       - DENKIT_STASH_API_KEY=${DENKIT_STASH_API_KEY}
       - BUTLER_CLIENT_PATH=${BUTLER_CLIENT_PATH:-/opt/butler}
       - ARCHIVE_OPTIMIZER_IMAGE=${DOCKER_IMAGE}
+      - ARCHIVE_OPTIMIZER_HOST_APP_DIR=${ARCHIVE_OPTIMIZER_HOST_APP_DIR:-${PWD}}
       - ARCHIVE_OPTIMIZER_HOST_WORK_DIR=/var/lib/fvn-archive-optimizer/${COMPOSE_PROJECT_NAME}
       - ARCHIVE_OPTIMIZER_CONTAINER_WORK_DIR=/optimizer-work
     healthcheck:
@@ -137,7 +138,7 @@ services:
       - POSTGRES_USER=${DENKIT_STASH_POSTGRES_USERNAME:-denkit_stash}
       - POSTGRES_PASSWORD=${DENKIT_STASH_POSTGRES_PASSWORD}
       - S3_ENDPOINT=http://rustfs:9000
-      - S3_PUBLIC_ENDPOINT=${DENKIT_STASH_S3_PUBLIC_ENDPOINT:-http://rustfs:9000}
+      - S3_PUBLIC_ENDPOINT=${DENKIT_STASH_S3_PUBLIC_ENDPOINT:-https://s3.${APP_DOMAIN}}
       - S3_ACCESS_KEY=${DENKIT_STASH_S3_ACCESS_KEY}
       - S3_SECRET_KEY=${DENKIT_STASH_S3_SECRET_KEY}
       - S3_BUCKET=${DENKIT_STASH_S3_BUCKET:-denkit-stash-storage}
@@ -149,6 +150,19 @@ services:
       - DENKIT_HTTP_READ_TIMEOUT=${DENKIT_HTTP_READ_TIMEOUT:-30m}
       - DENKIT_HTTP_WRITE_TIMEOUT=${DENKIT_HTTP_WRITE_TIMEOUT:-30m}
       - DENKIT_HTTP_IDLE_TIMEOUT=2m
+      # Archive cache eviction (opt-in): stash keeps patches+signatures
+      # permanently and can rebuild full archives on demand, so stale non-head
+      # archives may be deleted from S3 once this flag is enabled.
+      - DENKIT_ARCHIVE_GC_ENABLED=${DENKIT_ARCHIVE_GC_ENABLED:-false}
+      - DENKIT_ARCHIVE_TTL=${DENKIT_ARCHIVE_TTL:-720h}
+      - DENKIT_ARCHIVE_GC_INTERVAL=${DENKIT_ARCHIVE_GC_INTERVAL:-1h}
+      - DENKIT_ARCHIVE_GC_BATCH=${DENKIT_ARCHIVE_GC_BATCH:-100}
+      - DENKIT_ARCHIVE_REBUILD_TIMEOUT=${DENKIT_ARCHIVE_REBUILD_TIMEOUT:-20m}
+      # Disk-backed staging for archive generation/rebuilds; games run to
+      # multiple GB, so keep this off tmpfs and off the container layer.
+      - TMPDIR=/scratch
+    volumes:
+      - denkit_stash_scratch:/scratch
   rustfs:
     <<: *rustfs
     restart: unless-stopped
@@ -161,6 +175,16 @@ services:
       start_period: 10s
     networks:
       - fvnli
+      - web
+    labels:
+      # Exposes only the S3 API (port 9000) for presigned-URL downloads.
+      # The console stays internal (port 9001 is never routed).
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.rule=Host(`s3.${APP_DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.entrypoints=https"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.tls=true"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-rustfs.loadbalancer.server.port=9000"
     environment:
       - RUSTFS_ACCESS_KEY=${DENKIT_STASH_S3_ACCESS_KEY}
       - RUSTFS_SECRET_KEY=${DENKIT_STASH_S3_SECRET_KEY}
@@ -335,6 +359,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}_redis
   denkit_stash_rustfs:
     name: ${COMPOSE_PROJECT_NAME}_denkit_stash_rustfs
+  denkit_stash_scratch:
+    name: ${COMPOSE_PROJECT_NAME}_denkit_stash_scratch
 
 networks:
   fvnli:

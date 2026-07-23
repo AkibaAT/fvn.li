@@ -6,11 +6,14 @@ namespace App\Http\Controllers;
 
 use App\Models\ClickStat;
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\User;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\GameMediaEditorService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -505,6 +508,38 @@ class MyGamesController extends Controller
                 'message' => 'Failed to reorder screenshots: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Redirect the developer (own games) or an admin (any game) to a
+     * short-lived presigned URL for the version's optimized archive.
+     */
+    public function downloadOptimizedArchive(Request $request, Game $game, GameVersion $version): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return redirect()->guest(route('login'));
+        }
+
+        if ($version->game_id !== $game->id) {
+            abort(404);
+        }
+
+        if (! $this->canEditGameMedia($user, $game)) {
+            abort(403, 'You are not allowed to download this game archive.');
+        }
+
+        $stash = app(DenKitStashPersistenceService::class);
+        if (! $stash->isEnabled()) {
+            abort(404, 'Archive storage is not configured.');
+        }
+
+        $download = $stash->archiveDownloadUrl($game, $version);
+        if ($download === null) {
+            abort(404, 'No optimized archive has been persisted for this game version.');
+        }
+
+        return redirect()->away($download['url']);
     }
 
     private function sanitizeAdditionalLinkUrl(string $url): string

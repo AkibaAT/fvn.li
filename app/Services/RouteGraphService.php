@@ -10,7 +10,7 @@ use RuntimeException;
 
 class RouteGraphService
 {
-    public const GRAPH_REVISION = 30;
+    public const GRAPH_REVISION = 31;
 
     public function __construct(
         private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
@@ -171,6 +171,16 @@ class RouteGraphService
                 $firstMenuCondition = $singleGroup ? $this->menuAnalyzer->commonMenuCondition($singleGroup['choices']) : null;
                 $usesDedicatedMenuNodes = $hasMultipleMenuGroups || $firstMenuCondition !== null;
                 [$previousMenuGroupByIndex, $nextMenuGroupByIndex] = $this->menuSequencer->menuSequenceLinks($menuGroups, $continuationEdges);
+                // A group sequenced after a group from a sibling branch still needs its
+                // own label entry: when the earlier branch is skipped entirely, Ren'Py
+                // reaches this menu directly, and if the earlier menu's choices all jump
+                // away, the sequence link alone would leave this group unreachable.
+                $hasLabelEntry = function (int $index) use ($menuGroups, $previousMenuGroupByIndex): bool {
+                    $previousIndex = $previousMenuGroupByIndex[$index] ?? null;
+
+                    return $previousIndex === null
+                        || (string) ($menuGroups[$previousIndex]['menu_branch'] ?? '') !== (string) ($menuGroups[$index]['menu_branch'] ?? '');
+                };
                 $firstChildGroupByChoiceLine = $this->menuSequencer->firstChildMenuGroupByChoiceLine($menuGroups, $previousMenuGroupByIndex);
                 $resumeGroupByChildGroupIndex = $this->menuSequencer->resumeMenuGroupByChildGroupIndex($menuGroups, $nextMenuGroupByIndex);
                 foreach ($resumeGroupByChildGroupIndex as $childGroupIndex => $resumeGroupIndex) {
@@ -189,7 +199,7 @@ class RouteGraphService
                         'file_path' => $label->file_path,
                         'line_number' => $label->line_number,
                         'outgoing_count' => collect(array_keys($menuGroups))
-                            ->filter(fn (int $index) => ! isset($previousMenuGroupByIndex[$index]) && (int) ($menuGroups[$index]['parent_choice_line'] ?? 0) <= 0)
+                            ->filter(fn (int $index) => $hasLabelEntry($index) && (int) ($menuGroups[$index]['parent_choice_line'] ?? 0) <= 0)
                             ->count(),
                         'word_count' => $wordCounts[$name] ?? 0,
                         'choices' => [],
@@ -271,7 +281,7 @@ class RouteGraphService
                         'parent_label' => $usesDedicatedMenuNodes ? $name : null,
                     ];
 
-                    if ($usesDedicatedMenuNodes && ! isset($previousMenuGroupByIndex[$groupIndex])) {
+                    if ($usesDedicatedMenuNodes && $hasLabelEntry($groupIndex)) {
                         $entrySourceId = $name;
                         $entryEdgeType = 'menu';
                         $parentChoiceLine = (int) ($menuGroup['parent_choice_line'] ?? 0);

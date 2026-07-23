@@ -107,6 +107,7 @@ return [
         'image' => env('ARCHIVE_OPTIMIZER_IMAGE', env('DOCKER_IMAGE', 'fvn.li:latest')),
         'php_binary' => env('ARCHIVE_OPTIMIZER_PHP_BINARY', 'php'),
         'app_path' => env('ARCHIVE_OPTIMIZER_APP_PATH', '/app'),
+        'host_app_dir' => env('ARCHIVE_OPTIMIZER_HOST_APP_DIR'),
         'container_work_dir' => env('ARCHIVE_OPTIMIZER_CONTAINER_WORK_DIR', '/optimizer-work'),
         'host_work_dir' => env('ARCHIVE_OPTIMIZER_HOST_WORK_DIR', '/var/lib/fvn-archive-optimizer'),
         'timeout' => (int) env('ARCHIVE_OPTIMIZER_TIMEOUT', 900),

@@ -14,6 +14,7 @@ it('builds a locked down docker command for per-archive optimization', function 
         'services.archive_optimizer.work_size' => '3g',
         'services.archive_optimizer.php_binary' => 'php8.5',
         'services.archive_optimizer.app_path' => '/srv/app',
+        'services.archive_optimizer.host_app_dir' => '/host/app',
     ]);
 
     $command = (new GameArchiveOptimizerDockerRunner)->buildDockerRunCommand(
@@ -45,6 +46,7 @@ it('builds a locked down docker command for per-archive optimization', function 
         ->and($command)->toContain('ARCHIVE_OPTIMIZER_WORK_DIR=/work')
         ->and($command)->toContain('type=bind,source=/host/work/job/input,target=/input,readonly')
         ->and($command)->toContain('type=bind,source=/host/work/job/output,target=/output')
+        ->and($command)->toContain('type=bind,source=/host/app,target=/srv/app,readonly')
         ->and($command)->toContain('/input/archive-optimize.php')
         ->and($command)->toContain('/input/game.zip')
         ->and($command)->toContain('/output/optimized.zip')

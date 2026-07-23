@@ -1148,3 +1148,60 @@ test('fall-through flow edges survive menus that can be skipped or fallen out of
 
     expect($edges->contains(fn (array $edge) => $edge['target'] === 'aftermath' && $edge['edge_type'] === 'flow'))->toBeTrue();
 });
+
+test('sibling branch menus stay reachable when the earlier branch menu only jumps away', function () {
+    // NeveN chapitreselec shape: two chapter-select menus in sequential sibling
+    // if-branches. Every choice of the first menu jumps to a chapter, so no
+    // fall-through links the menus; the second menu must keep its label entry.
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'selector', 5);
+    createRouteLabel($this->version, 'akhet1a', 100);
+    createRouteLabel($this->version, 'akhet2a', 110);
+    createRouteLabel($this->version, 'vekad1a', 200);
+    createRouteLabel($this->version, 'vekad2a', 210);
+
+    createRouteEdge($this->version, 'start', 'selector', 'jump', 2);
+
+    createRouteChoice($this->version, 'selector', 'Chapter 1', 22, 'akhet1a', 'True', menuLine: 21, enclosingCondition: 'routea', menuBranch: 'if:20:0');
+    createRouteChoice($this->version, 'selector', 'Chapter 2', 24, 'akhet2a', 'True', menuLine: 21, enclosingCondition: 'routea', menuBranch: 'if:20:0');
+
+    createRouteChoice($this->version, 'selector', 'Chapter 1', 32, 'vekad1a', 'True', menuLine: 31, enclosingCondition: '(not routea) and routev', menuBranch: 'if:30:0');
+    createRouteChoice($this->version, 'selector', 'Chapter 2', 34, 'vekad2a', 'True', menuLine: 31, enclosingCondition: '(not routea) and routev', menuBranch: 'if:30:0');
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $nodes = collect($graph['nodes'])->keyBy('id');
+    $edges = collect($graph['edges']);
+
+    expect($nodes)->toHaveKey('selector:menu_22')
+        ->and($nodes)->toHaveKey('selector:menu_32')
+        ->and($nodes)->toHaveKey('vekad1a')
+        ->and($nodes)->toHaveKey('vekad2a')
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'selector' && $edge['target'] === 'selector:menu_22'))->toBeTrue()
+        ->and($edges->contains(fn (array $edge) => $edge['source'] === 'selector' && $edge['target'] === 'selector:menu_32'))->toBeTrue();
+});
+
+test('dead sequential menus in the same branch stay hidden from the default graph', function () {
+    // Two same-branch sequential menus where every choice of the first jumps
+    // away make the second menu genuine dead code: keep it out of the default
+    // graph but visible when unreachable nodes are requested.
+    createRouteLabel($this->version, 'start', 1);
+    createRouteLabel($this->version, 'scene', 5);
+    createRouteLabel($this->version, 'left', 100);
+    createRouteLabel($this->version, 'right', 110);
+
+    createRouteEdge($this->version, 'start', 'scene', 'jump', 2);
+
+    createRouteChoice($this->version, 'scene', 'Go left', 10, 'left', 'True', menuLine: 9);
+    createRouteChoice($this->version, 'scene', 'Go right', 12, 'right', 'True', menuLine: 9);
+
+    createRouteChoice($this->version, 'scene', 'Never left', 20, 'left', 'True', menuLine: 19);
+    createRouteChoice($this->version, 'scene', 'Never right', 22, 'right', 'True', menuLine: 19);
+
+    $service = app(RouteGraphService::class);
+    $defaultNodes = collect($service->computeGraph($this->version)['nodes'])->keyBy('id');
+    $fullNodes = collect($service->computeGraph($this->version, includeUnreachable: true)['nodes'])->keyBy('id');
+
+    expect($defaultNodes)->toHaveKey('scene:menu_10')
+        ->and($defaultNodes)->not->toHaveKey('scene:menu_20')
+        ->and($fullNodes)->toHaveKey('scene:menu_20');
+});
