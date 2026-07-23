@@ -1,10 +1,13 @@
 <?php
 
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Services\DenKitStashPersistenceService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\GameEditingScenario;
 
 function myGamesInertiaHeaders(): array
 {
@@ -578,4 +581,90 @@ test('reorder screenshots validates payloads and enforces edit rights', function
         ])
         ->assertForbidden()
         ->assertJson(['success' => false, 'message' => 'Forbidden']);
+});
+
+function bindStashDownloadMock(?array $download, bool $enabled = true): void
+{
+    $mock = Mockery::mock(DenKitStashPersistenceService::class);
+    $mock->shouldReceive('isEnabled')->andReturn($enabled);
+    if ($enabled) {
+        $mock->shouldReceive('archiveDownloadUrl')->andReturn($download);
+    }
+
+    app()->instance(DenKitStashPersistenceService::class, $mock);
+}
+
+test('optimized archive download redirects guests to login', function () {
+    $game = Game::factory()->create(['slug' => 'guest-download-game']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '1.0']);
+
+    $this->get(route('my-games.optimized-download', [$game, $version]))
+        ->assertRedirect(route('login'));
+});
+
+test('optimized archive download is forbidden for users who do not own the game', function () {
+    $scenario = GameEditingScenario::ownedItchGame();
+    $version = GameVersion::factory()->create(['game_id' => $scenario->game->id, 'version' => '1.0']);
+
+    bindStashDownloadMock(['build_id' => 1, 'url' => 'https://s3.example/should-not-leak']);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('my-games.optimized-download', [$scenario->game, $version]))
+        ->assertForbidden();
+});
+
+test('game owners are redirected to a presigned archive download URL', function () {
+    $scenario = GameEditingScenario::ownedItchGame();
+    $version = GameVersion::factory()->create(['game_id' => $scenario->game->id, 'version' => '1.0']);
+
+    $presignedUrl = 'https://s3.example/denkit-stash-storage/builds/1/archive.zip?X-Amz-Signature=abc';
+    bindStashDownloadMock(['build_id' => 1, 'url' => $presignedUrl]);
+
+    $this->actingAs($scenario->developer)
+        ->get(route('my-games.optimized-download', [$scenario->game, $version]))
+        ->assertRedirect($presignedUrl);
+});
+
+test('admins can download any game archive', function () {
+    $scenario = GameEditingScenario::ownedItchGame();
+    $version = GameVersion::factory()->create(['game_id' => $scenario->game->id, 'version' => '1.0']);
+
+    $presignedUrl = 'https://s3.example/denkit-stash-storage/builds/2/archive.zip?X-Amz-Signature=admin';
+    bindStashDownloadMock(['build_id' => 2, 'url' => $presignedUrl]);
+
+    $this->actingAs(User::factory()->create(['is_admin' => true]))
+        ->get(route('my-games.optimized-download', [$scenario->game, $version]))
+        ->assertRedirect($presignedUrl);
+});
+
+test('archive download for a version belonging to another game is not found', function () {
+    $scenario = GameEditingScenario::ownedItchGame();
+    $otherGame = Game::factory()->create(['slug' => 'other-download-game']);
+    $foreignVersion = GameVersion::factory()->create(['game_id' => $otherGame->id, 'version' => '1.0']);
+
+    $this->actingAs(User::factory()->create(['is_admin' => true]))
+        ->get(route('my-games.optimized-download', [$scenario->game, $foreignVersion]))
+        ->assertNotFound();
+});
+
+test('archive download is not found when DenKit Stash is disabled', function () {
+    $scenario = GameEditingScenario::ownedItchGame();
+    $version = GameVersion::factory()->create(['game_id' => $scenario->game->id, 'version' => '1.0']);
+
+    bindStashDownloadMock(null, enabled: false);
+
+    $this->actingAs($scenario->developer)
+        ->get(route('my-games.optimized-download', [$scenario->game, $version]))
+        ->assertNotFound();
+});
+
+test('archive download is not found when no build has been persisted', function () {
+    $scenario = GameEditingScenario::ownedItchGame();
+    $version = GameVersion::factory()->create(['game_id' => $scenario->game->id, 'version' => '1.0']);
+
+    bindStashDownloadMock(null);
+
+    $this->actingAs($scenario->developer)
+        ->get(route('my-games.optimized-download', [$scenario->game, $version]))
+        ->assertNotFound();
 });

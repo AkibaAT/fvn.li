@@ -1,5 +1,9 @@
 services:
   web:
+    # Grants access to the mounted docker socket; override via DOCKER_SOCKET_GID in .ddev/.env
+    # if the host's docker group has a different gid (stat -c %g /var/run/docker.sock).
+    group_add:
+      - "${DOCKER_SOCKET_GID:-975}"
     environment:
       DENKIT_STASH_URL: http://denkit-stash:8081
       DENKIT_STASH_PUBLIC_URL: https://denkit-stash-fvn-li.ddev.site
@@ -9,6 +13,7 @@ services:
       ARCHIVE_OPTIMIZER_IMAGE: ddev/ddev-webserver:${DDEV_VERSION}-${DDEV_SITENAME}-built
       ARCHIVE_OPTIMIZER_PHP_BINARY: php8.5
       ARCHIVE_OPTIMIZER_APP_PATH: /var/www/html
+      ARCHIVE_OPTIMIZER_HOST_APP_DIR: ${DDEV_APPROOT}
       ARCHIVE_OPTIMIZER_HOST_WORK_DIR: ${DDEV_APPROOT}/.ddev/.archive-optimizer
       ARCHIVE_OPTIMIZER_CONTAINER_WORK_DIR: /optimizer-work
     volumes:
@@ -32,7 +37,9 @@ services:
       POSTGRES_USER: db
       POSTGRES_PASSWORD: db
       S3_ENDPOINT: http://rustfs:9000
-      S3_PUBLIC_ENDPOINT: http://rustfs:9000
+      # Presigned download URLs must resolve from the host browser; the
+      # ddev router exposes the S3 API on 9092 (see the rustfs service).
+      S3_PUBLIC_ENDPOINT: https://${DDEV_SITENAME}.ddev.site:9092
       S3_ACCESS_KEY: ddevrustfs
       S3_SECRET_KEY: ddevrustfs
       S3_BUCKET: denkit-storage
@@ -44,6 +51,17 @@ services:
       DENKIT_HTTP_READ_TIMEOUT: 30m
       DENKIT_HTTP_WRITE_TIMEOUT: 30m
       DENKIT_HTTP_IDLE_TIMEOUT: 2m
+      # Archive cache eviction (opt-in); override via .ddev/.env to test
+      # eviction + rebuild-on-demand locally, e.g. TTL 1m / interval 1m.
+      DENKIT_ARCHIVE_GC_ENABLED: ${DENKIT_ARCHIVE_GC_ENABLED:-false}
+      DENKIT_ARCHIVE_TTL: ${DENKIT_ARCHIVE_TTL:-720h}
+      DENKIT_ARCHIVE_GC_INTERVAL: ${DENKIT_ARCHIVE_GC_INTERVAL:-1h}
+      DENKIT_ARCHIVE_GC_BATCH: ${DENKIT_ARCHIVE_GC_BATCH:-100}
+      DENKIT_ARCHIVE_REBUILD_TIMEOUT: ${DENKIT_ARCHIVE_REBUILD_TIMEOUT:-20m}
+      # Disk-backed staging for archive generation/rebuilds (parity with prod).
+      TMPDIR: /scratch
+    volumes:
+      - denkit-stash-scratch:/scratch
     depends_on:
       db:
         condition: service_healthy
@@ -70,7 +88,9 @@ services:
       RUSTFS_CONSOLE_ADDRESS: "0.0.0.0:9001"
       RUSTFS_REGION: us-east-1
       VIRTUAL_HOST: ${DDEV_HOSTNAME}
-      HTTPS_EXPOSE: 9091:9001
+      # 9091 -> S3 console (internal tooling), 9092 -> S3 API (public endpoint
+      # for presigned downloads; parity with Traefik's s3.${APP_DOMAIN} in prod).
+      HTTPS_EXPOSE: 9091:9001,9092:9000
     command: ["--address", ":9000", "--console-enable", "/data"]
     expose:
       - "9000"
@@ -95,5 +115,9 @@ services:
 volumes:
   denkit-stash-rustfs:
     name: ddev-${DDEV_SITENAME}-denkit-stash-rustfs
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+  denkit-stash-scratch:
+    name: ddev-${DDEV_SITENAME}-denkit-stash-scratch
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}

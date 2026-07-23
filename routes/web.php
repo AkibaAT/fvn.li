@@ -247,6 +247,7 @@ Route::get('raters/{rater}/games/{game}/history', [RatingsController::class, 'ge
 Route::middleware('auth')->group(function () {
     Route::get('my/games', [MyGamesController::class, 'myGamesIndex'])->name('my-games.index');
     Route::get('my/games/{game:slug}/edit', [MyGamesController::class, 'myGamesEdit'])->name('my-games.edit');
+    Route::get('my/games/{game:slug}/versions/{version}/optimized/download', [MyGamesController::class, 'downloadOptimizedArchive'])->name('my-games.optimized-download');
 });
 
 Route::middleware('auth')->group(function () {

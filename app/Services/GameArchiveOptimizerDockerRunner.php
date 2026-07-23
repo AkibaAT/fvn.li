@@ -146,16 +146,26 @@ class GameArchiveOptimizerDockerRunner
             'ARCHIVE_OPTIMIZER_APP_PATH=' . (string) config('services.archive_optimizer.app_path', '/app'),
             '--env',
             'ARCHIVE_OPTIMIZER_WORK_DIR=/work',
+            '--env',
+            'LOG_CHANNEL=stderr',
             '--mount',
             "type=bind,source={$hostJobDir}/input,target=/input,readonly",
             '--mount',
             "type=bind,source={$hostJobDir}/output,target=/output",
-            (string) config('services.archive_optimizer.image'),
-            '/input/archive-optimize.php',
-            "/input/{$archiveFilename}",
-            "/output/{$optimizedFilename}",
-            '/output/result.json',
         ];
+
+        // The image does not contain the application code; it is bind-mounted at runtime.
+        $hostAppDir = rtrim((string) config('services.archive_optimizer.host_app_dir', ''), '/');
+        if ($hostAppDir !== '') {
+            $command[] = '--mount';
+            $command[] = "type=bind,source={$hostAppDir},target=" . (string) config('services.archive_optimizer.app_path', '/app') . ',readonly';
+        }
+
+        $command[] = (string) config('services.archive_optimizer.image');
+        $command[] = '/input/archive-optimize.php';
+        $command[] = "/input/{$archiveFilename}";
+        $command[] = "/output/{$optimizedFilename}";
+        $command[] = '/output/result.json';
 
         if ($previousFilename !== null) {
             $command[] = "/input/{$previousFilename}";
