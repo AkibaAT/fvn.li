@@ -33,6 +33,7 @@
         versionHasFileStats = {},
         versionHasDialogueLines = {},
         versionHasRouteData = {},
+        versionOptimizedArchiveAvailability = {},
         availableRatings = [],
         platforms = { windows: false, linux: false, mac: false, android: false, web: false },
         canSeeAnalytics = false,
@@ -186,6 +187,10 @@
                 versionHasFileStats = {
                     ...versionHasFileStats,
                     ...data.versionHasFileStats,
+                };
+                versionOptimizedArchiveAvailability = {
+                    ...versionOptimizedArchiveAvailability,
+                    ...data.versionOptimizedArchiveAvailability,
                 };
                 versionsData = data;
             })
@@ -654,6 +659,8 @@
     {versionCharacterCounts}
     {versionHasFileStats}
     {versionHasRouteData}
+    {versionOptimizedArchiveAvailability}
+    canDownloadOptimizedArchives={editPermissions.canEdit && !previewingVisitorView}
     {compareFromVersionId}
     {compareToVersionId}
     {characterStatsLoading}

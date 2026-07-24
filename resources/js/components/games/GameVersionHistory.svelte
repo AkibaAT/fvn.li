@@ -18,6 +18,8 @@
         versionCharacterCounts,
         versionHasFileStats,
         versionHasRouteData,
+        versionOptimizedArchiveAvailability,
+        canDownloadOptimizedArchives,
         compareFromVersionId,
         compareToVersionId,
         characterStatsLoading,
@@ -46,6 +48,8 @@
         versionCharacterCounts: Record<number, number>;
         versionHasFileStats: Record<number, boolean>;
         versionHasRouteData: Record<number, boolean>;
+        versionOptimizedArchiveAvailability: Record<number, boolean>;
+        canDownloadOptimizedArchives: boolean;
         compareFromVersionId: number | null;
         compareToVersionId: number | null;
         characterStatsLoading: number | null;
@@ -205,7 +209,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-2 flex gap-2">
+                    <div class="mt-2 flex flex-wrap gap-2">
                         {#if versionCharacterCounts[version.id] > 0}
                             <Button
                                 type="button"
@@ -252,6 +256,17 @@
                                     View File Stats
                                 {/if}
                             </Button>
+                        {/if}
+                        {#if canDownloadOptimizedArchives && versionOptimizedArchiveAvailability[version.id] === true}
+                            <a
+                                href={route('my-games.optimized-download', { game: gameSlug, version: version.id })}
+                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4m-4 8h16" />
+                                </svg>
+                                Download archive
+                            </a>
                         {/if}
                     </div>
 

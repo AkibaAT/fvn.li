@@ -178,6 +178,74 @@ class DenKitStashPersistenceService
         ];
     }
 
+    /**
+     * Resolve persisted optimized-archive availability for a loaded set of versions.
+     *
+     * @param  iterable<GameVersion>  $versions
+     * @return array<int, bool>
+     */
+    public function persistedArchiveAvailability(Game $game, iterable $versions, string $channel = 'main'): array
+    {
+        $versionsById = [];
+        $availability = [];
+        foreach ($versions as $version) {
+            if (! $version instanceof GameVersion || $version->game_id !== $game->id) {
+                continue;
+            }
+
+            $versionsById[$version->id] = (string) $version->version;
+            $availability[$version->id] = false;
+        }
+
+        if ($versionsById === [] || ! $this->isEnabled()) {
+            return $availability;
+        }
+
+        $username = $this->username();
+        $targetName = $this->targetName($game);
+        $response = $this->httpClient([
+            'timeout' => 30,
+            'connect_timeout' => 10,
+        ])->get($this->serverUrl() . '/wharf/builds', [
+            'http_errors' => false,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->apiKey(),
+                'Accept' => 'application/json',
+            ],
+            'query' => [
+                'target' => "{$username}/{$targetName}",
+                'channel' => $channel,
+            ],
+        ]);
+
+        if ($response->getStatusCode() === 404) {
+            return $availability;
+        }
+
+        if ($response->getStatusCode() !== 200) {
+            throw new RuntimeException("Failed to query DenKit Stash builds: HTTP {$response->getStatusCode()}");
+        }
+
+        $data = json_decode((string) $response->getBody(), true);
+        $persistedVersions = [];
+        foreach (is_array($data['builds'] ?? null) ? $data['builds'] : [] as $build) {
+            if (! is_array($build) || ($build['state'] ?? null) !== 'completed') {
+                continue;
+            }
+
+            $userVersion = $build['user_version'] ?? null;
+            if (is_string($userVersion)) {
+                $persistedVersions[$userVersion] = true;
+            }
+        }
+
+        foreach ($versionsById as $versionId => $userVersion) {
+            $availability[$versionId] = isset($persistedVersions[$userVersion]);
+        }
+
+        return $availability;
+    }
+
     public function getLastRestoreDiagnostic(): ?string
     {
         return $this->lastRestoreDiagnostic;

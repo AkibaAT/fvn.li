@@ -97,6 +97,7 @@ interface VersionsResponse {
     versions: GamePageVersion[];
     pagination: PaginationMeta;
     versionHasFileStats: Record<number, boolean>;
+    versionOptimizedArchiveAvailability: Record<number, boolean>;
 }
 
 // API functions
@@ -140,6 +141,7 @@ export async function fetchVersions(gameId: number, page: number, perPage: numbe
     return {
         versions: response.data.versions.data,
         versionHasFileStats: response.data.versionHasFileStats ?? {},
+        versionOptimizedArchiveAvailability: response.data.versionOptimizedArchiveAvailability ?? {},
         pagination: {
             current_page: response.data.versions.current_page,
             last_page: response.data.versions.last_page,

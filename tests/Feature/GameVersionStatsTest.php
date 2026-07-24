@@ -5,12 +5,14 @@ declare(strict_types=1);
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\User;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use App\Services\GameStatsService;
+use App\Services\DenKitStashPersistenceService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -964,12 +966,22 @@ describe('regression prevention', function () {
             'total_size' => 1024,
         ]);
 
-        $response = $this->getJson("/browser-api/games/{$this->game->id}/versions?page=2&perPage=1");
+        $admin = User::factory()->create(['is_admin' => true]);
+        $stash = Mockery::mock(DenKitStashPersistenceService::class);
+        $stash->shouldReceive('persistedArchiveAvailability')
+            ->once()
+            ->andReturn([$olderVersion->id => true]);
+        app()->instance(DenKitStashPersistenceService::class, $stash);
+
+        $response = $this
+            ->actingAs($admin)
+            ->getJson("/browser-api/games/{$this->game->id}/versions?page=2&perPage=1");
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('versions.data.0.id', $olderVersion->id)
-            ->assertJsonPath("versionHasFileStats.{$olderVersion->id}", true);
+            ->assertJsonPath("versionHasFileStats.{$olderVersion->id}", true)
+            ->assertJsonPath("versionOptimizedArchiveAvailability.{$olderVersion->id}", true);
     });
 
     test('compare versions route rejects nonnumeric game ids before model binding', function () {

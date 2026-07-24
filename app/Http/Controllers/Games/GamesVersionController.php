@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Games;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\RouteGraphService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -60,6 +61,7 @@ class GamesVersionController extends Controller
 
         $versionIds = $versions->getCollection()->pluck('id')->all();
         $versionHasFileStats = [];
+        $versionOptimizedArchiveAvailability = [];
         $routeDataVersionIds = [];
         if (! empty($versionIds)) {
             $fileStatsVersionIds = DB::table('version_file_categories')
@@ -79,6 +81,18 @@ class GamesVersionController extends Controller
                 ->pluck('id')
                 ->flip()
                 ->all();
+
+            if ($game->canUserEdit($request->user())) {
+                try {
+                    $versionOptimizedArchiveAvailability = app(DenKitStashPersistenceService::class)
+                        ->persistedArchiveAvailability($game, $versions->getCollection());
+                } catch (Exception $exception) {
+                    Log::warning('Could not resolve optimized archive availability for paginated versions', [
+                        'game_id' => $game->id,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
         }
 
         // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors
@@ -98,6 +112,7 @@ class GamesVersionController extends Controller
             'success' => true,
             'versions' => $versions,
             'versionHasFileStats' => $versionHasFileStats,
+            'versionOptimizedArchiveAvailability' => $versionOptimizedArchiveAvailability,
         ]);
     }
 

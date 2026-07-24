@@ -14,6 +14,7 @@ use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -375,6 +376,12 @@ test('game show exposes rich version review progress analytics and recommendatio
     $recommendations->shouldReceive('findDeveloperGames')->once()->andReturn(collect([$developer]));
     app()->instance(SimilarGamesService::class, $recommendations);
 
+    $stash = Mockery::mock(DenKitStashPersistenceService::class);
+    $stash->shouldReceive('persistedArchiveAvailability')
+        ->once()
+        ->andReturn([$version->id => true]);
+    app()->instance(DenKitStashPersistenceService::class, $stash);
+
     $response = $this
         ->actingAs($user)
         ->withHeaders(gameShowInertiaHeaders())
@@ -395,6 +402,7 @@ test('game show exposes rich version review progress analytics and recommendatio
         ->and($response->json("props.versionHasFileStats.{$version->id}"))->toBeTrue()
         ->and($response->json("props.versionHasDialogueLines.{$version->id}"))->toBeTrue()
         ->and($response->json("props.versionHasRouteData.{$version->id}"))->toBeTrue()
+        ->and($response->json("props.versionOptimizedArchiveAvailability.{$version->id}"))->toBeTrue()
         ->and($response->json('props.userReview.rating'))->toBe(5)
         ->and($response->json('props.publicListsCount'))->toBe(1)
         ->and($response->json('props.similarGames.0.name'))->toBe('Similar Game')
