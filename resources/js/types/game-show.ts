@@ -254,6 +254,7 @@ export interface GameShowProps {
     versionHasFileStats?: Record<number, boolean>;
     versionHasDialogueLines?: Record<number, boolean>;
     versionHasRouteData?: Record<number, boolean>;
+    versionOptimizedArchiveAvailability?: Record<number, boolean>;
     availableRatings?: number[];
     platforms?: { windows: boolean; linux: boolean; mac: boolean; android: boolean; web: boolean };
     canSeeAnalytics?: boolean;

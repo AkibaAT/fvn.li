@@ -510,6 +510,49 @@ it('returns null when no build has been persisted for the version', function () 
     expect($service->archiveDownloadUrl($game, $version))->toBeNull();
 });
 
+it('resolves persisted archive availability for loaded versions in one request', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $history = [];
+    $handlerStack = HandlerStack::create(new MockHandler([
+        new Response(200, [], json_encode([
+            'builds' => [
+                ['id' => 1, 'user_version' => '1.0', 'state' => 'completed'],
+                ['id' => 2, 'user_version' => '2.0', 'state' => 'failed'],
+                ['id' => 3, 'user_version' => 'unloaded', 'state' => 'completed'],
+            ],
+        ])),
+    ]));
+    $handlerStack->push(Middleware::history($history));
+
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => $handlerStack, 'http_errors' => false])
+    );
+
+    $game = Game::factory()->create(['slug' => 'availability-game']);
+    $availableVersion = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '1.0']);
+    $failedVersion = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '2.0']);
+    $missingVersion = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '3.0']);
+
+    expect($service->persistedArchiveAvailability($game, [
+        $availableVersion,
+        $failedVersion,
+        $missingVersion,
+    ]))->toBe([
+        $availableVersion->id => true,
+        $failedVersion->id => false,
+        $missingVersion->id => false,
+    ]);
+
+    expect($history)->toHaveCount(1);
+    $request = $history[0]['request'];
+    expect((string) $request->getUri())->toContain('https://stash.example/wharf/builds')
+        ->and((string) $request->getUri())->toContain('target=fvn-li%2F' . $game->slug)
+        ->and((string) $request->getUri())->toContain('channel=main');
+});
+
 it('returns null when DenKit Stash inlines archive bytes instead of a URL', function () {
     Config::set('services.denkit_stash.url', 'https://stash.example');
     Config::set('services.denkit_stash.api_key', 'secret-key');

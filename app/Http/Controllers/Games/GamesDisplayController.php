@@ -9,6 +9,7 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VnList;
+use App\Services\DenKitStashPersistenceService;
 use App\Services\GameSocialMetaBuilder;
 use App\Services\HtmlSanitizerService;
 use App\Services\RouteGraphService;
@@ -19,8 +20,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class GamesDisplayController extends Controller
 {
@@ -238,6 +241,18 @@ class GamesDisplayController extends Controller
         $isAdmin = $user && $user->is_admin;
         $isOwner = $user && ! $isAdmin && $user->ownsGame($game);
         $canEdit = $isOwner || $isAdmin;
+        $versionOptimizedArchiveAvailability = [];
+        if ($canEdit && $gameVersions->getCollection()->isNotEmpty()) {
+            try {
+                $versionOptimizedArchiveAvailability = app(DenKitStashPersistenceService::class)
+                    ->persistedArchiveAvailability($game, $gameVersions->getCollection());
+            } catch (Throwable $throwable) {
+                Log::warning('Could not resolve optimized archive availability', [
+                    'game_id' => $game->id,
+                    'error' => $throwable->getMessage(),
+                ]);
+            }
+        }
 
         // Get analytics data if user can see it
         $canSeeAnalytics = $isOwner || $isAdmin;
@@ -409,6 +424,7 @@ class GamesDisplayController extends Controller
             'versionHasFileStats' => $versionHasFileStats,
             'versionHasDialogueLines' => $versionHasDialogueLines,
             'versionHasRouteData' => $versionHasRouteData,
+            'versionOptimizedArchiveAvailability' => $versionOptimizedArchiveAvailability,
             'editPermissions' => [
                 'canEdit' => $canEdit,
                 'hasCustomPage' => (bool) $game->has_custom_page,
