@@ -491,23 +491,21 @@ class GameArchiveOptimizationService
     {
         $missingSources = array_values(array_filter(
             $rpycFiles,
-            fn (string $file): bool => ! File::exists(preg_replace('/c$/', '', $file) ?? $file)
+            fn (string $file): bool => ! $this->hasRpySource($file)
         ));
 
         if (empty($missingSources)) {
             return 0;
         }
 
-        $binary = $this->binary('unrpyc') ?? $this->binary('rpycdec');
+        $binary = $this->binary('unrpyc');
         if ($binary === null) {
-            throw new RuntimeException('RPYC files without matching RPY sources found, but no unrpyc/rpycdec binary is available');
+            throw new RuntimeException('RPYC files without matching RPY sources found, but no unrpyc binary is available');
         }
 
         $failed = 0;
         foreach ($missingSources as $rpycFile) {
-            $process = str_contains(basename($binary), 'rpycdec')
-                ? new Process([$binary, 'decompile', $rpycFile], dirname($rpycFile))
-                : new Process([$binary, '--clobber', $rpycFile], dirname($rpycFile));
+            $process = new Process([$binary, '--clobber', $rpycFile], dirname($rpycFile));
             $process->setTimeout(300);
             $process->run();
 
@@ -526,6 +524,14 @@ class GameArchiveOptimizationService
         }
 
         return $failed;
+    }
+
+    private function hasRpySource(string $rpycFile): bool
+    {
+        $basePath = substr($rpycFile, 0, -strlen('.rpyc'));
+
+        return File::exists($basePath . '.rpy')
+            || File::exists($basePath . '_ren.py');
     }
 
     private function summarizeProcessFailure(Process $process): string
