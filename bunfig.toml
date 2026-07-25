@@ -2,3 +2,4 @@
 exact = true
 ignoreScripts = true
 minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["brace-expansion"]
