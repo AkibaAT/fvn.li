@@ -56,6 +56,55 @@ try {
     $diagnostics = [];
     $statsPath = $gameDir . '/stats.json';
 
+    if (getenv('RENPY_ANALYZER_ALLOW_NATIVE') === '1') {
+        $nativeExecutable = findNativeLinuxExecutable($gameDir);
+        if ($nativeExecutable !== null) {
+            makeNativeRuntimeExecutable($gameDir, $nativeExecutable);
+
+            $nativeResult = runStatsCommand(
+                [$nativeExecutable, 'game', 'test'],
+                dirname($nativeExecutable),
+                $statsPath,
+                $outputPath,
+                300,
+                [
+                    'HOME' => $renpyHome,
+                    'RENPY_PATH_TO_SAVES' => $renpyHome . '/.renpy',
+                ]
+            );
+
+            if ($nativeResult['has_stats']) {
+                exit(0);
+            }
+
+            if (! hasTranslationTree($gameDir)) {
+                $nativeLauncherResult = runStatsCommand(
+                    [$nativeExecutable],
+                    dirname($nativeExecutable),
+                    $statsPath,
+                    $outputPath,
+                    300,
+                    [
+                        'HOME' => $renpyHome,
+                        'RENPY_PATH_TO_SAVES' => $renpyHome . '/.renpy',
+                    ]
+                );
+
+                if ($nativeLauncherResult['has_stats']) {
+                    exit(0);
+                }
+
+                $diagnostics[] = "Native launcher analysis failed:\n"
+                    . $nativeLauncherResult['stderr']
+                    . $nativeLauncherResult['stdout'];
+            } else {
+                $diagnostics[] = "Native test-mode analysis failed:\n"
+                    . $nativeResult['stderr']
+                    . $nativeResult['stdout'];
+            }
+        }
+    }
+
     $result = runProcess([$sdkPath . '/renpy.sh', 'game', 'test'], $gameDir, 300, [
         'HOME' => $renpyHome,
         'RENPY_PATH_TO_SAVES' => $renpyHome . '/.renpy',
@@ -126,6 +175,85 @@ function copyValidStats(string $statsPath, string $outputPath): bool
     copy($statsPath, $outputPath);
 
     return true;
+}
+
+/**
+ * @param  array<int, string>  $command
+ * @param  array<string, string>  $env
+ * @return array{has_stats: bool, exit_code: int, stdout: string, stderr: string}
+ */
+function runStatsCommand(
+    array $command,
+    string $cwd,
+    string $statsPath,
+    string $outputPath,
+    int $timeout,
+    array $env
+): array {
+    if (is_file($statsPath)) {
+        unlink($statsPath);
+    }
+
+    $result = runProcess($command, $cwd, $timeout, $env);
+
+    return [
+        'has_stats' => copyValidStats($statsPath, $outputPath),
+        'exit_code' => $result['exit_code'],
+        'stdout' => $result['stdout'],
+        'stderr' => $result['stderr'],
+    ];
+}
+
+function findNativeLinuxExecutable(string $gameDir): ?string
+{
+    $launchers = glob($gameDir . '/*.sh') ?: [];
+    sort($launchers);
+
+    foreach ($launchers as $launcher) {
+        if (is_file($launcher)) {
+            return $launcher;
+        }
+    }
+
+    return null;
+}
+
+function makeNativeRuntimeExecutable(string $gameDir, string $launcher): void
+{
+    chmod($launcher, 0755);
+
+    $libDir = $gameDir . '/lib';
+    if (! is_dir($libDir)) {
+        return;
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($libDir, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::LEAVES_ONLY
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->isFile()) {
+            chmod($file->getPathname(), 0755);
+        }
+    }
+}
+
+function hasTranslationTree(string $gameDir): bool
+{
+    $translationPath = $gameDir . '/game/tl';
+    if (! is_dir($translationPath)) {
+        return false;
+    }
+
+    foreach (glob($translationPath . '/*', GLOB_ONLYDIR) ?: [] as $languageDir) {
+        $language = basename($languageDir);
+        if ($language !== 'None' && $language !== 'common') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -219,7 +347,9 @@ function extractZip(string $archivePath, string $extractPath): void
 
             $targetPath = $extractPath . '/' . $name;
             if (str_ends_with($name, '/')) {
-                mkdir($targetPath, 0777, true);
+                if (! is_dir($targetPath)) {
+                    mkdir($targetPath, 0777, true);
+                }
 
                 continue;
             }

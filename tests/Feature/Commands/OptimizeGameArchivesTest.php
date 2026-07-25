@@ -412,9 +412,8 @@ test('optimize game archives skips rpyc files that fail to decompile', function 
     createArchiveWithMissingRpySources($game->id, $version->id, 'partial-rpyc.zip');
 
     $oldPath = getenv('PATH') ?: '';
-    $binDir = sys_get_temp_dir() . '/fake-rpycdec-' . bin2hex(random_bytes(4));
+    $binDir = sys_get_temp_dir() . '/fake-unrpyc-' . bin2hex(random_bytes(4));
     mkdir($binDir);
-    $fakeRpycdec = $binDir . '/rpycdec';
     $fakeUnrpyc = $binDir . '/unrpyc';
     $fakeDecompiler = <<<'SH'
 #!/bin/sh
@@ -429,9 +428,7 @@ case "$target" in
 esac
 printf 'image recovered = "images/bg.png"\n' > "${target%c}"
 SH;
-    file_put_contents($fakeRpycdec, $fakeDecompiler);
     file_put_contents($fakeUnrpyc, $fakeDecompiler);
-    chmod($fakeRpycdec, 0755);
     chmod($fakeUnrpyc, 0755);
     putenv('PATH=' . $binDir . PATH_SEPARATOR . $oldPath);
     $_SERVER['PATH'] = $binDir . PATH_SEPARATOR . $oldPath;
@@ -457,7 +454,6 @@ SH;
         putenv('PATH=' . $oldPath);
         $_SERVER['PATH'] = $oldPath;
         $_ENV['PATH'] = $oldPath;
-        @unlink($fakeRpycdec);
         @unlink($fakeUnrpyc);
         @rmdir($binDir);
     }
@@ -467,7 +463,9 @@ SH;
 
     try {
         expect($zip->locateName('game/good.rpy'))->not->toBeFalse()
-            ->and($zip->locateName('game/bad.rpy'))->toBeFalse();
+            ->and($zip->locateName('game/bad.rpy'))->toBeFalse()
+            ->and($zip->locateName('game/compiled_python.rpy'))->toBeFalse()
+            ->and($zip->locateName('game/compiled_python_ren.py'))->not->toBeFalse();
 
         $script = $zip->getFromName('game/good.rpy');
         expect($script)->toContain('images/bg.webp')
@@ -729,6 +727,8 @@ function createArchiveWithMissingRpySources(int $gameId, int $versionId, string 
         $zip->addFile($imagePath, 'game/images/bg.png');
         $zip->addFromString('game/good.rpyc', 'fake good bytecode');
         $zip->addFromString('game/bad.rpyc', 'fake bad bytecode');
+        $zip->addFromString('game/compiled_python.rpyc', 'fake compiled Python bytecode');
+        $zip->addFromString('game/compiled_python_ren.py', "init python:\n    pass\n");
     } finally {
         $zip->close();
         unlink($imagePath);

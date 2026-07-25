@@ -1,4 +1,2 @@
 unrpa==2.3.0 \
     --hash=sha256:17b024050e19edf470eb9abd91fa5fb2be63aa73c01f44d2ef9cf6978289eea9
-rpycdec==0.1.12 \
-    --hash=sha256:b9bdb4df963fdcca8abd2a24fe5754fed94e7eb4f2cc6c13c27e4db858896b2b

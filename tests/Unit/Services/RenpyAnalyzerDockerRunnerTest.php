@@ -41,6 +41,8 @@ it('builds a locked down docker command for per-archive analysis', function () {
         ->and($command)->toContain('768m')
         ->and($command)->toContain('/tmp:rw,nosuid,nodev,noexec,mode=1777,size=128m')
         ->and($command)->toContain('/work:rw,nosuid,nodev,noexec,mode=1777,size=2g')
+        ->and($command)->toContain('RENPY_ANALYZER_ALLOW_NATIVE=1')
+        ->and($command)->toContain('RENPY_ANALYZER_WORK_DIR=/output/work')
         ->and($command)->toContain('type=bind,source=/host/work/job/input,target=/input,readonly')
         ->and($command)->toContain('type=bind,source=/host/work/job/output,target=/output')
         ->and($command)->toContain('type=bind,source=/host/renpy-sdk,target=/opt/renpy-sdk,readonly')

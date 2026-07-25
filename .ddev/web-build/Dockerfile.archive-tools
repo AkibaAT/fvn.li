@@ -1,8 +1,17 @@
+ARG UNRPYC_VERSION=2.0.4
+ARG UNRPYC_SHA256=bf2b176a82747bb98ece3a20c33872c9d1e448072096626ee084e805c7c8177d
+
 RUN rm -f /etc/apt/sources.list.d/mariadb*.list /etc/apt/sources.list.d/mariadb*.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl docker-cli golang-go pipx postgresql-client unzip \
     && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install unrpa \
-    && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install rpycdec \
+    && curl -fsSL "https://github.com/CensoredUsername/unrpyc/archive/refs/tags/v${UNRPYC_VERSION}.tar.gz" -o /tmp/unrpyc.tar.gz \
+    && echo "${UNRPYC_SHA256}  /tmp/unrpyc.tar.gz" | sha256sum -c - \
+    && mkdir -p /opt/unrpyc \
+    && tar -xzf /tmp/unrpyc.tar.gz --strip-components=1 -C /opt/unrpyc \
+    && chmod 0755 /opt/unrpyc/unrpyc.py \
+    && ln -s /opt/unrpyc/unrpyc.py /usr/local/bin/unrpyc \
+    && rm /tmp/unrpyc.tar.gz \
     && BUTLER_VERSION=15.29.0 \
     && ARCH="$(dpkg --print-architecture)" \
     && case "$ARCH" in \

@@ -6,6 +6,8 @@ ARG BUN_LINUX_AARCH64_SHA256=a27ffb63a8310375836e0d6f668ae17fa8d8d18b88c37c821c6
 ARG BUTLER_VERSION=15.29.0
 ARG BUTLER_LINUX_AMD64_SHA256=bbb2eb17747aeec5f5d7ec0f0e5ffcd595af075fb5b75336b5b6740916470fde
 ARG BUTLER_LINUX_ARM64_SHA256=5268faa7dc0ac71c8137a7691a01430f21d20084759b2ed4bf2b954418b60457
+ARG UNRPYC_VERSION=2.0.4
+ARG UNRPYC_SHA256=bf2b176a82747bb98ece3a20c33872c9d1e448072096626ee084e805c7c8177d
 
 # Set working directory
 WORKDIR /app
@@ -41,7 +43,13 @@ RUN apt-get update \
     && python3 -m venv /opt/renpy-tools \
     && /opt/renpy-tools/bin/pip install --no-cache-dir --require-hashes -r /tmp/python-tools-requirements.txt \
     && ln -s /opt/renpy-tools/bin/unrpa /usr/local/bin/unrpa \
-    && ln -s /opt/renpy-tools/bin/rpycdec /usr/local/bin/rpycdec \
+    && curl -fsSL "https://github.com/CensoredUsername/unrpyc/archive/refs/tags/v${UNRPYC_VERSION}.tar.gz" -o /tmp/unrpyc.tar.gz \
+    && echo "${UNRPYC_SHA256}  /tmp/unrpyc.tar.gz" | sha256sum -c - \
+    && mkdir -p /opt/unrpyc \
+    && tar -xzf /tmp/unrpyc.tar.gz --strip-components=1 -C /opt/unrpyc \
+    && chmod 0755 /opt/unrpyc/unrpyc.py \
+    && ln -s /opt/unrpyc/unrpyc.py /usr/local/bin/unrpyc \
+    && rm /tmp/unrpyc.tar.gz \
     && ( \
         arch="$(dpkg --print-architecture)" \
         && case "$arch" in \
