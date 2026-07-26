@@ -472,11 +472,14 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Default Notification Channel</label>
+                        <label for="notification-channel" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >Default Notification Channel</label
+                        >
                         <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Select the channel where notifications will be sent by default</p>
                         {#if channels.length > 0}
                             <div class="relative mt-1" bind:this={channelPickerEl}>
                                 <button
+                                    id="notification-channel"
                                     type="button"
                                     onclick={() => {
                                         channelPickerOpen = !channelPickerOpen;
@@ -521,6 +524,7 @@
                                             <input
                                                 type="text"
                                                 bind:value={channelSearch}
+                                                aria-label="Filter channels"
                                                 placeholder="Type to filter channels..."
                                                 class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             />
@@ -585,6 +589,7 @@
                             </div>
                         {:else}
                             <input
+                                id="notification-channel"
                                 type="text"
                                 value={config.notification_channel_id || ''}
                                 placeholder="Enter Discord channel ID"
@@ -602,11 +607,12 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ping Role ID</label>
+                        <label for="ping-role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ping Role ID</label>
                         <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Role to ping when notifications are sent (optional)</p>
                         {#if roles.length > 0}
                             <div class="relative" bind:this={rolePickerEl}>
                                 <button
+                                    id="ping-role"
                                     type="button"
                                     onclick={() => {
                                         rolePickerOpen = !rolePickerOpen;
@@ -640,6 +646,7 @@
                                             <input
                                                 type="text"
                                                 bind:value={roleSearch}
+                                                aria-label="Filter roles"
                                                 placeholder="Type to filter roles..."
                                                 class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             />
@@ -695,6 +702,7 @@
                             </div>
                         {:else}
                             <input
+                                id="ping-role"
                                 type="text"
                                 value={config.ping_role_id || ''}
                                 placeholder="Enter Discord role ID"

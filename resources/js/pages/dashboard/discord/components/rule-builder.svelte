@@ -40,6 +40,8 @@
 
     let { rules, channels, fieldMetadata, onchange }: Props = $props();
 
+    const uid = $props.id();
+
     let expandedRule = $state<string | number | null>(null);
     let channelPickerOpenForRule = $state<string | number | null>(null);
     let channelSearch = $state('');
@@ -165,7 +167,7 @@
     function toggleMultiValue(ruleId: string | number | undefined, index: number, rawValue: string) {
         const rule = rules.find((r) => r.id === ruleId);
         const condition = rule?.conditions[index];
-        if (! condition) return;
+        if (!condition) return;
 
         const current = Array.isArray(condition.value) ? condition.value.map(String) : [];
         const next = current.includes(rawValue) ? current.filter((value) => value !== rawValue) : [...current, rawValue];
@@ -181,21 +183,23 @@
                 const value = Array.isArray(c.value)
                     ? c.value.join(', ')
                     : typeof c.value === 'boolean'
-                      ? (c.value ? 'Yes' : 'No')
-                      : (c.value || '...');
+                      ? c.value
+                          ? 'Yes'
+                          : 'No'
+                      : c.value || '...';
                 return `${field} ${op} "${value}"`;
             })
             .join(' AND ');
     }
 
     function getChannelLabel(channelId?: string): string {
-        if (! channelId) return 'Default channel';
+        if (!channelId) return 'Default channel';
 
         return `#${channels.find((channel) => channel.id === channelId)?.name || channelId}`;
     }
 
     function getChannel(channelId?: string): DiscordChannel | undefined {
-        if (! channelId) return undefined;
+        if (!channelId) return undefined;
 
         return channels.find((channel) => channel.id === channelId);
     }
@@ -207,16 +211,14 @@
     }
 
     const filteredChannels = $derived(
-        channelSearch.trim()
-            ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase()))
-            : channels,
+        channelSearch.trim() ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase())) : channels,
     );
 
     $effect(() => {
         if (channelPickerOpenForRule === null) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (channelPickerEl && ! channelPickerEl.contains(event.target as Node)) {
+            if (channelPickerEl && !channelPickerEl.contains(event.target as Node)) {
                 channelPickerOpenForRule = null;
                 channelSearch = '';
             }
@@ -231,7 +233,7 @@
         if (valuePickerKey === null) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (valuePickerEl && ! valuePickerEl.contains(event.target as Node)) {
+            if (valuePickerEl && !valuePickerEl.contains(event.target as Node)) {
                 valuePickerKey = null;
                 valueSearch = '';
             }
@@ -265,20 +267,15 @@
         <div class="space-y-3">
             {#each rules as rule (rule.id)}
                 <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                    <div
-                        class="flex cursor-pointer items-center gap-3 p-4"
-                        onclick={() => (expandedRule = expandedRule === rule.id ? null : rule.id)}
-                    >
+                    <div class="flex items-center gap-3 p-4">
                         <button
-                            onclick={(event) => {
-                                event.stopPropagation();
-                                toggleRule(rule.id);
-                            }}
+                            onclick={() => toggleRule(rule.id)}
                             class="relative h-6 w-11 shrink-0 rounded-full transition-colors {rule.enabled
                                 ? 'bg-blue-600'
                                 : 'bg-gray-300 dark:bg-gray-600'}"
                             role="switch"
                             aria-checked={rule.enabled}
+                            aria-label="Enable rule {rule.name}"
                         >
                             <span
                                 class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform {rule.enabled
@@ -287,31 +284,39 @@
                             ></span>
                         </button>
 
-                        <div class="min-w-0 flex-1">
-                            <span class="font-medium text-gray-900 dark:text-white">{rule.name}</span>
-                            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">Priority: {rule.priority}</span>
-                        </div>
-
-                        <span class="hidden text-xs text-gray-500 sm:block dark:text-gray-400">
-                            {summarizeConditions(rule.conditions)}
-                        </span>
-
-                        <span
-                            class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
-                            {rule.action.type === 'ignore'
-                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}"
+                        <button
+                            type="button"
+                            onclick={() => (expandedRule = expandedRule === rule.id ? null : rule.id)}
+                            class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                            aria-expanded={expandedRule === rule.id}
+                            aria-controls="{uid}-rule-{rule.id}"
                         >
-                            {rule.action.type === 'ignore'
-                                ? 'Ignore'
-                                : '#' + (channels.find((c) => c.id === rule.action.channel_id)?.name || 'default')}
-                        </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="font-medium text-gray-900 dark:text-white">{rule.name}</span>
+                                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">Priority: {rule.priority}</span>
+                            </span>
+
+                            <span class="hidden text-xs text-gray-500 sm:block dark:text-gray-400">
+                                {summarizeConditions(rule.conditions)}
+                            </span>
+
+                            <span
+                                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+                                {rule.action.type === 'ignore'
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}"
+                            >
+                                {rule.action.type === 'ignore'
+                                    ? 'Ignore'
+                                    : '#' + (channels.find((c) => c.id === rule.action.channel_id)?.name || 'default')}
+                            </span>
+                        </button>
 
                         <button
-                            onclick={(event) => {
-                                event.stopPropagation();
+                            onclick={() => {
                                 if (confirm('Delete this rule?')) removeRule(rule.id);
                             }}
+                            aria-label="Delete rule {rule.name}"
                             class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                         >
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -329,16 +334,20 @@
                             viewBox="0 0 24 24"
                             stroke="currentColor"
                             stroke-width="2"
+                            aria-hidden="true"
                         >
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
                     </div>
 
                     {#if expandedRule === rule.id}
-                        <div class="space-y-4 border-t border-gray-100 p-4 dark:border-gray-700">
+                        <div id="{uid}-rule-{rule.id}" class="space-y-4 border-t border-gray-100 p-4 dark:border-gray-700">
                             <div>
-                                <label class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Rule Name</label>
+                                <label for="{uid}-name-{rule.id}" class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    >Rule Name</label
+                                >
                                 <input
+                                    id="{uid}-name-{rule.id}"
                                     type="text"
                                     value={rule.name}
                                     oninput={(e) => updateRule(rule.id, { name: (e.target as HTMLInputElement).value })}
@@ -348,8 +357,11 @@
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Priority (lower = first)</label>
+                                    <label for="{uid}-priority-{rule.id}" class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
+                                        >Priority (lower = first)</label
+                                    >
                                     <input
+                                        id="{uid}-priority-{rule.id}"
                                         type="number"
                                         value={rule.priority}
                                         oninput={(e) => updateRule(rule.id, { priority: parseInt((e.target as HTMLInputElement).value) || 0 })}
@@ -360,16 +372,19 @@
 
                             <div>
                                 <div class="mb-2 flex items-center justify-between">
-                                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Conditions (all must match)</label>
+                                    <span id="{uid}-conditions-{rule.id}" class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                        >Conditions (all must match)</span
+                                    >
                                     <button
                                         onclick={() => addCondition(rule.id)}
                                         class="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add Condition</button
                                     >
                                 </div>
-                                <div class="space-y-2">
+                                <div class="space-y-2" role="group" aria-labelledby="{uid}-conditions-{rule.id}">
                                     {#each rule.conditions as condition, cIndex (rule.id + '-' + cIndex)}
                                         <div class="flex items-center gap-2">
                                             <select
+                                                aria-label="Condition {cIndex + 1} field"
                                                 value={condition.field}
                                                 onchange={(e) => handleFieldChange(rule.id, cIndex, (e.target as HTMLSelectElement).value)}
                                                 class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -379,6 +394,7 @@
                                                 {/each}
                                             </select>
                                             <select
+                                                aria-label="Condition {cIndex + 1} operator"
                                                 value={condition.operator}
                                                 onchange={(e) =>
                                                     updateCondition(rule.id, cIndex, { operator: (e.target as HTMLSelectElement).value })}
@@ -393,39 +409,65 @@
                                                     <button
                                                         type="button"
                                                         onclick={() => {
-                                                            valuePickerKey = valuePickerKey === `${rule.id}:${cIndex}` ? null : `${rule.id}:${cIndex}`;
+                                                            valuePickerKey =
+                                                                valuePickerKey === `${rule.id}:${cIndex}` ? null : `${rule.id}:${cIndex}`;
                                                             if (valuePickerKey === null) valueSearch = '';
                                                         }}
                                                         class="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-2 py-1.5 text-left text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                     >
                                                         <span class="truncate">
-                                                            {Array.isArray(condition.value) && condition.value.length > 0 ? condition.value.join(', ') : 'Select values'}
+                                                            {Array.isArray(condition.value) && condition.value.length > 0
+                                                                ? condition.value.join(', ')
+                                                                : 'Select values'}
                                                         </span>
-                                                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <svg
+                                                            class="h-4 w-4 shrink-0"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                            stroke-width="2"
+                                                        >
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                                                         </svg>
                                                     </button>
                                                     {#if valuePickerKey === `${rule.id}:${cIndex}`}
-                                                        <div class="absolute z-20 mt-1 w-full rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                                        <div
+                                                            class="absolute z-20 mt-1 w-full rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                                                        >
                                                             <div class="p-2">
                                                                 <input
                                                                     type="text"
                                                                     bind:value={valueSearch}
+                                                                    aria-label="Filter values"
                                                                     placeholder="Type to filter values..."
                                                                     class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                                 />
                                                             </div>
                                                             <div class="max-h-56 overflow-y-auto py-1">
-                                                                {#each getValueOptions(condition.field).filter((option) => option.label.toLowerCase().includes(valueSearch.trim().toLowerCase())) as option (String(option.value))}
+                                                                {#each getValueOptions(condition.field).filter((option) => option.label
+                                                                        .toLowerCase()
+                                                                        .includes(valueSearch.trim().toLowerCase())) as option (String(option.value))}
                                                                     <button
                                                                         type="button"
                                                                         onclick={() => toggleMultiValue(rule.id, cIndex, String(option.value))}
                                                                         class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
                                                                     >
                                                                         <span class="truncate">{option.label}</span>
-                                                                        {#if Array.isArray(condition.value) && condition.value.map(String).includes(String(option.value))}
-                                                                            <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                                        {#if Array.isArray(condition.value) && condition.value
+                                                                                .map(String)
+                                                                                .includes(String(option.value))}
+                                                                            <svg
+                                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                                fill="none"
+                                                                                viewBox="0 0 24 24"
+                                                                                stroke="currentColor"
+                                                                                stroke-width="2"
+                                                                            >
+                                                                                <path
+                                                                                    stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M5 13l4 4L19 7"
+                                                                                />
                                                                             </svg>
                                                                         {/if}
                                                                     </button>
@@ -436,6 +478,7 @@
                                                 </div>
                                             {:else if getFieldType(condition.field) === 'enum' || getFieldType(condition.field) === 'boolean'}
                                                 <select
+                                                    aria-label="Condition {cIndex + 1} value"
                                                     value={String(condition.value)}
                                                     onchange={(e) =>
                                                         updateCondition(rule.id, cIndex, {
@@ -453,7 +496,10 @@
                                             {:else}
                                                 <input
                                                     type="text"
-                                                    value={Array.isArray(condition.value) ? condition.value.join(', ') : String(condition.value ?? '')}
+                                                    value={Array.isArray(condition.value)
+                                                        ? condition.value.join(', ')
+                                                        : String(condition.value ?? '')}
+                                                    aria-label="Condition {cIndex + 1} value"
                                                     placeholder="Value"
                                                     oninput={(e) => updateCondition(rule.id, cIndex, { value: (e.target as HTMLInputElement).value })}
                                                     class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -462,6 +508,7 @@
                                             {#if rule.conditions.length > 1}
                                                 <button
                                                     onclick={() => removeCondition(rule.id, cIndex)}
+                                                    aria-label="Remove condition {cIndex + 1}"
                                                     class="shrink-0 rounded p-1 text-gray-400 hover:text-red-600"
                                                 >
                                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
@@ -475,8 +522,9 @@
                             </div>
 
                             <div>
-                                <label class="mb-2 block text-xs font-medium text-gray-500 dark:text-gray-400">Action</label>
-                                <div class="flex flex-wrap items-center gap-4">
+                                <span id="{uid}-action-{rule.id}" class="mb-2 block text-xs font-medium text-gray-500 dark:text-gray-400">Action</span
+                                >
+                                <div class="flex flex-wrap items-center gap-4" role="group" aria-labelledby="{uid}-action-{rule.id}">
                                     <label class="flex items-center gap-2 text-sm">
                                         <input
                                             type="radio"
@@ -510,7 +558,9 @@
                                                 <span class="inline-flex items-center gap-2">
                                                     <span>{getChannelLabel(rule.action.channel_id)}</span>
                                                     {#if getChannel(rule.action.channel_id)?.nsfw}
-                                                        <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                        <span
+                                                            class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                        >
                                                             NSFW
                                                         </span>
                                                     {/if}
@@ -518,7 +568,9 @@
                                             </button>
 
                                             {#if channelPickerOpenForRule === rule.id}
-                                                <div class="absolute z-20 mt-1 w-72 rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                                <div
+                                                    class="absolute z-20 mt-1 w-72 rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                                                >
                                                     <div class="p-2">
                                                         <input
                                                             type="text"
@@ -535,7 +587,13 @@
                                                         >
                                                             <span>Default channel</span>
                                                             {#if !rule.action.channel_id}
-                                                                <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <svg
+                                                                    class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                    fill="none"
+                                                                    viewBox="0 0 24 24"
+                                                                    stroke="currentColor"
+                                                                    stroke-width="2"
+                                                                >
                                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                                 </svg>
                                                             {/if}
@@ -544,21 +602,29 @@
                                                             <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No channels found</div>
                                                         {:else}
                                                             {#each filteredChannels as ch (ch.id)}
-                                                            <button
-                                                                type="button"
-                                                                onclick={() => selectRouteChannel(rule.id, ch.id)}
-                                                                class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onclick={() => selectRouteChannel(rule.id, ch.id)}
+                                                                    class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                                                >
                                                                     <span class="flex min-w-0 items-center gap-2">
                                                                         <span class="truncate">#{ch.name}</span>
                                                                         {#if ch.nsfw}
-                                                                            <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                                            <span
+                                                                                class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                                            >
                                                                                 NSFW
                                                                             </span>
                                                                         {/if}
                                                                     </span>
                                                                     {#if rule.action.channel_id === ch.id}
-                                                                        <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                        <svg
+                                                                            class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                            fill="none"
+                                                                            viewBox="0 0 24 24"
+                                                                            stroke="currentColor"
+                                                                            stroke-width="2"
+                                                                        >
                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                                         </svg>
                                                                     {/if}
