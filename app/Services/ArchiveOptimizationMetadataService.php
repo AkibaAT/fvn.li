@@ -119,10 +119,27 @@ class ArchiveOptimizationMetadataService
      */
     public function targetPathsFrom(array $metadata): array
     {
-        $optimizedFiles = array_values(array_filter(
-            $metadata['optimized_files'] ?? [],
-            fn (mixed $file): bool => is_array($file) && isset($file['path'])
-        ));
+        // Keyed by the game-relative suffix a replacement names, so each one
+        // resolves in a single lookup.
+        $byGameRelativePath = [];
+        foreach (($metadata['optimized_files'] ?? []) as $file) {
+            if (! is_array($file) || ! isset($file['path'])) {
+                continue;
+            }
+
+            $path = $this->safeRelativeArchivePath((string) $file['path']);
+            if ($path === null) {
+                continue;
+            }
+
+            foreach ($this->gameRelativeCandidates($path) as $candidate) {
+                // First inventory entry wins.
+                if (! isset($byGameRelativePath[$candidate])) {
+                    $byGameRelativePath[$candidate] = $path;
+                }
+            }
+        }
+
         $targetPaths = [];
 
         foreach (($metadata['media_replacements'] ?? []) as $sourcePath => $targetPath) {
@@ -136,10 +153,7 @@ class ArchiveOptimizationMetadataService
                 continue;
             }
 
-            $archiveTargetPath = collect($optimizedFiles)
-                ->map(fn (array $file): ?string => $this->safeRelativeArchivePath((string) $file['path']))
-                ->filter()
-                ->first(fn (string $path): bool => $path === 'game/' . $targetPath || str_ends_with($path, '/game/' . $targetPath));
+            $archiveTargetPath = $byGameRelativePath[$targetPath] ?? null;
 
             if ($archiveTargetPath !== null) {
                 $targetPaths[$sourcePath] = $archiveTargetPath;
@@ -147,6 +161,30 @@ class ArchiveOptimizationMetadataService
         }
 
         return $targetPaths;
+    }
+
+    /**
+     * Every path a media replacement could name this file by: the part after a
+     * leading 'game/', and after each embedded '/game/'.
+     *
+     * @return array<int, string>
+     */
+    private function gameRelativeCandidates(string $archivePath): array
+    {
+        $candidates = [];
+
+        if (str_starts_with($archivePath, 'game/')) {
+            $candidates[] = substr($archivePath, strlen('game/'));
+        }
+
+        $needle = '/game/';
+        $offset = 0;
+        while (($position = strpos($archivePath, $needle, $offset)) !== false) {
+            $candidates[] = substr($archivePath, $position + strlen($needle));
+            $offset = $position + 1;
+        }
+
+        return $candidates;
     }
 
     private function metadataGamePath(string $archivePath): ?string

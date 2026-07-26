@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Support\Stats\StatsPayload;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
@@ -471,11 +472,11 @@ class GameArchiveService
     /**
      * Process statistics from an existing archive
      *
-     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
+     * @return StatsPayload|null Stats reader, or null if extraction failed but shouldn't be treated as an error
      *
      * @throws RuntimeException If the archive file doesn't exist
      */
-    public function processArchive(string $archivePath): ?array
+    public function processArchive(string $archivePath): ?StatsPayload
     {
         $this->lastProcessingError = null;
         if (! File::exists($archivePath)) {
@@ -485,8 +486,8 @@ class GameArchiveService
         $metadata = $this->readArchiveMetadata($archivePath);
         $stats = $this->statsService->extractGameStats($archivePath);
 
-        if ($stats !== null && app(ArchiveMetadataReader::class)->isOptimized($metadata) && isset($stats['file_statistics'])) {
-            unset($stats['file_statistics']);
+        if ($stats !== null && app(ArchiveMetadataReader::class)->isOptimized($metadata)) {
+            $stats = $stats->withoutFileStatistics();
             Log::info('GameArchive: Skipping file statistics from optimized archive', [
                 'archive_path' => $archivePath,
                 'original_archive' => $metadata['original_archive']['filename'] ?? null,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\Stats\NdjsonStatsPayload;
+use App\Support\Stats\StatsPayload;
 use Exception;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Facades\File;
@@ -20,7 +22,7 @@ class RenpyStatsLocalExtractor
      * Extract statistics locally. This mode is intended only for trusted local
      * fixtures and explicit development fallback, never untrusted production input.
      */
-    public function extract(string $archivePath): ?array
+    public function extract(string $archivePath): ?StatsPayload
     {
         $this->lastError = null;
         Log::info('GameStats: Starting extraction', [
@@ -232,7 +234,7 @@ class RenpyStatsLocalExtractor
     /**
      * @throws RuntimeException|FileNotFoundException
      */
-    public function extractStatsWithSdk(string $gameDir, string $sdkPath): ?array
+    public function extractStatsWithSdk(string $gameDir, string $sdkPath): ?StatsPayload
     {
         try {
             File::copy(
@@ -264,16 +266,25 @@ class RenpyStatsLocalExtractor
             ]);
         }
 
-        $statsFile = $gameDir . '/stats.json';
+        $statsFile = $gameDir . '/stats.ndjson';
         if (! File::exists($statsFile)) {
             throw new RuntimeException('Stats file not generated');
         }
 
-        $stats = json_decode(File::get($statsFile), true);
-        if (! $stats || ! isset($stats['languages'])) {
+        // Move the document out of the extraction directory, which the caller
+        // deletes once this returns, and hand back a reader rather than the
+        // decoded contents so nothing holds the whole corpus at once.
+        $ownedPath = storage_path('app/temp/renpy-stats-' . bin2hex(random_bytes(8)) . '.ndjson');
+        File::ensureDirectoryExists(dirname($ownedPath), 0755);
+        File::move($statsFile, $ownedPath);
+
+        $payload = new NdjsonStatsPayload($ownedPath, ownsFile: true);
+        if ($payload->languages() === []) {
+            $payload->release();
+
             throw new RuntimeException('Invalid stats file format');
         }
 
-        return $stats;
+        return $payload;
     }
 }

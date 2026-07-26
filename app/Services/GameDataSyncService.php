@@ -384,6 +384,16 @@ class GameDataSyncService
 
                 $this->persistArchiveResultToRepository($game, $existingVersion, $archiveResult, true);
 
+                if ($archiveResult === null) {
+                    // Reprocessed from an archive that was already in storage or
+                    // restored from the stash, so nothing was staged for a push.
+                    // The copy is still only needed for the duration of this run.
+                    DB::afterCommit(function () use ($game, $existingVersion): void {
+                        app(GameVersionArchiveRepositoryService::class)
+                            ->discardLocalArchive($game, $existingVersion);
+                    });
+                }
+
                 $gameVersion = $existingVersion;
             }
             // Case 3: Game had no versions at start and we couldn't create a real version
@@ -416,6 +426,9 @@ class GameDataSyncService
 
             echo "    [Version] All version data saved\n";
         } finally {
+            // Drop the extracted stats document; it is a temp file on disk.
+            $versionStats?->release();
+
             // Always clean up temp directory if it still exists
             // (if moveFromTempToStorage succeeded, $tempDirPath will be null)
             if ($tempDirPath && File::exists($tempDirPath)) {

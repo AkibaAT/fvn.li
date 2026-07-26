@@ -97,26 +97,34 @@ class ArchiveMediaOptimizer
             $basenameCounts[basename($oldPath)] = ($basenameCounts[basename($oldPath)] ?? 0) + 1;
         }
 
+        // One substitution map for every replacement, so each script is rewritten
+        // in a single pass regardless of how many assets were optimized.
+        $substitutions = [];
+        foreach ($replacements as $oldPath => $newPath) {
+            $substitutions['game/' . $oldPath] = 'game/' . $newPath;
+            $substitutions[$oldPath] = $newPath;
+
+            $oldBasename = basename($oldPath);
+            if (($basenameCounts[$oldBasename] ?? 0) === 1) {
+                $newBasename = basename($newPath);
+                $substitutions['"' . $oldBasename . '"'] = '"' . $newBasename . '"';
+                $substitutions["'" . $oldBasename . "'"] = "'" . $newBasename . "'";
+            }
+        }
+
+        if ($substitutions === []) {
+            return 0;
+        }
+
         $updated = 0;
         foreach ($this->filesWithExtensions($contentDir, ['rpy']) as $scriptFile) {
             $contents = File::get($scriptFile);
-            $original = $contents;
+            // strtr takes the longest match at each position, so a
+            // 'game/'-prefixed key wins over the bare path.
+            $rewritten = strtr($contents, $substitutions);
 
-            foreach ($replacements as $oldPath => $newPath) {
-                $contents = str_replace([$oldPath, 'game/' . $oldPath], [$newPath, 'game/' . $newPath], $contents);
-
-                $oldBasename = basename($oldPath);
-                if (($basenameCounts[$oldBasename] ?? 0) === 1) {
-                    $contents = str_replace(
-                        ['"' . $oldBasename . '"', "'" . $oldBasename . "'"],
-                        ['"' . basename($newPath) . '"', "'" . basename($newPath) . "'"],
-                        $contents
-                    );
-                }
-            }
-
-            if ($contents !== $original) {
-                File::put($scriptFile, $contents);
+            if ($rewritten !== $contents) {
+                File::put($scriptFile, $rewritten);
                 $updated++;
             }
         }

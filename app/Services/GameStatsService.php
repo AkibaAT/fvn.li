@@ -10,7 +10,11 @@ use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
+use App\Support\Stats\ArrayStatsPayload;
+use App\Support\Stats\StatsPayload;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -78,9 +82,30 @@ readonly class GameStatsService
     }
 
     /**
+     * Check whether an archive yields usable stats, without materializing them.
+     *
+     * Validates derived archives. Only the aggregate records at the head of the
+     * document are read, so this costs the same for a huge game as a tiny one.
+     */
+    public function canExtractStats(string $archivePath): bool
+    {
+        $payload = $this->extractGameStats($archivePath);
+
+        if ($payload === null) {
+            return false;
+        }
+
+        try {
+            return $payload->languages() !== [];
+        } finally {
+            $payload->release();
+        }
+    }
+
+    /**
      * Extract statistics from a game archive
      */
-    public function extractGameStats(string $archivePath): ?array
+    public function extractGameStats(string $archivePath): ?StatsPayload
     {
         $mode = config('services.renpy.analysis_mode', 'sandbox');
         if ($mode === 'sandbox') {
@@ -120,11 +145,13 @@ readonly class GameStatsService
      */
     public function saveVersionStats(
         GameVersion $version,
-        array $stats,
+        StatsPayload|array $stats,
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {
         echo "    [Stats] Starting saveVersionStats\n";
+        $payload = $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats);
+
         // If game is not explicitly provided, get it from the version
         $game = $game ?? $version->game;
 
@@ -132,89 +159,7 @@ readonly class GameStatsService
 
         // Track all languages found in the stats to update supported languages
         echo "    [Stats] Processing language stats\n";
-        $foundLanguages = [];
-
-        foreach ($stats['languages'] as $langKey => $langData) {
-            $isoCode = $langKey === 'default'
-                ? $defaultLanguage
-                    : $this->languageMappingService->resolveLanguageCode($langKey, $game);
-
-            if (! $isoCode) {
-                Log::warning("Skipping language {$langKey} - could not determine ISO code");
-
-                continue;
-            }
-
-            // Add to the list of found languages
-            $foundLanguages[] = $isoCode;
-
-            // Upsert language stats record
-            VersionLanguageStats::updateOrCreate(
-                [
-                    'game_version_id' => $version->id,
-                    'iso_code' => $isoCode,
-                ],
-                [
-                    'blocks' => $langData['blocks'] ?? null,
-                    'words' => $langData['words'] ?? null,
-                    'menus' => $langData['menus'] ?? null,
-                    'options' => $langData['options'] ?? null,
-                ]
-            );
-
-            // Process character stats if available
-            if (isset($langData['characters'])) {
-                foreach ($langData['characters'] as $charId => $charData) {
-                    // Get or create character record
-                    $character = Character::firstOrNew([
-                        'game_id' => $version->game_id,
-                        'character_id' => $charId,
-                    ]);
-
-                    // Update display names
-                    $displayNames = $character->exists ? $character->display_names : [];
-                    $displayNames[$isoCode] = $charData['display_name'] ?? $charId;
-                    $character->display_names = $displayNames;
-
-                    // Update species if present (only from English language data to avoid duplication)
-                    // Only set species if it doesn't already exist in the database
-                    if ($isoCode === 'eng' && isset($charData['species']) && ! $character->species) {
-                        $character->species = $charData['species'];
-                    }
-
-                    $character->save();
-
-                    // Update version tracking
-                    echo "    [Stats] Checking first_seen for {$charId}\n";
-                    if (! $character->first_seen_in_version_id ||
-                        $version->published_at < $character->firstSeenVersion->published_at) {
-                        $character->first_seen_in_version_id = $version->id;
-                        $character->save();
-                    }
-                    echo "    [Stats] Checking last_seen for {$charId}\n";
-                    if (! $character->last_seen_in_version_id ||
-                        $version->published_at > $character->lastSeenVersion->published_at) {
-                        $character->last_seen_in_version_id = $version->id;
-                        $character->save();
-                    }
-                    echo "    [Stats] Character {$charId} processed\n";
-
-                    // Create/update version_character_stats from JSON data
-                    // This ensures stats are available even for stats-only imports (without dialogue_lines)
-                    VersionCharacterStats::updateOrCreate(
-                        [
-                            'game_version_id' => $version->id,
-                            'character_id' => $character->id,
-                            'iso_code' => $isoCode,
-                        ],
-                        [
-                            'blocks' => $charData['blocks'] ?? 0,
-                            'words' => $charData['words'] ?? 0,
-                        ]
-                    );
-                }
-            }
-        }
+        $foundLanguages = $this->saveLanguageAndCharacterStats($version, $payload, $defaultLanguage, $game);
 
         // Create essential characters with all found languages before processing dialogue lines
         echo "    [Stats] Creating essential characters\n";
@@ -250,34 +195,32 @@ readonly class GameStatsService
         }
 
         // Save file statistics
-        if (isset($stats['file_statistics'])) {
+        $fileStatistics = $payload->fileStatistics();
+        if ($fileStatistics !== null) {
             echo "    [Stats] Saving file statistics\n";
-            $version->saveFileStats($stats['file_statistics']);
+            $version->saveFileStats($fileStatistics);
             echo "    [Stats] File statistics saved\n";
         }
 
         // Save route graph data
-        $hasRouteData = isset($stats['route_labels']) || isset($stats['route_edges']);
-        if ($hasRouteData) {
-            echo "    [Stats] Saving route graph data\n";
-            $this->saveRouteGraph($version, $stats);
-            echo "    [Stats] Route graph data saved\n";
-        }
+        echo "    [Stats] Saving route graph data\n";
+        $hasRouteData = $this->saveRouteGraph($version, $payload) > 0;
+        echo '    [Stats] Route graph data saved (present: ' . ($hasRouteData ? 'yes' : 'no') . ")\n";
 
         // Process dialogue lines
-        if (isset($stats['dialogue_lines'])) {
-            echo "    [Stats] Saving dialogue lines\n";
-            $this->saveDialogueLines($version, $stats['dialogue_lines'], $defaultLanguage, $game, $foundLanguages);
-            echo "    [Stats] Dialogue lines saved\n";
+        echo "    [Stats] Saving dialogue lines\n";
+        $dialogueLineCount = $this->saveDialogueLines($version, $payload, $defaultLanguage, $game, $foundLanguages);
+        echo "    [Stats] Dialogue lines saved ({$dialogueLineCount} lines)\n";
 
+        if ($dialogueLineCount > 0) {
             // Apply special character assignment fixes after importing dialogue lines
             echo "    [Stats] Applying character assignment fixes\n";
             $this->applySpecialCharacterAssignments($version);
             echo "    [Stats] Character assignments fixed\n";
 
-            // Calculate character stats from the imported dialogue lines and compare with JSON
+            // Calculate character stats from the imported dialogue lines and compare with the payload
             echo "    [Stats] Calculating stats and checking discrepancies\n";
-            $this->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
+            $this->calculateStatsAndReportDiscrepancies($version, $payload, $defaultLanguage, $game);
             echo "    [Stats] Stats calculated\n";
 
             // Queue word frequency calculation for all languages in this version
@@ -288,13 +231,33 @@ readonly class GameStatsService
 
         // Calculate route paths and pre-build graph after both route graph and dialogue lines are saved
         if ($hasRouteData) {
-            echo "    [Stats] Pre-computing route graph\n";
-            app(RouteGraphService::class)->computeAndStore($version);
-            echo "    [Stats] Route graph computed and stored\n";
+            // The precomputed graph and paths are derived views of data that is
+            // already stored. They are rebuildable, so a failure here is
+            // reported and left for a later pass rather than discarding the
+            // extraction that produced them.
+            try {
+                echo "    [Stats] Pre-computing route graph\n";
+                app(RouteGraphService::class)->computeAndStore($version);
+                echo "    [Stats] Route graph computed and stored\n";
+            } catch (Throwable $throwable) {
+                echo "    [Stats] Route graph precompute skipped: {$throwable->getMessage()}\n";
+                Log::warning('Route graph precompute failed', [
+                    'game_version_id' => $version->id,
+                    'error' => $throwable->getMessage(),
+                ]);
+            }
 
-            echo "    [Stats] Calculating route paths\n";
-            app(RoutePathCalculator::class)->calculateAndStore($version);
-            echo "    [Stats] Route paths calculated and stored\n";
+            try {
+                echo "    [Stats] Calculating route paths\n";
+                app(RoutePathCalculator::class)->calculateAndStore($version);
+                echo "    [Stats] Route paths calculated and stored\n";
+            } catch (Throwable $throwable) {
+                echo "    [Stats] Route path calculation skipped: {$throwable->getMessage()}\n";
+                Log::warning('Route path calculation failed', [
+                    'game_version_id' => $version->id,
+                    'error' => $throwable->getMessage(),
+                ]);
+            }
         }
 
         Cache::forget('dialogue.games_list');
@@ -304,10 +267,15 @@ readonly class GameStatsService
 
     /**
      * Save route graph data (labels, edges, menu choices) for a game version
+     *
+     * @return int the number of route entries written
      */
-    protected function saveRouteGraph(GameVersion $version, array $stats): void
+    protected function saveRouteGraph(GameVersion $version, StatsPayload|array $stats): int
     {
-        $this->routeGraphPersister->save($version, $stats);
+        return $this->routeGraphPersister->save(
+            $version,
+            $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats)
+        );
     }
 
     /**
@@ -316,12 +284,16 @@ readonly class GameStatsService
      */
     protected function saveDialogueLines(
         GameVersion $version,
-        array $dialogueLines,
+        StatsPayload|array $dialogueLines,
         string $defaultLanguage = 'eng',
         ?Game $game = null,
         array $foundLanguages = []
-    ): void {
-        $this->dialoguePersister->save($version, $dialogueLines, $defaultLanguage, $game, $foundLanguages);
+    ): int {
+        $payload = $dialogueLines instanceof StatsPayload
+            ? $dialogueLines
+            : new ArrayStatsPayload(['dialogue_lines' => $dialogueLines]);
+
+        return $this->dialoguePersister->save($version, $payload, $defaultLanguage, $game, $foundLanguages);
     }
 
     /**
@@ -386,11 +358,16 @@ readonly class GameStatsService
      */
     protected function calculateStatsAndReportDiscrepancies(
         GameVersion $version,
-        array $stats,
+        StatsPayload|array $stats,
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {
-        $this->dialoguePersister->calculateStatsAndReportDiscrepancies($version, $stats, $defaultLanguage, $game);
+        $this->dialoguePersister->calculateStatsAndReportDiscrepancies(
+            $version,
+            $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats),
+            $defaultLanguage,
+            $game
+        );
     }
 
     /**
@@ -400,6 +377,141 @@ readonly class GameStatsService
     protected function queueWordFrequencyCalculations(int $versionId): void
     {
         $this->dialoguePersister->queueWordFrequencyCalculations($versionId);
+    }
+
+    /**
+     * Persist per-language and per-character aggregate stats.
+     *
+     * The game's characters and the versions they were first and last seen in
+     * are loaded up front, and the resulting rows are written in bulk, so the
+     * query count is independent of how many characters or languages there are.
+     *
+     * @return array<int, string> the ISO codes found in the payload
+     */
+    private function saveLanguageAndCharacterStats(
+        GameVersion $version,
+        StatsPayload $payload,
+        string $defaultLanguage,
+        ?Game $game
+    ): array {
+        $foundLanguages = [];
+        $languageRows = [];
+        $characterStatRows = [];
+
+        $characters = Character::where('game_id', $version->game_id)->get()->keyBy('character_id');
+        $publishedAt = $this->publishedAtByVersionId($characters);
+        $now = now();
+
+        foreach ($payload->languages() as $langKey => $langData) {
+            $isoCode = $langKey === 'default'
+                ? $defaultLanguage
+                : $this->languageMappingService->resolveLanguageCode((string) $langKey, $game);
+
+            if (! $isoCode) {
+                Log::warning("Skipping language {$langKey} - could not determine ISO code");
+
+                continue;
+            }
+
+            if (! in_array($isoCode, $foundLanguages, true)) {
+                $foundLanguages[] = $isoCode;
+            }
+
+            // Several extractor language keys can resolve to one ISO code, so
+            // the later entry replaces the earlier one.
+            $languageRows[$isoCode] = [
+                'game_version_id' => $version->id,
+                'iso_code' => $isoCode,
+                'blocks' => $langData['blocks'] ?? null,
+                'words' => $langData['words'] ?? null,
+                'menus' => $langData['menus'] ?? null,
+                'options' => $langData['options'] ?? null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            foreach (($langData['characters'] ?? []) as $charId => $charData) {
+                $charId = (string) $charId;
+                $character = $characters->get($charId);
+
+                if (! $character) {
+                    $character = new Character([
+                        'game_id' => $version->game_id,
+                        'character_id' => $charId,
+                    ]);
+                    $characters->put($charId, $character);
+                }
+
+                $displayNames = $character->exists ? ($character->display_names ?? []) : [];
+                $displayNames[$isoCode] = $charData['display_name'] ?? $charId;
+                $character->display_names = $displayNames;
+
+                // Species only comes from English data, and only if not already known.
+                if ($isoCode === 'eng' && isset($charData['species']) && ! $character->species) {
+                    $character->species = $charData['species'];
+                }
+
+                $firstSeenAt = $publishedAt[$character->first_seen_in_version_id] ?? null;
+                if (! $character->first_seen_in_version_id || $version->published_at < $firstSeenAt) {
+                    $character->first_seen_in_version_id = $version->id;
+                }
+
+                $lastSeenAt = $publishedAt[$character->last_seen_in_version_id] ?? null;
+                if (! $character->last_seen_in_version_id || $version->published_at > $lastSeenAt) {
+                    $character->last_seen_in_version_id = $version->id;
+                }
+
+                if ($character->isDirty() || ! $character->exists) {
+                    $character->save();
+                }
+
+                $characterStatRows[$character->id . '|' . $isoCode] = [
+                    'game_version_id' => $version->id,
+                    'character_id' => $character->id,
+                    'iso_code' => $isoCode,
+                    'blocks' => $charData['blocks'] ?? 0,
+                    'words' => $charData['words'] ?? 0,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        // Safe as plain inserts: clearVersionAggregateStats() removed this
+        // version's rows from both tables immediately beforehand.
+        foreach (array_chunk(array_values($languageRows), 500) as $chunk) {
+            DB::table((new VersionLanguageStats)->getTable())->insert($chunk);
+        }
+
+        foreach (array_chunk(array_values($characterStatRows), 500) as $chunk) {
+            DB::table((new VersionCharacterStats)->getTable())->insert($chunk);
+        }
+
+        return $foundLanguages;
+    }
+
+    /**
+     * @param  Collection<string, Character>  $characters
+     * @return array<int, mixed>
+     */
+    private function publishedAtByVersionId($characters): array
+    {
+        $versionIds = $characters
+            ->flatMap(fn (Character $character): array => [
+                $character->first_seen_in_version_id,
+                $character->last_seen_in_version_id,
+            ])
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($versionIds->isEmpty()) {
+            return [];
+        }
+
+        return GameVersion::whereIn('id', $versionIds)
+            ->pluck('published_at', 'id')
+            ->all();
     }
 
     private function sanitizeArchiveFilename(string $filename): string
@@ -427,7 +539,7 @@ readonly class GameStatsService
      * Extract statistics locally. This mode is intended only for trusted local
      * fixtures and explicit development fallback, never untrusted production input.
      */
-    private function extractGameStatsLocally(string $archivePath): ?array
+    private function extractGameStatsLocally(string $archivePath): ?StatsPayload
     {
         return $this->localExtractor->extract($archivePath);
     }
@@ -475,7 +587,7 @@ readonly class GameStatsService
      *
      * @throws RuntimeException Only if stats file doesn't exist or is invalid after successful process execution
      */
-    private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?array
+    private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?StatsPayload
     {
         return $this->localExtractor->extractStatsWithSdk($gameDir, $sdkPath);
     }

@@ -7,6 +7,7 @@ namespace Tests\Support;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameStatsService;
+use App\Support\Stats\StatsPayload;
 
 final readonly class ReprocessRecordingGameStatsService extends GameStatsService
 {
@@ -16,7 +17,7 @@ final readonly class ReprocessRecordingGameStatsService extends GameStatsService
 
     public function saveVersionStats(
         GameVersion $version,
-        array $stats,
+        StatsPayload|array $stats,
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {

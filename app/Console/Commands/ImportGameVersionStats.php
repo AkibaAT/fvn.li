@@ -22,9 +22,9 @@ class ImportGameVersionStats extends Command
         {--game-id= : ID of the specific game to process}
         {--game-name= : Name of the game to process (only used if game-id is not provided)}
         {--version-id= : Game version ID in the database}
-        {--stats-file= : Path to the stats JSON file to import}';
+        {--stats-file= : Path to the stats document produced by the analyzer}';
 
-    protected $description = 'Import stats JSON for a given game version';
+    protected $description = 'Import an analyzer stats document for a given game version';
 
     public function __construct(
         private readonly GameVersionStatsImportService $importService

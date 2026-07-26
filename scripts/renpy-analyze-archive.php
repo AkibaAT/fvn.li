@@ -54,7 +54,7 @@ try {
     }
 
     $diagnostics = [];
-    $statsPath = $gameDir . '/stats.json';
+    $statsPath = $gameDir . '/stats.ndjson';
 
     if (getenv('RENPY_ANALYZER_ALLOW_NATIVE') === '1') {
         $nativeExecutable = findNativeLinuxExecutable($gameDir);
@@ -126,14 +126,8 @@ try {
         exit(4);
     }
 
-    $statsContent = (string) file_get_contents($statsPath);
-    $stats = json_decode($statsContent, true);
-    if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
-        fwrite(STDERR, 'Invalid stats file format: ' . invalidStatsDiagnostic($statsContent, $stats) . "\n");
-        exit(5);
-    }
-
-    copy($statsPath, $outputPath);
+    fwrite(STDERR, 'Invalid stats file format: ' . invalidStatsDiagnostic($statsPath) . "\n");
+    exit(5);
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
@@ -151,30 +145,85 @@ function writeDiagnosticOutput(string $output): void
     fwrite(STDERR, $output);
 }
 
-function invalidStatsDiagnostic(string $statsContent, mixed $decoded): string
+function invalidStatsDiagnostic(string $statsPath): string
 {
-    if (! is_array($decoded)) {
-        return 'JSON decode failed or root value was not an object; preview=' . substr(str_replace("\0", '', $statsContent), 0, 500);
+    $handle = @fopen($statsPath, 'rb');
+    if ($handle === false) {
+        return 'stats file could not be opened';
     }
 
-    return 'top-level keys=' . implode(',', array_slice(array_map('strval', array_keys($decoded)), 0, 20));
+    try {
+        $preview = (string) fread($handle, 500);
+    } finally {
+        fclose($handle);
+    }
+
+    return 'no language records found; preview=' . str_replace("\0", '', $preview);
 }
 
+/**
+ * Validate the newline-delimited stats document and hand it to the output path.
+ *
+ * Reads only as far as the first language record. The document is written
+ * aggregates-first, so that is a handful of lines in, and a game with hundreds
+ * of thousands of dialogue lines costs no more to check than a tiny one.
+ */
 function copyValidStats(string $statsPath, string $outputPath): bool
 {
     if (! is_file($statsPath)) {
         return false;
     }
 
-    $statsContent = (string) file_get_contents($statsPath);
-    $stats = json_decode($statsContent, true);
-    if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
+    $handle = @fopen($statsPath, 'rb');
+    if ($handle === false) {
         return false;
     }
 
-    copy($statsPath, $outputPath);
+    $sawSchema = false;
+    $sawLanguage = false;
 
-    return true;
+    try {
+        while (($line = fgets($handle)) !== false) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                return false;
+            }
+
+            $type = $record['type'] ?? null;
+
+            if ($type === 'meta') {
+                if (($record['schema'] ?? null) !== 'fvn.renpy_stats.v1') {
+                    return false;
+                }
+                $sawSchema = true;
+
+                continue;
+            }
+
+            if ($type === 'languages') {
+                $sawLanguage = true;
+                break;
+            }
+
+            if ($type === 'dialogue_lines') {
+                // Past every aggregate section without seeing a language.
+                break;
+            }
+        }
+    } finally {
+        fclose($handle);
+    }
+
+    if (! $sawSchema || ! $sawLanguage) {
+        return false;
+    }
+
+    return copy($statsPath, $outputPath);
 }
 
 /**

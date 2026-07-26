@@ -84,7 +84,12 @@ class ReprocessCurrentGameArchive extends Command
                     continue;
                 }
 
-                $statsService->saveVersionStats($version, $stats, $game->source_language_id ?? 'eng', $game);
+                try {
+                    $statsService->saveVersionStats($version, $stats, $game->source_language_id ?? 'eng', $game);
+                } finally {
+                    // Drop the extracted document before moving to the next game.
+                    $stats->release();
+                }
                 $this->info("Imported stats for current version {$version->version}");
                 $this->persistStoredArchive($repository, $game, $version);
                 $processed++;

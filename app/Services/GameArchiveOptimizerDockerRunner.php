@@ -50,7 +50,9 @@ class GameArchiveOptimizerDockerRunner
 
         File::makeDirectory("{$containerJobDir}/input", 0755, true);
         File::makeDirectory("{$containerJobDir}/output", 0777, true);
+        File::makeDirectory("{$containerJobDir}/work", 0777, true);
         chmod("{$containerJobDir}/output", 0777);
+        chmod("{$containerJobDir}/work", 0777);
         File::copy($archivePath, "{$containerJobDir}/input/{$archiveFilename}");
         File::copy(base_path('scripts/archive-optimize.php'), "{$containerJobDir}/input/archive-optimize.php");
         if ($previousOptimizedArchivePath !== null && File::exists($previousOptimizedArchivePath)) {
@@ -64,8 +66,17 @@ class GameArchiveOptimizerDockerRunner
             $process->run();
 
             if (! $process->isSuccessful()) {
+                $exitCode = $process->getExitCode();
                 $diagnostic = trim($process->getErrorOutput()) ?: trim($process->getOutput());
-                $message = 'Archive optimizer container failed';
+
+                $message = "Archive optimizer container failed (exit {$exitCode})";
+                if ($exitCode === 137) {
+                    $message .= ': out of memory, container limit is '
+                        . (string) config('services.archive_optimizer.memory');
+                }
+
+                // A killed container reports nothing of its own, so whatever it
+                // logged before dying is the only record of how far it got.
                 if ($diagnostic !== '') {
                     $message .= ': ' . $this->sanitizeDiagnosticOutput($diagnostic);
                 }
@@ -97,6 +108,7 @@ class GameArchiveOptimizerDockerRunner
         } finally {
             if ($keepJobDirForOptimizedArchive) {
                 File::deleteDirectory("{$containerJobDir}/input");
+                File::deleteDirectory("{$containerJobDir}/work");
             } else {
                 File::deleteDirectory($containerJobDir);
             }
@@ -140,14 +152,16 @@ class GameArchiveOptimizerDockerRunner
             (string) config('services.archive_optimizer.memory', '2g'),
             '--tmpfs',
             '/tmp:rw,nosuid,nodev,noexec,mode=1777,size=' . (string) config('services.archive_optimizer.tmp_size', '512m'),
-            '--tmpfs',
-            '/work:rw,nosuid,nodev,noexec,mode=1777,size=' . (string) config('services.archive_optimizer.work_size', '6g'),
             '--env',
             'ARCHIVE_OPTIMIZER_APP_PATH=' . (string) config('services.archive_optimizer.app_path', '/app'),
             '--env',
             'ARCHIVE_OPTIMIZER_WORK_DIR=/work',
             '--env',
             'LOG_CHANNEL=stderr',
+            '--mount',
+            // Extracting a game expands to gigabytes. A tmpfs here is charged to
+            // the container's memory limit, so the staging area is disk-backed.
+            "type=bind,source={$hostJobDir}/work,target=/work",
             '--mount',
             "type=bind,source={$hostJobDir}/input,target=/input,readonly",
             '--mount',
@@ -159,6 +173,16 @@ class GameArchiveOptimizerDockerRunner
         if ($hostAppDir !== '') {
             $command[] = '--mount';
             $command[] = "type=bind,source={$hostAppDir},target=" . (string) config('services.archive_optimizer.app_path', '/app') . ',readonly';
+        }
+
+        // The compiled scripts are regenerated with the game's own runtime, and
+        // the SDK stands in for titles whose runtime cannot run here.
+        $sdkHostPath = config('services.renpy.sdk_host_path');
+        if (is_string($sdkHostPath) && $sdkHostPath !== '') {
+            $command[] = '--mount';
+            $command[] = 'type=bind,source=' . $sdkHostPath
+                . ',target=' . (string) config('services.renpy.sdk_container_path', '/opt/renpy-sdk')
+                . ',readonly';
         }
 
         $command[] = (string) config('services.archive_optimizer.image');

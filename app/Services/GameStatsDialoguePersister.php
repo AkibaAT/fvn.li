@@ -9,6 +9,7 @@ use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
+use App\Support\Stats\StatsPayload;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -20,19 +21,30 @@ class GameStatsDialoguePersister
 {
     private const MAX_DIALOGUE_TEXT_BYTES = 65536;
 
+    private const BATCH_SIZE = 1000;
+
     public function __construct(
         private readonly LanguageMappingService $languageMappingService,
         private readonly CharacterStatsCalculationService $characterStatsService,
         private readonly EssentialCharacterService $essentialCharacterService,
     ) {}
 
+    /**
+     * Persist every dialogue line in the payload.
+     *
+     * Lines are pulled from the payload one at a time and written in fixed-size
+     * batches, so a game with a million lines costs the same memory as one with
+     * a thousand.
+     *
+     * @return int the number of dialogue lines written
+     */
     public function save(
         GameVersion $version,
-        array $dialogueLines,
+        StatsPayload $payload,
         string $defaultLanguage = 'eng',
         ?Game $game = null,
         array $foundLanguages = []
-    ): void {
+    ): int {
         echo "    [Dialogue] Deleting existing dialogue lines\n";
         DialogueLine::where('game_version_id', $version->id)->delete();
         echo "    [Dialogue] Existing lines deleted\n";
@@ -44,22 +56,54 @@ class GameStatsDialoguePersister
             'narrator' => $narratorCharacter->id,
         ];
 
-        foreach ($dialogueLines as $langKey => $lines) {
-            $isoCode = $langKey === 'default'
-                ? $defaultLanguage
-                : $this->languageMappingService->resolveLanguageCode($langKey, $game);
+        $now = now();
+        $isoCodes = [];
+        $buffer = [];
+        $written = 0;
 
-            if (! $isoCode) {
-                Log::warning("Skipping dialogue lines for language {$langKey} - could not determine ISO code");
+        foreach ($payload->dialogueLines() as [$langKey, $line]) {
+            if (! array_key_exists($langKey, $isoCodes)) {
+                $isoCodes[$langKey] = $langKey === 'default'
+                    ? $defaultLanguage
+                    : ($this->languageMappingService->resolveLanguageCode($langKey, $game) ?: null);
 
+                if ($isoCodes[$langKey] === null) {
+                    Log::warning("Skipping dialogue lines for language {$langKey} - could not determine ISO code");
+                }
+            }
+
+            $isoCode = $isoCodes[$langKey];
+            if ($isoCode === null) {
                 continue;
             }
 
-            $this->saveLanguageDialogueLines($version, $lines, $isoCode, $foundLanguages, $defaultLanguage, $characterCache);
+            $text = $line['text'] ?? '';
+            if ($text === '') {
+                continue;
+            }
+
+            $text = $this->processText($text);
+            $line['text'] = $text;
+            $line['iso_code'] = $isoCode;
+            // Carried on the row so the batch insert can reuse it.
+            $line['text_hash'] = md5($text);
+            $buffer[] = $line;
+
+            if (count($buffer) >= self::BATCH_SIZE) {
+                $written += $this->flushBatch($version, $buffer, $now, $foundLanguages, $defaultLanguage, $characterCache);
+                $buffer = [];
+                echo "    [Dialogue] {$written} lines written\n";
+            }
         }
 
-        echo "    [Dialogue] All dialogue lines inserted\n";
+        if ($buffer !== []) {
+            $written += $this->flushBatch($version, $buffer, $now, $foundLanguages, $defaultLanguage, $characterCache);
+        }
+
+        echo "    [Dialogue] All dialogue lines inserted ({$written} total)\n";
         Cache::forget('dialogue.games_list');
+
+        return $written;
     }
 
     public function processText(string $text): string
@@ -190,48 +234,51 @@ class GameStatsDialoguePersister
 
     public function calculateStatsAndReportDiscrepancies(
         GameVersion $version,
-        array $stats,
+        StatsPayload $payload,
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {
         $this->characterStatsService->calculateAndSaveStatsForVersion($version->id);
 
-        if (! isset($stats['languages'])) {
+        $languages = $payload->languages();
+        if ($languages === []) {
             return;
         }
 
+        // Both sides of the comparison are fetched in one query each and matched
+        // in memory, so the cost is independent of the character count.
+        $characterIds = Character::where('game_id', $version->game_id)
+            ->pluck('id', 'character_id');
+
+        $calculated = VersionCharacterStats::where('game_version_id', $version->id)
+            ->get(['character_id', 'iso_code', 'blocks', 'words'])
+            ->keyBy(fn (VersionCharacterStats $stats): string => $stats->character_id . '|' . $stats->iso_code);
+
         $discrepanciesFound = false;
 
-        foreach ($stats['languages'] as $langKey => $langData) {
+        foreach ($languages as $langKey => $langData) {
             $isoCode = $langKey === 'default'
                 ? $defaultLanguage
-                : $this->languageMappingService->resolveLanguageCode($langKey, $game);
+                : $this->languageMappingService->resolveLanguageCode((string) $langKey, $game);
 
             if (! $isoCode || ! isset($langData['characters'])) {
                 continue;
             }
 
             foreach ($langData['characters'] as $charId => $charData) {
-                $character = Character::where('game_id', $version->game_id)
-                    ->where('character_id', $charId)
-                    ->first();
-
-                if (! $character) {
+                $characterId = $characterIds->get((string) $charId);
+                if (! $characterId) {
                     continue;
                 }
 
-                $calculatedStats = VersionCharacterStats::where('game_version_id', $version->id)
-                    ->where('character_id', $character->id)
-                    ->where('iso_code', $isoCode)
-                    ->first();
-
+                $calculatedStats = $calculated->get($characterId . '|' . $isoCode);
                 if (! $calculatedStats) {
                     continue;
                 }
 
-                $jsonBlocks = $charData['blocks'] ?? 0;
-                $jsonWords = $charData['words'] ?? 0;
-                if ($jsonBlocks === $calculatedStats->blocks && $jsonWords === $calculatedStats->words) {
+                $reportedBlocks = $charData['blocks'] ?? 0;
+                $reportedWords = $charData['words'] ?? 0;
+                if ($reportedBlocks === $calculatedStats->blocks && $reportedWords === $calculatedStats->words) {
                     continue;
                 }
 
@@ -240,7 +287,7 @@ class GameStatsDialoguePersister
                     $discrepanciesFound = true;
                 }
 
-                Log::warning("Character '{$charId}' ({$isoCode}): JSON={$jsonBlocks} blocks, {$jsonWords} words | Calculated={$calculatedStats->blocks} blocks, {$calculatedStats->words} words");
+                Log::warning("Character '{$charId}' ({$isoCode}): reported={$reportedBlocks} blocks, {$reportedWords} words | Calculated={$calculatedStats->blocks} blocks, {$calculatedStats->words} words");
             }
         }
 
@@ -273,119 +320,25 @@ class GameStatsDialoguePersister
         }
     }
 
-    private function saveLanguageDialogueLines(
+    /**
+     * Deduplicate, resolve and insert one batch of prepared lines.
+     *
+     * @param  array<int, array<string, mixed>>  $buffer
+     * @return int the number of rows inserted
+     */
+    private function flushBatch(
         GameVersion $version,
-        array $lines,
-        string $isoCode,
-        array $foundLanguages,
-        string $defaultLanguage,
-        array &$characterCache
-    ): void {
-        $now = now();
-        $batchSize = 1000;
-        $totalLines = count($lines);
-
-        echo "    [Dialogue] Processing {$totalLines} lines for language {$isoCode}\n";
-        foreach (array_chunk($lines, $batchSize) as $chunkIndex => $chunk) {
-            echo '    [Dialogue] Processing chunk ' . ($chunkIndex + 1) . "\n";
-            $chunk = $this->normalizeChunkText($chunk);
-            $textIdMapping = $this->persistUniqueTexts($chunk, $now);
-            $dialogueBatch = $this->buildDialogueBatch(
-                $version,
-                $chunk,
-                $isoCode,
-                $now,
-                $foundLanguages,
-                $defaultLanguage,
-                $characterCache,
-                $textIdMapping
-            );
-
-            echo '    [Dialogue] Dialogue batch built (' . count($dialogueBatch) . " lines)\n";
-
-            if (! empty($dialogueBatch)) {
-                echo "    [Dialogue] Inserting batch into database...\n";
-                DB::table('version_dialogue_lines')->insert($dialogueBatch);
-                echo "    [Dialogue] Batch inserted\n";
-            }
-        }
-    }
-
-    private function normalizeChunkText(array $chunk): array
-    {
-        echo "    [Dialogue] Normalizing text...\n";
-        foreach ($chunk as $id => $line) {
-            $text = $line['text'] ?? '';
-            if ($text !== '') {
-                $chunk[$id]['text'] = $this->processText($text);
-            }
-        }
-        echo "    [Dialogue] Text normalized\n";
-
-        return $chunk;
-    }
-
-    private function persistUniqueTexts(array $chunk, $now): array
-    {
-        echo "    [Dialogue] Collecting unique texts...\n";
-        $uniqueTexts = [];
-        foreach ($chunk as $line) {
-            $text = $line['text'] ?? '';
-            if ($text === '') {
-                continue;
-            }
-
-            $textHash = md5($text);
-            $uniqueTexts[$textHash] = [
-                'text_hash' => $textHash,
-                'text_content' => $text,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-        echo '    [Dialogue] Collected ' . count($uniqueTexts) . " unique texts\n";
-
-        echo "    [Dialogue] Bulk inserting unique dialogue texts...\n";
-        if (! empty($uniqueTexts)) {
-            DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
-        }
-        echo "    [Dialogue] Bulk insert completed\n";
-
-        echo "    [Dialogue] Fetching text IDs...\n";
-        $textIdMapping = [];
-        $texts = DB::table('unique_dialogue_texts')
-            ->whereIn('text_hash', array_keys($uniqueTexts))
-            ->get(['id', 'text_hash']);
-
-        foreach ($texts as $text) {
-            $textIdMapping[$text->text_hash] = $text->id;
-        }
-        echo '    [Dialogue] Mapped ' . count($textIdMapping) . " text IDs\n";
-
-        return $textIdMapping;
-    }
-
-    private function buildDialogueBatch(
-        GameVersion $version,
-        array $chunk,
-        string $isoCode,
+        array $buffer,
         $now,
         array $foundLanguages,
         string $defaultLanguage,
-        array &$characterCache,
-        array $textIdMapping
-    ): array {
-        echo "    [Dialogue] Building dialogue batch...\n";
+        array &$characterCache
+    ): int {
+        $textIdMapping = $this->persistUniqueTexts($buffer, $now);
         $dialogueBatch = [];
 
-        foreach ($chunk as $line) {
-            $text = $line['text'] ?? '';
-            if ($text === '') {
-                continue;
-            }
-
-            $characterId = $this->characterIdForLine($version, $line, $foundLanguages, $defaultLanguage, $characterCache);
-            $textHash = md5($text);
+        foreach ($buffer as $line) {
+            $textHash = $line['text_hash'];
             $textId = $textIdMapping[$textHash] ?? DB::table('unique_dialogue_texts')
                 ->where('text_hash', $textHash)
                 ->value('id');
@@ -398,8 +351,8 @@ class GameStatsDialoguePersister
 
             $dialogueBatch[] = [
                 'game_version_id' => $version->id,
-                'character_id' => $characterId,
-                'iso_code' => $isoCode,
+                'character_id' => $this->characterIdForLine($version, $line, $foundLanguages, $defaultLanguage, $characterCache),
+                'iso_code' => $line['iso_code'],
                 'file_path' => $line['file'] ?? '',
                 'line_number' => $line['line'] ?? 0,
                 'text_id' => $textId,
@@ -409,7 +362,47 @@ class GameStatsDialoguePersister
             ];
         }
 
-        return $dialogueBatch;
+        if ($dialogueBatch === []) {
+            return 0;
+        }
+
+        DB::table('version_dialogue_lines')->insert($dialogueBatch);
+
+        return count($dialogueBatch);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $buffer
+     * @return array<string, int>
+     */
+    private function persistUniqueTexts(array $buffer, $now): array
+    {
+        $uniqueTexts = [];
+        foreach ($buffer as $line) {
+            $uniqueTexts[$line['text_hash']] = [
+                'text_hash' => $line['text_hash'],
+                'text_content' => $line['text'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($uniqueTexts === []) {
+            return [];
+        }
+
+        DB::table('unique_dialogue_texts')->insertOrIgnore(array_values($uniqueTexts));
+
+        $textIdMapping = [];
+        $texts = DB::table('unique_dialogue_texts')
+            ->whereIn('text_hash', array_keys($uniqueTexts))
+            ->get(['id', 'text_hash']);
+
+        foreach ($texts as $text) {
+            $textIdMapping[$text->text_hash] = $text->id;
+        }
+
+        return $textIdMapping;
     }
 
     private function characterIdForLine(
