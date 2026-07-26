@@ -7,6 +7,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\GameStatsService;
 use App\Services\RenpyStatsSandboxClient;
+use App\Support\Stats\ArrayStatsPayload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -245,19 +246,19 @@ it('extracts game stats from a zipped RenPy game through the public sandbox work
         $sandboxClient->shouldReceive('extract')
             ->once()
             ->with($archivePath)
-            ->andReturn([
+            ->andReturn(new ArrayStatsPayload([
                 'languages' => [
                     'eng' => [
                         'blocks' => 7,
                         'words' => 21,
                     ],
                 ],
-            ]);
+            ]));
 
         $service = new GameStatsService(sandboxClient: $sandboxClient);
 
-        expect($service->extractGameStats($archivePath))->toBe([
-            'languages' => ['eng' => ['blocks' => 7, 'words' => 21]],
+        expect($service->extractGameStats($archivePath)?->languages())->toBe([
+            'eng' => ['blocks' => 7, 'words' => 21],
         ])->and(File::exists($markerPath))->toBeFalse();
     } finally {
         File::deleteDirectory($workDir);
@@ -313,12 +314,12 @@ it('local trusted archive extraction ignores game-provided launchers and uses th
         $zip->close();
 
         $renpy = "{$sdkDir}/renpy.sh";
-        file_put_contents($renpy, "#!/bin/sh\ncat > stats.json <<'JSON'\n{\"languages\":{\"eng\":{\"blocks\":1,\"words\":2}}}\nJSON\n");
+        file_put_contents($renpy, "#!/bin/sh\ncat > stats.ndjson <<'NDJSON'\n{\"type\":\"meta\",\"schema\":\"fvn.renpy_stats.v1\"}\n{\"type\":\"languages\",\"key\":\"eng\",\"entry\":{\"blocks\":1,\"words\":2}}\nNDJSON\n");
         chmod($renpy, 0755);
         config(['services.renpy.sdk_path' => $sdkDir]);
 
-        expect($service->extractGameStats($archivePath))->toBe([
-            'languages' => ['eng' => ['blocks' => 1, 'words' => 2]],
+        expect($service->extractGameStats($archivePath)?->languages())->toBe([
+            'eng' => ['blocks' => 1, 'words' => 2, 'characters' => []],
         ])->and(File::exists($markerPath))->toBeFalse();
     } finally {
         File::deleteDirectory($workDir);
@@ -335,20 +336,19 @@ it('extracts game stats with a configured sdk and reports invalid sdk output', f
 
     try {
         $renpy = "{$sdkDir}/renpy.sh";
-        file_put_contents($renpy, "#!/bin/sh\ncat > stats.json <<'JSON'\n{\"languages\":{\"eng\":{\"blocks\":3,\"words\":4}}}\nJSON\n");
+        file_put_contents($renpy, "#!/bin/sh\ncat > stats.ndjson <<'NDJSON'\n{\"type\":\"meta\",\"schema\":\"fvn.renpy_stats.v1\"}\n{\"type\":\"languages\",\"key\":\"eng\",\"entry\":{\"blocks\":3,\"words\":4}}\nNDJSON\n");
         chmod($renpy, 0755);
 
-        expect(invokeGameStatsServiceMethod($service, 'extractStatsWithSdk', [$workDir, $sdkDir]))->toBe([
-            'languages' => [
-                'eng' => [
-                    'blocks' => 3,
-                    'words' => 4,
-                ],
+        expect(invokeGameStatsServiceMethod($service, 'extractStatsWithSdk', [$workDir, $sdkDir])?->languages())->toBe([
+            'eng' => [
+                'blocks' => 3,
+                'words' => 4,
+                'characters' => [],
             ],
         ]);
 
-        File::delete("{$workDir}/stats.json");
-        file_put_contents($renpy, "#!/bin/sh\ncat > stats.json <<'JSON'\n{\"invalid\":true}\nJSON\n");
+        File::delete("{$workDir}/stats.ndjson");
+        file_put_contents($renpy, "#!/bin/sh\ncat > stats.ndjson <<'NDJSON'\n{\"type\":\"meta\",\"schema\":\"fvn.renpy_stats.v1\"}\nNDJSON\n");
 
         invokeGameStatsServiceMethod($service, 'extractStatsWithSdk', [$workDir, $sdkDir]);
     } finally {

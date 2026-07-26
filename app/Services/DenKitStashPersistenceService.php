@@ -85,11 +85,6 @@ class DenKitStashPersistenceService
             && Config::get('services.denkit_stash.api_key') !== '';
     }
 
-    public function shouldDeleteLocalAfterPush(): bool
-    {
-        return (bool) Config::get('services.denkit_stash.delete_local_after_push', false);
-    }
-
     /**
      * @return array{status: string, target: string, channel: string, archive_path?: string, build_id?: int|null}|null
      */

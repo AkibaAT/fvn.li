@@ -4,23 +4,34 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use JsonException;
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class RouteGraphLayoutService
 {
-    private const ENGINE = 'graphviz-dot';
+    // dot gives the hierarchical shape a story flow reads best, but its running
+    // time grows sharply with graph size. sfdp handles graphs dot cannot in a
+    // fraction of the time, at the cost of a less structured arrangement, so it
+    // stands in when dot cannot finish.
+    private const PRIMARY_ENGINE = 'dot';
+
+    private const FALLBACK_ENGINE = 'sfdp';
 
     private const REVISION = 1;
 
     private const POINTS_PER_INCH = 72.0;
 
-    private const PROCESS_TIMEOUT_SECONDS = 600.0;
+    // A layout that cannot be produced in this budget is not one a reader would
+    // wait for either. Failing quickly keeps an import from spending most of its
+    // time on a view that is rebuildable afterwards.
+    private const PROCESS_TIMEOUT_SECONDS = 120.0;
 
     private const PROCESS_MEMORY_BYTES = 1073741824;
 
-    private const PROCESS_CPU_SECONDS = 600;
+    private const PROCESS_CPU_SECONDS = 120;
 
     private const NODE_DIMENSIONS = [
         'choiceWidth' => 184.0,
@@ -53,7 +64,7 @@ class RouteGraphLayoutService
 
         if ($layout['nodes'] === []) {
             return [
-                'engine' => self::ENGINE,
+                'engine' => 'graphviz-' . self::PRIMARY_ENGINE,
                 'revision' => self::REVISION,
                 'width' => 0.0,
                 'height' => 0.0,
@@ -63,29 +74,94 @@ class RouteGraphLayoutService
 
         $dot = $this->toDot($layout['nodes'], $layout['edges']);
 
+        foreach ([self::PRIMARY_ENGINE, self::FALLBACK_ENGINE] as $engine) {
+            $graph = $this->runEngine($engine, $dot);
+            if ($graph === null) {
+                continue;
+            }
+
+            try {
+                return $this->extractLayout($graph, $layout['node_sizes'], $engine);
+            } catch (RuntimeException $exception) {
+                Log::info('Route map layout engine produced an unusable result', [
+                    'engine' => $engine,
+                    'error' => mb_substr($exception->getMessage(), 0, 300),
+                ]);
+            }
+        }
+
+        return $this->unpositioned('no GraphViz engine could lay out this graph');
+    }
+
+    /**
+     * Run one GraphViz engine, or null when it cannot produce a layout.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function runEngine(string $engine, string $dot): ?array
+    {
         $process = new Process([
             '/usr/bin/prlimit',
             '--as=' . self::PROCESS_MEMORY_BYTES,
             '--cpu=' . self::PROCESS_CPU_SECONDS,
             '--',
-            'dot',
+            $engine,
             '-Tjson',
         ]);
         $process->setInput($dot);
         $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
-        $process->run();
+
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            Log::info('Route map layout engine timed out', ['engine' => $engine]);
+
+            return null;
+        }
 
         if (! $process->isSuccessful()) {
-            throw new RuntimeException('GraphViz route-map layout failed: ' . $process->getErrorOutput());
+            Log::info('Route map layout engine failed', [
+                'engine' => $engine,
+                'error' => mb_substr($process->getErrorOutput(), 0, 300),
+            ]);
+
+            return null;
         }
 
         try {
-            $graph = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+            return json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
-            throw new RuntimeException('GraphViz route-map layout returned invalid JSON.', previous: $exception);
-        }
+            Log::info('Route map layout engine returned invalid JSON', [
+                'engine' => $engine,
+                'error' => $exception->getMessage(),
+            ]);
 
-        return $this->extractLayout($graph, $layout['node_sizes']);
+            return null;
+        }
+    }
+
+    /**
+     * A graph without coordinates.
+     *
+     * The nodes and edges are the substance of the map; positions are an
+     * optimisation the viewer can do without. Returning this keeps a graph that
+     * is too large or too slow to position from discarding the whole map.
+     *
+     * @return array{engine: string, revision: int, width: float, height: float, nodes: array<string, array{x: float, y: float, width: float, height: float}>}
+     */
+    private function unpositioned(string $reason): array
+    {
+        Log::warning('Route map layout unavailable; storing graph without positions', [
+            'reason' => mb_substr($reason, 0, 500),
+        ]);
+
+        return [
+            'engine' => 'graphviz-' . self::PRIMARY_ENGINE,
+            'revision' => self::REVISION,
+            'width' => 0.0,
+            'height' => 0.0,
+            'nodes' => [],
+        ];
     }
 
     /**
@@ -365,7 +441,7 @@ class RouteGraphLayoutService
      *     nodes: array<string, array{x: float, y: float, width: float, height: float}>
      * }
      */
-    private function extractLayout(array $graph, array $nodeSizes): array
+    private function extractLayout(array $graph, array $nodeSizes, string $engine = self::PRIMARY_ENGINE): array
     {
         [$minX, , $maxX, $maxY] = $this->parseBoundingBox((string) ($graph['bb'] ?? ''));
         $positions = [];
@@ -401,7 +477,7 @@ class RouteGraphLayoutService
         }
 
         return [
-            'engine' => self::ENGINE,
+            'engine' => 'graphviz-' . $engine,
             'revision' => self::REVISION,
             'width' => round($maxX - $minX, 3),
             'height' => round($maxY, 3),

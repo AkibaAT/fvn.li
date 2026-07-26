@@ -12,6 +12,19 @@ class RouteGraphService
 {
     public const GRAPH_REVISION = 31;
 
+    /**
+     * Labels the engine enters directly, which therefore have no incoming edge.
+     */
+    public const ENGINE_ENTRY_LABELS = [
+        'start',
+        'splashscreen',
+        'main_menu',
+        'before_main_menu',
+        'after_load',
+        'after_warp',
+        'quit',
+    ];
+
     public function __construct(
         private readonly RouteGraphConditionService $conditions = new RouteGraphConditionService,
         private readonly RouteGraphPostProcessor $postProcessor = new RouteGraphPostProcessor,
@@ -122,6 +135,10 @@ class RouteGraphService
             $name = $label->name;
             $outgoingEdges = $edgeMapByFrom->get($name, collect());
             $isStart = $name === 'labels.start' || $name === 'start';
+            $isEntryPoint = $isStart
+                || in_array($name, self::ENGINE_ENTRY_LABELS, true)
+                || (bool) ($label->externally_invoked ?? false);
+            $isScaffolding = (bool) ($label->is_scaffolding ?? false);
             $varChanges = $varChangesByLabel->get($name, collect());
             $nodeChoices = $choicesByLabel->get($name, collect());
             $continuationEdges = $outgoingEdges
@@ -195,6 +212,8 @@ class RouteGraphService
                         'is_ending' => false,
                         'returns_to_caller' => (bool) $label->returns_to_caller,
                         'is_start' => $isStart,
+                        'is_entry_point' => $isEntryPoint,
+                        'is_scaffolding' => $isScaffolding,
                         'has_menu_choice' => false,
                         'file_path' => $label->file_path,
                         'line_number' => $label->line_number,
@@ -263,6 +282,8 @@ class RouteGraphService
                         'is_ending' => false,
                         'returns_to_caller' => (bool) $label->returns_to_caller,
                         'is_start' => ! $usesDedicatedMenuNodes && $isStart,
+                        'is_entry_point' => $isEntryPoint,
+                        'is_scaffolding' => $isScaffolding,
                         'has_menu_choice' => true,
                         'hub_choice_count' => $renderAsHub ? $groupChoices->count() : null,
                         'menu_prompt' => $menuPrompt,
@@ -529,6 +550,8 @@ class RouteGraphService
                     'is_ending' => (bool) $label->is_ending,
                     'returns_to_caller' => (bool) $label->returns_to_caller,
                     'is_start' => $isStart,
+                    'is_entry_point' => $isEntryPoint,
+                    'is_scaffolding' => $isScaffolding,
                     'has_menu_choice' => true,
                     'hub_choice_count' => $meaningfulChoices->count(),
                     'file_path' => $label->file_path,
@@ -552,6 +575,8 @@ class RouteGraphService
                     'is_ending' => (bool) $label->is_ending,
                     'returns_to_caller' => (bool) $label->returns_to_caller,
                     'is_start' => $isStart,
+                    'is_entry_point' => $isEntryPoint,
+                    'is_scaffolding' => $isScaffolding,
                     'has_menu_choice' => false,
                     'file_path' => $label->file_path,
                     'line_number' => $label->line_number,

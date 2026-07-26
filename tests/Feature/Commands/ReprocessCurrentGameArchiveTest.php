@@ -7,6 +7,7 @@ use App\Models\GameVersion;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
 use App\Services\GameVersionArchiveRepositoryService;
+use App\Support\Stats\StatsPayload;
 use Tests\Support\ReprocessRecordingGameArchiveService;
 use Tests\Support\ReprocessRecordingGameStatsService;
 
@@ -77,7 +78,7 @@ test('reprocess current game archive imports stats from stored archive for lates
     ]);
     expect($statsRecorder->saveVersionStatsCalls)->toHaveCount(1);
     expect($statsRecorder->saveVersionStatsCalls[0]['version_id'])->toBe($currentVersion->id);
-    expect($statsRecorder->saveVersionStatsCalls[0]['stats'])->toBe(['languages' => []]);
+    expect($statsRecorder->saveVersionStatsCalls[0]['stats'])->toBeInstanceOf(StatsPayload::class);
     expect($this->repositoryRecorder->persistStoredArchiveCalls)->toBe([
         [$game->id, $currentVersion->id, true],
     ]);

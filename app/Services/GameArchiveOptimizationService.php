@@ -12,11 +12,14 @@ use Illuminate\Support\Facades\Storage;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
+use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 use Symfony\Component\Process\Process;
 use ZipArchive;
 
 class GameArchiveOptimizationService
 {
+    private const RECOMPILE_TIMEOUT_SECONDS = 600;
+
     public function __construct(
         private readonly GameStatsService $statsService,
         private readonly ?GameArchiveOptimizerDockerRunner $sandboxRunner = null
@@ -84,7 +87,8 @@ class GameArchiveOptimizationService
             $optimizedSize = File::size($optimizedArchive);
             $savedBytes = $originalSize - $optimizedSize;
 
-            if ($validate && $this->statsService->extractGameStats($optimizedArchive) === null) {
+            // Only whether stats can still be extracted; the contents are not needed.
+            if ($validate && ! $this->statsService->canExtractStats($optimizedArchive)) {
                 $validationError = $this->statsService->getLastExtractionError();
                 $reason = 'Optimized archive did not pass stats extraction';
                 if ($validationError !== null && $validationError !== '') {
@@ -242,10 +246,22 @@ class GameArchiveOptimizationService
             $imageResult = $mediaOptimizer->optimizeImages($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
             $audioResult = $mediaOptimizer->optimizeAudio($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
             $this->reportProgress($progress, 'Updating script references');
-            $referencesUpdated = $mediaOptimizer->replaceScriptReferences(
-                $contentDir,
-                array_merge($imageResult['replacements'], $audioResult['replacements'])
-            );
+            $mediaReplacements = array_merge($imageResult['replacements'], $audioResult['replacements']);
+            $referencesUpdated = $mediaOptimizer->replaceScriptReferences($contentDir, $mediaReplacements);
+
+            if ($mediaReplacements !== []) {
+                $this->reportProgress($progress, 'Dropping compiled scripts that shadow rewritten sources');
+                $staleScripts = $this->removeShadowingCompiledScripts($contentDir);
+                $this->reportProgress($progress, sprintf('Dropped %d compiled script(s)', $staleScripts));
+
+                if ($staleScripts > 0) {
+                    $this->reportProgress($progress, 'Recompiling scripts from the rewritten sources');
+                    $compiled = $this->recompileScripts($gameDir, $contentDir, $progress);
+                    $this->reportProgress($progress, $compiled > 0
+                        ? sprintf('Recompiled %d script(s)', $compiled)
+                        : 'Scripts ship as source; the game compiles them on first run');
+                }
+            }
 
             $metadataService->write(
                 $workDir,
@@ -526,6 +542,263 @@ class GameArchiveOptimizationService
         return $failed;
     }
 
+    /**
+     * Remove compiled scripts that have a source file beside them.
+     *
+     * Ren'Py runs the compiled script whenever it is not older than its source,
+     * and repacking gives every file the same timestamp. Media references
+     * rewritten into the sources would then be ignored in favour of compiled
+     * code still pointing at the replaced files.
+     *
+     * @return int the number of compiled scripts removed
+     */
+    private function removeShadowingCompiledScripts(string $contentDir): int
+    {
+        $removed = 0;
+
+        foreach (app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpyc']) as $compiled) {
+            if (! $this->hasRpySource($compiled)) {
+                continue;
+            }
+
+            File::delete($compiled);
+            $removed++;
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Compile the rewritten sources back into bytecode.
+     *
+     * Ren'Py writes a .rpyc beside every script it loads, so running the title
+     * once leaves the archive with compiled scripts that match its sources.
+     * The game ships its own runtime, and the SDK stands in when that runtime
+     * cannot run here.
+     *
+     * @return int the number of compiled scripts written
+     */
+    private function recompileScripts(string $gameDir, string $contentDir, ?callable $progress = null): int
+    {
+        $commands = $this->recompileCommands($gameDir);
+        if ($commands === []) {
+            return 0;
+        }
+
+        $home = $gameDir . '/.recompile-home';
+        File::ensureDirectoryExists($home . '/.renpy/tokens', 0777, true);
+
+        $environment = [
+            'HOME' => $home,
+            'RENPY_PATH_TO_SAVES' => $home . '/.renpy',
+        ];
+
+        $preexistingDebris = $this->runtimeDebris($gameDir, $contentDir);
+
+        try {
+            foreach ($commands as [$command, $workingDirectory]) {
+                $process = new Process($command, $workingDirectory, $environment);
+                $process->setTimeout(self::RECOMPILE_TIMEOUT_SECONDS);
+
+                // Compiling a large script tree can exhaust the sandbox, which
+                // kills the runtime. The archive is still worth shipping, so a
+                // runtime that dies counts as a failed attempt, not a failure.
+                $failure = null;
+                try {
+                    $process->run();
+                } catch (ProcessRuntimeException $exception) {
+                    $failure = $exception->getMessage();
+                }
+
+                $compiled = $this->fullyCompiledScriptCount($contentDir);
+                if ($compiled > 0) {
+                    return $compiled;
+                }
+
+                $this->reportProgress($progress, sprintf(
+                    'Compiling with %s left sources uncompiled: %s',
+                    basename((string) $command[0]),
+                    $failure ?? $this->summarizeProcessFailure($process, 'runtime exited without compiling')
+                ));
+            }
+        } finally {
+            File::deleteDirectory($home);
+
+            foreach ($this->runtimeDebris($gameDir, $contentDir) as $path) {
+                if (in_array($path, $preexistingDebris, true)) {
+                    continue;
+                }
+
+                is_dir($path) ? File::deleteDirectory($path) : File::delete($path);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * The number of compiled scripts, counted only when every source has one.
+     *
+     * A runtime that aborts partway through loading leaves some sources
+     * uncompiled, which is reported as a failure so the next runtime is tried.
+     */
+    private function fullyCompiledScriptCount(string $contentDir): int
+    {
+        $mediaOptimizer = app(ArchiveMediaOptimizer::class);
+        $compiled = $mediaOptimizer->filesWithExtensions($contentDir, ['rpyc']);
+
+        if ($compiled === []) {
+            return 0;
+        }
+
+        $compiledBasePaths = array_flip(array_map(
+            fn (string $path): string => substr($path, 0, -strlen('.rpyc')),
+            $compiled
+        ));
+
+        foreach ($mediaOptimizer->filesWithExtensions($contentDir, ['rpy']) as $source) {
+            if (! isset($compiledBasePaths[substr($source, 0, -strlen('.rpy'))])) {
+                return 0;
+            }
+        }
+
+        return count($compiled);
+    }
+
+    /**
+     * Paths a Ren'Py run leaves behind that are not part of the release.
+     *
+     * @return list<string>
+     */
+    private function runtimeDebris(string $gameDir, string $contentDir): array
+    {
+        $candidates = [
+            $contentDir . '/saves',
+            $contentDir . '/cache',
+        ];
+
+        foreach ([$gameDir, $contentDir] as $directory) {
+            foreach (['log.txt', 'errors.txt', 'traceback.txt'] as $file) {
+                $candidates[] = $directory . '/' . $file;
+            }
+        }
+
+        // Running the game byte-compiles the runtime's own Python modules.
+        $candidates = array_merge($candidates, $this->pycachePaths($gameDir));
+
+        return array_values(array_filter($candidates, fn (string $path): bool => file_exists($path)));
+    }
+
+    /**
+     * Every byte-code cache directory below the game and the files inside them.
+     *
+     * Releases ship some of these already, so the files are listed individually
+     * to tell an entry the archive came with from one this run produced.
+     *
+     * @return list<string>
+     */
+    private function pycachePaths(string $gameDir): array
+    {
+        if (! is_dir($gameDir)) {
+            return [];
+        }
+
+        $paths = [];
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($gameDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $entry) {
+            if (! $entry->isDir() || $entry->getFilename() !== '__pycache__') {
+                continue;
+            }
+
+            $paths[] = $entry->getPathname();
+
+            foreach (glob($entry->getPathname() . '/*') ?: [] as $cached) {
+                $paths[] = $cached;
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * @return list<array{0: list<string>, 1: string}>
+     */
+    private function recompileCommands(string $gameDir): array
+    {
+        $commands = [];
+
+        $native = $this->findNativeLauncher($gameDir);
+        if ($native !== null) {
+            $this->makeNativeRuntimeExecutable($gameDir, $native);
+
+            $commands[] = [[$native, 'game', 'test'], dirname($native)];
+            $commands[] = [[$native], dirname($native)];
+        }
+
+        $sdkPath = $this->renpySdkPath();
+        if ($sdkPath !== null) {
+            $commands[] = [[$sdkPath . '/renpy.sh', $gameDir, 'compile'], $gameDir];
+        }
+
+        return $commands;
+    }
+
+    private function findNativeLauncher(string $gameDir): ?string
+    {
+        $launchers = glob($gameDir . '/*.sh') ?: [];
+        sort($launchers);
+
+        foreach ($launchers as $launcher) {
+            if (is_file($launcher)) {
+                return $launcher;
+            }
+        }
+
+        return null;
+    }
+
+    private function makeNativeRuntimeExecutable(string $gameDir, string $launcher): void
+    {
+        @chmod($launcher, 0755);
+
+        $libDir = $gameDir . '/lib';
+        if (! is_dir($libDir)) {
+            return;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($libDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                @chmod($file->getPathname(), 0755);
+            }
+        }
+    }
+
+    private function renpySdkPath(): ?string
+    {
+        $candidates = [
+            config('services.renpy.sdk_container_path'),
+            config('services.renpy.sdk_host_path'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && $candidate !== '' && is_file($candidate . '/renpy.sh')) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
     private function hasRpySource(string $rpycFile): bool
     {
         $basePath = substr($rpycFile, 0, -strlen('.rpyc'));
@@ -534,11 +807,11 @@ class GameArchiveOptimizationService
             || File::exists($basePath . '_ren.py');
     }
 
-    private function summarizeProcessFailure(Process $process): string
+    private function summarizeProcessFailure(Process $process, string $fallback = 'decompiler exited unsuccessfully'): string
     {
         $output = trim($process->getErrorOutput()) ?: trim($process->getOutput());
         if ($output === '') {
-            return 'decompiler exited unsuccessfully';
+            return $fallback;
         }
 
         $lines = preg_split('/\R/', $output) ?: [];
@@ -547,7 +820,7 @@ class GameArchiveOptimizationService
             ->filter()
             ->last();
 
-        return $line === null ? 'decompiler exited unsuccessfully' : str($line)->limit(180)->toString();
+        return $line === null ? $fallback : str($line)->limit(180)->toString();
     }
 
     private function reportProgress(?callable $progress, string $message): void

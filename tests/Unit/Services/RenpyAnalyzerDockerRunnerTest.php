@@ -12,7 +12,6 @@ it('builds a locked down docker command for per-archive analysis', function () {
         'services.renpy.analyzer_cpus' => '0.75',
         'services.renpy.analyzer_pids_limit' => 64,
         'services.renpy.analyzer_tmp_size' => '128m',
-        'services.renpy.analyzer_work_size' => '2g',
         'services.renpy.analyzer_php_binary' => 'php8.5',
         'services.renpy.sdk_host_path' => '/host/renpy-sdk',
         'services.renpy.sdk_container_path' => '/opt/renpy-sdk',
@@ -40,9 +39,12 @@ it('builds a locked down docker command for per-archive analysis', function () {
         ->and($command)->toContain('--memory')
         ->and($command)->toContain('768m')
         ->and($command)->toContain('/tmp:rw,nosuid,nodev,noexec,mode=1777,size=128m')
-        ->and($command)->toContain('/work:rw,nosuid,nodev,noexec,mode=1777,size=2g')
+        // The staging area is disk-backed; a tmpfs there would count against
+        // the container's memory limit while a game extracts into it.
+        ->and($command)->not->toContain('/work:rw,nosuid,nodev,noexec,mode=1777,size=2g')
+        ->and($command)->toContain('type=bind,source=/host/work/job/work,target=/work')
         ->and($command)->toContain('RENPY_ANALYZER_ALLOW_NATIVE=1')
-        ->and($command)->toContain('RENPY_ANALYZER_WORK_DIR=/output/work')
+        ->and($command)->toContain('RENPY_ANALYZER_WORK_DIR=/work')
         ->and($command)->toContain('type=bind,source=/host/work/job/input,target=/input,readonly')
         ->and($command)->toContain('type=bind,source=/host/work/job/output,target=/output')
         ->and($command)->toContain('type=bind,source=/host/renpy-sdk,target=/opt/renpy-sdk,readonly')

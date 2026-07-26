@@ -8,6 +8,7 @@ use App\Services\DenKitStashPersistenceService;
 use App\Services\GameArchiveService;
 use App\Services\GameStatsService;
 use App\Services\ItchDownloadUrlResolver;
+use App\Support\Stats\ArrayStatsPayload;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -238,13 +239,13 @@ test('process archive strips file statistics from optimized archives', function 
     $statsService->expects($this->once())
         ->method('extractGameStats')
         ->with($archivePath)
-        ->willReturn([
+        ->willReturn(new ArrayStatsPayload([
             'languages' => ['eng' => ['blocks' => 1, 'words' => 2]],
             'file_statistics' => [
                 'summary' => ['total_images' => 1],
                 'images' => ['webp' => ['count' => 1, 'total_size' => 42]],
             ],
-        ]);
+        ]));
 
     try {
         $stats = (new GameArchiveService($statsService))->processArchive($archivePath);
@@ -252,8 +253,8 @@ test('process archive strips file statistics from optimized archives', function 
         @unlink($archivePath);
     }
 
-    expect($stats)->toHaveKey('languages')
-        ->and($stats)->not->toHaveKey('file_statistics');
+    expect($stats?->languages())->toBe(['eng' => ['blocks' => 1, 'words' => 2]])
+        ->and($stats?->fileStatistics())->toBeNull();
 });
 
 test('stored archive lookup archive existence and temp moves use version storage paths', function () {

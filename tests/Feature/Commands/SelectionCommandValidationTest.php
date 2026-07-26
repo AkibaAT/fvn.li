@@ -11,6 +11,8 @@ use App\Services\GameVersionStatsImportService;
 use App\Services\ImageProcessingService;
 use App\Services\PlatformDetectionService;
 use App\Services\SteamDataSyncService;
+use App\Support\Stats\ArrayStatsPayload;
+use App\Support\Stats\StatsPayload;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Storage;
 
@@ -152,14 +154,14 @@ it('reimports stored archive statistics and handles missing archives and invalid
 
     $statsService = new readonly class extends GameStatsService
     {
-        public function extractGameStats(string $archivePath): ?array
+        public function extractGameStats(string $archivePath): ?StatsPayload
         {
-            return ['languages' => ['eng' => ['blocks' => 1]]];
+            return new ArrayStatsPayload(['languages' => ['eng' => ['blocks' => 1]]]);
         }
 
         public function saveVersionStats(
             GameVersion $version,
-            array $stats,
+            StatsPayload|array $stats,
             string $defaultLanguage = 'eng',
             ?Game $game = null
         ): void {

@@ -739,9 +739,9 @@ function passingArchiveOptimizationStatsService(): GameStatsService
 {
     return new readonly class extends GameStatsService
     {
-        public function extractGameStats(string $archivePath): ?array
+        public function canExtractStats(string $archivePath): bool
         {
-            return ['languages' => []];
+            return true;
         }
     };
 }

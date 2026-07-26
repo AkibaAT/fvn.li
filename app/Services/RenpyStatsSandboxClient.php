@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\Stats\NdjsonStatsPayload;
+use App\Support\Stats\StatsPayload;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +16,7 @@ class RenpyStatsSandboxClient
 {
     private ?string $lastError = null;
 
-    public function extract(string $archivePath): ?array
+    public function extract(string $archivePath): ?StatsPayload
     {
         $this->lastError = null;
         $url = config('services.renpy.analyzer_url');
@@ -60,15 +62,19 @@ class RenpyStatsSandboxClient
                 return null;
             }
 
-            $stats = $response->json('stats');
-            if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
-                $this->lastError = 'Sandbox analyzer returned invalid stats payload';
-                Log::warning('GameStats: sandbox analyzer returned invalid stats payload');
+            $statsPath = $response->json('stats_path');
+            if (! is_string($statsPath) || ! $this->isWithinRequestDirectory($statsPath, $requestDir)) {
+                $this->lastError = 'Sandbox analyzer returned an unusable stats path';
+                Log::warning('GameStats: sandbox analyzer returned an unusable stats path');
 
                 return null;
             }
 
-            return $stats;
+            // Move it out of the request directory, which is deleted below.
+            $ownedPath = $this->statsWorkPath();
+            File::move($statsPath, $ownedPath);
+
+            return new NdjsonStatsPayload($ownedPath, ownsFile: true);
         } catch (Throwable $e) {
             $this->lastError = $e->getMessage();
             Log::warning('GameStats: sandbox analyzer request errored', [
@@ -97,6 +103,28 @@ class RenpyStatsSandboxClient
         }
 
         return substr($output, 0, $limit) . "\n[truncated]";
+    }
+
+    /**
+     * The analyzer may only write into the directory we handed it the archive in.
+     */
+    private function isWithinRequestDirectory(string $statsPath, string $requestDir): bool
+    {
+        $resolvedStats = realpath($statsPath);
+        $resolvedRequestDir = realpath($requestDir);
+
+        return $resolvedStats !== false
+            && $resolvedRequestDir !== false
+            && str_starts_with($resolvedStats, rtrim($resolvedRequestDir, '/') . '/')
+            && is_file($resolvedStats);
+    }
+
+    private function statsWorkPath(): string
+    {
+        $directory = storage_path('app/temp');
+        File::ensureDirectoryExists($directory, 0755);
+
+        return $directory . '/renpy-stats-' . bin2hex(random_bytes(8)) . '.ndjson';
     }
 
     private function createRequestDirectory(): string

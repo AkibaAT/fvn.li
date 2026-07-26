@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\Stats\NdjsonStatsPayload;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
@@ -11,7 +12,7 @@ it('does not execute shell scripts from an archive when SDK stats extraction fai
     $sdkPath = "{$basePath}/sdk";
     $workPath = "{$basePath}/work";
     $archivePath = "{$basePath}/malicious.zip";
-    $outputPath = "{$basePath}/stats.json";
+    $outputPath = "{$basePath}/stats.ndjson";
     $pwnedPath = "{$workPath}/extract/pwned.txt";
 
     File::makeDirectory("{$sourcePath}/game", 0755, true);
@@ -22,7 +23,7 @@ it('does not execute shell scripts from an archive when SDK stats extraction fai
     File::put("{$sourcePath}/pwn.sh", <<<'SH'
 #!/bin/sh
 printf 'executed' > pwned.txt
-printf '{"languages":{"en":{"words":1}}}' > stats.json
+printf '{"type":"meta","schema":"fvn.renpy_stats.v1"}\n{"type":"languages","key":"en","entry":{"words":1}}\n' > stats.ndjson
 SH);
 
     File::put("{$sdkPath}/renpy.sh", <<<'SH'
@@ -68,7 +69,7 @@ it('falls back to the bundled launcher when test mode does not produce stats', f
     $sdkPath = "{$basePath}/sdk";
     $workPath = "{$basePath}/work";
     $archivePath = "{$basePath}/game.zip";
-    $outputPath = "{$basePath}/stats.json";
+    $outputPath = "{$basePath}/stats.ndjson";
 
     File::makeDirectory("{$sourcePath}/game", 0755, true);
     File::makeDirectory($sdkPath, 0755, true);
@@ -81,7 +82,7 @@ printf '%s\n' "$*" >> native-attempts.txt
 if [ "$#" -gt 0 ]; then
     exit 1
 fi
-printf '{"languages":{"default":{"dialogueLines":1}}}' > stats.json
+printf '{"type":"meta","schema":"fvn.renpy_stats.v1"}\n{"type":"languages","key":"default","entry":{"blocks":1,"words":3}}\n' > stats.ndjson
 SH);
     File::put("{$sdkPath}/renpy.sh", <<<'SH'
 #!/bin/sh
@@ -111,8 +112,8 @@ SH);
         $process->run();
 
         expect($process->getExitCode())->toBe(0)
-            ->and(json_decode(File::get($outputPath), true))
-            ->toMatchArray(['languages' => ['default' => ['dialogueLines' => 1]]])
+            ->and((new NdjsonStatsPayload($outputPath))->languages())
+            ->toMatchArray(['default' => ['blocks' => 1, 'words' => 3, 'characters' => []]])
             ->and(File::get("{$workPath}/extract/native-attempts.txt"))
             ->toBe("game test\n\n");
     } finally {

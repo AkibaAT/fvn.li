@@ -25,8 +25,8 @@ trait HandlesGameVersionLanguages
             ->icon('heroicon-o-arrow-up-tray')
             ->schema([
                 FileUpload::make('stats_file')
-                    ->label('Stats JSON File')
-                    ->acceptedFileTypes(['application/json', 'text/plain', 'text/json'])
+                    ->label('Stats File')
+                    ->acceptedFileTypes(['application/x-ndjson', 'application/json', 'text/plain', 'text/json'])
                     ->disk('local')
                     ->directory('temp/stats')
                     ->visibility('private')
@@ -34,7 +34,7 @@ trait HandlesGameVersionLanguages
                     ->storeFileNamesIn('original_filename')
                     ->maxSize(102400) // 100MB max (matches PHP limit)
                     ->required()
-                    ->helperText('Upload a JSON file containing game version statistics.'),
+                    ->helperText('Upload the stats document produced by the analyzer (.ndjson).'),
             ])
             ->action(function (array $data): void {
                 try {

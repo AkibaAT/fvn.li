@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\Stats\NdjsonStatsPayload;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -13,7 +14,15 @@ class RenpyAnalyzerDockerRunner
 {
     private ?string $lastError = null;
 
-    public function analyze(string $archivePath): ?array
+    /**
+     * Analyze an archive and place the resulting stats document at
+     * $destinationPath.
+     *
+     * The document is moved rather than returned: for a large game it runs to
+     * hundreds of megabytes, and decoding it here would cost several times that
+     * in memory for a process that has no use for the contents.
+     */
+    public function analyze(string $archivePath, string $destinationPath): bool
     {
         $this->lastError = null;
 
@@ -33,7 +42,9 @@ class RenpyAnalyzerDockerRunner
 
         File::makeDirectory("{$containerJobDir}/input", 0755, true);
         File::makeDirectory("{$containerJobDir}/output", 0777, true);
+        File::makeDirectory("{$containerJobDir}/work", 0777, true);
         chmod("{$containerJobDir}/output", 0777);
+        chmod("{$containerJobDir}/work", 0777);
         File::copy($archivePath, "{$containerJobDir}/input/{$archiveFilename}");
         File::copy(base_path('scripts/renpy-analyze-archive.php'), "{$containerJobDir}/input/renpy-analyze-archive.php");
         File::copy(resource_path('renpy/json_stats.rpy'), "{$containerJobDir}/input/json_stats.rpy");
@@ -55,26 +66,29 @@ class RenpyAnalyzerDockerRunner
                     'error_output' => $this->sanitizeDiagnosticOutput($process->getErrorOutput()),
                 ]);
 
-                return null;
+                return false;
             }
 
-            $statsPath = "{$containerJobDir}/output/stats.json";
+            $statsPath = "{$containerJobDir}/output/stats.ndjson";
             if (! File::exists($statsPath)) {
-                $this->lastError = 'Analyzer container did not produce stats.json';
-                Log::warning('RenPy analyzer container did not produce stats.json');
+                $this->lastError = 'Analyzer container did not produce stats.ndjson';
+                Log::warning('RenPy analyzer container did not produce stats.ndjson');
 
-                return null;
+                return false;
             }
 
-            $stats = json_decode(File::get($statsPath), true);
-            if (! is_array($stats) || ! isset($stats['languages']) || ! is_array($stats['languages'])) {
-                $this->lastError = 'Analyzer container produced invalid stats.json';
-                Log::warning('RenPy analyzer container produced invalid stats.json');
+            // Reads only the aggregate records at the head of the document.
+            if ((new NdjsonStatsPayload($statsPath))->languages() === []) {
+                $this->lastError = 'Analyzer container produced a stats document without languages';
+                Log::warning('RenPy analyzer container produced a stats document without languages');
 
-                return null;
+                return false;
             }
 
-            return $stats;
+            File::ensureDirectoryExists(dirname($destinationPath));
+            File::move($statsPath, $destinationPath);
+
+            return true;
         } finally {
             File::deleteDirectory($containerJobDir);
         }
@@ -124,12 +138,14 @@ class RenpyAnalyzerDockerRunner
             (string) config('services.renpy.analyzer_memory', '1g'),
             '--tmpfs',
             '/tmp:rw,nosuid,nodev,noexec,mode=1777,size=' . (string) config('services.renpy.analyzer_tmp_size', '256m'),
-            '--tmpfs',
-            '/work:rw,nosuid,nodev,noexec,mode=1777,size=' . (string) config('services.renpy.analyzer_work_size', '4g'),
             '--env',
             'RENPY_ANALYZER_ALLOW_NATIVE=1',
             '--env',
-            'RENPY_ANALYZER_WORK_DIR=/output/work',
+            'RENPY_ANALYZER_WORK_DIR=/work',
+            '--mount',
+            // Extracting a game expands to gigabytes. A tmpfs here is charged to
+            // the container's memory limit, so the staging area is disk-backed.
+            "type=bind,source={$hostJobDir}/work,target=/work",
             '--mount',
             "type=bind,source={$hostJobDir}/input,target=/input,readonly",
             '--mount',
@@ -139,7 +155,7 @@ class RenpyAnalyzerDockerRunner
             (string) config('services.renpy.analyzer_image'),
             '/input/renpy-analyze-archive.php',
             "/input/{$archiveFilename}",
-            '/output/stats.json',
+            '/output/stats.ndjson',
             $sdkContainerPath,
             '/input/json_stats.rpy',
         ];

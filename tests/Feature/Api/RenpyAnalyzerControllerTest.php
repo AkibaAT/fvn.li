@@ -39,21 +39,21 @@ it('runs the docker analyzer only for archives under the shared analyzer path', 
     $runner = Mockery::mock(RenpyAnalyzerDockerRunner::class);
     $runner->shouldReceive('analyze')
         ->once()
-        ->with(realpath($archivePath))
-        ->andReturn([
-            'languages' => [
-                'eng' => ['blocks' => 1, 'words' => 2],
-            ],
-        ]);
+        ->withArgs(fn (string $archive, string $destination): bool => $archive === realpath($archivePath)
+            && str_starts_with($destination, $sharedPath . '/stats-')
+            && str_ends_with($destination, '.ndjson'))
+        ->andReturn(true);
     $this->app->instance(RenpyAnalyzerDockerRunner::class, $runner);
 
     try {
+        // The document is handed back by path, never serialized into the response.
         $this->withToken('secret')
             ->postJson('/api/renpy-analyzer/analyze', [
                 'archive_path' => $archivePath,
             ])
             ->assertOk()
-            ->assertJsonPath('stats.languages.eng.words', 2);
+            ->assertJsonMissingPath('stats')
+            ->assertJsonPath('stats_path', fn (string $path): bool => str_starts_with($path, $sharedPath . '/stats-'));
 
         $outsidePath = storage_path('framework/testing/outside-' . uniqid() . '.zip');
         File::put($outsidePath, 'archive');
@@ -85,8 +85,7 @@ it('does not expose the analyzer extraction diagnostic in api responses', functi
     $runner = Mockery::mock(RenpyAnalyzerDockerRunner::class);
     $runner->shouldReceive('analyze')
         ->once()
-        ->with(realpath($archivePath))
-        ->andReturn(null);
+        ->andReturn(false);
     $runner->shouldReceive('getLastError')
         ->never();
     $this->app->instance(RenpyAnalyzerDockerRunner::class, $runner);

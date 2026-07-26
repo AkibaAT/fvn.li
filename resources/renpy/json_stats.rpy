@@ -216,10 +216,17 @@ init 10000 python:
         if func is None:
             return None
 
-        if isinstance(func, pyast.Attribute) and getattr(func, 'attr', None) in ('jump', 'call'):
+        control_calls = (
+            'jump',
+            'call',
+            'call_in_new_context',
+            'jump_out_of_context',
+            'call_replay',
+        )
+        if isinstance(func, pyast.Attribute) and getattr(func, 'attr', None) in control_calls:
             owner = getattr(func, 'value', None)
             if isinstance(owner, pyast.Name) and getattr(owner, 'id', None) == 'renpy':
-                return func.attr
+                return 'call' if func.attr.startswith('call') else 'jump'
 
         return None
 
@@ -456,6 +463,14 @@ init 10000 python:
                     edge_type = "screen_" + ("jump" if func_name == "Start" else func_name.lower())
                     targets.append({"target": target_value, "type": edge_type})
 
+            # A screen that returns a label name hands control to whichever label
+            # called it, which then jumps to the returned value.
+            if func_name == "Return" and node.args:
+                returned = string_literal_from_ast(node.args[0])
+                if isinstance(returned, str) and returned in route_labels:
+                    targets.append({"target": returned, "type": "screen_jump"})
+                    mark_externally_invoked(returned)
+
             if func_name == "Function" and len(node.args) >= 2:
                 callback = node.args[0]
                 first_callback_arg = node.args[1]
@@ -610,12 +625,22 @@ init 10000 python:
     def get_show_screen_name(stmt):
         return get_screen_statement_name(stmt, "show screen")
 
+    # Nested branches combine into ever longer condition strings. Past a few
+    # hundred characters they are useless to a reader and, since every edge
+    # carries one and dedupes on it, they dominate memory.
+    MAX_CONDITION_LENGTH = 400
+
+    def bounded_condition(condition):
+        if condition and len(condition) > MAX_CONDITION_LENGTH:
+            return None
+        return condition
+
     def combine_conditions(outer_condition, inner_condition):
         if not outer_condition or outer_condition == "True":
-            return inner_condition
+            return bounded_condition(inner_condition)
         if not inner_condition or inner_condition == "True":
-            return outer_condition
-        return "(%s) and (%s)" % (outer_condition, inner_condition)
+            return bounded_condition(outer_condition)
+        return bounded_condition("(%s) and (%s)" % (outer_condition, inner_condition))
 
     def is_true_condition(condition):
         return condition is True or condition == "True"
@@ -628,7 +653,7 @@ init 10000 python:
         if not conditions:
             return None
 
-        return "not (" + " or ".join("(%s)" % condition for condition in conditions) + ")"
+        return bounded_condition("not (" + " or ".join("(%s)" % condition for condition in conditions) + ")")
 
     def iter_if_entries_with_condition_parts(entries, outer_condition=None):
         prior_conditions = []
@@ -740,24 +765,18 @@ init 10000 python:
         module_name = getattr(value.__class__, "__module__", "")
         return module_name.startswith("renpy.ast") and hasattr(value, "linenumber")
 
-    def statement_chain_items(first_statement):
-        items = []
-        seen = set()
-        stmt = first_statement
-
-        while is_ast_statement(stmt) and id(stmt) not in seen:
-            seen.add(id(stmt))
-            items.append(stmt)
-            stmt = getattr(stmt, "next", None)
-
-        return items
-
     def statement_block_items(block):
-        """Return statements for list-backed or linked Ren'Py AST blocks."""
+        """Return the statements of a Ren'Py AST block.
+
+        Ren'Py exposes a block as a list. A single statement is not a block: its
+        "next" continues in execution order past the end of the block and on
+        through the rest of the script, so following that chain would pull in
+        the remainder of the game for every block examined.
+        """
         if block is None:
             return []
         if is_ast_statement(block):
-            return statement_chain_items(block)
+            return [block]
         try:
             items = py_builtins.list(block)
         except TypeError:
@@ -929,8 +948,238 @@ init 10000 python:
                     edge_line,
                 )
 
+    def collect_label_bindings():
+        """Map names to the labels they can hold at runtime.
+
+        Scripts routinely hand control to a label through a variable, an
+        attribute or a getter. Recording which known label names flow into which
+        identifiers lets those targets be resolved instead of being recorded as
+        the expression's source text.
+        """
+        bindings = {"values": collections.defaultdict(list),
+                    "returns": collections.defaultdict(list),
+                    "params": {},
+                    "aliases": collections.defaultdict(list)}
+
+        def literal(node):
+            return string_literal_from_ast(node)
+
+        def add_value(key, label_name):
+            if key and label_name and label_name in route_labels \
+                    and label_name not in bindings["values"][key]:
+                bindings["values"][key].append(label_name)
+
+        def add_return(key, name):
+            if key and name and name not in bindings["returns"][key]:
+                bindings["returns"][key].append(name)
+
+        def target_key(node):
+            if isinstance(node, pyast.Name):
+                return node.id
+            if isinstance(node, pyast.Attribute):
+                return node.attr
+            return None
+
+        def callee_name(call):
+            func = getattr(call, "func", None)
+            if isinstance(func, pyast.Name):
+                return func.id
+            if isinstance(func, pyast.Attribute):
+                return func.attr
+            return None
+
+        def parameter_names(args):
+            names = [getattr(a, "arg", getattr(a, "id", None)) for a in getattr(args, "args", [])]
+            names += [getattr(a, "arg", None) for a in getattr(args, "kwonlyargs", [])]
+            return [n for n in names if n and n != "self"]
+
+        sources = list(route_code_sources)
+        for expressions in screen_action_exprs.values():
+            sources.extend(expressions)
+
+        trees = []
+        for source in sources:
+            if not source or not source.strip():
+                continue
+            for parse_mode in ("exec", "eval"):
+                try:
+                    trees.append(pyast.parse(source, parse_mode))
+                    break
+                except Exception:
+                    continue
+
+        # Signatures first: binding a positional argument needs the parameter
+        # names of the callable, which may be defined in another source.
+        for tree in trees:
+            for node in pyast.walk(tree):
+                if isinstance(node, pyast.FunctionDef):
+                    bindings["params"][node.name] = parameter_names(node.args)
+                elif isinstance(node, pyast.ClassDef):
+                    for sub in node.body:
+                        if isinstance(sub, pyast.FunctionDef) and sub.name == "__init__":
+                            bindings["params"][node.name] = parameter_names(sub.args)
+
+        for tree in trees:
+            for node in pyast.walk(tree):
+                if isinstance(node, pyast.FunctionDef):
+                    parameters = parameter_names(node.args)
+                    bindings["params"][node.name] = parameters
+                    parameter_set = set(parameters)
+
+                    for sub in pyast.walk(node):
+                        if isinstance(sub, pyast.Return):
+                            returned = literal(sub.value)
+                            if returned:
+                                add_value(node.name, returned)
+                            else:
+                                key = target_key(sub.value)
+                                if key:
+                                    add_return(node.name, key)
+                                elif isinstance(sub.value, pyast.Call):
+                                    add_return(node.name, callee_name(sub.value))
+                        elif isinstance(sub, pyast.Assign):
+                            source_name = sub.value.id if isinstance(sub.value, pyast.Name) else None
+                            if source_name in parameter_set:
+                                for assign_target in sub.targets:
+                                    name = target_key(assign_target)
+                                    if name and name != source_name:
+                                        bindings["aliases"][(node.name, source_name)].append(name)
+
+                elif isinstance(node, pyast.ClassDef):
+                    for sub in node.body:
+                        if isinstance(sub, pyast.FunctionDef) and sub.name == "__init__":
+                            bindings["params"][node.name] = parameter_names(sub.args)
+
+                elif isinstance(node, pyast.Assign):
+                    for assign_target in node.targets:
+                        key = target_key(assign_target)
+                        if not key:
+                            continue
+                        direct = literal(node.value)
+                        if direct:
+                            add_value(key, direct)
+                        elif isinstance(node.value, pyast.Call):
+                            add_return(key, callee_name(node.value))
+                        elif isinstance(node.value, (pyast.Name, pyast.Attribute)):
+                            add_return(key, target_key(node.value))
+
+                elif isinstance(node, pyast.Call):
+                    name = callee_name(node)
+                    for keyword in getattr(node, "keywords", []):
+                        if not getattr(keyword, "arg", None):
+                            continue
+                        value = literal(keyword.value)
+                        add_value(keyword.arg, value)
+                        for alias in bindings["aliases"].get((name, keyword.arg), []):
+                            add_value(alias, value)
+
+                    for param, arg in zip(bindings["params"].get(name, []), getattr(node, "args", [])):
+                        value = literal(arg)
+                        add_value(param, value)
+                        for alias in bindings["aliases"].get((name, param), []):
+                            add_value(alias, value)
+
+        return bindings
+
+    def resolve_label_expression(expression, bindings, depth=0):
+        """Labels an expression used as a jump or call target can evaluate to."""
+        if not expression or depth > 4:
+            return []
+        if expression in route_labels:
+            return [expression]
+
+        try:
+            tree = pyast.parse(expression.strip(), "eval")
+        except Exception:
+            return []
+
+        keys = []
+
+        def gather(node, level):
+            if level > 4:
+                return
+            if isinstance(node, pyast.Name):
+                keys.append(node.id)
+            elif isinstance(node, pyast.Attribute):
+                keys.append(node.attr)
+            elif isinstance(node, pyast.Subscript):
+                gather(getattr(node, "value", None), level + 1)
+            elif isinstance(node, pyast.Call):
+                func = getattr(node, "func", None)
+                if isinstance(func, pyast.Name):
+                    keys.append(func.id)
+                elif isinstance(func, pyast.Attribute):
+                    keys.append(func.attr)
+            elif isinstance(node, pyast.IfExp):
+                gather(node.body, level + 1)
+                gather(node.orelse, level + 1)
+            elif isinstance(node, pyast.BoolOp):
+                for value in node.values:
+                    gather(value, level + 1)
+
+        gather(tree.body, 0)
+
+        seen = set()
+        labels = []
+        pending = list(keys)
+        while pending:
+            key = pending.pop(0)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            for label_name in bindings["values"].get(key, []):
+                if label_name not in labels:
+                    labels.append(label_name)
+            for alias in bindings["returns"].get(key, []):
+                pending.append(alias)
+
+        return labels
+
+    def resolve_expression_route_edges(bindings):
+        """Replace edges that point at expression text with the labels they reach."""
+        resolved_edges = []
+
+        for edge in route_edges:
+            target = edge.get("to_label")
+            if not target or target in route_labels:
+                resolved_edges.append(edge)
+                continue
+
+            matches = resolve_label_expression(target, bindings)
+            if not matches:
+                # The target never resolves to a label; keeping it would add a
+                # node named after the expression.
+                continue
+
+            for label_name in matches:
+                replacement = dict(edge)
+                replacement["to_label"] = label_name
+                replacement["edge_type"] = "dynamic_" + (
+                    "call" if edge.get("edge_type") == "call" else "jump"
+                )
+                key = (
+                    replacement["from_label"],
+                    label_name,
+                    replacement["edge_type"],
+                    replacement.get("choice_text", ""),
+                    replacement.get("condition", ""),
+                )
+                if key in route_edge_keys:
+                    continue
+                route_edge_keys.add(key)
+                resolved_edges.append(replacement)
+
+        del route_edges[:]
+        route_edges.extend(resolved_edges)
+
     def add_inferred_dynamic_route_edges():
         dynamic_label_values = collect_dynamic_label_values()
+
+        external_sources = list(route_code_sources)
+        for expressions in screen_action_exprs.values():
+            external_sources.extend(expressions)
+        for source in external_sources:
+            scan_external_invocations(source)
 
         add_dynamic_label_edges("move_to", ("intro_label", "queued_label", "setup_label"), dynamic_label_values, "dynamic_call")
         add_dynamic_label_edges("pitch_v2_debrief", ("debrief_label",), dynamic_label_values, "dynamic_call")
@@ -1028,6 +1277,70 @@ init 10000 python:
                 "line": linenumber,
                 "is_ending": bool(is_ending or ENDING_PATTERN.search(label_name)),
             }
+
+    def mark_externally_invoked(label_name):
+        """Record that code outside the script flow enters this label.
+
+        Class methods, screen callbacks and other Python that is not inside a
+        label can hand control to one by name. No script edge leads there, so
+        the label is an entry point of its own rather than an orphan.
+        """
+        if label_name in route_labels:
+            route_labels[label_name]["externally_invoked"] = True
+
+    def scan_external_invocations(source):
+        """Find renpy.call()/renpy.jump() targets in Python outside any label."""
+        if not source or not source.strip():
+            return
+
+        tree = None
+        for parse_mode in ("exec", "eval"):
+            try:
+                tree = pyast.parse(source, parse_mode)
+                break
+            except Exception:
+                continue
+        if tree is None:
+            return
+
+        for node in pyast.walk(tree):
+            if not isinstance(node, pyast.Call):
+                continue
+
+            args = getattr(node, "args", [])
+            if not args:
+                continue
+
+            if get_renpy_control_call(node):
+                for target in dynamic_route_targets_from_arg(args[0]):
+                    mark_externally_invoked(target)
+                continue
+
+            # Screen actions that enter a label, including one returned to the
+            # caller of the screen.
+            func = getattr(node, "func", None)
+            action = None
+            if isinstance(func, pyast.Name):
+                action = func.id
+            elif isinstance(func, pyast.Attribute):
+                action = func.attr
+
+            if action in ("Jump", "Call", "Start", "Return"):
+                returned = string_literal_from_ast(args[0])
+                if isinstance(returned, str):
+                    mark_externally_invoked(returned)
+                continue
+
+            # A label name handed to any function is a reference to it from code
+            # the script flow does not reach.
+            for argument in args:
+                literal_argument = string_literal_from_ast(argument)
+                if isinstance(literal_argument, str):
+                    mark_externally_invoked(literal_argument)
+            for keyword in getattr(node, "keywords", []):
+                literal_argument = string_literal_from_ast(getattr(keyword, "value", None))
+                if isinstance(literal_argument, str):
+                    mark_externally_invoked(literal_argument)
 
     def add_route_edge(from_label, to_label, edge_type, filename, linenumber, choice_text=None, condition=None):
         if not from_label or not to_label:
@@ -1292,6 +1605,14 @@ init 10000 python:
                 defined_characters[varname]["default"] = translate_string(display_name, None)
                 for lang in known_languages:
                     defined_characters[varname][lang] = translate_string(display_name, lang)
+
+            elif isinstance(node, renpy.ast.Python) or (
+                hasattr(renpy.ast, "EarlyPython") and isinstance(node, renpy.ast.EarlyPython)
+            ):
+                if is_game_file(node.filename):
+                    python_source = getattr(node.code, "source", "")
+                    if python_source:
+                        route_code_sources.append(python_source)
 
             elif isinstance(node, renpy.ast.Default):
                 default_value = getattr(node.code, "source", "").strip()
@@ -1717,6 +2038,7 @@ init 10000 python:
                 route_labels[label_name]["returns_to_caller"] = True
 
         add_inferred_dynamic_route_edges()
+        resolve_expression_route_edges(collect_label_bindings())
 
         collect_file_statistics()
         report_stats()
@@ -1743,7 +2065,12 @@ init 10000 python:
         return result
 
     def report_stats():
-        """Generate a JSON report of the collected statistics."""
+        """Write a newline-delimited JSON report of the collected statistics.
+
+        One record per line, aggregates first and dialogue lines last. Records are
+        encoded and written individually and the collected lines are freed as they
+        go, so peak memory does not scale with the size of the script.
+        """
         has_dialogue_blocks = any(
             file_count.blocks > 0
             for data in all_lang_stats.values()
@@ -1756,13 +2083,26 @@ init 10000 python:
                 all_lang_stats["default"]["characters"][line["character"]].add(line["text"])
                 dialogue_lines["default"].append(line)
 
-        result = {
-            "languages": {},
-            "file_statistics": {},
-            "dialogue_lines": {}  # New section for dialogue lines
-        }
+        outfile = io.open("stats.ndjson", "w", encoding="utf-8")
+        try:
+            def emit(record):
+                outfile.write(u"{}\n".format(
+                    json.dumps(record, ensure_ascii=False, separators=(u",", u":"), sort_keys=False)
+                ))
 
-        # Process language statistics
+            emit({"type": "meta", "schema": "fvn.renpy_stats.v1"})
+
+            report_language_stats(emit)
+            report_file_statistics(emit)
+            report_route_graph(emit)
+            # Dialogue lines are written last and consumers rely on that: it lets
+            # them read the aggregate sections without walking the large one.
+            report_dialogue_lines(emit)
+        finally:
+            outfile.close()
+
+    def report_language_stats(emit):
+        """Emit one record per language, then one per character within it."""
         for lang, data in all_lang_stats.items():
             total_blocks = 0
             total_words = 0
@@ -1770,13 +2110,16 @@ init 10000 python:
                 total_blocks += file_count.blocks
                 total_words += file_count.words
 
-            lang_report = {
-                "blocks": total_blocks,
-                "words": total_words,
-                "menus": data["menu_count"],
-                "options": data["options_count"],
-                "characters": {}
-            }
+            emit({
+                "type": "languages",
+                "key": ensure_unicode(lang),
+                "entry": {
+                    "blocks": total_blocks,
+                    "words": total_words,
+                    "menus": data["menu_count"],
+                    "options": data["options_count"],
+                },
+            })
 
             for char_var, char_count in data["characters"].items():
                 if char_var == "narrator":
@@ -1785,17 +2128,20 @@ init 10000 python:
                     display_name = "Menu Choice"
                 else:
                     display_name = defined_characters.get(char_var, {}).get(lang)
-                char_info = {
-                    "display_name": ensure_unicode(display_name) if display_name else None,
-                    "blocks": char_count.blocks,
-                    "words": char_count.words
-                }
-                lang_report["characters"][ensure_unicode(char_var)] = char_info
+                emit({
+                    "type": "characters",
+                    "language": ensure_unicode(lang),
+                    "key": ensure_unicode(char_var),
+                    "entry": {
+                        "display_name": ensure_unicode(display_name) if display_name else None,
+                        "blocks": char_count.blocks,
+                        "words": char_count.words,
+                    },
+                })
 
-            result["languages"][ensure_unicode(lang)] = lang_report
-
-        # Process file statistics
-        result["file_statistics"] = {
+    def report_file_statistics(emit):
+        """Emit the file inventory as a single record; it is small by nature."""
+        entry = {
             category: {
                 ext: {
                     "count": stats.count,
@@ -1806,7 +2152,7 @@ init 10000 python:
             for category, extensions in file_statistics.items()
         }
 
-        result["file_statistics"]["summary"] = {
+        entry["summary"] = {
             "total_image": sum(stats.count for stats in file_statistics["image"].values()),
             "total_audio": sum(stats.count for stats in file_statistics["audio"].values()),
             "total_video": sum(stats.count for stats in file_statistics["video"].values()),
@@ -1818,32 +2164,48 @@ init 10000 python:
             )
         }
 
-        # Add dialogue lines to the output
-        for lang, lines in dialogue_lines.items():
-            processed_lines = []
-            for line in lines:
-                processed_lines.append({
-                    "character": ensure_unicode(line["character"]),
-                    "text": ensure_unicode(line["text"]),
-                    "file": ensure_unicode(line["file"]),
-                    "line": line["line"],
-                    "context": ensure_unicode(line["context"]) if line["context"] else None
-                })
-            result["dialogue_lines"][ensure_unicode(lang)] = processed_lines
+        emit({"type": "file_statistics", "entry": entry})
 
-        # Add route graph data
-        processed_labels = []
+    def report_dialogue_lines(emit):
+        """Emit one record per dialogue line, freeing each language as it goes.
+
+        This is by far the largest section. Lines are popped off the collected
+        list while being written so that the peak holds one copy of the corpus
+        rather than the collected lines plus a processed duplicate.
+        """
+        for lang in list(dialogue_lines.keys()):
+            language = ensure_unicode(lang)
+            lines = dialogue_lines.pop(lang)
+            # Reversed so that popping from the end stays O(1) while the records
+            # are still emitted in collection order, which consumers rely on.
+            lines.reverse()
+
+            while lines:
+                line = lines.pop()
+                emit({
+                    "type": "dialogue_lines",
+                    "language": language,
+                    "entry": {
+                        "character": ensure_unicode(line["character"]),
+                        "text": ensure_unicode(line["text"]),
+                        "file": ensure_unicode(line["file"]),
+                        "line": line["line"],
+                        "context": ensure_unicode(line["context"]) if line["context"] else None
+                    },
+                })
+
+    def report_route_graph(emit):
+        """Emit the route graph sections, one record per entry."""
         for name, info in route_labels.items():
-            processed_labels.append({
+            emit({"type": "route_labels", "entry": {
                 "name": ensure_unicode(name),
                 "file": ensure_unicode(info["file"]),
                 "line": info["line"],
                 "is_ending": info.get("is_ending", False),
                 "returns_to_caller": info.get("returns_to_caller", False),
-            })
-        result["route_labels"] = processed_labels
+                "externally_invoked": info.get("externally_invoked", False),
+            }})
 
-        processed_edges = []
         for edge in route_edges:
             processed_edge = {
                 "from_label": ensure_unicode(edge["from_label"]) if edge["from_label"] else None,
@@ -1856,10 +2218,8 @@ init 10000 python:
                 processed_edge["choice_text"] = ensure_unicode(edge["choice_text"])
             if "condition" in edge and edge["condition"]:
                 processed_edge["condition"] = ensure_unicode(edge["condition"])
-            processed_edges.append(processed_edge)
-        result["route_edges"] = processed_edges
+            emit({"type": "route_edges", "entry": processed_edge})
 
-        processed_choices = []
         for choice in route_menu_choices:
             entry = {
                 "from_label": ensure_unicode(choice["from_label"]) if choice["from_label"] else None,
@@ -1882,23 +2242,19 @@ init 10000 python:
                 entry["translations"] = choice["translations"]
             if choice.get("prompt_translations"):
                 entry["prompt_translations"] = choice["prompt_translations"]
-            processed_choices.append(entry)
-        result["route_menu_choices"] = processed_choices
+            emit({"type": "route_menu_choices", "entry": entry})
 
-        processed_variables = []
         for var in route_variables:
-            processed_variables.append({
+            emit({"type": "route_variables", "entry": {
                 "name": ensure_unicode(var["name"]),
                 "default_value": ensure_unicode(var["default_value"]) if var["default_value"] else None,
                 "type": ensure_unicode(var["type"]),
                 "file": ensure_unicode(var["file"]),
                 "line": var["line"],
-            })
-        result["route_variables"] = processed_variables
+            }})
 
-        processed_var_changes = []
         for vc in route_variable_changes:
-            processed_var_changes.append({
+            emit({"type": "route_variable_changes", "entry": {
                 "label": ensure_unicode(vc["label"]) if vc["label"] else None,
                 "variable": ensure_unicode(vc["variable"]),
                 "operation": ensure_unicode(vc["operation"]),
@@ -1908,11 +2264,7 @@ init 10000 python:
                 "context": ensure_unicode(vc.get("context", "python_block")),
                 "condition": ensure_unicode(vc.get("condition")) if vc.get("condition") else None,
                 "condition_stack": [ensure_unicode(condition_part) for condition_part in vc.get("condition_stack", [])],
-            })
-        result["route_variable_changes"] = processed_var_changes
-
-        with io.open("stats.json", "w", encoding="utf-8") as outfile:
-            outfile.write(u"{}".format(json.dumps(result, indent=4, ensure_ascii=False)))
+            }})
 
     # Run the wordcounter and then quit
     wordcounter()

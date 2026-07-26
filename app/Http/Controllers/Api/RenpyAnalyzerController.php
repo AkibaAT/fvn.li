@@ -40,13 +40,20 @@ class RenpyAnalyzerController extends Controller
             return response()->json(['message' => 'Archive path is not allowed'], 422);
         }
 
-        $stats = $runner->analyze($archivePath);
-        if ($stats === null) {
+        // The stats document is handed back by path, not by value. Caller and
+        // callee share this directory, and a large game's document is far too
+        // big to serialize through an HTTP response without both sides holding
+        // a full copy of it.
+        $statsPath = dirname($archivePath) . '/stats-' . bin2hex(random_bytes(8)) . '.ndjson';
+
+        if (! $runner->analyze($archivePath, $statsPath)) {
+            // Deliberately generic: the runner's diagnostic can quote container
+            // output and must not reach the response.
             return response()->json([
                 'message' => 'No stats could be extracted',
             ], 422);
         }
 
-        return response()->json(['stats' => $stats]);
+        return response()->json(['stats_path' => $statsPath]);
     }
 }

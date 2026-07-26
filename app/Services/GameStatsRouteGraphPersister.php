@@ -6,17 +6,31 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Support\Routes\AuthoringScaffoldingClassifier;
+use App\Support\Stats\StatsPayload;
 use Illuminate\Support\Facades\DB;
 
 class GameStatsRouteGraphPersister
 {
+    private const BATCH_SIZE = 1000;
+
     public function __construct(
         private readonly LanguageMappingService $languageMappingService,
+        private readonly AuthoringScaffoldingClassifier $scaffolding,
     ) {}
 
-    public function save(GameVersion $version, array $stats): void
+    /**
+     * Persist the route graph sections of a payload.
+     *
+     * Each section is pulled from the payload and flushed a batch at a time, so
+     * the peak holds one batch rather than the whole graph.
+     *
+     * @return int the number of rows written across every section
+     */
+    public function save(GameVersion $version, StatsPayload $payload): int
     {
         $now = now();
+        $scaffolding = $this->scaffolding;
 
         $version->route_graph_data = null;
         $version->route_graph_unreachable_data = null;
@@ -28,55 +42,56 @@ class GameStatsRouteGraphPersister
         $version->routeVariables()->delete();
         $version->routeVariableChanges()->delete();
 
-        if (isset($stats['route_labels']) && ! empty($stats['route_labels'])) {
-            $labelBatch = [];
-            foreach ($stats['route_labels'] as $label) {
-                $labelBatch[] = [
-                    'game_version_id' => $version->id,
-                    'name' => $label['name'] ?? '',
-                    'file_path' => $label['file'] ?? '',
-                    'line_number' => $label['line'] ?? 0,
-                    'is_ending' => $label['is_ending'] ?? false,
-                    'returns_to_caller' => $label['returns_to_caller'] ?? false,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
+        $written = 0;
 
-            foreach (array_chunk($labelBatch, 1000) as $chunk) {
-                DB::table('version_route_labels')->insert($chunk);
-            }
-        }
+        $written += $this->persistSection(
+            $payload,
+            'route_labels',
+            'version_route_labels',
+            fn (array $label): array => [
+                'game_version_id' => $version->id,
+                'name' => $label['name'] ?? '',
+                'file_path' => $label['file'] ?? '',
+                'line_number' => $label['line'] ?? 0,
+                'is_ending' => $label['is_ending'] ?? false,
+                'returns_to_caller' => $label['returns_to_caller'] ?? false,
+                'externally_invoked' => $label['externally_invoked'] ?? false,
+                'is_scaffolding' => $scaffolding->isScaffolding(
+                    (string) ($label['name'] ?? ''),
+                    (string) ($label['file'] ?? '')
+                ),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
 
-        if (isset($stats['route_edges']) && ! empty($stats['route_edges'])) {
-            $edgeBatch = [];
-            foreach ($stats['route_edges'] as $edge) {
-                $edgeBatch[] = [
-                    'game_version_id' => $version->id,
-                    'from_label' => $edge['from_label'] ?? '',
-                    'to_label' => $edge['to_label'] ?? '',
-                    'edge_type' => $edge['edge_type'] ?? 'flow',
-                    'condition' => $edge['condition'] ?? null,
-                    'file_path' => $edge['file'] ?? null,
-                    'line_number' => $edge['line'] ?? 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
+        $written += $this->persistSection(
+            $payload,
+            'route_edges',
+            'version_route_edges',
+            fn (array $edge): array => [
+                'game_version_id' => $version->id,
+                'from_label' => $edge['from_label'] ?? '',
+                'to_label' => $edge['to_label'] ?? '',
+                'edge_type' => $edge['edge_type'] ?? 'flow',
+                'condition' => $edge['condition'] ?? null,
+                'file_path' => $edge['file'] ?? null,
+                'line_number' => $edge['line'] ?? 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
 
-            foreach (array_chunk($edgeBatch, 1000) as $chunk) {
-                DB::table('version_route_edges')->insert($chunk);
-            }
-        }
-
-        if (isset($stats['route_menu_choices']) && ! empty($stats['route_menu_choices'])) {
-            $choiceBatch = [];
-            $game = $version->game;
-            foreach ($stats['route_menu_choices'] as $choice) {
+        $game = $version->game;
+        $written += $this->persistSection(
+            $payload,
+            'route_menu_choices',
+            'version_route_menu_choices',
+            function (array $choice) use ($version, $game, $now): array {
                 $translations = $this->mapTranslationKeys($choice['translations'] ?? [], $game);
                 $promptTranslations = $this->mapTranslationKeys($choice['prompt_translations'] ?? [], $game);
 
-                $choiceBatch[] = [
+                return [
                     'game_version_id' => $version->id,
                     'from_label' => $choice['from_label'] ?? '',
                     'prompt' => $choice['prompt'] ?? null,
@@ -99,22 +114,21 @@ class GameStatsRouteGraphPersister
                     'updated_at' => $now,
                 ];
             }
+        );
 
-            foreach (array_chunk($choiceBatch, 1000) as $chunk) {
-                DB::table('version_route_menu_choices')->insert($chunk);
-            }
-        }
-
-        if (isset($stats['route_variables']) && ! empty($stats['route_variables'])) {
-            $varBatch = [];
-            $seen = [];
-            foreach ($stats['route_variables'] as $var) {
+        $seenVariables = [];
+        $written += $this->persistSection(
+            $payload,
+            'route_variables',
+            'version_route_variables',
+            function (array $var) use ($version, $now, &$seenVariables): ?array {
                 $key = $var['name'] ?? '';
-                if (isset($seen[$key])) {
-                    continue;
+                if (isset($seenVariables[$key])) {
+                    return null;
                 }
-                $seen[$key] = true;
-                $varBatch[] = [
+                $seenVariables[$key] = true;
+
+                return [
                     'game_version_id' => $version->id,
                     'name' => $var['name'] ?? '',
                     'default_value' => $var['default_value'] ?? null,
@@ -125,42 +139,67 @@ class GameStatsRouteGraphPersister
                     'updated_at' => $now,
                 ];
             }
+        );
 
-            foreach (array_chunk($varBatch, 1000) as $chunk) {
-                DB::table('version_route_variables')->insert($chunk);
+        $written += $this->persistSection(
+            $payload,
+            'route_variable_changes',
+            'version_route_variable_changes',
+            fn (array $change): array => [
+                'game_version_id' => $version->id,
+                'label' => $change['label'] ?? '',
+                'variable_name' => $change['variable'] ?? '',
+                'operation' => $change['operation'] ?? '=',
+                'value' => $change['value'] ?? null,
+                'file_path' => $change['file'] ?? null,
+                'line_number' => $change['line'] ?? 0,
+                'context' => $change['context'] ?? null,
+                'condition' => $change['condition'] ?? null,
+                'condition_stack' => isset($change['condition_stack']) ? json_encode($change['condition_stack']) : null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+
+        return $written;
+    }
+
+    /**
+     * @param  callable(array<string, mixed>): (array<string, mixed>|null)  $toRow
+     */
+    private function persistSection(StatsPayload $payload, string $section, string $table, callable $toRow): int
+    {
+        $batch = [];
+        $written = 0;
+
+        foreach ($payload->section($section) as $entry) {
+            $row = $toRow($entry);
+            if ($row === null) {
+                continue;
+            }
+
+            $batch[] = $row;
+
+            if (count($batch) >= self::BATCH_SIZE) {
+                DB::table($table)->insert($batch);
+                $written += count($batch);
+                $batch = [];
             }
         }
 
-        if (isset($stats['route_variable_changes']) && ! empty($stats['route_variable_changes'])) {
-            $changeBatch = [];
-            foreach ($stats['route_variable_changes'] as $change) {
-                $changeBatch[] = [
-                    'game_version_id' => $version->id,
-                    'label' => $change['label'] ?? '',
-                    'variable_name' => $change['variable'] ?? '',
-                    'operation' => $change['operation'] ?? '=',
-                    'value' => $change['value'] ?? null,
-                    'file_path' => $change['file'] ?? null,
-                    'line_number' => $change['line'] ?? 0,
-                    'context' => $change['context'] ?? null,
-                    'condition' => $change['condition'] ?? null,
-                    'condition_stack' => isset($change['condition_stack']) ? json_encode($change['condition_stack']) : null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            foreach (array_chunk($changeBatch, 1000) as $chunk) {
-                DB::table('version_route_variable_changes')->insert($chunk);
-            }
+        if ($batch !== []) {
+            DB::table($table)->insert($batch);
+            $written += count($batch);
         }
+
+        return $written;
     }
 
     private function mapTranslationKeys(array $translations, ?Game $game): array
     {
         $mapped = [];
         foreach ($translations as $langKey => $text) {
-            $isoCode = $this->languageMappingService->resolveLanguageCode($langKey, $game);
+            $isoCode = $this->languageMappingService->resolveLanguageCode((string) $langKey, $game);
             if ($isoCode) {
                 $mapped[$isoCode] = $text;
             }

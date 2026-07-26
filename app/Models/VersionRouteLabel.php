@@ -18,11 +18,15 @@ class VersionRouteLabel extends Model
         'line_number',
         'is_ending',
         'returns_to_caller',
+        'externally_invoked',
+        'is_scaffolding',
     ];
 
     protected $casts = [
         'is_ending' => 'boolean',
         'returns_to_caller' => 'boolean',
+        'externally_invoked' => 'boolean',
+        'is_scaffolding' => 'boolean',
     ];
 
     public function gameVersion(): BelongsTo

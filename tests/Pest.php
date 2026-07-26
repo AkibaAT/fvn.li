@@ -1,8 +1,10 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Pest\Browser\Drivers\LaravelHttpServer;
 use Pest\Browser\Playwright\Servers\AlreadyStartedPlaywrightServer;
 use Pest\Browser\ServerManager;
+use Pest\Browser\Support\Port;
 use Tests\Support\ExternalBrowserHttpServer;
 use Tests\TestCase;
 
@@ -26,10 +28,11 @@ function useExternalPestBrowserServers(): void
     }
 
     $baseUrl = getenv('PEST_BROWSER_BASE_URL') ?: null;
+    $httpHost = getenv('PEST_BROWSER_HTTP_HOST') ?: null;
     $playwrightHost = getenv('PEST_BROWSER_PLAYWRIGHT_HOST') ?: null;
     $playwrightPort = (int) (getenv('PEST_BROWSER_PLAYWRIGHT_PORT') ?: 3000);
 
-    if (! $baseUrl && ! $playwrightHost) {
+    if (! $baseUrl && ! $httpHost && ! $playwrightHost) {
         return;
     }
 
@@ -47,6 +50,14 @@ function useExternalPestBrowserServers(): void
     if ($baseUrl) {
         $httpProperty = $reflection->getProperty('http');
         $httpProperty->setValue($serverManager, new ExternalBrowserHttpServer($baseUrl));
+    } elseif ($httpHost) {
+        // The address is resolved because it serves as both the bind address and
+        // the URL the browser is sent to, and it must be routable from there.
+        $httpProperty = $reflection->getProperty('http');
+        $httpProperty->setValue(
+            $serverManager,
+            new LaravelHttpServer(gethostbyname($httpHost), Port::find()),
+        );
     }
 }
 
