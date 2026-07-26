@@ -285,7 +285,7 @@
                       ? 'condition'
                       : node.node_type === 'hub'
                         ? 'hub'
-                        : node.node_type === 'label' && (node.menu_prompt || node.returns_to_caller || node.is_unresolved)
+                        : node.node_type === 'label'
                           ? 'label'
                           : undefined;
             return {

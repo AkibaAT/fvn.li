@@ -103,6 +103,7 @@ init 10000 python:
     route_literal_variables = collections.defaultdict(dict)
     route_code_sources = []
     screen_action_exprs = collections.defaultdict(list)
+    screen_action_conditions = collections.defaultdict(dict)
     screen_includes = collections.defaultdict(list)
     all_route_label_names = set()
 
@@ -184,11 +185,6 @@ init 10000 python:
     )
     CHARACTER_PLAIN_REGEX = re.compile(
         r"Character\s*\(\s*[\"']((?:\\.|[^\"'])+)[\"']"
-    )
-
-    ENDING_PATTERN = re.compile(
-        r'(?:^|[_\.])(?:ending|end|credits|game_?over|true_?end|good_?end|bad_?end|normal_?end|route_?end)(?:$|[_\.])',
-        re.IGNORECASE
     )
 
     # Labels to exclude from route graph: dev tools, debug, internal Ren'Py call targets, system labels
@@ -315,6 +311,31 @@ init 10000 python:
                 return True
 
         return False
+
+    def python_source_termination(source):
+        """Return the explicit game termination performed by Python code."""
+        if not source or not source.strip():
+            return None
+        try:
+            tree = pyast.parse(source)
+        except (SyntaxError, ValueError):
+            return None
+
+        for node in pyast.walk(tree):
+            if not isinstance(node, pyast.Call):
+                continue
+            func = getattr(node, "func", None)
+            if not isinstance(func, pyast.Attribute):
+                continue
+            owner = getattr(func, "value", None)
+            if not isinstance(owner, pyast.Name) or getattr(owner, "id", None) != "renpy":
+                continue
+            if getattr(func, "attr", None) == "quit":
+                return "quit"
+            if getattr(func, "attr", None) == "full_restart":
+                return "main_menu"
+
+        return None
 
     def extract_assignments(source, current_label, filename, linenumber, context_type="python_block", condition=None, condition_stack=None):
         """Parse Python source and extract simple variable assignments."""
@@ -522,10 +543,13 @@ init 10000 python:
         collected = collections.defaultdict(list)
         visited_screens = set()
 
-        def add_screen_expr(screen_name, expr):
+        def add_screen_expr(screen_name, expr, condition=None):
             existing = collected[screen_name]
             if expr not in existing:
                 existing.append(expr)
+            conditions = screen_action_conditions[screen_name].setdefault(expr, [])
+            if condition not in conditions:
+                conditions.append(condition)
             for included_screen in collect_screens_from_action_expr(expr):
                 add_screen_include(screen_name, included_screen)
 
@@ -534,26 +558,27 @@ init 10000 python:
             if included_screen not in existing:
                 existing.append(included_screen)
 
-        def walk_screen_node(screen_name, node):
+        def walk_screen_node(screen_name, node, condition=None):
             if node is None:
                 return
 
             if hasattr(node, "keyword"):
                 for key, expr in getattr(node, "keyword", []):
                     if key == "action":
-                        add_screen_expr(screen_name, expr)
+                        add_screen_expr(screen_name, expr, condition)
 
             if hasattr(node, "children"):
                 for child in getattr(node, "children", []):
-                    walk_screen_node(screen_name, child)
+                    walk_screen_node(screen_name, child, condition)
 
             if hasattr(node, "entries"):
-                for _condition, block in getattr(node, "entries", []):
-                    walk_screen_node(screen_name, block)
+                entries = getattr(node, "entries", [])
+                for effective_condition, block in iter_if_entries_with_effective_conditions(entries, condition):
+                    walk_screen_node(screen_name, block, effective_condition)
 
             block = getattr(node, "block", None)
             if block is not None:
-                walk_screen_node(screen_name, block)
+                walk_screen_node(screen_name, block, condition)
 
             target_name = getattr(node, "target", None)
             if isinstance(target_name, str):
@@ -578,9 +603,16 @@ init 10000 python:
 
         for screen_name, targets in list(collected.items()):
             if screen_name.startswith("examine_"):
-                for target_info in targets:
-                    if target_info not in collected["examine"]:
-                        collected["examine"].append(target_info)
+                screen_condition = 'CURRENT_AREA.get_examine_screen() == %s' % json.dumps(screen_name)
+                for expr in targets:
+                    if expr not in collected["examine"]:
+                        collected["examine"].append(expr)
+                    conditions = screen_action_conditions[screen_name].get(expr, [None])
+                    examine_conditions = screen_action_conditions["examine"].setdefault(expr, [])
+                    for condition in conditions:
+                        effective_condition = combine_conditions(screen_condition, condition)
+                        if effective_condition not in examine_conditions:
+                            examine_conditions.append(effective_condition)
 
         return collected
 
@@ -594,9 +626,13 @@ init 10000 python:
         targets = []
 
         for expr in screen_action_exprs.get(screen_name, []):
-            for target_info in collect_targets_from_action_expr(expr, variables):
-                if target_info not in targets:
-                    targets.append(target_info)
+            conditions = screen_action_conditions[screen_name].get(expr, [None])
+            for condition in conditions:
+                for target_info in collect_targets_from_action_expr(expr, variables):
+                    conditioned_target = dict(target_info)
+                    conditioned_target["condition"] = condition
+                    if conditioned_target not in targets:
+                        targets.append(conditioned_target)
 
         for included_screen in screen_includes.get(screen_name, []):
             for target_info in resolve_screen_targets(included_screen, variables, visited_screens):
@@ -690,7 +726,7 @@ init 10000 python:
                 target_info["type"],
                 filename,
                 linenumber,
-                condition=condition,
+                condition=combine_conditions(condition, target_info.get("condition")),
             )
 
     def handle_show_screen(from_label, screen_name, filename, linenumber, condition=None):
@@ -706,7 +742,7 @@ init 10000 python:
                 target_info["type"],
                 filename,
                 linenumber,
-                condition=condition,
+                condition=combine_conditions(condition, target_info.get("condition")),
             )
 
     def add_edge_from_statement(from_label, stmt, filename, condition=None):
@@ -847,13 +883,33 @@ init 10000 python:
 
         return negate_condition_group(terminal_conditions)
 
-    def add_dynamic_label_value(values, key, label_name):
+    def add_dynamic_label_value(values, key, label_name, condition=None):
         if not key or not label_name or label_name not in route_labels:
             return
 
         existing = values[key]
-        if label_name not in existing:
-            existing.append(label_name)
+        entry = {
+            "label": label_name,
+            "condition": condition,
+        }
+        if entry not in existing:
+            existing.append(entry)
+
+    def hint_route_condition(func_name, label_name):
+        registry = {
+            "add_wyatt_hint": ("BUDDY_SYSTEM", "BUDDY_SYSTEM_HINTS"),
+            "add_howie_hint": ("HOWIE_SYSTEM", "HOWIE_SYSTEM_HINTS"),
+        }.get(func_name)
+        if not registry or not label_name:
+            return None
+
+        system_variable, hints_variable = registry
+
+        return "%s is True and call_lock == 0 and %s in %s.values()" % (
+            system_variable,
+            json.dumps(label_name),
+            hints_variable,
+        )
 
     def collect_dynamic_label_values():
         values = collections.defaultdict(list)
@@ -913,7 +969,13 @@ init 10000 python:
                         add_dynamic_label_value(values, "queued_label", literal_string(args[1]))
 
                     if func_name in ("add_howie_hint", "add_wyatt_hint") and len(args) >= 2:
-                        add_dynamic_label_value(values, "hint_label", literal_string(args[1]))
+                        label_name = literal_string(args[1])
+                        add_dynamic_label_value(
+                            values,
+                            "hint_label",
+                            label_name,
+                            hint_route_condition(func_name, label_name),
+                        )
 
                 elif isinstance(node, pyast.Assign):
                     label_name = literal_string(getattr(node, "value", None))
@@ -939,13 +1001,14 @@ init 10000 python:
         edge_line = linenumber or source_info.get("line", 0)
 
         for key in dynamic_keys:
-            for label_name in values.get(key, []):
+            for value in values.get(key, []):
                 add_route_edge(
                     from_label,
-                    label_name,
+                    value["label"],
                     edge_type,
                     edge_file,
                     edge_line,
+                    condition=value.get("condition"),
                 )
 
     def collect_label_bindings():
@@ -1275,8 +1338,28 @@ init 10000 python:
             route_labels[label_name] = {
                 "file": filename,
                 "line": linenumber,
-                "is_ending": bool(is_ending or ENDING_PATTERN.search(label_name)),
+                "is_ending": bool(is_ending),
             }
+
+    def add_explicit_ending(from_label, filename, linenumber, condition=None, edge_type="quit"):
+        """Record control flow that explicitly reaches the main menu or quits."""
+        if not from_label or from_label not in route_labels:
+            return
+
+        if not condition:
+            route_labels[from_label]["is_ending"] = True
+            return
+
+        ending_name = from_label + ":ending"
+        ensure_route_label(ending_name, filename, linenumber, is_ending=True)
+        add_route_edge(
+            from_label,
+            ending_name,
+            edge_type,
+            filename,
+            linenumber,
+            condition=condition,
+        )
 
     def mark_externally_invoked(label_name):
         """Record that code outside the script flow enters this label.
@@ -1440,18 +1523,6 @@ init 10000 python:
                     condition=active_condition,
                 )
             elif isinstance(stmt, renpy.ast.Return):
-                # Return inside a conditional block = conditional ending
-                if active_condition:
-                    ending_name = from_label + ":ending"
-                    ensure_route_label(ending_name, filename, getattr(stmt, "linenumber", 0), is_ending=True)
-                    add_route_edge(
-                        from_label,
-                        ending_name,
-                        "return",
-                        filename,
-                        getattr(stmt, "linenumber", 0),
-                        condition=active_condition,
-                    )
                 return
             elif isinstance(stmt, renpy.ast.Label):
                 nested_filename = getattr(stmt, "filename", filename)
@@ -1487,6 +1558,16 @@ init 10000 python:
                         active_condition,
                         condition_stack
                     )
+                    termination = python_source_termination(source)
+                    if termination:
+                        add_explicit_ending(
+                            from_label,
+                            filename,
+                            getattr(stmt, "linenumber", 0),
+                            condition=active_condition,
+                            edge_type=termination,
+                        )
+                        return
                     if extract_python_edges(
                         source, from_label, filename,
                         getattr(stmt, "linenumber", 0),
@@ -2001,44 +2082,31 @@ init 10000 python:
                 ctx = current_context.get("default", "")
                 if ctx and is_game_file(node.filename):
                     route_return_labels.add(ctx)
-                has_outgoing_route = False
-                if ctx:
-                    for edge in route_edges:
-                        if edge.get("from_label") == ctx:
-                            has_outgoing_route = True
-                            break
-                if (
-                    ctx
-                    and not route_context_terminated
-                    and is_game_file(node.filename)
-                    and ctx in route_labels
-                    and ctx not in route_labels_with_screen_calls
-                    and not has_outgoing_route
-                ):
-                    route_labels[ctx]["is_ending"] = True
-                    route_context_terminated = True
-        # Post-process: mark labels as endings if they jump/call back to main_menu
+        add_inferred_dynamic_route_edges()
+        resolve_expression_route_edges(collect_label_bindings())
+
+        # A return from Ren'Py's entry label unwinds to the main menu. Returns
+        # anywhere else may unwind only a label, screen, or dynamically invoked
+        # callback, so they are not safe to present as story endings.
+        for start_label in ("start", "labels.start"):
+            if start_label in route_return_labels and start_label in route_labels:
+                route_labels[start_label]["is_ending"] = True
+
+        for label_name in route_return_labels:
+            if (
+                label_name not in ("start", "labels.start")
+                and label_name in route_labels
+                and not route_labels[label_name].get("is_ending", False)
+            ):
+                route_labels[label_name]["returns_to_caller"] = True
+
+        # Explicit flow back to Ren'Py's main menu is an ending.
         main_menu_targets = {"main_menu", "_main_menu"}
         for edge in route_edges:
             if edge.get("to_label") in main_menu_targets:
                 from_label = edge.get("from_label")
                 if from_label and from_label in route_labels:
                     route_labels[from_label]["is_ending"] = True
-
-        # A label that returns to a caller is a subroutine, not an ending.
-        # We may see the return before the later call site in script order.
-        called_route_labels = set(
-            edge.get("to_label")
-            for edge in route_edges
-            if edge.get("edge_type") == "call" and edge.get("to_label")
-        )
-        for label_name in route_return_labels:
-            if label_name in called_route_labels and label_name in route_labels:
-                route_labels[label_name]["is_ending"] = False
-                route_labels[label_name]["returns_to_caller"] = True
-
-        add_inferred_dynamic_route_edges()
-        resolve_expression_route_edges(collect_label_bindings())
 
         collect_file_statistics()
         report_stats()

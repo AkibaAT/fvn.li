@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\DenKitStashUnavailableException;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VersionSupportedLanguage;
@@ -229,8 +230,23 @@ class GameDataSyncService
 
                 if ($shouldReprocessExistingVersion) {
                     echo "    [Version] Reprocessing from stored archive repository...\n";
+                    // The stash is the source of truth for reprocessing. Drop any
+                    // archive a previous run left staged locally so it cannot shadow
+                    // the stash copy and skip the stash lookup entirely.
+                    app(GameVersionArchiveRepositoryService::class)->discardLocalArchive($game, $existingVersion);
                     $storedArchivePath = $archiveService->getStoredArchive($game->id, $existingVersion->id);
                     if ($storedArchivePath === null) {
+                        // A stash lookup that errored aborts the refresh; only a
+                        // genuine miss falls through to seed from the source.
+                        $lookupFailure = $archiveService->getLastArchiveLookupFailure();
+                        if ($lookupFailure !== null) {
+                            throw new DenKitStashUnavailableException(
+                                "DenKit Stash is unavailable: {$lookupFailure->getMessage()}",
+                                0,
+                                $lookupFailure
+                            );
+                        }
+
                         echo "    [Version] No DenKit archive found for existing version; downloading itch.io archive to seed DenKit\n";
                         $archiveLookupError = $archiveService->getLastArchiveLookupError();
                         if ($archiveLookupError) {
@@ -281,6 +297,10 @@ class GameDataSyncService
                     }
                 }
             } catch (Exception $e) {
+                if ($e instanceof DenKitStashUnavailableException) {
+                    throw $e;
+                }
+
                 Log::error('Failed to process game archive', [
                     'game_id' => $game->id,
                     'version' => $newVersion,
@@ -385,10 +405,8 @@ class GameDataSyncService
                     // Reprocessed from an archive that was already in storage or
                     // restored from the stash, so nothing was staged for a push.
                     // The copy is still only needed for the duration of this run.
-                    DB::afterCommit(function () use ($game, $existingVersion): void {
-                        app(GameVersionArchiveRepositoryService::class)
-                            ->discardLocalArchive($game, $existingVersion);
-                    });
+                    app(GameVersionArchiveRepositoryService::class)
+                        ->discardLocalArchive($game, $existingVersion);
                 }
 
                 $gameVersion = $existingVersion;
@@ -649,9 +667,10 @@ class GameDataSyncService
             return;
         }
 
-        DB::afterCommit(function () use ($game, $version, $force): void {
+        $repository = app(GameVersionArchiveRepositoryService::class);
+        DB::afterCommit(function () use ($game, $version, $force, $repository): void {
             try {
-                $result = app(GameVersionArchiveRepositoryService::class)->persistStoredArchive($game, $version, $force);
+                $result = $repository->persistStoredArchive($game, $version, $force);
                 if ($result['status'] === 'persisted') {
                     $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
                     echo "    [Version] Archive persisted to DenKit Stash {$result['target']}{$build}\n";

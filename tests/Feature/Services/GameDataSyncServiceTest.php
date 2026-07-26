@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\DenKitStashUnavailableException;
 use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\GameVersion;
@@ -479,6 +480,9 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
         ->once()
         ->with($game->id, $version->id)
         ->andReturn(null);
+    $archiveService->shouldReceive('getLastArchiveLookupFailure')
+        ->once()
+        ->andReturn(null);
     $archiveService->shouldReceive('getLastArchiveLookupError')
         ->once()
         ->andReturn('No completed build found for fvn-li/reprocess-missing:main version 1.2');
@@ -501,6 +505,12 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
     app()->instance(GameArchiveService::class, $archiveService);
 
     $repository = Mockery::mock(GameVersionArchiveRepositoryService::class);
+    $repository->shouldReceive('discardLocalArchive')
+        ->once()
+        ->with(
+            Mockery::on(fn (Game $argument): bool => $argument->is($game)),
+            Mockery::on(fn (GameVersion $argument): bool => $argument->is($version))
+        );
     $repository->shouldReceive('persistStoredArchive')
         ->once()
         ->with(Mockery::on(fn (Game $argument): bool => $argument->is($game)), Mockery::on(fn (GameVersion $argument): bool => $argument->is($version)), true)
@@ -520,6 +530,61 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
 
     expect($game->gameVersions()->count())->toBe(1)
         ->and($version->refresh()->is_windows)->toBeTrue();
+});
+
+it('force reprocess fails when the DenKit Stash lookup errors', function () {
+    ensureSyncLanguage('eng', 'English');
+
+    $game = Game::factory()->create([
+        'platform' => 'itch_io',
+        'itch_id' => 767,
+        'url' => ['itch_io' => 'https://creator.itch.io/reprocess-unavailable'],
+        'source_language_id' => 'eng',
+        'game_engine' => "Ren'Py",
+    ]);
+    $version = GameVersion::factory()->create([
+        'game_id' => $game->id,
+        'version' => '1.2',
+    ]);
+
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')
+        ->once()
+        ->with('https://api.itch.io/games/767/uploads')
+        ->andReturn(new Response(200, [], json_encode([
+            'uploads' => [
+                [
+                    'id' => 20,
+                    'filename' => 'Reprocess-1.2-pc.zip',
+                    'display_name' => 'Reprocess 1.2',
+                    'md5_hash' => 'force-unavailable',
+                    'updated_at' => '2024-04-05T06:07:08Z',
+                    'build_id' => 99,
+                    'build' => [
+                        'user_version' => '1.2',
+                        'updated_at' => '2024-04-05T06:07:09Z',
+                    ],
+                    'traits' => ['p_windows'],
+                    'type' => 'default',
+                ],
+            ],
+        ])));
+    app()->instance(ItchHttpClientService::class, $client);
+
+    $archiveService = Mockery::mock(GameArchiveService::class);
+    $archiveService->shouldReceive('getStoredArchive')
+        ->once()
+        ->with($game->id, $version->id)
+        ->andReturn(null);
+    $archiveService->shouldReceive('getLastArchiveLookupFailure')
+        ->once()
+        ->andReturn(new RuntimeException('Failed to query DenKit Stash build lookup: HTTP 401'));
+    $archiveService->shouldReceive('downloadAndProcessToTemp')
+        ->never();
+    app()->instance(GameArchiveService::class, $archiveService);
+
+    expect(fn () => app(GameDataSyncService::class)->refreshVersion($game, true))
+        ->toThrow(DenKitStashUnavailableException::class, 'DenKit Stash is unavailable');
 });
 
 it('does not persist overlong itch upload user versions', function () {

@@ -30,7 +30,7 @@ it('stores labels that code enters by name as entry points', function () {
         ->and((bool) $labels['start'])->toBeFalse();
 });
 
-it('keeps entry points and everything they reach when filtering to reachable nodes', function () {
+it('only keeps nodes reachable from start in the default graph', function () {
     $nodes = [
         ['id' => 'start', 'is_start' => true],
         ['id' => 'chapter_one'],
@@ -49,8 +49,7 @@ it('keeps entry points and everything they reach when filtering to reachable nod
 
     expect($ids)->toContain('start')
         ->and($ids)->toContain('chapter_one')
-        ->and($ids)->toContain('music_room')
-        // Reachable only via the entry point.
-        ->and($ids)->toContain('music_room_track')
+        ->and($ids)->not->toContain('music_room')
+        ->and($ids)->not->toContain('music_room_track')
         ->and($ids)->not->toContain('truly_orphaned');
 });

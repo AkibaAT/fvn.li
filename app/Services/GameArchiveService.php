@@ -26,7 +26,10 @@ use Throwable;
 class GameArchiveService
 {
     private ?string $lastProcessingError;
+
     private ?string $lastArchiveLookupError = null;
+
+    private ?Throwable $lastArchiveLookupFailure = null;
 
     public function __construct(
         private readonly GameStatsService $statsService
@@ -40,6 +43,7 @@ class GameArchiveService
     public function getStoredArchive(int $gameId, int $versionId): ?string
     {
         $this->lastArchiveLookupError = null;
+        $this->lastArchiveLookupFailure = null;
         $storagePath = $this->getStoragePath($gameId, $versionId);
 
         $localFiles = array_values(array_filter(
@@ -68,6 +72,7 @@ class GameArchiveService
                 $this->lastArchiveLookupError = $stash->getLastRestoreDiagnostic();
             } catch (Throwable $throwable) {
                 $this->lastArchiveLookupError = $throwable->getMessage();
+                $this->lastArchiveLookupFailure = $throwable;
                 Log::warning('Failed to restore game version archive from DenKit Stash', [
                     'game_id' => $gameId,
                     'version_id' => $versionId,
@@ -91,6 +96,16 @@ class GameArchiveService
     public function getLastArchiveLookupError(): ?string
     {
         return $this->lastArchiveLookupError;
+    }
+
+    /**
+     * The throwable from a stash lookup that errored, as opposed to a lookup
+     * that succeeded and simply found no archive. Null on a clean miss or when
+     * the stash is not configured.
+     */
+    public function getLastArchiveLookupFailure(): ?Throwable
+    {
+        return $this->lastArchiveLookupFailure;
     }
 
     /**

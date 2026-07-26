@@ -10,7 +10,7 @@ use RuntimeException;
 
 class RouteGraphService
 {
-    public const GRAPH_REVISION = 31;
+    public const GRAPH_REVISION = 35;
 
     /**
      * Labels the engine enters directly, which therefore have no incoming edge.

@@ -190,6 +190,55 @@ test('computed route graphs include precomputed GraphViz layout positions', func
     }
 });
 
+test('layout pins the start node to the top rank even when the story links back to it', function () {
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'middle');
+    createRouteLabel($this->version, 'good_end', 20, true);
+    createRouteEdge($this->version, 'start', 'middle', 'jump', 10);
+    createRouteEdge($this->version, 'middle', 'good_end', 'jump', 20);
+    createRouteEdge($this->version, 'good_end', 'start', 'jump', 30);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $layoutNodes = $graph['layout']['nodes'];
+    $topY = collect($layoutNodes)->min('y');
+    $topNodeIds = collect($layoutNodes)
+        ->filter(fn (array $position): bool => $position['y'] === $topY)
+        ->keys()
+        ->values()
+        ->all();
+
+    expect($layoutNodes['start']['y'])->toBe($topY)
+        ->and($topNodeIds)->toBe(['start']);
+});
+
+test('layout aligns every ending on the exclusive bottom rank', function () {
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'short_branch');
+    createRouteLabel($this->version, 'long_branch');
+    createRouteLabel($this->version, 'long_branch_middle');
+    createRouteLabel($this->version, 'short_end', 40, true);
+    createRouteLabel($this->version, 'long_end', 50, true);
+    createRouteEdge($this->version, 'start', 'short_branch', 'jump', 10);
+    createRouteEdge($this->version, 'start', 'long_branch', 'jump', 11);
+    createRouteEdge($this->version, 'short_branch', 'short_end', 'jump', 20);
+    createRouteEdge($this->version, 'long_branch', 'long_branch_middle', 'jump', 21);
+    createRouteEdge($this->version, 'long_branch_middle', 'long_end', 'jump', 30);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $layoutNodes = $graph['layout']['nodes'];
+    $bottomY = collect($layoutNodes)->max('y');
+    $bottomNodeIds = collect($layoutNodes)
+        ->filter(fn (array $position): bool => $position['y'] === $bottomY)
+        ->keys()
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($layoutNodes['short_end']['y'])->toBe($bottomY)
+        ->and($layoutNodes['long_end']['y'])->toBe($bottomY)
+        ->and($bottomNodeIds)->toBe(['long_end', 'short_end']);
+});
+
 test('layout includes missing target condition nodes for unresolved edges', function () {
     createRouteLabel($this->version, 'start');
     createRouteEdge($this->version, 'start', 'missing_target', 'jump', 10);
