@@ -158,6 +158,10 @@ class GameArchiveOptimizerDockerRunner
             'ARCHIVE_OPTIMIZER_WORK_DIR=/work',
             '--env',
             'LOG_CHANNEL=stderr',
+            '--env',
+            // The application directory is mounted read-only and carries no
+            // storage tree, so Blade compiles into the container's own tmpfs.
+            'VIEW_COMPILED_PATH=/tmp/views',
             '--mount',
             // Extracting a game expands to gigabytes. A tmpfs here is charged to
             // the container's memory limit, so the staging area is disk-backed.

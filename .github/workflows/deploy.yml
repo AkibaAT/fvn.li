@@ -83,7 +83,10 @@ jobs:
         run: ddev exec bash -lc 'for i in {1..30}; do curl -fsS http://meilisearch-test:7700/health && exit 0; sleep 2; done; exit 1'
 
       - name: Run test suite
-        run: ddev composer test
+        # `ddev composer` buffers the script's stdout and reports only its own
+        # error, which leaves a failing run with no test output. Invoking
+        # composer through `ddev exec` streams the runner output into the log.
+        run: ddev exec composer test
 
       - name: Upload test artifacts
         if: failure()

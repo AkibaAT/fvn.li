@@ -25,14 +25,14 @@ class UserGameProgressFactory extends Factory
         $statuses = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
         $status = fake()->randomElement($statuses);
 
-        // Create game first, then version for that game to maintain foreign key integrity
-        $game = Game::factory()->create();
-        $version = GameVersion::factory()->create(['game_id' => $game->id]);
-
         return [
             'user_id' => User::factory(),
-            'game_id' => $game->id,
-            'game_version_id' => $version->id,
+            'game_id' => Game::factory(),
+            // Resolved from the row's own game so the version always belongs to
+            // it, and so a caller supplying both keys creates no extra records.
+            'game_version_id' => fn (array $attributes): int => GameVersion::factory()
+                ->create(['game_id' => $attributes['game_id']])
+                ->id,
             'started_at' => $status !== 'plan_to_read' ? fake()->dateTimeBetween('-1 year', 'now') : null,
             'completed_at' => $status === 'completed' ? fake()->dateTimeBetween('-6 months', 'now') : null,
             'personal_notes' => fake()->optional(0.3)->paragraph(),

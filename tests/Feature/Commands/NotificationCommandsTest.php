@@ -45,6 +45,9 @@ function notificationUserFor(Game $game, array $preferences = [], bool $withDisc
     UserGameProgress::factory()->create([
         'user_id' => $user->id,
         'game_id' => $game->id,
+        // Pinned to the game under test: any other version would carry a random
+        // publication date and could land inside the command's recency window.
+        'game_version_id' => $game->latestVersion?->id,
         'receive_updates' => true,
     ]);
 
