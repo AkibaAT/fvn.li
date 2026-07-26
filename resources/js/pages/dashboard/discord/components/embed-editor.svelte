@@ -11,6 +11,8 @@
 
     let { template, notificationType, serverId, onchange }: Props = $props();
 
+    const uid = $props.id();
+
     let jsonMode = $state(false);
     let jsonText = $state('');
     let previewData = $state<Record<string, unknown> | null>(null);
@@ -407,8 +409,9 @@
         {:else}
             <div class="space-y-3">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Title</label>
+                    <label for="{uid}-title" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Title</label>
                     <input
+                        id="{uid}-title"
                         type="text"
                         value={title}
                         oninput={(e) =>
@@ -420,8 +423,9 @@
                     />
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">URL</label>
+                    <label for="{uid}-url" class="block text-xs font-medium text-gray-700 dark:text-gray-300">URL</label>
                     <input
+                        id="{uid}-url"
                         type="text"
                         value={tmplUrl}
                         oninput={(e) =>
@@ -433,8 +437,9 @@
                     />
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Description</label>
+                    <label for="{uid}-desc" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Description</label>
                     <textarea
+                        id="{uid}-desc"
                         value={desc}
                         oninput={(e) =>
                             applyUpdate(() => {
@@ -446,9 +451,10 @@
                     ></textarea>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Color</label>
+                    <label for="{uid}-color" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Color</label>
                     <div class="mt-1 flex items-center gap-2">
                         <input
+                            id="{uid}-color"
                             type="color"
                             value={colorIntToHex(tmplColor)}
                             oninput={(e) =>
@@ -464,14 +470,16 @@
                                 applyUpdate(() => {
                                     tmplColor = (e.target as HTMLInputElement).value;
                                 })}
+                            aria-label="Color value"
                             placeholder="#5865F2 or 5763719"
                             class="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Thumbnail URL</label>
+                    <label for="{uid}-thumbnail" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Thumbnail URL</label>
                     <input
+                        id="{uid}-thumbnail"
                         type="text"
                         value={thumbnailUrl}
                         oninput={(e) =>
@@ -483,8 +491,9 @@
                     />
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Image URL</label>
+                    <label for="{uid}-image" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Image URL</label>
                     <input
+                        id="{uid}-image"
                         type="text"
                         value={imageUrl}
                         oninput={(e) =>
@@ -496,11 +505,12 @@
                     />
                 </div>
                 <div>
-                    <label class="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Footer</label>
-                    <div class="grid grid-cols-2 gap-2">
+                    <span id="{uid}-footer" class="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Footer</span>
+                    <div class="grid grid-cols-2 gap-2" role="group" aria-labelledby="{uid}-footer">
                         <input
                             type="text"
                             value={footerText}
+                            aria-label="Footer text"
                             oninput={(e) =>
                                 applyUpdate(() => {
                                     footerText = (e.target as HTMLInputElement).value;
@@ -511,6 +521,7 @@
                         <input
                             type="text"
                             value={footerIconUrl}
+                            aria-label="Footer icon URL"
                             oninput={(e) =>
                                 applyUpdate(() => {
                                     footerIconUrl = (e.target as HTMLInputElement).value;
@@ -522,7 +533,7 @@
                 </div>
                 <div>
                     <div class="mb-2 flex items-center justify-between">
-                        <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Fields</label>
+                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Fields</span>
                         <button onclick={addField} class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                             >+ Add Field</button
                         >
@@ -534,6 +545,7 @@
                                     <input
                                         type="text"
                                         value={field.name}
+                                        aria-label="Field {i + 1} name"
                                         placeholder="Field name"
                                         oninput={(e) => updateField(i, 'name', (e.target as HTMLInputElement).value)}
                                         class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -541,6 +553,7 @@
                                     <input
                                         type="text"
                                         value={field.value}
+                                        aria-label="Field {i + 1} value"
                                         placeholder="Field value"
                                         oninput={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
                                         class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -559,6 +572,7 @@
                                     <button
                                         onclick={() => moveField(i, -1)}
                                         disabled={i === 0}
+                                        aria-label="Move field {i + 1} up"
                                         class="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                                     >
                                         <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
@@ -568,6 +582,7 @@
                                     <button
                                         onclick={() => moveField(i, 1)}
                                         disabled={i === fields.length - 1}
+                                        aria-label="Move field {i + 1} down"
                                         class="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                                     >
                                         <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
@@ -575,7 +590,11 @@
                                         >
                                     </button>
                                 </div>
-                                <button onclick={() => removeField(i)} class="rounded p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400">
+                                <button
+                                    onclick={() => removeField(i)}
+                                    aria-label="Remove field {i + 1}"
+                                    class="rounded p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                                >
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
                                         ><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg
                                     >
@@ -600,7 +619,12 @@
                     {#if previewTitle}
                         <div class="mb-1">
                             {#if stringField(previewSrc, 'url')}
-                                <a href="#" class="text-[#00aff4] hover:underline">{previewTitle}</a>
+                                <a
+                                    href={stringField(previewSrc, 'url')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-[#00aff4] hover:underline">{previewTitle}</a
+                                >
                             {:else}
                                 <span class="font-semibold text-white">{previewTitle}</span>
                             {/if}
@@ -621,7 +645,7 @@
                     {/if}
                     {#if previewImage}
                         <div class="mb-3 overflow-hidden rounded">
-                            <img src={previewImage} alt="Embed image" class="max-h-72 w-auto rounded" onerror={() => {}} />
+                            <img src={previewImage} alt="Embed preview" class="max-h-72 w-auto rounded" onerror={() => {}} />
                         </div>
                     {/if}
                     {#if previewFooterText}

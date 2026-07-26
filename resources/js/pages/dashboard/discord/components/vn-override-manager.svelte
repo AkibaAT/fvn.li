@@ -36,6 +36,8 @@
 
     let { overrides, serverId, channels, onchange, filter = 'all' }: Props = $props();
 
+    const uid = $props.id();
+
     let searchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let searching = $state(false);
@@ -47,9 +49,7 @@
 
     const filteredOverrides = $derived(filter === 'ignored' ? overrides.filter((o) => o.is_ignored) : overrides);
     const filteredChannels = $derived(
-        channelSearch.trim()
-            ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase()))
-            : channels,
+        channelSearch.trim() ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase())) : channels,
     );
 
     async function searchGames(query: string) {
@@ -59,7 +59,9 @@
         }
         searching = true;
         try {
-            const data = await apiFetch<SearchResult[] | { games?: SearchResult[] }>(`${route('api.games.search')}?q=${encodeURIComponent(query)}&limit=10`);
+            const data = await apiFetch<SearchResult[] | { games?: SearchResult[] }>(
+                `${route('api.games.search')}?q=${encodeURIComponent(query)}&limit=10`,
+            );
             const results = Array.isArray(data) ? data : (data.games ?? []);
 
             searchResults = results
@@ -135,13 +137,13 @@
     }
 
     function getChannelLabel(channelId: string | null): string {
-        if (! channelId) return 'Default';
+        if (!channelId) return 'Default';
 
         return `#${channels.find((channel) => channel.id === channelId)?.name || channelId}`;
     }
 
     function getChannel(channelId: string | null): DiscordChannel | undefined {
-        if (! channelId) return undefined;
+        if (!channelId) return undefined;
 
         return channels.find((channel) => channel.id === channelId);
     }
@@ -150,7 +152,7 @@
         if (editingChannelId === null) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (channelPickerEl && ! channelPickerEl.contains(event.target as Node)) {
+            if (channelPickerEl && !channelPickerEl.contains(event.target as Node)) {
                 editingChannelId = null;
                 channelSearch = '';
             }
@@ -198,9 +200,10 @@
 
     {#if showSearch}
         <div class="mb-6 rounded-lg border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800/50 dark:bg-indigo-900/20">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search for a visual novel</label>
+            <label for="{uid}-vn-search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search for a visual novel</label>
             <div class="relative mt-2">
                 <input
+                    id="{uid}-vn-search"
                     type="text"
                     value={searchQuery}
                     oninput={onSearchInput}
@@ -251,7 +254,9 @@
                     {/each}
                 </div>
             {:else if searchQuery.trim().length >= 2 && !searching}
-                <div class="mt-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                <div
+                    class="mt-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                >
                     No matching visual novels found.
                 </div>
             {/if}
@@ -339,7 +344,9 @@
                                                     placeholder="Type to filter channels..."
                                                     class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                 />
-                                                <div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                                <div
+                                                    class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                                                >
                                                     <button
                                                         type="button"
                                                         onclick={() => updateChannel(override, null)}
@@ -347,7 +354,13 @@
                                                     >
                                                         <span>Default channel</span>
                                                         {#if !override.channel_id}
-                                                            <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <svg
+                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                                stroke-width="2"
+                                                            >
                                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                             </svg>
                                                         {/if}
@@ -365,13 +378,21 @@
                                                                 <span class="flex min-w-0 items-center gap-2">
                                                                     <span class="truncate">#{ch.name}</span>
                                                                     {#if ch.nsfw}
-                                                                        <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                                        <span
+                                                                            class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                                        >
                                                                             NSFW
                                                                         </span>
                                                                     {/if}
                                                                 </span>
                                                                 {#if override.channel_id === ch.id}
-                                                                    <svg class="h-4 w-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                    <svg
+                                                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                                                        fill="none"
+                                                                        viewBox="0 0 24 24"
+                                                                        stroke="currentColor"
+                                                                        stroke-width="2"
+                                                                    >
                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                                     </svg>
                                                                 {/if}
@@ -401,7 +422,9 @@
                                             <span class="inline-flex items-center gap-2">
                                                 <span>{getChannelLabel(override.channel_id)}</span>
                                                 {#if getChannel(override.channel_id)?.nsfw}
-                                                    <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                    <span
+                                                        class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                    >
                                                         NSFW
                                                     </span>
                                                 {/if}
