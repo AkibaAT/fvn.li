@@ -268,7 +268,7 @@ test('refresh itch games configures retry service and records per-game failures'
         ->expectsOutput('ItchHttpClientService configured successfully')
         ->expectsOutput("× Error refreshing {$game->name}: itch version failed")
         ->expectsOutputToContain('Refresh process completed')
-        ->assertExitCode(0);
+        ->assertExitCode(1);
 
     expect($game->refresh()->error)->toBe('itch version failed');
 

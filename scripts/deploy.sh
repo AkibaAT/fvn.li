@@ -119,17 +119,7 @@ require_denkit_stash_config() {
 }
 
 bootstrap_denkit_stash_user() {
-  local username="${DENKIT_STASH_USERNAME:-$(read_dotenv_value DENKIT_STASH_USERNAME fvn-li)}"
-  local api_key="${DENKIT_STASH_API_KEY:-$(read_dotenv_value DENKIT_STASH_API_KEY)}"
-
-  if [ -z "${api_key}" ]; then
-    echo "DENKIT_STASH_API_KEY is not set; skipping DenKit Stash API user bootstrap."
-    return
-  fi
-
-  docker compose exec -T denkit-stash ./denkit-stash \
-    --ensure-admin="${username}" \
-    --api-key="${api_key}"
+  ./scripts/bootstrap-denkit-stash-user.sh
 }
 
 # Load environment variables from .env.deploy

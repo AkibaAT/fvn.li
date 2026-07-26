@@ -137,6 +137,8 @@ class RefreshGames extends Command
         $this->info('ItchHttpClientService configured successfully');
         $syncService = App::make(GameDataSyncService::class);
 
+        $hadErrors = false;
+
         foreach ($games as $game) {
             $this->info("\nProcessing game: {$game->name}");
             try {
@@ -230,6 +232,7 @@ class RefreshGames extends Command
                 $this->info("✓ Successfully refreshed {$game->name}");
 
             } catch (Exception $exception) {
+                $hadErrors = true;
                 $this->error("× Error refreshing {$game->name}: {$exception->getMessage()}");
                 Log::error("Game refresh failed for {$game->name}", [
                     'exception' => $exception,
@@ -245,6 +248,6 @@ class RefreshGames extends Command
 
         $this->info("\nRefresh process completed");
 
-        return 0;
+        return $hadErrors ? self::FAILURE : self::SUCCESS;
     }
 }

@@ -187,8 +187,6 @@
                     {nodeTypes}
                     {edgeTypes}
                     {colorMode}
-                    fitView
-                    fitViewOptions={{ padding: 0.12, minZoom: ROUTE_MAP_MIN_ZOOM, maxZoom: 1 }}
                     minZoom={ROUTE_MAP_MIN_ZOOM}
                     onnodeclick={(event: any) => {
                         if (event.node?.data?.node_type === 'condition') return;

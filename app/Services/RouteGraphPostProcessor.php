@@ -66,11 +66,7 @@ class RouteGraphPostProcessor
             }
 
             $nodeIds[$id] = true;
-            // Entry points are roots alongside start: the engine and game code
-            // enter them by name, so no edge leads to them and everything they
-            // reach would otherwise be dropped as unreachable.
             if (($node['is_start'] ?? false)
-                || ($node['is_entry_point'] ?? false)
                 || $id === 'start'
                 || $id === 'labels.start'
             ) {

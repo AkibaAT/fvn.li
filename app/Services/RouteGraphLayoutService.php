@@ -20,7 +20,7 @@ class RouteGraphLayoutService
 
     private const FALLBACK_ENGINE = 'sfdp';
 
-    private const REVISION = 1;
+    private const REVISION = 2;
 
     private const POINTS_PER_INCH = 72.0;
 
@@ -396,6 +396,8 @@ class RouteGraphLayoutService
             'node [shape=box, fixedsize=true, label="", margin="0"];',
             'edge [arrowsize="0.6"];',
         ];
+        $startNodeIds = [];
+        $endingNodeIds = [];
 
         foreach ($nodes as $node) {
             $id = (string) $node['id'];
@@ -403,6 +405,22 @@ class RouteGraphLayoutService
             $width = $this->formatDotNumber($size['width'] / self::POINTS_PER_INCH);
             $height = $this->formatDotNumber($size['height'] / self::POINTS_PER_INCH);
             $lines[] = $this->dotQuote($id) . ' [width="' . $width . '", height="' . $height . '"];';
+
+            if (! empty($node['is_start'])) {
+                $startNodeIds[] = $id;
+            }
+
+            if (! empty($node['is_ending'])) {
+                $endingNodeIds[] = $id;
+            }
+        }
+
+        if ($startNodeIds !== []) {
+            $lines[] = '{ rank=source; ' . implode('; ', array_map($this->dotQuote(...), $startNodeIds)) . '; }';
+        }
+
+        if ($endingNodeIds !== []) {
+            $lines[] = '{ rank=sink; ' . implode('; ', array_map($this->dotQuote(...), $endingNodeIds)) . '; }';
         }
 
         foreach ($edges as $edge) {
