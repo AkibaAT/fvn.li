@@ -198,7 +198,7 @@ class RefreshGames extends Command
 
                     $itchClient->executeWithRetry(
                         function () use ($game, $force) {
-                            DB::transaction(function () use ($game, $force) {
+                            $latestVersion = DB::transaction(function () use ($game, $force) {
                                 $game->refreshVersion($force);
                                 $game->save();
 
@@ -213,12 +213,18 @@ class RefreshGames extends Command
                                         ->update(['is_latest' => false]);
                                     $latestVersion->is_latest = true;
                                     $latestVersion->save();
-
-                                    // Clean up old version downloads
-                                    $archiveService = App::make(GameArchiveService::class);
-                                    $archiveService->cleanupOldVersionDownloads($game->id, $latestVersion->id);
                                 }
+
+                                return $latestVersion;
                             });
+
+                            if ($latestVersion) {
+                                // Runs past the commit so the archive the refresh
+                                // staged has already been pushed to the stash by the
+                                // after-commit persistence before old copies go.
+                                App::make(GameArchiveService::class)
+                                    ->cleanupOldVersionDownloads($game->id, $latestVersion->id);
+                            }
                         },
                         'Version information',
                         fn (string $op) => $this->info("  {$op} updated successfully"),
