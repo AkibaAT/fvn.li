@@ -6,7 +6,6 @@ services:
       - "${DOCKER_SOCKET_GID:-975}"
     environment:
       DENKIT_STASH_URL: http://denkit-stash:8081
-      DENKIT_STASH_PUBLIC_URL: https://denkit-stash-fvn-li.ddev.site
       DENKIT_STASH_USERNAME: fvn-li
       DENKIT_STASH_API_KEY: fvn-li-local-denkit-api-key
       BUTLER_CLIENT_PATH: /opt/butler

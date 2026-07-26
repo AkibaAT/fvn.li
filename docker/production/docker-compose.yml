@@ -37,7 +37,6 @@ services:
       - RENPY_ANALYZER_TIMEOUT=${RENPY_ANALYZER_TIMEOUT:-900}
       - FLARESOLVERR_URL=${FLARESOLVERR_URL:-http://flaresolverr:8191}
       - DENKIT_STASH_URL=${DENKIT_STASH_URL:-http://denkit-stash:8081}
-      - DENKIT_STASH_PUBLIC_URL=${DENKIT_STASH_PUBLIC_URL:-https://denkit-stash.${APP_DOMAIN}}
       - DENKIT_STASH_USERNAME=${DENKIT_STASH_USERNAME:-fvn-li}
       - DENKIT_STASH_API_KEY=${DENKIT_STASH_API_KEY}
       - BUTLER_CLIENT_PATH=${BUTLER_CLIENT_PATH:-/opt/butler}
@@ -141,7 +140,9 @@ services:
       - POSTGRES_USER=${DENKIT_STASH_POSTGRES_USERNAME:-denkit_stash}
       - POSTGRES_PASSWORD=${DENKIT_STASH_POSTGRES_PASSWORD}
       - S3_ENDPOINT=http://rustfs:9000
-      - S3_PUBLIC_ENDPOINT=${DENKIT_STASH_S3_PUBLIC_ENDPOINT:-https://s3.${APP_DOMAIN}}
+      # Host must match the rustfs Traefik router below, or presigned URLs
+      # point at a name nothing routes.
+      - S3_PUBLIC_ENDPOINT=https://${DENKIT_STASH_S3_PUBLIC_HOST:-s3.${APP_DOMAIN}}
       - S3_ACCESS_KEY=${DENKIT_STASH_S3_ACCESS_KEY}
       - S3_SECRET_KEY=${DENKIT_STASH_S3_SECRET_KEY}
       - S3_BUCKET=${DENKIT_STASH_S3_BUCKET:-denkit-stash-storage}
@@ -184,7 +185,7 @@ services:
       # The console stays internal (port 9001 is never routed).
       - "traefik.enable=true"
       - "traefik.docker.network=web"
-      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.rule=Host(`s3.${APP_DOMAIN}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.rule=Host(`${DENKIT_STASH_S3_PUBLIC_HOST:-s3.${APP_DOMAIN}}`)"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.entrypoints=https"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}-rustfs.tls=true"
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}-rustfs.loadbalancer.server.port=9000"
