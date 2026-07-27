@@ -141,6 +141,43 @@ return [
     'meilisearch' => [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
+
+        /*
+         * Embedders, applied through the dedicated embedders endpoint by
+         * meilisearch:embedders rather than alongside index-settings below.
+         * Meilisearch resolves one settings payload as a single task, so an
+         * embedder it cannot build fails the whole payload and leaves the index
+         * with no filterable or sortable attributes at all.
+         *
+         * The huggingFace source only accepts models whose declared
+         * architecture is BertModel or ModernBert.
+         */
+        'index-embedders' => [
+            'games' => [
+                'default' => [
+                    'source' => 'huggingFace',
+                    'model' => env('MEILISEARCH_EMBEDDER_MODEL', 'BAAI/bge-base-en-v1.5'),
+
+                    /*
+                     * Carries only the fields that distinguish one game from
+                     * another, since surplus text dilutes them: the title, the
+                     * author, the tags, and the opening of the synopsis. The
+                     * synopsis lives in full_description; description is usually
+                     * a one-line tagline, so it stands in only where the synopsis
+                     * is missing. Tags need an explicit join, as an array renders
+                     * as one run-on word, and the guards keep a game missing a
+                     * field from rendering stray punctuation.
+                     */
+                    'documentTemplate' => 'A visual novel called {{doc.name}}{% if doc.authors %} by {{doc.authors}}{% endif %}.{% if doc.tags %} Tags: {{doc.tags | join: ", "}}.{% endif %} {{doc.full_description | default: doc.description | truncatewords: 40}}',
+
+                    // Comfortably above what the template renders for the longest
+                    // game, so the word limit above is the only thing that
+                    // shortens a prompt and no prompt is cut mid-word.
+                    'documentTemplateMaxBytes' => 1000,
+                ],
+            ],
+        ],
+
         'index-settings' => [
             'game_dialogue_texts' => [
                 'filterableAttributes' => [
@@ -311,15 +348,6 @@ return [
                 'pagination' => [
                     'maxTotalHits' => 10000,
                 ],
-                ...((bool) env('MEILISEARCH_EMBEDDERS_ENABLED', true) ? [
-                    'embedders' => [
-                        'default' => [
-                            'source' => 'huggingFace',
-                            'model' => 'nomic-ai/nomic-embed-text-v1.5',
-                            'documentTemplate' => 'A visual novel called {{doc.name}} by {{doc.authors}}. Tags: {{doc.tags}}. {{doc.description}} {{doc.full_description}}',
-                        ],
-                    ],
-                ] : []),
             ],
             'tags' => [
                 'filterableAttributes' => [

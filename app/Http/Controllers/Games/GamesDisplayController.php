@@ -307,21 +307,38 @@ class GamesDisplayController extends Controller
 
         // Find similar games and developer's other games
         $recommendationCacheVersion = (int) Cache::get('games.recommendations.version', 1);
-        try {
-            $similarGames = Cache::remember("game.{$game->id}.similar.v{$recommendationCacheVersion}", 3600, fn () => app(SimilarGamesService::class)->findSimilarGames($game, 6)
-                ->map(fn (Game $g) => [
-                    'id' => $g->id,
-                    'name' => $g->effective_name,
-                    'slug' => $g->slug,
-                    'thumb_url' => $g->optimized_thumbnail_url,
-                    'authors' => $g->authors ? strip_tags($g->authors) : null,
-                    'rating_score' => $g->rating_score,
-                    'rating_count' => $g->rating_count,
-                    'status' => $g->status,
-                    'platform' => $g->platform,
-                ]));
-        } catch (Exception $e) {
-            $similarGames = collect();
+        $similarCacheKey = "game.{$game->id}.similar.v{$recommendationCacheVersion}";
+        $similarGames = Cache::get($similarCacheKey);
+
+        if ($similarGames === null) {
+            try {
+                $similarGames = app(SimilarGamesService::class)->findSimilarGames($game, 6)
+                    ->map(fn (Game $g) => [
+                        'id' => $g->id,
+                        'name' => $g->effective_name,
+                        'slug' => $g->slug,
+                        'thumb_url' => $g->optimized_thumbnail_url,
+                        'authors' => $g->authors ? strip_tags($g->authors) : null,
+                        'rating_score' => $g->rating_score,
+                        'rating_count' => $g->rating_count,
+                        'status' => $g->status,
+                        'platform' => $g->platform,
+                    ]);
+
+                // An index rebuilding its vectors answers with no neighbours, so
+                // an empty result stays uncached and costs one query per request
+                // rather than an hour of an empty section.
+                if ($similarGames->isNotEmpty()) {
+                    Cache::put($similarCacheKey, $similarGames, 3600);
+                }
+            } catch (Exception $e) {
+                Log::warning('Similar games lookup failed', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                $similarGames = collect();
+            }
         }
 
         $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";

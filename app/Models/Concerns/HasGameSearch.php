@@ -78,12 +78,12 @@ trait HasGameSearch
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
-            'authors' => $this->authors ? strip_tags($this->authors) : null,
+            'authors' => $this->toPlainText($this->authors),
 
             // Descriptions for search (with URLs removed)
-            'description' => $this->stripUrlsFromText($this->description),
-            'full_description' => $this->full_description ? $this->stripUrlsFromText(trim(strip_tags($this->full_description))) : null,
-            'custom_description' => $this->custom_description ? $this->stripUrlsFromText(trim(strip_tags($this->custom_description))) : null,
+            'description' => $this->stripUrlsFromText($this->toPlainText($this->description)),
+            'full_description' => $this->stripUrlsFromText($this->toPlainText($this->full_description)),
+            'custom_description' => $this->stripUrlsFromText($this->toPlainText($this->custom_description)),
             'custom_tags' => $this->custom_tags,
 
             // Tags for search and filtering
@@ -166,6 +166,23 @@ trait HasGameSearch
      *
      * Removes HTTP/HTTPS URLs to prevent them from polluting search results.
      */
+    /**
+     * Reduce stored markup to the words a search engine should see.
+     *
+     * Entities outlive tag stripping, and a decoded &nbsp; is whitespace that
+     * \s does not match, so both are resolved into ordinary spaces here.
+     */
+    private function toPlainText(?string $html): ?string
+    {
+        if (empty($html)) {
+            return null;
+        }
+
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string) preg_replace('/[\s\x{00A0}]+/u', ' ', $text));
+    }
+
     private function stripUrlsFromText(?string $text): ?string
     {
         if (empty($text)) {

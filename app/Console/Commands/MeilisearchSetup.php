@@ -12,12 +12,17 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Meilisearch\Client;
+use Meilisearch\Contracts\TasksQuery;
 
 class MeilisearchSetup extends Command
 {
     private const SEARCH_VERIFICATION_ATTEMPTS = 10;
 
     private const SEARCH_VERIFICATION_RETRY_DELAY_MICROSECONDS = 250_000;
+
+    private const SETTINGS_TASK_TIMEOUT_SECONDS = 600;
+
+    private const SETTINGS_TASK_POLL_SECONDS = 2;
 
     /**
      * The name and signature of the console command.
@@ -200,6 +205,7 @@ class MeilisearchSetup extends Command
         try {
             // Sync all index settings at once
             $this->line('  - Syncing all index settings...');
+            $taskWatermark = $this->latestTaskUid();
             $exitCode = Artisan::call('scout:sync-index-settings');
 
             if ($exitCode !== 0) {
@@ -208,14 +214,102 @@ class MeilisearchSetup extends Command
                 return false;
             }
 
+            if (! $this->awaitSettingsTasks($taskWatermark)) {
+                return false;
+            }
+
             $this->info('    ✅ All indexes configured');
 
-            return true;
+            return $this->applyEmbedders();
         } catch (Exception $e) {
             $this->error('    ❌ Error setting up indexes: ' . $e->getMessage());
 
             return false;
         }
+    }
+
+    /**
+     * Bring the configured embedders up to date, on their own tasks.
+     */
+    private function applyEmbedders(): bool
+    {
+        $this->line('  - Ensuring index embedders...');
+
+        return Artisan::call('meilisearch:embedders', [], $this->output) === self::SUCCESS;
+    }
+
+    /**
+     * The uid of the newest task Meilisearch knows about, used as the cutoff for
+     * attributing settings tasks to this run. -1 when the queue is empty.
+     */
+    private function latestTaskUid(): int
+    {
+        $tasks = app(Client::class)
+            ->getTasks((new TasksQuery)->setLimit(1))
+            ->getResults();
+
+        return isset($tasks[0]['uid']) ? (int) $tasks[0]['uid'] : -1;
+    }
+
+    /**
+     * Wait for the settings tasks this run submitted and report any that failed.
+     *
+     * Meilisearch applies a settings update as one atomic asynchronous task, and
+     * scout:sync-index-settings returns as soon as the task is enqueued. A task
+     * that fails server-side leaves the index with none of its settings, so the
+     * queue is the only place the outcome can be read.
+     */
+    private function awaitSettingsTasks(int $taskWatermark): bool
+    {
+        $client = app(Client::class);
+        $deadline = time() + self::SETTINGS_TASK_TIMEOUT_SECONDS;
+        $announcedWait = false;
+
+        while (true) {
+            $pending = $client->getTasks(
+                (new TasksQuery)
+                    ->setTypes(['settingsUpdate'])
+                    ->setStatuses(['enqueued', 'processing'])
+            )->getResults();
+
+            if ($pending === []) {
+                break;
+            }
+
+            if (time() >= $deadline) {
+                $this->error('    ❌ Timed out waiting for index settings to be applied');
+                $this->line('       Settings that configure an embedder download the model on first use.');
+
+                return false;
+            }
+
+            if (! $announcedWait) {
+                $this->line('    Waiting for index settings to be applied...');
+                $announcedWait = true;
+            }
+
+            sleep(self::SETTINGS_TASK_POLL_SECONDS);
+        }
+
+        $failed = collect($client->getTasks(
+            (new TasksQuery)
+                ->setTypes(['settingsUpdate'])
+                ->setStatuses(['failed'])
+        )->getResults())
+            ->filter(fn (array $task): bool => (int) ($task['uid'] ?? -1) > $taskWatermark);
+
+        if ($failed->isEmpty()) {
+            return true;
+        }
+
+        $this->error('    ❌ Meilisearch rejected the index settings; the indexes are unconfigured');
+        foreach ($failed as $task) {
+            $index = $task['indexUid'] ?? 'unknown';
+            $message = $task['error']['message'] ?? 'no error message reported';
+            $this->line("       • {$index}: {$message}");
+        }
+
+        return false;
     }
 
     /**

@@ -34,7 +34,19 @@ function waitForMeilisearchTask(array $task): void
         return;
     }
 
-    meilisearchTestClient()->waitForTask($taskUid, 60000, 100);
+    $finished = meilisearchTestClient()->waitForTask($taskUid, 60000, 100);
+
+    // A rejected task leaves the index on its previous state, which surfaces
+    // much later as an unrelated failure, so it is raised where it happens.
+    if (($finished['status'] ?? null) !== 'succeeded') {
+        throw new RuntimeException(sprintf(
+            'Meilisearch task %d (%s) %s: %s',
+            $taskUid,
+            $finished['type'] ?? 'unknown type',
+            $finished['status'] ?? 'never finished',
+            $finished['error']['message'] ?? 'no error message reported'
+        ));
+    }
 }
 
 function waitForMeilisearchAssertion(callable $assertion): mixed
@@ -54,7 +66,11 @@ function waitForMeilisearchAssertion(callable $assertion): mixed
     throw $lastException;
 }
 
-function configureMeilisearchIndex(string $indexName, array $settings): void
+/**
+ * Configures an index from the settings the application ships, so a payload
+ * Meilisearch rejects fails the suite instead of reaching a deployment.
+ */
+function configureMeilisearchIndex(string $indexName): void
 {
     $client = meilisearchTestClient();
 
@@ -66,25 +82,14 @@ function configureMeilisearchIndex(string $indexName, array $settings): void
 
     $index = $client->index($indexName);
 
-    if (isset($settings['filterableAttributes'])) {
-        waitForMeilisearchTask($index->updateFilterableAttributes($settings['filterableAttributes']));
-    }
+    /** @var array<string, mixed> $settings */
+    $settings = config("scout.meilisearch.index-settings.{$indexName}", []);
 
-    if (isset($settings['sortableAttributes'])) {
-        waitForMeilisearchTask($index->updateSortableAttributes($settings['sortableAttributes']));
-    }
+    waitForMeilisearchTask($index->updateSettings($settings));
 
-    if (isset($settings['searchableAttributes'])) {
-        waitForMeilisearchTask($index->updateSearchableAttributes($settings['searchableAttributes']));
-    }
-
-    if (array_key_exists('embedders', $settings)) {
-        waitForMeilisearchTask(
-            $settings['embedders'] === []
-                ? $index->resetEmbedders()
-                : $index->updateEmbedders($settings['embedders'])
-        );
-    }
+    // Settings carry no embedder, and vector search is out of scope here.
+    // Configuring one would have every run download model weights.
+    waitForMeilisearchTask($index->resetEmbedders());
 }
 
 function addMeilisearchDocument(string $indexName, array $document): void
@@ -136,17 +141,8 @@ function configureMeilisearchIndexesOnce(): void
         return;
     }
 
-    configureMeilisearchIndex('games', [
-        'filterableAttributes' => ['id', 'is_visible', 'tags', 'supported_languages', 'is_windows'],
-        'sortableAttributes' => ['first_visible_at'],
-        'searchableAttributes' => ['name', 'authors', 'custom_tags', 'tags'],
-        'embedders' => [],
-    ]);
-
-    configureMeilisearchIndex('game_dialogue_texts', [
-        'filterableAttributes' => ['game_id', 'text_id', 'language', 'version_ids', 'character_ids'],
-        'searchableAttributes' => ['text_content', 'character_names', 'game_name'],
-    ]);
+    configureMeilisearchIndex('games');
+    configureMeilisearchIndex('game_dialogue_texts');
 
     $configured = true;
 }

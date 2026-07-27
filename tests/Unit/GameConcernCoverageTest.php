@@ -32,9 +32,9 @@ test('game search array includes cleaned text tags jams languages platforms and 
     $game = Game::factory()->create([
         'name' => 'Searchable VN',
         'slug' => 'searchable-vn',
-        'authors' => '<b>Studio Fox</b>',
+        'authors' => '<b>Studio&nbsp;Fox</b>',
         'description' => 'Play at https://example.com now',
-        'full_description' => '<p>More at www.example.org and example.net/path</p>',
+        'full_description' => '<p>More&nbsp;at www.example.org and example.net/path &amp; friends</p>',
         'custom_description' => '<p>Custom page text https://custom.example</p>',
         'custom_tags' => null,
         'status' => 'Released',
@@ -96,7 +96,7 @@ test('game search array includes cleaned text tags jams languages platforms and 
     expect($searchable['id'])->toBe($game->id)
         ->and($searchable['authors'])->toBe('Studio Fox')
         ->and($searchable['description'])->toBe('Play at now')
-        ->and($searchable['full_description'])->toBe('More at and')
+        ->and($searchable['full_description'])->toBe('More at and & friends')
         ->and($searchable['custom_description'])->toBe('Custom page text')
         ->and($searchable['tags'])->toBe(['Romance'])
         ->and($searchable['game_jams'])->toBe(['Cozy Jam'])
