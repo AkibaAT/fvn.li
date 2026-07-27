@@ -30,7 +30,7 @@
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.3",
         "meilisearch/meilisearch-php": "^1.16",
-        "minishlink/web-push": "^10.0",
+        "minishlink/web-push": "^11.0",
         "predis/predis": "^3.4",
         "sabberworm/php-css-parser": "^9.3",
         "socialiteproviders/discord": "^4.2",
