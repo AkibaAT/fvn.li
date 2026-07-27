@@ -171,6 +171,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   artisan storage:link
   artisan config:cache
   artisan migrate --force
+  artisan meilisearch:embedders
 
   echo "Full restart completed successfully!"
 else
@@ -196,6 +197,8 @@ else
     # Run migrations
     artisan migrate --force
 
+    artisan meilisearch:embedders
+
     # Reload FrankenPHP
     compose_exec_root curl -X POST http://localhost:2019/frankenphp/workers/restart
 
@@ -219,6 +222,7 @@ else
     artisan storage:link
     artisan config:cache
     artisan migrate --force
+    artisan meilisearch:embedders
 
     echo "Container started successfully!"
   fi
