@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\BotDetectionService;
 use App\Services\IpAnonymizationService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ClickStat extends Model
@@ -17,6 +20,14 @@ class ClickStat extends Model
     public const string TYPE_CUSTOM_LINK = 'custom_link';
 
     public const string TYPE_EXTERNAL_PROJECT = 'external_project';
+
+    /**
+     * Half-life decay constant for trending scores: ln(2)/7, so a view is
+     * worth half as much after seven days.
+     */
+    public const float TRENDING_DECAY = 0.099;
+
+    public const int TRENDING_WINDOW_DAYS = 14;
 
     protected $fillable = [
         'game_id',
@@ -28,6 +39,7 @@ class ClickStat extends Model
         'user_agent',
         'referrer',
         'clicked_at',
+        'bot_reason',
     ];
 
     protected $casts = [
@@ -37,6 +49,10 @@ class ClickStat extends Model
     /**
      * Record a click with time-based deduplication (24-hour window)
      * This follows industry best practices for click tracking analytics
+     *
+     * Automated hits are stored alongside human ones but carry the reason they
+     * were classified as such, which keeps the classification auditable and
+     * reversible while holding them out of every analytics surface.
      */
     public static function recordClick(
         int $gameId,
@@ -48,6 +64,8 @@ class ClickStat extends Model
         ?string $userAgent = null,
         ?string $referrer = null
     ): bool {
+        $botReason = BotDetectionService::detect($userAgent, $ipAddress, $sessionId);
+
         // Always record the click for total counts
         self::create([
             'game_id' => $gameId,
@@ -59,9 +77,51 @@ class ClickStat extends Model
             'user_agent' => $userAgent,
             'referrer' => $referrer,
             'clicked_at' => now(),
+            'bot_reason' => $botReason,
         ]);
 
-        return true;
+        return $botReason === null;
+    }
+
+    /**
+     * Decayed trending scores keyed by game id, counting each visitor once per
+     * 24 hours so a single browsing session cannot outweigh genuine reach.
+     *
+     * @param  array<int, int>|null  $gameIds  restricts the calculation when given
+     * @return Collection<int, int>
+     */
+    public static function trendingScores(?array $gameIds = null): Collection
+    {
+        $window = self::TRENDING_WINDOW_DAYS;
+
+        $orderedViews = DB::table('click_stats')
+            ->where('type', self::TYPE_PAGE_VIEW)
+            ->whereNull('bot_reason')
+            ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '{$window} days'"))
+            ->selectRaw('
+                game_id,
+                clicked_at,
+                LAG(clicked_at) OVER (
+                    PARTITION BY game_id, ip_address, user_agent
+                    ORDER BY clicked_at
+                ) as previous_clicked_at
+            ');
+
+        if ($gameIds !== null) {
+            $orderedViews->whereIn('game_id', $gameIds);
+        }
+
+        $decay = self::TRENDING_DECAY;
+
+        return DB::query()
+            ->fromSub($orderedViews, 'ordered_views')
+            ->where(function ($query) {
+                $query->whereNull('previous_clicked_at')
+                    ->orWhereRaw("clicked_at >= previous_clicked_at + INTERVAL '24 hours'");
+            })
+            ->selectRaw("game_id, ROUND(COALESCE(SUM(EXP(-{$decay} * EXTRACT(EPOCH FROM (NOW() - clicked_at)) / 86400)), 0))::integer as score")
+            ->groupBy('game_id')
+            ->pluck('score', 'game_id');
     }
 
     /**
@@ -114,7 +174,7 @@ class ClickStat extends Model
      */
     public static function getGameStats(int $gameId, ?Carbon $since = null): array
     {
-        $query = DB::table('click_stats')->where('game_id', $gameId);
+        $query = DB::table('click_stats')->where('game_id', $gameId)->whereNull('bot_reason');
 
         if ($since) {
             $query->where('clicked_at', '>=', $since);
@@ -179,7 +239,13 @@ class ClickStat extends Model
     }
 
     /**
-     * Export click statistics for games owned by a user (for GDPR data portability)
+     * Aggregate click statistics for the games a user owns.
+     *
+     * Counts only. The rows behind these totals describe how individual
+     * visitors browsed the site, which is the visitors' personal data and not
+     * the game owner's, so no per-event detail leaves this method however the
+     * caller intends to use it. Automated traffic is excluded, matching what
+     * the owner already sees on their dashboard.
      */
     public static function exportUserOwnedGameStats(int $userId): array
     {
@@ -203,45 +269,41 @@ class ClickStat extends Model
 
         $gameIds = $ownedGames->pluck('id')->toArray();
 
-        // Get all click statistics for owned games
-        $clickStats = self::whereIn('game_id', $gameIds)
-            ->orderBy('clicked_at', 'desc')
-            ->get();
+        // Totalled in the database so no visitor-level row is ever held in
+        // memory here.
+        $totals = DB::table('click_stats')
+            ->whereIn('game_id', $gameIds)
+            ->whereNull('bot_reason')
+            ->groupBy('game_id')
+            ->selectRaw(
+                'game_id,
+                COUNT(*) as total_clicks,
+                COUNT(*) FILTER (WHERE type = ?) as page_views,
+                COUNT(*) FILTER (WHERE type = ?) as external_project_clicks,
+                COUNT(*) FILTER (WHERE type = ?) as custom_link_clicks,
+                MIN(clicked_at) as first_tracked,
+                MAX(clicked_at) as last_tracked',
+                [self::TYPE_PAGE_VIEW, self::TYPE_EXTERNAL_PROJECT, self::TYPE_CUSTOM_LINK]
+            )
+            ->get()
+            ->keyBy(fn ($row) => (int) $row->game_id);
 
         return [
             'user_id' => $userId,
             'exported_at' => now()->toISOString(),
-            'total_entries' => $clickStats->count(),
-            'games_tracked' => $ownedGames->map(function ($game) use ($clickStats) {
-                $gameStats = $clickStats->where('game_id', $game->id);
+            'total_entries' => (int) $totals->sum('total_clicks'),
+            'games_tracked' => $ownedGames->map(function ($game) use ($totals) {
+                $gameStats = $totals->get((int) $game->id);
 
                 return [
                     'game_name' => $game->name,
                     'game_url' => $game->url,
-                    'total_clicks' => $gameStats->count(),
-                    'page_views' => $gameStats->where('type', self::TYPE_PAGE_VIEW)->count(),
-                    'external_project_clicks' => $gameStats->where('type', self::TYPE_EXTERNAL_PROJECT)->count(),
-                    'custom_link_clicks' => $gameStats->where('type', self::TYPE_CUSTOM_LINK)->count(),
-                    'first_tracked' => $gameStats->min('clicked_at'),
-                    'last_tracked' => $gameStats->max('clicked_at'),
-                ];
-            })->values()->toArray(),
-            'detailed_logs' => $clickStats->map(function ($stat) use ($ownedGames) {
-                $game = $ownedGames->firstWhere('id', $stat->game_id);
-
-                return [
-                    'game_name' => $game ? $game->name : 'Unknown Game',
-                    'type' => $stat->type,
-                    'link_id' => $stat->link_id,
-                    'clicked_at' => $stat->clicked_at,
-                    'referrer' => $stat->referrer,
-                    'description' => match ($stat->type) {
-                        self::TYPE_PAGE_VIEW => 'Page view on FVN.li',
-                        self::TYPE_EXTERNAL_PROJECT => 'Visit to itch.io project page',
-                        self::TYPE_CUSTOM_LINK => 'Download link click: ' . ($stat->link_id ?? 'Unknown'),
-                        default => 'Unknown click type'
-                    },
-                    // Note: session_id, ip_address, and user_agent are excluded for privacy
+                    'total_clicks' => (int) ($gameStats->total_clicks ?? 0),
+                    'page_views' => (int) ($gameStats->page_views ?? 0),
+                    'external_project_clicks' => (int) ($gameStats->external_project_clicks ?? 0),
+                    'custom_link_clicks' => (int) ($gameStats->custom_link_clicks ?? 0),
+                    'first_tracked' => $gameStats->first_tracked ?? null,
+                    'last_tracked' => $gameStats->last_tracked ?? null,
                 ];
             })->values()->toArray(),
         ];
@@ -251,16 +313,20 @@ class ClickStat extends Model
      * Anonymize click statistics for a specific user
      * This is used when a user requests account deletion (GDPR Article 17)
      * Removes user_id and IP-derived identifiers while preserving aggregate analytics rows
+     *
+     * @return int the number of rows anonymised, so callers can tell an
+     *             account with no recorded activity from a failed attempt
      */
-    public static function anonymizePersonalDataForUser(int $userId): bool
+    public static function anonymizePersonalDataForUser(int $userId): int
     {
-        self::where('user_id', $userId)->update([
+        return self::where('user_id', $userId)->update([
             'user_id' => null,
-            'ip_address' => null,
+            // A pseudonym rather than nothing: unique-visitor counts group on
+            // the address, so an empty one would merge every erased account
+            // into a single visitor and cost other developers their totals.
+            'ip_address' => IpAnonymizationService::pseudonymizeIdentity('click-stat-visitor-' . $userId),
             'updated_at' => now(),
         ]);
-
-        return true;
     }
 
     /**
@@ -290,6 +356,7 @@ class ClickStat extends Model
 
         $totalRows = DB::table('click_stats')
             ->where('game_id', $gameId)
+            ->whereNull('bot_reason')
             ->whereBetween('clicked_at', [$startDate, $endDate])
             ->selectRaw('DATE(clicked_at) as date, type, link_id, COUNT(*) as total_clicks')
             ->groupByRaw('DATE(clicked_at), type, link_id')
@@ -324,6 +391,7 @@ class ClickStat extends Model
 
         $orderedClicks = DB::table('click_stats')
             ->where('game_id', $gameId)
+            ->whereNull('bot_reason')
             ->whereBetween('clicked_at', [$startDate, $endDate])
             ->selectRaw("
                 DATE(clicked_at) as date,
@@ -391,14 +459,16 @@ class ClickStat extends Model
             $linkId = $link['id'];
 
             // Get total clicks for this link
-            $totalClicks = self::where('game_id', $gameId)
+            $totalClicks = self::human()
+                ->where('game_id', $gameId)
                 ->where('type', self::TYPE_CUSTOM_LINK)
                 ->where('link_id', $linkId)
                 ->where('clicked_at', '>=', $startDate)
                 ->count();
 
             // Get unique clicks (simplified for performance)
-            $uniqueClicks = self::where('game_id', $gameId)
+            $uniqueClicks = self::human()
+                ->where('game_id', $gameId)
                 ->where('type', self::TYPE_CUSTOM_LINK)
                 ->where('link_id', $linkId)
                 ->where('clicked_at', '>=', $startDate)
@@ -407,7 +477,8 @@ class ClickStat extends Model
                 ->count();
 
             // Get daily breakdown
-            $dailyClicks = self::where('game_id', $gameId)
+            $dailyClicks = self::human()
+                ->where('game_id', $gameId)
                 ->where('type', self::TYPE_CUSTOM_LINK)
                 ->where('link_id', $linkId)
                 ->where('clicked_at', '>=', $startDate)
@@ -438,6 +509,7 @@ class ClickStat extends Model
     {
         $query = DB::table('click_stats')
             ->where('game_id', $gameId)
+            ->whereNull('bot_reason')
             ->selectRaw("
                 type,
                 link_id,
@@ -488,6 +560,14 @@ class ClickStat extends Model
             'external_project' => $uniqueExternalProject,
             'custom_links' => $uniqueCustomLinks,
         ];
+    }
+
+    /**
+     * Limit a query to hits that were not classified as automated.
+     */
+    public function scopeHuman(Builder $query): Builder
+    {
+        return $query->whereNull('bot_reason');
     }
 
     /**

@@ -8,7 +8,6 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Services\HomePageCacheService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RefreshTrendingScores extends Command
@@ -21,7 +20,10 @@ class RefreshTrendingScores extends Command
     {
         $calculatedAt = now();
 
-        $this->info('Calculating trending scores from page views in the last 14 days...');
+        $this->info(sprintf(
+            'Calculating trending scores from unique human visitors in the last %d days...',
+            ClickStat::TRENDING_WINDOW_DAYS
+        ));
         $scores = $this->calculateScores();
         $this->info(sprintf('Calculated %d candidate trending scores.', $scores->count()));
 
@@ -164,11 +166,6 @@ class RefreshTrendingScores extends Command
 
     private function calculateScores()
     {
-        return DB::table('click_stats')
-            ->where('type', ClickStat::TYPE_PAGE_VIEW)
-            ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '14 days'"))
-            ->selectRaw('game_id, ROUND(COALESCE(SUM(EXP(-0.099 * EXTRACT(EPOCH FROM (NOW() - clicked_at)) / 86400)), 0))::integer as score')
-            ->groupBy('game_id')
-            ->pluck('score', 'game_id');
+        return ClickStat::trendingScores();
     }
 }

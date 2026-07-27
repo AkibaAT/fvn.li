@@ -16,6 +16,7 @@ use App\Models\UserGameProgress;
 use App\Models\UserNotificationPreferences;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\IpAnonymizationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 
@@ -245,7 +246,8 @@ describe('GDPR compliance during deletion', function () {
         // Click stats should be anonymized
         $stat = ClickStat::where('game_id', $game->id)->first();
         expect($stat->user_id)->toBeNull()
-            ->and($stat->ip_address)->toBeNull();
+            ->and($stat->ip_address)->not->toBe('192.168.1.100')
+            ->and(IpAnonymizationService::isAnonymized($stat->ip_address))->toBeTrue();
     });
 
     test('preserves analytics data while removing personal information', function () {

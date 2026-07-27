@@ -225,7 +225,7 @@ class ManageAuditPrivacy extends Command
         $anonymizedAuditCount = ChangeLog::anonymizeUserData($user->id);
         $anonymizedClickCount = ClickStat::anonymizePersonalDataForUser($user->id);
 
-        $this->info("Successfully anonymized {$anonymizedAuditCount} audit log entries and " . ($anonymizedClickCount ? 'anonymized' : 'no') . " click statistics for user {$user->name}.");
+        $this->info("Successfully anonymized {$anonymizedAuditCount} audit log entries and {$anonymizedClickCount} click statistics for user {$user->name}.");
 
         return self::SUCCESS;
     }

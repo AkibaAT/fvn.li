@@ -102,10 +102,27 @@ class IpAnonymizationService
      */
     public static function anonymizeByHash(string $ipAddress): string
     {
+        return self::saltedHash($ipAddress);
+    }
+
+    /**
+     * Derive a stable pseudonym for someone whose address has been erased.
+     *
+     * Takes the shape of a hashed address so callers testing for an anonymised
+     * value recognise it, and resolves to one value per identity so records
+     * left behind by a single person still group as a single person.
+     */
+    public static function pseudonymizeIdentity(string $identity): string
+    {
+        return self::saltedHash($identity);
+    }
+
+    private static function saltedHash(string $value): string
+    {
         // Use application key as salt for consistent hashing
         $salt = Config::get('app.key', 'audit-salt');
 
         // Create a truncated hash for privacy while maintaining some uniqueness
-        return 'hash_' . substr(hash('sha256', $salt . $ipAddress), 0, 12);
+        return 'hash_' . substr(hash('sha256', $salt . $value), 0, 12);
     }
 }

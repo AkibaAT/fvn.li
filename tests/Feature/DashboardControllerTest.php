@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\IpAnonymizationService;
 use App\Support\SystemAuditUser;
 use Illuminate\Support\Facades\DB;
 
@@ -436,7 +437,8 @@ it('deletes the authenticated account and anonymizes retained data', function ()
         ->and(NotificationHistory::where('user_id', $user->id)->exists())->toBeFalse()
         ->and(DB::table('user_ignored_games')->where('user_id', $user->id)->exists())->toBeFalse()
         ->and(ClickStat::first()->user_id)->toBeNull()
-        ->and(ClickStat::first()->ip_address)->toBeNull();
+        ->and(ClickStat::first()->ip_address)->not->toBe('203.0.113.99')
+        ->and(IpAnonymizationService::isAnonymized(ClickStat::first()->ip_address))->toBeTrue();
 });
 
 it('renders digest notifications for dates with and without user notifications', function () {

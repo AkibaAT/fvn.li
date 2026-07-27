@@ -42,9 +42,9 @@ class UserAccountController extends Controller
 
             // Anonymize click statistics (GDPR compliance - retain for analytics)
             try {
-                $ok = ClickStat::anonymizePersonalDataForUser($userId);
+                $anonymized = ClickStat::anonymizePersonalDataForUser($userId);
                 Log::info('Anonymized click statistics during account deletion',
-                    ['user_id' => $userId, 'anonymized' => $ok]);
+                    ['user_id' => $userId, 'anonymized_count' => $anonymized]);
             } catch (Throwable $e) {
                 Log::warning('Failed to anonymize click stats', ['user_id' => $userId, 'error' => $e->getMessage()]);
             }

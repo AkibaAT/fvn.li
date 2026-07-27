@@ -4,29 +4,22 @@ declare(strict_types=1);
 
 namespace App\Models\Concerns;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\ClickStat;
 
 trait HasGameSearch
 {
     /**
-     * Get the trending score for this game based on recent page views.
+     * Get the trending score for this game based on recent unique visitors.
      *
-     * Uses exponential decay with a 7-day half-life so recent views count more
-     * than older ones. A view from 7 days ago is worth 50% of a view today,
+     * Uses exponential decay with a 7-day half-life so recent visits count more
+     * than older ones. A visit from 7 days ago is worth 50% of one today,
      * 14 days ago is worth 25%, etc.
      *
      * Formula: score = Σ(e^(-λ × age_days)) where λ = ln(2)/7 ≈ 0.099
      */
     public function getTrendingScore(): int
     {
-        $result = DB::table('click_stats')
-            ->where('game_id', $this->id)
-            ->where('type', 'page_view')
-            ->where('clicked_at', '>=', DB::raw("NOW() - INTERVAL '14 days'"))
-            ->selectRaw('COALESCE(SUM(EXP(-0.099 * EXTRACT(EPOCH FROM (NOW() - clicked_at)) / 86400)), 0) as score')
-            ->first();
-
-        return (int) round((float) $result->score);
+        return (int) ClickStat::trendingScores([$this->id])->get($this->id, 0);
     }
 
     /**

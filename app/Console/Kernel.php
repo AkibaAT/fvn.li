@@ -83,6 +83,12 @@ class Kernel extends ConsoleKernel
         $schedule->command('games:update-watchlist')->dailyAt('00:00')->withoutOverlapping();
         $schedule->command('game-jams:fetch-details')->hourly()->withoutOverlapping();
         $schedule->command('games:refresh-trending-scores')->hourly()->withoutOverlapping();
+
+        // Session churn can only be judged across a user agent's whole body of
+        // traffic, so it lands after the fact rather than at write time. Runs
+        // ahead of the hourly trending refresh that consumes the verdict.
+        $schedule->command('analytics:backfill-bot-flags',
+            ['--days' => 7])->dailyAt('03:30')->withoutOverlapping();
         $schedule->command('fix:characters')->weekly()->sundays()->at('03:00')->withoutOverlapping();
 
         // Notification commands (performance optimized: reduced from everyMinute to everyFiveMinutes)
