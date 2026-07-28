@@ -177,6 +177,7 @@ Route::get('lists/public', [PublicVnListController::class, 'publicLists'])
     ->middleware('throttle:30,1')
     ->name('lists.public');
 Route::get('users/{user}/lists', [PublicVnListController::class, 'userPublicLists'])
+    ->whereNumber('user')
     ->name('lists.user-public');
 
 // Dynamic VN List routes (constrained to numeric IDs)

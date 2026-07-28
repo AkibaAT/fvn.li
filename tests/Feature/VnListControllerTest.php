@@ -227,6 +227,11 @@ it('renders public owner lists and hides private lists from other users', functi
         ->and($props['lists']['data'][0]['id'])->toBe($publicList->id);
 });
 
+it('rejects malformed user ids before public list route model binding', function () {
+    $this->get('/users/12%C2%BF669/lists')
+        ->assertNotFound();
+});
+
 it('shows a list to the owner with entries, available target lists, and ownership state', function () {
     $owner = User::factory()->create();
     [$list, $game] = makeListWithEntry($owner, [
