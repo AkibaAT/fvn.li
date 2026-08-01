@@ -21,7 +21,7 @@
         <dd class="text-gray-700 dark:text-gray-200">
             {game.primary_word_count ? game.primary_word_count.toLocaleString() : '\u2014'}
             {#if game.primary_language_label && game.primary_language_label !== 'EN' && game.english_word_count}
-                <span class="ml-1.5 text-xs text-gray-400 dark:text-gray-500">
+                <span class="ml-1.5 text-xs text-gray-600 dark:text-gray-300">
                     EN: {game.english_word_count.toLocaleString()}
                 </span>
             {/if}

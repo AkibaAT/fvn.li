@@ -25,7 +25,8 @@
     </h2>
 
     {#if game.authors}
-        <div class="-mt-1 line-clamp-1 min-h-5 text-sm text-gray-600 dark:text-gray-400" aria-label="Authors: {game.authors}">
+        <div class="-mt-1 line-clamp-1 min-h-5 text-sm text-gray-600 dark:text-gray-400">
+            <span class="sr-only">Authors: </span>
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html authorsInlineHtml}
         </div>
