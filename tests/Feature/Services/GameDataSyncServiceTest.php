@@ -377,6 +377,7 @@ it('force reprocesses existing versions from the stored archive repository witho
         'url' => ['itch_io' => 'https://creator.itch.io/reprocess'],
         'source_language_id' => 'eng',
         'game_engine' => "Ren'Py",
+        'is_paid' => false,
     ]);
     $version = GameVersion::factory()->create([
         'game_id' => $game->id,
@@ -441,6 +442,7 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
         'url' => ['itch_io' => 'https://creator.itch.io/reprocess-missing'],
         'source_language_id' => 'eng',
         'game_engine' => "Ren'Py",
+        'is_paid' => false,
     ]);
     $version = GameVersion::factory()->create([
         'game_id' => $game->id,
@@ -541,6 +543,7 @@ it('force reprocess fails when the DenKit Stash lookup errors', function () {
         'url' => ['itch_io' => 'https://creator.itch.io/reprocess-unavailable'],
         'source_language_id' => 'eng',
         'game_engine' => "Ren'Py",
+        'is_paid' => false,
     ]);
     $version = GameVersion::factory()->create([
         'game_id' => $game->id,

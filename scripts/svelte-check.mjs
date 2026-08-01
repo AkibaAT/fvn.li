@@ -6,6 +6,12 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const executable = resolve(projectRoot, 'node_modules/.bin/svelte-check');
 const child = spawn(executable, process.argv.slice(2), {
     cwd: projectRoot,
+    env: {
+        ...process.env,
+        // vitePreprocess uses build mode for static analysis when NODE_ENV is
+        // production, avoiding dev-server-only plugin behavior in CI.
+        NODE_ENV: 'production',
+    },
     stdio: ['inherit', 'pipe', 'pipe'],
 });
 
