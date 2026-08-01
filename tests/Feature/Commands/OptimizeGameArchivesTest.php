@@ -163,6 +163,37 @@ test('optimize game archives preserves original tar gzip archive format', functi
         ->toContain('TarGame/game/script.rpy');
 });
 
+test('optimize game archives detects tar bzip2 content with a bz2 filename', function () {
+    Storage::fake('local');
+
+    $game = Game::factory()->create(['name' => 'Misnamed Tar Bzip2']);
+    $version = GameVersion::factory()->latest()->create([
+        'game_id' => $game->id,
+        'version' => '2',
+    ]);
+
+    createOptimizableTarArchive($game->id, $version->id, 'Under Contract - Demo (Linux).bz2', 'UnderContract');
+
+    $this->app->instance(
+        GameArchiveOptimizationService::class,
+        new GameArchiveOptimizationService(passingArchiveOptimizationStatsService())
+    );
+
+    $this->artisan('games:optimize-archives', [
+        '--game-id' => $game->id,
+        '--force' => true,
+    ])->assertExitCode(0);
+
+    $optimizedPath = Storage::path("games/{$game->id}/{$version->id}/Under Contract - Demo (Linux).optimized.tar.bz2");
+    expect(File::exists($optimizedPath))->toBeTrue();
+
+    $list = new Process(['tar', '-tjf', $optimizedPath]);
+    $list->mustRun();
+
+    expect($list->getOutput())->toContain('UnderContract/game/images/bg.webp')
+        ->not->toContain('UnderContract/game/images/bg.png');
+});
+
 test('optimize game archives reuses previous optimized media when source inventory is unchanged', function () {
     Storage::fake('local');
 
@@ -575,7 +606,7 @@ function createOptimizableTarArchive(int $gameId, int $versionId, string $filena
     try {
         $process = new Process([
             'tar',
-            '-czf',
+            str_ends_with($filename, '.bz2') ? '-cjf' : '-czf',
             Storage::path("{$storagePath}/{$filename}"),
             '-C',
             $sourceDir,

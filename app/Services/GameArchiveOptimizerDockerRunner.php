@@ -10,6 +10,10 @@ use Symfony\Component\Process\Process;
 
 class GameArchiveOptimizerDockerRunner
 {
+    public function __construct(
+        private readonly ArchiveFormatDetector $archiveFormatDetector = new ArchiveFormatDetector
+    ) {}
+
     /**
      * @return array{
      *     status: string,
@@ -233,16 +237,6 @@ class GameArchiveOptimizerDockerRunner
 
     private function archiveExtension(string $archivePath): string
     {
-        $basename = strtolower(basename($archivePath));
-
-        return match (true) {
-            str_ends_with($basename, '.tar.gz') => 'tar.gz',
-            str_ends_with($basename, '.tgz') => 'tgz',
-            str_ends_with($basename, '.tar.bz2') => 'tar.bz2',
-            str_ends_with($basename, '.tbz2') => 'tbz2',
-            str_ends_with($basename, '.tar') => 'tar',
-            str_ends_with($basename, '.zip') => 'zip',
-            default => strtolower(pathinfo($archivePath, PATHINFO_EXTENSION)),
-        };
+        return $this->archiveFormatDetector->detect($archivePath);
     }
 }

@@ -22,7 +22,8 @@ class GameArchiveOptimizationService
 
     public function __construct(
         private readonly GameStatsService $statsService,
-        private readonly ?GameArchiveOptimizerDockerRunner $sandboxRunner = null
+        private readonly ?GameArchiveOptimizerDockerRunner $sandboxRunner = null,
+        private readonly ArchiveFormatDetector $archiveFormatDetector = new ArchiveFormatDetector
     ) {}
 
     /**
@@ -988,7 +989,8 @@ class GameArchiveOptimizationService
     private function optimizedFilename(string $archivePath): string
     {
         $extension = $this->archiveExtension($archivePath);
-        $suffixLength = strlen('.' . $extension);
+        $filenameExtension = $this->archiveFormatDetector->filenameSuffix($archivePath);
+        $suffixLength = strlen('.' . $filenameExtension);
         $basename = basename($archivePath);
         $name = substr($basename, 0, -$suffixLength);
 
@@ -997,17 +999,7 @@ class GameArchiveOptimizationService
 
     private function archiveExtension(string $archivePath): string
     {
-        $basename = strtolower(basename($archivePath));
-
-        return match (true) {
-            str_ends_with($basename, '.tar.gz') => 'tar.gz',
-            str_ends_with($basename, '.tgz') => 'tgz',
-            str_ends_with($basename, '.tar.bz2') => 'tar.bz2',
-            str_ends_with($basename, '.tbz2') => 'tbz2',
-            str_ends_with($basename, '.tar') => 'tar',
-            str_ends_with($basename, '.zip') => 'zip',
-            default => strtolower(pathinfo($archivePath, PATHINFO_EXTENSION)),
-        };
+        return $this->archiveFormatDetector->detect($archivePath);
     }
 
     private function storageRelativePath(string $path): string
