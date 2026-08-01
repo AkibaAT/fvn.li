@@ -16,7 +16,7 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         try {
             const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
 
-            return new URL(urlOrPath, base).pathname.replace(/\/+$/, '') || '/';
+            return new SvelteURL(urlOrPath, base).pathname.replace(/\/+$/, '') || '/';
         } catch {
             return urlOrPath.replace(/\/+$/, '') || '/';
         }

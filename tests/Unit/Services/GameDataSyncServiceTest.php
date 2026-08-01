@@ -7,7 +7,6 @@ use App\Services\GameDataSyncService;
 use App\Services\ImageProcessingService;
 use App\Services\ItchGameMetadataExtractor;
 use App\Services\ItchHttpClientService;
-use App\ValueObjects\Upload;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,37 +55,26 @@ HTML;
         ->and($game->sale_discount_percent)->toBe(20);
 });
 
-test('only demo processable uploads are treated as unsuitable for stats extraction', function () {
+test('stats extraction is allowed only for free games without a manual override', function () {
     $service = app(GameDataSyncService::class);
-    $method = new ReflectionMethod($service, 'hasOnlyDemoProcessableUploads');
+    $method = new ReflectionMethod($service, 'isStatsExtractionAllowed');
 
-    $demoUpload = Upload::fromArray([
-        'filename' => 'Game-1.0-demo-pc.zip',
-        'display_name' => null,
-        'md5_hash' => null,
-        'updated_at' => '2025-09-20T22:25:28Z',
-        'build_id' => null,
-        'build_updated_at' => null,
-        'user_version' => null,
-        'traits' => ['p_windows', 'p_linux', 'demo'],
-        'type' => 'default',
-    ], 1);
+    $freeGame = Game::factory()->make([
+        'is_paid' => false,
+        'is_stats_extraction_disabled' => false,
+    ]);
+    $paidGame = Game::factory()->make([
+        'is_paid' => true,
+        'is_stats_extraction_disabled' => false,
+    ]);
+    $manuallyDisabledFreeGame = Game::factory()->make([
+        'is_paid' => false,
+        'is_stats_extraction_disabled' => true,
+    ]);
 
-    $fullUpload = Upload::fromArray([
-        'filename' => 'Game-1.0-pc.zip',
-        'display_name' => null,
-        'md5_hash' => null,
-        'updated_at' => '2025-09-20T22:25:28Z',
-        'build_id' => null,
-        'build_updated_at' => null,
-        'user_version' => null,
-        'traits' => ['p_windows', 'p_linux'],
-        'type' => 'default',
-    ], 2);
-
-    expect($method->invoke($service, [$demoUpload]))->toBeTrue()
-        ->and($method->invoke($service, [$demoUpload, $fullUpload]))->toBeFalse()
-        ->and($method->invoke($service, []))->toBeFalse();
+    expect($method->invoke($service, $freeGame))->toBeTrue()
+        ->and($method->invoke($service, $paidGame))->toBeFalse()
+        ->and($method->invoke($service, $manuallyDisabledFreeGame))->toBeFalse();
 });
 
 test('itch screenshot extraction preserves optimized variants for unchanged source urls', function () {

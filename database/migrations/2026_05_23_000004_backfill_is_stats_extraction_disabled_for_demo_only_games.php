@@ -25,7 +25,7 @@ return new class extends Migration
                 }
 
                 $processableUploads = $this->processableUploads($uploads);
-                if ($processableUploads->isEmpty() || $processableUploads->contains(fn (Upload $upload) => ! $upload->isDemo())) {
+                if ($processableUploads->isEmpty() || $processableUploads->contains(fn (Upload $upload) => ! $this->isDemoUpload($upload))) {
                     return;
                 }
 
@@ -73,6 +73,17 @@ return new class extends Migration
             })
             ->filter()
             ->values();
+    }
+
+    private function isDemoUpload(Upload $upload): bool
+    {
+        if (in_array('demo', $upload->traits, true)) {
+            return true;
+        }
+
+        $names = array_filter([$upload->filename, $upload->displayName]);
+
+        return array_any($names, fn ($name) => preg_match('/(?:^|[^a-z0-9])(?:demo|free[-_\s]?version)(?:[^a-z0-9]|$)/i', $name) === 1);
     }
 
     private function clearVersionStats(int $gameId): void

@@ -206,9 +206,8 @@ class GameDataSyncService
             echo "    [Version] No processable uploads found\n";
         }
 
-        if ($this->hasOnlyDemoProcessableUploads($candidateUploads)) {
-            $game->is_stats_extraction_disabled = true;
-            echo "    [Version] Only demo archives are processable; skipping stats extraction\n";
+        if ($game->is_paid) {
+            echo "    [Version] Paid game; skipping stats extraction\n";
         }
 
         // Exit early if no changes detected and game already has versions
@@ -257,7 +256,7 @@ class GameDataSyncService
         $tempDirPath = null;
         $shouldReprocessExistingVersion = $shouldReprocessExistingVersion ?? false;
         $shouldProcessRenPy = $bestUpload &&
-            ! $game->is_stats_extraction_disabled &&
+            $this->isStatsExtractionAllowed($game) &&
             ($shouldCreateVersion || $shouldReprocessExistingVersion) &&
             (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
 
@@ -265,6 +264,7 @@ class GameDataSyncService
              ' (bestUpload: ' . ($bestUpload ? 'yes' : 'no') .
              ', shouldCreate: ' . ($shouldCreateVersion ? 'yes' : 'no') .
              ', shouldReprocess: ' . ($shouldReprocessExistingVersion ? 'yes' : 'no') .
+             ', paid: ' . ($game->is_paid ? 'yes' : 'no') .
              ', statsDisabled: ' . ($game->is_stats_extraction_disabled ? 'yes' : 'no') .
              ', engine: ' . ($game->game_engine ?: 'null') . ")\n";
 
@@ -779,12 +779,9 @@ class GameDataSyncService
         }
     }
 
-    /**
-     * @param  array<int, Upload>  $candidateUploads
-     */
-    private function hasOnlyDemoProcessableUploads(array $candidateUploads): bool
+    private function isStatsExtractionAllowed(Game $game): bool
     {
-        return $candidateUploads !== [] && collect($candidateUploads)->every(fn (Upload $upload) => $upload->isDemo());
+        return ! $game->is_paid && ! $game->is_stats_extraction_disabled;
     }
 
     /**
