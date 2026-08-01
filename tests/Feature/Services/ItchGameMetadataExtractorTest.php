@@ -101,8 +101,8 @@ it('sanitizes imported full descriptions before storing them', function () {
         $game,
         itchMetadataDocument(<<<'HTML'
 <div class="formatted_description">
-    <p>Safe text</p>
-    <img src="https://img.example/safe.png" height="1px; position:fixed; inset:0; z-index:9999" onerror="alert(1)">
+    <p class="custom-intro text-center">Safe text</p>
+    <img class="custom-frame-image" src="https://img.example/safe.png" height="1px; position:fixed; inset:0; z-index:9999" onerror="alert(1)">
     <script>window.__xss = 1</script>
 </div>
 HTML),
@@ -110,6 +110,8 @@ HTML),
     );
 
     expect($game->full_description)->toContain('Safe text')
+        ->and($game->full_description)->toContain('custom-intro')
+        ->and($game->full_description)->toContain('custom-frame-image')
         ->and($game->full_description)->toContain('https://img.example/safe.png')
         ->and(strtolower($game->full_description))->not->toContain('<script')
         ->and(strtolower($game->full_description))->not->toContain('onerror')

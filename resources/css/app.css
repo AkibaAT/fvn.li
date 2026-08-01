@@ -92,6 +92,18 @@
     overflow-x: visible;
 }
 
+/* Keep imported creator layouts inside the game description on narrow screens. */
+.game_description {
+    min-width: 0;
+    max-width: 100%;
+    overflow: clip;
+}
+
+.game_description :where(*) {
+    min-width: 0;
+    box-sizing: border-box;
+}
+
 /* TinyMCE Editor Improvements */
 .tox-tinymce {
     min-height: 600px !important;

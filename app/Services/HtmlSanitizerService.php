@@ -182,7 +182,7 @@ class HtmlSanitizerService
     {
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
-            ->allowAttribute('class', ['*'])
+            ->allowAttribute('class', '*')
             ->allowAttribute('style', ['span', 'p', 'div', 'strong', 'em', 'b', 'i'])
             ->allowAttribute('href', ['a'])
             ->allowAttribute('target', ['a'])
@@ -202,8 +202,8 @@ class HtmlSanitizerService
     {
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
-            ->allowAttribute('class', ['*'])
-            ->allowAttribute('id', ['*'])
+            ->allowAttribute('class', '*')
+            ->allowAttribute('id', '*')
             ->allowAttribute('style', ['span', 'p', 'div', 'strong', 'em', 'b', 'i', 'img'])
             ->allowAttribute('href', ['a'])
             ->allowAttribute('target', ['a'])
@@ -223,7 +223,7 @@ class HtmlSanitizerService
     {
         $config = (new HtmlSanitizerConfig)
             ->allowSafeElements()
-            ->allowAttribute('class', ['*'])
+            ->allowAttribute('class', '*')
             ->allowAttribute('style', ['span', 'a'])
             ->allowAttribute('href', ['a'])
             ->allowAttribute('target', ['a'])

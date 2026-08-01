@@ -496,7 +496,7 @@
 
 <!-- Sticky Navigation -->
 <div
-    class="sticky top-[4.5rem] z-40 mb-5 flex items-center justify-between border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+    class="sticky top-[4.5rem] z-40 mb-5 flex flex-col gap-3 border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900"
 >
     <Link href={route('games.index')} class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
         <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -504,7 +504,7 @@
         >
         Back to Game List
     </Link>
-    <nav class="flex space-x-4">
+    <nav class="flex w-full flex-wrap gap-x-4 gap-y-2 whitespace-nowrap sm:w-auto sm:flex-nowrap">
         {#if canSeeAnalytics && (clickStats || dailyStats)}
             <a href="#analytics" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Analytics</a>
         {/if}

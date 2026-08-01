@@ -23,15 +23,15 @@ test('process handles basic CSS content', function () {
     expect($result)->toContain('10px');
 });
 
-test('process removes color properties', function () {
+test('process preserves scoped color properties', function () {
     $processor = new ItchCssProcessor;
     $css = '.test { color: red; background-color: blue; margin: 10px; }';
     $result = $processor->process($css);
 
-    expect($result)->not->toContain('color');
-    expect($result)->not->toContain('red');
-    expect($result)->not->toContain('blue');
-    expect($result)->toContain('margin');
+    expect($result)->toContain('.game_description .test')
+        ->toContain('color:red')
+        ->toContain('background-color:blue')
+        ->toContain('margin');
 });
 
 test('process handles CSSString values without errors', function () {
@@ -89,46 +89,47 @@ test('process handles quoted string values in various properties', function () {
     expect($result)->not->toContain('url(');
 });
 
-test('process removes gradients with color values', function () {
+test('process preserves gradients without remote resources', function () {
     $processor = new ItchCssProcessor;
     $css = '.test { background: linear-gradient(to right, red, blue); margin: 10px; }';
     $result = $processor->process($css);
 
-    expect($result)->not->toContain('linear-gradient');
-    expect($result)->not->toContain('red');
-    expect($result)->toContain('margin');
+    expect($result)->toContain('linear-gradient')
+        ->toContain('red')
+        ->toContain('blue')
+        ->toContain('margin');
 });
 
-test('process removes hex colors', function () {
+test('process preserves hex colors', function () {
     $processor = new ItchCssProcessor;
     $css = '.test { border-color: #FF0000; padding: 5px; }';
     $result = $processor->process($css);
 
-    expect($result)->not->toContain('#FF0000');
-    expect($result)->not->toContain('border-color');
-    expect($result)->toContain('padding');
+    expect(strtolower($result))->toMatch('/#(?:f00|ff0000)\b/')
+        ->and($result)->toContain('border-color')
+        ->and($result)->toContain('padding');
 });
 
-test('process removes rgb/rgba colors', function () {
+test('process preserves rgb and rgba colors', function () {
     $processor = new ItchCssProcessor;
     $css = '.test { background: rgba(255, 0, 0, 0.5); width: 100px; }';
     $result = $processor->process($css);
 
-    expect($result)->not->toContain('rgba');
-    expect($result)->not->toContain('background');
-    expect($result)->toContain('width');
+    expect($result)->toContain('rgba')
+        ->toContain('background')
+        ->toContain('width');
 });
 
-test('process removes named colors', function () {
+test('process preserves named colors', function () {
     $processor = new ItchCssProcessor;
     $css = '.test { color: red; border: 1px solid blue; margin: 10px; }';
     $result = $processor->process($css);
 
-    expect($result)->not->toContain('red');
-    expect($result)->not->toContain('blue');
-    expect($result)->not->toContain('color');
-    expect($result)->not->toContain('border');
-    expect($result)->toContain('margin');
+    expect($result)->toContain('red')
+        ->toContain('blue')
+        ->toContain('color')
+        ->toContain('border')
+        ->toContain('margin');
 });
 
 test('process handles complex CSS with mixed value types', function () {
@@ -154,17 +155,110 @@ test('process handles complex CSS with mixed value types', function () {
     expect($result)->toContain('padding');
     expect($result)->toContain('font-family');
     expect($result)->toContain('font-size');
-    // Color-related properties should be removed
+    // Scoped visual properties should remain.
     expect($result)->not->toContain('content');
-    expect($result)->not->toContain('color');
-    expect($result)->not->toContain('background');
-    expect($result)->not->toContain('border');
+    expect($result)->toContain('color')
+        ->toContain('background')
+        ->toContain('border');
+});
+
+test('process preserves scoped creator layout and decoration', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+.custom-team-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+.custom-team-card {
+    display: flex;
+    background: linear-gradient(#24262e, #363642);
+    border: 2px solid #ddd0ae;
+    clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%);
+    transition: transform 0.2s ease;
+}
+.custom-team-card:hover { transform: scale(1.025); }
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)
+        ->toContain('.game_description .custom-team-cards')
+        ->toContain('display:grid')
+        ->toContain('grid-template-columns')
+        ->toContain('display:flex')
+        ->toContain('linear-gradient')
+        ->toContain('border:2px solid')
+        ->toContain('clip-path:polygon')
+        ->toContain('transition:transform')
+        ->toContain('transform:scale');
+});
+
+test('process removes itch page shell themes while preserving concrete creator backgrounds', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+.wrapper { background-color: #eee; background-repeat: repeat; }
+.inner_column { color: #f81a5e; background-color: #363642; }
+.view_game_page .formatted_description { background: #494955; margin: 20px; }
+.custom-team-card { background: linear-gradient(#24262e, #363642); padding: 10px; }
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)
+        ->not->toContain('.wrapper')
+        ->not->toContain('.inner_column')
+        ->not->toContain('.view_game_page')
+        ->not->toContain('background-color:#eee')
+        ->not->toContain('background-color:#363642')
+        ->toContain('.game_description .custom-team-card')
+        ->toContain('linear-gradient')
+        ->toContain('padding:10px');
+});
+
+test('process preserves and scopes safe responsive media rules', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+.custom-team-cards { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 600px) {
+    .custom-team-cards {
+        grid-template-columns: 1fr;
+        position: fixed;
+    }
+}
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)
+        ->toContain('@media (max-width: 600px)')
+        ->toContain('.game_description .custom-team-cards')
+        ->toContain('grid-template-columns:1fr')
+        ->not->toContain('position:fixed');
+});
+
+test('process removes unsupported or malformed conditional at-rules', function () {
+    $processor = new ItchCssProcessor;
+    $css = <<<'CSS'
+@supports (display: grid) { .supports-panel { display: grid; } }
+@media (max-width: 600px) url(https://attacker.example/pixel) { .unsafe-media { display: block; } }
+.safe-panel { display: block; }
+CSS;
+
+    $result = $processor->process($css);
+
+    expect($result)
+        ->toContain('.game_description .safe-panel')
+        ->not->toContain('@supports')
+        ->not->toContain('unsafe-media')
+        ->not->toContain('attacker.example');
 });
 
 test('process scopes selectors and removes page overlay primitives', function () {
     $processor = new ItchCssProcessor;
     $css = <<<'CSS'
 body::before { position: fixed; inset: 0; z-index: 99999; content: "Login"; }
+.game_description { transform: scale(100); }
 .panel, p.note { margin: 10px; position: fixed; }
 .game_description .kept { padding: 8px; }
 CSS;
@@ -177,6 +271,7 @@ CSS;
         ->toContain('margin')
         ->toContain('padding')
         ->not->toContain('body')
+        ->not->toContain('scale(100)')
         ->not->toContain('position')
         ->not->toContain('z-index')
         ->not->toContain('content');
