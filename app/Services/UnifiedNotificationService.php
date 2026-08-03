@@ -52,7 +52,7 @@ class UnifiedNotificationService
         }
 
         // Queue Discord bot notifications
-        if ($options['notify_discord']) {
+        if ($options['notify_discord'] && config('services.discord.bot_enabled')) {
             $this->queueDiscordNotification($game, $gameVersion, $options);
         }
     }

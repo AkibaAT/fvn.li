@@ -94,7 +94,10 @@ class Kernel extends ConsoleKernel
         // Notification commands (performance optimized: reduced from everyMinute to everyFiveMinutes)
         $schedule->command('notifications:queue-game-updates')->everyFiveMinutes()->withoutOverlapping();
         $schedule->command('notifications:process-push')->everyFiveMinutes()->withoutOverlapping();
-        $schedule->command('discord:sync-catalog-messages')->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command('discord:sync-catalog-messages')
+            ->everyFiveMinutes()
+            ->when(fn (): bool => (bool) config('services.discord.bot_enabled'))
+            ->withoutOverlapping();
 
         // Cleanup commands
         $schedule->command('games:cleanup-downloads',

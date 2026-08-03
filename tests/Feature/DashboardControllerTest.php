@@ -88,6 +88,21 @@ it('renders the dashboard with connected account, owned games, ignored games, an
         ->and($props['ignoredGamesCount'])->toBe(1);
 });
 
+it('hides and blocks Discord bot features when the switch is off', function () {
+    config(['services.discord.bot_enabled' => false]);
+
+    $user = User::factory()->create();
+    SocialAccount::factory()->for($user)->discord()->create();
+
+    $dashboard = $this->actingAs($user)->get(route('dashboard'));
+    $dashboard->assertOk();
+
+    expect($dashboard->viewData('page')['props']['features']['discordBot'])->toBeFalse()
+        ->and($dashboard->viewData('page')['props']['discordInfo'])->toBeNull();
+
+    $this->get(route('dashboard.discord.index'))->assertNotFound();
+});
+
 it('syncs editable itch.io game IDs from the dashboard', function () {
     $user = User::factory()->create();
     $account = SocialAccount::factory()->for($user)->itchio()->create([

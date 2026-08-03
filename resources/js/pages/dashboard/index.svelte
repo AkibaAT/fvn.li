@@ -65,6 +65,7 @@
     }
 
     interface DashboardProps {
+        features: { discordBot: boolean };
         user: User;
         connectedProviders: string[];
         socialAccounts: Record<string, SocialAccount>;
@@ -72,7 +73,7 @@
         myGames: GameSummary[];
         myGamesClickStats: { [gameId: string]: GameClickStats } | null;
         notificationPreferences: NotificationPreferences;
-        discordInfo?: DiscordInfo;
+        discordInfo?: DiscordInfo | null;
         recentRequests: AdditionRequest[];
         ignoredGames: IgnoredGame[];
         ignoredGamesCount: number;
@@ -96,6 +97,7 @@
     }
 
     let {
+        features,
         user,
         connectedProviders,
         socialAccounts,
@@ -376,7 +378,7 @@
                         </div>
                     </div>
 
-                    {#if discordInfo?.hasAccount}
+                    {#if features.discordBot && discordInfo?.hasAccount}
                         <div class="flex items-center gap-4">
                             <div class="flex-grow">
                                 <div class="font-medium text-gray-700 dark:text-gray-300">Discord Notifications</div>

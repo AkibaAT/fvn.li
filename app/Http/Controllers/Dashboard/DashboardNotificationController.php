@@ -31,9 +31,10 @@ class DashboardNotificationController extends Controller
         }
 
         // Discord bot installation info
-        $hasDiscordAccount = $user->socialAccounts()->where('provider_name', 'discord')->exists();
+        $discordBotEnabled = (bool) config('services.discord.bot_enabled');
+        $hasDiscordAccount = $discordBotEnabled && $user->socialAccounts()->where('provider_name', 'discord')->exists();
         $discordClientId = config('services.discord.client_id');
-        $discordBotInstallUrl = $discordClientId
+        $discordBotInstallUrl = $discordBotEnabled && $discordClientId
             ? "https://discord.com/oauth2/authorize?client_id={$discordClientId}&integration_type=1&scope=applications.commands"
             : null;
 
@@ -62,11 +63,11 @@ class DashboardNotificationController extends Controller
                 'discord_notifications_enabled' => (bool) $preferences->discord_notifications_enabled,
                 'notification_digest' => $preferences->notification_digest,
             ],
-            'discordInfo' => [
+            'discordInfo' => $discordBotEnabled ? [
                 'hasAccount' => $hasDiscordAccount,
                 'botInstallUrl' => $discordBotInstallUrl,
                 'lastNotification' => $lastDiscordNotification,
-            ],
+            ] : null,
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
         ]);
     }
@@ -84,6 +85,10 @@ class DashboardNotificationController extends Controller
             'discord_notifications_enabled' => 'boolean',
             'notification_digest' => 'in:asap,daily,weekly,monthly',
         ]);
+
+        if (! config('services.discord.bot_enabled')) {
+            unset($data['discord_notifications_enabled']);
+        }
 
         $preferences = $user->notificationPreferences()->first();
         if (! $preferences) {

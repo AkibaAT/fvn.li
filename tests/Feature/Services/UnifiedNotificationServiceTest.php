@@ -79,6 +79,22 @@ it('queues browser and discord notifications only for opted-in recipients', func
         ->and($notifications->firstWhere('channel', 'discord')->payload['devlog'])->toBe('Patch notes');
 });
 
+it('does not queue Discord notifications when the bot switch is off', function () {
+    config(['services.discord.bot_enabled' => false]);
+
+    $service = app(UnifiedNotificationService::class);
+    $game = Game::factory()->create(['is_paid' => false]);
+    $version = unifiedNotificationVersion($game);
+    $game->setRelation('latestVersion', $version);
+
+    unifiedNotificationUser($game, browser: true, discord: false);
+    unifiedNotificationUser($game, browser: false, discord: true, hasDiscordAccount: true);
+
+    $service->queueGameUpdate($game, $version);
+
+    expect(NotificationQueue::query()->pluck('channel')->all())->toBe(['browser']);
+});
+
 it('does not queue notifications for paid games with stale subscriptions', function () {
     $service = app(UnifiedNotificationService::class);
     $game = Game::factory()->create([

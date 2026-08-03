@@ -13,6 +13,10 @@ class DiscordCatalogMessageSyncService
 {
     public function queueForGame(Game|int $game): int
     {
+        if (! config('services.discord.bot_enabled')) {
+            return 0;
+        }
+
         $game = $game instanceof Game ? $game : Game::find($game);
         if (! $game) {
             return 0;
@@ -81,6 +85,10 @@ class DiscordCatalogMessageSyncService
 
     public function queueAll(): int
     {
+        if (! config('services.discord.bot_enabled')) {
+            return 0;
+        }
+
         $queued = 0;
         DB::table('discord_server_games')
             ->whereNotNull('discord_channel_id')

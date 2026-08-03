@@ -7,6 +7,7 @@ namespace App\Http;
 use App\Http\Middleware\AdminPanelAccess;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\EncryptCookies;
+use App\Http\Middleware\EnsureDiscordBotEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\PerformanceMonitoring;
 use App\Http\Middleware\PreventRequestForgery;
@@ -112,5 +113,6 @@ class Kernel extends HttpKernel
         'admin' => AdminPanelAccess::class,
         'track.page.views' => TrackPageViews::class,
         'sanctum.token' => RequireSanctumTokenAbility::class,
+        'discord.bot.enabled' => EnsureDiscordBotEnabled::class,
     ];
 }

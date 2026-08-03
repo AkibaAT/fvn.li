@@ -55,6 +55,9 @@ class HandleInertiaRequests extends Middleware
                     'is_admin' => $request->user()->is_admin ?? false,
                 ] : null,
             ],
+            'features' => [
+                'discordBot' => (bool) config('services.discord.bot_enabled'),
+            ],
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'error' => fn () => $request->session()->get('error'),

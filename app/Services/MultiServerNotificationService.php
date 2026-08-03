@@ -23,6 +23,10 @@ class MultiServerNotificationService
      */
     public function queueGameUpdate(Game $game, GameVersion $version): void
     {
+        if (! config('services.discord.bot_enabled')) {
+            return;
+        }
+
         try {
             // Find all servers subscribed to this game
             $servers = $game->discordServers()
@@ -65,6 +69,10 @@ class MultiServerNotificationService
         string $description = '',
         ?GameVersion $gameVersion = null,
     ): void {
+        if (! config('services.discord.bot_enabled')) {
+            return;
+        }
+
         try {
             $config = $server->config;
             $result = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, $type, $gameVersion);
@@ -120,6 +128,10 @@ class MultiServerNotificationService
      */
     public function queueTagBasedNotifications(Game $game, string $type = 'update'): void
     {
+        if (! config('services.discord.bot_enabled')) {
+            return;
+        }
+
         try {
             // Get game tags
             $gameTags = $game->tags()->pluck('name')->toArray();
