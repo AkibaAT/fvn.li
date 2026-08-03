@@ -11,8 +11,8 @@ use App\Models\VersionFileCategory;
 use App\Models\VersionFileType;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
-use App\Services\GameStatsService;
 use App\Services\DenKitStashPersistenceService;
+use App\Services\GameStatsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -54,18 +54,16 @@ beforeEach(function () {
     }
 
     // Create a test game
-    $this->game = Game::withoutEvents(fn () => Game::factory()->create([
+    $this->game = Game::factory()->create([
         'name' => 'Test Visual Novel',
         'slug' => 'test-visual-novel',
-    ]));
+    ]);
 
     // Create a test version
-    $this->version = GameVersion::withoutEvents(fn () => GameVersion::create([
-        'game_id' => $this->game->id,
+    $this->version = GameVersion::factory()->for($this->game)->latest()->create([
         'version' => '1.0.0',
         'published_at' => now(),
-        'is_latest' => true,
-    ]));
+    ]);
 
     VersionSupportedLanguage::updateOrCreate(
         [
@@ -519,18 +517,16 @@ describe('version comparison endpoint', function () {
         cache()->flush();
 
         $this->game->update(['source_language_id' => 'fra']);
-        $this->version->update([
+        $this->version->forceFill([
             'version' => '1.0.0',
             'published_at' => now()->subDays(2),
             'is_latest' => false,
-        ]);
+        ])->save();
 
-        $newVersion = GameVersion::withoutEvents(fn () => GameVersion::create([
-            'game_id' => $this->game->id,
+        $newVersion = GameVersion::factory()->for($this->game)->latest()->create([
             'version' => '1.1.0',
             'published_at' => now()->subDay(),
-            'is_latest' => true,
-        ]));
+        ]);
 
         foreach ([$this->version->id, $newVersion->id] as $versionId) {
             VersionSupportedLanguage::updateOrCreate(
@@ -689,17 +685,15 @@ describe('version comparison endpoint', function () {
         cache()->flush();
 
         $olderVersion = $this->version;
-        $olderVersion->update([
+        $olderVersion->forceFill([
             'published_at' => now()->subDays(2),
             'is_latest' => false,
-        ]);
+        ])->save();
 
-        $newVersion = GameVersion::withoutEvents(fn () => GameVersion::create([
-            'game_id' => $this->game->id,
+        $newVersion = GameVersion::factory()->for($this->game)->latest()->create([
             'version' => '2.0.0',
             'published_at' => now()->subDay(),
-            'is_latest' => true,
-        ]));
+        ]);
 
         foreach ([$olderVersion->id, $newVersion->id] as $versionId) {
             VersionSupportedLanguage::updateOrCreate(
@@ -952,12 +946,10 @@ describe('regression prevention', function () {
     });
 
     test('paginated versions include file stats availability for loaded page', function () {
-        $olderVersion = GameVersion::withoutEvents(fn () => GameVersion::create([
-            'game_id' => $this->game->id,
+        $olderVersion = GameVersion::factory()->for($this->game)->create([
             'version' => '0.9.0',
             'published_at' => now()->subDay(),
-            'is_latest' => false,
-        ]));
+        ]);
 
         VersionFileCategory::create([
             'game_version_id' => $olderVersion->id,

@@ -111,7 +111,7 @@ describe('DiscordEmbedRendererService', function () {
     test('enforces field limits', function () {
         $fields = [];
         for ($i = 0; $i < 30; $i++) {
-            $fields[] = ['name' => "Field $i", 'value' => str_repeat('B', 1100), 'inline' => true];
+            $fields[] = ['name' => "Field {$i}", 'value' => str_repeat('B', 1100), 'inline' => true];
         }
 
         $template = [

@@ -20,6 +20,7 @@ class BotDetectionService
 
     /** @var array<string, string|null> */
     private static array $userAgentCache = [];
+
     public const string REASON_BLOCKED_NETWORK = 'blocked_network';
 
     public const string REASON_CRAWLER_UA = 'crawler_ua';

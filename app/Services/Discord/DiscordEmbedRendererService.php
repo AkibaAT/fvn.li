@@ -101,7 +101,7 @@ class DiscordEmbedRendererService
 
         $price = 'Free';
         if ($game->is_paid && $game->min_price) {
-            $price = $game->formatted_current_price ?? ('$'.number_format($game->min_price, 2));
+            $price = $game->formatted_current_price ?? ('$' . number_format($game->min_price, 2));
         }
 
         $wordCount = $game->english_word_count ? number_format($game->english_word_count) : '';
@@ -139,11 +139,11 @@ class DiscordEmbedRendererService
 
             $variables['{version.name}'] = $gameVersion->version ?? '';
             $variables['{version.published_at}'] = $publishedAt?->format('F j, Y') ?? '';
-            $variables['{version.published_at_discord}'] = $publishedAt ? '<t:'.$publishedAt->timestamp.':f>' : '';
+            $variables['{version.published_at_discord}'] = $publishedAt ? '<t:' . $publishedAt->timestamp . ':f>' : '';
             $variables['{version.published_at_iso}'] = $publishedAt?->toIso8601String() ?? '';
             $variables['{version.devlog_url}'] = $gameVersion->devlog ?? '';
-            $variables['{version.devlog_markdown}'] = $gameVersion->devlog ? '[Read devlog]('.$gameVersion->devlog.')' : '';
-            $variables['{version.word_count_diff}'] = $wordDiff ? ('+'.$wordDiff) : '';
+            $variables['{version.devlog_markdown}'] = $gameVersion->devlog ? '[Read devlog](' . $gameVersion->devlog . ')' : '';
+            $variables['{version.word_count_diff}'] = $wordDiff ? ('+' . $wordDiff) : '';
         } else {
             $variables['{version.name}'] = '';
             $variables['{version.published_at}'] = '';
@@ -268,21 +268,21 @@ class DiscordEmbedRendererService
     private function enforceDiscordLimits(array $embed): array
     {
         if (isset($embed['title']) && mb_strlen($embed['title']) > 256) {
-            $embed['title'] = mb_substr($embed['title'], 0, 253).'...';
+            $embed['title'] = mb_substr($embed['title'], 0, 253) . '...';
         }
 
         if (isset($embed['description']) && mb_strlen($embed['description']) > 4096) {
-            $embed['description'] = mb_substr($embed['description'], 0, 4093).'...';
+            $embed['description'] = mb_substr($embed['description'], 0, 4093) . '...';
         }
 
         if (isset($embed['fields']) && is_array($embed['fields'])) {
             $embed['fields'] = array_slice($embed['fields'], 0, 25);
             $embed['fields'] = array_map(function ($field) {
                 if (isset($field['name']) && mb_strlen($field['name']) > 256) {
-                    $field['name'] = mb_substr($field['name'], 0, 253).'...';
+                    $field['name'] = mb_substr($field['name'], 0, 253) . '...';
                 }
                 if (isset($field['value']) && mb_strlen($field['value']) > 1024) {
-                    $field['value'] = mb_substr($field['value'], 0, 1021).'...';
+                    $field['value'] = mb_substr($field['value'], 0, 1021) . '...';
                 }
 
                 return $field;
@@ -290,11 +290,11 @@ class DiscordEmbedRendererService
         }
 
         if (isset($embed['footer']['text']) && mb_strlen($embed['footer']['text']) > 2048) {
-            $embed['footer']['text'] = mb_substr($embed['footer']['text'], 0, 2045).'...';
+            $embed['footer']['text'] = mb_substr($embed['footer']['text'], 0, 2045) . '...';
         }
 
         if (isset($embed['author']['name']) && mb_strlen($embed['author']['name']) > 256) {
-            $embed['author']['name'] = mb_substr($embed['author']['name'], 0, 253).'...';
+            $embed['author']['name'] = mb_substr($embed['author']['name'], 0, 253) . '...';
         }
 
         $embed = $this->trimEmbedToTotalLength($embed, 6000);
@@ -400,7 +400,7 @@ class DiscordEmbedRendererService
         $protected = preg_replace_callback(
             '/<(?:t:\d+:[tTdDfFR]|@!?\d+|@&\d+|#\d+|a?:[A-Za-z0-9_~]{2,32}:\d+)>/',
             function (array $matches) use (&$preservedTokens): string {
-                $placeholder = self::PRESERVED_DISCORD_TOKEN_PREFIX.count($preservedTokens).'__';
+                $placeholder = self::PRESERVED_DISCORD_TOKEN_PREFIX . count($preservedTokens) . '__';
                 $preservedTokens[$placeholder] = $matches[0];
 
                 return $placeholder;

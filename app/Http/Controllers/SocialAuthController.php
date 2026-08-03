@@ -302,7 +302,7 @@ class SocialAuthController extends Controller
         try {
             $response = (new Client)->get('https://discord.com/api/v10/users/@me/guilds', [
                 'headers' => [
-                    'Authorization' => 'Bearer '.$token,
+                    'Authorization' => 'Bearer ' . $token,
                     'Accept' => 'application/json',
                 ],
                 'timeout' => 10,

@@ -14,12 +14,14 @@ use App\Models\SocialAccount;
 use App\Models\Tag;
 use App\Services\Discord\DiscordEmbedRendererService;
 use App\Services\Discord\DiscordRoutingService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class DiscordConfigController extends Controller
 {
@@ -42,6 +44,19 @@ class DiscordConfigController extends Controller
         | self::DISCORD_PERMISSION_SEND_MESSAGES
         | self::DISCORD_PERMISSION_EMBED_LINKS
         | self::DISCORD_PERMISSION_READ_MESSAGE_HISTORY;
+
+    public function show(DiscordServer $server): JsonResponse
+    {
+        $this->authorize('view', $server);
+
+        $server->load($this->getServerRelations([
+            'notificationHistory' => fn ($q) => $q->latest()->limit(50),
+        ]));
+
+        return response()->json([
+            'server' => $server,
+        ]);
+    }
 
     public function guilds(Request $request): JsonResponse
     {
@@ -349,19 +364,6 @@ class DiscordConfigController extends Controller
         ]);
     }
 
-    public function show(DiscordServer $server): JsonResponse
-    {
-        $this->authorize('view', $server);
-
-        $server->load($this->getServerRelations([
-            'notificationHistory' => fn ($q) => $q->latest()->limit(50),
-        ]));
-
-        return response()->json([
-            'server' => $server,
-        ]);
-    }
-
     public function updateConfig(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('update', $server);
@@ -418,8 +420,11 @@ class DiscordConfigController extends Controller
             'update_embed' => 'nullable|array',
         ]);
 
-        $override = $server->gameOverrides()->updateOrCreate(
-            ['game_id' => $validated['game_id']],
+        $override = DiscordServerGameOverride::query()->updateOrCreate(
+            [
+                'discord_server_id' => $server->id,
+                'game_id' => $validated['game_id'],
+            ],
             $validated,
         );
 
@@ -605,16 +610,16 @@ class DiscordConfigController extends Controller
     {
         try {
             $response = Http::timeout(10)->withHeaders([
-                'Authorization' => 'Bearer '.$discordAccount->token,
+                'Authorization' => 'Bearer ' . $discordAccount->token,
                 'Accept' => 'application/json',
             ])->get('https://discord.com/api/v10/users/@me/guilds');
 
             if (! $response->successful()) {
-                throw new \RuntimeException('Discord returned HTTP '.$response->status());
+                throw new RuntimeException('Discord returned HTTP ' . $response->status());
             }
 
             return $response->json();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to fetch fresh Discord guilds', [
                 'user_id' => $discordAccount->user_id,
                 'error' => $e->getMessage(),
@@ -633,12 +638,12 @@ class DiscordConfigController extends Controller
 
         try {
             $response = Http::timeout(10)->withHeaders([
-                'Authorization' => 'Bot '.$botToken,
+                'Authorization' => 'Bot ' . $botToken,
                 'Accept' => 'application/json',
             ])->get("https://discord.com/api/v10/guilds/{$guildId}/channels");
 
             if (! $response->successful()) {
-                throw new \RuntimeException('Discord returned HTTP '.$response->status());
+                throw new RuntimeException('Discord returned HTTP ' . $response->status());
             }
 
             return collect($response->json())
@@ -655,7 +660,7 @@ class DiscordConfigController extends Controller
                 ])
                 ->values()
                 ->all();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to fetch Discord guild channels with bot token', [
                 'discord_server_id' => $guildId,
                 'error' => $e->getMessage(),
@@ -674,12 +679,12 @@ class DiscordConfigController extends Controller
 
         try {
             $response = Http::timeout(10)->withHeaders([
-                'Authorization' => 'Bot '.$botToken,
+                'Authorization' => 'Bot ' . $botToken,
                 'Accept' => 'application/json',
             ])->get("https://discord.com/api/v10/guilds/{$guildId}/roles");
 
             if (! $response->successful()) {
-                throw new \RuntimeException('Discord returned HTTP '.$response->status());
+                throw new RuntimeException('Discord returned HTTP ' . $response->status());
             }
 
             return collect($response->json())
@@ -695,7 +700,7 @@ class DiscordConfigController extends Controller
                     'position' => (int) ($role['position'] ?? 0),
                 ])
                 ->all();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to fetch Discord guild roles with bot token', [
                 'discord_server_id' => $guildId,
                 'error' => $e->getMessage(),
@@ -727,7 +732,7 @@ class DiscordConfigController extends Controller
     {
         $clientId = config('services.discord.client_id');
 
-        return 'https://discord.com/oauth2/authorize?'.http_build_query([
+        return 'https://discord.com/oauth2/authorize?' . http_build_query([
             'client_id' => $clientId,
             'guild_id' => $guildId,
             'integration_type' => 0,

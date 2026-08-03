@@ -127,11 +127,11 @@ return [
         'url' => env('FLARESOLVERR_URL', 'http://flaresolverr:8191'),
         'max_timeout' => env('FLARESOLVERR_MAX_TIMEOUT', 60000),
         'allowed_itch_hosts' => env(
-                'FLARESOLVERR_ALLOWED_ITCH_HOSTS',
-                'itch.io'
-            )
-                |> (fn($x) => explode(',', $x))
-                |> (fn($x) => array_map('trim', $x))
+            'FLARESOLVERR_ALLOWED_ITCH_HOSTS',
+            'itch.io'
+        )
+                |> (fn ($x) => explode(',', $x))
+                |> (fn ($x) => array_map('trim', $x))
                 |> array_filter(...),
     ],
 

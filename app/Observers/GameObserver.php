@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\Game;
-use App\Services\GameFilterService;
 use App\Services\Discord\DiscordCatalogMessageSyncService;
+use App\Services\GameFilterService;
 use App\Services\HomePageCacheService;
 use App\Services\RatingStatsCacheService;
 use Illuminate\Support\Facades\Cache;
