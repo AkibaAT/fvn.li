@@ -46,7 +46,25 @@ it('keeps the active area condition on dynamically included examine screen edges
         ->toContain('screen_action_conditions = collections.defaultdict(dict)')
         ->toContain('screen_condition = \'CURRENT_AREA.get_examine_screen() == %s\' % json.dumps(screen_name)')
         ->toContain('effective_condition = combine_conditions(screen_condition, condition)')
-        ->toContain('condition=combine_conditions(condition, target_info.get("condition"))');
+        ->toContain('condition=combine_conditions(condition, target_condition)');
+});
+
+it('keeps dynamic screen action targets for the label binding pass', function () {
+    $script = file_get_contents(base_path('resources/renpy/json_stats.rpy'));
+
+    expect($script)
+        ->toContain('target_value = dynamic_label_expression_from_ast(first_arg)')
+        ->toContain('def dynamic_label_expression_from_ast(node):')
+        ->toContain('return (owner + "." if owner else "") + node.attr')
+        ->toContain('def parse_python_source(source, mode="exec"):')
+        ->toContain('first_code_line = next((line for line in lines if line.strip()), "")')
+        ->toContain('line[len(indent):] if line.startswith(indent) else line')
+        ->toContain('return pyast.parse(normalized, mode)')
+        ->toContain('trees.append(parse_python_source(source, parse_mode))')
+        ->toContain('tree = pyast.parse(expression.strip(), mode="eval")')
+        ->toContain('screen_hub = "screen:" + target_info.get("screen_name", screen_name)')
+        ->toContain('add_screen_route_edges(from_label, screen_name, filename, linenumber, condition)')
+        ->toContain('resolve_expression_route_edges(label_bindings)');
 });
 
 it('only recognizes explicit main menu or process termination as route endings', function () {

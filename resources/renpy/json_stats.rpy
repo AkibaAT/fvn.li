@@ -12,6 +12,7 @@ init 10000 python:
     import os
     import re
     import sys
+    import textwrap
     from contextlib import closing
     from renpy import store
     from renpy.loader import listdirfiles
@@ -19,6 +20,24 @@ init 10000 python:
         import builtins as py_builtins
     except ImportError:
         import __builtin__ as py_builtins
+
+    def parse_python_source(source, mode="exec"):
+        """Parse Ren'Py Python blocks after removing their script indentation."""
+        normalized = textwrap.dedent(source)
+        lines = normalized.splitlines(True)
+        first_code_line = next((line for line in lines if line.strip()), "")
+        indent_match = re.match(r"^[ \t]+", first_code_line)
+
+        # A multiline string can contain an unindented line, which prevents
+        # textwrap.dedent() from removing the block's real script indentation.
+        if indent_match:
+            indent = indent_match.group(0)
+            normalized = "".join(
+                line[len(indent):] if line.startswith(indent) else line
+                for line in lines
+            )
+
+        return pyast.parse(normalized, mode)
 
     def translate_string(text, language=None):
         if renpy.version_tuple >= (8, 0, 0, 0):
@@ -268,7 +287,7 @@ init 10000 python:
         if not source or not source.strip():
             return False
         try:
-            tree = pyast.parse(source)
+            tree = parse_python_source(source)
         except (SyntaxError, ValueError):
             return False
 
@@ -299,7 +318,7 @@ init 10000 python:
         if not source or not source.strip():
             return False
         try:
-            tree = pyast.parse(source)
+            tree = parse_python_source(source)
         except (SyntaxError, ValueError):
             return False
 
@@ -317,7 +336,7 @@ init 10000 python:
         if not source or not source.strip():
             return None
         try:
-            tree = pyast.parse(source)
+            tree = parse_python_source(source)
         except (SyntaxError, ValueError):
             return None
 
@@ -343,7 +362,7 @@ init 10000 python:
             return
         condition_stack = condition_stack or []
         try:
-            tree = pyast.parse(source)
+            tree = parse_python_source(source)
         except (SyntaxError, ValueError):
             return
         for node in pyast.walk(tree):
@@ -480,6 +499,9 @@ init 10000 python:
                     if isinstance(resolved, str):
                         target_value = resolved
 
+                if target_value is None:
+                    target_value = dynamic_label_expression_from_ast(first_arg)
+
                 if isinstance(target_value, str):
                     edge_type = "screen_" + ("jump" if func_name == "Start" else func_name.lower())
                     targets.append({"target": target_value, "type": edge_type})
@@ -505,6 +527,25 @@ init 10000 python:
                 targets.append({"target": callback_target, "type": "screen_call"})
 
         return targets
+
+    def dynamic_label_expression_from_ast(node):
+        """Keep a dynamic screen-action target for the later binding pass.
+
+        Screen actions often jump through an object attribute, for example
+        ``Jump(event.story_label)``. The binding collector can resolve that
+        attribute to every literal label assigned to it, but only if the
+        unresolved expression first becomes a route edge.
+        """
+        if isinstance(node, pyast.Name):
+            return node.id
+        if isinstance(node, pyast.Attribute):
+            owner = dynamic_label_expression_from_ast(node.value)
+            return (owner + "." if owner else "") + node.attr
+        if isinstance(node, pyast.Subscript):
+            return dynamic_label_expression_from_ast(node.value)
+        if isinstance(node, pyast.Call):
+            return dynamic_label_expression_from_ast(node.func)
+        return None
 
     def collect_screens_from_action_expr(expr):
         if not expr:
@@ -631,6 +672,7 @@ init 10000 python:
                 for target_info in collect_targets_from_action_expr(expr, variables):
                     conditioned_target = dict(target_info)
                     conditioned_target["condition"] = condition
+                    conditioned_target["screen_name"] = screen_name
                     if conditioned_target not in targets:
                         targets.append(conditioned_target)
 
@@ -717,32 +759,53 @@ init 10000 python:
             return
 
         route_labels_with_screen_calls.add(from_label)
-        variables = route_literal_variables.get(from_label, {})
-
-        for target_info in resolve_screen_targets(screen_name, variables):
-            add_route_edge(
-                from_label,
-                target_info["target"],
-                target_info["type"],
-                filename,
-                linenumber,
-                condition=combine_conditions(condition, target_info.get("condition")),
-            )
+        add_screen_route_edges(from_label, screen_name, filename, linenumber, condition)
 
     def handle_show_screen(from_label, screen_name, filename, linenumber, condition=None):
         if not from_label or not screen_name:
             return
 
+        add_screen_route_edges(from_label, screen_name, filename, linenumber, condition)
+
+    def add_screen_route_edges(from_label, screen_name, filename, linenumber, condition=None):
         variables = route_literal_variables.get(from_label, {})
 
         for target_info in resolve_screen_targets(screen_name, variables):
+            target = target_info["target"]
+            target_condition = target_info.get("condition")
+
+            if target not in all_route_label_names:
+                # A screen such as a map can jump through an attribute whose
+                # possible label values are resolved later. Represent the
+                # screen once as the shared choice hub instead of multiplying
+                # every caller by every possible dynamic target.
+                screen_hub = "screen:" + target_info.get("screen_name", screen_name)
+                ensure_route_label(screen_hub, filename, linenumber)
+                add_route_edge(
+                    from_label,
+                    screen_hub,
+                    "screen",
+                    filename,
+                    linenumber,
+                    condition=condition,
+                )
+                add_route_edge(
+                    screen_hub,
+                    target,
+                    target_info["type"],
+                    filename,
+                    linenumber,
+                    condition=target_condition,
+                )
+                continue
+
             add_route_edge(
                 from_label,
-                target_info["target"],
+                target,
                 target_info["type"],
                 filename,
                 linenumber,
-                condition=combine_conditions(condition, target_info.get("condition")),
+                condition=combine_conditions(condition, target_condition),
             )
 
     def add_edge_from_statement(from_label, stmt, filename, condition=None):
@@ -930,10 +993,10 @@ init 10000 python:
                 continue
 
             try:
-                tree = pyast.parse(source)
+                tree = parse_python_source(source)
             except Exception:
                 try:
-                    tree = pyast.parse(source, mode="eval")
+                    tree = parse_python_source(source, mode="eval")
                 except Exception:
                     continue
 
@@ -1066,7 +1129,7 @@ init 10000 python:
                 continue
             for parse_mode in ("exec", "eval"):
                 try:
-                    trees.append(pyast.parse(source, parse_mode))
+                    trees.append(parse_python_source(source, parse_mode))
                     break
                 except Exception:
                     continue
@@ -1152,7 +1215,7 @@ init 10000 python:
             return [expression]
 
         try:
-            tree = pyast.parse(expression.strip(), "eval")
+            tree = pyast.parse(expression.strip(), mode="eval")
         except Exception:
             return []
 
@@ -1379,7 +1442,7 @@ init 10000 python:
         tree = None
         for parse_mode in ("exec", "eval"):
             try:
-                tree = pyast.parse(source, parse_mode)
+                tree = parse_python_source(source, parse_mode)
                 break
             except Exception:
                 continue
@@ -1391,10 +1454,8 @@ init 10000 python:
                 continue
 
             args = getattr(node, "args", [])
-            if not args:
-                continue
 
-            if get_renpy_control_call(node):
+            if args and get_renpy_control_call(node):
                 for target in dynamic_route_targets_from_arg(args[0]):
                     mark_externally_invoked(target)
                 continue
@@ -1408,7 +1469,7 @@ init 10000 python:
             elif isinstance(func, pyast.Attribute):
                 action = func.attr
 
-            if action in ("Jump", "Call", "Start", "Return"):
+            if args and action in ("Jump", "Call", "Start", "Return"):
                 returned = string_literal_from_ast(args[0])
                 if isinstance(returned, str):
                     mark_externally_invoked(returned)
@@ -2083,7 +2144,8 @@ init 10000 python:
                 if ctx and is_game_file(node.filename):
                     route_return_labels.add(ctx)
         add_inferred_dynamic_route_edges()
-        resolve_expression_route_edges(collect_label_bindings())
+        label_bindings = collect_label_bindings()
+        resolve_expression_route_edges(label_bindings)
 
         # A return from Ren'Py's entry label unwinds to the main menu. Returns
         # anywhere else may unwind only a label, screen, or dynamically invoked
