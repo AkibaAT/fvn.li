@@ -1,9 +1,11 @@
 <script lang="ts">
     import GameCard from '@/components/GameCard.svelte';
+    import HomepageAuthLink from '@/components/home/HomepageAuthLink.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
     import type { OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
-    import { Link } from '@inertiajs/svelte';
+    import type { SharedData } from '@/types';
+    import { Link, page } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
 
     interface Game {
@@ -74,6 +76,7 @@
 
     let { stats, teasers, metaTags, ignoredGameIds = [] }: Props = $props();
     let showHeroCards = $state(false);
+    const user = $derived((page.props as SharedData).auth?.user);
 
     onMount(() => {
         const mediaQuery = window.matchMedia('(min-width: 1024px)');
@@ -138,12 +141,10 @@
                                 Explore Library
                             </Link>
 
-                            <Link
-                                href={route('login')}
+                            <HomepageAuthLink
+                                isAuthenticated={Boolean(user)}
                                 class="inline-flex h-12 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-8 text-sm font-semibold text-gray-900 backdrop-blur-sm transition-all hover:bg-gray-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                            >
-                                Log In
-                            </Link>
+                            />
                         </div>
 
                         <!-- Quick Stats -->
@@ -427,12 +428,10 @@
                             Browse Library
                         </Link>
 
-                        <Link
-                            href={route('login')}
+                        <HomepageAuthLink
+                            isAuthenticated={Boolean(user)}
                             class="inline-flex h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-6 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                            Log In
-                        </Link>
+                        />
                     </div>
                 </div>
             </div>
