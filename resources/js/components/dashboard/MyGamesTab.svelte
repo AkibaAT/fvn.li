@@ -1,7 +1,9 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
+    import { notify } from '@/components/Toast.svelte';
     import ItchioIcon from '@/components/icons/Itchio.svelte';
-    import { Card } from '@/components/ui';
+    import { Button, Card } from '@/components/ui';
+    import { authenticatedFetch } from '@/utils/csrf';
 
     interface GameSummary {
         id: number;
@@ -29,6 +31,27 @@
     }
 
     let { hasItchio, itchioData, myGames, myGamesClickStats }: MyGamesTabProps = $props();
+    let syncingGames = $state(false);
+
+    async function syncGames() {
+        syncingGames = true;
+
+        try {
+            const response = await authenticatedFetch(route('user.itchio-games.sync'), { method: 'POST' });
+            const data = await response.json();
+
+            if (!response.ok || data.success === false) {
+                throw new Error(data.message || 'Could not sync your itch.io games.');
+            }
+
+            notify(data.message, 'success');
+            router.reload({ only: ['myGames', 'myGamesClickStats'] });
+        } catch (error) {
+            notify(error instanceof Error ? error.message : 'Could not sync your itch.io games.', 'error');
+        } finally {
+            syncingGames = false;
+        }
+    }
 </script>
 
 <div class="space-y-6">
@@ -51,13 +74,18 @@
     {/if}
 
     {#if hasItchio}
-        <div class="flex items-center gap-3">
-            <ItchioIcon class="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <span class="text-sm text-gray-600 dark:text-gray-400"
-                >Connected: <span class="font-medium text-gray-900 dark:text-white">{itchioData.username}.itch.io</span>
-                &middot; {myGames.length}
-                {myGames.length === 1 ? 'game' : 'games'}</span
-            >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <ItchioIcon class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span class="text-sm text-gray-600 dark:text-gray-400"
+                    >Connected: <span class="font-medium text-gray-900 dark:text-white">{itchioData.username}.itch.io</span>
+                    &middot; {myGames.length}
+                    {myGames.length === 1 ? 'game' : 'games'}</span
+                >
+            </div>
+            <Button type="button" size="sm" variant="outline" tone="neutral" loading={syncingGames} onclick={syncGames}>
+                {syncingGames ? 'Syncing games…' : 'Sync games'}
+            </Button>
         </div>
     {/if}
 

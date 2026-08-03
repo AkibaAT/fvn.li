@@ -18,7 +18,12 @@ use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\IpAnonymizationService;
+use App\Services\ItchioGameOwnershipSyncService;
 use App\Support\SystemAuditUser;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use Illuminate\Support\Facades\DB;
 
 it('renders the dashboard with connected account, owned games, ignored games, and notification state', function () {
@@ -81,6 +86,81 @@ it('renders the dashboard with connected account, owned games, ignored games, an
         ->and($props['discordInfo']['lastNotification']['status'])->toBe('failed')
         ->and($props['ignoredGames'][0]['id'])->toBe($ignoredGame->id)
         ->and($props['ignoredGamesCount'])->toBe(1);
+});
+
+it('syncs editable itch.io game IDs from the dashboard', function () {
+    $user = User::factory()->create();
+    $account = SocialAccount::factory()->for($user)->itchio()->create([
+        'token' => 'itch-token',
+        'itchio_game_ids' => [111],
+    ]);
+
+    $client = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new GuzzleResponse(200, [], json_encode([
+            'games' => [
+                ['id' => 222],
+                ['id' => '333'],
+                ['id' => 222],
+            ],
+        ], JSON_THROW_ON_ERROR)),
+    ]))]);
+    app()->instance(ItchioGameOwnershipSyncService::class, new ItchioGameOwnershipSyncService($client));
+
+    $this->actingAs($user)
+        ->postJson(route('user.itchio-games.sync'))
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('game_count', 2)
+        ->assertJsonPath('changed', true)
+        ->assertJsonPath('added_count', 2)
+        ->assertJsonPath('removed_count', 1)
+        ->assertJsonPath('message', 'Sync complete: 2 games added and 1 game removed.');
+
+    expect($account->refresh()->itchio_game_ids)->toBe([222, 333]);
+});
+
+it('reports when an itch.io game sync succeeds without changes', function () {
+    $user = User::factory()->create();
+    SocialAccount::factory()->for($user)->itchio()->create([
+        'token' => 'itch-token',
+        'itchio_game_ids' => [111, 222],
+    ]);
+
+    $client = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new GuzzleResponse(200, [], json_encode([
+            'games' => [['id' => 222], ['id' => 111]],
+        ], JSON_THROW_ON_ERROR)),
+    ]))]);
+    app()->instance(ItchioGameOwnershipSyncService::class, new ItchioGameOwnershipSyncService($client));
+
+    $this->actingAs($user)
+        ->postJson(route('user.itchio-games.sync'))
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('changed', false)
+        ->assertJsonPath('added_count', 0)
+        ->assertJsonPath('removed_count', 0)
+        ->assertJsonPath('message', 'Sync complete: no changes found.');
+});
+
+it('preserves editable itch.io game IDs when a dashboard sync fails', function () {
+    $user = User::factory()->create();
+    $account = SocialAccount::factory()->for($user)->itchio()->create([
+        'token' => 'expired-token',
+        'itchio_game_ids' => [111],
+    ]);
+
+    $client = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new GuzzleResponse(200, [], json_encode(['errors' => ['invalid key']], JSON_THROW_ON_ERROR)),
+    ]))]);
+    app()->instance(ItchioGameOwnershipSyncService::class, new ItchioGameOwnershipSyncService($client));
+
+    $this->actingAs($user)
+        ->postJson(route('user.itchio-games.sync'))
+        ->assertStatus(502)
+        ->assertJsonPath('success', false);
+
+    expect($account->refresh()->itchio_game_ids)->toBe([111]);
 });
 
 it('formats all linked social account provider metadata for the dashboard', function () {
@@ -263,6 +343,9 @@ it('returns user game stats from progress, reviews, owned games, monthly complet
 });
 
 it('requires authentication for dashboard JSON endpoints', function () {
+    $this->postJson(route('user.itchio-games.sync'))
+        ->assertUnauthorized();
+
     $this->getJson(route('browser-api.dashboard.notifications.get'))
         ->assertUnauthorized();
 

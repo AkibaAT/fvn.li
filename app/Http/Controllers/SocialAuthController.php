@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Services\AccountMergeService;
+use App\Services\ItchioGameOwnershipSyncService;
 use App\Support\SafeRedirectUrl;
 use Exception;
 use GuzzleHttp\Client;
@@ -413,32 +414,12 @@ class SocialAuthController extends Controller
      * Fetch the user's games from itch.io using the profile:games scope
      *
      * @param  string  $accessToken  The itch.io access token
-     * @return array Array of game IDs the user has edit permissions for
+     * @return list<int>|null Game IDs the user has edit permissions for, or null when the sync fails
      */
-    private function fetchItchioGames(string $accessToken): array
+    private function fetchItchioGames(string $accessToken): ?array
     {
         try {
-            $client = new Client;
-            $response = $client->get("https://itch.io/api/1/{$accessToken}/my-games");
-            $data = json_decode($response->getBody()->getContents(), true);
-
-            if (isset($data['errors'])) {
-                Log::error('itch.io API error when fetching games', [
-                    'error_count' => is_array($data['errors']) ? count($data['errors']) : 1,
-                ]);
-
-                return [];
-            }
-
-            // Extract game IDs from the response
-            $gameIds = [];
-            if (isset($data['games']) && is_array($data['games'])) {
-                foreach ($data['games'] as $game) {
-                    if (isset($game['id'])) {
-                        $gameIds[] = $game['id'];
-                    }
-                }
-            }
+            $gameIds = app(ItchioGameOwnershipSyncService::class)->fetchGameIds($accessToken);
 
             Log::info('Fetched itch.io games for user', [
                 'game_count' => count($gameIds),
@@ -452,7 +433,7 @@ class SocialAuthController extends Controller
                 'error' => $this->redactSensitiveText($e->getMessage()),
             ]);
 
-            return [];
+            return null;
         }
     }
 

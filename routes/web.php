@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClickTrackingController;
 use App\Http\Controllers\Dashboard\DashboardVersionComparisonController;
 use App\Http\Controllers\Dashboard\DigestNotificationController;
+use App\Http\Controllers\Dashboard\ItchioGameOwnershipController;
 use App\Http\Controllers\Dashboard\UserAccountController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
@@ -140,6 +141,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('users.dashboard.version-comparison');
     Route::put('user-progress/{game:id}', [UserGameProgressController::class, 'update'])
         ->name('user-progress.update');
+    Route::post('user/itchio-games/sync', [ItchioGameOwnershipController::class, 'sync'])
+        ->middleware('throttle:6,1')
+        ->name('user.itchio-games.sync');
 
     // User Preferences - Language Preferences
     Route::get('user/language-preferences', [UserPreferencesController::class, 'getLanguagePreferences'])
