@@ -251,8 +251,12 @@ services:
       - POSTGRES_DB=${DB_DATABASE}
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - DENKIT_STASH_POSTGRES_DATABASE=${DENKIT_STASH_POSTGRES_DATABASE:-butler}
+      - DENKIT_STASH_POSTGRES_USERNAME=${DENKIT_STASH_POSTGRES_USERNAME:-denkit_stash}
+      - DENKIT_STASH_POSTGRES_PASSWORD=${DENKIT_STASH_POSTGRES_PASSWORD}
     volumes:
       - db:/var/lib/postgresql
+      - ${PWD}/scripts/postgres-init-denkit-stash.sh:/docker-entrypoint-initdb.d/10-denkit-stash.sh:ro
     deploy:
       resources:
         limits:

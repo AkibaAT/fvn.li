@@ -5,15 +5,17 @@ declare(strict_types=1);
 use App\Services\MeilisearchEmbedderConfigurator;
 use Meilisearch\Client;
 use Meilisearch\Endpoints\Indexes;
+use Meilisearch\Exceptions\ApiException;
+use Psr\Http\Message\ResponseInterface;
 
 function embedderConfiguratorFor(Indexes $index): MeilisearchEmbedderConfigurator
 {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('index')->with('games')->andReturn($index);
     $client->shouldReceive('waitForTask')
-        ->andReturnUsing(fn (int $uid): array => $uid === 7
-            ? ['status' => 'succeeded']
-            : ['status' => 'failed', 'error' => ['message' => 'model appears to be unsupported']]);
+        ->andReturnUsing(fn (int $uid): array => $uid === 99
+            ? ['status' => 'failed', 'error' => ['message' => 'model appears to be unsupported']]
+            : ['status' => 'succeeded']);
 
     return new MeilisearchEmbedderConfigurator($client);
 }
@@ -27,6 +29,9 @@ beforeEach(function () {
                     'model' => 'BAAI/bge-base-en-v1.5',
                 ],
             ],
+        ],
+        'scout.meilisearch.index-settings.games' => [
+            'filterableAttributes' => ['is_visible'],
         ],
     ]);
 });
@@ -78,5 +83,33 @@ it('treats an index with no embedders at all as needing one', function () {
     $index->shouldReceive('updateEmbedders')->once()->andReturn(['taskUid' => 7]);
 
     expect(embedderConfiguratorFor($index)->ensure())
+        ->toBe([['index' => 'games', 'status' => 'applied', 'model' => 'BAAI/bge-base-en-v1.5']]);
+});
+
+it('creates and configures a missing index before applying its embedder', function () {
+    $response = Mockery::mock(ResponseInterface::class);
+    $response->shouldReceive('getStatusCode')->andReturn(404);
+    $response->shouldReceive('getReasonPhrase')->andReturn('Not Found');
+
+    $missingIndex = new ApiException($response, [
+        'message' => 'Index `games` not found.',
+        'code' => 'index_not_found',
+        'type' => 'invalid_request',
+        'link' => 'https://docs.meilisearch.com/errors#index_not_found',
+    ]);
+
+    $index = Mockery::mock(Indexes::class);
+    $index->shouldReceive('getEmbedders')->once()->andThrow($missingIndex);
+    $index->shouldReceive('updateSettings')->once()->with([
+        'filterableAttributes' => ['is_visible'],
+    ])->andReturn(['taskUid' => 6]);
+    $index->shouldReceive('updateEmbedders')->once()->andReturn(['taskUid' => 7]);
+
+    $client = Mockery::mock(Client::class);
+    $client->shouldReceive('index')->with('games')->andReturn($index);
+    $client->shouldReceive('createIndex')->once()->with('games', ['primaryKey' => 'id'])->andReturn(['taskUid' => 5]);
+    $client->shouldReceive('waitForTask')->times(3)->andReturn(['status' => 'succeeded']);
+
+    expect((new MeilisearchEmbedderConfigurator($client))->ensure())
         ->toBe([['index' => 'games', 'status' => 'applied', 'model' => 'BAAI/bge-base-en-v1.5']]);
 });

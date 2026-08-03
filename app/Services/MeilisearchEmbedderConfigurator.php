@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Meilisearch\Client;
+use Meilisearch\Exceptions\ApiException;
 
 /**
  * Brings every index's embedder up to the configured state.
@@ -49,28 +50,70 @@ class MeilisearchEmbedderConfigurator
             fn (array $embedder): string => (string) ($embedder['model'] ?? 'unknown'),
             $desired
         ));
+        $index = $this->client->index($indexName);
 
-        if ($this->isAlreadyApplied($indexName, $desired)) {
+        try {
+            $current = $index->getEmbedders() ?? [];
+        } catch (ApiException $exception) {
+            if ($exception->errorCode !== 'index_not_found') {
+                throw $exception;
+            }
+
+            $finished = $this->waitForTask($this->client->createIndex($indexName, ['primaryKey' => 'id']));
+            if (($finished['status'] ?? null) !== 'succeeded') {
+                return $this->failedResult($indexName, $model, $finished, 'index creation failed');
+            }
+
+            /** @var array<string, mixed> $settings */
+            $settings = config("scout.meilisearch.index-settings.{$indexName}", []);
+            if ($settings !== []) {
+                $finished = $this->waitForTask($index->updateSettings($settings));
+                if (($finished['status'] ?? null) !== 'succeeded') {
+                    return $this->failedResult($indexName, $model, $finished, 'index settings failed');
+                }
+            }
+
+            $current = [];
+        }
+
+        if ($this->isAlreadyApplied($current, $desired)) {
             return ['index' => $indexName, 'status' => 'unchanged', 'model' => $model];
         }
 
-        $task = $this->client->index($indexName)->updateEmbedders($desired);
-        $finished = $this->client->waitForTask(
+        $finished = $this->waitForTask($index->updateEmbedders($desired));
+
+        if (($finished['status'] ?? null) !== 'succeeded') {
+            return $this->failedResult($indexName, $model, $finished, 'embedder update failed');
+        }
+
+        return ['index' => $indexName, 'status' => 'applied', 'model' => $model];
+    }
+
+    /**
+     * @param  array{taskUid: int}  $task
+     * @return array<string, mixed>
+     */
+    private function waitForTask(array $task): array
+    {
+        return $this->client->waitForTask(
             $task['taskUid'],
             self::TASK_TIMEOUT_SECONDS * 1000,
             self::TASK_POLL_MILLISECONDS
         );
+    }
 
-        if (($finished['status'] ?? null) !== 'succeeded') {
-            return [
-                'index' => $indexName,
-                'status' => 'failed',
-                'model' => $model,
-                'message' => $finished['error']['message'] ?? 'no error message reported',
-            ];
-        }
-
-        return ['index' => $indexName, 'status' => 'applied', 'model' => $model];
+    /**
+     * @param  array<string, mixed>  $finished
+     * @return array{index: string, status: string, model: string, message: string}
+     */
+    private function failedResult(string $indexName, string $model, array $finished, string $fallback): array
+    {
+        return [
+            'index' => $indexName,
+            'status' => 'failed',
+            'model' => $model,
+            'message' => $finished['error']['message'] ?? $fallback,
+        ];
     }
 
     /**
@@ -81,10 +124,8 @@ class MeilisearchEmbedderConfigurator
      *
      * @param  array<string, array<string, mixed>>  $desired
      */
-    private function isAlreadyApplied(string $indexName, array $desired): bool
+    private function isAlreadyApplied(array $current, array $desired): bool
     {
-        $current = $this->client->index($indexName)->getEmbedders() ?? [];
-
         foreach ($desired as $name => $embedder) {
             foreach ($embedder as $key => $value) {
                 if (($current[$name][$key] ?? null) !== $value) {
