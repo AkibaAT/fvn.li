@@ -8,10 +8,6 @@ use Illuminate\Support\Collection;
 
 trait HasGameLanguageSupport
 {
-    /**
-     * Get the supported languages collection for the latest version.
-     * Only includes languages that are marked as available.
-     */
     public function getSupportedLanguages(): Collection
     {
         if ($this->relationLoaded('latestVersion') &&
@@ -32,10 +28,6 @@ trait HasGameLanguageSupport
         return collect();
     }
 
-    /**
-     * Get all supported languages, including those not available to users.
-     * This is used for administrative purposes.
-     */
     public function getAllSupportedLanguages(): Collection
     {
         if ($this->relationLoaded('latestVersion') &&
@@ -56,9 +48,6 @@ trait HasGameLanguageSupport
         return collect();
     }
 
-    /**
-     * Get all available languages from the latest version.
-     */
     public function getAvailableLanguages(): Collection
     {
         if (! $this->latestVersion) {
@@ -76,9 +65,6 @@ trait HasGameLanguageSupport
             ]);
     }
 
-    /**
-     * Check if a specific language is available in the latest version.
-     */
     public function isLanguageAvailable(string $isoCode): bool
     {
         if (! $this->latestVersion) {
@@ -92,12 +78,8 @@ trait HasGameLanguageSupport
         return $support && $support->is_available;
     }
 
-    /**
-     * Get the English word count from the latest version.
-     */
     public function getEnglishWordCount(): ?int
     {
-        // First try to get from the english_word_count attribute which is pre-loaded in list views
         if (isset($this->attributes['english_word_count'])) {
             return $this->english_word_count;
         }
@@ -112,10 +94,6 @@ trait HasGameLanguageSupport
         return null;
     }
 
-    /**
-     * Get the primary word count based on the game's source language.
-     * Falls back to English if no source language is set.
-     */
     public function getPrimaryWordCount(): ?int
     {
         $langCode = $this->source_language_id ?? 'eng';
@@ -125,7 +103,6 @@ trait HasGameLanguageSupport
             return $this->getEnglishWordCount();
         }
 
-        // Try to get from the latest version's language stats
         if ($this->relationLoaded('latestVersion') && $this->latestVersion) {
             if ($this->latestVersion->relationLoaded('languageStats')) {
                 $stats = $this->latestVersion->languageStats
@@ -143,9 +120,6 @@ trait HasGameLanguageSupport
         return null;
     }
 
-    /**
-     * Get the label for the game's primary language (e.g., "JP", "EN", "FR").
-     */
     public function getPrimaryLanguageLabel(): string
     {
         $langCode = $this->source_language_id ?? 'eng';
@@ -161,9 +135,6 @@ trait HasGameLanguageSupport
         return strtoupper(substr($langCode, 0, 2));
     }
 
-    /**
-     * Get the character stats for the latest version in a specific language.
-     */
     public function getLatestCharacterStats(string $isoCode): Collection
     {
         return $this->latestVersion?->getCharacterStatsForLanguage($isoCode) ?? collect();

@@ -8,8 +8,6 @@ This command identifies games that have been updated recently and creates notifi
 those games. It's the first step in the notification pipeline, detecting update events and preparing notifications for
 delivery.
 
-**Key Features**: Update detection, follower matching, notification queuing, duplicate prevention.
-
 ## Usage
 
 ```bash
@@ -152,24 +150,6 @@ The system prevents duplicate notifications through:
 - **User Notification History**: Tracks what users have been notified about
 - **Time Windows**: Prevents multiple notifications for the same update
 - **Deduplication Logic**: Combines similar updates into single notifications
-
-## Performance Considerations
-
-- **Database Queries**: Optimized queries for update detection
-- **Follower Lookups**: Efficient matching of users to games
-- **Batch Processing**: Processes updates in manageable chunks
-- **Memory Usage**: Handles large follower lists efficiently
-
-## Monitoring
-
-Track these metrics during execution:
-
-- **Games Processed**: Number of updated games found
-- **Notifications Queued**: Total notifications created
-- **Users Affected**: Unique users receiving notifications
-- **Processing Time**: Time taken to complete queuing
-
-> **Note**: This command only queues notifications; use `notifications:process-push` to actually deliver them to users.
 
 ## Related Commands
 

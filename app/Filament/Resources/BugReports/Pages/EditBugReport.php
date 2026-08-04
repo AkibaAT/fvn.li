@@ -42,7 +42,6 @@ class EditBugReport extends EditRecord
             }
         }
 
-        // Clear resolution tracking if reopening
         if ($wasResolved && ! $isNowResolved) {
             $data['resolved_at'] = null;
             $data['resolved_by'] = null;

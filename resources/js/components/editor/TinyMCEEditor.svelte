@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { getCsrfToken } from '@/utils/http';
     import { useDarkMode } from '@/hooks';
 
     type TinyBlobInfo = { blob: () => Blob; filename: () => string };
@@ -281,7 +282,7 @@
                         method: 'POST',
                         body: formData,
                         headers: {
-                            'X-CSRF-TOKEN': document?.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                            'X-CSRF-TOKEN': getCsrfToken(),
                         },
                     })
                         .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))

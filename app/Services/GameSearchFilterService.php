@@ -8,9 +8,6 @@ use Illuminate\Http\Request;
 
 class GameSearchFilterService
 {
-    /**
-     * Build search filters from request parameters
-     */
     public function buildFiltersFromRequest(Request $request): array
     {
         $filters = [];
@@ -76,10 +73,7 @@ class GameSearchFilterService
         return $filters;
     }
 
-    /**
-     * Build enhanced API filters from request
-     */
-    public function buildEnhancedApiFilters(Request $request): array
+    public function buildApiFilters(Request $request): array
     {
         $filters = array_filter([
             'status' => $request->input('status'),
@@ -96,9 +90,6 @@ class GameSearchFilterService
         return $filters;
     }
 
-    /**
-     * Get search parameters from request
-     */
     public function getSearchParams(Request $request): array
     {
         $search = $request->get('search', '');
@@ -115,9 +106,6 @@ class GameSearchFilterService
         ];
     }
 
-    /**
-     * Get sorting parameters for reviews
-     */
     public function getReviewSortParams(Request $request): array
     {
         $sort = $request->input('sort', 'newest');
@@ -126,7 +114,6 @@ class GameSearchFilterService
             'oldest' => ['published_at', 'asc'],
             'rating_high' => ['rating', 'desc'],
             'rating_low' => ['rating', 'asc'],
-            'helpful' => ['published_at', 'desc'], // TODO: Implement helpful sorting
             'newest' => ['published_at', 'desc'],
             default => ['published_at', 'desc'],
         };

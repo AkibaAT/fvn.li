@@ -42,7 +42,6 @@ class CheckDelistedGames extends Command
      */
     public function handle(): int
     {
-        // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
@@ -50,13 +49,11 @@ class CheckDelistedGames extends Command
         $this->info('Starting delisted check for games');
 
         try {
-            // Build query for games - only itch.io games for now
             $query = Game::query()
                 ->fromItchio()
                 ->where('is_visible', true)
                 ->orderBy($this->option('sort'));
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
             $games = $query->get();
@@ -89,19 +86,19 @@ class CheckDelistedGames extends Command
                         $game->save();
 
                         if ($isDelisted && ! $previousStatus) {
-                            $this->warn('  → Game is now DELISTED');
+                            $this->warn('Game is now delisted');
                             $delistedCount++;
                         } elseif (! $isDelisted && $previousStatus) {
-                            $this->info('  → Game is no longer delisted');
+                            $this->info('Game is no longer delisted');
                         } elseif ($isDelisted) {
-                            $this->warn('  → Game remains delisted');
+                            $this->warn('Game remains delisted');
                         } else {
-                            $this->info('  → Game is not delisted');
+                            $this->info('Game is not delisted');
                         }
 
                         $checkedCount++;
                     } else {
-                        $this->error('  → Could not determine delisted status');
+                        $this->error('Could not determine delisted status');
                         $errorCount++;
                     }
 
@@ -141,16 +138,15 @@ class CheckDelistedGames extends Command
         try {
             $gameUrl = $game->getPrimaryUrl();
             if (! $gameUrl) {
-                $this->warn("  → No URL found for game {$game->name}");
+                $this->warn("No URL found for game {$game->name}");
 
                 return null;
             }
 
-            // Fetch the game's project page using anonymous client to avoid authentication issues
             $response = $itchClient->get($gameUrl, [], true);
 
             if ($response->getStatusCode() !== 200) {
-                $this->warn("  → Received HTTP {$response->getStatusCode()} for {$gameUrl}");
+                $this->warn("Received HTTP {$response->getStatusCode()} for {$gameUrl}");
 
                 return null;
             }
@@ -158,31 +154,27 @@ class CheckDelistedGames extends Command
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-            // Check for robots noindex meta tag
             $isDelisted = $this->checkForNoindexTag($doc);
 
             // Debug: Show information if verbose
             if ($this->getOutput()->isVerbose()) {
-                $this->line('  → Checking for robots noindex meta tag...');
+                $this->line('Checking for robots noindex meta tag...');
                 if ($isDelisted) {
-                    $this->line('  → Found noindex meta tag - game is delisted');
+                    $this->line('Found noindex meta tag; game is delisted');
                 } else {
-                    $this->line('  → No noindex meta tag found');
+                    $this->line('No noindex meta tag found');
                 }
             }
 
             return $isDelisted;
 
         } catch (Exception $e) {
-            $this->error("  → Exception while fetching {$game->getPrimaryUrl()}: {$e->getMessage()}");
+            $this->error("Exception while fetching {$game->getPrimaryUrl()}: {$e->getMessage()}");
 
             return null;
         }
     }
 
-    /**
-     * Check if the page has a robots noindex meta tag
-     */
     private function checkForNoindexTag(HTMLDocument $doc): bool
     {
         $metaTags = $doc->querySelectorAll('meta[name="robots"]');

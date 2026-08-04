@@ -11,11 +11,6 @@ use Throwable;
 
 class PerformanceMonitoring
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request): (Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         // Start performance tracking
@@ -30,32 +25,26 @@ class PerformanceMonitoring
         }
 
         try {
-            // Process the request
             $response = $next($request);
 
-            // Calculate metrics
             $executionTime = (microtime(true) - $startTime) * 1000; // milliseconds
             $peakMemory = memory_get_peak_usage(true);
             $memoryUsed = $peakMemory - $startMemory;
             $queryCount = $shouldLogQueries ? count(DB::getQueryLog()) : 0;
 
-            // Add performance headers to response (useful for debugging)
             if ($response instanceof Response) {
                 $response->headers->set('X-Execution-Time', round($executionTime, 2) . 'ms');
                 $response->headers->set('X-Memory-Usage', round($memoryUsed / 1024 / 1024, 2) . 'MB');
                 $response->headers->set('X-Query-Count', $queryCount);
             }
 
-            // Get thresholds from config
             $slowThreshold = config('performance.slow_request_threshold', 1000);
             $verySlowThreshold = config('performance.very_slow_request_threshold', 3000);
 
-            // Log slow requests
             if ($executionTime > $slowThreshold) {
                 $this->logSlowRequest($request, $response, $executionTime, $memoryUsed, $queryCount, $verySlowThreshold);
             }
 
-            // Log all request metrics to a separate channel for aggregation
             $this->logRequestMetrics($request, $response, $executionTime, $memoryUsed, $queryCount);
 
             return $response;
@@ -128,7 +117,6 @@ class PerformanceMonitoring
                 ]);
             } catch (Throwable $e) {
                 // Silently fail to prevent breaking the application
-                // Log to default channel as fallback
                 Log::error('Failed to log performance metrics', [
                     'error' => $e->getMessage(),
                     'path' => $request->path(),
@@ -137,12 +125,8 @@ class PerformanceMonitoring
         }
     }
 
-    /**
-     * Determine if the request should be logged.
-     */
     protected function shouldLogRequest(Request $request): bool
     {
-        // Skip static assets and health checks
         $path = $request->path();
         $skipPatterns = [
             'build/',

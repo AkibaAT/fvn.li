@@ -43,14 +43,11 @@ class ImportRatings extends Command
 
     public function handle(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing ratings
         Config::set('scout.queue', false);
 
         try {
-            // Get authenticated client
             $this->client = $this->authService->getClient();
 
-            // Get the import state
             $importState = ImportState::firstWhere('type', self::IMPORT_STATE_TYPE);
 
             // If we have a stored last_processed_id, start from there
@@ -96,7 +93,6 @@ class ImportRatings extends Command
 
             Cache::forget('system_status.rating_stats');
 
-            // Return error code if there were any errors
             return ($errorCount > 0 || $individualRatingErrors > 0) ? 1 : 0;
         } catch (Exception $e) {
             $this->error('Error importing ratings: ' . $e->getMessage());
@@ -131,22 +127,18 @@ class ImportRatings extends Command
         $doc = HTMLDocument::createFromString($events['content'], LIBXML_NOERROR);
         $newRatingsCount = 0;
 
-        // Process each review
         foreach ($doc->querySelectorAll('div.event_row') as $review) {
             try {
                 DB::beginTransaction();
 
-                // Extract user ID from script
                 $script = $review->querySelector('script[type="text/javascript"]');
                 preg_match('/user_id.*:(\d+)/', $script->textContent, $matches);
                 $userId = (int) $matches[1];
 
-                // Get user info
                 $userLink = $review->querySelector('a.event_source_user');
                 $userName = $userLink->textContent;
                 $userUsername = basename(explode('.', $userLink->getAttribute('href'))[0]);
 
-                // Get event timing
                 $eventTime = $review->querySelector('a.event_time');
                 $eventId = (int) basename($eventTime->getAttribute('href'));
                 $updatedAt = new DateTime($eventTime->getAttribute('title'));
@@ -161,12 +153,10 @@ class ImportRatings extends Command
                     return null;
                 }
 
-                // Get game info
                 $gameLink = $review->querySelector('a.object_title');
                 $gameName = $gameLink->textContent;
                 $gameUrl = $gameLink->getAttribute('href');
 
-                // Get game ID (either from game cell or by fetching)
                 $gameCell = $review->querySelector('div.game_cell');
                 $gameId = $gameCell
                     ? (int) $gameCell->getAttribute('data-game_id')
@@ -175,7 +165,6 @@ class ImportRatings extends Command
                 // Count star rating (exact class match)
                 $rating = count($review->querySelectorAll('span.icon-star'));
 
-                // Get review text if present
                 $ratingBlurb = $review->querySelector('div.rating_blurb');
                 $reviewText = $ratingBlurb ? $this->sanitizeReview($ratingBlurb->ownerDocument->saveHTML($ratingBlurb)) : '';
 
@@ -192,7 +181,6 @@ class ImportRatings extends Command
                     $reviewText
                 );
 
-                // Update the last processed ID after each successful rating
                 ImportState::updateOrCreate(
                     ['type' => self::IMPORT_STATE_TYPE],
                     ['last_processed_id' => $eventId]
@@ -236,7 +224,6 @@ class ImportRatings extends Command
     ): void {
         $reviewText = $this->sanitizeReview($reviewText);
 
-        // Get or create rater
         $rater = Rater::firstOrNew(['itch_id' => $userId]);
         if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername || $rater->external_platform !== 'itch_io') {
             $rater->name = $userName;
@@ -245,7 +232,6 @@ class ImportRatings extends Command
             $rater->save();
         }
 
-        // Get or create game
         $game = Game::firstOrNew(['itch_id' => $gameId]);
         if (! $game->exists) {
             $game->fill([
@@ -261,7 +247,6 @@ class ImportRatings extends Command
             $game->save();
         }
 
-        // Mark previous ratings as not visible (using Eloquent to trigger search index updates)
         Rating::where('game_id', $game->id)
             ->where('rater_id', $rater->id)
             ->get()
@@ -269,7 +254,6 @@ class ImportRatings extends Command
                 $rating->update(['is_visible' => false]);
             });
 
-        // Create new rating (auto-hide if rater is banned from reviewing)
         Rating::create([
             'event_id' => $eventId,
             'published_at' => $updatedAt,

@@ -48,10 +48,8 @@ class GameAssetService
         $filename = $this->generateUniqueFilename($file);
         $path = "game-assets/{$game->slug}";
 
-        // Store original image
         $originalPath = Storage::disk('public')->putFileAs($path, $file, $filename);
 
-        // Create optimized versions
         $variants = $this->createImageVariants($originalPath, $path, $filename);
 
         return [
@@ -63,9 +61,6 @@ class GameAssetService
         ];
     }
 
-    /**
-     * Delete an image and all its variants
-     */
     public function deleteImage(string $imagePath): bool
     {
         $deleted = Storage::disk('public')->delete($imagePath);
@@ -76,9 +71,6 @@ class GameAssetService
         return $deleted;
     }
 
-    /**
-     * Update image metadata (alt text, caption)
-     */
     public function updateImageMetadata(Game $game, string $imagePath, array $metadata): void
     {
         $customAssets = $game->custom_assets ?: [];
@@ -94,9 +86,6 @@ class GameAssetService
         $game->update(['custom_assets' => $customAssets]);
     }
 
-    /**
-     * Get optimized image URL for a specific variant
-     */
     public function getImageUrl(array $imageData, string $variant = 'medium'): string
     {
         if (isset($imageData['variants'][$variant])) {
@@ -131,11 +120,9 @@ class GameAssetService
             }
         }
 
-        // Get all files in the game's asset directory
         $gameAssetPath = "game-assets/{$game->slug}";
         $allFiles = Storage::disk('public')->files($gameAssetPath);
 
-        // Delete unused files
         foreach ($allFiles as $file) {
             if (! $usedAssets->contains($file)) {
                 Storage::disk('public')->delete($file);
@@ -143,9 +130,6 @@ class GameAssetService
         }
     }
 
-    /**
-     * Validate uploaded image file
-     */
     private function validateImage(UploadedFile $file): void
     {
         $maxSize = 10 * 1024 * 1024; // 10MB
@@ -160,9 +144,6 @@ class GameAssetService
         }
     }
 
-    /**
-     * Generate unique filename for uploaded image
-     */
     private function generateUniqueFilename(UploadedFile $file): string
     {
         $extension = $file->getClientOriginalExtension();
@@ -172,9 +153,6 @@ class GameAssetService
         return "{$timestamp}_{$random}.{$extension}";
     }
 
-    /**
-     * Create optimized variants of an uploaded image
-     */
     private function createImageVariants(string $originalPath, string $basePath, string $filename): array
     {
         $variants = [];
@@ -196,7 +174,6 @@ class GameAssetService
                 $variantPath = "{$basePath}/{$variantFilename}";
                 $variantFullPath = Storage::disk('public')->path($variantPath);
 
-                // Create directory if it doesn't exist
                 $directory = dirname($variantFullPath);
                 if (! is_dir($directory)) {
                     mkdir($directory, 0755, true);
@@ -208,7 +185,6 @@ class GameAssetService
 
                 $variants[$size] = $variantPath;
             } catch (Exception $e) {
-                // Log error but don't fail the upload
                 Log::warning("Failed to create {$size} variant for {$filename}: " . $e->getMessage());
             }
         }
@@ -216,9 +192,6 @@ class GameAssetService
         return $variants;
     }
 
-    /**
-     * Get variant filename
-     */
     private function getVariantFilename(string $originalFilename, string $size): string
     {
         $pathInfo = pathinfo($originalFilename);
@@ -226,9 +199,6 @@ class GameAssetService
         return $pathInfo['filename'] . "_{$size}." . $pathInfo['extension'];
     }
 
-    /**
-     * Delete all variants of an image
-     */
     private function deleteImageVariants(string $originalPath): void
     {
         $pathInfo = pathinfo($originalPath);

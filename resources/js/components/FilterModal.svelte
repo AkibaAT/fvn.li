@@ -90,7 +90,6 @@
     </p>
 
     <div class="space-y-8 p-6">
-        <!-- Content & Pricing -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Content & Pricing</h3>
             <div class="space-y-2">
@@ -107,7 +106,6 @@
             </div>
         </div>
 
-        <!-- Status -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Status</h3>
             <div class="space-y-2">
@@ -124,7 +122,6 @@
             </div>
         </div>
 
-        <!-- Platforms -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Platforms</h3>
             <div class="space-y-2">
@@ -141,7 +138,6 @@
             </div>
         </div>
 
-        <!-- Store Platforms -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Store Platforms</h3>
             <div class="space-y-2">
@@ -158,7 +154,6 @@
             </div>
         </div>
 
-        <!-- Languages -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Languages</h3>
             <div class="space-y-2">
@@ -175,7 +170,6 @@
             </div>
         </div>
 
-        <!-- Game Engine -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Game Engine</h3>
             <div class="space-y-2">
@@ -192,7 +186,6 @@
             </div>
         </div>
 
-        <!-- Tags -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Tags</h3>
             <div class="space-y-2">
@@ -208,7 +201,6 @@
             </div>
         </div>
 
-        <!-- Exclude Tags -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Exclude Tags</h3>
             <div class="space-y-2">
@@ -225,7 +217,6 @@
             </div>
         </div>
 
-        <!-- Reading Time -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Reading Time</h3>
             <div class="space-y-3">
@@ -245,7 +236,6 @@
             </div>
         </div>
 
-        <!-- Game Jams -->
         <div>
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Game Jams</h3>
             <div class="space-y-2">

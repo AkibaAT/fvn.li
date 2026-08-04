@@ -53,7 +53,6 @@ export function initializeAppearance() {
 
     applyTheme(savedAppearance);
 
-    // Add the event listener for system theme changes...
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
@@ -64,19 +63,16 @@ export function useAppearance() {
     const updateAppearance = (mode: Appearance) => {
         appearance = mode;
 
-        // Store in localStorage for client-side persistence...
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem('appearance', mode);
         }
 
-        // Store in cookie for SSR...
         setCookie('appearance', mode);
 
         applyTheme(mode);
     };
 
     $effect(() => {
-        // Apply the current theme on mount
         applyTheme(appearance);
 
         return () => mediaQuery()?.removeEventListener('change', handleSystemThemeChange);

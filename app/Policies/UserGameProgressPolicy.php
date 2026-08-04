@@ -12,9 +12,6 @@ class UserGameProgressPolicy
 {
     use HandlesAuthorization;
 
-    /**
-     * Determine whether the user can update the game progress.
-     */
     public function update(User $user, UserGameProgress $progress): bool
     {
         // Users can only update their own game progress

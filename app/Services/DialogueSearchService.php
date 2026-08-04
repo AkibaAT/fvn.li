@@ -36,11 +36,9 @@ class DialogueSearchService
             }
         }
 
-        // Get raw Meilisearch results with all metadata
         $client = app(Client::class);
         $index = $client->index('game_dialogue_texts');
 
-        // Build filter array (Meilisearch filter syntax)
         $filterParts = [];
         if (! empty($language)) {
             $safeLanguage = preg_replace('/[^a-zA-Z0-9]/', '', $language);
@@ -50,11 +48,9 @@ class DialogueSearchService
             $filterParts[] = 'game_id = ' . (int) $filters['game_id'];
         }
         if (! empty($filters['version_id'])) {
-            // Filter by version_ids array
             $filterParts[] = 'version_ids = ' . (int) $filters['version_id'];
         }
         if ($hasCharacterFilter) {
-            // Filter by character_ids array
             $characterFilters = collect($characterDatabaseIds)
                 ->map(fn (int $id) => 'character_ids = ' . $id)
                 ->implode(' OR ');
@@ -81,7 +77,6 @@ class DialogueSearchService
         $hits = $results->getHits();
         $total = $results->getEstimatedTotalHits();
 
-        // Get the text IDs and highlighted text from search results
         $textIds = collect($hits)->pluck('text_id')->toArray();
         $highlightedTexts = collect($hits)->mapWithKeys(function ($hit) {
             return [$hit['text_id'] => $hit['_formatted']['text_content'] ?? $hit['text_content']];
@@ -100,11 +95,9 @@ class DialogueSearchService
             return $this->emptyPaginator($perPage, $page);
         }
 
-        // Fetch actual dialogue lines from PostgreSQL with full context
         $query = DialogueLine::whereIn('text_id', $textIds)
             ->with(['gameVersion.game', 'gameVersion', 'text', 'character']);
 
-        // Apply additional filters to dialogue lines
         if (! empty($filters['game_id'])) {
             $query->whereHas('gameVersion', function ($q) use ($filters) {
                 $q->where('game_id', $filters['game_id']);
@@ -139,17 +132,14 @@ class DialogueSearchService
             ->limit($perPage)
             ->get();
 
-        // Group by text_id to maintain search result order
         $linesByTextId = $dialogueLines->groupBy('text_id');
 
-        // Build final results in the order returned by Meilisearch
         // Attach highlighted text from Meilisearch to each line
         $items = collect($textIds)->flatMap(function ($textId) use ($linesByTextId, $highlightedTexts, $firstSeenVersions) {
             $lines = $linesByTextId->get($textId, collect());
             $highlightedText = $highlightedTexts->get($textId);
             $firstSeenVersion = $firstSeenVersions->get($textId);
 
-            // Add highlighted text to each line
             return $lines->map(function ($line) use ($highlightedText, $firstSeenVersion) {
                 $line->highlighted_text = $highlightedText;
                 $line->first_seen_version = $firstSeenVersion;
@@ -197,7 +187,6 @@ class DialogueSearchService
             ->having(DB::raw('COUNT(version_dialogue_lines.id)'), '>=', $minCount)
             ->orderBy('usage_count', 'desc');
 
-        // Apply filters
         if (! empty($filters['game_id'])) {
             $query->where('game_versions.game_id', '=', $filters['game_id']);
         }
@@ -214,12 +203,10 @@ class DialogueSearchService
 
         $query->where('version_dialogue_lines.iso_code', '=', $language);
 
-        // Get the top duplicates
         $topDuplicates = $query->limit($limit)->get();
 
         // For each duplicate, get examples of its usage
         foreach ($topDuplicates as $duplicate) {
-            // Get a few example usages with context
             $examples = DB::table('version_dialogue_lines')
                 ->join('game_versions', 'version_dialogue_lines.game_version_id', '=', 'game_versions.id')
                 ->join('games', 'game_versions.game_id', '=', 'games.id')
@@ -239,7 +226,6 @@ class DialogueSearchService
                 ->limit(5)
                 ->get();
 
-            // Add display name to each example
             foreach ($examples as $example) {
                 if ($example->character_id && $example->display_names) {
                     $displayNames = json_decode($example->display_names, true);
@@ -272,7 +258,6 @@ class DialogueSearchService
         return Cache::remember("dialogue.version_stats.{$version->id}", 3600, function () use ($version) {
             $totalLines = $version->dialogueLines()->count();
 
-            // Calculate total word count from version_character_stats
             $totalWords = DB::table('version_character_stats')
                 ->where('game_version_id', $version->id)
                 ->sum('words');
@@ -285,7 +270,6 @@ class DialogueSearchService
                 ->distinct('c.id')
                 ->count('c.id');
 
-            // Calculate average words per line
             $avgWordsPerLine = $totalLines > 0 ? round($totalWords / $totalLines, 1) : 0;
 
             // Language breakdown
@@ -319,7 +303,6 @@ class DialogueSearchService
         $totalLines = DialogueLine::count();
         $uniqueTextsCount = DB::table('unique_dialogue_texts')->count();
 
-        // Calculate total text size
         $totalTextSize = DB::table('unique_dialogue_texts')
             ->sum(DB::raw('LENGTH(text_content)'));
 
@@ -337,7 +320,6 @@ class DialogueSearchService
             ? ($totalTextSize * ($duplicationRatio - 1) / $duplicationRatio)
             : 0;
 
-        // Get games with highest text duplication
         $gameStats = $this->getGameDuplicationStats(10);
 
         return [
@@ -380,17 +362,11 @@ class DialogueSearchService
             ->get();
     }
 
-    /**
-     * Get the PostgreSQL language configuration name.
-     */
     protected function getLanguageConfig(?string $language = null): string
     {
         return 'english';
     }
 
-    /**
-     * Get the tsvector column name for the given language.
-     */
     protected function getTsvectorColumnForLanguage(?string $language = null): string
     {
         // Default to English

@@ -8,12 +8,8 @@ use Exception;
 
 trait HandlesLocalImages
 {
-    /**
-     * Check if the URL points to a local cached image
-     */
     protected function isLocalThumbnail(string $url): bool
     {
-        // Check if it's a local asset URL (contains /storage/ or starts with the app URL)
         $appUrl = config('app.url');
 
         return str_contains($url, '/storage/') || str_starts_with($url, $appUrl);
@@ -25,7 +21,6 @@ trait HandlesLocalImages
     protected function getLocalThumbnailPath(string $url): ?string
     {
         try {
-            // Extract the storage path from the URL
             if (str_contains($url, '/storage/')) {
                 $storagePath = substr($url, strpos($url, '/storage/') + 9);
                 $fullPath = storage_path('app/public/' . $storagePath);
@@ -33,7 +28,6 @@ trait HandlesLocalImages
                 return $fullPath;
             }
 
-            // Handle other local URL patterns if needed
             $appUrl = config('app.url');
             if (str_starts_with($url, $appUrl)) {
                 $relativePath = substr($url, strlen($appUrl));
@@ -47,6 +41,8 @@ trait HandlesLocalImages
 
             return null;
         } catch (Exception $e) {
+            report($e);
+
             return null;
         }
     }

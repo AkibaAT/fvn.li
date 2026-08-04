@@ -64,7 +64,6 @@ class BackfillFeed extends Command
      */
     private function executeBackfill(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing
         Config::set('scout.queue', false);
 
         $months = (int) $this->option('months');
@@ -77,7 +76,6 @@ class BackfillFeed extends Command
         $this->processedCount = 0;
         $this->skippedCount = 0;
 
-        // Build a map of the latest event ID we've already processed for each game
         $this->info('Building map of latest processed events per game...');
         $this->buildLatestEventMap();
         $this->info('Found ' . count($this->latestEventPerGame) . ' games with processed events');
@@ -90,7 +88,6 @@ class BackfillFeed extends Command
                 $pageCount++;
                 $this->info("\nProcessing page {$pageCount}" . ($currentPage ? " (from event {$currentPage})" : ' (initial)'));
 
-                // Get authenticated client for feed page
                 $client = $this->authService->getClient();
                 $result = $this->processFeedPage($client, $currentPage);
 
@@ -128,9 +125,6 @@ class BackfillFeed extends Command
         }
     }
 
-    /**
-     * Build a map of the latest event ID we've processed for each game
-     */
     private function buildLatestEventMap(): void
     {
         $events = ProcessedEvent::query()
@@ -163,7 +157,6 @@ class BackfillFeed extends Command
         $response = $client->get($url);
         $feedData = json_decode($response->getBody()->getContents(), true);
 
-        // Get next page ID if available
         $nextPage = $feedData['next_page'] ?? null;
 
         if (! isset($feedData['content'])) {
@@ -174,9 +167,7 @@ class BackfillFeed extends Command
 
         $reachedCutoff = false;
 
-        // Process each event row
         foreach ($doc->querySelectorAll('div.event_row') as $eventRow) {
-            // Get event ID from like button
             $likeBtn = $eventRow->querySelector('span.like_btn');
             if (! $likeBtn || ! $likeBtn->hasAttribute('data-like_url')) {
                 continue;
@@ -184,7 +175,6 @@ class BackfillFeed extends Command
 
             $eventId = (int) basename(dirname($likeBtn->getAttribute('data-like_url')));
 
-            // Get event timestamp to check against cutoff date
             $eventTime = $eventRow->querySelector('a.event_time');
             if ($eventTime && $eventTime->hasAttribute('title')) {
                 $eventDate = Carbon::parse($eventTime->getAttribute('title'));
@@ -196,17 +186,14 @@ class BackfillFeed extends Command
                 }
             }
 
-            // Extract game information
             $gameId = null;
             $gameTitle = null;
             $gameUrl = null;
 
-            // First try game cell
             $gameCell = $eventRow->querySelector('div.game_cell');
             if ($gameCell && $gameCell->hasAttribute('data-game_id')) {
                 $gameId = (int) $gameCell->getAttribute('data-game_id');
 
-                // Get game link info
                 $gameLink = $gameCell->querySelector('a.game_link');
                 if ($gameLink) {
                     $gameUrl = $gameLink->getAttribute('href');
@@ -230,7 +217,6 @@ class BackfillFeed extends Command
                 }
             }
 
-            // Skip if we couldn't get essential game info
             if (! $gameId || ! $gameUrl) {
                 $this->output->write('.');
                 $this->skippedCount++;
@@ -238,7 +224,6 @@ class BackfillFeed extends Command
                 continue;
             }
 
-            // Get game title from summary if we didn't get it from game cell
             if (! $gameTitle) {
                 $summary = $eventRow->querySelector('div.object_short_summary');
                 if ($summary) {
@@ -256,7 +241,6 @@ class BackfillFeed extends Command
                 continue;
             }
 
-            // Check if we've already processed a newer event for this game
             if (isset($this->latestEventPerGame[$gameId]) && $eventId <= $this->latestEventPerGame[$gameId]) {
                 $this->output->write('.');
                 $this->skippedCount++;
@@ -264,12 +248,10 @@ class BackfillFeed extends Command
                 continue;
             }
 
-            // Process game update
             $this->output->write('+');
             $this->processedCount++;
             $this->processGameUpdate($eventId, $gameId);
 
-            // Update our map with this event
             if (! isset($this->latestEventPerGame[$gameId]) || $eventId > $this->latestEventPerGame[$gameId]) {
                 $this->latestEventPerGame[$gameId] = $eventId;
             }
@@ -289,11 +271,9 @@ class BackfillFeed extends Command
 
         DB::beginTransaction();
 
-        // Get or create game
         $game = Game::firstOrNew(['itch_id' => $gameId]);
 
         try {
-            // Skip if game isn't visible
             if (! $game->exists || ! $game->is_visible) {
                 DB::commit();
                 $this->output->write('.');

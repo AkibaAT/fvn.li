@@ -45,7 +45,6 @@ class CharacterSpecialAssignmentService
         foreach ($charactersToProcess as $characterName) {
             Log::info("Processing special character: {$characterName}");
 
-            // Get all versions that have this special character
             $versionsQuery = DB::table('version_dialogue_lines as vdl')
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->join('characters as c', 'vdl.character_id', '=', 'c.id')
@@ -92,15 +91,10 @@ class CharacterSpecialAssignmentService
         return $result;
     }
 
-    /**
-     * Process special character assignments for a specific version
-     */
     private function processSpecialCharacterInVersion(int $versionId, string $characterName, bool $dryRun): int
     {
-        // Get the game ID for this version
         $gameId = DB::table('game_versions')->where('id', $versionId)->value('game_id');
 
-        // Get the character ID for this special character in this specific game
         $specialCharacter = DB::table('characters')
             ->where('character_id', $characterName)
             ->where('game_id', $gameId)
@@ -112,7 +106,6 @@ class CharacterSpecialAssignmentService
             return 0;
         }
 
-        // Get all dialogue lines for this version with the special character, ordered by file and line number
         $specialLines = DB::table('version_dialogue_lines')
             ->where('game_version_id', $versionId)
             ->where('character_id', $specialCharacter->id)
@@ -122,7 +115,6 @@ class CharacterSpecialAssignmentService
 
         $linesReassigned = 0;
 
-        // Determine target character based on special character type
         if (in_array($characterName, self::EXTEND_CHARACTERS)) {
             // 'extend' characters should be assigned to previous line's character
             $linesReassigned = $this->reassignToPreviousCharacter($specialLines, $versionId, $characterName,
@@ -149,7 +141,6 @@ class CharacterSpecialAssignmentService
         $linesReassigned = 0;
 
         foreach ($specialLines as $specialLine) {
-            // Find the previous line in the same file
             $previousLine = DB::table('version_dialogue_lines')
                 ->where('game_version_id', $versionId)
                 ->where('file_path', $specialLine->file_path)
@@ -161,7 +152,6 @@ class CharacterSpecialAssignmentService
                 if ($dryRun) {
                     Log::info("Would reassign {$characterName} line {$specialLine->id} to character {$previousLine->character_id}");
                 } else {
-                    // Update the special line to use the previous line's character
                     DB::table('version_dialogue_lines')
                         ->where('id', $specialLine->id)
                         ->update(['character_id' => $previousLine->character_id]);
@@ -193,7 +183,6 @@ class CharacterSpecialAssignmentService
     ): int {
         $linesReassigned = 0;
 
-        // Get the game ID and narrator character using the centralized service
         $gameId = DB::table('game_versions')->where('id', $versionId)->value('game_id');
 
         if ($dryRun) {
@@ -208,7 +197,6 @@ class CharacterSpecialAssignmentService
             if ($dryRun) {
                 Log::info("Would reassign {$characterName} line {$specialLine->id} to narrator (character {$narratorCharacterId})");
             } else {
-                // Update the special line to use the narrator character
                 DB::table('version_dialogue_lines')
                     ->where('id', $specialLine->id)
                     ->update(['character_id' => $narratorCharacterId]);

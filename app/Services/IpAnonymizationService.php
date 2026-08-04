@@ -8,22 +8,16 @@ use Illuminate\Support\Facades\Config;
 
 class IpAnonymizationService
 {
-    /**
-     * Check if an IP address appears to be already anonymized
-     */
     public static function isAnonymized(string $ipAddress): bool
     {
-        // Check for subnet anonymization patterns
         if (str_ends_with($ipAddress, '.0') || str_ends_with($ipAddress, '::')) {
             return true;
         }
 
-        // Check for hash anonymization pattern
         if (str_starts_with($ipAddress, 'hash_')) {
             return true;
         }
 
-        // Check for full anonymization
         if ($ipAddress === '***') {
             return true;
         }
@@ -31,17 +25,12 @@ class IpAnonymizationService
         return false;
     }
 
-    /**
-     * Get anonymized IP address based on audit privacy configuration
-     * This method respects the global anonymization setting
-     */
     public static function getAnonymizedIpAddress(?string $ipAddress): ?string
     {
         if (! $ipAddress) {
             return null;
         }
 
-        // Check if IP anonymization is enabled globally
         if (! Config::get('audit.privacy.anonymize_ip_addresses', false)) {
             return $ipAddress;
         }
@@ -58,7 +47,6 @@ class IpAnonymizationService
             return null;
         }
 
-        // Use provided method or fall back to audit config
         $anonymizationMethod = $method ?? Config::get('audit.privacy.ip_anonymization_method', 'subnet');
 
         return match ($anonymizationMethod) {
@@ -119,10 +107,8 @@ class IpAnonymizationService
 
     private static function saltedHash(string $value): string
     {
-        // Use application key as salt for consistent hashing
         $salt = Config::get('app.key', 'audit-salt');
 
-        // Create a truncated hash for privacy while maintaining some uniqueness
         return 'hash_' . substr(hash('sha256', $salt . $value), 0, 12);
     }
 }

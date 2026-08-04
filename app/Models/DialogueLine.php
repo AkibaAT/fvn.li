@@ -46,22 +46,15 @@ class DialogueLine extends Model
         return $this->belongsTo(UniqueDialogueText::class, 'text_id');
     }
 
-    /**
-     * Get the text content from the referenced text record.
-     */
     public function getTextContentAttribute(): ?string
     {
         return $this->text?->text_content;
     }
 
-    /**
-     * Set text content by creating or finding the appropriate unique text.
-     */
     public function setTextContentAttribute(string $value): void
     {
         $textHash = md5($value);
 
-        // Find or create the unique text entry
         $text = UniqueDialogueText::firstOrCreate(
             ['text_hash' => $textHash],
             ['text_content' => $value]
@@ -106,9 +99,6 @@ class DialogueLine extends Model
             ->setBindings(array_merge($query->getBindings(), [$langConfig, $searchTerm, $langConfig]));
     }
 
-    /**
-     * Get the PostgreSQL language configuration name.
-     */
     protected function getLanguageConfig(?string $language = null): string
     {
         return match ($language) {
@@ -120,12 +110,8 @@ class DialogueLine extends Model
         };
     }
 
-    /**
-     * Get the tsvector column name for the given language.
-     */
     protected function getTsvectorColumnForLanguage(?string $language = null): string
     {
-        // Map ISO language code to database column
         $languageMap = [
             'jpn' => 'japanese',
             'spa' => 'spanish',
@@ -137,7 +123,6 @@ class DialogueLine extends Model
         if ($language && isset($languageMap[$language])) {
             $columnName = "search_vector_{$languageMap[$language]}";
 
-            // Check if this column actually exists
             $hasColumn = DB::selectOne(
                 "SELECT 1 FROM information_schema.columns
                  WHERE table_name = 'unique_dialogue_texts'

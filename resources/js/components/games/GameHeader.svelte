@@ -4,7 +4,7 @@
     import EditableGameName from '@/components/editor/EditableGameName.svelte';
     import GameCardUserSection from '@/components/GameCardUserSection.svelte';
     import PlatformLink from '@/components/game-card/PlatformLink.svelte';
-    import { Card } from '@/components/ui';
+    import { Badge, Card } from '@/components/ui';
     import { gameCoverAltText } from '@/utils/imageAltText';
 
     interface GameHeaderProps {
@@ -131,32 +131,28 @@
                     {/if}
 
                     {#if game.is_nsfw}
-                        <span class="rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800 dark:bg-red-900 dark:text-red-200">NSFW</span>
+                        <Badge tone="danger" size="sm">NSFW</Badge>
                     {/if}
                     {#if game.is_delisted}
-                        <span class="rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                            >Delisted</span
-                        >
+                        <Badge tone="warning" size="sm">Delisted</Badge>
                     {/if}
                     {#if game.is_on_sale}
-                        <span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        <Badge tone="primary" size="sm">
                             Sale{typeof game.discount_percentage === 'number' ? ` -${game.discount_percentage}%` : ''}
-                        </span>
+                        </Badge>
                     {/if}
                     {#if game.is_paid}
-                        <span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        <Badge tone="primary" size="sm">
                             {#if game.is_on_sale && game.formatted_current_price && game.formatted_original_price}
                                 <span class="mr-1 text-blue-500 line-through dark:text-blue-400">{game.formatted_original_price}</span>
                                 {game.formatted_current_price}
                             {:else}
                                 {game.formatted_current_price || 'Paid'}
                             {/if}
-                        </span>
+                        </Badge>
                     {/if}
                     {#if game.has_demo}
-                        <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200"
-                            >Demo</span
-                        >
+                        <Badge tone="success" size="sm">Demo</Badge>
                     {/if}
                 </div>
                 <div id="edit-controls-container" bind:this={editControlsContainer}></div>
@@ -191,7 +187,6 @@
             </div>
         </div>
     </div>
-    <!-- User Section (outside flex row, inside card) -->
     {#if isAuthenticated}
         <div class="mt-4">
             <GameCardUserSection

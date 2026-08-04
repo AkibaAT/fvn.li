@@ -52,9 +52,6 @@ class Rating extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Check if this is a user-submitted review (vs imported).
-     */
     public function isUserReview(): bool
     {
         return $this->user_id !== null;

@@ -38,7 +38,7 @@ export function formatRoutePreference(pref: RoutePreference): string {
     return `${pref.variable} = ${pref.value}`;
 }
 
-export function formatEdgeLabel(edge: RouteEdge): string | undefined {
+function formatEdgeLabel(edge: RouteEdge): string | undefined {
     const condition = edge.condition?.trim();
     const isElseCondition = condition?.startsWith('not (') ?? false;
     const conditionLabel = condition && condition !== 'True' ? (isElseCondition ? 'else' : `if ${condition}`) : null;

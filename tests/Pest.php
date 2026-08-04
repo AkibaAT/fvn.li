@@ -63,7 +63,6 @@ function useExternalPestBrowserServers(): void
 
 useExternalPestBrowserServers();
 
-// Use RefreshDatabase for Feature tests
 pest()->group('Feature')
     ->use(RefreshDatabase::class);
 

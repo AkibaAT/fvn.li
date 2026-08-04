@@ -34,13 +34,11 @@ class HomeController extends Controller
             ];
         });
 
-        // Get ignored game IDs for authenticated users
         $ignoredGameIds = [];
         if (Auth::check()) {
             $ignoredGameIds = Auth::user()->ignoredGames()->pluck('games.id')->toArray();
         }
 
-        // Use versioning for active invalidation, with a TTL as a backstop for old variants.
         $teaserVersion = HomePageCacheService::getTeaserVersion();
         $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
 
@@ -85,9 +83,7 @@ class HomeController extends Controller
 
         $games = $paginator->items();
 
-        // Load essential relationships for the frontend
         if ($paginator->count() > 0) {
-            // Load relationships to prevent N+1 queries
             $paginator->getCollection()->load([
                 'tags',
                 'sourceLanguage',
@@ -97,7 +93,6 @@ class HomeController extends Controller
 
             // Enhance models with data from loaded relationships only (no additional queries)
             foreach ($games as $game) {
-                // Set platform flags from the latest version relationship
                 if ($game->latestVersion) {
                     $game->is_windows = $game->latestVersion->is_windows ?? false;
                     $game->is_linux = $game->latestVersion->is_linux ?? false;
@@ -116,7 +111,6 @@ class HomeController extends Controller
                     $game->latest_version_published_at = null;
                 }
 
-                // Set supported languages using the relationship data (with underscore for frontend)
                 if ($game->latestVersion && $game->latestVersion->supportedLanguages) {
                     $game->supported_languages = $game->latestVersion->supportedLanguages
                         ->where('is_available', true)
@@ -133,14 +127,12 @@ class HomeController extends Controller
                     $game->supported_languages = collect();
                 }
 
-                // Set word counts from the latest version
                 if ($game->latestVersion) {
                     $englishStats = $game->latestVersion->languageStats
                         ->where('iso_code', 'eng')
                         ->first();
                     $game->english_word_count = $englishStats?->words;
 
-                    // Set primary word count and language label
                     $sourceLanguageId = $game->source_language_id ?? 'eng';
                     if ($sourceLanguageId !== 'eng') {
                         $primaryStats = $game->latestVersion->languageStats

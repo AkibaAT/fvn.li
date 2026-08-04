@@ -69,7 +69,7 @@ function createRouteChoice(
 ): VersionRouteMenuChoice {
     $choiceCondition ??= $condition;
     $effectiveCondition = $enclosingCondition && $choiceCondition && $choiceCondition !== 'True'
-        ? '(' . $enclosingCondition . ') and (' . $choiceCondition . ')'
+        ? '('.$enclosingCondition.') and ('.$choiceCondition.')'
         : ($enclosingCondition ?: $choiceCondition);
 
     return VersionRouteMenuChoice::create([
@@ -268,9 +268,9 @@ test('localized chapter select menus collapse to hub nodes instead of expanding 
     createRouteLabel($this->version, 'chapitreselec', 100);
 
     for ($i = 1; $i <= 12; $i++) {
-        $target = 'chapitre' . $i;
+        $target = 'chapitre'.$i;
         createRouteLabel($this->version, $target, 100 + $i);
-        createRouteChoice($this->version, 'chapitreselec', 'Chapitre ' . $i, 120, $target, 'routea');
+        createRouteChoice($this->version, 'chapitreselec', 'Chapitre '.$i, 120, $target, 'routea');
         createRouteEdge($this->version, 'chapitreselec', $target, 'menu_choice', 120, 'routea');
         createRouteEdge($this->version, 'chapitreselec', $target, 'jump', 121);
     }
@@ -430,7 +430,7 @@ test('conditioned menu choices do not borrow the enclosing branch else exit', fu
     createRouteVariableChange($this->version, 'scene', 'menu_choice:Orlando', 'dragonlove', 'Constant(value=1)', 21);
 
     createRouteEdge($this->version, 'scene', 'lunch', 'jump', 100, $branchCondition);
-    createRouteEdge($this->version, 'scene', 'scene:ending', 'return', 110, 'not ((' . $branchCondition . '))');
+    createRouteEdge($this->version, 'scene', 'scene:ending', 'return', 110, 'not (('.$branchCondition.'))');
 
     $graph = app(RouteGraphService::class)->computeGraph($this->version);
     $edges = collect($graph['edges']);
@@ -734,7 +734,7 @@ test('route graph endpoint only includes unreachable script nodes for admins and
     $url = route('browser-api.games.version.route-graph', [
         'game' => $this->game->slug,
         'version' => $this->version->id,
-    ]) . '?include_unreachable=1';
+    ]).'?include_unreachable=1';
 
     $this->getJson($url)
         ->assertOk()
@@ -1102,9 +1102,9 @@ test('function menu hubs inside expanded labels keep their targets reachable', f
 
     // A >10-choice chapter-select group in the same label renders as a hub.
     for ($i = 1; $i <= 12; $i++) {
-        $target = 'chapter' . $i;
+        $target = 'chapter'.$i;
         createRouteLabel($this->version, $target, 100 + $i);
-        createRouteChoice($this->version, 'daymenu', 'Chapter ' . $i, 50 + $i, $target, prompt: 'Chapter Select', menuLine: 50);
+        createRouteChoice($this->version, 'daymenu', 'Chapter '.$i, 50 + $i, $target, prompt: 'Chapter Select', menuLine: 50);
         createRouteEdge($this->version, 'daymenu', $target, 'menu_choice', 50 + $i);
     }
 
@@ -1117,9 +1117,9 @@ test('function menu hubs inside expanded labels keep their targets reachable', f
     expect($hubNode)->not->toBeNull();
 
     foreach (range(1, 12) as $i) {
-        $target = 'chapter' . $i;
+        $target = 'chapter'.$i;
         expect($nodesById->has($target))->toBeTrue()
-            ->and($edges->contains(fn (array $edge) => $edge['source'] === $hubNode['id'] && $edge['target'] === $target && $edge['edge_type'] === 'menu_choice' && ($edge['choice_text'] ?? null) === 'Chapter ' . $i))->toBeTrue();
+            ->and($edges->contains(fn (array $edge) => $edge['source'] === $hubNode['id'] && $edge['target'] === $target && $edge['edge_type'] === 'menu_choice' && ($edge['choice_text'] ?? null) === 'Chapter '.$i))->toBeTrue();
     }
 });
 
@@ -1128,7 +1128,6 @@ test('choice nodes report exactly as many outgoing edges as the graph contains',
     createRouteLabel($this->version, 'sidequest', 50);
     createRouteLabel($this->version, 'finale', 100);
 
-    // First menu: targetless choices with their own continuation edge, so they
     // do not sequence to the next menu.
     createRouteChoice($this->version, 'scene', 'Stay', 11, condition: 'True', prompt: 'Evening plans?', menuLine: 10);
     createRouteChoice($this->version, 'scene', 'Leave', 12, condition: 'True', prompt: 'Evening plans?', menuLine: 10);
@@ -1136,9 +1135,9 @@ test('choice nodes report exactly as many outgoing edges as the graph contains',
     createRouteVariableChange($this->version, 'scene', 'menu_choice:Leave', 'left', line: 12);
     createRouteEdge($this->version, 'scene', 'sidequest', 'jump', 15);
 
-    // Conditional second menu with a unique continuation past it — previously
-    // counted a conditional_menu_skip edge that is never emitted for choices
-    // that do not sequence to the next menu.
+    // Conditional second menu with a unique continuation past it must not
+    // count a conditional_menu_skip edge; none is emitted for choices that
+    // do not sequence to the next menu.
     createRouteChoice($this->version, 'scene', 'Opt A', 31, condition: 'True', prompt: 'And then?', menuLine: 30, enclosingCondition: 'flag == True');
     createRouteChoice($this->version, 'scene', 'Opt B', 32, condition: 'True', prompt: 'And then?', menuLine: 30, enclosingCondition: 'flag == True');
     createRouteVariableChange($this->version, 'scene', 'menu_choice:Opt A', 'opt_a', line: 31);

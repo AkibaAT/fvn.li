@@ -153,24 +153,21 @@ describe('GameObserver visibility tracking', function () {
 
 describe('GameObserver cache management', function () {
     test('clears cache when game is created', function () {
-        Cache::put('game_filters', 'test_data', 60);
+        Cache::put('react-game-filter-options', 'test_data', 60);
 
         Game::factory()->create();
 
-        // Cache should be cleared by observer
-        // Note: This test assumes GameFilterService::clearCache() clears specific cache keys
-        expect(true)->toBeTrue(); // Placeholder - actual cache clearing depends on implementation
+        expect(Cache::has('react-game-filter-options'))->toBeFalse();
     });
 
     test('clears cache when game is deleted', function () {
         $game = Game::factory()->create();
 
-        Cache::put('game_filters', 'test_data', 60);
+        Cache::put('react-game-filter-options', 'test_data', 60);
 
         $game->delete();
 
-        // Cache should be cleared by observer
-        expect(true)->toBeTrue(); // Placeholder
+        expect(Cache::has('react-game-filter-options'))->toBeFalse();
     });
 });
 

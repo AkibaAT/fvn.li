@@ -8,8 +8,6 @@ This command processes game screenshots by converting them to optimized WebP for
 display, and generating thumbnails. It helps improve website performance by reducing image file sizes while maintaining
 visual quality.
 
-**Key Features**: WebP conversion, quality optimization, batch processing, memory-efficient handling.
-
 ## Usage
 
 ```bash
@@ -109,36 +107,6 @@ The command performs several image optimizations:
 - **Color Optimization**: Maintains color accuracy
 - **Compression**: Reduces file size without visible quality loss
 
-## Performance Considerations
-
-<table>
-<tr>
-    <td>Factor</td>
-    <td>Impact</td>
-    <td>Mitigation</td>
-</tr>
-<tr>
-    <td>Memory Usage</td>
-    <td>High for large images</td>
-    <td>Process in batches</td>
-</tr>
-<tr>
-    <td>Processing Time</td>
-    <td>Varies by image count</td>
-    <td>Run during off-peak hours</td>
-</tr>
-<tr>
-    <td>Storage Space</td>
-    <td>Temporary increase during processing</td>
-    <td>Monitor disk space</td>
-</tr>
-<tr>
-    <td>Network Bandwidth</td>
-    <td>Downloads original images</td>
-    <td>Consider bandwidth limits</td>
-</tr>
-</table>
-
 ## Quality Settings
 
 Different quality settings provide different trade-offs:
@@ -160,15 +128,6 @@ Different quality settings provide different trade-offs:
 - **Use Case**: Maximum quality for detailed screenshots
 - **File Size**: Larger files
 - **Visual Quality**: Excellent for detailed viewing
-
-## Error Handling
-
-The command handles various error conditions:
-
-- **Download Failures**: Retry logic for network issues
-- **Invalid Images**: Skip corrupted or unsupported files
-- **Processing Errors**: Continue with remaining images
-- **Storage Issues**: Handle disk space and permission problems
 
 ## Output Formats
 

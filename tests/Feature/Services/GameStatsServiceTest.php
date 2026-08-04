@@ -5,21 +5,15 @@ declare(strict_types=1);
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Services\GameStatsDialoguePersister;
+use App\Services\GameStatsRouteGraphPersister;
 use App\Services\GameStatsService;
+use App\Services\RenpyStatsLocalExtractor;
 use App\Services\RenpyStatsSandboxClient;
 use App\Support\Stats\ArrayStatsPayload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
-
-function invokeGameStatsServiceMethod(GameStatsService $service, string $method, array $arguments = []): mixed
-{
-    $reflection = new ReflectionClass($service);
-    $methodReflection = $reflection->getMethod($method);
-    $methodReflection->setAccessible(true);
-
-    return $methodReflection->invokeArgs($service, $arguments);
-}
 
 it('stores a processed archive and removes the temporary source file', function () {
     Storage::fake();
@@ -62,9 +56,9 @@ it('persists route graph labels edges menu choices variables and variable change
         'route_graph_unreachable_data' => ['stale' => true],
     ])->save();
 
-    $service = app(GameStatsService::class);
+    $service = app(GameStatsRouteGraphPersister::class);
 
-    invokeGameStatsServiceMethod($service, 'saveRouteGraph', [$version, [
+    $service->save($version, new ArrayStatsPayload([
         'route_labels' => [
             [
                 'name' => 'start',
@@ -121,7 +115,7 @@ it('persists route graph labels edges menu choices variables and variable change
                 'condition_stack' => ['available'],
             ],
         ],
-    ]]);
+    ]));
 
     expect($version->fresh()->route_graph_data)->toBeNull()
         ->and($version->fresh()->route_graph_unreachable_data)->toBeNull()
@@ -133,23 +127,23 @@ it('persists route graph labels edges menu choices variables and variable change
 });
 
 it('normalizes ordinary text but strips excessive combining marks', function () {
-    $service = app(GameStatsService::class);
+    $service = app(GameStatsDialoguePersister::class);
 
     $ordinary = "Cafe\u{0301}";
     $zalgo = "a\u{0301}\u{0302}\u{0303}\u{0304}\u{0305}\u{0306}\u{0307}\u{0308}\u{0309}\u{030A}";
 
-    expect(invokeGameStatsServiceMethod($service, 'processText', [$ordinary]))->toBe("Caf\u{00E9}")
-        ->and(invokeGameStatsServiceMethod($service, 'isZalgo', [$ordinary]))->toBeFalse()
-        ->and(invokeGameStatsServiceMethod($service, 'isZalgo', [$zalgo]))->toBeTrue()
-        ->and(invokeGameStatsServiceMethod($service, 'processText', [$zalgo]))->toBe('a');
+    expect($service->processText($ordinary))->toBe("Caf\u{00E9}")
+        ->and($service->isZalgo($ordinary))->toBeFalse()
+        ->and($service->isZalgo($zalgo))->toBeTrue()
+        ->and($service->processText($zalgo))->toBe('a');
 });
 
 it('bounds zalgo detection memory for very long combining mark text', function () {
-    $service = app(GameStatsService::class);
+    $service = app(GameStatsDialoguePersister::class);
     $zalgo = 'a' . str_repeat("\u{0301}", 100000);
 
     $before = memory_get_usage(true);
-    $processed = invokeGameStatsServiceMethod($service, 'processText', [$zalgo]);
+    $processed = $service->processText($zalgo);
     $after = memory_get_usage(true);
 
     expect($processed)->toBe('a')
@@ -157,24 +151,24 @@ it('bounds zalgo detection memory for very long combining mark text', function (
 });
 
 it('truncates oversized ordinary dialogue text before storage processing', function () {
-    $service = app(GameStatsService::class);
+    $service = app(GameStatsDialoguePersister::class);
     $text = str_repeat('a', 70000);
 
-    $processed = invokeGameStatsServiceMethod($service, 'processText', [$text]);
+    $processed = $service->processText($text);
 
     expect(strlen($processed))->toBe(65536);
 });
 
 it('creates new characters with all relevant display languages and preserves existing names', function () {
     $game = Game::factory()->create();
-    $service = app(GameStatsService::class);
+    $service = app(GameStatsDialoguePersister::class);
 
-    $newCharacter = invokeGameStatsServiceMethod($service, 'createCharacter', [
+    $newCharacter = $service->createCharacter(
         $game->id,
         'akira',
         ['jpn'],
-        'deu',
-    ]);
+        'deu'
+    );
 
     expect($newCharacter)->toBeInstanceOf(Character::class)
         ->and($newCharacter->display_names)->toMatchArray([
@@ -185,12 +179,12 @@ it('creates new characters with all relevant display languages and preserves exi
 
     $newCharacter->forceFill(['display_names' => ['eng' => 'Akira']])->save();
 
-    $existing = invokeGameStatsServiceMethod($service, 'createCharacter', [
+    $existing = $service->createCharacter(
         $game->id,
         'akira',
         ['jpn'],
-        'eng',
-    ]);
+        'eng'
+    );
 
     expect($existing->id)->toBe($newCharacter->id)
         ->and($existing->display_names)->toMatchArray([
@@ -200,7 +194,7 @@ it('creates new characters with all relevant display languages and preserves exi
 });
 
 it('detects archive formats from file signatures and extracts zip archives', function () {
-    $service = app(GameStatsService::class);
+    $service = app(RenpyStatsLocalExtractor::class);
     $workDir = storage_path('framework/testing/game-stats-' . uniqid());
     File::makeDirectory($workDir, 0755, true);
 
@@ -214,16 +208,16 @@ it('detects archive formats from file signatures and extracts zip archives', fun
         $extractPath = "{$workDir}/extract";
         File::makeDirectory($extractPath, 0755, true);
 
-        expect(invokeGameStatsServiceMethod($service, 'detectArchiveFormat', [$zipPath]))->toBe('zip');
+        expect($service->detectArchiveFormat($zipPath))->toBe('zip');
 
-        invokeGameStatsServiceMethod($service, 'extractArchive', [$zipPath, $extractPath]);
+        $service->extractArchive($zipPath, $extractPath);
 
         expect(File::exists("{$extractPath}/game/script.rpy"))->toBeTrue()
-            ->and(invokeGameStatsServiceMethod($service, 'findGameDirectory', [$extractPath]))->toBe($extractPath);
+            ->and($service->findGameDirectory($extractPath))->toBe($extractPath);
 
         $unknownPath = "{$workDir}/unknown.dat";
         file_put_contents($unknownPath, 'not-an-archive');
-        expect(invokeGameStatsServiceMethod($service, 'detectArchiveFormat', [$unknownPath]))->toBe('dat');
+        expect($service->detectArchiveFormat($unknownPath))->toBe('dat');
     } finally {
         File::deleteDirectory($workDir);
     }
@@ -328,7 +322,7 @@ it('local trusted archive extraction ignores game-provided launchers and uses th
 });
 
 it('extracts game stats with a configured sdk and reports invalid sdk output', function () {
-    $service = app(GameStatsService::class);
+    $service = app(RenpyStatsLocalExtractor::class);
     $workDir = storage_path('framework/testing/game-stats-sdk-' . uniqid());
     $sdkDir = storage_path('framework/testing/renpy-sdk-' . uniqid());
     File::makeDirectory("{$workDir}/game", 0755, true);
@@ -339,7 +333,7 @@ it('extracts game stats with a configured sdk and reports invalid sdk output', f
         file_put_contents($renpy, "#!/bin/sh\ncat > stats.ndjson <<'NDJSON'\n{\"type\":\"meta\",\"schema\":\"fvn.renpy_stats.v1\"}\n{\"type\":\"languages\",\"key\":\"eng\",\"entry\":{\"blocks\":3,\"words\":4}}\nNDJSON\n");
         chmod($renpy, 0755);
 
-        expect(invokeGameStatsServiceMethod($service, 'extractStatsWithSdk', [$workDir, $sdkDir])?->languages())->toBe([
+        expect($service->extractStatsWithSdk($workDir, $sdkDir)?->languages())->toBe([
             'eng' => [
                 'blocks' => 3,
                 'words' => 4,
@@ -350,7 +344,7 @@ it('extracts game stats with a configured sdk and reports invalid sdk output', f
         File::delete("{$workDir}/stats.ndjson");
         file_put_contents($renpy, "#!/bin/sh\ncat > stats.ndjson <<'NDJSON'\n{\"type\":\"meta\",\"schema\":\"fvn.renpy_stats.v1\"}\nNDJSON\n");
 
-        invokeGameStatsServiceMethod($service, 'extractStatsWithSdk', [$workDir, $sdkDir]);
+        $service->extractStatsWithSdk($workDir, $sdkDir);
     } finally {
         File::deleteDirectory($workDir);
         File::deleteDirectory($sdkDir);

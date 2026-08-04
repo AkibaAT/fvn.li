@@ -10,14 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 class RatingCalculationService
 {
-    /**
-     * Calculate and update rating totals for a specific game
-     */
     public function updateGameRating(Game $game): void
     {
         $ratingData = $this->calculateGameRating($game->id);
 
-        // Use updateQuietly to avoid triggering observers (prevents infinite loop)
         $game->updateQuietly([
             'rating_score' => $ratingData['average_rating'],
             'rating_count' => $ratingData['total_count'],
@@ -32,9 +28,6 @@ class RatingCalculationService
         ]);
     }
 
-    /**
-     * Calculate rating statistics for a specific game
-     */
     public function calculateGameRating(int $gameId): array
     {
         $ratingStats = Rating::where('game_id', $gameId)->where('is_visible', true)
@@ -67,7 +60,6 @@ class RatingCalculationService
 
                     if ($ratingData['total_count'] > 0) {
                         // Game has ratings - update with calculated values
-                        // Use updateQuietly to avoid triggering observers during bulk recalculation
                         $game->updateQuietly([
                             'rating_score' => $ratingData['average_rating'],
                             'rating_count' => $ratingData['total_count'],
@@ -76,7 +68,6 @@ class RatingCalculationService
                         $updatedCount++;
                     } else {
                         // Game has no ratings - reset to null/0
-                        // Use updateQuietly to avoid triggering observers during bulk recalculation
                         $game->updateQuietly([
                             'rating_score' => null,
                             'rating_count' => 0,

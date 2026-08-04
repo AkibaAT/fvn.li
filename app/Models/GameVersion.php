@@ -59,7 +59,6 @@ class GameVersion extends Model
         static::saving(function (GameVersion $version) {
             // When setting a version as latest, ensure no other versions are marked as latest
             if ($version->is_latest) {
-                // Mark other versions as not latest
                 $version->game->gameVersions()
                     ->where('id', '!=', $version->id)
                     ->update(['is_latest' => false]);
@@ -102,9 +101,6 @@ class GameVersion extends Model
         return $this->hasMany(VersionLanguageStats::class);
     }
 
-    /**
-     * Get dialogue lines for a specific language.
-     */
     public function getDialogueLinesForLanguage(
         string $isoCode,
         ?string $character = null,
@@ -126,9 +122,6 @@ class GameVersion extends Model
         return $query->get();
     }
 
-    /**
-     * Get all dialogue lines for this version.
-     */
     public function dialogueLines(): HasMany
     {
         return $this->hasMany(DialogueLine::class);
@@ -198,7 +191,6 @@ class GameVersion extends Model
         // PostgreSQL bigint maximum value
         $maxBigInt = 9223372036854775807;
 
-        // First, delete any existing file stats for this version
         $this->fileCategories()->delete();
 
         foreach ($stats as $category => $categoryData) {
@@ -209,12 +201,10 @@ class GameVersion extends Model
             $summary = $stats['summary'];
             $totalCount = $summary["total_{$category}"] ?? 0;
 
-            // Calculate total size for category, capped at bigint max
             $totalSize = 0;
             foreach ($categoryData as $extension => $data) {
                 $size = $data['total_size'] ?? 0;
 
-                // Check for corrupted/overflow values from Ren'Py
                 if ($size > $maxBigInt || $size < 0) {
                     Log::warning('File size overflow detected in stats', [
                         'game_version_id' => $this->id,
@@ -244,14 +234,12 @@ class GameVersion extends Model
                 $totalSize = $maxBigInt;
             }
 
-            // Create category record
             $categoryModel = $this->fileCategories()->create([
                 'category' => $category,
                 'total_count' => $totalCount,
                 'total_size' => $totalSize,
             ]);
 
-            // Create file type records
             foreach ($categoryData as $extension => $data) {
                 $size = $data['total_size'] ?? 0;
                 if ($size > $maxBigInt || $size < 0) {
@@ -302,9 +290,6 @@ class GameVersion extends Model
         return $this->hasMany(VersionRoutePath::class);
     }
 
-    /**
-     * Check if a language is available for this version
-     */
     public function isLanguageAvailable(string $isoCode): bool
     {
         $support = $this->supportedLanguages()
@@ -314,9 +299,6 @@ class GameVersion extends Model
         return $support && $support->is_available;
     }
 
-    /**
-     * Set the availability of a language for this version
-     */
     public function setLanguageAvailability(string $isoCode, bool $isAvailable): bool
     {
         $support = $this->supportedLanguages()
@@ -332,9 +314,6 @@ class GameVersion extends Model
         return $support->save();
     }
 
-    /**
-     * Get all available languages
-     */
     public function getAvailableLanguages(): Collection
     {
         return $this->supportedLanguages()
@@ -353,12 +332,10 @@ class GameVersion extends Model
      */
     public function copyLanguageAvailabilityFrom(GameVersion $sourceVersion): void
     {
-        // Get all language availability settings from source version
         $sourceSettings = $sourceVersion->supportedLanguages()
             ->select(['iso_code', 'is_available'])
             ->get();
 
-        // Apply to current version where the language exists
         foreach ($sourceSettings as $sourceSetting) {
             $targetLanguage = $this->supportedLanguages()
                 ->where('iso_code', $sourceSetting->iso_code)

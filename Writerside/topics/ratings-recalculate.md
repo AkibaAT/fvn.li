@@ -161,7 +161,7 @@ For each game:
 Updates the game record with calculated values:
 
 ```sql
-UPDATE games 
+UPDATE games
 SET rating_average = ?,
     rating_count = ?,
     rating_distribution = ?,
@@ -223,22 +223,22 @@ Verify recalculation worked:
 
 ```sql
 -- Check a specific game
-SELECT 
+SELECT
     id,
     title,
     rating_average,
     rating_count,
     rating_distribution
-FROM games 
+FROM games
 WHERE id = 123;
 
 -- Compare with actual ratings
-SELECT 
+SELECT
     COUNT(*) as count,
     AVG(rating) as average,
     rating,
     COUNT(*) as distribution
-FROM ratings 
+FROM ratings
 WHERE game_id = 123
 GROUP BY rating;
 ```
@@ -320,15 +320,6 @@ php artisan cache:clear
 3. Check for long-running queries
 4. Optimize database configuration
 
-## Best Practices
-
-1. **After Imports**: Always run after bulk rating imports
-2. **Regular Schedule**: Run monthly for data integrity
-3. **Backup First**: Backup database before large recalculations
-4. **Monitor Progress**: Watch output for errors
-5. **Verify Results**: Spot-check results after completion
-6. **Off-Peak Hours**: Run during low-traffic periods
-
 ## Related Commands
 
 - [ratings:import](ratings-import.md) - Import latest ratings from itch.io
@@ -340,4 +331,3 @@ php artisan cache:clear
 - [Ratings Commands Overview](ratings-commands-overview.md)
 - Game model rating fields
 - Rating calculation algorithms
-

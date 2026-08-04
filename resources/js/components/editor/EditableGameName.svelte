@@ -31,7 +31,6 @@
     let isSaving = $state(false);
     let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-    // Update display name when parent name changes
     $effect(() => {
         displayName = name;
         editName = name;

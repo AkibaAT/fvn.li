@@ -30,6 +30,8 @@ class ReprocessCurrentGameArchive extends Command
         GameStatsService $statsService,
         GameVersionArchiveRepositoryService $repository
     ): int {
+        $statsService->setProgressReporter(fn (string $message) => $this->line($message));
+
         if (! $this->validateGameSelectionOptions()) {
             return self::FAILURE;
         }

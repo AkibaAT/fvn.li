@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Services\AdditionRequestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
-// Ensure a clean database state per test so user IDs are always dynamic and sequences are in sync
 uses(RefreshDatabase::class);
 
 test('validate url accepts any supported http url', function () {
@@ -91,7 +90,6 @@ test('submit requests filters out existing visible games', function () {
     $user = User::factory()->create();
     $service = new AdditionRequestService;
 
-    // Create a visible game with a specific URL
     $existingUrl = 'https://existing-dev.itch.io/existing-game';
     Game::factory()->create([
         'url' => ['itch_io' => $existingUrl],
@@ -112,7 +110,6 @@ test('submit requests filters out existing visible games', function () {
 });
 
 test('game already exists checks various URL formats', function () {
-    // Create a game with a specific URL
     Game::factory()->create([
         'url' => ['itch_io' => 'https://developer.itch.io/game-name'],
         'is_visible' => true,
@@ -129,7 +126,6 @@ test('game already exists checks various URL formats', function () {
 });
 
 test('game already exists only checks visible games', function () {
-    // Create an invisible game
     Game::factory()->create([
         'url' => ['itch_io' => 'https://developer.itch.io/hidden-game'],
         'is_visible' => false,
@@ -143,7 +139,6 @@ test('get user requests filters by status', function () {
     $user = User::factory()->create();
     $service = new AdditionRequestService;
 
-    // Create requests with different statuses
     $pendingRequest = AdditionRequest::factory()->create();
     $approvedRequest = AdditionRequest::factory()->approved()->create();
     $rejectedRequest = AdditionRequest::factory()->rejected()->create();
@@ -164,7 +159,6 @@ test('get user requests filters by status', function () {
 test('get statistics returns correct counts', function () {
     $service = new AdditionRequestService;
 
-    // Create requests with different statuses
     AdditionRequest::factory()->count(2)->create();
     AdditionRequest::factory()->approved()->create();
     AdditionRequest::factory()->rejected()->create();

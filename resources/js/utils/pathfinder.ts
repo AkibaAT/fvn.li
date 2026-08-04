@@ -16,7 +16,7 @@ interface PreferredPathState {
     path: RoutePath;
 }
 
-export function buildAdjacency(edges: RouteEdge[]): AdjacencyList {
+function buildAdjacency(edges: RouteEdge[]): AdjacencyList {
     const adjacency = new Map<string, Array<{ target: string; edge: RouteEdge }>>();
 
     for (const edge of edges) {
@@ -35,7 +35,7 @@ export function findPath(startNodeId: string, targetNodeId: string, edges: Route
     return findShortestPath(startNodeId, targetNodeId, edges);
 }
 
-export function findShortestPath(startNodeId: string, targetNodeId: string, edges: RouteEdge[]): RoutePath | null {
+function findShortestPath(startNodeId: string, targetNodeId: string, edges: RouteEdge[]): RoutePath | null {
     const adjacency = buildAdjacency(edges);
     const parent = new Map<string, { nodeId: string; edge: RouteEdge } | null>([[startNodeId, null]]);
     const queue: string[] = [startNodeId];

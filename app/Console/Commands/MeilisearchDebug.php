@@ -78,10 +78,10 @@ class MeilisearchDebug extends Command
             $stats = $index->stats();
 
             $this->line("   Total documents: {$stats['numberOfDocuments']}");
-            $this->line('   Is indexing: ' . ($stats['isIndexing'] ? 'Yes' : 'No'));
+            $this->line('   Is indexing: '.($stats['isIndexing'] ? 'Yes' : 'No'));
 
             if ($stats['numberOfDocuments'] === 0) {
-                $this->warn('   Warning: Index is empty!');
+                $this->warn('Warning: Index is empty.');
             } else {
                 $this->info('   Success: Index has documents');
             }
@@ -101,19 +101,19 @@ class MeilisearchDebug extends Command
 
             $this->line('   Filterable Attributes:');
             foreach ($settings['filterableAttributes'] ?? [] as $attr) {
-                $this->line("     • {$attr}");
+                $this->line("     - {$attr}");
             }
 
             $this->newLine();
             $this->line('   Sortable Attributes:');
             foreach ($settings['sortableAttributes'] ?? [] as $attr) {
-                $this->line("     • {$attr}");
+                $this->line("     - {$attr}");
             }
 
             $this->newLine();
             $this->line('   Searchable Attributes:');
             foreach ($settings['searchableAttributes'] ?? [] as $attr) {
-                $this->line("     • {$attr}");
+                $this->line("     - {$attr}");
             }
 
             $this->info('   Success: Settings retrieved');
@@ -130,7 +130,6 @@ class MeilisearchDebug extends Command
             $client = app(Client::class);
             $index = $client->index('games');
 
-            // Get first 3 documents
             $results = $index->search('', ['limit' => 3]);
             $hits = $results->getHits();
 
@@ -141,12 +140,12 @@ class MeilisearchDebug extends Command
             }
 
             foreach ($hits as $i => $doc) {
-                $this->line('   Document ' . ($i + 1) . ':');
+                $this->line('   Document '.($i + 1).':');
                 $this->line("     ID: {$doc['id']}");
                 $this->line("     Name: {$doc['name']}");
-                $this->line('     Is Visible: ' . json_encode($doc['is_visible']));
+                $this->line('     Is Visible: '.json_encode($doc['is_visible']));
                 $this->line("     Status: {$doc['status']}");
-                $this->line('     First Visible At: ' . ($doc['first_visible_at'] ?? 'null'));
+                $this->line('     First Visible At: '.($doc['first_visible_at'] ?? 'null'));
                 $this->newLine();
             }
 
@@ -169,7 +168,7 @@ class MeilisearchDebug extends Command
 
             if ($scoutResults->count() > 0) {
                 foreach ($scoutResults as $game) {
-                    $this->line("     • {$game->name} (ID: {$game->id})");
+                    $this->line("     - {$game->name} (ID: {$game->id})");
                 }
             }
 
@@ -185,10 +184,10 @@ class MeilisearchDebug extends Command
 
             if ($filteredResults->count() > 0) {
                 foreach ($filteredResults as $game) {
-                    $this->line("     • {$game->name} (ID: {$game->id})");
+                    $this->line("     - {$game->name} (ID: {$game->id})");
                 }
             } else {
-                $this->warn('     Warning: No results with is_visible=true filter!');
+                $this->warn('Warning: No results with is_visible=true filter.');
             }
 
             $this->newLine();
@@ -203,15 +202,15 @@ class MeilisearchDebug extends Command
             ]);
 
             $this->line("     Total hits: {$directResults->getEstimatedTotalHits()}");
-            $this->line('     Returned: ' . count($directResults->getHits()));
+            $this->line('     Returned: '.count($directResults->getHits()));
 
             $hits = $directResults->getHits();
             if (! empty($hits)) {
                 foreach ($hits as $hit) {
-                    $this->line("     • {$hit['name']} (ID: {$hit['id']})");
+                    $this->line("     - {$hit['name']} (ID: {$hit['id']})");
                 }
             } else {
-                $this->warn('     Warning: No results from direct API call!');
+                $this->warn('Warning: No results from direct API call.');
             }
 
             $this->info('   Success: Search test completed');
@@ -254,10 +253,10 @@ class MeilisearchDebug extends Command
 
             $this->newLine();
             if ($dbVisible !== $visibleInIndex->getEstimatedTotalHits()) {
-                $this->warn("   Warning: Mismatch! Database has {$dbVisible} visible games but index has {$visibleInIndex->getEstimatedTotalHits()}");
+                $this->warn("Warning: Database has {$dbVisible} visible games but index has {$visibleInIndex->getEstimatedTotalHits()}");
                 $this->line('   Consider running: php artisan meilisearch:setup --force');
             } else {
-                $this->info('   Success: Counts match!');
+                $this->info('Counts match.');
             }
         } catch (Exception $e) {
             $this->error("   Error: Comparison failed: {$e->getMessage()}");

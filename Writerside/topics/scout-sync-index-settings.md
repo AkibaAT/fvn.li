@@ -304,14 +304,6 @@ php artisan tinker
 3. Check network connectivity
 4. Restart Meilisearch: `ddev restart`
 
-## Best Practices
-
-1. **After Config Changes**: Always run after modifying search configuration
-2. **Version Control**: Track configuration changes in git
-3. **Test Thoroughly**: Verify filters and sorting work after sync
-4. **Document Changes**: Note what settings were changed and why
-5. **Staging First**: Test on staging before production
-
 ## Common Scenarios
 
 ### Adding a New Filterable Field
@@ -343,4 +335,3 @@ php artisan tinker
 - [Meilisearch Commands Overview](meilisearch-commands-overview.md)
 - [Laravel Scout Documentation](https://laravel.com/docs/scout)
 - [Meilisearch Settings Documentation](https://www.meilisearch.com/docs/reference/api/settings)
-

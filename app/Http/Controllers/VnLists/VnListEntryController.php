@@ -14,7 +14,6 @@ use App\Models\VnListEntry;
 use App\Services\VnListCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class VnListEntryController extends Controller
@@ -40,7 +39,6 @@ class VnListEntryController extends Controller
             'private_notes' => $request->private_notes,
         ]);
 
-        // Clear cache if this is a public list
         if ($entry->list->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -71,13 +69,11 @@ class VnListEntryController extends Controller
             ], 422);
         }
 
-        // Check if either list is public before moving
         $sourceIsPublic = $entry->list->is_public;
         $targetIsPublic = $targetList->is_public;
 
         $entry->update(['vn_list_id' => $targetList->id]);
 
-        // Clear cache if either list is public
         if ($sourceIsPublic || $targetIsPublic) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -93,11 +89,9 @@ class VnListEntryController extends Controller
     {
         $this->authorize('update', $entry->list);
 
-        // Check if this is a public list before deleting
         $isPublic = $entry->list->is_public;
         $entry->delete();
 
-        // Clear cache if this was a public list
         if ($isPublic) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -112,12 +106,10 @@ class VnListEntryController extends Controller
     {
         $this->authorize('update', $vnList);
 
-        // Get all valid entry IDs for this list in one query for security check
         $validEntryIds = VnListEntry::where('vn_list_id', $vnList->id)
             ->pluck('id')
             ->toArray();
 
-        // Filter out any invalid entry IDs
         $entryIds = array_intersect($request->entry_ids, $validEntryIds);
 
         if (count($entryIds) !== count($request->entry_ids)) {
@@ -127,7 +119,6 @@ class VnListEntryController extends Controller
             ], 422);
         }
 
-        // Use a single query to update all entries at once
         $cases = [];
         $ids = [];
         foreach ($entryIds as $index => $entryId) {
@@ -147,7 +138,6 @@ class VnListEntryController extends Controller
             ");
         }
 
-        // Clear cache if this is a public list
         if ($vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }

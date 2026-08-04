@@ -12,9 +12,6 @@ use Illuminate\Support\Facades\Auth;
 
 class PushSubscriptionController extends Controller
 {
-    /**
-     * Store a new push subscription
-     */
     public function store(Request $request): JsonResponse
     {
         $request->validate([
@@ -31,7 +28,6 @@ class PushSubscriptionController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        // Check if we already have a subscription for this endpoint
         $existingSubscription = PushSubscription::where('endpoint', $request->input('subscription.endpoint'))->first();
 
         if ($existingSubscription) {
@@ -57,7 +53,6 @@ class PushSubscriptionController extends Controller
             ]);
         }
 
-        // Create new subscription if none exists
         $subscription = PushSubscription::updateOrCreate(
             [
                 'endpoint' => $request->input('subscription.endpoint'),
@@ -91,7 +86,6 @@ class PushSubscriptionController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        // Check if subscription exists for this user
         $exists = PushSubscription::where('user_id', $user->id)
             ->where('endpoint', $request->input('endpoint'))
             ->exists();
@@ -99,9 +93,6 @@ class PushSubscriptionController extends Controller
         return response()->json(['exists' => $exists]);
     }
 
-    /**
-     * Delete a push subscription
-     */
     public function destroy(Request $request): JsonResponse
     {
         $request->validate([
@@ -115,7 +106,6 @@ class PushSubscriptionController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        // Find and delete the subscription
         $deleted = PushSubscription::where('user_id', $user->id)
             ->where('endpoint', $request->input('subscription.endpoint'))
             ->delete();

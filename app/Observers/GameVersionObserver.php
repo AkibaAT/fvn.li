@@ -12,13 +12,8 @@ use Illuminate\Support\Facades\Log;
 
 class GameVersionObserver
 {
-    /**
-     * Handle the GameVersion "saved" event.
-     * Reindex dialogue texts when a version becomes the latest.
-     */
     public function saved(GameVersion $gameVersion): void
     {
-        // Check if is_latest changed to true
         $wasLatest = $gameVersion->getOriginal('is_latest');
         $isLatest = $gameVersion->is_latest;
 

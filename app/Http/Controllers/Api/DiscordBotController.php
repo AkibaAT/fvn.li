@@ -63,7 +63,6 @@ class DiscordBotController extends Controller
         $url = $request->input('url');
         $normalizedUrl = $this->normalizeUrl($url);
 
-        // Try exact match first
         $game = Game::query()
             ->where('is_visible', true)
             ->where(function ($query) use ($url, $normalizedUrl) {
@@ -190,7 +189,6 @@ class DiscordBotController extends Controller
                 })
                 ->first();
 
-            // Try slug match if no URL match
             if (! $game && $slug) {
                 $game = Game::query()
                     ->where('is_visible', true)

@@ -175,7 +175,9 @@ class DiagnosticLogManager extends LogManager
             return is_object($this->app)
                 && method_exists($this->app, 'runningUnitTests')
                 && $this->app->runningUnitTests();
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+
             return false;
         }
     }
@@ -186,8 +188,8 @@ class DiagnosticLogManager extends LogManager
             if (is_object($this->app) && method_exists($this->app, 'storagePath')) {
                 return $this->app->storagePath('logs/laravel.log');
             }
-        } catch (Throwable) {
-            //
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
         }
 
         return dirname(__DIR__, 3) . '/storage/logs/laravel.log';

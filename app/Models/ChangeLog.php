@@ -113,9 +113,6 @@ class ChangeLog extends Model
         return $export;
     }
 
-    /**
-     * Delete user's audit data for GDPR compliance (Right to Erasure - Article 17)
-     */
     public static function deleteUserData(int $userId): int
     {
         return self::byUser($userId)->delete();
@@ -134,10 +131,8 @@ class ChangeLog extends Model
             return 0;
         }
 
-        // Update logs to remove user identification while preserving system audit integrity.
         $systemUserId = SystemAuditUser::id();
 
-        // Use a safer approach with parameter binding
         DB::table('change_logs')
             ->whereIn('id', $logs->pluck('id'))
             ->update([
@@ -157,9 +152,6 @@ class ChangeLog extends Model
         return $count;
     }
 
-    /**
-     * Get audit logs that contain personal data (for privacy impact assessments)
-     */
     public static function getPersonalDataLogs()
     {
         return self::query()
@@ -171,9 +163,6 @@ class ChangeLog extends Model
             });
     }
 
-    /**
-     * Get logs for sensitive models (for compliance reporting)
-     */
     public static function getSensitiveModelLogs()
     {
         $sensitiveModels = [];
@@ -192,17 +181,11 @@ class ChangeLog extends Model
         return self::whereIn('entity_type', $sensitiveModels);
     }
 
-    /**
-     * Get the user who performed the action
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the entity that was changed (polymorphic relationship)
-     */
     public function entity()
     {
         return $this->morphTo('entity', 'entity_type', 'entity_id');
@@ -317,9 +300,6 @@ class ChangeLog extends Model
             ->orderBy('timestamp');
     }
 
-    /**
-     * Get a human-readable description of the change
-     */
     public function getDescriptionAttribute(): string
     {
         $entityName = $this->entity_type;

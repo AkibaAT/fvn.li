@@ -51,18 +51,16 @@ class FlareSolverrClient
         ?string $sessionId = null
     ): array {
         $payload = [
-            'cmd' => 'request.' . strtolower($method),
+            'cmd' => 'request.'.strtolower($method),
             'url' => $url,
             'maxTimeout' => $this->maxTimeout,
         ];
 
-        // Use session if available and requested
         $resolvedSessionId = $sessionId ?? $this->sessionId;
         if ($useSession && $resolvedSessionId !== null) {
             $payload['session'] = $resolvedSessionId;
         }
 
-        // Add cookies if provided
         if ($cookieJar !== null) {
             $cookies = [];
             foreach ($cookieJar->toArray() as $cookie) {
@@ -76,7 +74,6 @@ class FlareSolverrClient
             }
         }
 
-        // Add POST data for POST requests (required by FlareSolverr even if empty)
         if ($method === 'POST') {
             $payload['postData'] = ! empty($postData) ? http_build_query($postData) : '';
         }
@@ -88,7 +85,7 @@ class FlareSolverrClient
         ]);
 
         try {
-            $response = $this->client->post($this->baseUrl . '/v1', [
+            $response = $this->client->post($this->baseUrl.'/v1', [
                 'json' => $payload,
                 'headers' => [
                     'Content-Type' => 'application/json',
@@ -100,7 +97,6 @@ class FlareSolverrClient
             if (! isset($data['status']) || $data['status'] !== 'ok') {
                 $message = $data['message'] ?? 'Unknown error';
 
-                // Check for CAPTCHA-related errors
                 if (stripos($message, 'captcha') !== false || stripos($message, 'challenge') !== false) {
                     Log::error('FlareSolverr encountered a CAPTCHA or unsolvable challenge', [
                         'url' => $url,
@@ -116,7 +112,6 @@ class FlareSolverrClient
 
             $solution = $data['solution'] ?? [];
 
-            // Check if the response contains a CAPTCHA page
             $responseBody = $solution['response'] ?? '';
             if ($this->containsCaptcha($responseBody)) {
                 Log::error('FlareSolverr returned a page with CAPTCHA', [
@@ -127,7 +122,6 @@ class FlareSolverrClient
                 throw new Exception('FlareSolverr encountered an unsolvable CAPTCHA. Manual intervention required.');
             }
 
-            // Update cookie jar with new cookies if provided
             if ($cookieJar !== null && isset($solution['cookies'])) {
                 foreach ($solution['cookies'] as $cookieData) {
                     $cookie = new SetCookie([
@@ -188,7 +182,7 @@ class FlareSolverrClient
                 $payload['session'] = $sessionId;
             }
 
-            $response = $this->client->post($this->baseUrl . '/v1', [
+            $response = $this->client->post($this->baseUrl.'/v1', [
                 'json' => $payload,
             ]);
 
@@ -216,7 +210,7 @@ class FlareSolverrClient
     public function listSessions(): array
     {
         try {
-            $response = $this->client->post($this->baseUrl . '/v1', [
+            $response = $this->client->post($this->baseUrl.'/v1', [
                 'json' => [
                     'cmd' => 'sessions.list',
                 ],
@@ -247,7 +241,6 @@ class FlareSolverrClient
      */
     public function destroySession(string $sessionId): void
     {
-        // Check if session exists before trying to destroy it
         $sessions = $this->listSessions();
         if (! in_array($sessionId, $sessions)) {
             Log::debug('FlareSolverr session already destroyed or expired', [
@@ -258,14 +251,13 @@ class FlareSolverrClient
         }
 
         try {
-            $this->client->post($this->baseUrl . '/v1', [
+            $this->client->post($this->baseUrl.'/v1', [
                 'json' => [
                     'cmd' => 'sessions.destroy',
                     'session' => $sessionId,
                 ],
             ]);
         } catch (Exception $e) {
-            // Log as warning since session cleanup is not critical
             Log::warning('Failed to destroy FlareSolverr session', [
                 'session_id' => $sessionId,
                 'error' => $e->getMessage(),
@@ -274,25 +266,21 @@ class FlareSolverrClient
         }
     }
 
-    /**
-     * Check if FlareSolverr is available
-     */
     public function isAvailable(): bool
     {
         try {
-            $response = $this->client->get($this->baseUrl . '/health', [
+            $response = $this->client->get($this->baseUrl.'/health', [
                 'timeout' => 5,
             ]);
 
             return $response->getStatusCode() === 200;
-        } catch (Exception) {
+        } catch (Exception $exception) {
+            Log::debug('FlareSolverr health check failed', ['error' => $exception->getMessage()]);
+
             return false;
         }
     }
 
-    /**
-     * Get or create a session ID for this client instance
-     */
     public function getSessionId(): ?string
     {
         if ($this->sessionId === null) {

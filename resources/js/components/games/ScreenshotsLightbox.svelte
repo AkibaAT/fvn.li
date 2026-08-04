@@ -87,7 +87,6 @@
     <div class="bg-opacity-95 fixed inset-0 z-50 flex flex-col bg-black">
         <Button type="button" variant="ghost" tone="neutral" class="absolute inset-0" ariaLabel="Close lightbox" onclick={onClose}></Button>
 
-        <!-- Top bar -->
         <div class="relative z-10 flex flex-shrink-0 items-center justify-between p-2">
             <div class="text-sm text-white">{index + 1} / {screenshots.length}</div>
             <Button

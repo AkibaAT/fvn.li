@@ -61,20 +61,16 @@ class ProcessFeed extends Command
      */
     private function executeFeedProcessing(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing
         Config::set('scout.queue', false);
 
         $this->info('Starting feed processing');
         $this->info('+ = processed event, . = skipped event');
 
-        // Reset counters
         $this->processedCount = 0;
         $this->skippedCount = 0;
 
         try {
-            // Use the ItchHttpClientService which now uses an authenticated client
 
-            // Get the import state if it exists
             $importState = ImportState::firstWhere('type', self::IMPORT_STATE_TYPE);
             $currentPage = $importState?->last_processed_id;
 
@@ -82,7 +78,6 @@ class ProcessFeed extends Command
                 $this->info("Resuming from previous import state at event {$currentPage}");
             }
 
-            // Get highest event ID we've processed (for final check)
             $lastProcessed = ProcessedEvent::query()
                 ->orderBy('event_id', 'desc')
                 ->first();
@@ -91,27 +86,23 @@ class ProcessFeed extends Command
             while (true) {
                 $this->info('Processing page ' . ($currentPage ? "from event {$currentPage}" : '(initial)'));
 
-                // Get authenticated client for feed page
                 $client = $this->authService->getClient();
                 $nextPage = $this->processFeedPage($client, $currentPage);
 
                 if (! $nextPage) {
                     $this->info("\nNo more pages to process");
-                    // Clear import state when we reach the end
                     ImportState::where('type', self::IMPORT_STATE_TYPE)->delete();
                     break;
                 }
 
                 if ($lastEventId && $nextPage <= $lastEventId) {
                     $this->info("\nReached already processed event {$lastEventId}");
-                    // Clear import state when we reach already processed events
                     ImportState::where('type', self::IMPORT_STATE_TYPE)->delete();
                     break;
                 }
 
                 $currentPage = $nextPage;
 
-                // Update import state after each page
                 ImportState::updateOrCreate(
                     ['type' => self::IMPORT_STATE_TYPE],
                     ['last_processed_id' => $currentPage]
@@ -150,7 +141,6 @@ class ProcessFeed extends Command
         $response = $client->get($url);
         $feedData = json_decode($response->getBody()->getContents(), true);
 
-        // Get next page ID if available
         $nextPage = $feedData['next_page'] ?? null;
 
         if (! isset($feedData['content'])) {
@@ -159,9 +149,7 @@ class ProcessFeed extends Command
 
         $doc = HTMLDocument::createFromString($feedData['content'], LIBXML_NOERROR);
 
-        // Process each event row
         foreach ($doc->querySelectorAll('div.event_row') as $eventRow) {
-            // Get event ID from like button
             $likeBtn = $eventRow->querySelector('span.like_btn');
             if (! $likeBtn || ! $likeBtn->hasAttribute('data-like_url')) {
                 continue;
@@ -179,23 +167,19 @@ class ProcessFeed extends Command
                 return null;
             }
 
-            // Update the import state for each event we process
             ImportState::updateOrCreate(
                 ['type' => self::IMPORT_STATE_TYPE],
                 ['last_processed_id' => $eventId]
             );
 
-            // Extract game information
             $gameId = null;
             $gameTitle = null;
             $gameUrl = null;
 
-            // First try game cell
             $gameCell = $eventRow->querySelector('div.game_cell');
             if ($gameCell && $gameCell->hasAttribute('data-game_id')) {
                 $gameId = (int) $gameCell->getAttribute('data-game_id');
 
-                // Get game link info
                 $gameLink = $gameCell->querySelector('a.game_link');
                 if ($gameLink) {
                     $gameUrl = $gameLink->getAttribute('href');
@@ -219,7 +203,6 @@ class ProcessFeed extends Command
                 }
             }
 
-            // Skip if we couldn't get essential game info
             if (! $gameId || ! $gameUrl) {
                 $this->output->write('.');
                 $this->skippedCount++;
@@ -227,7 +210,6 @@ class ProcessFeed extends Command
                 continue;
             }
 
-            // Get game title from summary if we didn't get it from game cell
             if (! $gameTitle) {
                 $summary = $eventRow->querySelector('div.object_short_summary');
                 if ($summary) {
@@ -245,7 +227,6 @@ class ProcessFeed extends Command
                 continue;
             }
 
-            // Process game update
             $this->output->write('+');
             $this->processedCount++;
             $this->processGameUpdate($eventId, $gameId);
@@ -265,16 +246,13 @@ class ProcessFeed extends Command
 
         DB::beginTransaction();
 
-        // Get or create game - itch_id now stores the itch.io identifier
         $game = Game::firstOrNew(['itch_id' => $gameId]);
 
         try {
-            // Set platform to itch_io for all feed-processed games
             if (! $game->exists) {
                 $game->platform = 'itch_io';
             }
 
-            // Skip if game isn't visible
             if (! $game->exists || ! $game->is_visible) {
                 DB::commit();
                 $this->output->write('.');
@@ -310,7 +288,6 @@ class ProcessFeed extends Command
             DB::rollBack();
             $this->error("Error updating game {$gameId}: " . $e->getMessage());
 
-            // Save error state outside transaction
             try {
                 $game->error = $e->getMessage();
                 $game->save();

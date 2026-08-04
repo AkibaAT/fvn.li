@@ -43,9 +43,6 @@ class ManageAuditPrivacy extends Command
         };
     }
 
-    /**
-     * Handle data export (GDPR Article 20 - Data Portability)
-     */
     private function handleExport(): int
     {
         $user = $this->getTargetUser();
@@ -69,14 +66,12 @@ class ManageAuditPrivacy extends Command
             'click_statistics' => $clickStatsData,
         ]);
 
-        // Determine output file
         $outputPath = $this->option('output');
         if (! $outputPath) {
             $timestamp = now()->format('Y-m-d_H-i-s');
             $outputPath = "exports/user_data_user_{$user->id}_{$timestamp}.json";
         }
 
-        // Ensure exports directory exists
         Storage::makeDirectory(dirname($outputPath));
 
         // Write export data
@@ -101,9 +96,6 @@ class ManageAuditPrivacy extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Get the target user for operations
-     */
     private function getTargetUser(): ?User
     {
         $userId = $this->option('user-id');
@@ -150,9 +142,6 @@ class ManageAuditPrivacy extends Command
         }
     }
 
-    /**
-     * Handle data deletion (GDPR Article 17 - Right to Erasure)
-     */
     private function handleDelete(): int
     {
         $user = $this->getTargetUser();
@@ -187,9 +176,6 @@ class ManageAuditPrivacy extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Handle data anonymization (Partial erasure while preserving audit integrity)
-     */
     private function handleAnonymize(): int
     {
         $user = $this->getTargetUser();
@@ -230,9 +216,6 @@ class ManageAuditPrivacy extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Handle privacy compliance report
-     */
     private function handleReport(): int
     {
         $this->info('Generating privacy compliance report for audit logs and click statistics...');
@@ -269,7 +252,6 @@ class ManageAuditPrivacy extends Command
         $oldestEntry = ChangeLog::orderBy('timestamp')->first();
         $newestEntry = ChangeLog::orderBy('timestamp', 'desc')->first();
 
-        // Calculate retention periods
         $retentionConfig = config('audit.retention', []);
 
         $this->info('Audit Logs Privacy Metrics:');
@@ -352,9 +334,6 @@ class ManageAuditPrivacy extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Handle invalid action
-     */
     private function handleInvalidAction(string $action): int
     {
         $this->error("Invalid action: {$action}");

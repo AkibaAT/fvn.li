@@ -124,15 +124,10 @@ class ClickStat extends Model
             ->pluck('score', 'game_id');
     }
 
-    /**
-     * Get aggregated stats for multiple games (for developer dashboard)
-     * Returns both total and unique metrics
-     */
     public static function getMultipleGameStats(array $gameIds, ?Carbon $since = null): array
     {
         $result = [];
 
-        // Initialize result structure
         foreach ($gameIds as $gameId) {
             $result[$gameId] = [
                 'page_views_total' => 0,
@@ -144,7 +139,6 @@ class ClickStat extends Model
             ];
         }
 
-        // Get stats for each game individually to ensure accurate unique counting
         foreach ($gameIds as $gameId) {
             $gameStats = self::getGameStats($gameId, $since);
 
@@ -169,9 +163,6 @@ class ClickStat extends Model
         return $result;
     }
 
-    /**
-     * Get click statistics for a game with both total and unique metrics
-     */
     public static function getGameStats(int $gameId, ?Carbon $since = null): array
     {
         $query = DB::table('click_stats')->where('game_id', $gameId)->whereNull('bot_reason');
@@ -180,7 +171,6 @@ class ClickStat extends Model
             $query->where('clicked_at', '>=', $since);
         }
 
-        // Get total clicks
         $totalStats = $query->select([
             'type',
             'link_id',
@@ -190,7 +180,6 @@ class ClickStat extends Model
             ->groupBy(['type', 'link_id'])
             ->get();
 
-        // Get unique clicks (24-hour deduplication window)
         $uniqueStats = self::getUniqueClickStats($gameId, $since);
 
         $result = [
@@ -201,7 +190,6 @@ class ClickStat extends Model
             'custom_links' => [],
         ];
 
-        // Process total stats
         foreach ($totalStats as $stat) {
             if ($stat->type === self::TYPE_PAGE_VIEW) {
                 $result['page_views_total'] = $stat->total_clicks;
@@ -218,7 +206,6 @@ class ClickStat extends Model
             }
         }
 
-        // Add unique stats
         $result['page_views_unique'] = $uniqueStats['page_views'] ?? 0;
         $result['external_project_unique'] = $uniqueStats['external_project'] ?? 0;
 
@@ -249,19 +236,16 @@ class ClickStat extends Model
      */
     public static function exportUserOwnedGameStats(int $userId): array
     {
-        // Get the user to access their owned games
         $user = User::find($userId);
         if (! $user) {
             return [];
         }
 
-        // Check if user has itch.io account connected
         $itchioUsername = $user->getItchioUsername();
         if (! $itchioUsername) {
             return [];
         }
 
-        // Get owned games
         $ownedGames = $user->getOwnedGames();
         if ($ownedGames->isEmpty()) {
             return [];
@@ -329,16 +313,12 @@ class ClickStat extends Model
         ]);
     }
 
-    /**
-     * Get daily click statistics for a game over a specified period
-     */
     public static function getDailyStats(int $gameId, int $days = 30): array
     {
         $today = now();
         $startDate = $today->copy()->subDays($days)->startOfDay();
         $endDate = $today->copy()->endOfDay();
 
-        // Initialize daily data structure
         $dailyData = [];
         for ($i = 0; $i < $days; $i++) {
             $date = $today->copy()->subDays($days - 1 - $i)->format('Y-m-d');
@@ -440,14 +420,10 @@ class ClickStat extends Model
         return array_values($dailyData);
     }
 
-    /**
-     * Get link-specific statistics for a game
-     */
     public static function getLinkStats(int $gameId, int $days = 30): array
     {
         $startDate = now()->subDays($days)->startOfDay();
 
-        // Get the game to access link information
         $game = Game::find($gameId);
         if (! $game || ! $game->additional_links) {
             return [];
@@ -458,7 +434,6 @@ class ClickStat extends Model
         foreach ($game->additional_links as $link) {
             $linkId = $link['id'];
 
-            // Get total clicks for this link
             $totalClicks = self::human()
                 ->where('game_id', $gameId)
                 ->where('type', self::TYPE_CUSTOM_LINK)
@@ -466,7 +441,6 @@ class ClickStat extends Model
                 ->where('clicked_at', '>=', $startDate)
                 ->count();
 
-            // Get unique clicks (simplified for performance)
             $uniqueClicks = self::human()
                 ->where('game_id', $gameId)
                 ->where('type', self::TYPE_CUSTOM_LINK)
@@ -476,7 +450,6 @@ class ClickStat extends Model
                 ->distinct()
                 ->count();
 
-            // Get daily breakdown
             $dailyClicks = self::human()
                 ->where('game_id', $gameId)
                 ->where('type', self::TYPE_CUSTOM_LINK)
@@ -502,9 +475,6 @@ class ClickStat extends Model
         return $linkStats;
     }
 
-    /**
-     * Get unique click statistics using 24-hour deduplication window
-     */
     private static function getUniqueClickStats(int $gameId, ?Carbon $since = null): array
     {
         $query = DB::table('click_stats')
@@ -570,17 +540,11 @@ class ClickStat extends Model
         return $query->whereNull('bot_reason');
     }
 
-    /**
-     * Get the game that this click stat belongs to
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Get the user that this click stat belongs to
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

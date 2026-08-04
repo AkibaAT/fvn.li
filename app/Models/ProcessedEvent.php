@@ -14,9 +14,6 @@ class ProcessedEvent extends Model
         'game_id',
     ];
 
-    /**
-     * Get the game associated with this event.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);

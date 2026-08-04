@@ -73,24 +73,6 @@ FVN.li maintains the following Meilisearch indexes:
 - **Filterable Fields**: category, usage_count
 - **Sortable Fields**: usage_count, name
 
-## Performance Considerations
-
-### Index Size
-- Games: ~10,000 documents
-- Dialogue: ~1,000,000+ documents
-- Reviews: ~50,000 documents
-- Tags: ~500 documents
-
-### Reindexing Time
-- Full reindex: 5-15 minutes depending on data volume
-- Partial reindex: 1-5 minutes
-- Individual updates: Near-instant via observers
-
-### Resource Usage
-- Meilisearch uses RAM for indexing
-- Ensure adequate memory during reindexing
-- Consider running during low-traffic periods
-
 ## Troubleshooting
 
 ### Connection Issues
@@ -113,17 +95,8 @@ If search results are missing:
 3. Verify model observers are registered
 4. Check Meilisearch logs for errors
 
-## Best Practices
-
-1. **Initial Setup**: Always run `meilisearch:setup` on new environments
-2. **Configuration Changes**: Run `scout:sync-index-settings` after modifying search configuration
-3. **Maintenance**: Schedule periodic reindexing (monthly or quarterly)
-4. **Monitoring**: Monitor search performance and index health
-5. **Backups**: Meilisearch data is derived from PostgreSQL, so database backups are sufficient
-
 ## Related Documentation
 
 - [Laravel Scout Documentation](https://laravel.com/docs/scout)
 - [Meilisearch Documentation](https://www.meilisearch.com/docs)
 - SearchIndexService - Service handling search operations
-

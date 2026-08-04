@@ -1,6 +1,8 @@
 <script lang="ts">
-    import { apiFetch } from '@/hooks/api/client';
+    import { apiFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
+    import { Card, Switch } from '@/components/ui';
+    import ChannelPicker from './ChannelPicker.svelte';
 
     interface GameOverride {
         id: number;
@@ -43,14 +45,8 @@
     let searching = $state(false);
     let showSearch = $state(false);
     let deleteConfirmId = $state<number | null>(null);
-    let editingChannelId = $state<number | null>(null);
-    let channelSearch = $state('');
-    let channelPickerEl: HTMLDivElement | undefined = $state();
 
     const filteredOverrides = $derived(filter === 'ignored' ? overrides.filter((o) => o.is_ignored) : overrides);
-    const filteredChannels = $derived(
-        channelSearch.trim() ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase())) : channels,
-    );
 
     async function searchGames(query: string) {
         if (!query || query.length < 2) {
@@ -129,39 +125,10 @@
                 },
             );
             onchange(overrides.map((o) => (o.id === override.id ? data.override : o)));
-            editingChannelId = null;
-            channelSearch = '';
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Failed to update channel');
         }
     }
-
-    function getChannelLabel(channelId: string | null): string {
-        if (!channelId) return 'Default';
-
-        return `#${channels.find((channel) => channel.id === channelId)?.name || channelId}`;
-    }
-
-    function getChannel(channelId: string | null): DiscordChannel | undefined {
-        if (!channelId) return undefined;
-
-        return channels.find((channel) => channel.id === channelId);
-    }
-
-    $effect(() => {
-        if (editingChannelId === null) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (channelPickerEl && !channelPickerEl.contains(event.target as Node)) {
-                editingChannelId = null;
-                channelSearch = '';
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    });
 
     async function deleteOverride(overrideId: number) {
         try {
@@ -177,7 +144,7 @@
     }
 </script>
 
-<div class="rounded-xl border border-gray-200/50 bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+<Card variant="glass" padding="lg">
     <div class="mb-6 flex items-center justify-between">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -314,122 +281,34 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3">
-                                <label class="relative inline-flex cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        class="peer sr-only"
-                                        checked={override.is_ignored}
-                                        onchange={() => toggleIgnored(override)}
-                                    />
-                                    <div
-                                        class="peer h-5 w-9 rounded-full bg-gray-300 peer-checked:bg-red-500 after:absolute after:start-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full dark:bg-gray-600"
-                                    ></div>
-                                </label>
+                                <Switch
+                                    checked={override.is_ignored}
+                                    onchange={() => toggleIgnored(override)}
+                                    ariaLabel={`Ignore ${override.game?.name || `game ${override.game_id}`}`}
+                                    size="sm"
+                                    tone="danger"
+                                />
                             </td>
                             {#if filter !== 'ignored'}
                                 <td class="px-4 py-3">
-                                    {#if editingChannelId === override.id}
-                                        {#if channels.length > 0}
-                                            <div class="relative" bind:this={channelPickerEl}>
-                                                <input
-                                                    type="text"
-                                                    bind:value={channelSearch}
-                                                    placeholder="Type to filter channels..."
-                                                    class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                                />
-                                                <div
-                                                    class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onclick={() => updateChannel(override, null)}
-                                                        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                    >
-                                                        <span>Default channel</span>
-                                                        {#if !override.channel_id}
-                                                            <svg
-                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                                fill="none"
-                                                                viewBox="0 0 24 24"
-                                                                stroke="currentColor"
-                                                                stroke-width="2"
-                                                            >
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        {/if}
-                                                    </button>
-
-                                                    {#if filteredChannels.length === 0}
-                                                        <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No channels found</div>
-                                                    {:else}
-                                                        {#each filteredChannels as ch (ch.id)}
-                                                            <button
-                                                                type="button"
-                                                                onclick={() => updateChannel(override, ch.id)}
-                                                                class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                            >
-                                                                <span class="flex min-w-0 items-center gap-2">
-                                                                    <span class="truncate">#{ch.name}</span>
-                                                                    {#if ch.nsfw}
-                                                                        <span
-                                                                            class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                                                        >
-                                                                            NSFW
-                                                                        </span>
-                                                                    {/if}
-                                                                </span>
-                                                                {#if override.channel_id === ch.id}
-                                                                    <svg
-                                                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                                        fill="none"
-                                                                        viewBox="0 0 24 24"
-                                                                        stroke="currentColor"
-                                                                        stroke-width="2"
-                                                                    >
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                                    </svg>
-                                                                {/if}
-                                                            </button>
-                                                        {/each}
-                                                    {/if}
-                                                </div>
-                                            </div>
-                                        {:else}
-                                            <input
-                                                type="text"
-                                                value={override.channel_id || ''}
-                                                placeholder="Enter channel ID"
-                                                onchange={(e) => updateChannel(override, (e.target as HTMLInputElement).value.trim() || null)}
-                                                onblur={() => (editingChannelId = null)}
-                                                class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            />
-                                        {/if}
+                                    {#if channels.length > 0}
+                                        <ChannelPicker
+                                            items={channels}
+                                            value={override.channel_id}
+                                            placeholder="Default channel"
+                                            searchPlaceholder="Type to filter channels..."
+                                            allowNone
+                                            noneLabel="Default channel"
+                                            onselect={(channelId) => updateChannel(override, channelId)}
+                                        />
                                     {:else}
-                                        <button
-                                            onclick={() => {
-                                                editingChannelId = override.id;
-                                                channelSearch = '';
-                                            }}
-                                            class="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-600 transition-colors hover:border-gray-300 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500"
-                                        >
-                                            <span class="inline-flex items-center gap-2">
-                                                <span>{getChannelLabel(override.channel_id)}</span>
-                                                {#if getChannel(override.channel_id)?.nsfw}
-                                                    <span
-                                                        class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                                    >
-                                                        NSFW
-                                                    </span>
-                                                {/if}
-                                            </span>
-                                            <svg class="ml-1 inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-                                                ><path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                                /></svg
-                                            >
-                                        </button>
+                                        <input
+                                            type="text"
+                                            value={override.channel_id || ''}
+                                            placeholder="Enter channel ID"
+                                            onchange={(event) => updateChannel(override, (event.target as HTMLInputElement).value.trim() || null)}
+                                            class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        />
                                     {/if}
                                 </td>
                             {/if}
@@ -472,4 +351,4 @@
             </table>
         </div>
     {/if}
-</div>
+</Card>

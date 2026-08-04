@@ -44,7 +44,6 @@ class RefreshFeedlessGames extends Command
      */
     private function executeRefresh(): int
     {
-        // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
@@ -52,14 +51,12 @@ class RefreshFeedlessGames extends Command
         $this->info('Starting version refresh for feedless games');
 
         try {
-            // Build query for games - only itch.io games for now
             $query = Game::query()
                 ->fromItchio()
                 ->where('is_visible', true)
                 ->where('is_feedless', true)
                 ->orderBy('id');
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
             $games = $query->get();

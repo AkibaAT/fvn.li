@@ -12,9 +12,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CanEditGame
 {
-    /**
-     * Handle an incoming request.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $user = Auth::user();
@@ -27,7 +24,6 @@ class CanEditGame
             ], 401);
         }
 
-        // Get the game from the route
         $game = $request->route('game');
 
         if (! $game instanceof Game) {
@@ -37,7 +33,6 @@ class CanEditGame
             ], 404);
         }
 
-        // Check if user can edit this game using the existing method
         if (! $game->canUserEdit($user)) {
             return response()->json([
                 'success' => false,

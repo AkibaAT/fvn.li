@@ -1,6 +1,6 @@
 import type { Config } from 'ziggy-js';
 
-export interface Auth {
+interface Auth {
     user: User;
 }
 
@@ -60,94 +60,6 @@ export interface Game {
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
-}
-
-// List related types
-export interface VnList {
-    id: number;
-    name: string;
-    description?: string;
-    type: string;
-    is_public: boolean;
-    is_default: boolean;
-    user_id: number;
-    created_at: string;
-    updated_at: string;
-    entries_count?: number;
-    featured_games?: Game[];
-}
-
-export interface ListEntry {
-    id: number;
-    vn_list_id: number;
-    game_id: number;
-    sort_order: number;
-    private_notes?: string;
-    created_at: string;
-    updated_at: string;
-    game: Game;
-}
-
-// Pagination
-export interface PaginationData<T> {
-    data: T[];
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    from: number;
-    to: number;
-    prev_page_url?: string;
-    next_page_url?: string;
-}
-
-// API Response types
-export interface ApiResponse<T = unknown> {
-    success: boolean;
-    message?: string;
-    data?: T;
-    errors?: Record<string, string[]>;
-}
-
-// Props for components
-export interface PageProps {
-    auth: {
-        user?: User;
-    };
-    ziggy: {
-        location: string;
-        previous?: string;
-    };
-    flash: {
-        success?: string;
-        error?: string;
-    };
-    metaTags: {
-        title: string;
-        description: string;
-        image?: string;
-    };
-    [key: string]: unknown;
-}
-
-// Filter types
-export interface GameFilters {
-    search: string;
-    selectedStatuses: string[];
-    selectedEngines: string[];
-    selectedPlatforms: string[];
-    selectedLanguages: string[];
-    selectedGameJams: string[];
-    selectedTags: string[];
-    nsfw: boolean;
-    sfw: boolean;
-    showPaid: boolean;
-    showFree: boolean;
-    showDemo: boolean;
-    sortField: string;
-    sortDirection: string;
-    perPage: number;
-    page: number;
 }
 
 export interface FilterOptions {

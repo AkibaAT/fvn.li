@@ -96,7 +96,6 @@ class ItchAuthService
     private function ensureAuthenticated(): bool
     {
         try {
-            // Try to use cached session first
             $cookies = Cache::get(self::CACHE_KEY);
             if ($cookies) {
                 foreach ($cookies as $cookieData) {
@@ -109,7 +108,6 @@ class ItchAuthService
                     return true;
                 }
 
-                // Clear invalid cached cookies
                 Cache::forget(self::CACHE_KEY);
                 $this->cookieJar = $this->clientFactory->createCookieJar();
             }
@@ -180,7 +178,6 @@ class ItchAuthService
     private function performLogin(): bool
     {
         try {
-            // Get login page and extract form data
             $html = $this->getLoginPageHtml();
             $formData = $this->getLoginFormData($html);
 
@@ -193,11 +190,9 @@ class ItchAuthService
                 $this->cookieJar
             );
 
-            // Check if login was successful
             if ($result['status'] === 200 || $result['status'] === 302) {
                 Log::info('FlareSolverr login successful, cookies obtained');
 
-                // Now verify we can access the dashboard using regular HTTP with the cookies
                 return $this->verifySession();
             }
 
@@ -213,10 +208,6 @@ class ItchAuthService
         }
     }
 
-    /**
-     * Get the login page HTML
-     * Uses FlareSolverr to bypass Cloudflare if enabled
-     */
     private function getLoginPageHtml(): string
     {
         Log::info('Fetching login page via FlareSolverr to bypass Cloudflare');
@@ -240,13 +231,11 @@ class ItchAuthService
     {
         $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-        // Find the login form specifically
         $loginForm = $doc->querySelector('div.login_form_widget form.form');
         if (! $loginForm) {
             throw new RuntimeException('Could not find login form');
         }
 
-        // Get all input fields from this specific form
         $formData = [];
         foreach ($loginForm->querySelectorAll('input') as $input) {
             $name = $input->getAttribute('name');
@@ -256,7 +245,6 @@ class ItchAuthService
             }
         }
 
-        // Add credentials
         $formData['username'] = config('services.itch.username');
         $formData['password'] = config('services.itch.password');
 

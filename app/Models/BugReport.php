@@ -66,41 +66,26 @@ class BugReport extends Model
         ];
     }
 
-    /**
-     * Get the user who submitted this report.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the admin who resolved this report.
-     */
     public function resolver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolved_by');
     }
 
-    /**
-     * Check if this report is open.
-     */
     public function isOpen(): bool
     {
         return $this->status === self::STATUS_OPEN;
     }
 
-    /**
-     * Check if this report has been closed by the user.
-     */
     public function isClosed(): bool
     {
         return $this->is_closed;
     }
 
-    /**
-     * Check if this report has a terminal status (resolved or won't fix).
-     */
     public function isTerminal(): bool
     {
         return in_array($this->status, [self::STATUS_RESOLVED, self::STATUS_WONT_FIX], true);
@@ -119,9 +104,6 @@ class BugReport extends Model
         ]);
     }
 
-    /**
-     * Get the status badge color for UI display.
-     */
     public function getStatusColorAttribute(): string
     {
         return match ($this->status) {
@@ -133,25 +115,16 @@ class BugReport extends Model
         };
     }
 
-    /**
-     * Get the human-readable status label.
-     */
     public function getStatusLabelAttribute(): string
     {
         return self::getStatuses()[$this->status] ?? 'Unknown';
     }
 
-    /**
-     * Get comments for this bug report.
-     */
     public function comments(): HasMany
     {
         return $this->hasMany(BugReportComment::class)->orderBy('created_at', 'asc');
     }
 
-    /**
-     * Check if this report has unread admin replies for the reporter.
-     */
     public function hasUnreadAdminReplies(): bool
     {
         return $this->comments()
@@ -160,9 +133,6 @@ class BugReport extends Model
             ->exists();
     }
 
-    /**
-     * Get the count of unread admin replies.
-     */
     public function getUnreadAdminReplyCountAttribute(): int
     {
         return $this->comments()

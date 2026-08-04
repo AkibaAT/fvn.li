@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\GameJam;
 use App\Services\GameFilterService;
+use App\Services\ObserverSearchIndexService;
 
 class GameJamObserver
 {
@@ -14,11 +15,11 @@ class GameJamObserver
         GameFilterService::clearCache();
 
         if ($gameJam->wasChanged('name')) {
-            $gameJam->games()
-                ->where('is_visible', true)
-                ->chunk(100, function ($games) {
-                    $games->searchable();
-                });
+            app(ObserverSearchIndexService::class)->reindexGames(
+                $gameJam->games(),
+                'game jam change',
+                ['game_jam_id' => $gameJam->id]
+            );
         }
     }
 

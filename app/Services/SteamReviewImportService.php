@@ -66,7 +66,6 @@ class SteamReviewImportService
             'steam_app_id' => $game->steam_app_id,
         ]);
 
-        // Fetch all reviews from Steam
         while (true) {
             try {
                 $response = $this->fetchReviews($game->steam_app_id, $cursor);
@@ -115,7 +114,6 @@ class SteamReviewImportService
                     }
                 }
 
-                // Get next cursor for pagination
                 $nextCursor = $response['cursor'] ?? null;
 
                 if (! $nextCursor) {
@@ -145,9 +143,6 @@ class SteamReviewImportService
         return $stats;
     }
 
-    /**
-     * Update game rating statistics after import
-     */
     public function updateGameRatingStats(Game $game): void
     {
         $stats = Rating::where('game_id', $game->id)
@@ -208,7 +203,6 @@ class SteamReviewImportService
             return 'skipped:no_text';
         }
 
-        // Process review text: normalize line breaks, convert BBCode to HTML
         $reviewText = $this->processReviewText($reviewText);
 
         // Only sync English reviews
@@ -217,12 +211,10 @@ class SteamReviewImportService
             return 'skipped:non_english';
         }
 
-        // Check if we've already imported this review
         $existing = Rating::where('source_platform', 'steam')
             ->where('external_id', (string) $recommendationId)
             ->first();
 
-        // Convert Steam's binary rating to our 1-5 scale
         $rating = $reviewData['voted_up'] ? 5 : 1;
 
         $metadata = [
@@ -240,7 +232,6 @@ class SteamReviewImportService
         ];
 
         if ($existing) {
-            // Update existing review if content has changed
             $needsUpdate = false;
 
             if ((int) $existing->rating !== $rating) {
@@ -273,12 +264,9 @@ class SteamReviewImportService
             return 'skipped:no_changes';
         }
 
-        // Create new review
         DB::transaction(function () use ($game, $reviewData, $recommendationId, $reviewText, $rating, $metadata) {
-            // Find or create rater
             $rater = $this->findOrCreateRater($reviewData['author']);
 
-            // Create the rating
             Rating::create([
                 'external_id' => (string) $recommendationId,
                 'source_platform' => 'steam',
@@ -302,9 +290,6 @@ class SteamReviewImportService
         return 'imported';
     }
 
-    /**
-     * Find or create a rater from Steam author data
-     */
     private function findOrCreateRater(array $authorData): Rater
     {
         $steamId = $authorData['steamid'] ?? null;
@@ -312,17 +297,14 @@ class SteamReviewImportService
             throw new Exception('Steam author data missing steamid');
         }
 
-        // Try to find existing rater by Steam ID
         $rater = Rater::where('steam_id', $steamId)->first();
 
         if ($rater) {
             return $rater;
         }
 
-        // Fetch Steam username from Steam Community API
         $steamUsername = $this->fetchSteamUsername($steamId);
 
-        // Create new rater
         // Steam raters don't have an itch_id (it's nullable now)
         return Rater::create([
             'itch_id' => null, // Steam users don't have itch IDs
@@ -332,9 +314,6 @@ class SteamReviewImportService
         ]);
     }
 
-    /**
-     * Fetch Steam username from Steam Community API
-     */
     private function fetchSteamUsername(string $steamId): ?string
     {
         try {
@@ -346,7 +325,6 @@ class SteamReviewImportService
 
             $xml = $response->getBody()->getContents();
 
-            // Parse XML to extract steamID (username)
             if (preg_match('/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>/', $xml, $matches)) {
                 $username = trim($matches[1]);
                 if (! empty($username)) {
@@ -369,16 +347,11 @@ class SteamReviewImportService
         }
     }
 
-    /**
-     * Process Steam review text: convert BBCode to HTML and handle line breaks
-     */
     private function processReviewText(string $text): string
     {
-        // Normalize line breaks (Steam uses both \r\n and \n)
         $text = str_replace("\r\n", "\n", $text);
         $text = trim($text);
 
-        // Convert BBCode to HTML
         // Steam supports: [b], [i], [u], [strike], [spoiler], [url], [h1], [h2], [h3], [list], [*], [quote], [code]
 
         // Bold
@@ -426,7 +399,6 @@ class SteamReviewImportService
         // List items
         $text = preg_replace('/\[\*\](.*?)(?=\[\*\]|\[\/list\]|\[\/olist\]|$)/is', '<li>$1</li>', $text);
 
-        // Convert remaining newlines to <br> tags
         // But preserve newlines inside <pre> tags
         $text = preg_replace_callback('/<pre>.*?<\/pre>/s', function ($matches) {
             return str_replace("\n", '___NEWLINE___', $matches[0]);

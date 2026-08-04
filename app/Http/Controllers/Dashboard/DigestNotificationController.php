@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\NotificationHistory;
-use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Auth;
@@ -16,14 +15,12 @@ class DigestNotificationController extends Controller
 {
     public function showDigestNotifications(string $date)
     {
-        // Validate the date format
         try {
             $carbonDate = Carbon::createFromFormat('Y-m-d', $date);
         } catch (Exception $e) {
             abort(404, 'Invalid date format. Please use YYYY-MM-DD format.');
         }
 
-        // Get notifications for the specified date
         $authId = Auth::id();
         if (! $authId) {
             abort(401, 'Unauthenticated');
@@ -34,9 +31,7 @@ class DigestNotificationController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Check if user has any notifications for this date
         if ($notifications->isEmpty()) {
-            // Check if there are any notifications for this date at all
             $hasAnyNotifications = NotificationHistory::whereDate('created_at', $carbonDate)->exists();
 
             return Inertia::render('dashboard/digest-notifications', [

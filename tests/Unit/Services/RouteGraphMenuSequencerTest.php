@@ -18,7 +18,7 @@ function sequencerGroup(int $menuLine, int $endLine, ?string $menuBranch = null,
 
 it('appends at the chain tail instead of overwriting links claimed by the root fallback', function () {
     // menu A (root); `if y:` menu B; menu C (root). The root fallback chains
-    // A→B, so C must append after B — overwriting A's next-link would orphan
+    // A→B, so C must append after B; overwriting A's next-link would orphan
     // B (a prev-link nothing points to) and get it deleted as unreachable.
     $groups = [
         sequencerGroup(10, 20),

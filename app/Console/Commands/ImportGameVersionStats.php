@@ -34,13 +34,11 @@ class ImportGameVersionStats extends Command
 
     public function handle(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing thousands of dialogue lines
         Config::set('scout.queue', false);
 
         $versionId = $this->option('version-id');
         $statsFile = $this->option('stats-file');
 
-        // Validate parameters
         if (! $this->option('game-id') && ! $this->option('game-name')) {
             $this->error('Either game ID or game name is required');
 
@@ -59,7 +57,6 @@ class ImportGameVersionStats extends Command
             return 1;
         }
 
-        // Check if stats file exists
         if (! File::exists($statsFile)) {
             $this->error("Stats file not found: {$statsFile}");
 
@@ -67,10 +64,8 @@ class ImportGameVersionStats extends Command
         }
 
         try {
-            // Find the game
             $query = Game::query();
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
             $game = $query->first();
@@ -84,7 +79,6 @@ class ImportGameVersionStats extends Command
             $this->info("Found game: {$game->name} (ID: {$game->id})");
             $gameId = $game->id;
 
-            // Find the version
             $version = GameVersion::where('id', $versionId)
                 ->where('game_id', $gameId)
                 ->first();

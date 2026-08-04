@@ -15,7 +15,6 @@ beforeEach(function () {
 
 describe('GDPR data export', function () {
     test('exports user audit data with correct structure', function () {
-        // Create some audit logs for the user
         ChangeLog::create([
             'user_id' => $this->user->id,
             'event_type' => 'created',
@@ -159,7 +158,6 @@ describe('GDPR data export', function () {
 
         $export = ChangeLog::exportUserData($this->user->id);
 
-        // First log should be the newest
         expect($export['audit_logs'][0]['entity_id'])->toBe(2)
             ->and($export['audit_logs'][1]['entity_id'])->toBe(1);
     });
@@ -311,7 +309,6 @@ describe('GDPR data anonymization', function () {
 
 describe('GDPR compliance edge cases', function () {
     test('handles user with large number of audit logs', function () {
-        // Create 100 audit logs
         for ($i = 1; $i <= 100; $i++) {
             ChangeLog::create([
                 'user_id' => $this->user->id,

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
+    import { authenticatedFetch, readJsonResponse } from '@/utils/http';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -53,7 +53,6 @@
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Create New List" class="mb-0" />
 
-    <!-- Form -->
     <Card variant="glass">
         <form onsubmit={handleSubmit} class="space-y-6">
             <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
@@ -74,7 +73,6 @@
                 </p>
             </div>
 
-            <!-- Submit Buttons -->
             <div class="flex justify-end space-x-3 pt-4">
                 <Button href={route('lists.index')} variant="outline" tone="neutral">Cancel</Button>
                 <Button type="submit" disabled={isLoading || !formData.name.trim()} loading={isLoading}>

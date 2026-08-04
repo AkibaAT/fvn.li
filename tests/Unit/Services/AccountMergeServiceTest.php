@@ -24,7 +24,6 @@ beforeEach(function () {
 
 describe('Account Merge Service', function () {
     test('merges two accounts successfully', function () {
-        // Create social accounts
         SocialAccount::factory()->create([
             'user_id' => $this->mergingUser->id,
             'provider_name' => 'discord',
@@ -40,31 +39,25 @@ describe('Account Merge Service', function () {
         // Perform merge
         $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
 
-        // Assert other user is deleted
         expect(User::find($this->otherUser->id))->toBeNull();
 
-        // Assert both social accounts now belong to merging user
         expect(SocialAccount::where('user_id', $this->mergingUser->id)->count())->toBe(2);
     });
 
     test('merges VN list entries without duplicates', function () {
-        // Initialize default lists for both users
         $this->mergingUser->initializeDefaultLists();
         $this->otherUser->initializeDefaultLists();
 
-        // Create games
         $game1 = Game::factory()->create();
         $game2 = Game::factory()->create();
         $game3 = Game::factory()->create();
 
-        // Add games to merging user's "Currently Reading" list
         $mergingReadingList = $this->mergingUser->vnLists()->where('name', 'Currently Reading')->first();
         VnListEntry::factory()->create([
             'vn_list_id' => $mergingReadingList->id,
             'game_id' => $game1->id,
         ]);
 
-        // Add games to other user's "Currently Reading" list
         $otherReadingList = $this->otherUser->vnLists()->where('name', 'Currently Reading')->first();
         VnListEntry::factory()->create([
             'vn_list_id' => $otherReadingList->id,
@@ -75,7 +68,6 @@ describe('Account Merge Service', function () {
             'game_id' => $game2->id, // New
         ]);
 
-        // Add game to other user's "Completed" list
         $otherCompletedList = $this->otherUser->vnLists()->where('name', 'Completed')->first();
         VnListEntry::factory()->create([
             'vn_list_id' => $otherCompletedList->id,
@@ -88,7 +80,6 @@ describe('Account Merge Service', function () {
         // Refresh merging user
         $this->mergingUser->refresh();
 
-        // Assert: Merging user's "Currently Reading" should have game1 and game2 (no duplicate)
         $readingEntries = $this->mergingUser->vnLists()
             ->where('name', 'Currently Reading')
             ->first()
@@ -100,7 +91,6 @@ describe('Account Merge Service', function () {
             ->and($readingEntries)->toContain($game2->id)
             ->and(count($readingEntries))->toBe(2);
 
-        // Assert: Merging user's "Completed" should have game3
         $completedEntries = $this->mergingUser->vnLists()
             ->where('name', 'Completed')
             ->first()
@@ -159,7 +149,6 @@ describe('Account Merge Service', function () {
     });
 
     test('transfers custom lists to merging user', function () {
-        // Create custom list for other user
         $customList = VnList::factory()->create([
             'user_id' => $this->otherUser->id,
             'name' => 'My Favorites',
@@ -177,7 +166,6 @@ describe('Account Merge Service', function () {
 
         $this->mergingUser->refresh();
 
-        // Assert custom list now belongs to merging user
         $transferredList = $this->mergingUser->vnLists()
             ->where('name', 'My Favorites')
             ->where('is_default', false)
@@ -209,17 +197,14 @@ describe('Account Merge Service', function () {
 
         $this->mergingUser->refresh();
 
-        // Assert: Merging user should have 2 progress records (original + transferred non-conflict)
         expect($this->mergingUser->gameProgress()->count())->toBe(2);
 
-        // Assert: Original progress for game1 is preserved (completed, not reading)
         $preservedProgress = $this->mergingUser->gameProgress()
             ->where('game_id', $mergingProgress->game_id)
             ->first();
 
         expect($preservedProgress->status)->toBe('completed');
 
-        // Assert: Other user's progress for game2 was transferred
         $transferredProgress = $this->mergingUser->gameProgress()
             ->where('id', $otherProgress2->id)
             ->first();
@@ -246,7 +231,6 @@ describe('Account Merge Service', function () {
         // Perform merge
         $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
 
-        // Assert all social accounts now belong to merging user
         expect($this->mergingUser->socialAccounts()->count())->toBe(3);
     });
 
@@ -254,7 +238,6 @@ describe('Account Merge Service', function () {
         $this->mergingUser->initializeDefaultLists();
         $this->otherUser->initializeDefaultLists();
 
-        // Create a scenario that will cause an error
         // Force a constraint violation by creating invalid data
         $game = Game::factory()->create();
 
@@ -284,7 +267,6 @@ describe('Account Merge Service', function () {
             // Expected to fail
         }
 
-        // Assert: Other user should still exist (transaction rolled back)
         expect(User::find($otherUserId))->not->toBeNull();
     });
 
@@ -297,7 +279,6 @@ describe('Account Merge Service', function () {
         // Perform merge
         $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
 
-        // Assert: Merge completes successfully even with empty lists
         expect(User::find($this->otherUser->id))->toBeNull();
         expect($this->mergingUser->vnLists()->count())->toBeGreaterThan(0);
     });
@@ -311,7 +292,6 @@ describe('Account Merge Service', function () {
         // Perform merge
         $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
 
-        // Assert: Merge completes successfully
         expect(User::find($this->otherUser->id))->toBeNull();
     });
 
@@ -324,7 +304,6 @@ describe('Account Merge Service', function () {
         // Perform merge
         $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
 
-        // Assert: All custom lists transferred
         expect($this->mergingUser->vnLists()->where('is_default', false)->count())->toBe(3);
     });
 });

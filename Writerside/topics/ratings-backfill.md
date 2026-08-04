@@ -7,8 +7,6 @@ Backfills missing ratings by scanning all events to recover historical rating da
 This command scans through historical events to identify and import ratings that may have been missed during normal
 import processes. It's designed to fill gaps in rating data and ensure comprehensive coverage of all available ratings.
 
-**Key Features**: Historical scanning, gap detection, batch processing, data validation.
-
 ## Usage
 
 ```bash
@@ -114,36 +112,6 @@ The backfill process includes comprehensive validation:
 - **Game Validation**: Confirms rated games exist in the database
 - **Duplicate Detection**: Prevents importing duplicate ratings
 
-## Performance Considerations
-
-<table>
-<tr>
-    <td>Factor</td>
-    <td>Impact</td>
-    <td>Optimization</td>
-</tr>
-<tr>
-    <td>Event Volume</td>
-    <td>Processing time</td>
-    <td>Batch size tuning</td>
-</tr>
-<tr>
-    <td>Memory Usage</td>
-    <td>System resources</td>
-    <td>Batch processing</td>
-</tr>
-<tr>
-    <td>Database Load</td>
-    <td>Query performance</td>
-    <td>Efficient queries</td>
-</tr>
-<tr>
-    <td>Duplicate Checking</td>
-    <td>Processing overhead</td>
-    <td>Indexed lookups</td>
-</tr>
-</table>
-
 ## Batch Processing
 
 The command uses intelligent batch processing:
@@ -176,39 +144,6 @@ The backfill process identifies various types of gaps:
 - **Game Coverage**: Games with missing or incomplete ratings
 - **User Coverage**: Users whose ratings may be incomplete
 - **Category Gaps**: Specific game categories with missing data
-
-## Error Handling
-
-Comprehensive error handling manages various scenarios:
-
-### Event Processing Errors
-
-- **Malformed Events**: Skips events with invalid format
-- **Missing Data**: Handles events with incomplete information
-- **Processing Failures**: Continues with remaining events on errors
-
-### Database Errors
-
-- **Constraint Violations**: Handles database constraint issues
-- **Connection Problems**: Manages database connectivity issues
-- **Transaction Failures**: Rolls back failed batch operations
-
-## Monitoring and Reporting
-
-The command provides detailed progress reporting:
-
-### Processing Statistics
-
-- **Events Scanned**: Total number of events examined
-- **Ratings Found**: Number of rating events discovered
-- **Ratings Imported**: Successfully imported ratings
-- **Duplicates Skipped**: Existing ratings not reimported
-
-### Quality Metrics
-
-- **Success Rate**: Percentage of successful imports
-- **Error Rate**: Failed operations requiring attention
-- **Data Coverage**: Improvement in rating data completeness
 
 ## Recovery and Resumption
 

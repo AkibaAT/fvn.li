@@ -1,9 +1,8 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import type { VnList } from '@/components/VnListCard.svelte';
-    import VnListCard from '@/components/VnListCard.svelte';
+    import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
@@ -173,10 +172,7 @@
         {/snippet}
     </PageHeader>
 
-    <!-- Search and Sort Controls -->
-    <div
-        class="flex flex-col gap-4 rounded-xl bg-white/70 p-4 shadow-lg backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between dark:bg-gray-800/70"
-    >
+    <Card variant="glass" padding="md" class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form onsubmit={handleSearch} class="flex max-w-md flex-1 gap-2">
             <div class="relative flex-1">
                 <input
@@ -229,7 +225,7 @@
                 <option value="recently_updated">Recently Updated</option>
             </select>
         </div>
-    </div>
+    </Card>
 
     {#if currentSearch}
         <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -280,33 +276,13 @@
         </div>
     </Card>
 
-    {#if localLists.length > 0}
-        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {#each localLists as list (list.id)}
-                <VnListCard {list} showUser={true} />
-            {/each}
-        </div>
-    {:else}
-        <div class="py-12 text-center">
-            <h2 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No public lists found</h2>
-            <p class="text-gray-600 dark:text-gray-400">There are no public lists available for this category.</p>
-        </div>
-    {/if}
-
-    <AdvancedPagination
-        meta={{
-            current_page: lists.current_page,
-            last_page: lists.last_page,
-            total: lists.total,
-            from: localLists.length ? (lists.current_page - 1) * lists.per_page + 1 : 0,
-            to: localLists.length ? (lists.current_page - 1) * lists.per_page + localLists.length : 0,
-            per_page: lists.per_page,
-        }}
+    <PublicListResults
+        lists={{ ...lists, data: localLists }}
+        showUser
+        emptyMessage="There are no public lists available for this category."
+        {isLoading}
         onPageChange={handlePageChange}
         onPerPageChange={handlePerPageChange}
-        {isLoading}
-        label="results"
-        perPageOptions={[8, 16, 24, 32]}
         {buildPageUrl}
     />
 </div>

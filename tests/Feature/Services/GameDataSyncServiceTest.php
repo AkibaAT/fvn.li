@@ -10,7 +10,10 @@ use App\Models\Language;
 use App\Models\Tag;
 use App\Services\GameArchiveService;
 use App\Services\GameDataSyncService;
+use App\Services\GameMetadataImageProcessor;
+use App\Services\GamePendingAssociationProcessor;
 use App\Services\GameVersionArchiveRepositoryService;
+use App\Services\ItchGameMetadataRefresher;
 use App\Services\ItchHttpClientService;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
@@ -113,10 +116,10 @@ it('extracts devlog links and noindex metadata from itch HTML', function () {
         ->toBe('https://creator.itch.io/game/devlog/1');
 
     $doc = HTMLDocument::createFromString('<meta name="robots" content="NOINDEX">', LIBXML_NOERROR);
-    expect(invokeGameDataSyncMethod($service, 'checkForNoindexTag', [$doc]))->toBeTrue();
+    expect(app(ItchGameMetadataRefresher::class)->hasNoindexTag($doc))->toBeTrue();
 
     $doc = HTMLDocument::createFromString('<meta name="robots" content="index">', LIBXML_NOERROR);
-    expect(invokeGameDataSyncMethod($service, 'checkForNoindexTag', [$doc]))->toBeFalse();
+    expect(app(ItchGameMetadataRefresher::class)->hasNoindexTag($doc))->toBeFalse();
 });
 
 it('copies language support from previous versions or source language fallback', function () {
@@ -143,15 +146,15 @@ it('copies language support from previous versions or source language fallback',
 });
 
 it('processes pending game jams and tags for saved games and leaves unsaved games untouched', function () {
-    $service = app(GameDataSyncService::class);
+    $service = app(GamePendingAssociationProcessor::class);
     $game = Game::factory()->create();
     $jam = GameJam::create(['name' => 'Jam', 'url' => 'https://itch.io/jam/test']);
     $tag = Tag::create(['name' => 'Drama']);
     $game->pendingGameJamId = [$jam->id];
     $game->pendingTagIds = [$tag->id];
 
-    invokeGameDataSyncMethod($service, 'processPendingGameJams', [$game]);
-    invokeGameDataSyncMethod($service, 'processPendingTags', [$game]);
+    $service->processGameJams($game);
+    $service->processTags($game);
 
     expect($game->gameJams()->whereKey($jam->id)->exists())->toBeTrue()
         ->and($game->tags()->whereKey($tag->id)->exists())->toBeTrue()
@@ -161,15 +164,15 @@ it('processes pending game jams and tags for saved games and leaves unsaved game
     $unsaved = new Game(['name' => 'Unsaved']);
     $unsaved->pendingGameJamId = [$jam->id];
     $unsaved->pendingTagIds = [$tag->id];
-    invokeGameDataSyncMethod($service, 'processPendingGameJams', [$unsaved]);
-    invokeGameDataSyncMethod($service, 'processPendingTags', [$unsaved]);
+    $service->processGameJams($unsaved);
+    $service->processTags($unsaved);
 
     expect($unsaved->pendingGameJamId)->toBe([$jam->id])
         ->and($unsaved->pendingTagIds)->toBe([$tag->id]);
 });
 
 it('compares screenshot source URLs while ignoring optimized variants', function () {
-    $service = app(GameDataSyncService::class);
+    $service = app(GameMetadataImageProcessor::class);
 
     $screenshotsA = [
         ['url' => 'https://img.example/a.png', 'thumbnail_url' => 'cached-a.webp'],
@@ -180,17 +183,17 @@ it('compares screenshot source URLs while ignoring optimized variants', function
         ['url' => 'https://img.example/b.png', 'thumbnail_url' => 'different-b.webp'],
     ];
 
-    expect(invokeGameDataSyncMethod($service, 'screenshotUrlsChanged', [$screenshotsA, $screenshotsB]))->toBeFalse()
-        ->and(invokeGameDataSyncMethod($service, 'screenshotUrlsChanged', [$screenshotsA, [['url' => 'https://img.example/c.png']]]))->toBeTrue()
-        ->and(invokeGameDataSyncMethod($service, 'extractScreenshotUrls', [null]))->toBe([])
-        ->and(invokeGameDataSyncMethod($service, 'extractScreenshotUrls', [$screenshotsA]))->toBe([
+    expect($service->screenshotUrlsChanged($screenshotsA, $screenshotsB))->toBeFalse()
+        ->and($service->screenshotUrlsChanged($screenshotsA, [['url' => 'https://img.example/c.png']]))->toBeTrue()
+        ->and($service->extractScreenshotUrls(null))->toBe([])
+        ->and($service->extractScreenshotUrls($screenshotsA))->toBe([
             'https://img.example/a.png',
             'https://img.example/b.png',
         ]);
 });
 
 it('retries screenshot processing when optimized variants are missing or incomplete', function () {
-    $service = app(GameDataSyncService::class);
+    $service = app(GameMetadataImageProcessor::class);
 
     $completeScreenshots = [
         [
@@ -216,10 +219,10 @@ it('retries screenshot processing when optimized variants are missing or incompl
         ],
     ];
 
-    expect(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$completeScreenshots, $completeScreenshots]))->toBeFalse()
-        ->and(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$missingOptimizedScreenshots, $missingOptimizedScreenshots]))->toBeTrue()
-        ->and(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$partialOptimizedScreenshots, $partialOptimizedScreenshots]))->toBeTrue()
-        ->and(invokeGameDataSyncMethod($service, 'needsScreenshotProcessing', [$completeScreenshots, [['url' => 'https://img.example/old.png']]]))->toBeTrue();
+    expect($service->needsScreenshotProcessing($completeScreenshots, $completeScreenshots))->toBeFalse()
+        ->and($service->needsScreenshotProcessing($missingOptimizedScreenshots, $missingOptimizedScreenshots))->toBeTrue()
+        ->and($service->needsScreenshotProcessing($partialOptimizedScreenshots, $partialOptimizedScreenshots))->toBeTrue()
+        ->and($service->needsScreenshotProcessing($completeScreenshots, [['url' => 'https://img.example/old.png']]))->toBeTrue();
 });
 
 it('marks itch games invisible when version refresh receives a not found response', function () {

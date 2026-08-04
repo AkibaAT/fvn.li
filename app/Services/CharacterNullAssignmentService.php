@@ -21,7 +21,6 @@ class CharacterNullAssignmentService
     {
         Log::info('Checking for NULL character_id assignments...');
 
-        // Find all dialogue lines with NULL character_id
         $query = DB::table('version_dialogue_lines')
             ->whereNull('character_id');
 
@@ -44,7 +43,6 @@ class CharacterNullAssignmentService
 
         Log::info(sprintf('Found %d dialogue lines with NULL character_id', $nullDialogueLines->count()));
 
-        // Group by game_id to process each game separately
         $gameVersionsQuery = DB::table('version_dialogue_lines as vdl')
             ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
             ->whereNull('vdl.character_id')
@@ -74,7 +72,6 @@ class CharacterNullAssignmentService
                 Log::info("Would update {$linesToUpdate} NULL character assignments for game {$currentGameId}");
                 $linesUpdated += $linesToUpdate;
 
-                // Check if narrator character exists
                 $narratorExists = Character::where('game_id', $currentGameId)
                     ->where('character_id', 'narrator')
                     ->exists();
@@ -87,7 +84,6 @@ class CharacterNullAssignmentService
                 continue;
             }
 
-            // Get or create narrator character using the centralized service
             $narratorCharacter = $this->essentialCharacterService->getOrCreateNarratorCharacter($currentGameId);
 
             if ($narratorCharacter->wasRecentlyCreated) {
@@ -95,7 +91,6 @@ class CharacterNullAssignmentService
                 Log::info("Created narrator character for game {$currentGameId}");
             }
 
-            // Update all NULL character_id assignments for this game
             $updated = DB::table('version_dialogue_lines as vdl')
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->where('gv.game_id', $currentGameId)

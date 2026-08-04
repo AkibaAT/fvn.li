@@ -16,9 +16,6 @@ use Illuminate\Support\Facades\Schema;
 
 class UserGameProgressController extends Controller
 {
-    /**
-     * Update the user's game progress.
-     */
     public function update(Request $request, Game $game): JsonResponse
     {
         $user = Auth::user();
@@ -59,7 +56,6 @@ class UserGameProgressController extends Controller
                 $values['progress'] = $validated['progress'];
             }
 
-            // Find or create the user's game progress record
             $progress = UserGameProgress::updateOrCreate(
                 [
                     'user_id' => $user->id,

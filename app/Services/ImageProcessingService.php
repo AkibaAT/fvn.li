@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use App\Services\Concerns\ReportsProgress;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -18,6 +19,8 @@ use Psr\Http\Message\StreamInterface;
 
 class ImageProcessingService
 {
+    use ReportsProgress;
+
     private const SCREENSHOTS_PATH = 'screenshots';
 
     private const THUMBNAIL_PATH = 'thumbnails';
@@ -109,7 +112,6 @@ class ImageProcessingService
                     throw new Exception('Failed to create temporary frame file');
                 }
 
-                // Extract first frame and convert to JPG
                 $command = sprintf(
                     'convert %s[0] -background white -flatten %s',
                     escapeshellarg($sourcePath),
@@ -121,11 +123,9 @@ class ImageProcessingService
                     throw new Exception('Failed to extract first frame from GIF');
                 }
 
-                // Use the extracted frame as source
                 $sourcePath = $tempJpg;
             }
 
-            // Load source image
             $image = $this->imageManager->decodePath($sourcePath);
 
             // Verify we got a valid image
@@ -137,7 +137,6 @@ class ImageProcessingService
             $variantName = basename(dirname($targetPath)) === 'screenshots' ?
                 basename($targetPath, '.webp') : '';
 
-            // Check if this is the large variant (ends with _large.webp)
             $isLargeVariant = str_ends_with($variantName, '_large');
 
             // For large variant, keep the original resolution, just convert to WebP
@@ -148,7 +147,6 @@ class ImageProcessingService
                 $widthRatio = $config['width'] / $image->width();
                 $heightRatio = $config['height'] / $image->height();
 
-                // Use the smaller ratio to ensure the image fits within the target dimensions
                 $ratio = min($widthRatio, $heightRatio);
 
                 $newWidth = intval($image->width() * $ratio);
@@ -162,7 +160,6 @@ class ImageProcessingService
             $finalWidth = $image->width();
             $finalHeight = $image->height();
 
-            // Save as WebP
             Storage::disk($diskName)->put(
                 $targetPath,
                 (string) $image->encode(new WebpEncoder(quality: $quality))
@@ -200,7 +197,7 @@ class ImageProcessingService
             return;
         }
 
-        echo '    [Images] Processing ' . count($game->screenshots) . " screenshots\n";
+        $this->progress('    [Images] Processing ' . count($game->screenshots) . " screenshots\n");
 
         $updatedScreenshots = [];
         $processableScreenshots = 0;
@@ -210,18 +207,17 @@ class ImageProcessingService
             $sourceUrl = $screenshot['url'] ?? null;
 
             if (empty($sourceUrl)) {
-                echo "    [Images] Screenshot {$index} has no URL, skipping\n";
+                $this->progress("    [Images] Screenshot {$index} has no URL, skipping\n");
 
                 continue;
             }
 
             $processableScreenshots++;
-            echo "    [Images] Processing screenshot {$index}: {$sourceUrl}\n";
+            $this->progress("    [Images] Processing screenshot {$index}: {$sourceUrl}\n");
 
             try {
-                // Skip if already optimized and not forcing
                 if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
-                    echo "    [Images] Screenshot already optimized, skipping\n";
+                    $this->progress("    [Images] Screenshot already optimized, skipping\n");
                     $updatedScreenshots[] = $screenshot;
                     $optimizedScreenshots++;
 
@@ -229,7 +225,7 @@ class ImageProcessingService
                 }
 
                 // Download the screenshot
-                echo "    [Images] Downloading screenshot...\n";
+                $this->progress("    [Images] Downloading screenshot...\n");
                 $response = $this->downloadImage($sourceUrl);
 
                 $content = $this->readDownloadContent($response);
@@ -239,7 +235,6 @@ class ImageProcessingService
                 // Clean up existing screenshots for this game and URL
                 $this->cleanupExistingScreenshots($game->id, $sourceUrl);
 
-                // Generate a unique filename based on URL and content
                 $baseFilename = $this->generateScreenshotFilename($game, $sourceUrl, $content);
 
                 // Verify it's a valid image
@@ -255,14 +250,13 @@ class ImageProcessingService
 
                 $this->assertAcceptableImageDimensions($imageInfo);
 
-                echo "    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n";
+                $this->progress("    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n");
 
-                // Process variants
                 $optimizedVariants = [];
                 Storage::disk('public')->makeDirectory(self::SCREENSHOTS_PATH);
 
                 foreach (self::SCREENSHOT_VARIANTS as $variant => $config) {
-                    echo "    [Images] Processing {$variant} variant...\n";
+                    $this->progress("    [Images] Processing {$variant} variant...\n");
 
                     $variantFilename = $baseFilename . "_{$variant}.webp";
                     $variantPath = $this->getStoragePath($variantFilename, self::SCREENSHOTS_PATH);
@@ -277,7 +271,6 @@ class ImageProcessingService
                     ];
                 }
 
-                // Store the screenshot with optimized data embedded
                 $updatedScreenshots[] = [
                     'url' => $sourceUrl,
                     'optimized' => $optimizedVariants,
@@ -286,7 +279,7 @@ class ImageProcessingService
 
                 unlink($tempFile);
             } catch (Exception $e) {
-                echo "    [Images] Error processing screenshot {$index}: {$e->getMessage()}\n";
+                $this->progress("    [Images] Error processing screenshot {$index}: {$e->getMessage()}\n");
                 Log::error('Screenshot processing failed', [
                     'game_id' => $game->id,
                     'index' => $index,
@@ -297,7 +290,6 @@ class ImageProcessingService
             }
         }
 
-        // Update the game with processed screenshots
         $game->screenshots = $updatedScreenshots;
 
         if ($processableScreenshots > 0 && $optimizedScreenshots === 0) {
@@ -317,7 +309,6 @@ class ImageProcessingService
      */
     public function processGameThumbnail(Game $game, int $quality = 80, bool $force = false): void
     {
-        // Determine the source URL for the thumbnail
         $sourceUrl = $game->getEffectiveThumbnailUrl();
 
         if (! $sourceUrl) {
@@ -327,18 +318,17 @@ class ImageProcessingService
         $isUsingScreenshotFallback = ! $game->thumb_url && ! empty($game->screenshots);
 
         if ($isUsingScreenshotFallback) {
-            echo "    [Images] No thumbnail found, using first screenshot as fallback...\n";
+            $this->progress("    [Images] No thumbnail found, using first screenshot as fallback...\n");
         }
 
-        // Skip if files exist and not forcing
         if (! $force && $game->optimized_thumbnails) {
-            echo "    [Images] Thumbnails already exist, skipping\n";
+            $this->progress("    [Images] Thumbnails already exist, skipping\n");
 
             return;
         }
 
         // Download the thumbnail
-        echo "    [Images] Downloading thumbnail...\n";
+        $this->progress("    [Images] Downloading thumbnail...\n");
         $response = $this->downloadImage($sourceUrl);
 
         if ($response->getStatusCode() !== 200) {
@@ -350,10 +340,8 @@ class ImageProcessingService
             throw new Exception('Downloaded content is empty');
         }
 
-        // Generate a unique filename with content checksum
         $baseFilename = $this->generateThumbnailFilename($game, $content, $sourceUrl);
 
-        // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'thumb_');
         file_put_contents($tempFile, $content);
 
@@ -374,22 +362,19 @@ class ImageProcessingService
 
             $this->assertAcceptableImageDimensions($imageInfo);
 
-            echo "    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n";
+            $this->progress("    [Images] Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}\n");
 
-            // Clear out any existing thumbnails for this game
             $this->cleanupExistingThumbnails($game->id);
 
             $thumbnails = [];
             Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
 
-            // Clear existing thumbnails if any
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
             }
 
-            // Process each variant
             foreach (self::THUMBNAIL_VARIANTS as $variant => $config) {
-                echo "    [Images] Processing {$variant} variant...\n";
+                $this->progress("    [Images] Processing {$variant} variant...\n");
 
                 $variantFilename = $baseFilename . "_{$variant}.webp";
                 $variantPath = $this->getStoragePath($variantFilename, self::THUMBNAIL_PATH);
@@ -405,7 +390,6 @@ class ImageProcessingService
                 ];
             }
 
-            // Update game record with all variants
             $game->optimized_thumbnails = $thumbnails;
         } finally {
             if (file_exists($tempFile)) {
@@ -473,15 +457,10 @@ class ImageProcessingService
         }
     }
 
-    /**
-     * Generate a unique filename for a screenshot based on URL and content
-     */
     private function generateScreenshotFilename(Game $game, string $url, string $fileContent): string
     {
-        // Use URL hash as the primary identifier (stable across updates)
         $urlHash = substr(md5($url), 0, 8);
 
-        // Generate a checksum of the file content to ensure cache invalidation when the image changes
         $contentChecksum = substr(md5($fileContent), 0, 8);
 
         return sprintf(
@@ -492,9 +471,6 @@ class ImageProcessingService
         );
     }
 
-    /**
-     * Generate a unique filename for a game's thumbnail
-     */
     private function generateThumbnailFilename(Game $game, string $fileContent, string $sourceUrl): string
     {
         $contentChecksum = substr(md5($fileContent), 0, 8);
@@ -507,9 +483,6 @@ class ImageProcessingService
         );
     }
 
-    /**
-     * Get the storage path for a file
-     */
     private function getStoragePath(string $filename, string $basePath): string
     {
         return $basePath . '/' . $filename;
@@ -522,7 +495,6 @@ class ImageProcessingService
     {
         $files = Storage::disk('public')->files(self::SCREENSHOTS_PATH);
 
-        // Generate the URL hash prefix to match files for this game and URL
         $urlHash = substr(md5($sourceUrl), 0, 8);
         $pattern = "/^{$gameId}_screenshot_{$urlHash}_[a-f0-9]{8}/";
 

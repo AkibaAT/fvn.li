@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Auth;
 
 class UserReviewController extends Controller
 {
-    /**
-     * Store or update a user's review for a game.
-     */
     public function store(Request $request, int $gameId): JsonResponse
     {
         $request->validate([
@@ -44,7 +41,7 @@ class UserReviewController extends Controller
         $reviewText = $request->input('review') ?? '';
         $sanitizer = app(HtmlSanitizerService::class);
 
-        // Strip image/media tags — reviews don't support image uploads
+        // Strip image/media tags; reviews don't support image uploads
         $reviewText = preg_replace('/<img[^>]*>/i', '', $reviewText);
         $reviewText = preg_replace('/<video[^>]*>.*?<\/video>/is', '', $reviewText);
         $reviewText = preg_replace('/<audio[^>]*>.*?<\/audio>/is', '', $reviewText);
@@ -76,14 +73,11 @@ class UserReviewController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $rating->wasRecentlyCreated ? 'Review submitted!' : 'Review updated!',
+            'message' => $rating->wasRecentlyCreated ? 'Review submitted.' : 'Review updated.',
             'review' => $this->formatUserReview($rating),
         ]);
     }
 
-    /**
-     * Get the authenticated user's review for a game.
-     */
     public function show(int $gameId): JsonResponse
     {
         $user = Auth::user();
@@ -112,9 +106,6 @@ class UserReviewController extends Controller
         ]);
     }
 
-    /**
-     * Delete the authenticated user's review for a game.
-     */
     public function destroy(int $gameId): JsonResponse
     {
         $user = Auth::user();

@@ -24,7 +24,6 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             ...(hasFilterChanges ? { page: 1 } : {}),
         };
 
-        // Remove empty arrays and false values
         Object.keys(params).forEach((key) => {
             const value = params[key as keyof CurrentFilters];
             if (Array.isArray(value) && value.length === 0) {

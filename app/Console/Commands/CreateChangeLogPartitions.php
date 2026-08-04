@@ -91,14 +91,12 @@ class CreateChangeLogPartitions extends Command
         $partitionName = sprintf('change_logs_y%dm%02d', $year, $month);
         $startDate = sprintf('%d-%02d-01', $year, $month);
 
-        // Calculate end date (first day of next month)
         if ($month == 12) {
             $endDate = sprintf('%d-01-01', $year + 1);
         } else {
             $endDate = sprintf('%d-%02d-01', $year, $month + 1);
         }
 
-        // Check if partition already exists
         $exists = DB::selectOne(
             'SELECT 1 FROM pg_tables WHERE tablename = ?',
             [$partitionName]

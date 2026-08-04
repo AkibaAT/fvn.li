@@ -42,9 +42,6 @@ class Tag extends Model
         return 'slug';
     }
 
-    /**
-     * Get the indexable data array for the model.
-     */
     public function toSearchableArray(): array
     {
         return [
@@ -57,17 +54,11 @@ class Tag extends Model
         ];
     }
 
-    /**
-     * Get the name of the index associated with the model.
-     */
     public function searchableAs(): string
     {
         return 'tags';
     }
 
-    /**
-     * Determine if the model should be searchable.
-     */
     public function shouldBeSearchable(): bool
     {
         // Only index tags that have a name

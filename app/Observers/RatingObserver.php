@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Log;
 
 class RatingObserver
 {
-    /**
-     * Handle the Rating "created" event.
-     */
     public function created(Rating $rating): void
     {
         $this->dispatchRatingUpdate($rating, 'created');
@@ -24,9 +21,6 @@ class RatingObserver
         HomePageCacheService::clearStats(); // Clear home page stats for new rating
     }
 
-    /**
-     * Handle the Rating "updated" event.
-     */
     public function updated(Rating $rating): void
     {
         // Only dispatch if fields that affect rating calculation changed
@@ -34,7 +28,6 @@ class RatingObserver
             $this->dispatchRatingUpdate($rating, 'updated');
         }
 
-        // Clear cache if review content or visibility changed
         if ($rating->wasChanged(['review', 'is_reviewed', 'is_visible', 'rating'])) {
             $this->clearRaterCache($rating);
         }
@@ -43,15 +36,11 @@ class RatingObserver
             RatingStatsCacheService::clear();
         }
 
-        // Clear home page stats if visibility changed (affects total rating count)
         if ($rating->wasChanged('is_visible')) {
             HomePageCacheService::clearStats();
         }
     }
 
-    /**
-     * Handle the Rating "deleted" event.
-     */
     public function deleted(Rating $rating): void
     {
         $this->dispatchRatingUpdate($rating, 'deleted');
@@ -92,7 +81,6 @@ class RatingObserver
             return;
         }
 
-        // Clear the phrase analysis cache for this rater
         Cache::forget("rater_phrases_{$rating->rater_id}");
         Cache::forget("rater_phrases_v2_{$rating->rater_id}");
 

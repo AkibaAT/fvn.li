@@ -37,7 +37,6 @@ class SearchIndexService
                 });
 
             // Reindex dialogue texts (per-game deduplication)
-            // Get all games that have dialogue
             $gameIds = DB::table('version_dialogue_lines as vdl')
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->distinct()
@@ -109,7 +108,6 @@ class SearchIndexService
         $stats = ['count' => 0, 'errors' => []];
 
         try {
-            // Get all games that have dialogue
             $gameIds = DB::table('version_dialogue_lines as vdl')
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->distinct()
@@ -161,9 +159,6 @@ class SearchIndexService
         return $stats;
     }
 
-    /**
-     * Remove items from search index.
-     */
     public function removeFromIndex(string $modelClass, array $ids): void
     {
         try {
@@ -171,7 +166,6 @@ class SearchIndexService
                 return;
             }
 
-            // Create dummy models with the IDs to remove them from the index
             $models = collect($ids)->map(function ($id) use ($modelClass) {
                 $model = new $modelClass;
                 $model->id = $id;
@@ -179,7 +173,6 @@ class SearchIndexService
                 return $model;
             });
 
-            // Remove from search index
             $models->unsearchable();
 
             Log::info('Removed items from search index', [
@@ -231,9 +224,6 @@ class SearchIndexService
         }
     }
 
-    /**
-     * Check if search indexes are healthy.
-     */
     public function healthCheck(): array
     {
         try {

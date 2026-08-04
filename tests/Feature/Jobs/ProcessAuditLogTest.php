@@ -94,8 +94,12 @@ it('does not log full audit payloads for recoverable stale user fallback', funct
 
 it('logs permanent audit job failures without throwing', function () {
     $job = new ProcessAuditLog(auditPayload());
+    Log::shouldReceive('error')
+        ->once()
+        ->with('Audit log job failed permanently', Mockery::on(
+            fn (array $context): bool => $context['error'] === 'permanent failure'
+                && $context['exception'] instanceof RuntimeException
+        ));
 
     $job->failed(new RuntimeException('permanent failure'));
-
-    expect(true)->toBeTrue();
 });

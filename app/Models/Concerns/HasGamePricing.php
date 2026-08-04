@@ -6,9 +6,6 @@ namespace App\Models\Concerns;
 
 trait HasGamePricing
 {
-    /**
-     * Get the current price (after discount if on sale)
-     */
     public function getCurrentPriceAttribute(): ?float
     {
         if (! $this->is_paid || $this->min_price === null) {
@@ -22,9 +19,6 @@ trait HasGamePricing
         return $this->min_price;
     }
 
-    /**
-     * Get the original price (before discount)
-     */
     public function getOriginalPriceAttribute(): ?float
     {
         if (! $this->is_paid || $this->min_price === null) {
@@ -35,9 +29,6 @@ trait HasGamePricing
         return $this->min_price;
     }
 
-    /**
-     * Get the discount percentage (alias for sale_discount_percent)
-     */
     public function getDiscountPercentageAttribute(): ?int
     {
         return $this->sale_discount_percent;
@@ -67,17 +58,11 @@ trait HasGamePricing
         return $symbol . number_format($price, $decimals);
     }
 
-    /**
-     * Get the current price formatted with currency
-     */
     public function getFormattedCurrentPriceAttribute(): ?string
     {
         return $this->formatPrice($this->current_price);
     }
 
-    /**
-     * Get the original price formatted with currency
-     */
     public function getFormattedOriginalPriceAttribute(): ?string
     {
         return $this->formatPrice($this->original_price);

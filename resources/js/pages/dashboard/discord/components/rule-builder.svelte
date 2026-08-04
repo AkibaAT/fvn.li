@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ChannelPicker from './ChannelPicker.svelte';
     interface RuleCondition {
         field: string;
         operator: string;
@@ -43,9 +44,6 @@
     const uid = $props.id();
 
     let expandedRule = $state<string | number | null>(null);
-    let channelPickerOpenForRule = $state<string | number | null>(null);
-    let channelSearch = $state('');
-    let channelPickerEl: HTMLDivElement | undefined = $state();
     let valuePickerKey = $state<string | null>(null);
     let valueSearch = $state('');
     let valuePickerEl: HTMLDivElement | undefined = $state();
@@ -191,43 +189,6 @@
             })
             .join(' AND ');
     }
-
-    function getChannelLabel(channelId?: string): string {
-        if (!channelId) return 'Default channel';
-
-        return `#${channels.find((channel) => channel.id === channelId)?.name || channelId}`;
-    }
-
-    function getChannel(channelId?: string): DiscordChannel | undefined {
-        if (!channelId) return undefined;
-
-        return channels.find((channel) => channel.id === channelId);
-    }
-
-    function selectRouteChannel(ruleId: string | number | undefined, channelId: string) {
-        updateRule(ruleId, { action: { type: 'route', channel_id: channelId } });
-        channelPickerOpenForRule = null;
-        channelSearch = '';
-    }
-
-    const filteredChannels = $derived(
-        channelSearch.trim() ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase())) : channels,
-    );
-
-    $effect(() => {
-        if (channelPickerOpenForRule === null) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (channelPickerEl && !channelPickerEl.contains(event.target as Node)) {
-                channelPickerOpenForRule = null;
-                channelSearch = '';
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    });
 
     $effect(() => {
         if (valuePickerKey === null) return;
@@ -546,95 +507,14 @@
                                         <span class="text-gray-700 dark:text-gray-300">Route to channel</span>
                                     </label>
                                     {#if rule.action.type === 'route'}
-                                        <div class="relative" bind:this={channelPickerEl}>
-                                            <button
-                                                type="button"
-                                                onclick={() => {
-                                                    channelPickerOpenForRule = channelPickerOpenForRule === rule.id ? null : rule.id;
-                                                    if (channelPickerOpenForRule === null) channelSearch = '';
-                                                }}
-                                                class="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            >
-                                                <span class="inline-flex items-center gap-2">
-                                                    <span>{getChannelLabel(rule.action.channel_id)}</span>
-                                                    {#if getChannel(rule.action.channel_id)?.nsfw}
-                                                        <span
-                                                            class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                                        >
-                                                            NSFW
-                                                        </span>
-                                                    {/if}
-                                                </span>
-                                            </button>
-
-                                            {#if channelPickerOpenForRule === rule.id}
-                                                <div
-                                                    class="absolute z-20 mt-1 w-72 rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                                                >
-                                                    <div class="p-2">
-                                                        <input
-                                                            type="text"
-                                                            bind:value={channelSearch}
-                                                            placeholder="Type to filter channels..."
-                                                            class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                                        />
-                                                    </div>
-                                                    <div class="max-h-56 overflow-y-auto py-1">
-                                                        <button
-                                                            type="button"
-                                                            onclick={() => selectRouteChannel(rule.id, '')}
-                                                            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                        >
-                                                            <span>Default channel</span>
-                                                            {#if !rule.action.channel_id}
-                                                                <svg
-                                                                    class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                                    fill="none"
-                                                                    viewBox="0 0 24 24"
-                                                                    stroke="currentColor"
-                                                                    stroke-width="2"
-                                                                >
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            {/if}
-                                                        </button>
-                                                        {#if filteredChannels.length === 0}
-                                                            <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No channels found</div>
-                                                        {:else}
-                                                            {#each filteredChannels as ch (ch.id)}
-                                                                <button
-                                                                    type="button"
-                                                                    onclick={() => selectRouteChannel(rule.id, ch.id)}
-                                                                    class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                                >
-                                                                    <span class="flex min-w-0 items-center gap-2">
-                                                                        <span class="truncate">#{ch.name}</span>
-                                                                        {#if ch.nsfw}
-                                                                            <span
-                                                                                class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                                                            >
-                                                                                NSFW
-                                                                            </span>
-                                                                        {/if}
-                                                                    </span>
-                                                                    {#if rule.action.channel_id === ch.id}
-                                                                        <svg
-                                                                            class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                                            fill="none"
-                                                                            viewBox="0 0 24 24"
-                                                                            stroke="currentColor"
-                                                                            stroke-width="2"
-                                                                        >
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                                        </svg>
-                                                                    {/if}
-                                                                </button>
-                                                            {/each}
-                                                        {/if}
-                                                    </div>
-                                                </div>
-                                            {/if}
-                                        </div>
+                                        <ChannelPicker
+                                            items={channels}
+                                            value={rule.action.channel_id || null}
+                                            placeholder="Select a channel..."
+                                            searchPlaceholder="Type to filter channels..."
+                                            emptyLabel="No channels found"
+                                            onselect={(channelId) => updateRule(rule.id, { action: { type: 'route', channel_id: channelId || '' } })}
+                                        />
                                     {/if}
                                 </div>
                             </div>

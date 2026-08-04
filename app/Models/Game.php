@@ -13,7 +13,6 @@ use App\Models\Concerns\HasGamePlatformSupport;
 use App\Models\Concerns\HasGamePricing;
 use App\Models\Concerns\HasGameSearch;
 use App\Models\Concerns\HasGameTags;
-use App\Models\Concerns\HasGameVersionParsing;
 use App\Services\GameDataSyncService;
 use App\Services\GameVersionParser;
 use DateMalformedStringException;
@@ -47,7 +46,6 @@ class Game extends Model
         HasGameSearch::shouldBeSearchable insteadof Searchable;
     }
     use HasGameTags;
-    use HasGameVersionParsing;
 
     /**
      * Temporary flags that should not be persisted to the database.
@@ -173,16 +171,13 @@ class Game extends Model
         parent::boot();
 
         static::saving(function (self $game) {
-            // Generate slug if it doesn't exist or if URL/name changed
             if (! $game->slug || $game->isDirty(['url', 'name'])) {
-                // Try to get slug from primary URL first
                 $primaryUrl = $game->getPrimaryUrl();
                 $baseSlug = null;
 
                 if ($primaryUrl) {
                     $baseSlug = basename($primaryUrl);
 
-                    // Check if basename is usable (not empty, not '/', not a domain)
                     // A domain typically has dots and no hyphens/underscores
                     if (empty($baseSlug) || $baseSlug === '/' || strpos($baseSlug, '.') !== false) {
                         $baseSlug = null;
@@ -194,7 +189,6 @@ class Game extends Model
                     $baseSlug = Str::slug($game->name);
                 }
 
-                // Find a unique slug
                 $slug = $baseSlug;
                 $counter = 1;
 
@@ -205,7 +199,6 @@ class Game extends Model
                 $game->slug = $slug;
             }
 
-            // Validate that platform is set before saving
             if ($game->isDirty('platform') && $game->platform === null) {
                 throw new InvalidArgumentException(
                     'Game platform must be explicitly set. Cannot save game without a platform. ' .
@@ -225,14 +218,9 @@ class Game extends Model
         });
     }
 
-    /**
-     * Generate a unique slug from a name
-     */
     public function generateUniqueSlug(string $name): string
     {
-        // Create base slug from name
         $baseSlug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $name));
-        // Remove leading/trailing hyphens
         $baseSlug = trim($baseSlug, '-');
 
         // Start with base slug
@@ -248,41 +236,26 @@ class Game extends Model
         return $slug;
     }
 
-    /**
-     * Get the source language for this game.
-     */
     public function sourceLanguage(): BelongsTo
     {
         return $this->belongsTo(Language::class, 'source_language_id');
     }
 
-    /**
-     * Get the latest version of the game.
-     */
     public function latestVersion(): HasOne
     {
         return $this->hasOne(GameVersion::class)->where('is_latest', true);
     }
 
-    /**
-     * Get all ratings for this game.
-     */
     public function ratings(): HasMany
     {
         return $this->hasMany(Rating::class);
     }
 
-    /**
-     * Get all Discord server subscriptions for this game.
-     */
     public function discordSubscriptions(): HasMany
     {
         return $this->hasMany(GameDiscordSubscription::class);
     }
 
-    /**
-     * Get all Discord servers subscribed to this game.
-     */
     public function discordServers()
     {
         return $this->belongsToMany(DiscordServer::class, 'game_discord_subscriptions')
@@ -290,17 +263,11 @@ class Game extends Model
             ->withTimestamps();
     }
 
-    /**
-     * Get notification history for this game.
-     */
     public function discordNotificationHistory(): HasMany
     {
         return $this->hasMany(DiscordNotificationHistory::class);
     }
 
-    /**
-     * Get all user progress records for this game.
-     */
     public function userProgress(): HasMany
     {
         return $this->hasMany(UserGameProgress::class);
@@ -357,17 +324,11 @@ class Game extends Model
         $syncService->refreshVersion($this, $force);
     }
 
-    /**
-     * Get all game versions for this game.
-     */
     public function gameVersions(): HasMany
     {
         return $this->hasMany(GameVersion::class)->orderBy('published_at', 'desc');
     }
 
-    /**
-     * Extract version information from upload metadata
-     */
     public function extractVersion(array $upload, bool $allowDateFallback = false): ?string
     {
         $parser = app(GameVersionParser::class);
@@ -387,31 +348,20 @@ class Game extends Model
         $syncService->refreshMetadata($this, $originalThumbUrl, $originalScreenshots);
     }
 
-    /**
-     * Get all characters for this game.
-     */
     public function characters(): HasMany
     {
         return $this->hasMany(Character::class)->orderBy('character_id');
     }
 
-    /**
-     * Get the language mappings specific to this game.
-     */
     public function languageMappings(): HasMany
     {
         return $this->hasMany(LanguageMapping::class);
     }
 
-    /**
-     * Get the attributes that should be converted to arrays for database storage.
-     * Excludes temporary in-memory properties that are not database columns.
-     */
     protected function getArrayableAttributes(): array
     {
         $attributes = parent::getArrayableAttributes();
 
-        // Remove temporary properties that should not be persisted to database
         unset($attributes['pendingGameJamId'], $attributes['pendingTagIds']);
 
         return $attributes;

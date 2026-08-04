@@ -40,35 +40,16 @@ class GameDialogueText extends Model
         'character_names' => 'array',
     ];
 
-    /**
-     * Generate all searchable records by aggregating dialogue texts per game.
-     * This is called by Scout when running scout:import.
-     *
-     * We can't use the standard query builder approach since this is a virtual model.
-     * Instead, we'll return a generator that yields chunks of models.
-     */
     public static function makeAllSearchableUsing($query)
     {
-        // Get all games that have dialogue
         $gameIds = DB::table('version_dialogue_lines as vdl')
             ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
             ->distinct()
             ->pluck('gv.game_id');
 
-        echo 'Found ' . $gameIds->count() . " games with dialogue to index\n";
-
-        // Process each game's dialogue texts
-        return $gameIds->map(function ($gameId) {
-            echo "  Processing game ID: {$gameId}\n";
-
-            return static::getForGame($gameId);
-        })->flatten();
+        return $gameIds->map(fn ($gameId) => static::getForGame($gameId))->flatten();
     }
 
-    /**
-     * Get all game dialogue texts aggregated from the database.
-     * Returns a collection of GameDialogueText instances.
-     */
     public static function getAllGameDialogueTexts(): Collection
     {
         // Query to aggregate dialogue texts from each game's current dialogue version.
@@ -131,9 +112,6 @@ class GameDialogueText extends Model
         return collect($results)->map(fn ($row) => static::fromIndexRow($row));
     }
 
-    /**
-     * Get dialogue texts for a specific game.
-     */
     public static function getForGame(int $gameId): Collection
     {
         return static::cursorForGame($gameId)->collect();
@@ -206,7 +184,7 @@ class GameDialogueText extends Model
     {
         app(Client::class)
             ->index('game_dialogue_texts')
-            ->deleteDocuments(['filter' => 'game_id = ' . $gameId]);
+            ->deleteDocuments(['filter' => 'game_id = '.$gameId]);
     }
 
     public static function deleteAllSearchDocuments(): void
@@ -244,7 +222,7 @@ class GameDialogueText extends Model
         }
 
         $model = new static;
-        $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
+        $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
         $model->text_id = $row->text_id;
         $model->game_id = $row->game_id;
         $model->text_content = $row->text_content;
@@ -273,7 +251,6 @@ class GameDialogueText extends Model
             return [];
         }
 
-        // Remove curly braces
         $pgArray = trim($pgArray, '{}');
 
         if (empty($pgArray)) {
@@ -370,9 +347,6 @@ class GameDialogueText extends Model
             ->all();
     }
 
-    /**
-     * Get the indexable data array for the model.
-     */
     public function toSearchableArray(): array
     {
         return [
@@ -394,34 +368,22 @@ class GameDialogueText extends Model
         ];
     }
 
-    /**
-     * Get the name of the index associated with the model.
-     */
     public function searchableAs(): string
     {
         return 'game_dialogue_texts';
     }
 
-    /**
-     * Determine if the model should be searchable.
-     */
     public function shouldBeSearchable(): bool
     {
         // Only index texts that have actual content
         return ! empty(trim($this->text_content ?? ''));
     }
 
-    /**
-     * Get the Scout key for the model.
-     */
     public function getScoutKey()
     {
         return $this->id;
     }
 
-    /**
-     * Get the Scout key name for the model.
-     */
     public function getScoutKeyName()
     {
         return 'id';

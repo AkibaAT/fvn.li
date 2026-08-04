@@ -1,25 +1,19 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "resources/js/app.tsx",
-    "resources/js/ssr.tsx",
-    "resources/js/pages/**/*.tsx",
-    "resources/js/layouts/**/*.tsx",
-    "resources/js/components/**/*.tsx"
+    "resources/js/pages/**/*.svelte"
   ],
   "project": [
-    "resources/js/**/*.{ts,tsx}"
-  ],
-  "ignore": [
-    "public/**"
+    "resources/js/**/*.{ts,svelte}"
   ],
   "ignoreDependencies": [
-    "@rollup/rollup-linux-x64-gnu",
-    "@tailwindcss/oxide-linux-x64-gnu",
-    "lightningcss-linux-x64-gnu"
+    "@tailwindcss/typography",
+    "flag-icons",
+    "svelte-check",
+    "tinymce",
+    "ziggy-js"
   ],
   "paths": {
     "@/*": ["resources/js/*"]
   }
 }
-

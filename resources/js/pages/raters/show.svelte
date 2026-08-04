@@ -234,7 +234,6 @@
 <div class="space-y-6">
     <PageHeader title={`${rater.name}'s Ratings`} backHref={route('ratings.index')} backLabel="Back to Ratings" class="mb-0" />
 
-    <!-- Stats -->
     <Card padding="lg">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{rater.name}'s Rating Statistics</h2>
@@ -275,7 +274,6 @@
             </div>
         </div>
 
-        <!-- Two distributions -->
         <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             {#each [['All Games', safeStats.all_games], ['Listed Games', safeStats.visible_games]] as [title, block] (title)}
                 {@const statsBlock = block as Stats['all_games']}
@@ -304,7 +302,6 @@
         </div>
     </Card>
 
-    <!-- Phrases -->
     <Card padding="lg" class="shadow">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Common Phrases in Reviews</h2>
         <div class="mt-4">
@@ -356,7 +353,6 @@
         {/if}
     </Card>
 
-    <!-- Review Text Controls -->
     <ReviewTextControls />
 
     <Card padding="none" class="overflow-hidden">
@@ -494,7 +490,6 @@
         </div>
     </Card>
 
-    <!-- Common Phrases Dialog -->
     <Dialog
         open={showContext && !!selectedPhrase && !!safePhrases[selectedPhrase]}
         onClose={closePhrasesDialog}
@@ -527,7 +522,6 @@
         {/if}
     </Dialog>
 
-    <!-- Rating History Dialog -->
     <Dialog open={historyModal.open} onClose={closeHistory} title={historyModal.gameName || 'Rating History'} size="lg">
         {#if historyModal.gameName}
             <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Rating history for this game:</p>

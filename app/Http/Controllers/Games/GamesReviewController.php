@@ -12,9 +12,6 @@ use Illuminate\Http\Request;
 
 class GamesReviewController extends Controller
 {
-    /**
-     * Get reviews for a specific game
-     */
     public function getGameReviews(Request $request, $gameId): JsonResponse
     {
         $request->validate([

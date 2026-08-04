@@ -163,7 +163,9 @@ class GameJamDetailsParser
     {
         try {
             return new DateTime($date);
-        } catch (Exception) {
+        } catch (Exception $exception) {
+            report($exception);
+
             return null;
         }
     }

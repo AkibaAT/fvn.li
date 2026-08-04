@@ -282,7 +282,7 @@ test('blocks link updates for users without edit rights', function () {
             ],
         ])
         ->assertForbidden()
-        ->assertJson(['success' => false, 'message' => 'Forbidden']);
+        ->assertJson(['success' => false, 'message' => 'You do not have permission to edit this game.']);
 });
 
 test('can delete thumbnail when authenticated and authorized', function () {
@@ -327,7 +327,7 @@ test('cannot delete thumbnail when unauthorized', function () {
     $response = $this->actingAs($user)->deleteJson("/browser-api/my-games/{$game->slug}/thumbnail");
 
     $response->assertStatus(403)
-        ->assertJson(['success' => false, 'message' => 'Forbidden']);
+        ->assertJson(['success' => false, 'message' => 'You do not have permission to edit this game.']);
 });
 
 test('can upload thumbnail when authenticated and authorized', function () {
@@ -381,7 +381,7 @@ test('thumbnail uploads return json validation and authorization errors', functi
             'thumbnail' => UploadedFile::fake()->image('thumbnail.jpg'),
         ])
         ->assertForbidden()
-        ->assertJson(['success' => false, 'message' => 'Forbidden']);
+        ->assertJson(['success' => false, 'message' => 'You do not have permission to edit this game.']);
 
     $this
         ->actingAs(User::factory()->create(['is_admin' => true]))
@@ -497,7 +497,7 @@ test('gallery screenshot upload and delete enforce auth and validation errors', 
             'screenshots' => [UploadedFile::fake()->image('screenshot.jpg')],
         ])
         ->assertForbidden()
-        ->assertJson(['success' => false, 'message' => 'Forbidden']);
+        ->assertJson(['success' => false, 'message' => 'You do not have permission to edit this game.']);
 
     $this
         ->actingAs(User::factory()->create(['is_admin' => true]))
@@ -580,7 +580,7 @@ test('reorder screenshots validates payloads and enforces edit rights', function
             'ordered_indices' => [0],
         ])
         ->assertForbidden()
-        ->assertJson(['success' => false, 'message' => 'Forbidden']);
+        ->assertJson(['success' => false, 'message' => 'You do not have permission to edit this game.']);
 });
 
 function bindStashDownloadMock(?array $download, bool $enabled = true): void

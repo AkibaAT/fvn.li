@@ -53,7 +53,6 @@ test('find or create for url finds existing request', function () {
 test('find or create for url returns null for existing visible games', function () {
     $url = 'https://existing-dev.itch.io/existing-game';
 
-    // Create a visible game with this URL
     Game::factory()->create([
         'url' => ['itch_io' => $url],
         'is_visible' => true,
@@ -67,7 +66,6 @@ test('find or create for url returns null for existing visible games', function 
 test('find or create for url works for invisible games', function () {
     $url = 'https://hidden-dev.itch.io/hidden-game';
 
-    // Create an invisible game with this URL
     Game::factory()->create([
         'url' => ['itch_io' => $url],
         'is_visible' => false,

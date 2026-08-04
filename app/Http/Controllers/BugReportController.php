@@ -21,9 +21,6 @@ class BugReportController extends Controller
 
     private const int MAX_USER_AGENT_LENGTH = 1024;
 
-    /**
-     * Get the authenticated user's bug reports.
-     */
     public function index(): JsonResponse
     {
         $authId = Auth::id();
@@ -56,9 +53,6 @@ class BugReportController extends Controller
         ]);
     }
 
-    /**
-     * Store a new bug report.
-     */
     public function store(Request $request): JsonResponse
     {
         $authId = Auth::id();
@@ -93,9 +87,6 @@ class BugReportController extends Controller
         ]);
     }
 
-    /**
-     * Get a single bug report with its comments.
-     */
     public function show(BugReport $bugReport): JsonResponse
     {
         $authId = Auth::id();
@@ -103,12 +94,10 @@ class BugReportController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
 
-        // Ensure user owns this report
         if ($bugReport->user_id !== $authId) {
             return response()->json(['success' => false, 'message' => 'Not found'], 404);
         }
 
-        // Mark admin replies as read
         $bugReport->markAdminRepliesAsRead();
 
         $comments = $bugReport->comments()
@@ -153,7 +142,6 @@ class BugReportController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
 
-        // Ensure user owns this report
         if ($bugReport->user_id !== $authId) {
             return response()->json(['success' => false, 'message' => 'Not found'], 404);
         }
@@ -201,7 +189,6 @@ class BugReportController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
 
-        // Ensure user owns this report
         if ($bugReport->user_id !== $authId) {
             return response()->json(['success' => false, 'message' => 'Not found'], 404);
         }

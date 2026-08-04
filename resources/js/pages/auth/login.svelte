@@ -3,6 +3,7 @@
     import SteamIcon from '@/components/icons/Steam.svelte';
     import { Link } from '@inertiajs/svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import { Card } from '@/components/ui';
 
     interface Props {
         metaTags?: {
@@ -27,9 +28,7 @@
 
 <div class="py-12">
     <div class="mx-auto max-w-md sm:px-6 lg:px-8">
-        <div
-            class="overflow-hidden border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl sm:rounded-2xl dark:border-gray-700/50 dark:bg-gray-800/70"
-        >
+        <Card variant="glass" padding="none" class="overflow-hidden sm:rounded-2xl">
             <div class="p-6 text-gray-900 dark:text-gray-100">
                 <PageHeader title="Welcome to FVN.li" description="Log in to manage your visual novel collections" align="center" class="mb-6" />
 
@@ -112,6 +111,6 @@
                     </Link>
                 </div>
             </div>
-        </div>
+        </Card>
     </div>
 </div>

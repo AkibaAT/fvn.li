@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict MzbRAK3UllfftmqZIoVyn8XdGjCz1OhXItvLLkj3KCXivG267S8RATElys6hUnA
+\restrict hfHDefaRD2eMUMSUDLub5NUYmzUUykJLOttZykwY8JMhPHeZlwUTyseexhp14xI
 
--- Dumped from database version 18.0 (Debian 18.0-1.pgdg13+3)
--- Dumped by pg_dump version 18.0 (Debian 18.0-1.pgdg12+3)
+-- Dumped from database version 18.4 (Debian 18.4-1.pgdg13+1)
+-- Dumped by pg_dump version 18.4 (Debian 18.4-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -45,6 +45,47 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
 --
 
 COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
+
+
+--
+-- Name: generate_unique_slug(text, bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.generate_unique_slug(p_name text, p_id bigint) RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+            DECLARE
+                base_slug TEXT;
+                new_slug TEXT;
+                counter INTEGER;
+            BEGIN
+                -- Create base slug from name
+                base_slug := LOWER(REGEXP_REPLACE(p_name, '[^a-zA-Z0-9]+', '-', 'g'));
+                -- Remove leading/trailing hyphens
+                base_slug := TRIM(BOTH '-' FROM base_slug);
+
+                -- Use a stable fallback when the name has no ASCII slug characters
+                IF base_slug IS NULL OR base_slug = '' THEN
+                    base_slug := 'game-' || p_id::TEXT;
+                END IF;
+
+                -- Start with base slug
+                new_slug := base_slug;
+                counter := 1;
+
+                -- Keep trying with incrementing numbers until we find a unique slug
+                WHILE EXISTS (
+                    SELECT 1 FROM games
+                    WHERE slug = new_slug
+                    AND id != p_id
+                ) LOOP
+                    new_slug := base_slug || '-' || counter;
+                    counter := counter + 1;
+                END LOOP;
+
+                RETURN new_slug;
+            END;
+            $$;
 
 
 --
@@ -203,7 +244,8 @@ CREATE TABLE public.addition_requests (
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     platform character varying(255),
-    CONSTRAINT addition_requests_platform_check CHECK (((platform)::text = ANY ((ARRAY['itch_io'::character varying, 'steam'::character varying, 'other'::character varying])::text[]))),
+    discord_notified_at timestamp(0) without time zone,
+    CONSTRAINT addition_requests_platform_check CHECK (((platform)::text = ANY (ARRAY[('itch_io'::character varying)::text, ('steam'::character varying)::text, ('other'::character varying)::text]))),
     CONSTRAINT addition_requests_status_check CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('approved'::character varying)::text, ('rejected'::character varying)::text])))
 );
 
@@ -272,6 +314,82 @@ CREATE SEQUENCE public.android_builds_id_seq
 --
 
 ALTER SEQUENCE public.android_builds_id_seq OWNED BY public.android_builds.id;
+
+
+--
+-- Name: bug_report_comments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bug_report_comments (
+    id bigint NOT NULL,
+    bug_report_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    message text NOT NULL,
+    is_from_admin boolean DEFAULT false NOT NULL,
+    is_read boolean DEFAULT false NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: bug_report_comments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.bug_report_comments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: bug_report_comments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.bug_report_comments_id_seq OWNED BY public.bug_report_comments.id;
+
+
+--
+-- Name: bug_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bug_reports (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    page_url character varying(2048) NOT NULL,
+    page_title character varying(255),
+    description text NOT NULL,
+    request_parameters json,
+    user_agent character varying(1024),
+    status character varying(255) DEFAULT 'open'::character varying NOT NULL,
+    admin_notes text,
+    resolved_by bigint,
+    resolved_at timestamp(0) without time zone,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    is_closed boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: bug_reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.bug_reports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: bug_reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.bug_reports_id_seq OWNED BY public.bug_reports.id;
 
 
 --
@@ -590,6 +708,510 @@ CREATE TABLE public.change_logs_y2025m12 (
 
 
 --
+-- Name: change_logs_y2026m01; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m01 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m02; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m02 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m03; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m03 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m04; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m04 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m05; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m05 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m06; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m06 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m07; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m07 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m08; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m08 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m09; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m09 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m10; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m10 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m11; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m11 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2026m12; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2026m12 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m01; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m01 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m02; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m02 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m03; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m03 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m04; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m04 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m05; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m05 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m06; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m06 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m07; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m07 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m08; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m08 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m09; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m09 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m10; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m10 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m11; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m11 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
+-- Name: change_logs_y2027m12; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.change_logs_y2027m12 (
+    id bigint DEFAULT nextval('public.change_logs_id_seq'::regclass) CONSTRAINT change_logs_id_not_null NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_timestamp_not_null NOT NULL,
+    event_type character varying(50) CONSTRAINT change_logs_event_type_not_null NOT NULL,
+    entity_type character varying(50) CONSTRAINT change_logs_entity_type_not_null NOT NULL,
+    entity_id bigint CONSTRAINT change_logs_entity_id_not_null NOT NULL,
+    user_id bigint,
+    changes jsonb,
+    old_values jsonb,
+    new_values jsonb,
+    context jsonb,
+    source character varying(20) DEFAULT 'web'::character varying,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_created_at_not_null NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT change_logs_updated_at_not_null NOT NULL
+);
+
+
+--
 -- Name: version_character_stats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -679,7 +1301,8 @@ CREATE TABLE public.click_stats (
     clicked_at timestamp(0) without time zone NOT NULL,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
-    user_id bigint
+    user_id bigint,
+    bot_reason character varying(32)
 );
 
 
@@ -703,13 +1326,50 @@ ALTER SEQUENCE public.click_stats_id_seq OWNED BY public.click_stats.id;
 
 
 --
+-- Name: discord_channel_announcements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.discord_channel_announcements (
+    id bigint NOT NULL,
+    game_id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    batch_key character varying(255),
+    attempts integer DEFAULT 0 NOT NULL,
+    error text,
+    processed_at timestamp(0) without time zone,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: discord_channel_announcements_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.discord_channel_announcements_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: discord_channel_announcements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.discord_channel_announcements_id_seq OWNED BY public.discord_channel_announcements.id;
+
+
+--
 -- Name: discord_notification_history; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.discord_notification_history (
     id bigint NOT NULL,
     discord_server_id bigint NOT NULL,
-    game_id bigint NOT NULL,
+    game_id bigint,
     notification_type character varying(255) DEFAULT 'update'::character varying NOT NULL,
     message_id character varying(255),
     channel_id character varying(255) NOT NULL,
@@ -718,8 +1378,12 @@ CREATE TABLE public.discord_notification_history (
     error_message text,
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
-    CONSTRAINT discord_notification_history_delivery_status_check CHECK (((delivery_status)::text = ANY ((ARRAY['pending'::character varying, 'sent'::character varying, 'failed'::character varying])::text[]))),
-    CONSTRAINT discord_notification_history_notification_type_check CHECK (((notification_type)::text = ANY ((ARRAY['update'::character varying, 'new_game'::character varying, 'rating_change'::character varying, 'manual'::character varying])::text[])))
+    payload jsonb,
+    batch_key character varying(255),
+    delivery_mode character varying(20) DEFAULT 'send'::character varying NOT NULL,
+    payload_hash character varying(64),
+    CONSTRAINT discord_notification_history_delivery_status_check CHECK (((delivery_status)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'sent'::character varying, 'failed'::character varying])::text[]))),
+    CONSTRAINT discord_notification_history_notification_type_check CHECK (((notification_type)::text = ANY (ARRAY[('update'::character varying)::text, ('new_game'::character varying)::text, ('rating_change'::character varying)::text, ('manual'::character varying)::text])))
 );
 
 
@@ -758,7 +1422,11 @@ CREATE TABLE public.discord_server_configs (
     ping_role_id character varying(255),
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
-    CONSTRAINT discord_server_configs_notification_format_check CHECK (((notification_format)::text = ANY ((ARRAY['compact'::character varying, 'detailed'::character varying, 'custom'::character varying])::text[])))
+    routing_rules jsonb DEFAULT '[]'::jsonb NOT NULL,
+    new_game_embed jsonb,
+    update_embed jsonb,
+    use_embeds boolean DEFAULT false NOT NULL,
+    CONSTRAINT discord_server_configs_notification_format_check CHECK (((notification_format)::text = ANY (ARRAY[('compact'::character varying)::text, ('detailed'::character varying)::text, ('custom'::character varying)::text])))
 );
 
 
@@ -782,6 +1450,42 @@ ALTER SEQUENCE public.discord_server_configs_id_seq OWNED BY public.discord_serv
 
 
 --
+-- Name: discord_server_game_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.discord_server_game_overrides (
+    id bigint NOT NULL,
+    discord_server_id bigint NOT NULL,
+    game_id bigint NOT NULL,
+    is_ignored boolean DEFAULT false NOT NULL,
+    channel_id character varying(255),
+    new_game_embed jsonb,
+    update_embed jsonb,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: discord_server_game_overrides_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.discord_server_game_overrides_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: discord_server_game_overrides_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.discord_server_game_overrides_id_seq OWNED BY public.discord_server_game_overrides.id;
+
+
+--
 -- Name: discord_server_games; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -797,7 +1501,8 @@ CREATE TABLE public.discord_server_games (
     discord_tags jsonb DEFAULT '[]'::jsonb NOT NULL,
     discord_updated_at timestamp(0) without time zone,
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    discord_payload_hash character varying(64)
 );
 
 
@@ -901,7 +1606,9 @@ CREATE TABLE public.discord_servers (
     is_active boolean DEFAULT true NOT NULL,
     bot_joined_at timestamp(0) without time zone,
     created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
+    updated_at timestamp(0) without time zone,
+    available_channels jsonb,
+    channels_synced_at timestamp(0) without time zone
 );
 
 
@@ -922,19 +1629,6 @@ CREATE SEQUENCE public.discord_servers_id_seq
 --
 
 ALTER SEQUENCE public.discord_servers_id_seq OWNED BY public.discord_servers.id;
-
-
---
--- Name: discord_users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.discord_users (
-    id bigint NOT NULL,
-    discord_id character varying(100),
-    processed_at timestamp without time zone,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
-);
 
 
 --
@@ -1127,7 +1821,9 @@ CREATE TABLE public.game_versions (
     is_mac boolean DEFAULT false NOT NULL,
     is_android boolean DEFAULT false NOT NULL,
     is_web boolean DEFAULT false NOT NULL,
-    is_latest boolean DEFAULT false NOT NULL
+    is_latest boolean DEFAULT false NOT NULL,
+    route_graph_data jsonb,
+    route_graph_unreachable_data jsonb
 );
 
 
@@ -1173,7 +1869,7 @@ CREATE TABLE public.games (
     custom_tags public.citext DEFAULT ''::public.citext NOT NULL,
     uploads jsonb DEFAULT '{}'::jsonb,
     is_feedless boolean DEFAULT false NOT NULL,
-    slug public.citext,
+    slug public.citext NOT NULL,
     source_language_id character varying(3),
     optimized_thumbnails jsonb,
     min_price numeric(10,2),
@@ -1183,7 +1879,6 @@ CREATE TABLE public.games (
     custom_css text,
     is_paid boolean DEFAULT false NOT NULL,
     has_demo boolean DEFAULT false NOT NULL,
-    is_suspended boolean DEFAULT false NOT NULL,
     additional_links json,
     sale_discount_percent integer,
     first_visible_at timestamp(0) without time zone,
@@ -1204,9 +1899,13 @@ CREATE TABLE public.games (
     steam_genres jsonb,
     steam_languages text,
     steam_user_tags jsonb,
-    optimized_screenshots jsonb,
-    CONSTRAINT games_content_type_check CHECK (((content_type)::text = ANY ((ARRAY['visual_novel'::character varying, 'adjacent'::character varying, 'other'::character varying])::text[]))),
-    CONSTRAINT games_platform_check CHECK (((platform)::text = ANY ((ARRAY['itch_io'::character varying, 'steam'::character varying, 'other'::character varying])::text[]))),
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    is_delisted boolean DEFAULT false NOT NULL,
+    trending_score integer DEFAULT 0 NOT NULL,
+    trending_score_calculated_at timestamp(0) without time zone,
+    is_stats_extraction_disabled boolean DEFAULT false NOT NULL,
+    CONSTRAINT games_content_type_check CHECK (((content_type)::text = ANY (ARRAY[('visual_novel'::character varying)::text, ('adjacent'::character varying)::text, ('other'::character varying)::text]))),
+    CONSTRAINT games_platform_check CHECK (((platform)::text = ANY (ARRAY[('itch_io'::character varying)::text, ('steam'::character varying)::text, ('other'::character varying)::text]))),
     CONSTRAINT games_view_mode_check CHECK (((view_mode)::text = ANY (ARRAY[('custom'::character varying)::text, ('original'::character varying)::text])))
 );
 
@@ -1504,44 +2203,6 @@ ALTER SEQUENCE public.monitored_scheduled_tasks_id_seq OWNED BY public.monitored
 
 
 --
--- Name: news; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.news (
-    id bigint NOT NULL,
-    title character varying(255) NOT NULL,
-    slug character varying(255) NOT NULL,
-    content text NOT NULL,
-    type character varying(255) DEFAULT 'announcement'::character varying NOT NULL,
-    is_published boolean DEFAULT false NOT NULL,
-    published_at timestamp(0) without time zone,
-    author_id bigint NOT NULL,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone,
-    CONSTRAINT news_type_check CHECK (((type)::text = ANY (ARRAY[('announcement'::character varying)::text, ('update'::character varying)::text, ('maintenance'::character varying)::text, ('incident'::character varying)::text])))
-);
-
-
---
--- Name: news_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.news_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: news_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.news_id_seq OWNED BY public.news.id;
-
-
---
 -- Name: notification_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1767,7 +2428,8 @@ CREATE TABLE public.raters (
     suspicion_reason character varying(255),
     marked_suspicious_at timestamp(0) without time zone,
     steam_id character varying(255),
-    external_platform character varying(255)
+    external_platform character varying(255),
+    is_review_banned boolean DEFAULT false NOT NULL
 );
 
 
@@ -1815,15 +2477,17 @@ CREATE TABLE public.ratings (
     published_at timestamp(0) without time zone NOT NULL,
     event_id bigint,
     game_id bigint NOT NULL,
-    rater_id bigint NOT NULL,
+    rater_id bigint,
     rating smallint NOT NULL,
     review text NOT NULL,
     is_visible boolean DEFAULT true NOT NULL,
     is_reviewed boolean DEFAULT false NOT NULL,
     external_id character varying(255),
-    source_platform character varying(255) DEFAULT 'fvn_li'::character varying NOT NULL,
+    source_platform character varying(255) NOT NULL,
     external_metadata jsonb,
-    CONSTRAINT ratings_source_platform_check CHECK (((source_platform)::text = ANY ((ARRAY['fvn_li'::character varying, 'steam'::character varying, 'other'::character varying])::text[])))
+    user_id bigint,
+    has_spoilers boolean DEFAULT false NOT NULL,
+    CONSTRAINT ratings_source_platform_check CHECK (((source_platform)::text = ANY ((ARRAY['itch_io'::character varying, 'steam'::character varying, 'fvn_li'::character varying])::text[])))
 );
 
 
@@ -1865,6 +2529,59 @@ CREATE SEQUENCE public.ratings_id_seq
 --
 
 ALTER SEQUENCE public.ratings_id_seq OWNED BY public.ratings.id;
+
+
+--
+-- Name: review_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.review_reports (
+    id bigint NOT NULL,
+    rating_id bigint NOT NULL,
+    reporter_id bigint NOT NULL,
+    reason character varying(255) NOT NULL,
+    details text,
+    status character varying(255) DEFAULT 'pending'::character varying NOT NULL,
+    reviewed_by bigint,
+    reviewed_at timestamp(0) without time zone,
+    admin_notes text,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    discord_notified_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: review_reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.review_reports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: review_reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.review_reports_id_seq OWNED BY public.review_reports.id;
+
+
+--
+-- Name: sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sessions (
+    id character varying(255) NOT NULL,
+    user_id bigint,
+    ip_address character varying(45),
+    user_agent text,
+    payload text NOT NULL,
+    last_activity integer NOT NULL
+);
 
 
 --
@@ -1935,258 +2652,6 @@ CREATE SEQUENCE public.tags_id_seq
 --
 
 ALTER SEQUENCE public.tags_id_seq OWNED BY public.tags.id;
-
-
---
--- Name: team_activity_logs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.team_activity_logs (
-    id bigint NOT NULL,
-    team_id bigint NOT NULL,
-    user_id bigint,
-    action character varying(100) NOT NULL,
-    entity_type character varying(50),
-    entity_id bigint,
-    metadata jsonb,
-    ip_address inet,
-    user_agent text,
-    created_at timestamp(0) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: team_activity_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.team_activity_logs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: team_activity_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.team_activity_logs_id_seq OWNED BY public.team_activity_logs.id;
-
-
---
--- Name: team_games; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.team_games (
-    id bigint NOT NULL,
-    team_id bigint NOT NULL,
-    game_id bigint NOT NULL,
-    assigned_by bigint,
-    assigned_at timestamp(0) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    notes text,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
-);
-
-
---
--- Name: team_games_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.team_games_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: team_games_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.team_games_id_seq OWNED BY public.team_games.id;
-
-
---
--- Name: team_invitations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.team_invitations (
-    id bigint NOT NULL,
-    team_id bigint NOT NULL,
-    role character varying(50) DEFAULT 'member'::character varying NOT NULL,
-    custom_role_id bigint,
-    token character varying(255) NOT NULL,
-    invited_by bigint NOT NULL,
-    expires_at timestamp(0) without time zone NOT NULL,
-    accepted_at timestamp(0) without time zone,
-    declined_at timestamp(0) without time zone,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone,
-    invited_user_id bigint
-);
-
-
---
--- Name: team_invitations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.team_invitations_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: team_invitations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.team_invitations_id_seq OWNED BY public.team_invitations.id;
-
-
---
--- Name: team_members; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.team_members (
-    id bigint NOT NULL,
-    team_id bigint NOT NULL,
-    user_id bigint NOT NULL,
-    role character varying(50) DEFAULT 'member'::character varying NOT NULL,
-    custom_role_id bigint,
-    joined_at timestamp(0) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    invited_by bigint,
-    invitation_token character varying(255),
-    invitation_accepted_at timestamp(0) without time zone,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
-);
-
-
---
--- Name: team_members_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.team_members_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: team_members_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.team_members_id_seq OWNED BY public.team_members.id;
-
-
---
--- Name: team_permissions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.team_permissions (
-    id bigint NOT NULL,
-    team_member_id bigint,
-    team_role_id bigint,
-    permission character varying(100) NOT NULL,
-    granted boolean DEFAULT true NOT NULL,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
-);
-
-
---
--- Name: team_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.team_permissions_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: team_permissions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.team_permissions_id_seq OWNED BY public.team_permissions.id;
-
-
---
--- Name: team_roles; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.team_roles (
-    id bigint NOT NULL,
-    team_id bigint NOT NULL,
-    name character varying(100) NOT NULL,
-    description text,
-    is_system boolean DEFAULT false NOT NULL,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
-);
-
-
---
--- Name: team_roles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.team_roles_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: team_roles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.team_roles_id_seq OWNED BY public.team_roles.id;
-
-
---
--- Name: teams; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.teams (
-    id bigint NOT NULL,
-    name character varying(255) NOT NULL,
-    slug character varying(255) NOT NULL,
-    description text,
-    avatar character varying(255),
-    created_by bigint,
-    created_at timestamp(0) without time zone,
-    updated_at timestamp(0) without time zone
-);
-
-
---
--- Name: teams_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.teams_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: teams_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.teams_id_seq OWNED BY public.teams.id;
 
 
 --
@@ -2336,6 +2801,39 @@ ALTER SEQUENCE public.user_notification_preferences_id_seq OWNED BY public.user_
 
 
 --
+-- Name: user_preferences; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_preferences (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    preferred_languages jsonb,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    excluded_tags jsonb
+);
+
+
+--
+-- Name: user_preferences_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.user_preferences_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: user_preferences_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.user_preferences_id_seq OWNED BY public.user_preferences.id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2349,7 +2847,8 @@ CREATE TABLE public.users (
     created_at timestamp(0) without time zone,
     updated_at timestamp(0) without time zone,
     avatar character varying(255),
-    is_admin boolean DEFAULT false NOT NULL
+    is_admin boolean DEFAULT false NOT NULL,
+    is_review_banned boolean DEFAULT false NOT NULL
 );
 
 
@@ -2514,6 +3013,242 @@ ALTER SEQUENCE public.version_language_stats_id_seq OWNED BY public.version_lang
 
 
 --
+-- Name: version_route_edges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_route_edges (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    from_label character varying(255) NOT NULL,
+    to_label character varying(255) NOT NULL,
+    edge_type character varying(20) DEFAULT 'flow'::character varying NOT NULL,
+    condition text,
+    file_path character varying(255),
+    line_number integer DEFAULT 0 NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: version_route_edges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_route_edges_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_route_edges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_route_edges_id_seq OWNED BY public.version_route_edges.id;
+
+
+--
+-- Name: version_route_labels; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_route_labels (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    file_path character varying(255) NOT NULL,
+    line_number integer NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    is_ending boolean DEFAULT false NOT NULL,
+    returns_to_caller boolean DEFAULT false NOT NULL,
+    externally_invoked boolean DEFAULT false NOT NULL,
+    is_scaffolding boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: version_route_labels_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_route_labels_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_route_labels_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_route_labels_id_seq OWNED BY public.version_route_labels.id;
+
+
+--
+-- Name: version_route_menu_choices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_route_menu_choices (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    from_label character varying(255) NOT NULL,
+    text text,
+    condition text,
+    target_label character varying(255),
+    edge_type character varying(20),
+    file_path character varying(255),
+    line_number integer DEFAULT 0 NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    prompt text,
+    translations json,
+    prompt_translations json,
+    menu_line integer DEFAULT 0 NOT NULL,
+    enclosing_condition text,
+    choice_condition text,
+    menu_branch text,
+    parent_menu_line integer DEFAULT 0 NOT NULL,
+    parent_choice_line integer DEFAULT 0 NOT NULL,
+    menu_condition_stack json
+);
+
+
+--
+-- Name: version_route_menu_choices_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_route_menu_choices_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_route_menu_choices_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_route_menu_choices_id_seq OWNED BY public.version_route_menu_choices.id;
+
+
+--
+-- Name: version_route_paths; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_route_paths (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    ending_label character varying(255) NOT NULL,
+    path_labels json NOT NULL,
+    step_count integer NOT NULL,
+    word_count integer NOT NULL,
+    choice_count integer NOT NULL,
+    choices json,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: version_route_paths_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_route_paths_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_route_paths_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_route_paths_id_seq OWNED BY public.version_route_paths.id;
+
+
+--
+-- Name: version_route_variable_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_route_variable_changes (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    label character varying(255) NOT NULL,
+    variable_name character varying(255) NOT NULL,
+    operation character varying(10) DEFAULT '='::character varying NOT NULL,
+    value text,
+    file_path character varying(255),
+    line_number integer DEFAULT 0 NOT NULL,
+    context text,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone,
+    condition text,
+    condition_stack json
+);
+
+
+--
+-- Name: version_route_variable_changes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_route_variable_changes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_route_variable_changes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_route_variable_changes_id_seq OWNED BY public.version_route_variable_changes.id;
+
+
+--
+-- Name: version_route_variables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_route_variables (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    default_value text,
+    type character varying(20) DEFAULT 'default'::character varying NOT NULL,
+    file_path character varying(255),
+    line_number integer DEFAULT 0 NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: version_route_variables_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_route_variables_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_route_variables_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_route_variables_id_seq OWNED BY public.version_route_variables.id;
+
+
+--
 -- Name: version_supported_languages; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2544,6 +3279,40 @@ CREATE SEQUENCE public.version_supported_languages_id_seq
 --
 
 ALTER SEQUENCE public.version_supported_languages_id_seq OWNED BY public.version_supported_languages.id;
+
+
+--
+-- Name: version_word_frequencies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.version_word_frequencies (
+    id bigint NOT NULL,
+    game_version_id bigint NOT NULL,
+    iso_code character varying(3) NOT NULL,
+    word_data json NOT NULL,
+    calculated_at timestamp(0) without time zone NOT NULL,
+    created_at timestamp(0) without time zone,
+    updated_at timestamp(0) without time zone
+);
+
+
+--
+-- Name: version_word_frequencies_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.version_word_frequencies_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: version_word_frequencies_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.version_word_frequencies_id_seq OWNED BY public.version_word_frequencies.id;
 
 
 --
@@ -2701,6 +3470,174 @@ ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2025m12
 
 
 --
+-- Name: change_logs_y2026m01; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m01 FOR VALUES FROM ('2026-01-01 00:00:00+00') TO ('2026-02-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m02; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m02 FOR VALUES FROM ('2026-02-01 00:00:00+00') TO ('2026-03-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m03; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m03 FOR VALUES FROM ('2026-03-01 00:00:00+00') TO ('2026-04-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m04; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m04 FOR VALUES FROM ('2026-04-01 00:00:00+00') TO ('2026-05-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m05; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m05 FOR VALUES FROM ('2026-05-01 00:00:00+00') TO ('2026-06-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m06; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m06 FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m07; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m07 FOR VALUES FROM ('2026-07-01 00:00:00+00') TO ('2026-08-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m08; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m08 FOR VALUES FROM ('2026-08-01 00:00:00+00') TO ('2026-09-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m09; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m09 FOR VALUES FROM ('2026-09-01 00:00:00+00') TO ('2026-10-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m10; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m10 FOR VALUES FROM ('2026-10-01 00:00:00+00') TO ('2026-11-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m11; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m11 FOR VALUES FROM ('2026-11-01 00:00:00+00') TO ('2026-12-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2026m12; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2026m12 FOR VALUES FROM ('2026-12-01 00:00:00+00') TO ('2027-01-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m01; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m01 FOR VALUES FROM ('2027-01-01 00:00:00+00') TO ('2027-02-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m02; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m02 FOR VALUES FROM ('2027-02-01 00:00:00+00') TO ('2027-03-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m03; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m03 FOR VALUES FROM ('2027-03-01 00:00:00+00') TO ('2027-04-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m04; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m04 FOR VALUES FROM ('2027-04-01 00:00:00+00') TO ('2027-05-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m05; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m05 FOR VALUES FROM ('2027-05-01 00:00:00+00') TO ('2027-06-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m06; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m06 FOR VALUES FROM ('2027-06-01 00:00:00+00') TO ('2027-07-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m07; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m07 FOR VALUES FROM ('2027-07-01 00:00:00+00') TO ('2027-08-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m08; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m08 FOR VALUES FROM ('2027-08-01 00:00:00+00') TO ('2027-09-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m09; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m09 FOR VALUES FROM ('2027-09-01 00:00:00+00') TO ('2027-10-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m10; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m10 FOR VALUES FROM ('2027-10-01 00:00:00+00') TO ('2027-11-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m11; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m11 FOR VALUES FROM ('2027-11-01 00:00:00+00') TO ('2027-12-01 00:00:00+00');
+
+
+--
+-- Name: change_logs_y2027m12; Type: TABLE ATTACH; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs ATTACH PARTITION public.change_logs_y2027m12 FOR VALUES FROM ('2027-12-01 00:00:00+00') TO ('2028-01-01 00:00:00+00');
+
+
+--
 -- Name: addition_request_users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2719,6 +3656,20 @@ ALTER TABLE ONLY public.addition_requests ALTER COLUMN id SET DEFAULT nextval('p
 --
 
 ALTER TABLE ONLY public.android_builds ALTER COLUMN id SET DEFAULT nextval('public.android_builds_id_seq'::regclass);
+
+
+--
+-- Name: bug_report_comments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_report_comments ALTER COLUMN id SET DEFAULT nextval('public.bug_report_comments_id_seq'::regclass);
+
+
+--
+-- Name: bug_reports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_reports ALTER COLUMN id SET DEFAULT nextval('public.bug_reports_id_seq'::regclass);
 
 
 --
@@ -2743,6 +3694,13 @@ ALTER TABLE ONLY public.click_stats ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
+-- Name: discord_channel_announcements id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_channel_announcements ALTER COLUMN id SET DEFAULT nextval('public.discord_channel_announcements_id_seq'::regclass);
+
+
+--
 -- Name: discord_notification_history id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2754,6 +3712,13 @@ ALTER TABLE ONLY public.discord_notification_history ALTER COLUMN id SET DEFAULT
 --
 
 ALTER TABLE ONLY public.discord_server_configs ALTER COLUMN id SET DEFAULT nextval('public.discord_server_configs_id_seq'::regclass);
+
+
+--
+-- Name: discord_server_game_overrides id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_server_game_overrides ALTER COLUMN id SET DEFAULT nextval('public.discord_server_game_overrides_id_seq'::regclass);
 
 
 --
@@ -2876,13 +3841,6 @@ ALTER TABLE ONLY public.monitored_scheduled_tasks ALTER COLUMN id SET DEFAULT ne
 
 
 --
--- Name: news id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news ALTER COLUMN id SET DEFAULT nextval('public.news_id_seq'::regclass);
-
-
---
 -- Name: notification_history id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2932,6 +3890,13 @@ ALTER TABLE ONLY public.ratings ALTER COLUMN id SET DEFAULT nextval('public.rati
 
 
 --
+-- Name: review_reports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.review_reports ALTER COLUMN id SET DEFAULT nextval('public.review_reports_id_seq'::regclass);
+
+
+--
 -- Name: social_accounts id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2943,55 +3908,6 @@ ALTER TABLE ONLY public.social_accounts ALTER COLUMN id SET DEFAULT nextval('pub
 --
 
 ALTER TABLE ONLY public.tags ALTER COLUMN id SET DEFAULT nextval('public.tags_id_seq'::regclass);
-
-
---
--- Name: team_activity_logs id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_activity_logs ALTER COLUMN id SET DEFAULT nextval('public.team_activity_logs_id_seq'::regclass);
-
-
---
--- Name: team_games id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_games ALTER COLUMN id SET DEFAULT nextval('public.team_games_id_seq'::regclass);
-
-
---
--- Name: team_invitations id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations ALTER COLUMN id SET DEFAULT nextval('public.team_invitations_id_seq'::regclass);
-
-
---
--- Name: team_members id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members ALTER COLUMN id SET DEFAULT nextval('public.team_members_id_seq'::regclass);
-
-
---
--- Name: team_permissions id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_permissions ALTER COLUMN id SET DEFAULT nextval('public.team_permissions_id_seq'::regclass);
-
-
---
--- Name: team_roles id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_roles ALTER COLUMN id SET DEFAULT nextval('public.team_roles_id_seq'::regclass);
-
-
---
--- Name: teams id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.teams ALTER COLUMN id SET DEFAULT nextval('public.teams_id_seq'::regclass);
 
 
 --
@@ -3020,6 +3936,13 @@ ALTER TABLE ONLY public.user_ignored_games ALTER COLUMN id SET DEFAULT nextval('
 --
 
 ALTER TABLE ONLY public.user_notification_preferences ALTER COLUMN id SET DEFAULT nextval('public.user_notification_preferences_id_seq'::regclass);
+
+
+--
+-- Name: user_preferences id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_preferences ALTER COLUMN id SET DEFAULT nextval('public.user_preferences_id_seq'::regclass);
 
 
 --
@@ -3065,10 +3988,59 @@ ALTER TABLE ONLY public.version_language_stats ALTER COLUMN id SET DEFAULT nextv
 
 
 --
+-- Name: version_route_edges id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_edges ALTER COLUMN id SET DEFAULT nextval('public.version_route_edges_id_seq'::regclass);
+
+
+--
+-- Name: version_route_labels id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_labels ALTER COLUMN id SET DEFAULT nextval('public.version_route_labels_id_seq'::regclass);
+
+
+--
+-- Name: version_route_menu_choices id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_menu_choices ALTER COLUMN id SET DEFAULT nextval('public.version_route_menu_choices_id_seq'::regclass);
+
+
+--
+-- Name: version_route_paths id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_paths ALTER COLUMN id SET DEFAULT nextval('public.version_route_paths_id_seq'::regclass);
+
+
+--
+-- Name: version_route_variable_changes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variable_changes ALTER COLUMN id SET DEFAULT nextval('public.version_route_variable_changes_id_seq'::regclass);
+
+
+--
+-- Name: version_route_variables id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variables ALTER COLUMN id SET DEFAULT nextval('public.version_route_variables_id_seq'::regclass);
+
+
+--
 -- Name: version_supported_languages id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.version_supported_languages ALTER COLUMN id SET DEFAULT nextval('public.version_supported_languages_id_seq'::regclass);
+
+
+--
+-- Name: version_word_frequencies id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_word_frequencies ALTER COLUMN id SET DEFAULT nextval('public.version_word_frequencies_id_seq'::regclass);
 
 
 --
@@ -3123,6 +4095,22 @@ ALTER TABLE ONLY public.android_builds
 
 ALTER TABLE ONLY public.android_builds
     ADD CONSTRAINT android_builds_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bug_report_comments bug_report_comments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_report_comments
+    ADD CONSTRAINT bug_report_comments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bug_reports bug_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_reports
+    ADD CONSTRAINT bug_reports_pkey PRIMARY KEY (id);
 
 
 --
@@ -3246,6 +4234,198 @@ ALTER TABLE ONLY public.change_logs_y2025m12
 
 
 --
+-- Name: change_logs_y2026m01 change_logs_y2026m01_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m01
+    ADD CONSTRAINT change_logs_y2026m01_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02 change_logs_y2026m02_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m02
+    ADD CONSTRAINT change_logs_y2026m02_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03 change_logs_y2026m03_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m03
+    ADD CONSTRAINT change_logs_y2026m03_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04 change_logs_y2026m04_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m04
+    ADD CONSTRAINT change_logs_y2026m04_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05 change_logs_y2026m05_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m05
+    ADD CONSTRAINT change_logs_y2026m05_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06 change_logs_y2026m06_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m06
+    ADD CONSTRAINT change_logs_y2026m06_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07 change_logs_y2026m07_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m07
+    ADD CONSTRAINT change_logs_y2026m07_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08 change_logs_y2026m08_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m08
+    ADD CONSTRAINT change_logs_y2026m08_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09 change_logs_y2026m09_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m09
+    ADD CONSTRAINT change_logs_y2026m09_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10 change_logs_y2026m10_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m10
+    ADD CONSTRAINT change_logs_y2026m10_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11 change_logs_y2026m11_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m11
+    ADD CONSTRAINT change_logs_y2026m11_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12 change_logs_y2026m12_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2026m12
+    ADD CONSTRAINT change_logs_y2026m12_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01 change_logs_y2027m01_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m01
+    ADD CONSTRAINT change_logs_y2027m01_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02 change_logs_y2027m02_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m02
+    ADD CONSTRAINT change_logs_y2027m02_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03 change_logs_y2027m03_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m03
+    ADD CONSTRAINT change_logs_y2027m03_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04 change_logs_y2027m04_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m04
+    ADD CONSTRAINT change_logs_y2027m04_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05 change_logs_y2027m05_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m05
+    ADD CONSTRAINT change_logs_y2027m05_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06 change_logs_y2027m06_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m06
+    ADD CONSTRAINT change_logs_y2027m06_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07 change_logs_y2027m07_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m07
+    ADD CONSTRAINT change_logs_y2027m07_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08 change_logs_y2027m08_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m08
+    ADD CONSTRAINT change_logs_y2027m08_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09 change_logs_y2027m09_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m09
+    ADD CONSTRAINT change_logs_y2027m09_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10 change_logs_y2027m10_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m10
+    ADD CONSTRAINT change_logs_y2027m10_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11 change_logs_y2027m11_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m11
+    ADD CONSTRAINT change_logs_y2027m11_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12 change_logs_y2027m12_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.change_logs_y2027m12
+    ADD CONSTRAINT change_logs_y2027m12_pkey PRIMARY KEY (id, "timestamp");
+
+
+--
 -- Name: version_character_stats character_version_stats_game_version_id_character_id_iso_code_u; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3286,6 +4466,22 @@ ALTER TABLE ONLY public.click_stats
 
 
 --
+-- Name: discord_channel_announcements discord_channel_announcements_game_version_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_channel_announcements
+    ADD CONSTRAINT discord_channel_announcements_game_version_id_unique UNIQUE (game_version_id);
+
+
+--
+-- Name: discord_channel_announcements discord_channel_announcements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_channel_announcements
+    ADD CONSTRAINT discord_channel_announcements_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: discord_notification_history discord_notification_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3307,6 +4503,22 @@ ALTER TABLE ONLY public.discord_server_configs
 
 ALTER TABLE ONLY public.discord_server_configs
     ADD CONSTRAINT discord_server_configs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: discord_server_game_overrides discord_server_game_overrides_discord_server_id_game_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_server_game_overrides
+    ADD CONSTRAINT discord_server_game_overrides_discord_server_id_game_id_unique UNIQUE (discord_server_id, game_id);
+
+
+--
+-- Name: discord_server_game_overrides discord_server_game_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_server_game_overrides
+    ADD CONSTRAINT discord_server_game_overrides_pkey PRIMARY KEY (id);
 
 
 --
@@ -3371,14 +4583,6 @@ ALTER TABLE ONLY public.discord_servers
 
 ALTER TABLE ONLY public.discord_servers
     ADD CONSTRAINT discord_servers_pkey PRIMARY KEY (id);
-
-
---
--- Name: discord_users discord_users_pk; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.discord_users
-    ADD CONSTRAINT discord_users_pk PRIMARY KEY (id);
 
 
 --
@@ -3582,22 +4786,6 @@ ALTER TABLE ONLY public.monitored_scheduled_tasks
 
 
 --
--- Name: news news_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news
-    ADD CONSTRAINT news_pkey PRIMARY KEY (id);
-
-
---
--- Name: news news_slug_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news
-    ADD CONSTRAINT news_slug_unique UNIQUE (slug);
-
-
---
 -- Name: notification_history notification_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3710,6 +4898,38 @@ ALTER TABLE ONLY public.ratings
 
 
 --
+-- Name: ratings ratings_user_id_game_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ratings
+    ADD CONSTRAINT ratings_user_id_game_id_unique UNIQUE (user_id, game_id);
+
+
+--
+-- Name: review_reports review_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.review_reports
+    ADD CONSTRAINT review_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: review_reports review_reports_rating_id_reporter_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.review_reports
+    ADD CONSTRAINT review_reports_rating_id_reporter_id_unique UNIQUE (rating_id, reporter_id);
+
+
+--
+-- Name: sessions sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sessions
+    ADD CONSTRAINT sessions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: social_accounts social_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3747,102 +4967,6 @@ ALTER TABLE ONLY public.tags
 
 ALTER TABLE ONLY public.tags
     ADD CONSTRAINT tags_slug_unique UNIQUE (slug);
-
-
---
--- Name: team_activity_logs team_activity_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_activity_logs
-    ADD CONSTRAINT team_activity_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: team_games team_games_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_games
-    ADD CONSTRAINT team_games_pkey PRIMARY KEY (id);
-
-
---
--- Name: team_games team_games_team_id_game_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_games
-    ADD CONSTRAINT team_games_team_id_game_id_unique UNIQUE (team_id, game_id);
-
-
---
--- Name: team_invitations team_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations
-    ADD CONSTRAINT team_invitations_pkey PRIMARY KEY (id);
-
-
---
--- Name: team_invitations team_invitations_token_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations
-    ADD CONSTRAINT team_invitations_token_unique UNIQUE (token);
-
-
---
--- Name: team_members team_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members
-    ADD CONSTRAINT team_members_pkey PRIMARY KEY (id);
-
-
---
--- Name: team_members team_members_team_id_user_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members
-    ADD CONSTRAINT team_members_team_id_user_id_unique UNIQUE (team_id, user_id);
-
-
---
--- Name: team_permissions team_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_permissions
-    ADD CONSTRAINT team_permissions_pkey PRIMARY KEY (id);
-
-
---
--- Name: team_roles team_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_roles
-    ADD CONSTRAINT team_roles_pkey PRIMARY KEY (id);
-
-
---
--- Name: team_roles team_roles_team_id_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_roles
-    ADD CONSTRAINT team_roles_team_id_name_unique UNIQUE (team_id, name);
-
-
---
--- Name: teams teams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.teams
-    ADD CONSTRAINT teams_pkey PRIMARY KEY (id);
-
-
---
--- Name: teams teams_slug_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.teams
-    ADD CONSTRAINT teams_slug_unique UNIQUE (slug);
 
 
 --
@@ -3907,6 +5031,22 @@ ALTER TABLE ONLY public.user_notification_preferences
 
 ALTER TABLE ONLY public.user_notification_preferences
     ADD CONSTRAINT user_notification_preferences_user_id_unique UNIQUE (user_id);
+
+
+--
+-- Name: user_preferences user_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_preferences
+    ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_preferences user_preferences_user_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_preferences
+    ADD CONSTRAINT user_preferences_user_id_unique UNIQUE (user_id);
 
 
 --
@@ -3982,6 +5122,78 @@ ALTER TABLE ONLY public.version_language_stats
 
 
 --
+-- Name: version_route_edges version_route_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_edges
+    ADD CONSTRAINT version_route_edges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_route_labels version_route_labels_game_version_id_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_labels
+    ADD CONSTRAINT version_route_labels_game_version_id_name_unique UNIQUE (game_version_id, name);
+
+
+--
+-- Name: version_route_labels version_route_labels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_labels
+    ADD CONSTRAINT version_route_labels_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_route_menu_choices version_route_menu_choices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_menu_choices
+    ADD CONSTRAINT version_route_menu_choices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_route_paths version_route_paths_game_version_id_ending_label_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_paths
+    ADD CONSTRAINT version_route_paths_game_version_id_ending_label_unique UNIQUE (game_version_id, ending_label);
+
+
+--
+-- Name: version_route_paths version_route_paths_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_paths
+    ADD CONSTRAINT version_route_paths_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_route_variable_changes version_route_variable_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variable_changes
+    ADD CONSTRAINT version_route_variable_changes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_route_variables version_route_variables_game_version_id_name_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variables
+    ADD CONSTRAINT version_route_variables_game_version_id_name_unique UNIQUE (game_version_id, name);
+
+
+--
+-- Name: version_route_variables version_route_variables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variables
+    ADD CONSTRAINT version_route_variables_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: version_supported_languages version_supported_languages_game_version_id_iso_code_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3995,6 +5207,22 @@ ALTER TABLE ONLY public.version_supported_languages
 
 ALTER TABLE ONLY public.version_supported_languages
     ADD CONSTRAINT version_supported_languages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_word_frequencies version_word_frequencies_game_version_id_iso_code_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_word_frequencies
+    ADD CONSTRAINT version_word_frequencies_game_version_id_iso_code_unique UNIQUE (game_version_id, iso_code);
+
+
+--
+-- Name: version_word_frequencies version_word_frequencies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_word_frequencies
+    ADD CONSTRAINT version_word_frequencies_pkey PRIMARY KEY (id);
 
 
 --
@@ -4083,6 +5311,41 @@ CREATE INDEX android_builds_game_id_game_version_id_status_index ON public.andro
 --
 
 CREATE INDEX android_builds_user_id_status_index ON public.android_builds USING btree (user_id, status);
+
+
+--
+-- Name: bug_report_comments_bug_report_id_created_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bug_report_comments_bug_report_id_created_at_index ON public.bug_report_comments USING btree (bug_report_id, created_at);
+
+
+--
+-- Name: bug_report_comments_bug_report_id_is_read_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bug_report_comments_bug_report_id_is_read_index ON public.bug_report_comments USING btree (bug_report_id, is_read);
+
+
+--
+-- Name: bug_reports_created_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bug_reports_created_at_index ON public.bug_reports USING btree (created_at);
+
+
+--
+-- Name: bug_reports_status_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bug_reports_status_index ON public.bug_reports USING btree (status);
+
+
+--
+-- Name: bug_reports_user_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bug_reports_user_id_index ON public.bug_reports USING btree (user_id);
 
 
 --
@@ -4996,6 +6259,1686 @@ CREATE INDEX change_logs_y2025m12_user_id_timestamp_idx ON public.change_logs_y2
 
 
 --
+-- Name: change_logs_y2026m01_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m01 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m01_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_event_type_timestamp_idx ON public.change_logs_y2026m01 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m01_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_expr_idx ON public.change_logs_y2026m01 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m01_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_expr_idx1 ON public.change_logs_y2026m01 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m01_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_expr_idx2 ON public.change_logs_y2026m01 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m01_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_expr_timestamp_idx ON public.change_logs_y2026m01 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m01_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_expr_timestamp_idx1 ON public.change_logs_y2026m01 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m01_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_expr_timestamp_idx2 ON public.change_logs_y2026m01 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m01_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_timestamp_idx ON public.change_logs_y2026m01 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m01_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m01_user_id_timestamp_idx ON public.change_logs_y2026m01 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m02 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_event_type_timestamp_idx ON public.change_logs_y2026m02 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_expr_idx ON public.change_logs_y2026m02 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m02_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_expr_idx1 ON public.change_logs_y2026m02 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m02_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_expr_idx2 ON public.change_logs_y2026m02 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m02_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_expr_timestamp_idx ON public.change_logs_y2026m02 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_expr_timestamp_idx1 ON public.change_logs_y2026m02 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_expr_timestamp_idx2 ON public.change_logs_y2026m02 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_timestamp_idx ON public.change_logs_y2026m02 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m02_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m02_user_id_timestamp_idx ON public.change_logs_y2026m02 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m03 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_event_type_timestamp_idx ON public.change_logs_y2026m03 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_expr_idx ON public.change_logs_y2026m03 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m03_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_expr_idx1 ON public.change_logs_y2026m03 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m03_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_expr_idx2 ON public.change_logs_y2026m03 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m03_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_expr_timestamp_idx ON public.change_logs_y2026m03 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_expr_timestamp_idx1 ON public.change_logs_y2026m03 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_expr_timestamp_idx2 ON public.change_logs_y2026m03 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_timestamp_idx ON public.change_logs_y2026m03 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m03_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m03_user_id_timestamp_idx ON public.change_logs_y2026m03 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m04 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_event_type_timestamp_idx ON public.change_logs_y2026m04 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_expr_idx ON public.change_logs_y2026m04 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m04_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_expr_idx1 ON public.change_logs_y2026m04 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m04_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_expr_idx2 ON public.change_logs_y2026m04 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m04_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_expr_timestamp_idx ON public.change_logs_y2026m04 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_expr_timestamp_idx1 ON public.change_logs_y2026m04 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_expr_timestamp_idx2 ON public.change_logs_y2026m04 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_timestamp_idx ON public.change_logs_y2026m04 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m04_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m04_user_id_timestamp_idx ON public.change_logs_y2026m04 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m05 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_event_type_timestamp_idx ON public.change_logs_y2026m05 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_expr_idx ON public.change_logs_y2026m05 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m05_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_expr_idx1 ON public.change_logs_y2026m05 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m05_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_expr_idx2 ON public.change_logs_y2026m05 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m05_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_expr_timestamp_idx ON public.change_logs_y2026m05 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_expr_timestamp_idx1 ON public.change_logs_y2026m05 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_expr_timestamp_idx2 ON public.change_logs_y2026m05 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_timestamp_idx ON public.change_logs_y2026m05 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m05_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m05_user_id_timestamp_idx ON public.change_logs_y2026m05 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m06 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_event_type_timestamp_idx ON public.change_logs_y2026m06 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_expr_idx ON public.change_logs_y2026m06 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m06_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_expr_idx1 ON public.change_logs_y2026m06 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m06_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_expr_idx2 ON public.change_logs_y2026m06 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m06_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_expr_timestamp_idx ON public.change_logs_y2026m06 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_expr_timestamp_idx1 ON public.change_logs_y2026m06 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_expr_timestamp_idx2 ON public.change_logs_y2026m06 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_timestamp_idx ON public.change_logs_y2026m06 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m06_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m06_user_id_timestamp_idx ON public.change_logs_y2026m06 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m07 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_event_type_timestamp_idx ON public.change_logs_y2026m07 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_expr_idx ON public.change_logs_y2026m07 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m07_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_expr_idx1 ON public.change_logs_y2026m07 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m07_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_expr_idx2 ON public.change_logs_y2026m07 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m07_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_expr_timestamp_idx ON public.change_logs_y2026m07 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_expr_timestamp_idx1 ON public.change_logs_y2026m07 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_expr_timestamp_idx2 ON public.change_logs_y2026m07 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_timestamp_idx ON public.change_logs_y2026m07 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m07_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m07_user_id_timestamp_idx ON public.change_logs_y2026m07 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m08 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_event_type_timestamp_idx ON public.change_logs_y2026m08 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_expr_idx ON public.change_logs_y2026m08 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m08_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_expr_idx1 ON public.change_logs_y2026m08 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m08_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_expr_idx2 ON public.change_logs_y2026m08 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m08_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_expr_timestamp_idx ON public.change_logs_y2026m08 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_expr_timestamp_idx1 ON public.change_logs_y2026m08 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_expr_timestamp_idx2 ON public.change_logs_y2026m08 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_timestamp_idx ON public.change_logs_y2026m08 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m08_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m08_user_id_timestamp_idx ON public.change_logs_y2026m08 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m09 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_event_type_timestamp_idx ON public.change_logs_y2026m09 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_expr_idx ON public.change_logs_y2026m09 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m09_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_expr_idx1 ON public.change_logs_y2026m09 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m09_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_expr_idx2 ON public.change_logs_y2026m09 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m09_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_expr_timestamp_idx ON public.change_logs_y2026m09 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_expr_timestamp_idx1 ON public.change_logs_y2026m09 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_expr_timestamp_idx2 ON public.change_logs_y2026m09 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_timestamp_idx ON public.change_logs_y2026m09 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m09_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m09_user_id_timestamp_idx ON public.change_logs_y2026m09 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m10 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_event_type_timestamp_idx ON public.change_logs_y2026m10 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_expr_idx ON public.change_logs_y2026m10 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m10_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_expr_idx1 ON public.change_logs_y2026m10 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m10_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_expr_idx2 ON public.change_logs_y2026m10 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m10_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_expr_timestamp_idx ON public.change_logs_y2026m10 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_expr_timestamp_idx1 ON public.change_logs_y2026m10 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_expr_timestamp_idx2 ON public.change_logs_y2026m10 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_timestamp_idx ON public.change_logs_y2026m10 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m10_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m10_user_id_timestamp_idx ON public.change_logs_y2026m10 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m11 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_event_type_timestamp_idx ON public.change_logs_y2026m11 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_expr_idx ON public.change_logs_y2026m11 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m11_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_expr_idx1 ON public.change_logs_y2026m11 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m11_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_expr_idx2 ON public.change_logs_y2026m11 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m11_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_expr_timestamp_idx ON public.change_logs_y2026m11 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_expr_timestamp_idx1 ON public.change_logs_y2026m11 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_expr_timestamp_idx2 ON public.change_logs_y2026m11 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_timestamp_idx ON public.change_logs_y2026m11 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m11_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m11_user_id_timestamp_idx ON public.change_logs_y2026m11 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_entity_type_entity_id_timestamp_idx ON public.change_logs_y2026m12 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_event_type_timestamp_idx ON public.change_logs_y2026m12 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_expr_idx ON public.change_logs_y2026m12 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m12_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_expr_idx1 ON public.change_logs_y2026m12 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2026m12_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_expr_idx2 ON public.change_logs_y2026m12 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2026m12_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_expr_timestamp_idx ON public.change_logs_y2026m12 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_expr_timestamp_idx1 ON public.change_logs_y2026m12 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_expr_timestamp_idx2 ON public.change_logs_y2026m12 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_timestamp_idx ON public.change_logs_y2026m12 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2026m12_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2026m12_user_id_timestamp_idx ON public.change_logs_y2026m12 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m01 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_event_type_timestamp_idx ON public.change_logs_y2027m01 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_expr_idx ON public.change_logs_y2027m01 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m01_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_expr_idx1 ON public.change_logs_y2027m01 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m01_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_expr_idx2 ON public.change_logs_y2027m01 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m01_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_expr_timestamp_idx ON public.change_logs_y2027m01 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_expr_timestamp_idx1 ON public.change_logs_y2027m01 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_expr_timestamp_idx2 ON public.change_logs_y2027m01 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_timestamp_idx ON public.change_logs_y2027m01 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m01_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m01_user_id_timestamp_idx ON public.change_logs_y2027m01 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m02 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_event_type_timestamp_idx ON public.change_logs_y2027m02 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_expr_idx ON public.change_logs_y2027m02 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m02_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_expr_idx1 ON public.change_logs_y2027m02 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m02_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_expr_idx2 ON public.change_logs_y2027m02 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m02_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_expr_timestamp_idx ON public.change_logs_y2027m02 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_expr_timestamp_idx1 ON public.change_logs_y2027m02 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_expr_timestamp_idx2 ON public.change_logs_y2027m02 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_timestamp_idx ON public.change_logs_y2027m02 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m02_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m02_user_id_timestamp_idx ON public.change_logs_y2027m02 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m03 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_event_type_timestamp_idx ON public.change_logs_y2027m03 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_expr_idx ON public.change_logs_y2027m03 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m03_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_expr_idx1 ON public.change_logs_y2027m03 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m03_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_expr_idx2 ON public.change_logs_y2027m03 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m03_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_expr_timestamp_idx ON public.change_logs_y2027m03 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_expr_timestamp_idx1 ON public.change_logs_y2027m03 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_expr_timestamp_idx2 ON public.change_logs_y2027m03 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_timestamp_idx ON public.change_logs_y2027m03 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m03_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m03_user_id_timestamp_idx ON public.change_logs_y2027m03 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m04 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_event_type_timestamp_idx ON public.change_logs_y2027m04 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_expr_idx ON public.change_logs_y2027m04 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m04_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_expr_idx1 ON public.change_logs_y2027m04 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m04_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_expr_idx2 ON public.change_logs_y2027m04 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m04_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_expr_timestamp_idx ON public.change_logs_y2027m04 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_expr_timestamp_idx1 ON public.change_logs_y2027m04 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_expr_timestamp_idx2 ON public.change_logs_y2027m04 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_timestamp_idx ON public.change_logs_y2027m04 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m04_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m04_user_id_timestamp_idx ON public.change_logs_y2027m04 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m05 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_event_type_timestamp_idx ON public.change_logs_y2027m05 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_expr_idx ON public.change_logs_y2027m05 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m05_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_expr_idx1 ON public.change_logs_y2027m05 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m05_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_expr_idx2 ON public.change_logs_y2027m05 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m05_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_expr_timestamp_idx ON public.change_logs_y2027m05 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_expr_timestamp_idx1 ON public.change_logs_y2027m05 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_expr_timestamp_idx2 ON public.change_logs_y2027m05 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_timestamp_idx ON public.change_logs_y2027m05 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m05_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m05_user_id_timestamp_idx ON public.change_logs_y2027m05 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m06 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_event_type_timestamp_idx ON public.change_logs_y2027m06 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_expr_idx ON public.change_logs_y2027m06 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m06_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_expr_idx1 ON public.change_logs_y2027m06 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m06_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_expr_idx2 ON public.change_logs_y2027m06 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m06_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_expr_timestamp_idx ON public.change_logs_y2027m06 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_expr_timestamp_idx1 ON public.change_logs_y2027m06 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_expr_timestamp_idx2 ON public.change_logs_y2027m06 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_timestamp_idx ON public.change_logs_y2027m06 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m06_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m06_user_id_timestamp_idx ON public.change_logs_y2027m06 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m07 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_event_type_timestamp_idx ON public.change_logs_y2027m07 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_expr_idx ON public.change_logs_y2027m07 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m07_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_expr_idx1 ON public.change_logs_y2027m07 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m07_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_expr_idx2 ON public.change_logs_y2027m07 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m07_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_expr_timestamp_idx ON public.change_logs_y2027m07 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_expr_timestamp_idx1 ON public.change_logs_y2027m07 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_expr_timestamp_idx2 ON public.change_logs_y2027m07 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_timestamp_idx ON public.change_logs_y2027m07 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m07_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m07_user_id_timestamp_idx ON public.change_logs_y2027m07 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m08 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_event_type_timestamp_idx ON public.change_logs_y2027m08 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_expr_idx ON public.change_logs_y2027m08 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m08_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_expr_idx1 ON public.change_logs_y2027m08 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m08_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_expr_idx2 ON public.change_logs_y2027m08 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m08_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_expr_timestamp_idx ON public.change_logs_y2027m08 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_expr_timestamp_idx1 ON public.change_logs_y2027m08 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_expr_timestamp_idx2 ON public.change_logs_y2027m08 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_timestamp_idx ON public.change_logs_y2027m08 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m08_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m08_user_id_timestamp_idx ON public.change_logs_y2027m08 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m09 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_event_type_timestamp_idx ON public.change_logs_y2027m09 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_expr_idx ON public.change_logs_y2027m09 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m09_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_expr_idx1 ON public.change_logs_y2027m09 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m09_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_expr_idx2 ON public.change_logs_y2027m09 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m09_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_expr_timestamp_idx ON public.change_logs_y2027m09 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_expr_timestamp_idx1 ON public.change_logs_y2027m09 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_expr_timestamp_idx2 ON public.change_logs_y2027m09 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_timestamp_idx ON public.change_logs_y2027m09 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m09_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m09_user_id_timestamp_idx ON public.change_logs_y2027m09 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m10 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_event_type_timestamp_idx ON public.change_logs_y2027m10 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_expr_idx ON public.change_logs_y2027m10 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m10_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_expr_idx1 ON public.change_logs_y2027m10 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m10_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_expr_idx2 ON public.change_logs_y2027m10 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m10_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_expr_timestamp_idx ON public.change_logs_y2027m10 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_expr_timestamp_idx1 ON public.change_logs_y2027m10 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_expr_timestamp_idx2 ON public.change_logs_y2027m10 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_timestamp_idx ON public.change_logs_y2027m10 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m10_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m10_user_id_timestamp_idx ON public.change_logs_y2027m10 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m11 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_event_type_timestamp_idx ON public.change_logs_y2027m11 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_expr_idx ON public.change_logs_y2027m11 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m11_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_expr_idx1 ON public.change_logs_y2027m11 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m11_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_expr_idx2 ON public.change_logs_y2027m11 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m11_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_expr_timestamp_idx ON public.change_logs_y2027m11 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_expr_timestamp_idx1 ON public.change_logs_y2027m11 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_expr_timestamp_idx2 ON public.change_logs_y2027m11 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_timestamp_idx ON public.change_logs_y2027m11 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m11_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m11_user_id_timestamp_idx ON public.change_logs_y2027m11 USING btree (user_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_entity_type_entity_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_entity_type_entity_id_timestamp_idx ON public.change_logs_y2027m12 USING btree (entity_type, entity_id, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_event_type_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_event_type_timestamp_idx ON public.change_logs_y2027m12 USING btree (event_type, "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_expr_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_expr_idx ON public.change_logs_y2027m12 USING gin (((context -> 'request_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m12_expr_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_expr_idx1 ON public.change_logs_y2027m12 USING gin (((context -> 'session_id'::text)));
+
+
+--
+-- Name: change_logs_y2027m12_expr_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_expr_idx2 ON public.change_logs_y2027m12 USING gin ((((context -> 'command'::text) -> 'name'::text)));
+
+
+--
+-- Name: change_logs_y2027m12_expr_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_expr_timestamp_idx ON public.change_logs_y2027m12 USING btree (((context -> 'request_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_expr_timestamp_idx1; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_expr_timestamp_idx1 ON public.change_logs_y2027m12 USING btree (((context -> 'session_id'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_expr_timestamp_idx2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_expr_timestamp_idx2 ON public.change_logs_y2027m12 USING btree ((((context -> 'command'::text) -> 'name'::text)), "timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_timestamp_idx ON public.change_logs_y2027m12 USING btree ("timestamp");
+
+
+--
+-- Name: change_logs_y2027m12_user_id_timestamp_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX change_logs_y2027m12_user_id_timestamp_idx ON public.change_logs_y2027m12 USING btree (user_id, "timestamp");
+
+
+--
 -- Name: click_stats_clicked_at_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5014,6 +7957,20 @@ CREATE INDEX click_stats_game_id_link_id_clicked_at_index ON public.click_stats 
 --
 
 CREATE INDEX click_stats_game_id_type_clicked_at_index ON public.click_stats USING btree (game_id, type, clicked_at);
+
+
+--
+-- Name: click_stats_human_game_type_clicked_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX click_stats_human_game_type_clicked_at_index ON public.click_stats USING btree (game_id, type, clicked_at) WHERE (bot_reason IS NULL);
+
+
+--
+-- Name: click_stats_human_type_clicked_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX click_stats_human_type_clicked_at_index ON public.click_stats USING btree (type, clicked_at) WHERE (bot_reason IS NULL);
 
 
 --
@@ -5038,6 +7995,13 @@ CREATE INDEX click_stats_session_id_index ON public.click_stats USING btree (ses
 
 
 --
+-- Name: click_stats_type_clicked_at_game_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX click_stats_type_clicked_at_game_id_index ON public.click_stats USING btree (type, clicked_at, game_id);
+
+
+--
 -- Name: click_stats_type_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5049,6 +8013,27 @@ CREATE INDEX click_stats_type_index ON public.click_stats USING btree (type);
 --
 
 CREATE INDEX click_stats_user_id_clicked_at_index ON public.click_stats USING btree (user_id, clicked_at);
+
+
+--
+-- Name: discord_channel_announcements_status_updated_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX discord_channel_announcements_status_updated_at_index ON public.discord_channel_announcements USING btree (status, updated_at);
+
+
+--
+-- Name: discord_notification_history_delivery_mode_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX discord_notification_history_delivery_mode_index ON public.discord_notification_history USING btree (delivery_mode);
+
+
+--
+-- Name: discord_notification_history_delivery_status_created_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX discord_notification_history_delivery_status_created_at_index ON public.discord_notification_history USING btree (delivery_status, created_at);
 
 
 --
@@ -5080,6 +8065,13 @@ CREATE INDEX discord_notification_history_game_id_index ON public.discord_notifi
 
 
 --
+-- Name: discord_notification_history_payload_hash_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX discord_notification_history_payload_hash_index ON public.discord_notification_history USING btree (payload_hash);
+
+
+--
 -- Name: discord_notification_history_sent_at_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5105,6 +8097,13 @@ CREATE INDEX discord_server_games_discord_channel_id_index ON public.discord_ser
 --
 
 CREATE INDEX discord_server_games_discord_message_id_index ON public.discord_server_games USING btree (discord_message_id);
+
+
+--
+-- Name: discord_server_games_discord_payload_hash_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX discord_server_games_discord_payload_hash_index ON public.discord_server_games USING btree (discord_payload_hash);
 
 
 --
@@ -5206,6 +8205,13 @@ CREATE INDEX game_discord_subscriptions_is_active_index ON public.game_discord_s
 
 
 --
+-- Name: game_tag_tag_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX game_tag_tag_id_index ON public.game_tag USING btree (tag_id);
+
+
+--
 -- Name: game_versions_game_id_is_latest_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5217,6 +8223,13 @@ CREATE INDEX game_versions_game_id_is_latest_index ON public.game_versions USING
 --
 
 CREATE INDEX games_authors_fulltext ON public.games USING gin (to_tsvector('english'::regconfig, (authors)::text));
+
+
+--
+-- Name: games_content_type_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX games_content_type_index ON public.games USING btree (content_type);
 
 
 --
@@ -5269,10 +8282,31 @@ CREATE INDEX games_view_mode_index ON public.games USING btree (view_mode);
 
 
 --
+-- Name: games_visible_content_type_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX games_visible_content_type_index ON public.games USING btree (is_visible, content_type);
+
+
+--
 -- Name: games_visible_index; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX games_visible_index ON public.games USING btree (is_visible);
+
+
+--
+-- Name: games_visible_nsfw_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX games_visible_nsfw_index ON public.games USING btree (is_visible, is_nsfw);
+
+
+--
+-- Name: games_visible_trending_score_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX games_visible_trending_score_index ON public.games USING btree (is_visible, trending_score);
 
 
 --
@@ -5315,6 +8349,20 @@ CREATE INDEX idx_ratings_rater_visible_rating ON public.ratings USING btree (rat
 --
 
 CREATE INDEX idx_ratings_rating_when_visible_reviewed ON public.ratings USING btree (rating) WHERE ((is_visible = true) AND (is_reviewed = true));
+
+
+--
+-- Name: idx_ratings_user_visible_published_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ratings_user_visible_published_at ON public.ratings USING btree (user_id, is_visible, published_at);
+
+
+--
+-- Name: idx_ratings_user_visible_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ratings_user_visible_rating ON public.ratings USING btree (user_id, is_visible, rating);
 
 
 --
@@ -5364,20 +8412,6 @@ CREATE INDEX idx_version_stats_version_lang ON public.version_language_stats USI
 --
 
 CREATE INDEX jobs_queue_index ON public.jobs USING btree (queue);
-
-
---
--- Name: news_is_published_published_at_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX news_is_published_published_at_index ON public.news USING btree (is_published, published_at);
-
-
---
--- Name: news_type_published_at_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX news_type_published_at_index ON public.news USING btree (type, published_at);
 
 
 --
@@ -5500,6 +8534,13 @@ CREATE INDEX ratings_source_platform_index ON public.ratings USING btree (source
 
 
 --
+-- Name: ratings_user_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ratings_user_id_index ON public.ratings USING btree (user_id);
+
+
+--
 -- Name: ratings_visible_has_review_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5507,136 +8548,31 @@ CREATE INDEX ratings_visible_has_review_index ON public.ratings USING btree (is_
 
 
 --
--- Name: team_activity_logs_action_index; Type: INDEX; Schema: public; Owner: -
+-- Name: review_reports_status_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX team_activity_logs_action_index ON public.team_activity_logs USING btree (action);
-
-
---
--- Name: team_activity_logs_created_at_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_activity_logs_created_at_index ON public.team_activity_logs USING btree (created_at);
+CREATE INDEX review_reports_status_index ON public.review_reports USING btree (status);
 
 
 --
--- Name: team_activity_logs_team_id_index; Type: INDEX; Schema: public; Owner: -
+-- Name: sessions_last_activity_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX team_activity_logs_team_id_index ON public.team_activity_logs USING btree (team_id);
-
-
---
--- Name: team_activity_logs_user_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_activity_logs_user_id_index ON public.team_activity_logs USING btree (user_id);
+CREATE INDEX sessions_last_activity_index ON public.sessions USING btree (last_activity);
 
 
 --
--- Name: team_games_game_id_index; Type: INDEX; Schema: public; Owner: -
+-- Name: sessions_user_id_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX team_games_game_id_index ON public.team_games USING btree (game_id);
-
-
---
--- Name: team_games_team_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_games_team_id_index ON public.team_games USING btree (team_id);
+CREATE INDEX sessions_user_id_index ON public.sessions USING btree (user_id);
 
 
 --
--- Name: team_invitations_invited_user_id_index; Type: INDEX; Schema: public; Owner: -
+-- Name: social_accounts_user_id_index; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX team_invitations_invited_user_id_index ON public.team_invitations USING btree (invited_user_id);
-
-
---
--- Name: team_invitations_team_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_invitations_team_id_index ON public.team_invitations USING btree (team_id);
-
-
---
--- Name: team_invitations_token_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_invitations_token_index ON public.team_invitations USING btree (token);
-
-
---
--- Name: team_members_invitation_token_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_members_invitation_token_index ON public.team_members USING btree (invitation_token);
-
-
---
--- Name: team_members_role_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_members_role_index ON public.team_members USING btree (role);
-
-
---
--- Name: team_members_team_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_members_team_id_index ON public.team_members USING btree (team_id);
-
-
---
--- Name: team_members_user_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_members_user_id_index ON public.team_members USING btree (user_id);
-
-
---
--- Name: team_permissions_permission_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_permissions_permission_index ON public.team_permissions USING btree (permission);
-
-
---
--- Name: team_permissions_team_member_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_permissions_team_member_id_index ON public.team_permissions USING btree (team_member_id);
-
-
---
--- Name: team_permissions_team_role_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_permissions_team_role_id_index ON public.team_permissions USING btree (team_role_id);
-
-
---
--- Name: team_roles_team_id_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX team_roles_team_id_index ON public.team_roles USING btree (team_id);
-
-
---
--- Name: teams_created_by_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX teams_created_by_index ON public.teams USING btree (created_by);
-
-
---
--- Name: teams_slug_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX teams_slug_index ON public.teams USING btree (slug);
+CREATE INDEX social_accounts_user_id_index ON public.social_accounts USING btree (user_id);
 
 
 --
@@ -5651,6 +8587,13 @@ CREATE INDEX unique_dialogue_texts_search_vector_gin_index ON public.unique_dial
 --
 
 CREATE INDEX user_game_progress_game_notifications_index ON public.user_game_progress USING btree (game_id, receive_updates);
+
+
+--
+-- Name: user_game_progress_user_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_game_progress_user_id_index ON public.user_game_progress USING btree (user_id);
 
 
 --
@@ -5686,6 +8629,90 @@ CREATE INDEX version_file_categories_category_index ON public.version_file_categ
 --
 
 CREATE INDEX version_file_types_extension_index ON public.version_file_types USING btree (extension);
+
+
+--
+-- Name: version_route_edges_edge_type_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_edges_edge_type_index ON public.version_route_edges USING btree (edge_type);
+
+
+--
+-- Name: version_route_edges_game_version_id_from_label_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_edges_game_version_id_from_label_index ON public.version_route_edges USING btree (game_version_id, from_label);
+
+
+--
+-- Name: version_route_edges_game_version_id_to_label_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_edges_game_version_id_to_label_index ON public.version_route_edges USING btree (game_version_id, to_label);
+
+
+--
+-- Name: version_route_labels_name_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_labels_name_index ON public.version_route_labels USING btree (name);
+
+
+--
+-- Name: version_route_menu_choices_game_version_id_from_label_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_menu_choices_game_version_id_from_label_index ON public.version_route_menu_choices USING btree (game_version_id, from_label);
+
+
+--
+-- Name: version_route_menu_choices_game_version_id_from_label_menu_line; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_menu_choices_game_version_id_from_label_menu_line ON public.version_route_menu_choices USING btree (game_version_id, from_label, menu_line);
+
+
+--
+-- Name: version_route_menu_choices_game_version_id_target_label_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_menu_choices_game_version_id_target_label_index ON public.version_route_menu_choices USING btree (game_version_id, target_label);
+
+
+--
+-- Name: version_route_paths_game_version_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_paths_game_version_id_index ON public.version_route_paths USING btree (game_version_id);
+
+
+--
+-- Name: version_route_variable_changes_game_version_id_label_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_variable_changes_game_version_id_label_index ON public.version_route_variable_changes USING btree (game_version_id, label);
+
+
+--
+-- Name: version_route_variable_changes_game_version_id_variable_name_in; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_variable_changes_game_version_id_variable_name_in ON public.version_route_variable_changes USING btree (game_version_id, variable_name);
+
+
+--
+-- Name: version_route_variables_game_version_id_type_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_route_variables_game_version_id_type_index ON public.version_route_variables USING btree (game_version_id, type);
+
+
+--
+-- Name: version_word_frequencies_calculated_at_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX version_word_frequencies_calculated_at_index ON public.version_word_frequencies USING btree (calculated_at);
 
 
 --
@@ -5742,6 +8769,34 @@ CREATE INDEX vn_lists_user_public_created_index ON public.vn_lists USING btree (
 --
 
 CREATE INDEX vn_lists_user_type_created_index ON public.vn_lists USING btree (user_id, type, created_at);
+
+
+--
+-- Name: vrc_version_label_context_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX vrc_version_label_context_index ON public.version_route_variable_changes USING btree (game_version_id, label, context);
+
+
+--
+-- Name: vrl_version_is_ending_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX vrl_version_is_ending_index ON public.version_route_labels USING btree (game_version_id, is_ending);
+
+
+--
+-- Name: vrl_version_is_scaffolding_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX vrl_version_is_scaffolding_index ON public.version_route_labels USING btree (game_version_id, is_scaffolding);
+
+
+--
+-- Name: vrmc_version_label_menu_branch_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX vrmc_version_label_menu_branch_index ON public.version_route_menu_choices USING btree (game_version_id, from_label, menu_branch);
 
 
 --
@@ -6669,6 +9724,1854 @@ ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y202
 
 
 --
+-- Name: change_logs_y2026m01_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m01_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m01_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m01_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m01_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m01_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m01_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m01_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m01_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m01_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m01_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m01_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m01_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m01_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m01_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m01_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m01_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m01_pkey;
+
+
+--
+-- Name: change_logs_y2026m01_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m01_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m01_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m01_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m02_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m02_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m02_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m02_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m02_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m02_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m02_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m02_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m02_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m02_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m02_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m02_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m02_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m02_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m02_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m02_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m02_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m02_pkey;
+
+
+--
+-- Name: change_logs_y2026m02_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m02_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m02_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m02_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m03_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m03_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m03_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m03_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m03_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m03_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m03_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m03_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m03_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m03_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m03_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m03_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m03_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m03_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m03_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m03_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m03_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m03_pkey;
+
+
+--
+-- Name: change_logs_y2026m03_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m03_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m03_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m03_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m04_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m04_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m04_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m04_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m04_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m04_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m04_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m04_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m04_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m04_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m04_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m04_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m04_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m04_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m04_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m04_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m04_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m04_pkey;
+
+
+--
+-- Name: change_logs_y2026m04_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m04_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m04_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m04_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m05_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m05_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m05_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m05_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m05_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m05_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m05_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m05_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m05_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m05_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m05_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m05_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m05_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m05_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m05_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m05_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m05_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m05_pkey;
+
+
+--
+-- Name: change_logs_y2026m05_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m05_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m05_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m05_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m06_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m06_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m06_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m06_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m06_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m06_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m06_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m06_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m06_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m06_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m06_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m06_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m06_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m06_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m06_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m06_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m06_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m06_pkey;
+
+
+--
+-- Name: change_logs_y2026m06_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m06_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m06_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m06_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m07_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m07_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m07_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m07_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m07_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m07_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m07_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m07_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m07_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m07_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m07_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m07_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m07_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m07_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m07_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m07_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m07_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m07_pkey;
+
+
+--
+-- Name: change_logs_y2026m07_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m07_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m07_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m07_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m08_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m08_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m08_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m08_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m08_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m08_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m08_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m08_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m08_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m08_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m08_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m08_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m08_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m08_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m08_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m08_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m08_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m08_pkey;
+
+
+--
+-- Name: change_logs_y2026m08_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m08_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m08_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m08_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m09_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m09_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m09_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m09_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m09_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m09_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m09_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m09_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m09_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m09_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m09_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m09_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m09_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m09_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m09_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m09_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m09_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m09_pkey;
+
+
+--
+-- Name: change_logs_y2026m09_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m09_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m09_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m09_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m10_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m10_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m10_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m10_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m10_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m10_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m10_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m10_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m10_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m10_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m10_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m10_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m10_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m10_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m10_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m10_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m10_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m10_pkey;
+
+
+--
+-- Name: change_logs_y2026m10_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m10_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m10_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m10_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m11_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m11_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m11_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m11_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m11_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m11_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m11_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m11_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m11_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m11_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m11_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m11_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m11_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m11_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m11_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m11_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m11_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m11_pkey;
+
+
+--
+-- Name: change_logs_y2026m11_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m11_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m11_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m11_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m12_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2026m12_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m12_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2026m12_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m12_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2026m12_expr_idx;
+
+
+--
+-- Name: change_logs_y2026m12_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2026m12_expr_idx1;
+
+
+--
+-- Name: change_logs_y2026m12_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2026m12_expr_idx2;
+
+
+--
+-- Name: change_logs_y2026m12_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2026m12_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m12_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2026m12_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2026m12_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2026m12_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2026m12_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2026m12_pkey;
+
+
+--
+-- Name: change_logs_y2026m12_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2026m12_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2026m12_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2026m12_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m01_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m01_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m01_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m01_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m01_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m01_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m01_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m01_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m01_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m01_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m01_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m01_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m01_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m01_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m01_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m01_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m01_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m01_pkey;
+
+
+--
+-- Name: change_logs_y2027m01_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m01_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m01_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m01_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m02_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m02_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m02_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m02_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m02_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m02_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m02_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m02_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m02_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m02_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m02_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m02_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m02_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m02_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m02_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m02_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m02_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m02_pkey;
+
+
+--
+-- Name: change_logs_y2027m02_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m02_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m02_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m02_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m03_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m03_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m03_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m03_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m03_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m03_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m03_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m03_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m03_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m03_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m03_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m03_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m03_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m03_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m03_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m03_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m03_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m03_pkey;
+
+
+--
+-- Name: change_logs_y2027m03_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m03_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m03_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m03_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m04_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m04_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m04_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m04_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m04_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m04_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m04_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m04_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m04_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m04_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m04_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m04_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m04_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m04_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m04_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m04_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m04_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m04_pkey;
+
+
+--
+-- Name: change_logs_y2027m04_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m04_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m04_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m04_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m05_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m05_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m05_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m05_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m05_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m05_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m05_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m05_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m05_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m05_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m05_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m05_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m05_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m05_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m05_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m05_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m05_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m05_pkey;
+
+
+--
+-- Name: change_logs_y2027m05_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m05_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m05_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m05_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m06_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m06_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m06_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m06_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m06_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m06_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m06_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m06_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m06_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m06_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m06_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m06_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m06_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m06_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m06_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m06_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m06_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m06_pkey;
+
+
+--
+-- Name: change_logs_y2027m06_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m06_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m06_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m06_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m07_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m07_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m07_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m07_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m07_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m07_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m07_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m07_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m07_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m07_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m07_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m07_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m07_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m07_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m07_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m07_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m07_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m07_pkey;
+
+
+--
+-- Name: change_logs_y2027m07_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m07_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m07_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m07_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m08_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m08_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m08_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m08_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m08_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m08_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m08_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m08_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m08_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m08_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m08_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m08_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m08_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m08_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m08_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m08_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m08_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m08_pkey;
+
+
+--
+-- Name: change_logs_y2027m08_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m08_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m08_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m08_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m09_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m09_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m09_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m09_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m09_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m09_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m09_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m09_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m09_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m09_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m09_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m09_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m09_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m09_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m09_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m09_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m09_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m09_pkey;
+
+
+--
+-- Name: change_logs_y2027m09_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m09_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m09_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m09_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m10_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m10_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m10_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m10_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m10_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m10_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m10_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m10_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m10_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m10_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m10_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m10_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m10_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m10_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m10_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m10_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m10_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m10_pkey;
+
+
+--
+-- Name: change_logs_y2027m10_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m10_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m10_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m10_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m11_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m11_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m11_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m11_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m11_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m11_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m11_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m11_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m11_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m11_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m11_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m11_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m11_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m11_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m11_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m11_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m11_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m11_pkey;
+
+
+--
+-- Name: change_logs_y2027m11_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m11_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m11_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m11_user_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m12_entity_type_entity_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_entity ATTACH PARTITION public.change_logs_y2027m12_entity_type_entity_id_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m12_event_type_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_event ATTACH PARTITION public.change_logs_y2027m12_event_type_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m12_expr_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_id ATTACH PARTITION public.change_logs_y2027m12_expr_idx;
+
+
+--
+-- Name: change_logs_y2027m12_expr_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_id ATTACH PARTITION public.change_logs_y2027m12_expr_idx1;
+
+
+--
+-- Name: change_logs_y2027m12_expr_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_name ATTACH PARTITION public.change_logs_y2027m12_expr_idx2;
+
+
+--
+-- Name: change_logs_y2027m12_expr_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_request_time ATTACH PARTITION public.change_logs_y2027m12_expr_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m12_expr_timestamp_idx1; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_session_time ATTACH PARTITION public.change_logs_y2027m12_expr_timestamp_idx1;
+
+
+--
+-- Name: change_logs_y2027m12_expr_timestamp_idx2; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_command_time ATTACH PARTITION public.change_logs_y2027m12_expr_timestamp_idx2;
+
+
+--
+-- Name: change_logs_y2027m12_pkey; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.change_logs_pkey ATTACH PARTITION public.change_logs_y2027m12_pkey;
+
+
+--
+-- Name: change_logs_y2027m12_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_timestamp ATTACH PARTITION public.change_logs_y2027m12_timestamp_idx;
+
+
+--
+-- Name: change_logs_y2027m12_user_id_timestamp_idx; Type: INDEX ATTACH; Schema: public; Owner: -
+--
+
+ALTER INDEX public.idx_change_logs_user ATTACH PARTITION public.change_logs_y2027m12_user_id_timestamp_idx;
+
+
+--
 -- Name: games update_game_slug_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -6739,6 +11642,38 @@ ALTER TABLE ONLY public.android_builds
 
 
 --
+-- Name: bug_report_comments bug_report_comments_bug_report_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_report_comments
+    ADD CONSTRAINT bug_report_comments_bug_report_id_foreign FOREIGN KEY (bug_report_id) REFERENCES public.bug_reports(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bug_report_comments bug_report_comments_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_report_comments
+    ADD CONSTRAINT bug_report_comments_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bug_reports bug_reports_resolved_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_reports
+    ADD CONSTRAINT bug_reports_resolved_by_foreign FOREIGN KEY (resolved_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: bug_reports bug_reports_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bug_reports
+    ADD CONSTRAINT bug_reports_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: change_logs change_logs_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6803,6 +11738,22 @@ ALTER TABLE ONLY public.click_stats
 
 
 --
+-- Name: discord_channel_announcements discord_channel_announcements_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_channel_announcements
+    ADD CONSTRAINT discord_channel_announcements_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
+
+
+--
+-- Name: discord_channel_announcements discord_channel_announcements_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_channel_announcements
+    ADD CONSTRAINT discord_channel_announcements_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
 -- Name: discord_notification_history discord_notification_history_discord_server_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6824,6 +11775,22 @@ ALTER TABLE ONLY public.discord_notification_history
 
 ALTER TABLE ONLY public.discord_server_configs
     ADD CONSTRAINT discord_server_configs_discord_server_id_foreign FOREIGN KEY (discord_server_id) REFERENCES public.discord_servers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: discord_server_game_overrides discord_server_game_overrides_discord_server_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_server_game_overrides
+    ADD CONSTRAINT discord_server_game_overrides_discord_server_id_foreign FOREIGN KEY (discord_server_id) REFERENCES public.discord_servers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: discord_server_game_overrides discord_server_game_overrides_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.discord_server_game_overrides
+    ADD CONSTRAINT discord_server_game_overrides_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
 
 
 --
@@ -6963,14 +11930,6 @@ ALTER TABLE ONLY public.language_mappings
 
 
 --
--- Name: news news_author_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news
-    ADD CONSTRAINT news_author_id_foreign FOREIGN KEY (author_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
 -- Name: notification_history notification_history_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7043,147 +12002,43 @@ ALTER TABLE ONLY public.ratings
 
 
 --
+-- Name: ratings ratings_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ratings
+    ADD CONSTRAINT ratings_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: review_reports review_reports_rating_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.review_reports
+    ADD CONSTRAINT review_reports_rating_id_foreign FOREIGN KEY (rating_id) REFERENCES public.ratings(id) ON DELETE CASCADE;
+
+
+--
+-- Name: review_reports review_reports_reporter_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.review_reports
+    ADD CONSTRAINT review_reports_reporter_id_foreign FOREIGN KEY (reporter_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: review_reports review_reports_reviewed_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.review_reports
+    ADD CONSTRAINT review_reports_reviewed_by_foreign FOREIGN KEY (reviewed_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: social_accounts social_accounts_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.social_accounts
     ADD CONSTRAINT social_accounts_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: team_activity_logs team_activity_logs_team_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_activity_logs
-    ADD CONSTRAINT team_activity_logs_team_id_foreign FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
-
-
---
--- Name: team_activity_logs team_activity_logs_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_activity_logs
-    ADD CONSTRAINT team_activity_logs_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: team_games team_games_assigned_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_games
-    ADD CONSTRAINT team_games_assigned_by_foreign FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: team_games team_games_game_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_games
-    ADD CONSTRAINT team_games_game_id_foreign FOREIGN KEY (game_id) REFERENCES public.games(id) ON DELETE CASCADE;
-
-
---
--- Name: team_games team_games_team_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_games
-    ADD CONSTRAINT team_games_team_id_foreign FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
-
-
---
--- Name: team_invitations team_invitations_custom_role_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations
-    ADD CONSTRAINT team_invitations_custom_role_id_foreign FOREIGN KEY (custom_role_id) REFERENCES public.team_roles(id) ON DELETE SET NULL;
-
-
---
--- Name: team_invitations team_invitations_invited_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations
-    ADD CONSTRAINT team_invitations_invited_by_foreign FOREIGN KEY (invited_by) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: team_invitations team_invitations_invited_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations
-    ADD CONSTRAINT team_invitations_invited_user_id_foreign FOREIGN KEY (invited_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: team_invitations team_invitations_team_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_invitations
-    ADD CONSTRAINT team_invitations_team_id_foreign FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
-
-
---
--- Name: team_members team_members_custom_role_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members
-    ADD CONSTRAINT team_members_custom_role_id_foreign FOREIGN KEY (custom_role_id) REFERENCES public.team_roles(id) ON DELETE SET NULL;
-
-
---
--- Name: team_members team_members_invited_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members
-    ADD CONSTRAINT team_members_invited_by_foreign FOREIGN KEY (invited_by) REFERENCES public.users(id) ON DELETE SET NULL;
-
-
---
--- Name: team_members team_members_team_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members
-    ADD CONSTRAINT team_members_team_id_foreign FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
-
-
---
--- Name: team_members team_members_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_members
-    ADD CONSTRAINT team_members_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: team_permissions team_permissions_team_member_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_permissions
-    ADD CONSTRAINT team_permissions_team_member_id_foreign FOREIGN KEY (team_member_id) REFERENCES public.team_members(id) ON DELETE CASCADE;
-
-
---
--- Name: team_permissions team_permissions_team_role_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_permissions
-    ADD CONSTRAINT team_permissions_team_role_id_foreign FOREIGN KEY (team_role_id) REFERENCES public.team_roles(id) ON DELETE CASCADE;
-
-
---
--- Name: team_roles team_roles_team_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.team_roles
-    ADD CONSTRAINT team_roles_team_id_foreign FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE;
-
-
---
--- Name: teams teams_created_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.teams
-    ADD CONSTRAINT teams_created_by_foreign FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -7235,6 +12090,14 @@ ALTER TABLE ONLY public.user_notification_preferences
 
 
 --
+-- Name: user_preferences user_preferences_user_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_preferences
+    ADD CONSTRAINT user_preferences_user_id_foreign FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: version_dialogue_lines version_dialogue_lines_character_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7275,6 +12138,54 @@ ALTER TABLE ONLY public.version_language_stats
 
 
 --
+-- Name: version_route_edges version_route_edges_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_edges
+    ADD CONSTRAINT version_route_edges_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_route_labels version_route_labels_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_labels
+    ADD CONSTRAINT version_route_labels_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_route_menu_choices version_route_menu_choices_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_menu_choices
+    ADD CONSTRAINT version_route_menu_choices_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_route_paths version_route_paths_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_paths
+    ADD CONSTRAINT version_route_paths_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_route_variable_changes version_route_variable_changes_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variable_changes
+    ADD CONSTRAINT version_route_variable_changes_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_route_variables version_route_variables_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_route_variables
+    ADD CONSTRAINT version_route_variables_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
 -- Name: version_supported_languages version_supported_languages_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7288,6 +12199,22 @@ ALTER TABLE ONLY public.version_supported_languages
 
 ALTER TABLE ONLY public.version_supported_languages
     ADD CONSTRAINT version_supported_languages_iso_code_foreign FOREIGN KEY (iso_code) REFERENCES public.iso_639_3_languages(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: version_word_frequencies version_word_frequencies_game_version_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_word_frequencies
+    ADD CONSTRAINT version_word_frequencies_game_version_id_foreign FOREIGN KEY (game_version_id) REFERENCES public.game_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: version_word_frequencies version_word_frequencies_iso_code_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.version_word_frequencies
+    ADD CONSTRAINT version_word_frequencies_iso_code_foreign FOREIGN KEY (iso_code) REFERENCES public.iso_639_3_languages(id) ON DELETE CASCADE;
 
 
 --
@@ -7318,16 +12245,16 @@ ALTER TABLE ONLY public.vn_lists
 -- PostgreSQL database dump complete
 --
 
-\unrestrict MzbRAK3UllfftmqZIoVyn8XdGjCz1OhXItvLLkj3KCXivG267S8RATElys6hUnA
+\unrestrict hfHDefaRD2eMUMSUDLub5NUYmzUUykJLOttZykwY8JMhPHeZlwUTyseexhp14xI
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict f41JcntSnc4euDB2I1OFhJcDE5ftonbnqSda5JD823hIHEYWWB4KpeA7Y8tUIn1
+\restrict 2272nJyogkEXwy0yfCwGKmDExCUkfiMJ4PCfmlXrAfbOvE46pBbmz8aR0dEl0lC
 
--- Dumped from database version 18.0 (Debian 18.0-1.pgdg13+3)
--- Dumped by pg_dump version 18.0 (Debian 18.0-1.pgdg12+3)
+-- Dumped from database version 18.4 (Debian 18.4-1.pgdg13+1)
+-- Dumped by pg_dump version 18.4 (Debian 18.4-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -7492,6 +12419,68 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 144	2025_10_23_000000_create_user_ignored_games_table	64
 145	2025_10_23_003237_drop_blur_screenshots_from_games_table	64
 146	2025_11_08_230916_split_screenshots_into_original_and_optimized	64
+147	2025_11_17_195709_fix_null_game_slugs_and_add_constraint	65
+148	2025_11_18_184701_add_discord_notified_at_to_addition_requests_table	65
+149	2025_11_24_142724_add_currency_to_games_table	65
+150	2025_11_29_011739_create_version_word_frequencies_table	65
+151	2025_12_06_162427_create_bug_reports_table	65
+152	2025_12_07_000000_drop_optimized_screenshots_column	65
+153	2025_12_07_122628_replace_is_suspended_with_is_delisted_on_games	65
+154	2026_01_06_122313_create_bug_report_comments_table	65
+155	2026_01_06_131202_drop_news_table	65
+156	2026_01_06_133103_add_is_closed_to_bug_reports_table	65
+157	2026_03_08_000001_add_user_id_to_ratings_table	65
+158	2026_03_08_000002_create_review_reports_table	65
+159	2026_03_08_000004_create_user_preferences_table	65
+160	2026_03_08_000005_add_is_review_banned_to_users_table	65
+161	2026_03_08_000005_add_tag_id_index_to_game_tag_table	65
+162	2026_03_08_000006_backfill_rater_external_platform	65
+163	2026_03_08_000006_make_rater_id_nullable_on_ratings_table	65
+164	2026_03_08_000007_add_fvn_li_to_ratings_source_platform_check	65
+165	2026_03_08_000008_add_user_visible_published_at_index_to_ratings	65
+166	2026_03_08_000009_add_is_review_banned_to_raters_table	65
+167	2026_03_09_000001_add_excluded_tags_to_user_preferences_table	65
+168	2026_03_28_000001_create_version_route_edges_table	65
+169	2026_03_28_000002_add_route_variable_tracking	65
+170	2026_03_29_185118_add_condition_to_version_route_edges_table	65
+171	2026_03_30_000001_add_routing_and_embeds_to_discord_server_configs_table	65
+172	2026_03_30_000002_create_discord_server_game_overrides_table	65
+173	2026_03_30_000003_add_payload_to_discord_notification_history_table	65
+174	2026_03_30_000004_add_available_channels_to_discord_servers_table	65
+175	2026_03_30_000005_add_batch_key_to_discord_notification_history_table	65
+176	2026_03_30_000006_add_processing_to_discord_notification_history_delivery_status	65
+177	2026_03_30_000007_add_processing_to_discord_notification_history_delivery_status_check	65
+178	2026_03_30_000008_add_indexes_to_discord_notification_history_table	65
+179	2026_03_31_000002_create_version_route_paths_table	65
+180	2026_04_05_104753_widen_context_column_on_version_route_variable_changes	65
+181	2026_04_05_112019_add_prompt_to_version_route_menu_choices	65
+182	2026_04_05_121005_add_translations_to_version_route_menu_choices	65
+183	2026_04_05_175602_ensure_context_is_text_on_version_route_variable_changes	65
+184	2026_04_05_210534_add_route_graph_data_to_game_versions	65
+185	2026_04_21_000001_add_production_performance_indexes	65
+186	2026_04_21_000002_add_route_variable_changes_context_index	65
+187	2026_04_21_000003_create_2026_2027_change_log_partitions	65
+188	2026_04_24_000001_add_menu_line_to_version_route_menu_choices	65
+189	2026_04_24_000002_add_menu_scope_to_version_route_menu_choices	65
+190	2026_04_24_000003_add_menu_condition_stack_to_version_route_menu_choices	65
+191	2026_04_24_000004_add_condition_to_version_route_variable_changes	65
+192	2026_04_27_000001_add_returns_to_caller_to_version_route_labels	65
+193	2026_05_02_000001_create_sessions_table	65
+194	2026_05_03_000001_ensure_discord_users_id_default	65
+195	2026_05_03_000002_allow_manual_discord_notifications_without_game	65
+196	2026_05_10_000001_ensure_system_audit_user	65
+197	2026_05_23_000001_add_trending_score_to_games_table	65
+198	2026_05_23_000002_add_click_stats_trending_score_index	65
+199	2026_05_23_000003_add_is_stats_extraction_disabled_to_games_table	65
+200	2026_05_23_000004_backfill_is_stats_extraction_disabled_for_demo_only_games	65
+201	2026_07_12_000001_create_discord_channel_announcements_table	65
+202	2026_07_12_000002_drop_discord_users_table	65
+203	2026_07_12_000003_add_catalog_sync_fields_to_discord_tables	65
+204	2026_07_15_000001_add_unreachable_route_graph_data_to_game_versions	65
+205	2026_07_25_153828_add_externally_invoked_to_version_route_labels	65
+206	2026_07_25_234745_add_is_scaffolding_to_version_route_labels	65
+207	2026_07_27_000001_add_bot_reason_to_click_stats	65
+208	2026_08_03_000001_drop_unused_team_tables	65
 \.
 
 
@@ -7499,12 +12488,12 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 146, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 208, true);
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict f41JcntSnc4euDB2I1OFhJcDE5ftonbnqSda5JD823hIHEYWWB4KpeA7Y8tUIn1
+\unrestrict 2272nJyogkEXwy0yfCwGKmDExCUkfiMJ4PCfmlXrAfbOvE46pBbmz8aR0dEl0lC
 

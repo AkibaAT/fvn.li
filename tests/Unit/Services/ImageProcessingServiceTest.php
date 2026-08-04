@@ -18,16 +18,13 @@ beforeEach(function () {
 });
 
 test('process image variant preserves aspect ratio', function () {
-    // Create a test image with a specific aspect ratio
     $imageWidth = 800;
     $imageHeight = 400;
     $aspectRatio = $imageWidth / $imageHeight;
 
-    // Create a test PNG image
     $image = imagecreatetruecolor($imageWidth, $imageHeight);
     imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
 
-    // Save the image to a temporary file
     $tempFile = tempnam(sys_get_temp_dir(), 'test_image_');
     imagepng($image, $tempFile);
 
@@ -37,7 +34,6 @@ test('process image variant preserves aspect ratio', function () {
         'height' => 180,
     ];
 
-    // Process the image and get dimensions
     $targetPath = 'test/processed_image.webp';
     $dimensions = $this->service->processImageVariant(
         $tempFile,
@@ -56,7 +52,6 @@ test('process image variant preserves aspect ratio', function () {
     expect($processedWidth)->toBeLessThanOrEqual($config['width']);
     expect($processedHeight)->toBeLessThanOrEqual($config['height']);
 
-    // Calculate the processed aspect ratio
     $processedAspectRatio = $processedWidth / $processedHeight;
 
     // For our test, we're just checking that the aspect ratio is maintained within a reasonable margin

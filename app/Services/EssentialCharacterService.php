@@ -11,10 +11,6 @@ use Illuminate\Support\Facades\Log;
 
 class EssentialCharacterService
 {
-    /**
-     * Get or create narrator character with fallback language support
-     * This method is used by fix commands and other services that don't have full language context
-     */
     public function getOrCreateNarratorCharacter(int $gameId): Character
     {
         $narratorCharacter = Character::where('game_id', $gameId)
@@ -25,12 +21,10 @@ class EssentialCharacterService
             return $narratorCharacter;
         }
 
-        // Create narrator with best available language information
         $languages = $this->getGameLanguages($gameId);
         $defaultLanguage = $this->getGameDefaultLanguage($gameId);
 
         if (! empty($languages)) {
-            // Use comprehensive language support if we have language data
             $result = $this->createEssentialCharactersWithLanguages($gameId, $languages, $defaultLanguage);
 
             return $result['narrator'];
@@ -42,16 +36,11 @@ class EssentialCharacterService
         }
     }
 
-    /**
-     * Create or update essential characters (narrator, menu_choice) with comprehensive language support
-     * This is the primary method that should be used during stats import when all languages are known
-     */
     public function createEssentialCharactersWithLanguages(
         int $gameId,
         array $languages,
         string $defaultLanguage = 'eng'
     ): array {
-        // Build display_names for all languages
         $narratorDisplayNames = [];
         $menuChoiceDisplayNames = [];
 
@@ -60,26 +49,22 @@ class EssentialCharacterService
             $menuChoiceDisplayNames[$isoCode] = 'Menu Choice';
         }
 
-        // Ensure English is always included
         if (! in_array('eng', $languages)) {
             $narratorDisplayNames['eng'] = 'Narrator';
             $menuChoiceDisplayNames['eng'] = 'Menu Choice';
         }
 
-        // Ensure default language is always included
         if (! in_array($defaultLanguage, $languages) && $defaultLanguage !== 'eng') {
             $narratorDisplayNames[$defaultLanguage] = 'Narrator';
             $menuChoiceDisplayNames[$defaultLanguage] = 'Menu Choice';
         }
 
-        // Create or update narrator character
         $narratorCharacter = $this->createOrUpdateCharacter(
             $gameId,
             'narrator',
             $narratorDisplayNames
         );
 
-        // Create or update menu_choice character
         $menuChoiceCharacter = $this->createOrUpdateCharacter(
             $gameId,
             'menu_choice',
@@ -95,9 +80,6 @@ class EssentialCharacterService
         ];
     }
 
-    /**
-     * Create basic narrator character with minimal language support (fallback)
-     */
     public function createBasicNarratorCharacter(int $gameId): Character
     {
         $defaultLanguage = $this->getGameDefaultLanguage($gameId);
@@ -114,9 +96,6 @@ class EssentialCharacterService
         ]);
     }
 
-    /**
-     * Get or create menu_choice character with fallback language support
-     */
     public function getOrCreateMenuChoiceCharacter(int $gameId): Character
     {
         $menuChoiceCharacter = Character::where('game_id', $gameId)
@@ -127,12 +106,10 @@ class EssentialCharacterService
             return $menuChoiceCharacter;
         }
 
-        // Create menu_choice with best available language information
         $languages = $this->getGameLanguages($gameId);
         $defaultLanguage = $this->getGameDefaultLanguage($gameId);
 
         if (! empty($languages)) {
-            // Use comprehensive language support if we have language data
             $result = $this->createEssentialCharactersWithLanguages($gameId, $languages, $defaultLanguage);
 
             return $result['menu_choice'];
@@ -144,9 +121,6 @@ class EssentialCharacterService
         }
     }
 
-    /**
-     * Create basic menu_choice character with minimal language support (fallback)
-     */
     public function createBasicMenuChoiceCharacter(int $gameId): Character
     {
         $defaultLanguage = $this->getGameDefaultLanguage($gameId);
@@ -163,12 +137,8 @@ class EssentialCharacterService
         ]);
     }
 
-    /**
-     * Get all languages for a game from existing version data
-     */
     private function getGameLanguages(int $gameId): array
     {
-        // Get languages from the most recent version's supported languages
         $languages = DB::table('version_supported_languages as vsl')
             ->join('game_versions as gv', 'vsl.game_version_id', '=', 'gv.id')
             ->where('gv.game_id', $gameId)
@@ -182,9 +152,6 @@ class EssentialCharacterService
         return $languages;
     }
 
-    /**
-     * Get the default language for a game
-     */
     private function getGameDefaultLanguage(int $gameId): string
     {
         $game = Game::find($gameId);
@@ -192,9 +159,6 @@ class EssentialCharacterService
         return $game?->source_language_id ?? 'eng';
     }
 
-    /**
-     * Create or update a character with the given display names
-     */
     private function createOrUpdateCharacter(int $gameId, string $characterId, array $displayNames): Character
     {
         $character = Character::firstOrNew([

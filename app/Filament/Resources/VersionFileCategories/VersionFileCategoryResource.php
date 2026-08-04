@@ -7,7 +7,6 @@ namespace App\Filament\Resources\VersionFileCategories;
 use App\Filament\Resources\VersionFileCategories\Pages\ListVersionFileCategories;
 use App\Filament\Resources\VersionFileCategories\Pages\ViewVersionFileCategory;
 use App\Models\VersionFileCategory;
-use App\Services\HelperService;
 use BackedEnum;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -15,6 +14,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Number;
 
 class VersionFileCategoryResource extends Resource
 {
@@ -41,7 +41,7 @@ class VersionFileCategoryResource extends Resource
                             ->disabled(),
                         TextInput::make('total_size')
                             ->label('Total Size')
-                            ->formatStateUsing(fn (int $state): string => HelperService::formatBytes($state))
+                            ->formatStateUsing(fn (int $state): string => Number::fileSize($state))
                             ->disabled(),
                     ])->columns(3),
             ]);
@@ -62,7 +62,7 @@ class VersionFileCategoryResource extends Resource
                     ->sortable(),
                 TextColumn::make('total_size')
                     ->label('Total Size')
-                    ->formatStateUsing(fn (int $state): string => HelperService::formatBytes($state))
+                    ->formatStateUsing(fn (int $state): string => Number::fileSize($state))
                     ->sortable(),
             ]);
     }

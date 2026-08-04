@@ -2,7 +2,7 @@
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import { Link } from '@inertiajs/svelte';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
     import { Button, Card } from '@/components/ui';
 

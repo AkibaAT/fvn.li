@@ -21,8 +21,6 @@ use App\Models\VersionRouteMenuChoice;
 use App\Models\VersionRoutePath;
 use App\Models\VersionRouteVariable;
 use App\Models\VersionRouteVariableChange;
-use App\Services\HelperService;
-use App\Traits\HasSortableColumns;
 use App\Traits\SortsVnLists;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -45,28 +43,10 @@ it('covers request validation helpers and byte formatting utilities', function (
         ->and((new ToggleAllUpdatesRequest)->authorize())->toBeTrue()
         ->and((new ToggleAllUpdatesRequest)->rules())->toBe([
             'receive_updates' => ['required', 'boolean'],
-        ])
-        ->and(HelperService::formatBytes(0))->toBe('0 B')
-        ->and(HelperService::formatBytes(1536, 1))->toBe('1.5 KB')
-        ->and(HelperService::formatBytes(1048576))->toBe('1 MB');
+        ]);
 });
 
-it('covers sortable column and VN list sorting traits', function () {
-    $sortable = new class
-    {
-        use HasSortableColumns;
-
-        public const AVAILABLE_SORT_FIELDS = ['name', 'english_word_count', 'custom_field'];
-    };
-
-    expect($sortable->getAvailableSortFields())->toBe(['name', 'english_word_count', 'custom_field'])
-        ->and($sortable->getAvailableSortFieldsWithLabels())->toBe([
-            'name' => 'Name',
-            'english_word_count' => 'Word Count',
-            'custom_field' => 'Custom field',
-        ])
-        ->and(invokeSmokeMethod($sortable, 'getSortLabelLowercase', ['rating_count']))->toBe('rating count');
-
+it('covers VN list sorting for collections and paginators', function () {
     $sorter = new class
     {
         use SortsVnLists;

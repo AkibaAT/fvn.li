@@ -15,15 +15,8 @@ class LanguageMapping extends Model
         'iso_code',
     ];
 
-    /**
-     * Get ISO code for a game language key.
-     *
-     * This method will first try to find a game-specific mapping,
-     * and if none exists, it will fall back to the global mapping.
-     */
     public static function getIsoCodeForKey(string $key, ?int $gameId = null): ?string
     {
-        // Try to find a game-specific mapping if game ID is provided
         if ($gameId !== null) {
             $mapping = self::where('game_language_key', $key)
                 ->where('game_id', $gameId)
