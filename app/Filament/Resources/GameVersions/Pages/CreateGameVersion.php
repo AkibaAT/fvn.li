@@ -34,15 +34,11 @@ class CreateGameVersion extends CreateRecord
         return $this->getResource()::getUrl('index');
     }
 
-    /**
-     * Handle the supported languages after the record is created
-     */
     protected function afterCreate(): void
     {
         /** @var GameVersion $gameVersion */
         $gameVersion = $this->record;
 
-        // Process supported languages
         if (isset($this->data['supported_languages']) && is_array($this->data['supported_languages'])) {
             $this->saveSupportedLanguages($gameVersion, $this->data['supported_languages']);
         }

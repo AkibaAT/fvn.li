@@ -78,17 +78,6 @@ class Kernel extends HttpKernel
             SubstituteBindings::class,
         ],
 
-        'react' => [
-            // Kept for backward compatibility if any routes reference it,
-            // but the primary Inertia stack is now the standard 'web' group.
-            EncryptCookies::class,
-            AddQueuedCookiesToResponse::class,
-            StartSession::class,
-            ShareErrorsFromSession::class,
-            PreventRequestForgery::class,
-            SubstituteBindings::class,
-            HandleInertiaRequests::class,
-        ],
     ];
 
     /**

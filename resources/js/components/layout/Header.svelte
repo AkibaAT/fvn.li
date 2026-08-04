@@ -42,27 +42,22 @@
     }
 </script>
 
-<!-- Modern Header -->
 <header
     class="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 shadow-sm backdrop-blur-xl dark:border-zinc-800 dark:bg-[#0a0f1e]/80"
     aria-label="Main navigation"
 >
     <Container>
         <div class="flex items-center justify-between py-4">
-            <!-- Logo & Brand -->
             <Logo />
 
-            <!-- Navigation -->
             <Navigation />
 
-            <!-- Search Bar -->
             <div class="mx-8 hidden max-w-lg flex-1 lg:flex" role="search">
                 {#if SearchBarComponent}
                     <SearchBarComponent />
                 {/if}
             </div>
 
-            <!-- Mobile Search Button (toggle) -->
             <div class="flex items-center space-x-2 lg:hidden">
                 <button
                     onclick={toggleMobileSearch}
@@ -81,7 +76,6 @@
                 </button>
             </div>
 
-            <!-- User Menu -->
             <div class="flex items-center space-x-3">
                 <UserMenu />
                 <AppearanceDropdown />
@@ -90,7 +84,6 @@
     </Container>
 </header>
 
-<!-- Mobile Search Modal -->
 {#if MobileSearchComponent}
     <MobileSearchComponent isOpen={showMobileSearch} onClose={closeMobileSearch} />
 {/if}

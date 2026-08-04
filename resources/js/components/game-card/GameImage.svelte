@@ -37,10 +37,8 @@
             </div>
         {/if}
 
-        <!-- Gradient overlay -->
         <div class="absolute inset-0 bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
 
-        <!-- Hover CTA -->
         <div class="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:opacity-100">
             <div
                 class="translate-y-4 transform rounded-xl bg-white/90 px-6 py-3 font-bold text-gray-900 shadow-xl backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 hover:bg-white"

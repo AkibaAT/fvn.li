@@ -1,7 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
     import { Button, Card } from '@/components/ui';
 
@@ -116,7 +116,6 @@
         Customize how search results are filtered for you. These preferences apply across the site by default.
     </p>
 
-    <!-- Language Preferences -->
     <Card padding="lg">
         <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Language Preferences</h2>
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
@@ -154,7 +153,6 @@
         </div>
     </Card>
 
-    <!-- Excluded Tags -->
     <Card padding="lg">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Excluded Tags</h2>
@@ -218,7 +216,6 @@
         </div>
     </Card>
 
-    <!-- Ignored Games -->
     <Card padding="lg">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Ignored Games</h2>

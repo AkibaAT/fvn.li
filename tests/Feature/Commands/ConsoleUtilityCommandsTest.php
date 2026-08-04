@@ -117,7 +117,7 @@ it('generates a sitemap from visible slugged games and paginated listing pages',
 
     try {
         $this->artisan('sitemap:generate')
-            ->expectsOutput('Sitemap generated successfully!')
+            ->expectsOutput('Sitemap generated successfully.')
             ->assertExitCode(0);
 
         $sitemap = file_get_contents($sitemapPath);
@@ -196,7 +196,7 @@ it('indexes no dialogue texts without sending Meilisearch documents', function (
     $this->artisan('dialogue:index-texts', ['--batch-size' => 25])
         ->expectsOutputToContain('Total unique texts to index: 0')
         ->expectsOutputToContain('Batch size: 25')
-        ->expectsOutputToContain('Successfully indexed 0 unique dialogue texts!')
+        ->expectsOutputToContain('Successfully indexed 0 unique dialogue texts.')
         ->assertExitCode(0);
 });
 
@@ -254,7 +254,7 @@ it('indexes dialogue texts with aggregated game version character and language m
 
     $this->artisan('dialogue:index-texts', ['--batch-size' => 10])
         ->expectsOutputToContain('Total unique texts to index: 1')
-        ->expectsOutputToContain('Successfully indexed 1 unique dialogue texts!')
+        ->expectsOutputToContain('Successfully indexed 1 unique dialogue texts.')
         ->assertExitCode(0);
 });
 
@@ -304,6 +304,7 @@ it('processes selected game thumbnails through the command wrapper', function ()
     $this->app->instance(ImageDownloadUrlValidator::class, $validator);
 
     $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('setProgressReporter')->once()->andReturnSelf();
     $imageService->shouldReceive('processImageVariant')
         ->twice()
         ->andReturnUsing(function (string $sourcePath, string $destPath, array $config) {
@@ -365,6 +366,7 @@ it('thumbnail command rejects oversized downloads before image processing', func
     $this->app->instance(ImageDownloadUrlValidator::class, $validator);
 
     $imageService = Mockery::mock(ImageProcessingService::class);
+    $imageService->shouldReceive('setProgressReporter')->once()->andReturnSelf();
     $imageService->shouldReceive('processImageVariant')->never();
     $this->app->instance(ImageProcessingService::class, $imageService);
 
@@ -432,7 +434,7 @@ it('imports Discord JSON games by creating updating skipping and reporting inval
             ->expectsOutput('Starting Discord games import...')
             ->expectsOutput("Source: {$importDir}")
             ->expectsOutput('Skipping invalid.json: Invalid structure')
-            ->expectsOutput('Import complete!')
+            ->expectsOutput('Import complete.')
             ->expectsOutput('Created: 1 | Updated: 1 | Skipped: 1 | Errors: 0')
             ->assertExitCode(0);
 

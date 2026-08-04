@@ -29,7 +29,6 @@ class DiscordServerController extends Controller
             'is_active' => true,
         ]);
 
-        // Create default config
         DiscordServerConfig::create([
             'discord_server_id' => $server->id,
             'notification_format' => 'detailed',
@@ -41,9 +40,6 @@ class DiscordServerController extends Controller
         ], 201);
     }
 
-    /**
-     * Get all servers for the authenticated user.
-     */
     public function index(Request $request): JsonResponse
     {
         $servers = DiscordServer::where('owner_user_id', $request->user()->id)
@@ -56,9 +52,6 @@ class DiscordServerController extends Controller
         ]);
     }
 
-    /**
-     * Get a specific server.
-     */
     public function show(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('view', $server);
@@ -74,9 +67,6 @@ class DiscordServerController extends Controller
         ]);
     }
 
-    /**
-     * Update server configuration.
-     */
     public function updateConfig(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('update', $server);
@@ -132,9 +122,6 @@ class DiscordServerController extends Controller
         ]);
     }
 
-    /**
-     * Get server statistics.
-     */
     public function stats(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('view', $server);

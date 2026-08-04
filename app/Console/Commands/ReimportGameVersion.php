@@ -41,35 +41,31 @@ class ReimportGameVersion extends Command
 
     public function handle(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing thousands of dialogue lines
+        $this->statsService->setProgressReporter(fn (string $message) => $this->line($message));
+
         Config::set('scout.queue', false);
 
         $versionString = $this->option('game-version');
         $timestamp = $this->option('timestamp');
 
-        // Validate parameters
         if ($versionString && ! $this->option('game-id')) {
             $this->error('A specific game ID (--game-id) must be provided when specifying a version');
 
             return 1;
         }
 
-        // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
 
         try {
-            // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
                 ->where('game_engine', "Ren'Py")
                 ->where('is_stats_extraction_disabled', false);
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
-            // Get games to process
             $games = $query->with([
                 'gameVersions' => function ($query) use ($versionString) {
                     if ($versionString) {
@@ -105,7 +101,6 @@ class ReimportGameVersion extends Command
                     try {
                         DB::beginTransaction();
 
-                        // Parse timestamp if provided
                         $publishedAt = null;
                         if ($timestamp) {
                             try {
@@ -133,7 +128,6 @@ class ReimportGameVersion extends Command
                             }
                         }
 
-                        // Get stored archive
                         $storedArchive = $this->archiveService->getStoredArchive($game->id, $version->id);
                         if (! $storedArchive) {
                             $this->warn('No stored archive found for this version, skipping');
@@ -142,7 +136,6 @@ class ReimportGameVersion extends Command
                             continue;
                         }
 
-                        // Process archive and extract statistics
                         $this->info('Processing game archive...');
                         try {
                             $stats = $this->archiveService->processArchive($storedArchive);

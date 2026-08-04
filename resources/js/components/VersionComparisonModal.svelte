@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Button, Dialog } from '@/components/ui';
-    import { fetchVersionComparison, type VersionComparisonData } from '@/hooks/api/useGameData';
+    import { formatBytes, formatCount, getDiffColor, formatDiff, formatBytesDiff } from '@/utils/version-comparison';
+    import { fetchVersionComparison, type VersionComparisonData } from '@/api/game-data';
 
     interface Props {
         isOpen: boolean;
@@ -17,33 +18,6 @@
     let loading = $state(false);
     let error = $state<string | null>(null);
 
-    const formatBytesUtil = (bytes: number): string => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-    };
-
-    const formatNumber = (num: number): string => {
-        return num === 0 ? '-' : num.toLocaleString();
-    };
-
-    const getDiffColor = (diff: number) => {
-        if (diff > 0) return 'text-green-400';
-        if (diff < 0) return 'text-red-400';
-        return 'text-gray-400';
-    };
-
-    const formatDiff = (diff: number) => {
-        if (diff === 0) return '-';
-        return (diff > 0 ? '+' : '') + formatNumber(diff);
-    };
-
-    const formatBytesDiff = (diff: number): string => {
-        if (diff === 0) return '-';
-        return (diff > 0 ? '+' : '') + formatBytesUtil(Math.abs(diff));
-    };
 
     $effect(() => {
         if (isOpen && fromVersionId && toVersionId && gameId) {
@@ -84,7 +58,6 @@
     {/if}
 
     {#if comparisonData}
-        <!-- Version Info -->
         <div class="mb-6">
             <div class="flex flex-col items-center justify-between gap-4 rounded-lg bg-gray-700/50 p-4 md:flex-row">
                 <div>
@@ -106,7 +79,6 @@
             </div>
         </div>
 
-        <!-- Tabs -->
         <div class="mb-8">
             <ul class="flex border-b border-gray-700 text-sm" role="tablist">
                 <li class="mr-1">
@@ -135,7 +107,6 @@
                 </li>
             </ul>
 
-            <!-- Character Stats Tab -->
             {#if activeTab === 'character'}
                 <div class="pt-4">
                     <div class="overflow-hidden rounded-lg bg-gray-700/50">
@@ -179,8 +150,8 @@
                                             {#if index > 0}
                                                 <td class="m-0 w-px bg-gray-600 p-0"><div class="h-full w-px">&nbsp;</div></td>
                                             {/if}
-                                            <td class="px-2 py-2 text-right text-sm text-gray-400 tabular-nums">{formatNumber(fromCount)}</td>
-                                            <td class="px-2 py-2 text-right text-sm text-gray-100 tabular-nums">{formatNumber(toCount)}</td>
+                                            <td class="px-2 py-2 text-right text-sm text-gray-400 tabular-nums">{formatCount(fromCount)}</td>
+                                            <td class="px-2 py-2 text-right text-sm text-gray-100 tabular-nums">{formatCount(toCount)}</td>
                                             <td class="px-2 py-2 text-right text-sm tabular-nums {getDiffColor(diff)}">{formatDiff(diff)}</td>
                                         {/each}
                                     </tr>
@@ -196,8 +167,8 @@
                                         {#if index > 0}
                                             <td class="m-0 w-px bg-gray-600 p-0"><div class="h-full w-px">&nbsp;</div></td>
                                         {/if}
-                                        <td class="px-2 py-2 text-right text-sm text-gray-400 tabular-nums">{formatNumber(fromTotal)}</td>
-                                        <td class="px-2 py-2 text-right text-sm text-gray-100 tabular-nums">{formatNumber(toTotal)}</td>
+                                        <td class="px-2 py-2 text-right text-sm text-gray-400 tabular-nums">{formatCount(fromTotal)}</td>
+                                        <td class="px-2 py-2 text-right text-sm text-gray-100 tabular-nums">{formatCount(toTotal)}</td>
                                         <td class="px-2 py-2 text-right text-sm tabular-nums {getDiffColor(diffTotal)}">{formatDiff(diffTotal)}</td>
                                     {/each}
                                 </tr>
@@ -207,7 +178,6 @@
                 </div>
             {/if}
 
-            <!-- File Stats Tab -->
             {#if activeTab === 'file'}
                 <div class="space-y-6 pt-4">
                     <div>
@@ -219,9 +189,9 @@
                                         {category.category.charAt(0).toUpperCase() + category.category.slice(1)}
                                     </div>
                                     <div class="mt-1 flex items-baseline">
-                                        <div class="text-sm text-gray-400">{formatNumber(category.from.count)}</div>
+                                        <div class="text-sm text-gray-400">{formatCount(category.from.count)}</div>
                                         <div class="mx-1 text-gray-500">&rarr;</div>
-                                        <div class="text-base font-semibold text-gray-100">{formatNumber(category.to.count)}</div>
+                                        <div class="text-base font-semibold text-gray-100">{formatCount(category.to.count)}</div>
                                         {#if category.diff.count !== 0}
                                             <div class="ml-2 text-sm {getDiffColor(category.diff.count)}">
                                                 {formatDiff(category.diff.count)}
@@ -229,9 +199,9 @@
                                         {/if}
                                     </div>
                                     <div class="mt-1 flex items-baseline text-sm">
-                                        <div class="text-gray-400">{formatBytesUtil(category.from.size)}</div>
+                                        <div class="text-gray-400">{formatBytes(category.from.size)}</div>
                                         <div class="mx-1 text-gray-500">&rarr;</div>
-                                        <div class="text-gray-100">{formatBytesUtil(category.to.size)}</div>
+                                        <div class="text-gray-100">{formatBytes(category.to.size)}</div>
                                         {#if category.diff.size !== 0}
                                             <div class="ml-2 {getDiffColor(category.diff.size)}">
                                                 {formatBytesDiff(category.diff.size)}
@@ -277,13 +247,13 @@
                                             {#each Object.entries(category.fileTypes) as [extension, typeStats] (extension)}
                                                 <tr>
                                                     <td class="px-4 py-2 text-sm text-gray-100">{extension}</td>
-                                                    <td class="px-2 py-2 text-right text-sm text-gray-400">{formatNumber(typeStats.from.count)}</td>
-                                                    <td class="px-2 py-2 text-right text-sm text-gray-100">{formatNumber(typeStats.to.count)}</td>
+                                                    <td class="px-2 py-2 text-right text-sm text-gray-400">{formatCount(typeStats.from.count)}</td>
+                                                    <td class="px-2 py-2 text-right text-sm text-gray-100">{formatCount(typeStats.to.count)}</td>
                                                     <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.count)}"
                                                         >{formatDiff(typeStats.diff.count)}</td
                                                     >
-                                                    <td class="px-2 py-2 text-right text-sm text-gray-400">{formatBytesUtil(typeStats.from.size)}</td>
-                                                    <td class="px-2 py-2 text-right text-sm text-gray-100">{formatBytesUtil(typeStats.to.size)}</td>
+                                                    <td class="px-2 py-2 text-right text-sm text-gray-400">{formatBytes(typeStats.from.size)}</td>
+                                                    <td class="px-2 py-2 text-right text-sm text-gray-100">{formatBytes(typeStats.to.size)}</td>
                                                     <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.size)}"
                                                         >{formatBytesDiff(typeStats.diff.size)}</td
                                                     >

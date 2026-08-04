@@ -8,8 +8,6 @@ This command monitors the itch.io public feed for game updates and processes new
 synchronized with the latest game information. It includes built-in duplicate detection and retry logic for robust
 operation.
 
-**Key Features**: Automatic discovery, duplicate prevention, rate limit handling, comprehensive logging.
-
 ## Usage
 
 ```bash
@@ -84,27 +82,6 @@ The feed processor treats all events uniformly - it doesn't differentiate betwee
     <td>None</td>
 </tr>
 </table>
-
-## Error Handling
-
-The command includes comprehensive error handling:
-
-- **Rate Limiting**: Automatic retry with exponential backoff
-- **API Failures**: Retry logic for temporary network issues
-- **Duplicate Detection**: Prevents reprocessing of already-handled events
-- **Data Validation**: Ensures feed data integrity before processing
-
-## Monitoring
-
-Monitor the following during feed processing:
-
-- **Events processed count** - Should match expected feed activity
-- **API rate limit status** - Watch for 429 responses
-- **Processing time** - Longer times may indicate API issues
-- **Error rates** - High error rates suggest configuration problems
-
-> **Note**: Feed processing is designed to be idempotent - running it multiple times will not create duplicate data due
-> to the processed events tracking system.
 
 ## Processing Flow
 

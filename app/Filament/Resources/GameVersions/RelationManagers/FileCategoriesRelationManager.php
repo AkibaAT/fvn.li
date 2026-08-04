@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\GameVersions\RelationManagers;
 
-use App\Services\HelperService;
 use Filament\Actions\ViewAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Number;
 
 class FileCategoriesRelationManager extends RelationManager
 {
@@ -43,7 +43,7 @@ class FileCategoriesRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('total_size')
                     ->label('Total Size')
-                    ->formatStateUsing(fn (int $state): string => HelperService::formatBytes($state))
+                    ->formatStateUsing(fn (int $state): string => Number::fileSize($state))
                     ->sortable(),
             ])
             ->filters([

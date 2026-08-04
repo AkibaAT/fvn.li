@@ -1,6 +1,6 @@
 <script lang="ts">
     import { untrack } from 'svelte';
-    import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
+    import { authenticatedFetch, readJsonResponse } from '@/utils/http';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -93,12 +93,10 @@
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" class="mb-0" />
 
-    <!-- Form -->
     <Card variant="glass">
         <form onsubmit={handleSubmit} class="space-y-6">
             <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
 
-            <!-- List Type (Read-only for default lists) -->
             <div>
                 <p class="block text-sm font-medium text-gray-700 dark:text-gray-300">List Type</p>
                 <div class="mt-1 rounded-md border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
@@ -121,7 +119,6 @@
                 help="Describe what this list is for (optional)"
             />
 
-            <!-- Public/Private Toggle -->
             <div>
                 <Checkbox bind:checked={formData.is_public} label="Make this list public" />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -129,7 +126,6 @@
                 </p>
             </div>
 
-            <!-- Submit Buttons -->
             <div class="flex justify-between pt-4">
                 <div class="flex space-x-3">
                     <Button href={route('lists.show', vnList.id)} variant="outline" tone="neutral">Cancel</Button>

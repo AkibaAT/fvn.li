@@ -17,15 +17,11 @@ class ViewGameVersion extends ViewRecord
 
     protected static string $resource = GameVersionResource::class;
 
-    /**
-     * Load the supported languages data for the infolist
-     */
     protected function mutateRecordDataBeforeFill(array $data): array
     {
         /** @var GameVersion $gameVersion */
         $gameVersion = $this->record;
 
-        // Load supported languages
         $languages = $this->loadSupportedLanguages($gameVersion);
 
         // Debug the languages

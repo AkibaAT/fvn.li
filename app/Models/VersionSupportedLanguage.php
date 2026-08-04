@@ -24,12 +24,10 @@ class VersionSupportedLanguage extends Model
      */
     public static function copyAvailabilitySettings(int $sourceVersionId, int $targetVersionId): void
     {
-        // Get all supported languages from source version
         $sourceLanguages = self::where('game_version_id', $sourceVersionId)
             ->select(['iso_code', 'is_available'])
             ->get();
 
-        // Update target version languages where they exist
         foreach ($sourceLanguages as $sourceLanguage) {
             $targetLanguage = self::where('game_version_id', $targetVersionId)
                 ->where('iso_code', $sourceLanguage->iso_code)

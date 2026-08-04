@@ -79,7 +79,7 @@ it('runs only the requested character stats step for a specific version', functi
 it('indexes no game dialogue texts when no games have dialogue', function () {
     $this->artisan('dialogue:index')
         ->expectsOutput('Found 0 games with dialogue to index')
-        ->expectsOutput('Indexing complete!')
+        ->expectsOutput('Indexing complete.')
         ->expectsOutput('  Total entries indexed: 0')
         ->assertExitCode(0);
 });

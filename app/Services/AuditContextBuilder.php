@@ -6,6 +6,7 @@ namespace App\Services;
 
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -36,6 +37,7 @@ class AuditContextBuilder
                         $context['session_id'] = $session->getId();
                     }
                 } catch (RuntimeException $e) {
+                    Log::debug('Audit session context unavailable', ['error' => $e->getMessage()]);
                 }
             }
             if ($includeContext['request_id'] ?? false) {
@@ -107,7 +109,7 @@ class AuditContextBuilder
             memory_get_usage()
         );
 
-        return 'req_' . substr(md5($signature), 0, 16);
+        return 'req_'.substr(md5($signature), 0, 16);
     }
 
     private function commandInfo(): ?array
@@ -135,6 +137,8 @@ class AuditContextBuilder
 
             return $commandInfo;
         } catch (Throwable $e) {
+            Log::debug('Audit console context unavailable', ['error' => $e->getMessage()]);
+
             return null;
         }
     }

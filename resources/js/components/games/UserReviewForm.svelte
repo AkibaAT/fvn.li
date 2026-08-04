@@ -126,7 +126,6 @@
         </p>
     </Card>
 {:else if userReview && !isEditing}
-    <!-- Existing review display -->
     <Card variant="outline" padding="sm" class="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -186,14 +185,12 @@
         {/if}
     </Card>
 {:else if isEditing}
-    <!-- Review form -->
     <Card variant="outline" padding="sm">
         <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">
             {userReview ? 'Edit Your Review' : 'Write a Review'}
         </h3>
 
         <form onsubmit={handleSubmit}>
-            <!-- Star Rating -->
             <fieldset class="mb-3">
                 <legend class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Rating *</legend>
                 <div class="flex items-center gap-1">
@@ -230,7 +227,6 @@
                 </div>
             </fieldset>
 
-            <!-- Review Text -->
             <div class="mb-3">
                 <label for="review-text" class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Review (optional)</label>
                 <Textarea
@@ -242,14 +238,12 @@
                 />
             </div>
 
-            <!-- Spoiler Toggle -->
             {#if reviewText.trim().length > 0}
                 <div class="mb-3">
                     <Checkbox bind:checked={hasSpoilers} label="This review contains spoilers" />
                 </div>
             {/if}
 
-            <!-- Actions -->
             <div class="flex items-center gap-2">
                 <Button
                     type="submit"

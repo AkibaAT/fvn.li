@@ -177,7 +177,6 @@ class GameVersionResource extends Resource
                         TextEntry::make('supported_languages')
                             ->label('Languages')
                             ->getStateUsing(function (GameVersion $record) {
-                                // Get the supported languages directly from the database
                                 $languages = $record->supportedLanguages()
                                     ->with('language')
                                     ->get()
@@ -260,7 +259,6 @@ class GameVersionResource extends Resource
                     ->label('Export JSON')
                     ->icon('heroicon-o-document-arrow-down')
                     ->action(function (GameVersion $record): void {
-                        // Prepare the version data for export
                         $data = [
                             'version' => $record->version,
                             'published_at' => $record->published_at->toIso8601String(),
@@ -274,7 +272,6 @@ class GameVersionResource extends Resource
                             'devlog' => $record->devlog,
                         ];
 
-                        // Add character stats
                         $characterStats = [];
                         foreach ($record->characterStats as $stat) {
                             $characterStats[] = [
@@ -286,7 +283,6 @@ class GameVersionResource extends Resource
                         }
                         $data['character_stats'] = $characterStats;
 
-                        // Add language stats
                         $languageStats = [];
                         foreach ($record->languageStats as $stat) {
                             $languageStats[] = [
@@ -297,7 +293,6 @@ class GameVersionResource extends Resource
                         }
                         $data['language_stats'] = $languageStats;
 
-                        // Add supported languages
                         $supportedLanguages = [];
                         foreach ($record->supportedLanguages as $lang) {
                             $supportedLanguages[] = [
@@ -307,10 +302,8 @@ class GameVersionResource extends Resource
                         }
                         $data['supported_languages'] = $supportedLanguages;
 
-                        // Generate a filename
                         $filename = 'version_' . $record->id . '_' . $record->version . '.json';
 
-                        // Create a response with the JSON data
                         $response = response()->streamDownload(
                             function () use ($data) {
                                 echo json_encode($data, JSON_PRETTY_PRINT);
@@ -332,11 +325,9 @@ class GameVersionResource extends Resource
                         ->label('Mark as Latest')
                         ->icon('heroicon-o-star')
                         ->action(function (Collection $records): void {
-                            // First, unmark all versions for the affected games
                             $gameIds = $records->pluck('game_id')->unique();
                             GameVersion::whereIn('game_id', $gameIds)->update(['is_latest' => false]);
 
-                            // Then mark the selected versions as latest
                             foreach ($records as $record) {
                                 $record->is_latest = true;
                                 $record->save();

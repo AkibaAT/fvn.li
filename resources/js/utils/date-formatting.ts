@@ -15,10 +15,8 @@
 export function formatLocalDateTime(dateString: string | null | undefined, options?: Intl.DateTimeFormatOptions): string | null {
     if (!dateString) return null;
 
-    // Parse the date string - if it doesn't end with 'Z', assume it's UTC and add it
     let dateStr = dateString.trim();
 
-    // Handle SQL datetime format (YYYY-MM-DD HH:MM:SS) - convert space to T
     if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)) {
         dateStr = dateStr.replace(' ', 'T') + 'Z';
     } else if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('T')) {
@@ -31,7 +29,6 @@ export function formatLocalDateTime(dateString: string | null | undefined, optio
 
     const date = new Date(dateStr);
 
-    // Check if date is valid
     if (isNaN(date.getTime())) return null;
 
     const defaultOptions: Intl.DateTimeFormatOptions = {
@@ -60,7 +57,6 @@ export function formatLocalDate(dateString: string | null | undefined, options?:
 
     const date = new Date(dateString);
 
-    // Check if date is valid
     if (isNaN(date.getTime())) return null;
 
     const defaultOptions: Intl.DateTimeFormatOptions = {
@@ -80,17 +76,14 @@ export function formatLocalDate(dateString: string | null | undefined, options?:
  */
 export function getUserTimezone(): string {
     try {
-        // Get the timezone name
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        // Try to get the short timezone abbreviation
         const date = new Date();
         const shortFormat = date.toLocaleTimeString('en-US', {
             timeZoneName: 'short',
             timeZone: timezone,
         });
 
-        // Extract the timezone abbreviation (e.g., "PST", "EST")
         const match = shortFormat.match(/\b([A-Z]{2,5})\b$/);
         if (match) {
             return match[1];
@@ -119,7 +112,6 @@ export function formatRelativeDateTime(dateString: string | null | undefined): {
 
     const date = new Date(dateString);
 
-    // Check if date is valid
     if (isNaN(date.getTime())) return null;
 
     const now = new Date();
@@ -157,7 +149,6 @@ export function formatFutureDateTime(dateString: string | null | undefined): { t
 
     const date = new Date(dateString);
 
-    // Check if date is valid
     if (isNaN(date.getTime())) return null;
 
     const now = new Date();

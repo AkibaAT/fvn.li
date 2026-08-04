@@ -70,8 +70,8 @@ return [
          * some multi-hit sessions. A client that opens a fresh session for
          * every request stores nothing, and at volume that is not a browser.
          *
-         * The signal only means anything in aggregate — a single hit proves
-         * nothing, since every genuine first-time visitor starts one session —
+         * The signal only means anything in aggregate (a single hit proves
+         * nothing, since every genuine first-time visitor starts one session),
          * so a user agent is judged one day at a time and every threshold below
          * must be met before any of that day's rows are flagged.
          */

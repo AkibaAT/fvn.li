@@ -226,14 +226,6 @@ WHERE id = ?
 
 Running the command again will detect if a previously delisted game no longer has the noindex tag and update accordingly.
 
-## Best Practices
-
-1. **Regular Schedule**: Run on a regular schedule (daily or weekly)
-2. **Monitor Output**: Review newly delisted games
-3. **Investigate Patterns**: Look for mass delistings (may indicate issues)
-4. **Preserve Data**: Don't delete delisted games, just mark them
-5. **User Communication**: Notify users if their followed games are delisted
-
 ## Related Commands
 
 - [games:refresh](games-refresh.md) - Refresh game information (skips delisted games)

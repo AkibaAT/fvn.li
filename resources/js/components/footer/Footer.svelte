@@ -14,7 +14,6 @@
         <h2 class="sr-only">Site information</h2>
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <!-- Navigation -->
             <div>
                 <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-zinc-100">Navigation</h3>
                 <ul class="space-y-2 text-sm">
@@ -33,7 +32,6 @@
                 </ul>
             </div>
 
-            <!-- Quick Access -->
             <div>
                 <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-zinc-100">Quick Access</h3>
                 <div class="space-y-2 text-sm text-gray-500 dark:text-zinc-400">
@@ -49,7 +47,6 @@
                 </div>
             </div>
 
-            <!-- Contact -->
             <div class="md:justify-self-end">
                 <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-zinc-100">Contact</h3>
                 <ul class="space-y-2 text-sm">
@@ -103,7 +100,6 @@
             </div>
         </div>
 
-        <!-- Bottom Section -->
         <div class="mt-8 border-t border-gray-200 pt-6 dark:border-zinc-800">
             <div class="flex flex-col items-center justify-between md:flex-row">
                 <div class="mb-4 text-sm text-gray-500 md:mb-0 dark:text-zinc-400">

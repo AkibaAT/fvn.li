@@ -8,8 +8,6 @@ This command synchronizes the local database with games from itch.io collections
 those games. It's designed to maintain a curated watchlist of games and ensure comprehensive coverage of followed
 creators' work.
 
-**Key Features**: Collection synchronization, creator following, automatic discovery, relationship management.
-
 ## Usage
 
 ```bash
@@ -170,39 +168,6 @@ The command is optimized for efficient operation:
 - **Bulk Operations**: Uses efficient bulk insert/update operations
 - **Index Usage**: Leverages database indexes for fast lookups
 - **Transaction Management**: Groups related operations in transactions
-
-## Monitoring and Reporting
-
-The command provides comprehensive reporting:
-
-### Update Statistics
-
-- **Games Added**: Number of new games discovered
-- **Games Updated**: Existing games with refreshed information
-- **Creators Followed**: New creators added to following list
-- **Collections Processed**: Number of collections synchronized
-
-### Quality Metrics
-
-- **Success Rate**: Percentage of successful operations
-- **Error Rate**: Failed operations requiring attention
-- **Data Completeness**: Coverage and quality of imported data
-
-## Error Handling
-
-Robust error handling ensures reliable operation:
-
-### Collection Issues
-
-- **Access Problems**: Handles private or restricted collections
-- **Format Changes**: Adapts to itch.io collection format changes
-- **Missing Data**: Gracefully handles incomplete collection information
-
-### Creator Issues
-
-- **Profile Access**: Manages private or restricted creator profiles
-- **Catalog Changes**: Handles changes in creator game catalogs
-- **Following Limits**: Respects platform limits on following
 
 ## Integration
 

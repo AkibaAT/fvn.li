@@ -71,13 +71,11 @@
     });
     let showEditorLoading = $state(false);
 
-    // Update display content when parent content changes
     $effect(() => {
         displayContent = content;
         editContent = content;
     });
 
-    // Fetch current view mode when component mounts (only if user can edit)
     onMount(() => {
         if (hasCustomPage && canEdit) {
             fetchViewMode();
@@ -214,7 +212,7 @@
             if (response.data.success) {
                 saveStatus = 'saved';
 
-                // Full revert disables custom page entirely — reload to reflect new state
+                // Full revert disables the custom page entirely; reload to reflect the new state
                 if (response.data.data.has_custom_page === false) {
                     window.location.reload();
                     return;
@@ -271,7 +269,6 @@
 </script>
 
 <div class="{controlsTarget ? '' : 'relative'} {className}">
-    <!-- Edit controls rendered at top level -->
     {#if canEdit && !isEditing}
         <div class="flex items-center gap-2 {controlsTarget ? '' : 'absolute top-2 right-2'}" bind:this={controlsEl}>
             {#if hasCustomPage && !isLoadingViewMode}

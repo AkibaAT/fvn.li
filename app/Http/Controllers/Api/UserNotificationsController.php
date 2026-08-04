@@ -35,7 +35,6 @@ class UserNotificationsController extends Controller
         $gameVersionId = $request->input('game_version_id');
         $notificationType = $request->input('notification_type');
 
-        // Get users who have receive_updates=true for this game in user_game_progress
         // This includes users who enabled notifications without adding the game to a list
         $query = User::query()
             ->whereHas('gameProgress', function ($query) use ($gameId) {
@@ -43,16 +42,13 @@ class UserNotificationsController extends Controller
                     ->where('receive_updates', true);
             });
 
-        // Filter based on notification type
         if ($notificationType === 'discord') {
-            // Get users with Discord accounts and notifications enabled
             $query->whereHas('socialAccounts', function ($query) {
                 $query->where('provider_name', 'discord');
             })->whereHas('notificationPreferences', function ($query) {
                 $query->where('discord_notifications_enabled', true);
             });
         } elseif ($notificationType === 'telegram') {
-            // Get users with Telegram logins
             $query->whereHas('socialAccounts', function ($query) {
                 $query->where('provider_name', 'telegram');
             });
@@ -62,7 +58,6 @@ class UserNotificationsController extends Controller
                 },
             ])->get();
 
-            // Format the response for Telegram
             $telegramIds = $users->pluck('socialAccounts.0.provider_id')->filter()->values();
 
             return response()->json([
@@ -70,7 +65,6 @@ class UserNotificationsController extends Controller
                 'game' => Game::with('latestVersion')->find($gameId),
             ]);
         } elseif ($notificationType === 'email') {
-            // Get users with Google logins (for email)
             $query->whereHas('socialAccounts', function ($query) {
                 $query->where('provider_name', 'google');
             })
@@ -84,7 +78,6 @@ class UserNotificationsController extends Controller
                 'game' => Game::with('latestVersion')->find($gameId),
             ]);
         } elseif ($notificationType === 'browser') {
-            // Get users with browser notifications enabled
             $query->whereHas('notificationPreferences', function ($query) {
                 $query->where('browser_notifications_enabled', true);
             });

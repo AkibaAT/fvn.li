@@ -44,7 +44,6 @@ class ProcessGameScreenshots extends Command
         ],
         'default' => [
             // Updated: constrain by max-width 320 while preserving aspect ratio
-            // Use a large height cap so width becomes the limiting factor
             'width' => 320,
             'height' => 20000,
         ],
@@ -73,18 +72,17 @@ class ProcessGameScreenshots extends Command
 
     public function handle(): int
     {
+        $this->imageProcessingService->setProgressReporter(fn (string $message) => $this->line($message));
+
         try {
-            // Validate that we have at least one game selection option
             if (! $this->validateGameSelectionOptions()) {
                 return 1;
             }
 
-            // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
                 ->whereNotNull('screenshots');
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
             // Order by most recently updated first to prioritize newer entries
@@ -117,7 +115,6 @@ class ProcessGameScreenshots extends Command
                     ]);
                 }
 
-                // Add small delay between downloads
                 if ($i < $totalGames - 1) {
                     usleep(250000); // 250ms
                 }
@@ -167,7 +164,6 @@ class ProcessGameScreenshots extends Command
             $this->info("Processing screenshot {$index}: {$sourceUrl}");
 
             try {
-                // Skip if already optimized and not forcing
                 if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
                     $this->info('Screenshot already optimized, skipping (use --force to override)');
                     $updatedScreenshots[] = $screenshot;
@@ -183,17 +179,14 @@ class ProcessGameScreenshots extends Command
                     array_replace_recursive(self::DOWNLOAD_OPTIONS, $request['options'])
                 );
 
-                // Get the content
                 $content = $response->getBody()->getContents();
 
-                // Create a temporary file
                 $tempFile = tempnam(sys_get_temp_dir(), 'screenshot_');
                 file_put_contents($tempFile, $content);
 
                 // Clean up existing screenshots for this game and URL
                 $this->cleanupExistingScreenshots($game->id, $sourceUrl);
 
-                // Generate a unique filename based on game ID and URL hash
                 $baseFilename = $this->generateScreenshotFilename($game, $sourceUrl, $content);
 
                 // Verify it's a valid image
@@ -209,13 +202,10 @@ class ProcessGameScreenshots extends Command
 
                 $this->info("Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}");
 
-                // Process variants
                 $optimizedVariants = [];
 
-                // Ensure the screenshot directory exists
                 Storage::disk('public')->makeDirectory(self::SCREENSHOTS_PATH);
 
-                // Process each variant
                 foreach (self::VARIANTS as $variant => $config) {
                     $this->info("Processing {$variant} variant...");
 
@@ -229,7 +219,6 @@ class ProcessGameScreenshots extends Command
                         $quality
                     );
 
-                    // Add to variants array
                     $optimizedVariants[$variant] = [
                         'path' => $variantPath,
                         'width' => $dimensions['width'],
@@ -238,7 +227,6 @@ class ProcessGameScreenshots extends Command
                     ];
                 }
 
-                // Store the screenshot with optimized data embedded
                 $updatedScreenshots[] = [
                     'url' => $sourceUrl,
                     'optimized' => $optimizedVariants,
@@ -255,7 +243,6 @@ class ProcessGameScreenshots extends Command
             }
         }
 
-        // Update the game with processed screenshots
         $game->screenshots = $updatedScreenshots;
         $game->save();
     }
@@ -267,10 +254,8 @@ class ProcessGameScreenshots extends Command
     {
         $this->info('Cleaning up existing screenshots...');
 
-        // Get all files in the screenshots directory
         $files = Storage::disk('public')->files(self::SCREENSHOTS_PATH);
 
-        // Generate the URL hash prefix to match files for this game and URL
         $urlHash = substr(md5($sourceUrl), 0, 8);
         $pattern = "/^{$gameId}_screenshot_{$urlHash}_[a-f0-9]{8}/";
 
@@ -283,15 +268,10 @@ class ProcessGameScreenshots extends Command
         }
     }
 
-    /**
-     * Generate a unique filename for a screenshot based on URL and content
-     */
     private function generateScreenshotFilename(Game $game, string $url, string $fileContent): string
     {
-        // Use URL hash as the primary identifier (stable across updates)
         $urlHash = substr(md5($url), 0, 8);
 
-        // Generate a checksum of the file content to ensure cache invalidation when the image changes
         $contentChecksum = substr(md5($fileContent), 0, 8);
 
         return sprintf(
@@ -302,17 +282,11 @@ class ProcessGameScreenshots extends Command
         );
     }
 
-    /**
-     * Get the storage path for a screenshot
-     */
     private function getStoragePath(string $filename): string
     {
         return self::SCREENSHOTS_PATH . '/' . $filename;
     }
 
-    /**
-     * Process a static image variant
-     */
     private function processStaticVariant(
         string $sourcePath,
         string $targetPath,
@@ -320,11 +294,9 @@ class ProcessGameScreenshots extends Command
         int $quality
     ): array {
         try {
-            // Get image info for logging
             $imageInfo = getimagesize($sourcePath);
             $this->info("Processing image: {$imageInfo[0]}x{$imageInfo[1]} pixels");
 
-            // Use the service to process the image and return dimensions
             return $this->imageProcessingService->processImageVariant(
                 $sourcePath,
                 $targetPath,

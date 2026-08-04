@@ -7,8 +7,6 @@ Imports statistics JSON data for a specific game version.
 This command imports pre-generated statistics from JSON files into the database for a specific game version. It's
 typically used to import analysis results from external processing or to restore statistics data.
 
-**Key Features**: JSON validation, data integrity checks, flexible targeting options.
-
 ## Usage
 
 ```bash
@@ -139,16 +137,6 @@ The command performs comprehensive validation:
     <td>Data integrity</td>
 </tr>
 </table>
-
-## Error Handling
-
-The command handles various error conditions:
-
-- **File Not Found**: Clear error message with file path
-- **Invalid JSON**: Detailed parsing error information
-- **Missing Game/Version**: Helpful suggestions for resolution
-- **Data Validation Errors**: Specific field-level error details
-- **Database Errors**: Transaction rollback on failure
 
 ## Data Integrity
 

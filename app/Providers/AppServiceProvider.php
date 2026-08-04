@@ -99,7 +99,6 @@ class AppServiceProvider extends ServiceProvider
         // Register universal audit observer for all Eloquent models
         $this->registerUniversalAuditObserver();
 
-        // Ensure the keystores directory exists and is secured
         $keystoreDir = (string) config('services.android.keystore_path', storage_path('app/keystores'));
         if (! File::exists($keystoreDir)) {
             File::makeDirectory($keystoreDir, 0755, true, true);
@@ -121,7 +120,6 @@ class AppServiceProvider extends ServiceProvider
         $this->loadViewsFrom(resource_path('views/admin'), 'admin');
         $this->loadViewsFrom(resource_path('views/dialogue'), 'dialogue');
 
-        // Log slow database queries
         $this->registerSlowQueryLogging();
     }
 
@@ -141,12 +139,10 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registerUniversalAuditObserver(): void
     {
-        // Check if audit logging is enabled
         if (! config('audit.enabled', true)) {
             return;
         }
 
-        // Get all model files and register the observer with each
         $modelPath = app_path('Models');
         if (! is_dir($modelPath)) {
             return;
@@ -158,17 +154,14 @@ class AppServiceProvider extends ServiceProvider
             $fileName = basename($file, '.php');
             $modelClass = "App\\Models\\{$fileName}";
 
-            // Skip if class doesn't exist or isn't a model
             if (! class_exists($modelClass)) {
                 continue;
             }
 
-            // Check if it extends Model
             if (! is_subclass_of($modelClass, Model::class)) {
                 continue;
             }
 
-            // Skip abstract classes
             $reflection = new ReflectionClass($modelClass);
             if ($reflection->isAbstract()) {
                 continue;

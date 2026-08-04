@@ -217,7 +217,7 @@ class ReviewReportResource extends Resource
 
                         Placeholder::make('review_rating')
                             ->label('Rating')
-                            ->content(fn (ReviewReport $record): string => $record->rating?->rating ? $record->rating->rating . '/5' : 'N/A'),
+                            ->content(fn (ReviewReport $record): string => $record->rating?->rating ? $record->rating->rating.'/5' : 'N/A'),
 
                         Placeholder::make('review_author')
                             ->label('Review Author')
@@ -256,7 +256,7 @@ class ReviewReportResource extends Resource
                                         $statuses[] = 'Flagged as suspicious';
                                     }
 
-                                    return $statuses ? implode(', ', $statuses) . ' (external rater)' : 'Active (external rater)';
+                                    return $statuses ? implode(', ', $statuses).' (external rater)' : 'Active (external rater)';
                                 }
 
                                 return 'Unknown author';
@@ -269,7 +269,6 @@ class ReviewReportResource extends Resource
                                 $user = $rating?->user;
                                 $rater = $rating?->rater;
 
-                                // Build query based on whether this is a user or rater review
                                 if ($user) {
                                     $reviews = Rating::where('user_id', $user->id)
                                         ->with('game:id,name,slug')
@@ -291,13 +290,13 @@ class ReviewReportResource extends Resource
                                 $html = '<div class="space-y-3">';
                                 foreach ($reviews as $review) {
                                     $gameName = e($review->game?->name ?? 'Unknown');
-                                    $ratingText = $review->rating ? $review->rating . '/5' : 'N/A';
+                                    $ratingText = $review->rating ? $review->rating.'/5' : 'N/A';
                                     $visible = $review->is_visible ? '<span class="text-green-600">Visible</span>' : '<span class="text-red-600">Hidden</span>';
-                                    $excerpt = $review->review ? e(mb_substr(strip_tags($review->review), 0, 150)) . '...' : '<em>No text</em>';
+                                    $excerpt = $review->review ? e(mb_substr(strip_tags($review->review), 0, 150)).'...' : '<em>No text</em>';
                                     $isCurrent = $review->id === $record->rating_id ? ' <span class="text-yellow-600 font-bold">(reported)</span>' : '';
 
                                     $html .= '<div class="p-2 rounded border border-gray-200 dark:border-gray-700">';
-                                    $html .= "<div class=\"font-medium\">{$gameName}{$isCurrent} — {$ratingText} — {$visible}</div>";
+                                    $html .= "<div class=\"font-medium\">{$gameName}{$isCurrent} · {$ratingText} · {$visible}</div>";
                                     $html .= "<div class=\"text-sm text-gray-500 mt-1\">{$excerpt}</div>";
                                     $html .= '</div>';
                                 }

@@ -139,7 +139,6 @@ describe('user deletion', function () {
         $game = Game::factory()->create();
         $version = GameVersion::factory()->for($game)->create();
 
-        // Create multiple types of related data
         VnList::factory()->for($user)->create(['name' => 'List 1']);
         VnList::factory()->for($user)->create(['name' => 'List 2']);
 
@@ -179,7 +178,6 @@ describe('GDPR-compliant deletion workflow', function () {
         $user = User::factory()->create();
         $userId = $user->id;
 
-        // Create an audit log
         ChangeLog::create([
             'user_id' => $user->id,
             'event_type' => 'created',
@@ -203,7 +201,6 @@ describe('GDPR-compliant deletion workflow', function () {
         $userId = $user->id;
         $game = Game::factory()->create();
 
-        // Create click statistics
         ClickStat::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -228,7 +225,6 @@ describe('GDPR-compliant deletion workflow', function () {
         $user = User::factory()->create();
         $userId = $user->id;
 
-        // Create an addition request reviewed by this user
         DB::table('addition_requests')->insert([
             'game_id' => Game::factory()->create()->id,
             'game_url' => 'https://example.itch.io/game',
@@ -239,7 +235,6 @@ describe('GDPR-compliant deletion workflow', function () {
             'updated_at' => now(),
         ]);
 
-        // Create a game with custom page updated by this user
         DB::table('games')->where('id', Game::factory()->create()->id)->update([
             'custom_page_updated_by' => $user->id,
             'has_custom_page' => true,

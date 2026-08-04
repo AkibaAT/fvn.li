@@ -1,11 +1,10 @@
 <script lang="ts">
-    import { Handle, Position } from '@xyflow/svelte';
+    import RouteMapNodeShell from './RouteMapNodeShell.svelte';
 
     let { data }: { data: any } = $props();
 </script>
 
-<div class:returns-to-caller={data.returns_to_caller} class:unresolved={data.is_unresolved} class="label-node">
-    <Handle type="target" position={Position.Top} />
+<RouteMapNodeShell variant="label" returnsToCaller={data.returns_to_caller} unresolved={data.is_unresolved}>
     <div class="label-name">{data.label}</div>
     {#if data.returns_to_caller}
         <div class="return-label">returns</div>
@@ -16,45 +15,13 @@
     {#if data.menu_prompt}
         <div class="prompt">&ldquo;{data.menu_prompt}&rdquo;</div>
     {/if}
-    <Handle type="source" position={Position.Bottom} />
-</div>
+</RouteMapNodeShell>
 
 <style>
-    .label-node {
-        background: var(--xy-node-background-color, var(--xy-node-background-color-default));
-        border: var(--xy-node-border, var(--xy-node-border-default));
-        border-radius: var(--xy-node-border-radius, var(--xy-node-border-radius-default));
-        color: var(--xy-node-color, var(--xy-node-color-default));
-        padding: 10px;
-        text-align: center;
-        line-height: 1.4;
-        width: 220px;
-        box-sizing: border-box;
-        position: relative;
-    }
-
     .label-name {
         font-size: 12px;
         font-weight: 500;
         overflow-wrap: anywhere;
-    }
-
-    .unresolved {
-        border-color: #ef4444;
-        background: #fef2f2;
-    }
-
-    .returns-to-caller {
-        border-color: #0ea5e9;
-        background: #f0f9ff;
-    }
-
-    :global(.dark) .unresolved {
-        background: rgba(127, 29, 29, 0.45);
-    }
-
-    :global(.dark) .returns-to-caller {
-        background: rgba(12, 74, 110, 0.45);
     }
 
     .return-label {

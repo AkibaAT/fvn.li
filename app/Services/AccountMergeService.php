@@ -31,7 +31,6 @@ class AccountMergeService
             $this->mergeGameProgress($mergingUser, $otherUser);
             $this->mergeNotificationHistory($mergingUser, $otherUser);
 
-            // Delete the other user
             $otherUser->delete();
 
             Log::info('Account merge transaction completed successfully');
@@ -64,7 +63,6 @@ class AccountMergeService
      */
     protected function mergeSystemList(User $mergingUser, $list): void
     {
-        // Find corresponding system list of merging user
         $mergingUserList = $mergingUser->vnLists()
             ->where('is_default', true)
             ->where('name', $list->name)
@@ -73,7 +71,6 @@ class AccountMergeService
         if ($mergingUserList) {
             // Move entries that don't exist in the merging user's list
             foreach ($list->entries as $entry) {
-                // Check if the game exists in any of the merging user's system lists
                 $existsInOtherSystemList = $mergingUser->vnLists()
                     ->where('is_default', true)
                     ->where('id', '!=', $mergingUserList->id)
@@ -118,7 +115,6 @@ class AccountMergeService
     protected function mergeGameProgress(User $mergingUser, User $otherUser): void
     {
         foreach ($otherUser->gameProgress as $progress) {
-            // Check if merging user already has progress for this game
             $existingProgress = $mergingUser->gameProgress()
                 ->where('game_id', $progress->game_id)
                 ->first();

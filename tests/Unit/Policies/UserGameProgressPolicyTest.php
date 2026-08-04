@@ -54,12 +54,10 @@ describe('update policy', function () {
     });
 
     test('handles progress with different completion states', function () {
-        // Use the completed() state method from the factory
         $completedProgress = UserGameProgress::factory()->completed()->create([
             'user_id' => $this->user->id,
         ]);
 
-        // Use the reading() state method from the factory
         $inProgressProgress = UserGameProgress::factory()->reading()->create([
             'user_id' => $this->otherUser->id,
         ]);
@@ -97,7 +95,6 @@ describe('edge cases', function () {
             'game_id' => $this->game->id,
         ]);
 
-        // Create a user with a different ID
         $userWithDifferentId = User::factory()->create();
 
         expect($this->policy->update($userWithDifferentId, $progress))->toBeFalse();

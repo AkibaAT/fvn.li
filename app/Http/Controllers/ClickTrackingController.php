@@ -26,7 +26,6 @@ class ClickTrackingController extends Controller
                 'url' => 'nullable|url:http,https|max:2048', // Optional URL parameter for transparency
             ]);
 
-            // Get the game to verify it exists
             $game = Game::findOrFail($validated['game_id']);
 
             $primaryUrl = $game->getPrimaryUrl();
@@ -35,13 +34,10 @@ class ClickTrackingController extends Controller
                 return redirect()->route('games.show', $game->slug);
             }
 
-            // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
-            // Get authenticated user ID if logged in
             $userId = $request->user()?->id;
 
-            // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
             $referrer = $request->header('referer');
@@ -91,10 +87,8 @@ class ClickTrackingController extends Controller
                 'url' => 'nullable|url:http,https|max:2048', // Optional URL parameter for transparency
             ]);
 
-            // Get the game to verify it exists and has the link
             $game = Game::findOrFail($validated['game_id']);
 
-            // Find the specific link in the game's additional_links
             $targetLink = collect($game->additional_links)
                 ->firstWhere('id', $validated['link_id']);
 
@@ -103,13 +97,10 @@ class ClickTrackingController extends Controller
                 return redirect()->route('games.show', $game->slug);
             }
 
-            // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
-            // Get authenticated user ID if logged in
             $userId = $request->user()?->id;
 
-            // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
             $referrer = $request->header('referer');
@@ -159,7 +150,6 @@ class ClickTrackingController extends Controller
                 'url' => 'required|url:http,https|max:2048',
             ]);
 
-            // Get the game to verify it exists and has the link
             $game = Game::findOrFail($validated['game_id']);
 
             // Verify the link exists in the game's additional_links
@@ -180,13 +170,10 @@ class ClickTrackingController extends Controller
                 ], 422);
             }
 
-            // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
-            // Get authenticated user ID if logged in
             $userId = $request->user()?->id;
 
-            // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
             $referrer = $request->header('referer');
@@ -228,13 +215,9 @@ class ClickTrackingController extends Controller
         }
     }
 
-    /**
-     * Get click statistics for a game (for developers)
-     */
     public function getGameStats(Request $request, Game $game): JsonResponse
     {
         try {
-            // Check if the user can view stats for this game
             // This should be restricted to game owners or admins
             $user = $request->user();
             if (! $user) {
@@ -251,7 +234,6 @@ class ClickTrackingController extends Controller
                 ], 403);
             }
 
-            // Get time period from request (default to last 30 days)
             $days = (int) $request->input('days', 30);
             $since = now()->subDays($days);
 
@@ -276,13 +258,9 @@ class ClickTrackingController extends Controller
         }
     }
 
-    /**
-     * Get daily analytics data for charts (AJAX endpoint)
-     */
     public function getDailyAnalytics(Request $request, Game $game): JsonResponse
     {
         try {
-            // Check if the user can view stats for this game
             $user = $request->user();
             if (! $user) {
                 return response()->json([
@@ -298,7 +276,6 @@ class ClickTrackingController extends Controller
                 ], 403);
             }
 
-            // Get time period from request (default to last 30 days)
             $days = (int) $request->input('days', 30);
 
             $dailyStats = ClickStat::getDailyStats($game->id, $days);

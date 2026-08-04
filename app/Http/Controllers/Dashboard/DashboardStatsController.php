@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Rating;
 use App\Models\User;
 use App\Models\UserGameProgress;
+use App\Services\OwnedGameSummaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,16 +23,11 @@ class DashboardStatsController extends Controller
         }
         $user = User::findOrFail($authId);
 
-        $itchioAccount = $user->socialAccounts()->where('provider_name', 'itchio')->first();
-        $itchioUsername = $itchioAccount
-            ? (method_exists($user,
-                'getItchioUsername') ? $user->getItchioUsername() : ($itchioAccount->provider_data['username'] ?? null))
-            : null;
-
         $ownedGamesCount = 0;
         $gamesWithLinksCount = 0;
 
-        if ($itchioUsername && method_exists($user, 'getOwnedGames')) {
+        $itchioUsername = app(OwnedGameSummaryService::class)->username($user);
+        if ($itchioUsername) {
             $ownedGames = $user->getOwnedGames();
             $ownedGamesCount = $ownedGames->count();
             $gamesWithLinksCount = $ownedGames->filter(function ($game) {

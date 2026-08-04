@@ -108,7 +108,6 @@ class AnonymizeClickStatIPs extends Command
         $progressBar = $this->output->createProgressBar($totalRecords);
         $progressBar->start();
 
-        // Process in batches to avoid memory issues
         ClickStat::whereNotNull('ip_address')
             ->where('ip_address', '!=', '')
             ->whereNotIn('ip_address', ['127.0.0.1', '::1'])
@@ -118,14 +117,12 @@ class AnonymizeClickStatIPs extends Command
                     try {
                         $originalIp = $record->ip_address;
 
-                        // Skip if already anonymized
                         if (IpAnonymizationService::isAnonymized($originalIp)) {
                             continue;
                         }
 
                         $anonymizedIp = IpAnonymizationService::anonymize($originalIp, 'subnet');
 
-                        // Update the record
                         $record->update(['ip_address' => $anonymizedIp]);
 
                         $processed++;
@@ -142,7 +139,7 @@ class AnonymizeClickStatIPs extends Command
         $progressBar->finish();
         $this->line(''); // New line after progress bar
 
-        $this->info('IP address anonymization completed!');
+        $this->info('IP address anonymization completed.');
         $this->info("Successfully processed: {$processed} records");
 
         if ($errors > 0) {
@@ -163,7 +160,7 @@ class AnonymizeClickStatIPs extends Command
             $this->warn("Warning: {$remainingRecords} records still have non-anonymized IP addresses.");
             $this->warn('You may need to run this command again or investigate manually.');
         } else {
-            $this->info('All IP addresses have been successfully anonymized!');
+            $this->info('All IP addresses have been successfully anonymized.');
         }
 
         return self::SUCCESS;

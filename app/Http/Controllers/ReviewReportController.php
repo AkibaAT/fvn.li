@@ -71,7 +71,6 @@ class ReviewReportController extends Controller
             ], 422);
         }
 
-        // Check for existing report
         $existing = ReviewReport::where('rating_id', $ratingId)
             ->where('reporter_id', $user->id)
             ->first();

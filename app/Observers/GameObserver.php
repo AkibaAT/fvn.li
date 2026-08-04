@@ -15,16 +15,12 @@ use Illuminate\Support\Facades\Log;
 
 class GameObserver
 {
-    /**
-     * Handle the Game "created" event.
-     */
     public function created(Game $game): void
     {
         GameFilterService::clearCache();
         HomePageCacheService::clearAll(); // Clear home page cache for new game
         $this->bumpRecommendationCacheVersion();
 
-        // Set first_visible_at for new games that are created as visible
         // This handles the case where a game is imported with is_visible = true from the start
         if ($game->is_visible && ! $game->first_visible_at) {
             $game->first_visible_at = now();
@@ -37,11 +33,9 @@ class GameObserver
             ]);
         }
 
-        // Process any pending associations
         $game->processPendingGameJams();
         $game->processPendingTags();
 
-        // Add game to search index if it's visible and has a name
         // Defer indexing until after the transaction commits to ensure all relationships are saved
         if ($game->is_visible && ! empty(trim($game->name))) {
             $gameId = $game->id;
@@ -69,7 +63,6 @@ class GameObserver
             $wasVisible = $game->getOriginal('is_visible');
             $isVisible = $game->is_visible;
 
-            // Set first_visible_at when game becomes visible for the first time
             // Only set if: game is now visible, was not visible before, and first_visible_at is not already set
             if ($isVisible && ! $wasVisible && ! $game->first_visible_at) {
                 $game->first_visible_at = now();
@@ -82,7 +75,6 @@ class GameObserver
                 ]);
             }
 
-            // Update search index when visibility changes
             if ($isVisible && ! empty(trim($game->name))) {
                 // Game is now visible - add to search index
                 Log::debug('Adding game to search index', ['game_id' => $game->id]);
@@ -123,19 +115,16 @@ class GameObserver
                 })->afterCommit();
             }
 
-            // Clear home page cache when visibility changes
             HomePageCacheService::clearAll();
             RatingStatsCacheService::clear();
             $this->bumpRecommendationCacheVersion();
         }
 
-        // Clear filter cache if relevant fields changed
         if ($game->isDirty(['status', 'game_engine', 'is_visible', 'content_type'])) {
             Log::debug('Clearing filter cache after game update', ['game_id' => $game->id]);
             GameFilterService::clearCache();
         }
 
-        // Clear home page teasers if fields that affect sorting/display changed
         if ($game->wasChanged(['first_visible_at', 'latest_version_published_at', 'trending_score', 'name', 'thumb_url'])) {
             Log::debug('Clearing home page teasers after game update', ['game_id' => $game->id]);
             HomePageCacheService::clearTeasers();
@@ -165,7 +154,6 @@ class GameObserver
             }
         }
 
-        // Process any pending associations
         Log::debug('Processing pending game jams after game update', ['game_id' => $game->id]);
         $hadPendingGameJams = ! empty($game->pendingGameJamId);
         $game->processPendingGameJams();
@@ -203,9 +191,6 @@ class GameObserver
         }
     }
 
-    /**
-     * Handle the Game "deleted" event.
-     */
     public function deleted(Game $game): void
     {
         GameFilterService::clearCache();

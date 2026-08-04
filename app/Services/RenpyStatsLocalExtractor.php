@@ -18,10 +18,6 @@ class RenpyStatsLocalExtractor
 {
     private ?string $lastError = null;
 
-    /**
-     * Extract statistics locally. This mode is intended only for trusted local
-     * fixtures and explicit development fallback, never untrusted production input.
-     */
     public function extract(string $archivePath): ?StatsPayload
     {
         $this->lastError = null;
@@ -96,9 +92,6 @@ class RenpyStatsLocalExtractor
         return $this->lastError;
     }
 
-    /**
-     * Extract a game archive to the specified directory.
-     */
     public function extractArchive(string $archivePath, string $extractPath): void
     {
         $archiveFormat = $this->detectArchiveFormat($archivePath);

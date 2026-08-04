@@ -91,7 +91,6 @@ class ItchCssProcessor
 
             return ! empty($output) ? $output : null;
         } catch (Exception $e) {
-            // Log the error or handle it appropriately
             Log::error('CSS Parsing/Processing failed: ' . $e->getMessage(), ['css' => $css]);
 
             return null; // Return null or original CSS on error? Returning null for now.
@@ -137,7 +136,6 @@ class ItchCssProcessor
             }
 
             if ($rule instanceof DeclarationBlock) { // Includes RuleSet and AtRuleSet
-                // Check if selector targets headers
                 if ($this->targetsHeaders($rule)) {
                     $rulesToRemove[] = $i;
 
@@ -161,7 +159,6 @@ class ItchCssProcessor
             }
         }
 
-        // Remove marked rules in reverse order to avoid index issues
         foreach (array_reverse($rulesToRemove) as $index) {
             $list->remove($list->getContents()[$index]);
         }
@@ -278,22 +275,18 @@ class ItchCssProcessor
             $selectorText = $selector->getSelector();
 
             foreach (self::HEADER_SELECTORS as $header) {
-                // Check for direct header tag (e.g., 'h1', 'h2')
                 if (preg_match('/(^|,)\s*' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
                     return true;
                 }
 
-                // Check for header tag with class/id/attribute (e.g., 'h1.class', 'h2#id')
                 if (preg_match('/\b' . preg_quote($header, '/') . '(\.|\#|\:|\[)/i', $selectorText)) {
                     return true;
                 }
 
-                // Check for header tag as part of a descendant selector (e.g., 'div h1', '.class h2')
                 if (preg_match('/[\s,>+~]' . preg_quote($header, '/') . '(\s|\.|\#|\:|\[|,|$)/i', $selectorText)) {
                     return true;
                 }
 
-                // Check for header tag as part of a complex selector (e.g., 'h1 > span', 'h2 + p')
                 if (preg_match('/(^|,)\s*' . preg_quote($header, '/') . '\s*[>+~]/i', $selectorText)) {
                     return true;
                 }
@@ -334,7 +327,6 @@ class ItchCssProcessor
             }
         }
 
-        // Remove marked declarations
         foreach ($declarationsToRemove as $declaration) {
             $block->removeRule($declaration);
         }

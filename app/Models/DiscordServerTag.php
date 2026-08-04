@@ -22,9 +22,6 @@ class DiscordServerTag extends Model
         'is_subscribed' => 'boolean',
     ];
 
-    /**
-     * Get the Discord server.
-     */
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);

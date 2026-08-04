@@ -5,24 +5,27 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use App\Services\Concerns\ReportsProgress;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
 class SteamImageSyncService
 {
+    use ReportsProgress;
+
     public function processImages(Game $game, ?string $originalThumbUrl, ?array $originalScreenshots): void
     {
         $imageService = app(ImageProcessingService::class);
 
         if ($this->needsScreenshotProcessing($game->screenshots, $originalScreenshots)) {
             try {
-                echo "    [Steam] Screenshots need processing...\n";
+                $this->progress("    [Steam] Screenshots need processing...\n");
                 if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
                     $imageService->processGameScreenshots($game);
                 } else {
                     $imageService->processGameScreenshots($game, 80, true);
                 }
-                echo "    [Steam] Screenshots processed successfully\n";
+                $this->progress("    [Steam] Screenshots processed successfully\n");
             } catch (Exception $e) {
                 Log::error('Failed to process Steam screenshots', [
                     'game_id' => $game->id,
@@ -77,12 +80,12 @@ class SteamImageSyncService
     private function processThumbnail(Game $game, ImageProcessingService $imageService, string $startMessage, string $doneMessage): void
     {
         try {
-            echo "    [Steam] {$startMessage}...\n";
+            $this->progress("    [Steam] {$startMessage}...\n");
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
             }
             $imageService->processGameThumbnail($game);
-            echo "    [Steam] {$doneMessage}\n";
+            $this->progress("    [Steam] {$doneMessage}\n");
         } catch (Exception $e) {
             Log::error('Failed to process Steam thumbnail', [
                 'game_id' => $game->id,

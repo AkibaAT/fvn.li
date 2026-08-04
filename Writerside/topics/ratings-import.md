@@ -7,8 +7,6 @@ Imports the latest ratings data from itch.io for all tracked games.
 This command fetches current ratings information from itch.io and updates the local database with the latest user
 ratings, scores, and review counts. It ensures the ratings data stays synchronized with itch.io's current state.
 
-**Key Features**: Automatic discovery, incremental updates, data validation, comprehensive logging.
-
 ## Usage
 
 ```bash
@@ -104,25 +102,6 @@ The command is optimized for efficiency:
 - **Batch Processing**: Groups API calls for efficiency
 - **Database Optimization**: Uses efficient queries and indexes
 - **Memory Management**: Handles large datasets without memory issues
-
-## Error Handling
-
-Comprehensive error handling includes:
-
-- **API Failures**: Retry logic for temporary network issues
-- **Rate Limiting**: Automatic backoff for API limits
-- **Data Corruption**: Validation and rollback for invalid data
-- **Partial Failures**: Continues processing despite individual errors
-
-## Monitoring
-
-Track these metrics during import:
-
-- **Games Processed**: Number of games with updated ratings
-- **Ratings Imported**: Total new or updated ratings
-- **API Calls Made**: Number of requests to itch.io
-- **Processing Time**: Time taken for complete import
-- **Error Rate**: Failed imports requiring attention
 
 ## Integration
 

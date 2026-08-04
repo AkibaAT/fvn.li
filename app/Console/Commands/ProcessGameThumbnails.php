@@ -76,13 +76,13 @@ class ProcessGameThumbnails extends Command
 
     public function handle(): int
     {
+        $this->imageProcessingService->setProgressReporter(fn (string $message) => $this->line($message));
+
         try {
-            // Validate that we have at least one game selection option
             if (! $this->validateGameSelectionOptions()) {
                 return 1;
             }
 
-            // Build query for games
             $query = Game::query()
                 ->where('is_visible', true)
                 ->where(function ($q) {
@@ -90,7 +90,6 @@ class ProcessGameThumbnails extends Command
                         ->orWhereNotNull('screenshots');
                 });
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
             // Order by most recently updated first to prioritize newer entries
@@ -123,7 +122,6 @@ class ProcessGameThumbnails extends Command
                     ]);
                 }
 
-                // Add small delay between downloads
                 if ($i < $totalGames - 1) {
                     usleep(250000); // 250ms
                 }
@@ -149,7 +147,6 @@ class ProcessGameThumbnails extends Command
         $quality = (int) $this->option('quality');
         $force = $this->option('force');
 
-        // Determine the source URL for the thumbnail
         $sourceUrl = $game->getEffectiveThumbnailUrl();
 
         if (! $sourceUrl) {
@@ -174,24 +171,20 @@ class ProcessGameThumbnails extends Command
             throw new Exception("Failed to download thumbnail: HTTP {$response->getStatusCode()}");
         }
 
-        // Get content and check if it's empty
         $this->assertAcceptableContentLength($response);
         $content = $this->readLimitedBody($response->getBody());
         if (empty($content)) {
             throw new Exception('Downloaded content is empty');
         }
 
-        // Skip if files exist and not forcing
         if (! $force && $game->optimized_thumbnails) {
             $this->info('Thumbnails already exist, skipping (use --force to override)');
 
             return;
         }
 
-        // Generate a unique filename with content checksum
         $baseFilename = $this->generateThumbnailFilename($game, $content, $sourceUrl);
 
-        // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'thumb_');
         file_put_contents($tempFile, $content);
 
@@ -216,10 +209,8 @@ class ProcessGameThumbnails extends Command
 
             $this->info("Downloaded image: {$imageInfo[0]}x{$imageInfo[1]} pixels, type: {$mimeType}");
 
-            // Clear out any existing thumbnails for this game
             $this->cleanupExistingThumbnails($game->id);
         } catch (Exception $e) {
-            // Log the first few bytes of the file for debugging
             $fileStart = bin2hex(file_get_contents($tempFile, false, null, 0, 32));
             Log::error('Invalid image file details', [
                 'game_id' => $game->id,
@@ -234,15 +225,12 @@ class ProcessGameThumbnails extends Command
         try {
             $thumbnails = [];
 
-            // Ensure the thumbnail directory exists
             Storage::disk('public')->makeDirectory(self::THUMBNAIL_PATH);
 
-            // Clear existing thumbnails if any
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
             }
 
-            // Process each variant
             foreach (self::VARIANTS as $variant => $config) {
                 $this->info("Processing {$variant} variant...");
 
@@ -256,7 +244,6 @@ class ProcessGameThumbnails extends Command
                     $quality
                 );
 
-                // Add to thumbnails array
                 $thumbnails[$variant] = [
                     'path' => $this->getStoragePath($variantFilename),
                     'width' => $dimensions['width'],
@@ -266,7 +253,6 @@ class ProcessGameThumbnails extends Command
                 ];
             }
 
-            // Update database record with all variants
             $game->optimized_thumbnails = $thumbnails;
             $game->save();
 
@@ -325,12 +311,8 @@ class ProcessGameThumbnails extends Command
         }
     }
 
-    /**
-     * Generate a unique filename for a game's thumbnail
-     */
     private function generateThumbnailFilename(Game $game, string $fileContent, string $sourceUrl): string
     {
-        // Generate a checksum of the file content to ensure cache invalidation when the image changes
         $contentChecksum = substr(md5($fileContent), 0, 8);
 
         return sprintf(
@@ -348,7 +330,6 @@ class ProcessGameThumbnails extends Command
     {
         $this->info('Cleaning up existing thumbnails...');
 
-        // Get all files in the thumbnails directory
         $files = Storage::disk('public')->files(self::THUMBNAIL_PATH);
 
         // Pattern to match files for this game ID
@@ -363,17 +344,11 @@ class ProcessGameThumbnails extends Command
         }
     }
 
-    /**
-     * Get the storage path (relative to disk root)
-     */
     private function getStoragePath(string $filename): string
     {
         return self::THUMBNAIL_PATH . '/' . $filename;
     }
 
-    /**
-     * Process a static image variant
-     */
     private function processStaticVariant(
         string $sourcePath,
         string $destPath,
@@ -381,11 +356,9 @@ class ProcessGameThumbnails extends Command
         int $quality
     ): array {
         try {
-            // Get image info for logging
             $imageInfo = getimagesize($sourcePath);
             $this->info("Processing image: {$imageInfo[0]}x{$imageInfo[1]} pixels");
 
-            // Use the service to process the image and return dimensions
             return $this->imageProcessingService->processImageVariant(
                 $sourcePath,
                 $destPath,

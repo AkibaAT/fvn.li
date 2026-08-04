@@ -103,7 +103,6 @@
         ? 'h-[43rem]'
         : 'h-full'} flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
 >
-    <!-- Ignore Button - Only show for authenticated users -->
     {#if auth?.user}
         <Button
             onclick={handleIgnoreToggle}
@@ -136,19 +135,14 @@
         </Button>
     {/if}
 
-    <!-- Cover Image -->
     <GameImage {game} {thumbnailUrl} aspectClass="aspect-[315/250]" />
 
-    <!-- Content -->
     <div class="flex flex-1 flex-col p-4">
         <div class="grid flex-1 auto-rows-min gap-y-3">
-            <!-- Title -->
             <GameTitle {game} {authorsInlineHtml} />
 
-            <!-- Metadata -->
             <GameMetadata {game} />
 
-            <!-- Store Platform Badge -->
             {#if storePlatform}
                 <div class="flex items-center gap-2">
                     <StorePlatformBadge
@@ -160,7 +154,6 @@
                 </div>
             {/if}
 
-            <!-- Platforms -->
             <div class="h-8 border-t border-gray-100 pt-2 dark:border-gray-700/50">
                 <div class="flex h-6 flex-nowrap items-center gap-1 overflow-hidden">
                     {#each supportedPlatforms as platform (platform)}
@@ -170,7 +163,6 @@
                 </div>
             </div>
 
-            <!-- Languages -->
             <GameLanguageSection
                 languages={game.supported_languages}
                 {selectedLanguages}
@@ -179,10 +171,8 @@
                 {handleLanguage}
             />
 
-            <!-- Tags -->
             <GameTagSection {orderedTags} {selectedTags} {tagsExpanded} {setTagsExpanded} {handleTag} />
 
-            <!-- Footer badges -->
             {#if showFooterBadges}
                 <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700/50">
                     <GameStatusBadge {game} isActive={selectedStatuses?.includes(String(game.status))} onclick={handleStatus} />
@@ -202,7 +192,6 @@
                 </div>
             {/if}
 
-            <!-- User Management Section -->
             {#if !fixedHeight}
                 <GameCardUserSection gameId={game.id} gameName={game.name} isPaid={game.is_paid} userProgress={game.user_progress?.[0] ?? null} />
             {/if}

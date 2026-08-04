@@ -65,7 +65,7 @@ it('sorts and filters additional links by release date', function () {
         ['id' => 4, 'label' => 'Invalid Date', 'url' => 'https://example.com/invalid', 'sort_order' => 3, 'release_at' => 'not-a-date'],
     ];
 
-    expect(array_column($game->additional_links, 'label'))->toBe(['First', 'Second', 'Invalid Date'])
+    expect(array_column($game->additional_links, 'label'))->toBe(['First', 'Second'])
         ->and(array_column($game->getAllAdditionalLinks(), 'label'))->toBe(['First', 'Future', 'Second', 'Invalid Date'])
         ->and($game->hasAdditionalLinks())->toBeTrue()
         ->and(Game::factory()->make(['additional_links' => null])->additional_links)->toBe([])

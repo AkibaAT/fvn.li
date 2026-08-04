@@ -9,6 +9,7 @@ use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
+use App\Services\Concerns\ReportsProgress;
 use App\Support\Stats\StatsPayload;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -19,6 +20,8 @@ use Throwable;
 
 class GameStatsDialoguePersister
 {
+    use ReportsProgress;
+
     private const MAX_DIALOGUE_TEXT_BYTES = 65536;
 
     private const BATCH_SIZE = 1000;
@@ -45,9 +48,9 @@ class GameStatsDialoguePersister
         ?Game $game = null,
         array $foundLanguages = []
     ): int {
-        echo "    [Dialogue] Deleting existing dialogue lines\n";
+        $this->progress("    [Dialogue] Deleting existing dialogue lines\n");
         DialogueLine::where('game_version_id', $version->id)->delete();
-        echo "    [Dialogue] Existing lines deleted\n";
+        $this->progress("    [Dialogue] Existing lines deleted\n");
 
         $menuChoiceCharacter = $this->essentialCharacterService->getOrCreateMenuChoiceCharacter($version->game_id);
         $narratorCharacter = $this->essentialCharacterService->getOrCreateNarratorCharacter($version->game_id);
@@ -92,7 +95,7 @@ class GameStatsDialoguePersister
             if (count($buffer) >= self::BATCH_SIZE) {
                 $written += $this->flushBatch($version, $buffer, $now, $foundLanguages, $defaultLanguage, $characterCache);
                 $buffer = [];
-                echo "    [Dialogue] {$written} lines written\n";
+                $this->progress("    [Dialogue] {$written} lines written\n");
             }
         }
 
@@ -100,7 +103,7 @@ class GameStatsDialoguePersister
             $written += $this->flushBatch($version, $buffer, $now, $foundLanguages, $defaultLanguage, $characterCache);
         }
 
-        echo "    [Dialogue] All dialogue lines inserted ({$written} total)\n";
+        $this->progress("    [Dialogue] All dialogue lines inserted ({$written} total)\n");
         Cache::forget('dialogue.games_list');
 
         return $written;

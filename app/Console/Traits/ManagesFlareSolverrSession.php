@@ -30,9 +30,6 @@ use Exception;
  */
 trait ManagesFlareSolverrSession
 {
-    /**
-     * Get the command name for logging
-     */
     abstract public function getName(): ?string;
 
     /**

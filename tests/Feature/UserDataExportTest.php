@@ -261,7 +261,6 @@ describe('export cache control', function () {
 
         $response->assertStatus(200);
 
-        // Check that Cache-Control header contains the required directives (order doesn't matter)
         $cacheControl = $response->headers->get('Cache-Control');
         expect($cacheControl)->toContain('no-store')
             ->and($cacheControl)->toContain('no-cache')

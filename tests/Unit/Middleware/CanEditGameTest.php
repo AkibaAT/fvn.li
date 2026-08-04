@@ -24,12 +24,10 @@ describe('can edit game middleware', function () {
             'url' => ['itch_io' => 'https://somedev.itch.io/game'],
         ]);
 
-        // Set the authenticated user
         Auth::setUser($admin);
 
         $request = Request::create('/api/games/' . $game->slug, 'POST');
 
-        // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -50,19 +48,16 @@ describe('can edit game middleware', function () {
             'url' => ['itch_io' => 'https://testdev.itch.io/test-game'],
         ]);
 
-        // Create itch.io social account with matching game ID
         SocialAccount::factory()->create([
             'user_id' => $user->id,
             'provider_name' => 'itchio',
             'itchio_game_ids' => [$game->itch_id],
         ]);
 
-        // Set the authenticated user
         Auth::setUser($user);
 
         $request = Request::create('/api/games/' . $game->slug, 'POST');
 
-        // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -89,12 +84,10 @@ describe('can edit game middleware', function () {
             'itchio_game_ids' => [999], // Different game ID
         ]);
 
-        // Set the authenticated user
         Auth::setUser($user);
 
         $request = Request::create('/api/games/' . $game->slug, 'POST');
 
-        // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -118,7 +111,6 @@ describe('can edit game middleware', function () {
 
         $request = Request::create('/api/games/' . $game->slug, 'POST');
 
-        // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -137,12 +129,10 @@ describe('can edit game middleware', function () {
     test('returns 404 when game not found', function () {
         $user = User::factory()->create();
 
-        // Set the authenticated user
         Auth::setUser($user);
 
         $request = Request::create('/api/games/nonexistent', 'POST');
 
-        // Set route parameters manually with null game
         $request->setRouteResolver(function () {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -166,7 +156,6 @@ describe('ownership verification', function () {
             'url' => ['itch_io' => 'https://testdev.itch.io/test-game'],
         ]);
 
-        // Create itch.io account without game IDs (fallback to URL matching)
         SocialAccount::factory()->create([
             'user_id' => $user->id,
             'provider_name' => 'itchio',
@@ -174,12 +163,10 @@ describe('ownership verification', function () {
             'itchio_game_ids' => null,
         ]);
 
-        // Set the authenticated user
         Auth::setUser($user);
 
         $request = Request::create('/api/games/' . $game->slug, 'POST');
 
-        // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -197,12 +184,10 @@ describe('ownership verification', function () {
         $user = User::factory()->create(['is_admin' => false]);
         $game = Game::factory()->create();
 
-        // Set the authenticated user
         Auth::setUser($user);
 
         $request = Request::create('/api/games/' . $game->slug, 'POST');
 
-        // Set route parameters manually
         $request->setRouteResolver(function () use ($game) {
             $route = new Route('POST', '/api/games/{game}', []);
             $route->bind(Request::create('/'));
@@ -227,7 +212,6 @@ describe('ownership verification', function () {
             'itchio_game_ids' => [100, 200],
         ]);
 
-        // Set the authenticated user
         Auth::setUser($user);
 
         // Test game1

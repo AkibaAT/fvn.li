@@ -12,7 +12,6 @@ createInertiaApp({
 
         const page = (await pages[`./pages/${name}.svelte`]?.()) as any;
 
-        // Apply the app frame to all pages by default
         if (!page) {
             throw new Error(`Unknown Inertia page: ${name}`);
         }

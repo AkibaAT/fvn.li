@@ -48,41 +48,33 @@ class SteamDataSyncService
     public function loadFullDetails(Game $game): void
     {
         try {
-            // Get the Steam URL from the JSONB url field
             $steamUrl = $game->getPrimaryUrl();
             if (! $steamUrl) {
                 throw new Exception('Game does not have a Steam URL');
             }
 
-            // Extract Steam App ID from URL
             $appId = $this->extractSteamAppId($steamUrl);
             if (! $appId) {
                 throw new Exception("Could not extract Steam App ID from URL: {$steamUrl}");
             }
 
-            // Store the Steam App ID
             $game->steam_app_id = $appId;
 
-            // Store original values to detect changes
             $originalThumbUrl = $game->thumb_url;
             $originalScreenshots = $game->screenshots;
 
-            // Fetch data from Steam API (this will also parse languages)
             $this->refreshFromSteamApi($game, $appId);
 
             sleep(2);
 
-            // Fetch additional data from store page HTML
             $this->refreshFromStorePage($game, $steamUrl);
 
-            // Create game version and add languages
             $this->syncGameVersion($game);
 
             // Sync tags from Steam genres and user tags
             $this->syncSteamTags($game);
 
-            // Process images (thumbnails and screenshots) if they changed
-            $this->processImages($game, $originalThumbUrl, $originalScreenshots);
+            app(SteamImageSyncService::class)->processImages($game, $originalThumbUrl, $originalScreenshots);
 
             $game->error = null;
         } catch (Exception $exception) {
@@ -112,7 +104,6 @@ class SteamDataSyncService
 
         try {
             // For Steam games, we don't have detailed version history like itch.io
-            // Create a single "current" version
             $version = GameVersion::firstOrCreate(
                 [
                     'game_id' => $game->id,
@@ -128,7 +119,6 @@ class SteamDataSyncService
                 ]
             );
 
-            // Update platform support if version already exists
             if (! $version->wasRecentlyCreated) {
                 $version->is_windows = $this->parsedPlatforms['windows'] ?? $version->is_windows;
                 $version->is_linux = $this->parsedPlatforms['linux'] ?? $version->is_linux;
@@ -136,7 +126,6 @@ class SteamDataSyncService
                 $version->save();
             }
 
-            // Mark as latest
             GameVersion::where('game_id', $game->id)
                 ->where('id', '!=', $version->id)
                 ->update(['is_latest' => false]);
@@ -147,10 +136,8 @@ class SteamDataSyncService
             // Refresh the game to get the latest version relationship
             $game->load('latestVersion');
 
-            // Add languages to the version if they were parsed from Steam API
             $this->addLanguagesToVersion($game, $this->parsedLanguageIsoCodes);
 
-            // Clear the parsed data after use
             $this->parsedLanguageIsoCodes = [];
             $this->parsedPlatforms = [];
 
@@ -189,7 +176,6 @@ class SteamDataSyncService
             return;
         }
 
-        // Add supported languages to the version
         foreach ($isoCodes as $isoCode) {
             $version->addSupportedLanguage($isoCode, true);
         }
@@ -202,9 +188,6 @@ class SteamDataSyncService
         ]);
     }
 
-    /**
-     * Extract Steam App ID from URL
-     */
     private function extractSteamAppId(string $url): ?string
     {
         // Pattern: https://store.steampowered.com/app/123456/Game_Name/
@@ -238,12 +221,10 @@ class SteamDataSyncService
 
         $appData = $data[$appId]['data'];
 
-        // Extract basic information
         $game->name = $appData['name'] ?? $game->name;
         $game->description = $appData['short_description'] ?? null;
         $game->full_description = $appData['detailed_description'] ?? null;
 
-        // Extract pricing information
         if (isset($appData['is_free'])) {
             $game->is_paid = ! $appData['is_free'];
             $game->min_price = 0;
@@ -257,11 +238,9 @@ class SteamDataSyncService
             $discountPercent = $appData['price_overview']['discount_percent'] ?? 0;
             $game->is_on_sale = $discountPercent > 0;
             $game->sale_discount_percent = $discountPercent > 0 ? $discountPercent : null;
-            // Extract currency from Steam API (ISO 4217 codes like USD, EUR, JPY)
             $game->currency = strtoupper($appData['price_overview']['currency'] ?? 'USD');
         }
 
-        // Extract release date
         if (isset($appData['release_date']['date'])) {
             try {
                 $game->initially_published_at = new DateTime($appData['release_date']['date']);
@@ -273,12 +252,10 @@ class SteamDataSyncService
             }
         }
 
-        // Extract header image (cover)
         if (isset($appData['header_image'])) {
             $game->thumb_url = $appData['header_image'];
         }
 
-        // Extract screenshots
         if (isset($appData['screenshots']) && is_array($appData['screenshots'])) {
             $screenshots = [];
             foreach ($appData['screenshots'] as $screenshot) {
@@ -292,7 +269,6 @@ class SteamDataSyncService
             }
         }
 
-        // Extract demo availability
         if (isset($appData['demos']) && is_array($appData['demos']) && ! empty($appData['demos'])) {
             $game->has_demo = true;
             Log::debug('Steam game has demo', [
@@ -304,7 +280,6 @@ class SteamDataSyncService
             $game->has_demo = false;
         }
 
-        // Extract developers and publishers
         if (isset($appData['developers']) && is_array($appData['developers'])) {
             $developerNames = $appData['developers'];
             $game->developer = implode(', ', $developerNames);
@@ -319,7 +294,6 @@ class SteamDataSyncService
             ]);
         }
 
-        // Extract platform support
         if (isset($appData['platforms']) && is_array($appData['platforms'])) {
             $this->parsedPlatforms = [
                 'windows' => $appData['platforms']['windows'] ?? false,
@@ -333,31 +307,25 @@ class SteamDataSyncService
             ]);
         }
 
-        // Extract genres/tags
         if (isset($appData['genres']) && is_array($appData['genres'])) {
             $genres = array_map(fn ($g) => $g['description'] ?? '', $appData['genres']);
-            // Store in a custom field or handle separately
             $game->steam_genres = $genres;
         }
 
-        // Extract supported languages
         if (isset($appData['supported_languages'])) {
             // Steam returns HTML with language names
             $game->steam_languages = strip_tags($appData['supported_languages']);
 
-            // Parse languages and store in class property for later use
             $this->parsedLanguageIsoCodes = app(SteamLanguageMapper::class)
                 ->parseSupportedLanguageHtml($appData['supported_languages'], $game->id);
         }
 
-        // Extract content descriptors (NSFW check)
         if (isset($appData['content_descriptors']['ids']) && is_array($appData['content_descriptors']['ids'])) {
             // Steam content descriptor IDs: 3 = Nudity or Sexual Content, 4 = Adult Only Sexual Content
             $game->is_nsfw = in_array(3, $appData['content_descriptors']['ids']) ||
                             in_array(4, $appData['content_descriptors']['ids']);
         }
 
-        // Determine status based on release date
         if (isset($appData['release_date']['coming_soon']) && $appData['release_date']['coming_soon']) {
             $game->status = 'In development';
         } else {
@@ -385,7 +353,6 @@ class SteamDataSyncService
         ]);
 
         try {
-            // Create a cookie jar with mature content cookies
             $cookieJar = CookieJar::fromArray([
                 'birthtime' => (string) strtotime('-30 years'),
                 'mature_content' => '1',
@@ -398,10 +365,8 @@ class SteamDataSyncService
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-            // Extract additional metadata that might not be in the API
             // For example, user tags, reviews, etc.
 
-            // Extract user-defined tags
             $tags = [];
             $tagElements = $doc->querySelectorAll('.app_tag');
             foreach ($tagElements as $tagElement) {
@@ -434,7 +399,6 @@ class SteamDataSyncService
     {
         $tagNames = [];
 
-        // Add Steam genres (official categories)
         if (! empty($game->steam_genres)) {
             foreach ($game->steam_genres as $genre) {
                 if (! empty($genre)) {
@@ -443,7 +407,6 @@ class SteamDataSyncService
             }
         }
 
-        // Add Steam user tags (community-defined tags)
         if (! empty($game->steam_user_tags)) {
             foreach ($game->steam_user_tags as $userTag) {
                 if (! empty($userTag)) {
@@ -460,18 +423,14 @@ class SteamDataSyncService
             return;
         }
 
-        // Remove duplicates and limit to reasonable number
         $tagNames = array_unique($tagNames);
         $tagNames = array_slice($tagNames, 0, 30); // Limit to 30 tags
 
-        // Create or find tags and collect their IDs
         $tagIds = [];
         foreach ($tagNames as $tagName) {
-            // Try to find by name first (case-insensitive)
             $tag = Tag::whereRaw('LOWER(name) = ?', [strtolower($tagName)])->first();
 
             if (! $tag) {
-                // Try to create, but handle slug collisions
                 try {
                     $tag = Tag::firstOrCreate(['name' => $tagName]);
                 } catch (UniqueConstraintViolationException $e) {
@@ -502,42 +461,5 @@ class SteamDataSyncService
             'tag_count' => count($tagIds),
             'tags' => $tagNames,
         ]);
-    }
-
-    /**
-     * Process images (thumbnails and screenshots) if they changed
-     */
-    private function processImages(Game $game, ?string $originalThumbUrl, ?array $originalScreenshots): void
-    {
-        app(SteamImageSyncService::class)->processImages($game, $originalThumbUrl, $originalScreenshots);
-    }
-
-    /**
-     * Compare screenshot arrays by their source URLs only.
-     * This ignores optimized variants when determining if screenshots have actually changed.
-     *
-     * @param  array|null  $screenshots1  First screenshots array
-     * @param  array|null  $screenshots2  Second screenshots array
-     * @return bool True if the screenshot source URLs are different
-     */
-    private function screenshotUrlsChanged(?array $screenshots1, ?array $screenshots2): bool
-    {
-        return app(SteamImageSyncService::class)->screenshotUrlsChanged($screenshots1, $screenshots2);
-    }
-
-    private function needsScreenshotProcessing(?array $screenshots, ?array $originalScreenshots): bool
-    {
-        return app(SteamImageSyncService::class)->needsScreenshotProcessing($screenshots, $originalScreenshots);
-    }
-
-    /**
-     * Extract source URLs from a screenshots array, ignoring optimized data.
-     *
-     * @param  array|null  $screenshots  Screenshots array
-     * @return array Array of source URLs
-     */
-    private function extractScreenshotUrls(?array $screenshots): array
-    {
-        return app(SteamImageSyncService::class)->extractScreenshotUrls($screenshots);
     }
 }

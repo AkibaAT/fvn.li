@@ -92,7 +92,6 @@ class NotificationService
                 $webPush->queueNotification($webPushSubscription, json_encode($payload));
             }
 
-            // Send all notifications
             foreach ($webPush->flush() as $report) {
                 if ($report->isSuccess()) {
                     $successCount++;

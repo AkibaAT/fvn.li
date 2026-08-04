@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { apiFetch } from '@/hooks/api/client';
+    import { apiFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
 
     interface Props {

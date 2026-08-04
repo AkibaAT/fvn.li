@@ -158,7 +158,7 @@ it('formats notifications and records manual updates', function () {
         'custom_template' => '{game_name}|{notification_type}|{game_url}',
     ]);
 
-    expect($service->formatNotification($plainServer, $game))->toBe('Manual VN has been updated!')
+    expect($service->formatNotification($plainServer, $game))->toBe('Manual VN has been updated.')
         ->and($service->formatNotification($customServer, $game, 'manual'))->toContain('Manual VN|manual|');
 
     $service->recordManualUpdate($customServer, $game, 'manual-message');

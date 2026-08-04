@@ -8,6 +8,7 @@ use App\Exceptions\DenKitStashUnavailableException;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VersionSupportedLanguage;
+use App\Services\Concerns\ReportsProgress;
 use App\ValueObjects\Upload;
 use DateMalformedStringException;
 use DateTime;
@@ -23,6 +24,8 @@ use Throwable;
 
 class GameDataSyncService
 {
+    use ReportsProgress;
+
     private static array $httpCache = [];
 
     /**
@@ -68,7 +71,6 @@ class GameDataSyncService
             throw new Exception("Cannot refresh base info for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
         }
 
-        // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
 
         $url = "https://api.itch.io/games/{$game->itch_id}";
@@ -84,24 +86,20 @@ class GameDataSyncService
 
     public function refreshVersion(Game $game, bool $force = false): void
     {
-        echo "  [Version] Starting version refresh for game: {$game->name}\n";
+        $this->progress("  [Version] Starting version refresh for game: {$game->name}\n");
 
         // Track if game had no versions at start
         $hadNoVersions = ! $game->gameVersions()->exists();
 
-        // ========================================
-        // PHASE 1: Fetch all external data (NO TRANSACTION - no locks held)
-        // ========================================
-        echo "    [Version] Fetching uploads data from itch.io\n";
+        // External requests complete before database writes begin.
+        $this->progress("    [Version] Fetching uploads data from itch.io\n");
 
-        // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
 
         $url = "https://api.itch.io/games/{$game->itch_id}/uploads";
 
         $response = $itchClient->get($url);
 
-        // Handle game not found - mark as invisible
         if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
             $game->is_visible = false;
             $game->save();
@@ -113,10 +111,10 @@ class GameDataSyncService
         if (! isset($uploadsData['uploads'])) {
             // No uploads data - if game has no versions, we need to create a fallback in the transaction
             if ($hadNoVersions) {
-                echo "    [Version] No uploads found, but game has no versions - will create fallback\n";
+                $this->progress("    [Version] No uploads found, but game has no versions - will create fallback\n");
                 // Don't return yet - we'll create fallback in Phase 3
             } else {
-                echo "    [Version] No uploads found\n";
+                $this->progress("    [Version] No uploads found\n");
 
                 return;
             }
@@ -133,9 +131,8 @@ class GameDataSyncService
             'web' => false,
         ];
 
-        // Process uploads data to detect changes
         if (isset($uploadsData['uploads'])) {
-            echo '    [Version] Processing ' . count($uploadsData['uploads']) . " uploads\n";
+            $this->progress('    [Version] Processing ' . count($uploadsData['uploads']) . " uploads\n");
             $uploadAnalysis = app(GameUploadAnalyzer::class)->analyze($uploadsData['uploads'], $seenUploads, $force);
             $seenUploads = $uploadAnalysis['seenUploads'];
             $hasChanges = $uploadAnalysis['hasChanges'];
@@ -152,13 +149,13 @@ class GameDataSyncService
         // Select best upload from candidates using Upload model's sorting logic
         $bestUpload = Upload::getBest(collect($candidateUploads));
         if ($bestUpload) {
-            echo "    [Version] Selected best upload: {$bestUpload->filename}\n";
+            $this->progress("    [Version] Selected best upload: {$bestUpload->filename}\n");
         } else {
-            echo "    [Version] No processable uploads found\n";
+            $this->progress("    [Version] No processable uploads found\n");
         }
 
         if ($game->is_paid) {
-            echo "    [Version] Paid game; skipping stats extraction\n";
+            $this->progress("    [Version] Paid game; skipping stats extraction\n");
         }
 
         // Exit early if no changes detected and game already has versions
@@ -166,12 +163,11 @@ class GameDataSyncService
             if (! empty($uploadsData['uploads'])) {
                 $this->updateLatestVersionPlatformFlags($game, $isWindows, $isLinux, $isMac, $isAndroid, $isWeb);
             }
-            echo "    [Version] No changes detected\n";
+            $this->progress("    [Version] No changes detected\n");
 
             return;
         }
 
-        // Prepare version data
         $newVersion = null;
         $uploadTimestamp = null;
         $shouldCreateVersion = false;
@@ -181,9 +177,8 @@ class GameDataSyncService
             $newVersion = $versionParserService->extractVersion($seenUploads[$bestUpload->id], true);
             $uploadTimestamp = $bestUpload->updatedAt;
 
-            echo '    [Version] Extracted version: ' . ($newVersion ?: '(empty)') . "\n";
+            $this->progress('    [Version] Extracted version: ' . ($newVersion ?: '(empty)') . "\n");
 
-            // Check if this is a new version
             $existingVersion = $game->gameVersions()
                 ->where('version', $newVersion)
                 ->first();
@@ -194,17 +189,13 @@ class GameDataSyncService
             // When force is enabled and version exists, we should reprocess stats for that version
             $shouldReprocessExistingVersion = $force && $existingVersion;
 
-            echo '    [Version] Should create version: ' . ($shouldCreateVersion ? 'yes' : 'no') . ' (existing: ' . ($existingVersion ? 'yes' : 'no') . ', force: ' . ($force ? 'yes' : 'no') . ")\n";
+            $this->progress('    [Version] Should create version: ' . ($shouldCreateVersion ? 'yes' : 'no') . ' (existing: ' . ($existingVersion ? 'yes' : 'no') . ', force: ' . ($force ? 'yes' : 'no') . ")\n");
             if ($shouldReprocessExistingVersion) {
-                echo "    [Version] Force mode: will reprocess stats for existing version\n";
+                $this->progress("    [Version] Force mode: will reprocess stats for existing version\n");
             }
         }
 
-        // ========================================
-        // PHASE 2: Locate and process archive (NO TRANSACTION - no locks held)
-        // New versions are downloaded from itch.io. Existing versions are reprocessed from local storage or DenKit Stash.
-        // Wrapped in try-finally to ensure temp directory cleanup
-        // ========================================
+        // Archive work stays outside the caller's transaction and always cleans up temporary files.
         $archiveResult = null;
         $versionStats = null;
         $tempDirPath = null;
@@ -214,20 +205,20 @@ class GameDataSyncService
             ($shouldCreateVersion || $shouldReprocessExistingVersion) &&
             (! $game->game_engine || $game->game_engine === "Ren'Py" || $game->game_engine === 'unknown');
 
-        echo "    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
+        $this->progress("    [Version] Should process Ren'Py: " . ($shouldProcessRenPy ? 'yes' : 'no') .
              ' (bestUpload: ' . ($bestUpload ? 'yes' : 'no') .
              ', shouldCreate: ' . ($shouldCreateVersion ? 'yes' : 'no') .
              ', shouldReprocess: ' . ($shouldReprocessExistingVersion ? 'yes' : 'no') .
              ', paid: ' . ($game->is_paid ? 'yes' : 'no') .
              ', statsDisabled: ' . ($game->is_stats_extraction_disabled ? 'yes' : 'no') .
-             ', engine: ' . ($game->game_engine ?: 'null') . ")\n";
+             ', engine: ' . ($game->game_engine ?: 'null') . ")\n");
 
         if ($shouldProcessRenPy) {
             try {
                 $archiveService = app(GameArchiveService::class);
 
                 if ($shouldReprocessExistingVersion) {
-                    echo "    [Version] Reprocessing from stored archive repository...\n";
+                    $this->progress("    [Version] Reprocessing from stored archive repository...\n");
                     // The stash is the source of truth for reprocessing. Drop any
                     // archive a previous run left staged locally so it cannot shadow
                     // the stash copy and skip the stash lookup entirely.
@@ -245,10 +236,10 @@ class GameDataSyncService
                             );
                         }
 
-                        echo "    [Version] No DenKit archive found for existing version; downloading itch.io archive to seed DenKit\n";
+                        $this->progress("    [Version] No DenKit archive found for existing version; downloading itch.io archive to seed DenKit\n");
                         $archiveLookupError = $archiveService->getLastArchiveLookupError();
                         if ($archiveLookupError) {
-                            echo "    [Version] Archive lookup reason: {$archiveLookupError}\n";
+                            $this->progress("    [Version] Archive lookup reason: {$archiveLookupError}\n");
                         }
 
                         $archiveResult = $archiveService->downloadAndProcessToTemp(
@@ -267,7 +258,7 @@ class GameDataSyncService
                         $versionStats = $archiveService->processArchive($storedArchivePath);
                     }
                 } else {
-                    echo "    [Version] Downloading and processing new game archive to temp location...\n";
+                    $this->progress("    [Version] Downloading and processing new game archive to temp location...\n");
 
                     // Download and process to TEMP - no version ID needed yet
                     $archiveResult = $archiveService->downloadAndProcessToTemp(
@@ -277,7 +268,6 @@ class GameDataSyncService
                         $game->id
                     );
 
-                    // Store temp directory path for cleanup
                     $tempDirPath = $archiveResult['temp_dir'] ?? null;
 
                     if (isset($archiveResult['stats']) && $archiveResult['stats']) {
@@ -285,13 +275,12 @@ class GameDataSyncService
                     }
                 }
 
-                // Extract stats if available
                 if ($versionStats) {
-                    echo "    [Version] Stats extracted successfully from archive\n";
+                    $this->progress("    [Version] Stats extracted successfully from archive\n");
                 } else {
-                    echo "    [Version] No stats extracted from archive\n";
+                    $this->progress("    [Version] No stats extracted from archive\n");
                     if ($archiveService->getLastProcessingError()) {
-                        echo "    [Version] Stats extraction reason: {$archiveService->getLastProcessingError()}\n";
+                        $this->progress("    [Version] Stats extraction reason: {$archiveService->getLastProcessingError()}\n");
                     }
                 }
             } catch (Exception $e) {
@@ -304,24 +293,18 @@ class GameDataSyncService
                     'version' => $newVersion,
                     'error' => $e->getMessage(),
                 ]);
-                echo "    [Version] Error processing archive: {$e->getMessage()}\n";
+                $this->progress("    [Version] Error processing archive: {$e->getMessage()}\n");
                 // Continue without stats - cleanup will happen in finally block
             }
         }
 
-        // ========================================
-        // PHASE 3: Save all data (NO TRANSACTION - caller will handle)
-        // All database writes happen here - caller must wrap in transaction
-        // Wrapped in try-finally to ensure temp file cleanup
-        // ========================================
+        // The caller owns the transaction around all database writes in this block.
         try {
-            echo "    [Version] Saving all data (caller's transaction)\n";
+            $this->progress("    [Version] Saving all data (caller's transaction)\n");
 
-            // Update game uploads (in-memory only - caller will save)
             $game->uploads = $seenUploads;
-            echo "    [Version] Game uploads updated in memory\n";
+            $this->progress("    [Version] Game uploads updated in memory\n");
 
-            // Determine what version to create
             $gameVersion = null;
 
             // Case 1: Creating a new version with actual data
@@ -339,7 +322,7 @@ class GameDataSyncService
                 ];
 
                 $gameVersion = $game->gameVersions()->create($versionValues);
-                echo "    [Version] Created new version record with ID: {$gameVersion->id}\n";
+                $this->progress("    [Version] Created new version record with ID: {$gameVersion->id}\n");
 
                 // Copy language availability from previous version if needed
                 $previousVersion = $game->gameVersions()
@@ -354,47 +337,45 @@ class GameDataSyncService
                     VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $gameVersion->id);
                 }
 
-                // Save stats if we have them
                 if ($versionStats) {
-                    echo "    [Version] Setting game engine in memory\n";
+                    $this->progress("    [Version] Setting game engine in memory\n");
                     $game->game_engine = "Ren'Py";
-                    echo "    [Version] Game engine set (will be saved by caller)\n";
+                    $this->progress("    [Version] Game engine set (will be saved by caller)\n");
 
-                    echo "    [Version] Saving version stats...\n";
+                    $this->progress("    [Version] Saving version stats...\n");
                     $statsService = app(GameStatsService::class);
                     $statsService->saveVersionStats($gameVersion, $versionStats,
                         $game->source_language_id, $game);
-                    echo "    [Version] Version stats saved\n";
+                    $this->progress("    [Version] Version stats saved\n");
                 } else {
                     // No stats - copy language support from previous version
-                    echo "    [Version] No stats, copying language support\n";
+                    $this->progress("    [Version] No stats, copying language support\n");
                     $this->copyLanguageSupport($game, $gameVersion);
                 }
 
                 $this->persistArchiveResultToRepository($game, $gameVersion, $archiveResult, false);
 
-                // Now set is_latest = true AFTER dialogue lines exist
                 // This triggers the GameVersion observer to index the dialogue lines
-                echo "    [Version] Setting version as latest\n";
+                $this->progress("    [Version] Setting version as latest\n");
                 $gameVersion->is_latest = true;
                 $gameVersion->save();
-                echo "    [Version] Version marked as latest\n";
+                $this->progress("    [Version] Version marked as latest\n");
             }
             // Case 2: Force reprocessing stats for an existing version
             elseif ($shouldReprocessExistingVersion) {
-                echo "    [Version] Reprocessing stats for existing version: {$existingVersion->version} (ID: {$existingVersion->id})\n";
+                $this->progress("    [Version] Reprocessing stats for existing version: {$existingVersion->version} (ID: {$existingVersion->id})\n");
 
                 if ($versionStats) {
                     $game->game_engine = "Ren'Py";
-                    echo "    [Version] Game engine set (will be saved by caller)\n";
+                    $this->progress("    [Version] Game engine set (will be saved by caller)\n");
 
-                    echo "    [Version] Saving version stats to existing version...\n";
+                    $this->progress("    [Version] Saving version stats to existing version...\n");
                     $statsService = app(GameStatsService::class);
                     $statsService->saveVersionStats($existingVersion, $versionStats,
                         $game->source_language_id, $game);
-                    echo "    [Version] Version stats saved to existing version\n";
+                    $this->progress("    [Version] Version stats saved to existing version\n");
                 } else {
-                    echo "    [Version] No stats extracted for existing version\n";
+                    $this->progress("    [Version] No stats extracted for existing version\n");
                 }
 
                 $this->persistArchiveResultToRepository($game, $existingVersion, $archiveResult, true);
@@ -410,9 +391,8 @@ class GameDataSyncService
                 $gameVersion = $existingVersion;
             }
             // Case 3: Game had no versions at start and we couldn't create a real version
-            // Create a fallback "Unknown" version so the game has at least one version
             elseif ($hadNoVersions) {
-                echo "    [Version] Creating fallback Unknown version\n";
+                $this->progress("    [Version] Creating fallback Unknown version\n");
                 $gameVersion = $game->gameVersions()->create([
                     'version' => 'Unknown',
                     'devlog' => $this->getDevlogLink($game),
@@ -424,20 +404,18 @@ class GameDataSyncService
                     'published_at' => $game->initially_published_at ?? now(),
                 ]);
 
-                // Set is_latest separately since it's not fillable
                 $gameVersion->is_latest = true;
                 $gameVersion->save();
-                echo "    [Version] Fallback version created with ID: {$gameVersion->id}\n";
+                $this->progress("    [Version] Fallback version created with ID: {$gameVersion->id}\n");
             }
 
-            // Update platform flags on latest version if no new version was created
             // Platform flags can change over time (e.g., Android build added later)
             // But we only update if we DIDN'T just create a new version
             if (! $shouldCreateVersion && ! $hadNoVersions) {
                 $this->updateLatestVersionPlatformFlags($game, $isWindows, $isLinux, $isMac, $isAndroid, $isWeb);
             }
 
-            echo "    [Version] All version data saved\n";
+            $this->progress("    [Version] All version data saved\n");
         } finally {
             // Drop the extracted stats document; it is a temp file on disk.
             $versionStats?->release();
@@ -447,7 +425,7 @@ class GameDataSyncService
             if ($tempDirPath && File::exists($tempDirPath)) {
                 try {
                     File::deleteDirectory($tempDirPath);
-                    echo "    [Version] Cleaned up temp directory: {$tempDirPath}\n";
+                    $this->progress("    [Version] Cleaned up temp directory: {$tempDirPath}\n");
                 } catch (Exception $e) {
                     Log::warning('Failed to clean up temp directory', [
                         'temp_dir' => $tempDirPath,
@@ -519,9 +497,9 @@ class GameDataSyncService
         }
 
         if ($platformsChanged) {
-            echo "    [Version] Platform flags changed on existing version, saving\n";
+            $this->progress("    [Version] Platform flags changed on existing version, saving\n");
             $latestVersion->save();
-            echo "    [Version] Platform flags updated\n";
+            $this->progress("    [Version] Platform flags updated\n");
         }
     }
 
@@ -540,46 +518,42 @@ class GameDataSyncService
             $originalScreenshots = $game->screenshots;
 
             Log::info('GameDataSync: Refreshing base info', ['game_id' => $game->id]);
-            echo "    [Sync] Refreshing base info...\n";
+            $this->progress("    [Sync] Refreshing base info...\n");
             $this->refreshBaseInfo($game);
             Log::info('GameDataSync: Base info refreshed', ['game_id' => $game->id]);
-            echo "    [Sync] Base info refreshed\n";
+            $this->progress("    [Sync] Base info refreshed\n");
 
             sleep(10);
 
             Log::info('GameDataSync: Refreshing version', ['game_id' => $game->id]);
-            echo "    [Sync] Refreshing version...\n";
+            $this->progress("    [Sync] Refreshing version...\n");
             $this->refreshVersion($game);
             Log::info('GameDataSync: Version refreshed', ['game_id' => $game->id]);
-            echo "    [Sync] Version refreshed\n";
+            $this->progress("    [Sync] Version refreshed\n");
 
             sleep(10);
 
             Log::info('GameDataSync: Refreshing metadata', ['game_id' => $game->id]);
-            echo "    [Sync] Refreshing metadata...\n";
+            $this->progress("    [Sync] Refreshing metadata...\n");
             $this->refreshMetadata($game, $originalThumbUrl, $originalScreenshots);
             Log::info('GameDataSync: Metadata refreshed', ['game_id' => $game->id]);
-            echo "    [Sync] Metadata refreshed\n";
+            $this->progress("    [Sync] Metadata refreshed\n");
 
             $game->error = null;
         } catch (Exception $exception) {
             $game->error = $exception->getMessage();
-            echo "    [Sync] ERROR: {$exception->getMessage()}\n";
+            $this->progress("    [Sync] ERROR: {$exception->getMessage()}\n");
             throw $exception;
         } finally {
-            echo "    [Sync] Clearing HTTP cache...\n";
+            $this->progress("    [Sync] Clearing HTTP cache...\n");
             $this->clearHttpCache($game);
-            echo "    [Sync] Done\n";
+            $this->progress("    [Sync] Done\n");
         }
     }
 
-    /**
-     * Get the devlog link from the game's itch.io page
-     */
     private function getDevlogLink(Game $game): ?string
     {
         try {
-            // Use cached HTML to avoid duplicate requests
             $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
             $html = $response['body'];
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
@@ -603,9 +577,6 @@ class GameDataSyncService
         return null;
     }
 
-    /**
-     * Get cached HTTP response
-     */
     private function getCachedResponse(Game $game, string $url, array $options = [], bool $anonymous = false): array
     {
         $urlKey = md5($url . serialize($options) . ($anonymous ? 'anon' : 'auth'));
@@ -652,7 +623,7 @@ class GameDataSyncService
                 $version->id,
                 false
             );
-            echo "    [Version] Archive staged for version {$version->id}\n";
+            $this->progress("    [Version] Archive staged for version {$version->id}\n");
         } catch (Throwable $throwable) {
             Log::error('Failed to stage game version archive', [
                 'game_id' => $game->id,
@@ -660,7 +631,7 @@ class GameDataSyncService
                 'error' => $throwable->getMessage(),
                 'exception' => $throwable,
             ]);
-            echo "    [Version] Error staging archive: {$throwable->getMessage()}\n";
+            $this->progress("    [Version] Error staging archive: {$throwable->getMessage()}\n");
 
             return;
         }
@@ -671,13 +642,13 @@ class GameDataSyncService
                 $result = $repository->persistStoredArchive($game, $version, $force);
                 if ($result['status'] === 'persisted') {
                     $build = isset($result['build_id']) ? " build #{$result['build_id']}" : '';
-                    echo "    [Version] Archive persisted to DenKit Stash {$result['target']}{$build}\n";
+                    $this->progress("    [Version] Archive persisted to DenKit Stash {$result['target']}{$build}\n");
 
                     return;
                 }
 
                 if ($result['status'] === 'skipped') {
-                    echo '    [Version] DenKit Stash persistence skipped: ' . ($result['reason'] ?? 'already persisted') . "\n";
+                    $this->progress('    [Version] DenKit Stash persistence skipped: ' . ($result['reason'] ?? 'already persisted') . "\n");
                 }
             } catch (Throwable $throwable) {
                 Log::error('Failed to persist game version archive to DenKit Stash', [
@@ -686,7 +657,7 @@ class GameDataSyncService
                     'error' => $throwable->getMessage(),
                     'exception' => $throwable,
                 ]);
-                echo "    [Version] Error persisting archive to DenKit Stash: {$throwable->getMessage()}\n";
+                $this->progress("    [Version] Error persisting archive to DenKit Stash: {$throwable->getMessage()}\n");
             }
         });
     }
@@ -694,21 +665,6 @@ class GameDataSyncService
     private function isStatsExtractionAllowed(Game $game): bool
     {
         return ! $game->is_paid && ! $game->is_stats_extraction_disabled;
-    }
-
-    private function checkForNoindexTag(HTMLDocument $doc): bool
-    {
-        return app(ItchGameMetadataRefresher::class)->hasNoindexTag($doc);
-    }
-
-    private function processPendingGameJams(Game $game): void
-    {
-        app(GamePendingAssociationProcessor::class)->processGameJams($game);
-    }
-
-    private function processPendingTags(Game $game): void
-    {
-        app(GamePendingAssociationProcessor::class)->processTags($game);
     }
 
     /**
@@ -719,18 +675,4 @@ class GameDataSyncService
      * @param  array|null  $screenshots2  Second screenshots array
      * @return bool True if the screenshot source URLs are different
      */
-    private function screenshotUrlsChanged(?array $screenshots1, ?array $screenshots2): bool
-    {
-        return app(GameMetadataImageProcessor::class)->screenshotUrlsChanged($screenshots1, $screenshots2);
-    }
-
-    private function needsScreenshotProcessing(?array $screenshots, ?array $originalScreenshots): bool
-    {
-        return app(GameMetadataImageProcessor::class)->needsScreenshotProcessing($screenshots, $originalScreenshots);
-    }
-
-    private function extractScreenshotUrls(?array $screenshots): array
-    {
-        return app(GameMetadataImageProcessor::class)->extractScreenshotUrls($screenshots);
-    }
 }

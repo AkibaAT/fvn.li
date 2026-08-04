@@ -63,7 +63,6 @@
         mounted = true;
     });
 
-    // Update chart when data/options change (skip initial mount)
     $effect(() => {
         // Track reactive deps
         const newData = toPlain(data);

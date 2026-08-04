@@ -14,7 +14,6 @@ use App\Services\GameSocialMetaBuilder;
 use App\Services\HtmlSanitizerService;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
-use App\Traits\HasSocialMetaTags;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -27,7 +26,7 @@ use Throwable;
 
 class GamesDisplayController extends Controller
 {
-    use HasSocialMetaTags;
+    private array $metaTags = [];
 
     /**
      * Display a single game page
@@ -39,7 +38,6 @@ class GamesDisplayController extends Controller
             'gameJams',
         ]);
 
-        // Add detail-only attributes for frontend display.
         $game->append(['tags_list', 'effective_description']);
 
         $reviews = $game->ratings()
@@ -84,7 +82,6 @@ class GamesDisplayController extends Controller
             $latestVersion = $game->latestVersion;
         }
 
-        // Get English word count from latest version for game detail section
         $englishStats = null;
         $primaryStats = null;
 
@@ -119,7 +116,6 @@ class GamesDisplayController extends Controller
                 ];
             }
 
-            // Get primary language stats (source language or English fallback)
             $sourceLanguageId = $game->source_language_id ?? 'eng';
             if ($sourceLanguageId !== 'eng') {
                 $primaryLanguageStats = $game->latestVersion->languageStats
@@ -142,7 +138,6 @@ class GamesDisplayController extends Controller
             }
         }
 
-        // Get authenticated user's own review for this game
         $userReview = null;
         if (Auth::check()) {
             $existingReview = $game->ratings()
@@ -161,10 +156,8 @@ class GamesDisplayController extends Controller
             }
         }
 
-        // Get user's current VN lists to show list membership status
         $userProgress = null;
         if (Auth::check()) {
-            // Load user progress for this game
             $userProgress = DB::table('user_game_progress')
                 ->where('user_id', Auth::id())
                 ->where('game_id', $game->id)
@@ -175,13 +168,11 @@ class GamesDisplayController extends Controller
             $game->user_progress = $userProgress ? [$userProgress] : [];
         }
 
-        $this->setMetaTags(app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats));
+        $this->metaTags = app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats);
 
-        // Calculate character counts for each version (for dialogue browser links)
-        // Optimized: Use batch query instead of N+1
+        // Character counts are fetched together to avoid per-version queries.
         $versionCharacterCounts = [];
 
-        // Collect all version IDs to query
         $versionIds = [];
         if ($latestVersion) {
             $versionIds[] = $latestVersion->id;
@@ -192,7 +183,6 @@ class GamesDisplayController extends Controller
             }
         }
 
-        // Batch query for character counts for all versions at once
         // Count distinct display names (not character_ids) to match modal grouping
         if (! empty($versionIds)) {
             $characterCounts = DB::table('version_character_stats')
@@ -236,7 +226,6 @@ class GamesDisplayController extends Controller
             }
         }
 
-        // Determine edit permissions
         $user = Auth::user();
         $isAdmin = $user && $user->is_admin;
         $isOwner = $user && ! $isAdmin && $user->ownsGame($game);
@@ -254,14 +243,12 @@ class GamesDisplayController extends Controller
             }
         }
 
-        // Get analytics data if user can see it
         $canSeeAnalytics = $isOwner || $isAdmin;
         $clickStats = null;
         $dailyStats = null;
 
         if ($canSeeAnalytics) {
             try {
-                // Get click statistics for the last 30 days
                 $since = now()->subDays(30);
                 $rawClickStats = ClickStat::getGameStats($game->id, $since);
                 $dailyStats = ClickStat::getDailyStats($game->id, 30);
@@ -271,7 +258,6 @@ class GamesDisplayController extends Controller
                 $customLinksArray = [];
 
                 foreach ($rawClickStats['custom_links'] ?? [] as $linkId => $linkData) {
-                    // Find the link name from the game's additional links
                     $linkName = 'Unknown Link';
                     foreach ($additionalLinks as $link) {
                         if (($link['id'] ?? null) === $linkId) {
@@ -299,13 +285,14 @@ class GamesDisplayController extends Controller
                     'custom_links' => $customLinksArray,
                 ];
             } catch (Exception $e) {
-                // If analytics fail, just don't show them
+                report($e);
+
+                // Analytics are optional; the page renders without them.
                 $clickStats = null;
                 $dailyStats = null;
             }
         }
 
-        // Find similar games and developer's other games
         $recommendationCacheVersion = (int) Cache::get('games.recommendations.version', 1);
         $similarCacheKey = "game.{$game->id}.similar.v{$recommendationCacheVersion}";
         $similarGames = Cache::get($similarCacheKey);
@@ -341,7 +328,7 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
+        $developerCacheKey = "game.{$game->id}.developer.".md5((string) $game->authors).".v{$recommendationCacheVersion}";
         $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
             ->map(fn (Game $g) => [
                 'id' => $g->id,
@@ -354,7 +341,6 @@ class GamesDisplayController extends Controller
                 'platform' => $g->platform,
             ]));
 
-        // Calculate estimated reading time from primary word count
         $estimatedReadingTime = null;
         $primaryWordCount = $primaryStats['words'] ?? null;
         if ($primaryWordCount && $primaryWordCount > 0) {
@@ -369,7 +355,6 @@ class GamesDisplayController extends Controller
             ];
         }
 
-        // Fetch public lists that contain this game
         $publicListsQuery = VnList::where('is_public', true)
             ->whereHas('entries', function ($query) use ($game) {
                 $query->where('game_id', $game->id);
@@ -397,7 +382,6 @@ class GamesDisplayController extends Controller
             $version->supportedLanguages = $this->formatSupportedLanguages($version);
 
             // Transform languageStats to include language data
-            // Filter out placeholder 'q' codes and null language relationships
             $version->languageStats = $version->languageStats
                 ->filter(fn ($ls) => $ls->language !== null
                     && ! str_starts_with($ls->iso_code, 'q'))
@@ -457,13 +441,10 @@ class GamesDisplayController extends Controller
             'similarGames' => $similarGames,
             'developerGames' => $developerGames,
             'estimatedReadingTime' => $estimatedReadingTime,
-            'metaTags' => $this->getMetaTags(),
+            'metaTags' => $this->metaTags,
         ]);
     }
 
-    /**
-     * Get game details for API consumption
-     */
     public function details(Game $game): JsonResponse
     {
         $game->load([
@@ -527,10 +508,5 @@ class GamesDisplayController extends Controller
                 'is_available' => $sl->is_available,
             ])
             ->values();
-    }
-
-    private function prepareSocialMetaTags(Game $game, $reviews, ?array $englishStats = null): void
-    {
-        $this->setMetaTags(app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats));
     }
 }

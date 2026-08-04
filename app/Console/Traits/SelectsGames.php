@@ -24,7 +24,6 @@ trait SelectsGames
     {
         $query = Game::query();
 
-        // Apply any additional where clauses
         foreach ($additionalWhere as $column => $value) {
             $query->where($column, $value);
         }
@@ -34,7 +33,6 @@ trait SelectsGames
             $query->with($with);
         }
 
-        // Apply game selection filters
         $this->applyGameSelectionFilters($query);
 
         return $query->get();

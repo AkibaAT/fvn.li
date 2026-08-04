@@ -11,7 +11,7 @@
         fetchWordFrequency,
         type DialogueSearchResult,
         type DuplicateItem,
-    } from '@/hooks/api';
+    } from '@/api';
     import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
     import { page } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
@@ -32,7 +32,6 @@
     const gameSlug = $derived(initial.gameSlug);
     const preselectedVersionId = $derived(initial?.versionId ?? null);
 
-    // Parse initial state from URL
     const initialLocation = $derived(
         typeof window !== 'undefined' ? window.location.href : (page.props as any)?.ziggy?.location || 'http://localhost/',
     );
@@ -90,7 +89,6 @@
     let searchLoading = $state(false);
     let duplicatesLoading = $state(false);
 
-    // Fetch options when gameId/versionId/language changes
     $effect(() => {
         optionsLoading = true;
         fetchDialogueOptions({ gameId, versionId: versionId ?? undefined, language })
@@ -105,7 +103,6 @@
             });
     });
 
-    // Fetch version stats when versionId changes
     $effect(() => {
         if (!versionId) {
             versionStats = null;
@@ -120,7 +117,6 @@
             });
     });
 
-    // Fetch search results
     $effect(() => {
         if (showDuplicates || !versionId || !debouncedQ.trim()) {
             searchData = null;
@@ -149,7 +145,6 @@
             });
     });
 
-    // Fetch duplicates
     $effect(() => {
         if (!showDuplicates || !versionId) {
             duplicates = [];
@@ -176,7 +171,6 @@
             });
     });
 
-    // Fetch word frequency
     $effect(() => {
         if (!versionId) {
             wordFrequency = [];
@@ -363,7 +357,6 @@
                 </div>
             </div>
 
-            <!-- Controls -->
             <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center space-x-4">
                     <Button
@@ -405,7 +398,6 @@
                 {/if}
             </div>
 
-            <!-- Duplicates Options -->
             {#if showDuplicates}
                 <div class="mt-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700/30">
                     <h3 class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Duplicate Line Settings</h3>
@@ -448,7 +440,6 @@
             {/if}
         </Card>
 
-        <!-- Statistics card -->
         <Card padding="lg" class="mb-6">
             <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">Version Statistics</h3>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -479,7 +470,6 @@
             </div>
         </Card>
 
-        <!-- Word Cloud Section -->
         {#if versionId && wordFrequency.length > 0}
             <Card padding="lg" class="mb-6">
                 <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">Common Words & Phrases</h3>
@@ -502,7 +492,6 @@
             </Card>
         {/if}
 
-        <!-- Results Panel -->
         <Card padding="lg">
             {#if showDuplicates}
                 <div class="mb-4">
@@ -571,7 +560,6 @@
                     </div>
                 {/if}
 
-                <!-- Search Results -->
                 {#if !showDuplicates && q.trim()}
                     <div class="mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">

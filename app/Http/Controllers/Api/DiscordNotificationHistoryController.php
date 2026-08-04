@@ -12,26 +12,20 @@ use Illuminate\Http\Request;
 
 class DiscordNotificationHistoryController extends Controller
 {
-    /**
-     * Get notification history for a server.
-     */
     public function index(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('view', $server);
 
         $query = $server->notificationHistory();
 
-        // Filter by status
         if ($request->has('status')) {
             $query->where('delivery_status', $request->get('status'));
         }
 
-        // Filter by type
         if ($request->has('type')) {
             $query->where('notification_type', $request->get('type'));
         }
 
-        // Filter by date range
         if ($request->has('from_date')) {
             $query->where('sent_at', '>=', $request->get('from_date'));
         }
@@ -47,9 +41,6 @@ class DiscordNotificationHistoryController extends Controller
         return response()->json($history);
     }
 
-    /**
-     * Get a specific notification.
-     */
     public function show(DiscordServer $server, DiscordNotificationHistory $notification, Request $request): JsonResponse
     {
         $this->authorize('view', $server);
@@ -63,9 +54,6 @@ class DiscordNotificationHistoryController extends Controller
         ]);
     }
 
-    /**
-     * Get notification statistics.
-     */
     public function stats(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('view', $server);

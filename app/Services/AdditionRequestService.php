@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Events\AdditionRequestSubmitted;
 use App\Models\AdditionRequest;
 use App\Models\User;
 use Exception;
@@ -36,7 +35,6 @@ class AdditionRequestService
                 continue;
             }
 
-            // Validate URL format
             $validation = $this->validateUrl($url);
             if (! $validation['valid']) {
                 $results['invalid_count']++;
@@ -45,7 +43,6 @@ class AdditionRequestService
                 continue;
             }
 
-            // Normalize URL (strip query parameters, fragments, etc.)
             $normalizedUrl = $this->normalizeUrl($url);
 
             // Detect platform
@@ -71,11 +68,6 @@ class AdditionRequestService
                 if ($wasUserAdded) {
                     $results['success_count']++;
                     $results['requests'][] = $request;
-
-                    // Fire event for Discord notifications (only for new requests)
-                    if ($isNew) {
-                        AdditionRequestSubmitted::dispatch($request, $user, $isNew);
-                    }
 
                     Log::info('Addition request submitted', [
                         'user_id' => $user->id,
@@ -103,13 +95,8 @@ class AdditionRequestService
         return $results;
     }
 
-    /**
-     * Validate if a URL is valid and supported.
-     * Returns array with 'valid' boolean and 'error' message if invalid.
-     */
     public function validateUrl(string $url): array
     {
-        // Check if it's a valid URL format
         if (! filter_var($url, FILTER_VALIDATE_URL)) {
             return [
                 'valid' => false,
@@ -117,7 +104,6 @@ class AdditionRequestService
             ];
         }
 
-        // Parse URL to check components
         $parsed = parse_url($url);
         if (! isset($parsed['scheme']) || ! isset($parsed['host'])) {
             return [
@@ -142,25 +128,21 @@ class AdditionRequestService
      */
     public function normalizeUrl(string $url): string
     {
-        // Parse the URL
         $parsed = parse_url($url);
 
         // Rebuild without query string and fragment
         $normalized = $parsed['scheme'] . '://';
 
-        // Remove www. from host
         $host = $parsed['host'] ?? '';
         $host = preg_replace('/^www\./', '', $host);
         $normalized .= $host;
 
-        // Add port if present and not default
         if (isset($parsed['port']) &&
             ! (($parsed['scheme'] === 'http' && $parsed['port'] === 80) ||
               ($parsed['scheme'] === 'https' && $parsed['port'] === 443))) {
             $normalized .= ':' . $parsed['port'];
         }
 
-        // Add path, removing trailing slashes
         $path = $parsed['path'] ?? '/';
         $normalized .= rtrim($path, '/');
 
@@ -178,15 +160,12 @@ class AdditionRequestService
             return 'other';
         }
 
-        // Remove www. prefix for matching
         $host = preg_replace('/^www\./', '', $host);
 
-        // Check for itch.io
         if (str_ends_with($host, '.itch.io') || $host === 'itch.io') {
             return 'itch_io';
         }
 
-        // Check for Steam
         if (str_contains($host, 'steampowered.com') || str_contains($host, 'store.steampowered.com')) {
             return 'steam';
         }
@@ -194,9 +173,6 @@ class AdditionRequestService
         return 'other';
     }
 
-    /**
-     * Get addition requests for a user with optional filtering.
-     */
     public function getUserRequests(User $user, ?string $status = null): Collection
     {
         $query = $user->additionRequests();
@@ -262,9 +238,6 @@ class AdditionRequestService
         }
     }
 
-    /**
-     * Get pending addition requests for admin review.
-     */
     public function getPendingRequests(): Collection
     {
         return AdditionRequest::where('status', AdditionRequest::STATUS_PENDING)
@@ -291,9 +264,6 @@ class AdditionRequestService
         return $urls;
     }
 
-    /**
-     * Get statistics for addition requests.
-     */
     public function getStatistics(): array
     {
         return [

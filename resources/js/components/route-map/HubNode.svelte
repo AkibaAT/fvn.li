@@ -1,29 +1,15 @@
 <script lang="ts">
-    import { Handle, Position } from '@xyflow/svelte';
+    import RouteMapNodeShell from './RouteMapNodeShell.svelte';
 
     let { data }: { data: any } = $props();
 </script>
 
-<div class="hub-node">
-    <Handle type="target" position={Position.Top} />
+<RouteMapNodeShell variant="hub">
     <div class="hub-label">{data.label}</div>
     <div class="hub-count">{data.hub_choice_count} routes</div>
-    <Handle type="source" position={Position.Bottom} />
-</div>
+</RouteMapNodeShell>
 
 <style>
-    .hub-node {
-        background: var(--xy-node-hub-bg, #e0e7ff);
-        border: 2px solid var(--xy-node-hub-border, #6366f1);
-        border-radius: 8px;
-        padding: 8px 14px;
-        text-align: center;
-        line-height: 1.4;
-        width: 140px;
-        box-sizing: border-box;
-        position: relative;
-    }
-
     .hub-label {
         font-size: 12px;
         font-weight: 600;

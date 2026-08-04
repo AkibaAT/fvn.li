@@ -138,7 +138,6 @@ export async function scanPage(page: Page, config: Partial<ScannerConfig> = {}):
     return axeResults;
   }, mergedConfig);
 
-  // Process results
   const violations: AccessibilityViolation[] = results.violations.map((violation: any) => ({
     id: violation.id,
     impact: violation.impact as ViolationSeverity,
@@ -181,7 +180,6 @@ export async function assertNoViolations(page: Page, config: Partial<ScannerConf
     return;
   }
 
-  // Filter violations by severity
   const severityLevels: ViolationSeverity[] = ['critical', 'serious', 'moderate', 'minor'];
   const minSeverityIndex = severityLevels.indexOf(mergedConfig.failOnSeverity || 'serious');
 
@@ -205,14 +203,14 @@ function formatViolationsError(
   config: ScannerConfig,
 ): string {
   let message = `\n\nAccessibility Violations Found on ${results.url}\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  message += `\n`;
 
   message += `Summary:\n`;
-  message += `  • Critical: ${results.violationsBySeverity.critical}\n`;
-  message += `  • Serious:  ${results.violationsBySeverity.serious}\n`;
-  message += `  • Moderate: ${results.violationsBySeverity.moderate}\n`;
-  message += `  • Minor:    ${results.violationsBySeverity.minor}\n`;
-  message += `  • Passes:   ${results.passes}\n\n`;
+  message += `  - Critical: ${results.violationsBySeverity.critical}\n`;
+  message += `  - Serious:  ${results.violationsBySeverity.serious}\n`;
+  message += `  - Moderate: ${results.violationsBySeverity.moderate}\n`;
+  message += `  - Minor:    ${results.violationsBySeverity.minor}\n`;
+  message += `  - Passes:   ${results.passes}\n\n`;
 
   violations.forEach((violation, index) => {
     message += `${index + 1}. [${violation.impact.toUpperCase()}] ${violation.help}\n`;
@@ -235,8 +233,6 @@ function formatViolationsError(
     }
     message += `\n`;
   });
-
-  message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
   return message;
 }

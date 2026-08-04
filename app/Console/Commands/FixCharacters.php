@@ -31,9 +31,6 @@ class FixCharacters extends Command
         parent::__construct();
     }
 
-    /**
-     * Get the console command help text.
-     */
     public function getHelp(): string
     {
         return <<<'HELP'
@@ -139,7 +136,7 @@ HELP;
         $this->displayOverallSummary($results, $dryRun);
 
         $this->info('');
-        $this->info('Character fixes completed successfully!');
+        $this->info('Character fixes completed successfully.');
 
         return SymfonyCommand::SUCCESS;
     }
@@ -193,7 +190,6 @@ HELP;
             return ['stats_updated' => $safeStatsToUpdate->count(), 'versions_processed' => 0];
         }
 
-        // Calculate new values for all safe stats
         $calculatedResults = [];
         foreach ($safeStatsToUpdate as $stat) {
             $calculated = $this->statsService->calculateStatsForCharacter(
@@ -204,7 +200,6 @@ HELP;
             $calculatedResults[] = ['stat' => $stat, 'calculated' => $calculated];
         }
 
-        // Apply the updates
         $statsUpdated = $this->statsService->updateCharacterStatsSafe($calculatedResults, false);
 
         return ['stats_updated' => $statsUpdated, 'versions_processed' => 0];
@@ -234,12 +229,12 @@ HELP;
         $totalCharacters = $results['version_references']['characters_updated'] ?? 0;
 
         $this->info("{$action} processed:");
-        $this->info("  • {$totalLines} dialogue line assignments fixed");
-        $this->info("  • {$totalStats} character statistics recalculated");
-        $this->info("  • {$totalCharacters} character version references updated");
+        $this->info("  - {$totalLines} dialogue line assignments fixed");
+        $this->info("  - {$totalStats} character statistics recalculated");
+        $this->info("  - {$totalCharacters} character version references updated");
 
         if (isset($results['version_references']['characters_deleted'])) {
-            $this->info("  • {$results['version_references']['characters_deleted']} orphaned characters cleaned up");
+            $this->info("  - {$results['version_references']['characters_deleted']} orphaned characters cleaned up");
         }
     }
 }

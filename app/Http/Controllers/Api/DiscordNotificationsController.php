@@ -20,10 +20,6 @@ use Illuminate\Support\Facades\Validator;
 
 class DiscordNotificationsController extends Controller
 {
-    /**
-     * Get pending Discord notifications.
-     * This endpoint is used by the Discord bot to fetch notifications that need to be sent.
-     */
     public function getPendingNotifications(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -42,7 +38,6 @@ class DiscordNotificationsController extends Controller
             // Start a transaction to ensure we don't have race conditions
             DB::beginTransaction();
 
-            // Get pending notifications and mark them as processing
             $notifications = NotificationQueue::query()
                 ->where('channel', 'discord')
                 ->where('status', 'pending')
@@ -69,7 +64,6 @@ class DiscordNotificationsController extends Controller
 
             DB::commit();
 
-            // Format notifications for the Discord bot
             $formattedNotifications = $notifications->map(function ($notification) {
                 $game = $notification->game;
                 $user = $notification->user;
@@ -78,25 +72,21 @@ class DiscordNotificationsController extends Controller
                     return null;
                 }
 
-                // Get the user's Discord social account specifically
                 $discordAccount = $user->socialAccounts->where('provider_name', 'discord')->first();
                 if (! $discordAccount) {
                     return null;
                 }
 
-                // Get the user's last read version
                 $lastReadVersion = $game->userProgress()
                     ->where('user_id', $user->id)
                     ->orderBy('game_version_id', 'desc')
                     ->first()?->gameVersion;
 
-                // Get version to compare against (previous version or last read version)
                 $compareToVersion = $lastReadVersion;
                 if (! $compareToVersion && $game->gameVersions->count() > 1) {
                     $compareToVersion = $game->gameVersions[1]; // Second most recent version
                 }
 
-                // Calculate word count difference if we have a version to compare against
                 $wordCountDiff = null;
                 if ($compareToVersion) {
                     $latestStats = $game->latestVersion->getStatsForLanguage('eng');
@@ -168,13 +158,11 @@ class DiscordNotificationsController extends Controller
             foreach ($request->input('notifications') as $result) {
                 $notification = NotificationQueue::find($result['notification_id']);
 
-                // Skip if notification not found or doesn't match batch key
                 if (! $notification ||
                     ($notification->meta_data['batch_key'] ?? null) !== $request->input('batch_key')) {
                     continue;
                 }
 
-                // Update notification status
                 $notification->status = $result['success'] ? 'sent' : 'failed';
                 $notification->processed_at = now();
                 $notification->error = $result['success'] ? null : $result['error'];
@@ -359,10 +347,6 @@ class DiscordNotificationsController extends Controller
         }
     }
 
-    /**
-     * Get pending addition request notifications for Discord.
-     * This endpoint is used by the Discord bot to fetch new addition requests that need admin attention.
-     */
     public function getPendingAdditionRequests(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -381,7 +365,6 @@ class DiscordNotificationsController extends Controller
             // Start a transaction to prevent race conditions
             DB::beginTransaction();
 
-            // Get pending addition requests that haven't been notified yet and lock them
             $requests = AdditionRequest::with(['users'])
                 ->where('status', AdditionRequest::STATUS_PENDING)
                 ->whereNull('discord_notified_at')
@@ -401,7 +384,6 @@ class DiscordNotificationsController extends Controller
                 ]);
             }
 
-            // Mark them as notified immediately to prevent duplicate processing
             AdditionRequest::whereIn('id', $requests->pluck('id'))
                 ->update(['discord_notified_at' => now()]);
 
@@ -442,9 +424,6 @@ class DiscordNotificationsController extends Controller
         }
     }
 
-    /**
-     * Get pending review report notifications for Discord.
-     */
     public function getPendingReviewReports(): JsonResponse
     {
         try {

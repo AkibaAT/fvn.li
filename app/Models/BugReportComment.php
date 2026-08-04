@@ -35,17 +35,11 @@ class BugReportComment extends Model
         'is_read' => 'boolean',
     ];
 
-    /**
-     * Get the bug report this comment belongs to.
-     */
     public function bugReport(): BelongsTo
     {
         return $this->belongsTo(BugReport::class);
     }
 
-    /**
-     * Get the user who wrote this comment.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

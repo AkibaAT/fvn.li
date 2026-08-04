@@ -35,7 +35,6 @@ class CleanupGameDownloads extends Command
      */
     public function handle(GameArchiveService $archiveService): int
     {
-        // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
@@ -49,7 +48,6 @@ class CleanupGameDownloads extends Command
             // Clean up for specific game(s)
             $query = Game::query();
 
-            // Apply game selection filters
             $this->applyGameSelectionFilters($query);
 
             $games = $query->get();

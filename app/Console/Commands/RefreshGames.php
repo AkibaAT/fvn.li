@@ -59,20 +59,17 @@ class RefreshGames extends Command
      */
     private function executeRefresh(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing
         Config::set('scout.queue', false);
 
         $force = $this->option('force');
         $refreshAll = $this->option('all');
 
-        // Check if any refresh option was selected
         if (! $this->option('update-version') && ! $this->option('update-info') && ! $this->option('update-metadata')) {
             $this->error('No refresh options selected. Please use at least one of: --update-version, --update-info, --update-metadata');
 
             return 1;
         }
 
-        // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
@@ -95,12 +92,10 @@ class RefreshGames extends Command
         $this->info('- Max retries: ' . $this->option('max-retries'));
         $this->info('- Base cooldown: ' . $this->option('retry-cooldown') . ' seconds');
 
-        // Build query for games - only itch.io games for now
         $query = Game::query()
             ->fromItchio()
             ->where('is_visible', true);
 
-        // Apply game selection filters
         $this->applyGameSelectionFilters($query);
 
         // Unless forced, exclude abandoned/canceled games
@@ -108,7 +103,6 @@ class RefreshGames extends Command
             $query->whereNotIn('status', ['Abandoned', 'Canceled']);
         }
 
-        // Apply sorting
         $sortField = $this->option('sort');
         $allowedSortFields = ['id', 'name', 'created_at', 'updated_at'];
 
@@ -135,7 +129,8 @@ class RefreshGames extends Command
         $itchClient->setMaxRetries((int) $this->option('max-retries'));
         $itchClient->setBaseCooldown((int) $this->option('retry-cooldown'));
         $this->info('ItchHttpClientService configured successfully');
-        $syncService = App::make(GameDataSyncService::class);
+        $syncService = App::make(GameDataSyncService::class)
+            ->setProgressReporter(fn (string $message) => $this->line($message));
 
         $hadErrors = false;
 
@@ -146,19 +141,18 @@ class RefreshGames extends Command
                 $originalThumbUrl = $game->thumb_url;
                 $originalScreenshots = $game->screenshots;
 
-                // Check if we need to auto-enable version refresh for games without versions
                 $needsVersionRefresh = $this->option('update-version');
                 if (! $needsVersionRefresh && ($this->option('update-metadata') || $this->option('update-info'))) {
                     // Auto-enable version refresh if game has no latest version
                     if (! $game->latestVersion) {
                         $needsVersionRefresh = true;
-                        $this->info('→ Auto-enabling version refresh (game has no version)');
+                        $this->info('Auto-enabling version refresh (game has no version)');
                     }
                 }
 
                 // Refresh base info if requested
                 if ($this->option('update-info')) {
-                    $this->info('→ Refreshing base info...');
+                    $this->info('Refreshing base info...');
 
                     $itchClient->executeWithRetry(
                         function () use ($game) {
@@ -176,7 +170,7 @@ class RefreshGames extends Command
 
                 // Refresh metadata if requested
                 if ($this->option('update-metadata')) {
-                    $this->info('→ Refreshing metadata (tags, ratings, descriptions, screenshots, game jams)...');
+                    $this->info('Refreshing metadata (tags, ratings, descriptions, screenshots, game jams)...');
 
                     $itchClient->executeWithRetry(
                         function () use ($game, $originalThumbUrl, $originalScreenshots) {
@@ -194,7 +188,7 @@ class RefreshGames extends Command
 
                 // Refresh version if requested or auto-enabled
                 if ($needsVersionRefresh) {
-                    $this->info('→ Refreshing version information...');
+                    $this->info('Refreshing version information...');
 
                     $itchClient->executeWithRetry(
                         function () use ($game, $force) {
@@ -202,7 +196,6 @@ class RefreshGames extends Command
                                 $game->refreshVersion($force);
                                 $game->save();
 
-                                // Ensure only one latest version
                                 $latestVersion = $game->gameVersions()
                                     ->orderBy('published_at', 'desc')
                                     ->first();

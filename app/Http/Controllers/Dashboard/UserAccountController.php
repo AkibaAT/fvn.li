@@ -7,8 +7,6 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\ChangeLog;
 use App\Models\ClickStat;
-use App\Models\Game;
-use App\Models\User;
 use App\Support\SystemAuditUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +22,6 @@ class UserAccountController extends Controller
         $user = Auth::user();
         $userId = $user->id;
 
-        // Validate password confirmation for non-AJAX requests only (SPA will handle confirmation UI)
         if (! ($request->expectsJson() || $request->ajax())) {
             $request->validate([
                 'password' => ['required', 'current_password'],
@@ -70,7 +67,6 @@ class UserAccountController extends Controller
                     'custom_page_updated_at' => null,
                 ]);
 
-            // Delete user data (cascade deletes will handle related records)
             $user->socialAccounts()->delete();
             if ($user->notificationPreferences) {
                 $user->notificationPreferences()->delete();
@@ -121,7 +117,6 @@ class UserAccountController extends Controller
     {
         $user = Auth::user();
 
-        // Store the current user ID for merging later
         session(['merging_user_id' => $user->id]);
 
         // Redirect to the provider's OAuth page
@@ -149,7 +144,6 @@ class UserAccountController extends Controller
                     'Cannot disconnect your last social account. Delete your account instead if you wish to completely disconnect.');
         }
 
-        // Delete the social account
         $user->socialAccounts()
             ->where('provider_name', $provider)
             ->delete();

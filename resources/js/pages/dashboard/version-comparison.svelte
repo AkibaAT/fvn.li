@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Button, Card } from '@/components/ui';
+    import { formatBytes, formatCount, getDiffColor, formatDiff } from '@/utils/version-comparison';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import axios from 'axios';
 
@@ -86,28 +87,6 @@
         fetchComparisonData();
     }
 
-    function formatBytes(bytes: number): string {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-    }
-
-    function formatNumber(num: number): string {
-        return num === 0 ? '-' : num.toLocaleString();
-    }
-
-    function getDiffColor(diff: number): string {
-        if (diff > 0) return 'text-green-400';
-        if (diff < 0) return 'text-red-400';
-        return 'text-gray-400';
-    }
-
-    function formatDiff(diff: number): string {
-        if (diff === 0) return '-';
-        return (diff > 0 ? '+' : '') + formatNumber(diff);
-    }
 
     const selectedGameData = $derived(games.find((game) => game.id === selectedGame));
 </script>
@@ -225,7 +204,6 @@
                             </div>
                         </div>
 
-                        <!-- Tabs -->
                         <div class="mb-8">
                             <ul class="flex border-b border-gray-200 text-sm dark:border-gray-700" role="tablist">
                                 <li class="mr-1">
@@ -301,10 +279,10 @@
                                                             >
                                                         {/if}
                                                         <td class="px-2 py-2 text-right text-gray-500 tabular-nums dark:text-gray-400"
-                                                            >{formatNumber(fromCount)}</td
+                                                            >{formatCount(fromCount)}</td
                                                         >
                                                         <td class="px-2 py-2 text-right text-gray-900 tabular-nums dark:text-white"
-                                                            >{formatNumber(toCount)}</td
+                                                            >{formatCount(toCount)}</td
                                                         >
                                                         <td class="px-2 py-2 text-right tabular-nums {getDiffColor(diff)}">{formatDiff(diff)}</td>
                                                     {/each}
@@ -324,10 +302,10 @@
                                                         >
                                                     {/if}
                                                     <td class="px-2 py-2 text-right text-gray-500 tabular-nums dark:text-gray-400"
-                                                        >{formatNumber(fromTotal)}</td
+                                                        >{formatCount(fromTotal)}</td
                                                     >
                                                     <td class="px-2 py-2 text-right text-gray-900 tabular-nums dark:text-white"
-                                                        >{formatNumber(toTotal)}</td
+                                                        >{formatCount(toTotal)}</td
                                                     >
                                                     <td class="px-2 py-2 text-right tabular-nums {getDiffColor(diffTotal)}"
                                                         >{formatDiff(diffTotal)}</td
@@ -351,11 +329,11 @@
                                                     </div>
                                                     <div class="mt-1 flex items-baseline">
                                                         <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                            {formatNumber(category.from.count)}
+                                                            {formatCount(category.from.count)}
                                                         </div>
                                                         <div class="mx-1 text-gray-400 dark:text-gray-500">&rarr;</div>
                                                         <div class="text-base font-semibold text-gray-900 dark:text-white">
-                                                            {formatNumber(category.to.count)}
+                                                            {formatCount(category.to.count)}
                                                         </div>
                                                         {#if category.diff.count !== 0}
                                                             <div class="ml-2 text-sm {getDiffColor(category.diff.count)}">
@@ -408,10 +386,10 @@
                                                                     <tr>
                                                                         <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{extension}</td>
                                                                         <td class="px-2 py-2 text-right text-sm text-gray-500 dark:text-gray-400"
-                                                                            >{formatNumber(typeStats.from.count)}</td
+                                                                            >{formatCount(typeStats.from.count)}</td
                                                                         >
                                                                         <td class="px-2 py-2 text-right text-sm text-gray-900 dark:text-white"
-                                                                            >{formatNumber(typeStats.to.count)}</td
+                                                                            >{formatCount(typeStats.to.count)}</td
                                                                         >
                                                                         <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.count)}"
                                                                             >{formatDiff(typeStats.diff.count)}</td

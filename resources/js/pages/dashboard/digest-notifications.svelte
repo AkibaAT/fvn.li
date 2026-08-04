@@ -61,7 +61,6 @@
         class="mb-0"
     />
 
-    <!-- Notifications Content -->
     <Card variant="glass" padding="lg" class="shadow-none">
         {#if hasNotifications}
             <div class="space-y-4">
@@ -105,7 +104,6 @@
         {/if}
     </Card>
 
-    <!-- Navigation -->
     <div class="flex items-center justify-between">
         <Link href={route('dashboard')} class="inline-flex items-center space-x-2 text-blue-600 transition-colors hover:text-blue-700">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

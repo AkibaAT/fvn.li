@@ -51,21 +51,18 @@ class RefreshSteamGames extends Command
      */
     private function executeRefresh(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing
         Config::set('scout.queue', false);
 
         $force = $this->option('force');
         $refreshAll = $this->option('all');
         $sleepTime = (int) $this->option('sleep');
 
-        // Check if any refresh option was selected
         if (! $this->option('update-data') && ! $this->option('update-reviews')) {
             $this->error('No refresh options selected. Please use at least one of: --update-data, --update-reviews');
 
             return 1;
         }
 
-        // Validate that we have at least one game selection option
         if (! $this->validateGameSelectionOptions()) {
             return 1;
         }
@@ -88,12 +85,10 @@ class RefreshSteamGames extends Command
         }
         $this->info('Sleep time between games: ' . $sleepTime . ' seconds');
 
-        // Build query for Steam games
         $query = Game::query()
             ->fromSteam()
             ->where('is_visible', true);
 
-        // Apply game selection filters
         $this->applyGameSelectionFilters($query);
 
         // Unless forced, exclude abandoned/canceled games
@@ -101,7 +96,6 @@ class RefreshSteamGames extends Command
             $query->whereNotIn('status', ['Abandoned', 'Canceled']);
         }
 
-        // Apply sorting
         $sortField = $this->option('sort');
         $allowedSortFields = ['id', 'name', 'created_at', 'updated_at'];
 
@@ -123,7 +117,6 @@ class RefreshSteamGames extends Command
             return 1;
         }
 
-        // Get services
         $steamDataService = App::make(SteamDataSyncService::class);
         $steamReviewService = App::make(SteamReviewImportService::class);
 
@@ -134,7 +127,7 @@ class RefreshSteamGames extends Command
 
                 // Refresh game data if requested
                 if ($this->option('update-data')) {
-                    $this->info('→ Refreshing game data from Steam...');
+                    $this->info('Refreshing game data from Steam...');
 
                     try {
                         $steamDataService->loadFullDetails($game);
@@ -156,12 +149,11 @@ class RefreshSteamGames extends Command
 
                 // Sync reviews if requested
                 if ($this->option('update-reviews')) {
-                    $this->info('→ Syncing ALL reviews from Steam...');
+                    $this->info('Syncing all reviews from Steam...');
 
                     try {
                         $stats = $steamReviewService->syncAllReviews($game);
 
-                        // Update game rating statistics
                         $steamReviewService->updateGameRatingStats($game);
 
                         $this->info('  Reviews synced successfully');

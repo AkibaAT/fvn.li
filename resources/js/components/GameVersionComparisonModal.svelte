@@ -107,7 +107,6 @@
                 </div>
             </div>
 
-            <!-- Tab Navigation -->
             <div class="mb-8">
                 <ul class="flex border-b border-gray-700 text-sm" role="tablist">
                     <li class="mr-1">
@@ -139,7 +138,6 @@
                 </ul>
             </div>
 
-            <!-- Character Stats Tab -->
             {#if activeComparisonTab === 'character'}
                 <div class="pt-4">
                     <div class="-mx-6 max-w-[calc(100vw-3rem)] overflow-x-auto px-6">
@@ -230,7 +228,6 @@
                 </div>
             {/if}
 
-            <!-- File Stats Tab -->
             {#if activeComparisonTab === 'file'}
                 <div class="space-y-6 pt-4">
                     <div>

@@ -47,25 +47,16 @@ class UserGameProgress extends Model
         'progress' => 'integer',
     ];
 
-    /**
-     * Get the user that owns the progress record.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the game that the progress is for.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Get the game version that the progress is for.
-     */
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);

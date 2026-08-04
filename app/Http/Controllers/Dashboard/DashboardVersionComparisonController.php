@@ -27,10 +27,8 @@ class DashboardVersionComparisonController extends Controller
             'toVersionId' => ['required', 'exists:game_versions,id'],
         ]);
 
-        // Get the game and verify user has access to it
         $game = Game::findOrFail($request->gameId);
 
-        // Check if user has this game in their lists or has rated it
         $user = User::findOrFail($authId);
         $hasAccess = $user->vnLists()
             ->whereHas('entries', function ($query) use ($game) {
@@ -46,7 +44,6 @@ class DashboardVersionComparisonController extends Controller
             return response()->json(['success' => false, 'message' => 'You do not have access to this game'], 403);
         }
 
-        // Use the existing GamesVersionController method to get the comparison data
         $versionController = app(GamesVersionController::class);
         $comparisonData = $versionController->compareVersions($request, $game);
 

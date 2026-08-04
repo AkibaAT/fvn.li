@@ -165,7 +165,6 @@
 <div class="space-y-4">
     <PageHeader title={pageTitle} class="mb-6" />
 
-    <!-- Stats header -->
     <Card padding="lg" class="shadow">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Global Rating Statistics</h2>
@@ -233,7 +232,6 @@
 
     <ReviewTextControls />
 
-    <!-- Filters and sorting -->
     <Card padding="sm" class="shadow">
         <div class="flex flex-wrap items-center gap-4">
             <Checkbox

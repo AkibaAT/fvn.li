@@ -10,9 +10,6 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 trait HasGameAttributes
 {
-    /**
-     * Get available platform options for additional links
-     */
     public static function getAvailablePlatforms(): array
     {
         return [
@@ -26,19 +23,6 @@ trait HasGameAttributes
         ];
     }
 
-    /**
-     * Protect first_visible_at from being accidentally overwritten.
-     * Only allow setting if it's currently null.
-     */
-    public function setFirstVisibleAtAttribute($value): void
-    {
-        // Only allow setting first_visible_at if it's currently null
-        // This prevents accidental overwrites of the original timestamp
-        if ($this->attributes['first_visible_at'] ?? true) {
-            $this->attributes['first_visible_at'] = $value;
-        }
-    }
-
     public function getAdditionalLinksAttribute($value): array
     {
         $now = Carbon::now();
@@ -50,8 +34,10 @@ trait HasGameAttributes
 
             try {
                 return $now->gte(Carbon::parse($link['release_at']));
-            } catch (Exception) {
-                return true;
+            } catch (Exception $exception) {
+                report($exception);
+
+                return false;
             }
         }));
     }
@@ -66,9 +52,6 @@ trait HasGameAttributes
         return ! empty($this->additional_links);
     }
 
-    /**
-     * Get the devlog attribute from latest version
-     */
     protected function devlog(): Attribute
     {
         return Attribute::make(
@@ -76,9 +59,6 @@ trait HasGameAttributes
         );
     }
 
-    /**
-     * Get the rating attribute
-     */
     protected function rating(): Attribute
     {
         return Attribute::make(
@@ -86,9 +66,6 @@ trait HasGameAttributes
         );
     }
 
-    /**
-     * Get the rating count attribute
-     */
     protected function ratingCount(): Attribute
     {
         return Attribute::make(
@@ -96,9 +73,6 @@ trait HasGameAttributes
         );
     }
 
-    /**
-     * Get the platforms attribute from latest version
-     */
     protected function platforms(): Attribute
     {
         return Attribute::make(

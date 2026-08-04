@@ -8,9 +8,6 @@ use App\Models\User;
 
 trait HasCustomGameContent
 {
-    /**
-     * Get the effective name for display (custom or synced)
-     */
     public function getEffectiveName(bool $forceOriginal = false): ?string
     {
         // If forcing original view, always return itch.io content
@@ -29,9 +26,6 @@ trait HasCustomGameContent
             : $this->name;
     }
 
-    /**
-     * Get the effective description for display (custom or synced)
-     */
     public function getEffectiveDescription(bool $forceOriginal = false): ?string
     {
         // If forcing original view, always return itch.io content
@@ -50,9 +44,6 @@ trait HasCustomGameContent
             : $this->full_description;
     }
 
-    /**
-     * Get the effective screenshots for display (custom or synced)
-     */
     public function getEffectiveScreenshots(bool $forceOriginal = false): array
     {
         // If forcing original view, always return itch.io screenshots
@@ -70,31 +61,13 @@ trait HasCustomGameContent
             : $this->getScreenshots();
     }
 
-    /**
-     * Check if the user can edit this game's custom page
-     */
     public function canUserEdit(?User $user): bool
     {
         if (! $user) {
             return false;
         }
 
-        // Admin can edit all games
-        if ($user->is_admin) {
-            return true;
-        }
-
-        // Check if user has explicit ownership permission
-        if ($this->hasExplicitOwnership($user)) {
-            return true;
-        }
-
-        // Check if user's itch.io account matches the game's namespace
-        if ($this->hasItchIoOwnership($user)) {
-            return true;
-        }
-
-        return false;
+        return $user->is_admin || $user->ownsGame($this);
     }
 
     /**
@@ -128,9 +101,6 @@ trait HasCustomGameContent
         ]);
     }
 
-    /**
-     * Update custom page content
-     */
     public function updateCustomPage(array $data, User $user): void
     {
         $updateData = [
@@ -157,30 +127,9 @@ trait HasCustomGameContent
         $this->update($updateData);
     }
 
-    /**
-     * Get the user who last updated the custom page
-     */
     public function customPageUpdatedBy()
     {
         return $this->belongsTo(User::class, 'custom_page_updated_by');
     }
 
-    /**
-     * Check if user has explicit ownership through database relationship
-     */
-    private function hasExplicitOwnership(User $user): bool
-    {
-        // This could be implemented with a game_owners table in the future
-        // For now, return false as we don't have this table
-        return false;
-    }
-
-    /**
-     * Check if user's itch.io account owns this game
-     */
-    private function hasItchIoOwnership(User $user): bool
-    {
-        // Use the existing ownsGame method from User model
-        return $user->ownsGame($this);
-    }
 }

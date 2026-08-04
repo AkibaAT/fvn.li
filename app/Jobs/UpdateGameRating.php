@@ -22,7 +22,6 @@ class UpdateGameRating implements ShouldQueue
     public function __construct(
         public int $gameId
     ) {
-        // Set queue name for rating updates
         $this->onQueue('default');
     }
 

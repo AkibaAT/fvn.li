@@ -58,11 +58,9 @@ class ImportDiscordGames extends Command
                 $game = Game::byUrl($url)->first();
 
                 if ($game) {
-                    // Update existing game with Discord metadata
                     $this->updateGameWithDiscordData($game, $data, $dryRun);
                     $updated++;
                 } else {
-                    // Create new game from Discord data
                     $this->createGameFromDiscordData($data, $dryRun);
                     $created++;
                 }
@@ -75,7 +73,7 @@ class ImportDiscordGames extends Command
         }
 
         $this->newLine();
-        $this->info('Import complete!');
+        $this->info('Import complete.');
         $this->info("Created: {$created} | Updated: {$updated} | Skipped: {$skipped} | Errors: {$errors}");
 
         if ($dryRun) {
@@ -90,17 +88,14 @@ class ImportDiscordGames extends Command
         $updates = [
         ];
 
-        // Update description if Discord has one and fvn.li doesn't
         if (! empty($data['Description']) && empty($game->description)) {
             $updates['description'] = $data['Description'];
         }
 
-        // Update author if Discord has one and fvn.li doesn't
         if (! empty($data['Author_Name']) && empty($game->authors)) {
             $updates['authors'] = $data['Author_Name'];
         }
 
-        // Update status if different
         if (! empty($data['Project_Status']) && $game->status !== $data['Project_Status']) {
             $updates['status'] = $data['Project_Status'];
         }
@@ -121,14 +116,13 @@ class ImportDiscordGames extends Command
         $platformDetectionService = app(PlatformDetectionService::class);
         $platform = $platformDetectionService->detectPlatform($data['Page_url']);
 
-        // Determine content type based on Discord channel
         // The channel_id is stored in the Discord data when imported
         $contentType = $this->determineContentType($data);
 
         $gameData = [
             'name' => $data['Name'],
             'url' => $data['Page_url'],
-            'platform' => $platform,  // ← Explicitly set detected platform
+            'platform' => $platform,
             'description' => $data['Description'] ?? null,
             'authors' => $data['Author_Name'] ?? null,
             'status' => $data['Project_Status'] ?? 'In development',
@@ -139,7 +133,6 @@ class ImportDiscordGames extends Command
             'itch_id' => 0, // Will be updated when synced with itch.io
         ];
 
-        // Add platform-specific fields
         if ($platform === 'steam') {
             $gameData['steam_app_id'] = $platformDetectionService->extractSteamAppId($data['Page_url']);
         } elseif ($platform !== 'itch_io') {
@@ -157,10 +150,6 @@ class ImportDiscordGames extends Command
         }
     }
 
-    /**
-     * Determine content type based on Discord channel or data
-     * Adjacent games and other content are marked differently in Discord data
-     */
     private function determineContentType(array $data): string
     {
         // If the data has a channel_id field, use it to determine type

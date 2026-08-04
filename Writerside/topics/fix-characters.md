@@ -171,20 +171,3 @@ Successfully processed:
 
 Character fixes completed successfully!
 ```
-
-## Best Practices
-
-1. **Run with --dry-run first** to preview changes
-2. **Process specific games** during development/testing
-3. **Use individual steps** when you only need specific fixes
-4. **Monitor the logs** for data completeness protection warnings
-5. **Run after importing new game versions** to ensure consistency
-
-## Error Handling
-
-The command includes comprehensive error handling:
-
-- Data completeness protection prevents corruption of incomplete data
-- Individual step failures don't stop the entire process
-- Detailed logging shows what was skipped and why
-- Dry-run mode allows safe previewing of all changes

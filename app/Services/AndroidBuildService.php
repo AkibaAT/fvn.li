@@ -39,12 +39,10 @@ class AndroidBuildService
             $version = $game->gameVersions()->where('is_latest', true)->firstOrFail();
         }
 
-        // Check eligibility
         if (! $this->isEligibleForAndroidBuild($game, $version)) {
             throw new Exception('This game is not eligible for Android builds.');
         }
 
-        // First check if there's already a completed build for this game version
         $completedBuild = AndroidBuild::where('user_id', $user->id)
             ->where('game_id', $game->id)
             ->where('game_version_id', $version->id)
@@ -56,7 +54,6 @@ class AndroidBuildService
             return $completedBuild;
         }
 
-        // Then check if there's already a pending or processing build for this game version
         $existingBuild = AndroidBuild::where('user_id', $user->id)
             ->where('game_id', $game->id)
             ->where('game_version_id', $version->id)
@@ -72,7 +69,6 @@ class AndroidBuildService
             return null;
         }
 
-        // Create a new build request
         return AndroidBuild::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -82,9 +78,6 @@ class AndroidBuildService
         ]);
     }
 
-    /**
-     * Check if a game is eligible for Android builds
-     */
     public function isEligibleForAndroidBuild(Game $game, ?GameVersion $version = null): bool
     {
         // Must be a Ren'Py game
@@ -102,13 +95,11 @@ class AndroidBuildService
             return false;
         }
 
-        // Check if the Ren'Py SDK is configured
         $sdkPath = config('services.renpy.sdk_path');
         if (! $sdkPath || ! File::exists($sdkPath . '/renpy.sh')) {
             return false;
         }
 
-        // Check if the Android SDK is configured within Ren'Py
         if (! File::exists($sdkPath . '/rapt')) {
             return false;
         }
@@ -124,44 +115,34 @@ class AndroidBuildService
     public function processBuild(AndroidBuild $build): bool
     {
         try {
-            // Update build status
             $build->status = 'processing';
             $build->save();
 
-            // Get the game and version
             $game = $build->game;
             $version = $build->gameVersion;
 
-            // Get or create a keystore for this game
             $keystorePath = $this->getOrCreateKeystore($game);
 
-            // Store the keystore path in the build record
             $build->keystore_path = $keystorePath;
             $build->save();
 
             $archivePath = $this->resolver()->resolve($game, $version);
 
-            // Create a temporary directory for extraction
             $extractPath = storage_path('app/temp/android_build_' . $build->build_id);
             File::makeDirectory($extractPath, 0755, true);
 
             try {
-                // Extract the archive
                 $this->extractArchive($archivePath, $extractPath);
 
-                // Find the game directory
                 $gameDir = $this->findGameDirectory($extractPath);
                 if (! $gameDir) {
                     throw new Exception('Could not find the game directory in the archive.');
                 }
 
-                // Build the Android APK
                 $apkPath = $this->buildAndroidApk($gameDir, $game, $version, $build);
 
-                // Store the APK
                 $storagePath = $this->storeApk($apkPath, $game, $version, $build);
 
-                // Update build status
                 $build->status = 'completed';
                 $build->build_path = $storagePath;
                 $build->completed_at = now();
@@ -175,7 +156,6 @@ class AndroidBuildService
                 }
             }
         } catch (Exception $e) {
-            // Log the error
             Log::error('Android build failed', [
                 'build_id' => $build->id,
                 'game_id' => $build->game_id,
@@ -183,7 +163,6 @@ class AndroidBuildService
                 'exception' => $e,
             ]);
 
-            // Update build status
             $build->status = 'failed';
             $build->error_message = $e->getMessage();
             $build->save();
@@ -192,9 +171,6 @@ class AndroidBuildService
         }
     }
 
-    /**
-     * Get the download URL for a completed build
-     */
     public function getDownloadUrl(AndroidBuild $build): ?string
     {
         if ($build->status !== 'completed' || ! $build->build_path) {
@@ -209,9 +185,6 @@ class AndroidBuildService
         return $this->archiveResolver ?? app(AndroidBuildArchiveResolver::class);
     }
 
-    /**
-     * Get an existing keystore for this game or create a new one
-     */
     private function getOrCreateKeystore(Game $game): string
     {
         $keystoreDir = rtrim((string) config('services.android.keystore_path', storage_path('app/keystores')), DIRECTORY_SEPARATOR);
@@ -235,7 +208,6 @@ class AndroidBuildService
         ]);
 
         try {
-            // Use the correct command for generating a keystore with empty passwords
             $process = new SymfonyProcess([
                 'keytool',
                 '-genkey',
@@ -270,7 +242,6 @@ class AndroidBuildService
                     'game_id' => $game->id,
                 ]);
 
-                // Create a simple keystore file with some random data
                 $keystoreData = random_bytes(2048); // Generate some random data
                 File::put($keystorePath, $keystoreData);
             } else {
@@ -292,7 +263,6 @@ class AndroidBuildService
                     'game_id' => $game->id,
                 ]);
 
-                // Create a simple keystore file with some random data
                 $keystoreData = random_bytes(2048); // Generate some random data
                 File::put($keystorePath, $keystoreData);
 
@@ -303,12 +273,8 @@ class AndroidBuildService
         }
     }
 
-    /**
-     * Extract the game archive
-     */
     private function extractArchive(string $archivePath, string $extractPath): void
     {
-        // Use the appropriate extraction method based on the file extension
         $extension = strtolower(pathinfo($archivePath, PATHINFO_EXTENSION));
 
         if ($extension === 'zip') {
@@ -333,9 +299,6 @@ class AndroidBuildService
         }
     }
 
-    /**
-     * Find the game directory in the extracted archive
-     */
     private function findGameDirectory(string $extractPath): ?string
     {
         // Look for common Ren'Py game indicators
@@ -345,7 +308,6 @@ class AndroidBuildService
             'renpy/common',
         ];
 
-        // First, check if the extract path itself is the game directory
         foreach ($indicators as $indicator) {
             if (File::exists("{$extractPath}/{$indicator}")) {
                 return $extractPath;
@@ -365,24 +327,18 @@ class AndroidBuildService
         return null;
     }
 
-    /**
-     * Build the Android APK using the Ren'Py SDK
-     */
     private function buildAndroidApk(string $gameDir, Game $game, GameVersion $version, AndroidBuild $build): string
     {
         $sdkPath = config('services.renpy.sdk_path');
 
-        // Prepare a clean package name based on the game slug
         $packageName = 'li.fvn.' . preg_replace('/[^a-z0-9]/', '', strtolower($game->slug));
 
-        // Create a temporary directory for the build output
         $buildOutputDir = storage_path('app/temp/android_output_' . $build->build_id);
         File::makeDirectory($buildOutputDir, 0755, true);
 
         // No need for a separate build directory, we'll use the game directory directly
 
         try {
-            // Create a basic configuration file for the Android build
             $configPath = $gameDir . '/android.json';
             $config = [
                 'package' => $packageName,
@@ -408,7 +364,6 @@ class AndroidBuildService
 
             File::put($configPath, json_encode($config, JSON_PRETTY_PRINT));
 
-            // Get or create a keystore for this game
             $keystorePath = $this->getOrCreateKeystore($game);
 
             // Copy the keystore to the game directory with the filename android.keystore
@@ -422,10 +377,8 @@ class AndroidBuildService
 
             File::copy(resource_path('renpy/android-presplash.jpg'), $gameDir . '/android-presplash.jpg');
 
-            // Create Android icon from game thumbnail
             $this->createAndroidIcon($game, $gameDir);
 
-            // Create output directory for the APK
             $outputDir = storage_path('app/temp/android_build_output_' . $build->id);
             File::makeDirectory($outputDir, 0755, true, true);
 
@@ -439,7 +392,6 @@ class AndroidBuildService
                 $gameDir,
             ]);
 
-            // Log the command we're about to run
             Log::info('Running Ren\'Py Android build command', [
                 'command' => $process->getCommandLine(),
                 'working_directory' => $sdkPath,
@@ -470,14 +422,12 @@ class AndroidBuildService
 
             Log::info('Android build process completed successfully');
 
-            // Find the generated APK file in the output directory
             $apkPath = null;
 
             // Look for APK files in the output directory
             $files = File::glob($outputDir . '/*.apk');
 
             if (! empty($files)) {
-                // Use the first APK file found
                 $apkPath = $files[0];
                 Log::info('Found APK file', [
                     'path' => $apkPath,
@@ -506,7 +456,6 @@ class AndroidBuildService
      */
     private function convertVersionToNumeric(string $version): int
     {
-        // Extract all numeric characters from the version string
         $numericVersion = preg_replace('/[^0-9]/', '', $version);
 
         // If no numeric characters were found, return 1 as a fallback
@@ -514,13 +463,9 @@ class AndroidBuildService
             return 1;
         }
 
-        // Convert to integer and return
         return (int) $numericVersion;
     }
 
-    /**
-     * Create Android icon from game thumbnail
-     */
     private function createAndroidIcon(Game $game, string $gameDir): void
     {
         app(AndroidIconService::class)->create($game, $gameDir);
@@ -538,10 +483,8 @@ class AndroidBuildService
         $storagePath = "public/android_builds/{$game->id}/{$version->id}";
         $filename = "fvn-li-{$game->slug}-{$version->version}.apk";
 
-        // Ensure directory exists
         Storage::makeDirectory($storagePath);
 
-        // Store the APK
         Storage::putFileAs($storagePath, $apkPath, $filename);
 
         return "{$storagePath}/{$filename}";

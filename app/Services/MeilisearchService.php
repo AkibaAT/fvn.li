@@ -35,7 +35,6 @@ class MeilisearchService
             $search->whereNotIn('id', $ignoredGameIds);
         }
 
-        // Apply filters
         if (! empty($filters['status'])) {
             if (is_array($filters['status'])) {
                 $search->whereIn('status', $filters['status']);
@@ -107,7 +106,6 @@ class MeilisearchService
             }
         }
 
-        // Store platform filter (where game is hosted: itch_io, steam, other)
         if (! empty($filters['platform'])) {
             if (is_array($filters['platform'])) {
                 $search->whereIn('platform', $filters['platform']);
@@ -145,7 +143,6 @@ class MeilisearchService
             $search->where('is_delisted', $filters['is_delisted']);
         }
 
-        // Apply sorting
         $sortableFields = [
             'first_visible_at',
             'latest_version_published_at',

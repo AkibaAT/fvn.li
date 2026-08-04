@@ -18,7 +18,6 @@ use App\Services\VnListCacheService;
 use App\Traits\SortsVnLists;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 
 class VnListGameController extends Controller
 {
@@ -27,11 +26,9 @@ class VnListGameController extends Controller
     public function addGameToList(AddGameToListRequest $request, Game $game): JsonResponse
     {
 
-        // Handle both list_id and list_type parameters
         if ($request->has('list_id')) {
             $vnList = VnList::findOrFail($request->list_id);
         } elseif ($request->has('list_type')) {
-            // Find the user's default list of the specified type
             $vnList = VnList::where('user_id', Auth::id())
                 ->where('type', $request->list_type)
                 ->where('is_default', true)
@@ -40,7 +37,7 @@ class VnListGameController extends Controller
             if (! $vnList) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Default list not found for type: ' . $request->list_type,
+                    'message' => 'Default list not found for type: '.$request->list_type,
                 ], 404);
             }
         } else {
@@ -58,10 +55,8 @@ class VnListGameController extends Controller
 
         // For default lists, toggle behavior: remove if exists, add if doesn't exist
         if ($request->has('list_type') && $existingEntry) {
-            // Remove from list (toggle off)
             $existingEntry->delete();
 
-            // Clear cache if this is a public list
             if ($vnList->is_public) {
                 app(VnListCacheService::class)->clearPublicListsCache();
             }
@@ -83,7 +78,6 @@ class VnListGameController extends Controller
 
         // For default lists with list_type, remove from other default lists first
         if ($request->has('list_type')) {
-            // Remove game from all other default lists for this user
             $otherDefaultLists = VnList::where('user_id', Auth::id())
                 ->where('is_default', true)
                 ->where('type', '!=', $request->list_type)
@@ -95,14 +89,12 @@ class VnListGameController extends Controller
                 ->delete();
         }
 
-        // Add to the specified list
         $entry = VnListEntry::create([
             'vn_list_id' => $vnList->id,
             'game_id' => $game->id,
             'sort_order' => ($vnList->entries()->max('sort_order') ?? 0) + 10,
         ]);
 
-        // Clear cache if this is a public list
         if ($vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -129,7 +121,6 @@ class VnListGameController extends Controller
         if ($existingEntry) {
             $existingEntry->delete();
 
-            // Clear cache if this is a public list
             if ($vnList->is_public) {
                 app(VnListCacheService::class)->clearPublicListsCache();
             }
@@ -147,7 +138,6 @@ class VnListGameController extends Controller
             'sort_order' => ($vnList->entries()->max('sort_order') ?? 0) + 10,
         ]);
 
-        // Clear cache if this is a public list
         if ($vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -186,7 +176,6 @@ class VnListGameController extends Controller
             $updateData
         );
 
-        // Clear cache if this game is in any public lists
         $publicListsContainingGame = VnList::where('is_public', true)
             ->whereHas('entries', function ($query) use ($game) {
                 $query->where('game_id', $game->id);
@@ -215,8 +204,6 @@ class VnListGameController extends Controller
 
         $receiveUpdates = $request->boolean('receive_updates');
 
-        // Use a direct update/insert query for maximum performance
-        // This will be a single query instead of multiple
         UserGameProgress::updateOrCreate(
             [
                 'user_id' => Auth::id(),
@@ -246,7 +233,6 @@ class VnListGameController extends Controller
             ], 401);
         }
 
-        // Get the user's progress for this game
         $progress = UserGameProgress::where('user_id', $authId)
             ->where('game_id', $game->id)
             ->first();
@@ -268,8 +254,7 @@ class VnListGameController extends Controller
         }
         $user = User::findOrFail($authId);
 
-        $baseQuery = method_exists($user, 'vnLists') ? $user->vnLists() : VnList::where('user_id', $user->id);
-        $lists = $baseQuery
+        $lists = $user->vnLists()
             ->select('id', 'name', 'type', 'is_default')
             ->orderBy('created_at')
             ->get();
@@ -292,7 +277,6 @@ class VnListGameController extends Controller
             ], 401);
         }
 
-        // Get all list IDs that contain this game for the authenticated user
         $listIds = VnListEntry::whereHas('list', function ($query) use ($authId) {
             $query->where('user_id', $authId);
         })

@@ -37,17 +37,11 @@ class VnList extends Model
         'is_public' => 'boolean',
     ];
 
-    /**
-     * Get the user that owns the list.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the entries in this list.
-     */
     public function entries(): HasMany
     {
         return $this->hasMany(VnListEntry::class);

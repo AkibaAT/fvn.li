@@ -67,7 +67,6 @@ class UnifiedNotificationService
         string $updateTitle = '',
         ?string $devlog = null
     ): GameVersion {
-        // Create or update game version
         $gameVersion = GameVersion::create([
             'game_id' => $game->id,
             'version' => $updateTitle ?: 'Update',
@@ -94,9 +93,6 @@ class UnifiedNotificationService
         return $gameVersion;
     }
 
-    /**
-     * Get pending notifications for a specific channel
-     */
     public function getPendingNotifications(string $channel, int $limit = 50): \Illuminate\Database\Eloquent\Collection
     {
         return NotificationQueue::where('channel', $channel)

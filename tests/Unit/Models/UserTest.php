@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Hash;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Ensure Laravel app is booted for casts and Hash facade
     $this->user = User::factory()->create();
 });
 
@@ -94,7 +93,6 @@ test('getItchioUrl returns url from social account data', function () {
 });
 
 test('ownsGame uses API data when available', function () {
-    // Create a social account with API game IDs
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -126,7 +124,6 @@ test('ownsGame uses API data when available', function () {
 });
 
 test('ownsGame falls back to URL matching when no API data', function () {
-    // Create a social account without API game IDs (legacy behavior)
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -162,7 +159,6 @@ test('ownsGame returns false when user has no itchio url', function () {
 });
 
 test('ownsGame handles case insensitive domain comparison in fallback mode', function () {
-    // Create a social account without API game IDs (legacy behavior)
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -182,7 +178,6 @@ test('ownsGame handles case insensitive domain comparison in fallback mode', fun
 });
 
 test('ownsGame handles invalid urls gracefully in fallback mode', function () {
-    // Create a social account with invalid URL
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -208,7 +203,6 @@ test('getOwnedGames returns empty collection when no itchio url', function () {
 });
 
 test('getOwnedGames returns games from API data when available', function () {
-    // Create games
     $ownedGame = Game::factory()->create([
         'itch_id' => 12345,
         'url' => ['itch_io' => 'https://testuser.itch.io/owned-game'],
@@ -221,7 +215,6 @@ test('getOwnedGames returns games from API data when available', function () {
         'is_visible' => true,
     ]);
 
-    // Create social account with API game IDs
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -238,19 +231,16 @@ test('getOwnedGames returns games from API data when available', function () {
 });
 
 test('getOwnedGames falls back to URL matching when no API data', function () {
-    // Create games with matching domain
     $ownedGame = Game::factory()->create([
         'url' => ['itch_io' => 'https://testuser.itch.io/owned-game'],
         'is_visible' => true,
     ]);
 
-    // Create game with different domain
     Game::factory()->create([
         'url' => ['itch_io' => 'https://other.itch.io/other-game'],
         'is_visible' => true,
     ]);
 
-    // Create social account without API game IDs
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -267,7 +257,6 @@ test('getOwnedGames falls back to URL matching when no API data', function () {
 });
 
 test('getOwnedGames excludes invisible games', function () {
-    // Create a social account for the test user
     SocialAccount::factory()
         ->for($this->user)
         ->create([
@@ -275,7 +264,6 @@ test('getOwnedGames excludes invisible games', function () {
             'provider_data' => ['url' => 'https://testuser.itch.io'],
         ]);
 
-    // Create invisible game only to test exclusion
     Game::factory()->create([
         'url' => ['itch_io' => 'https://testuser.itch.io/invisible-game'],
         'is_visible' => false,

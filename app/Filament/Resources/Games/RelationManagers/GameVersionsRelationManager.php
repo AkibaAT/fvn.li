@@ -111,14 +111,11 @@ class GameVersionsRelationManager extends RelationManager
                         $jsonData = json_decode(file_get_contents($filePath), true);
 
                         if (! $jsonData) {
-                            // Handle invalid JSON
                             throw new Exception('Invalid JSON file');
                         }
 
-                        // Get the game ID from the relation manager
                         $gameId = $livewire->getOwnerRecord()->id;
 
-                        // Create a new version from the JSON data
                         $version = new GameVersion([
                             'game_id' => $gameId,
                             'version' => $jsonData['version'] ?? 'Imported',
@@ -132,7 +129,6 @@ class GameVersionsRelationManager extends RelationManager
 
                         $version->save();
 
-                        // Process character stats if available
                         // WARNING: This bypasses legacy data protection - only use for importing
                         // new versions or when you're certain the data is not legacy
                         if (isset($jsonData['character_stats']) && is_array($jsonData['character_stats'])) {
@@ -146,7 +142,6 @@ class GameVersionsRelationManager extends RelationManager
                             }
                         }
 
-                        // Process language stats if available
                         if (isset($jsonData['language_stats']) && is_array($jsonData['language_stats'])) {
                             foreach ($jsonData['language_stats'] as $stat) {
                                 $version->languageStats()->create([
@@ -157,7 +152,6 @@ class GameVersionsRelationManager extends RelationManager
                             }
                         }
 
-                        // Process supported languages if available
                         if (isset($jsonData['supported_languages']) && is_array($jsonData['supported_languages'])) {
                             foreach ($jsonData['supported_languages'] as $lang) {
                                 $version->addSupportedLanguage(
@@ -193,11 +187,9 @@ class GameVersionsRelationManager extends RelationManager
                         ->label('Mark as Latest')
                         ->icon('heroicon-o-star')
                         ->action(function ($records) {
-                            // First, unmark all versions for this game
                             $gameId = $records->first()->game_id;
                             $this->getRelationship()->where('game_id', $gameId)->update(['is_latest' => false]);
 
-                            // Then mark the selected version as latest
                             $records->first()->update(['is_latest' => true]);
                         })
                         ->deselectRecordsAfterCompletion(),

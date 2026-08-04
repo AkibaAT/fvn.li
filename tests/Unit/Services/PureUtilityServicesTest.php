@@ -88,7 +88,7 @@ it('builds enhanced API filters while preserving explicit false booleans', funct
         'supported_languages' => ['eng'],
     ]);
 
-    expect($service->buildEnhancedApiFilters($request))->toBe([
+    expect($service->buildApiFilters($request))->toBe([
         'status' => 'Released',
         'is_nsfw' => false,
         'is_paid' => true,

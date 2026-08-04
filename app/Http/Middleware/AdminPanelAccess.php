@@ -10,14 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AdminPanelAccess
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request):Response  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if the user is authenticated and is an admin
         if (! $request->user() || ! $request->user()->is_admin) {
             abort(403, 'You do not have permission to access the admin panel.');
         }

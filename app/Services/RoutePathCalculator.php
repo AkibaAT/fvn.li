@@ -15,7 +15,7 @@ use RuntimeException;
  *
  * Paths are derived from the *built* RouteGraph (the same node/edge set the
  * route-map view and the frontend pathfinder traverse), so a stored path
- * matches what a player sees as a navigable route — including expanded menus,
+ * matches what a player sees as a navigable route, including expanded menus,
  * collapsed return helpers, and condition factoring. Raw route_edges alone
  * bypass all of that and describe routes the visual map does not show.
  */
@@ -295,7 +295,7 @@ class RoutePathCalculator
     }
 
     /**
-     * A player "choice" is the act of selecting a menu option — represented in
+     * A player "choice" is the act of selecting a menu option, represented in
      * the built graph by a `choice` edge entering a choice node. We count one
      * choice per such edge on the path and capture the choice text.
      *

@@ -138,7 +138,7 @@ Analyzing platform support consistency across game versions...
 Game: Example VN (ID: 123)
 [Table showing version inconsistencies]
 
-Game: Another Game (ID: 456)  
+Game: Another Game (ID: 456)
 [Table showing version inconsistencies]
 
 Summary:

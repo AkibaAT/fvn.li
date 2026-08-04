@@ -40,7 +40,6 @@ class VnListEntry extends Model
     protected static function booted()
     {
         static::creating(function ($entry) {
-            // Set initial sort_order to the highest order + 10 for the list
             if (! $entry->sort_order) {
                 $entry->sort_order = static::where('vn_list_id', $entry->vn_list_id)
                     ->max('sort_order') + 10;
@@ -48,17 +47,11 @@ class VnListEntry extends Model
         });
     }
 
-    /**
-     * Get the list that owns the entry.
-     */
     public function list(): BelongsTo
     {
         return $this->belongsTo(VnList::class, 'vn_list_id');
     }
 
-    /**
-     * Get the game that this entry refers to.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);

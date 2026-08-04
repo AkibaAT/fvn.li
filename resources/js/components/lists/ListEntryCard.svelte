@@ -2,7 +2,7 @@
     import type { Attachment } from 'svelte/attachments';
     import { Link } from '@inertiajs/svelte';
     import DragHandle from '@/components/drag-drop/DragHandle.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Button, Card, Switch } from '@/components/ui';
 
     interface GameVersion {
         id: number;
@@ -129,7 +129,6 @@
 </script>
 
 <Card padding="none" class="md:rounded-lg lg:rounded-none">
-    <!-- Desktop View -->
     <div class="hidden items-center p-3 pr-5 lg:flex">
         {#if isOwner}
             <div class="mr-3 flex w-8 shrink-0">
@@ -139,14 +138,12 @@
             <div class="w-8 shrink-0"></div>
         {/if}
 
-        <!-- Thumbnail -->
         <div class="mr-3 w-20 shrink-0">
             <Link href={route('games.show', game.slug)}>
                 <img src={getOptimizedThumbnail(game)} alt={game.effective_name} class="h-16 w-16 rounded object-cover" loading="lazy" />
             </Link>
         </div>
 
-        <!-- Title -->
         <div class="flex-grow">
             <div class="flex items-center gap-2">
                 <Link href={route('games.show', game.slug)} class="font-medium break-words text-blue-600 hover:underline dark:text-blue-400"
@@ -181,7 +178,6 @@
             {/if}
         </div>
 
-        <!-- Version -->
         <div class="w-52">
             {#if currentVersion}
                 <div class="border-l-4 pl-3 {hasUpdate ? 'border-yellow-500' : 'border-transparent'}">
@@ -214,12 +210,10 @@
             {/if}
         </div>
 
-        <!-- Started Date -->
         <div class="w-30 text-sm">
             {userProgress?.started_at || entry.started_at ? new Date(userProgress?.started_at || entry.started_at!).toLocaleDateString() : '-'}
         </div>
 
-        <!-- Completed Date -->
         {#if vnListType === 'custom' || vnListType === 'completed'}
             <div class="w-28 text-sm">
                 {userProgress?.completed_at || entry.completed_at
@@ -228,7 +222,6 @@
             </div>
         {/if}
 
-        <!-- Actions -->
         {#if isOwner}
             <div class="w-20 space-y-2 text-sm">
                 <Button
@@ -271,27 +264,18 @@
                 >
             </div>
 
-            <!-- Notification Toggle -->
             {#if !game.is_paid}
                 <div class="w-30 pr-1">
-                    <label class="relative inline-flex cursor-pointer items-center">
-                        <input
-                            type="checkbox"
-                            checked={userProgress?.receive_updates || false}
-                            onchange={() => onToggleNotification(game, !(userProgress?.receive_updates || false))}
-                            class="peer sr-only"
-                        />
-                        <div
-                            class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
-                        ></div>
-                        <span class="sr-only">{userProgress?.receive_updates ? 'Turn off notifications' : 'Turn on notifications'}</span>
-                    </label>
+                    <Switch
+                        checked={userProgress?.receive_updates || false}
+                        onchange={() => onToggleNotification(game, !(userProgress?.receive_updates || false))}
+                        ariaLabel={userProgress?.receive_updates ? 'Turn off notifications' : 'Turn on notifications'}
+                    />
                 </div>
             {/if}
         {/if}
     </div>
 
-    <!-- Mobile/Tablet View -->
     <div class="relative flex p-4 lg:hidden">
         {#if isOwner}
             <div class="absolute top-1/2 -left-1 flex -translate-y-1/2 items-center">
@@ -304,7 +288,6 @@
         {/if}
 
         <div class="{isOwner ? 'pl-5' : ''} flex gap-4">
-            <!-- Thumbnail -->
             <Link href={route('games.show', game.slug)}>
                 <img
                     src={getOptimizedThumbnail(game)}
@@ -314,7 +297,6 @@
                 />
             </Link>
 
-            <!-- Game Info -->
             <div class="flex-1">
                 <div class="flex items-center gap-2">
                     <Link href={route('games.show', game.slug)} class="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
@@ -450,18 +432,11 @@
                         {#if !game.is_paid}
                             <div class="flex items-center justify-start gap-3">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications</span>
-                                <label class="relative inline-flex cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={userProgress?.receive_updates || false}
-                                        onchange={() => onToggleNotification(game, !(userProgress?.receive_updates || false))}
-                                        class="peer sr-only"
-                                    />
-                                    <div
-                                        class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
-                                    ></div>
-                                    <span class="sr-only">{userProgress?.receive_updates ? 'Turn off notifications' : 'Turn on notifications'}</span>
-                                </label>
+                                <Switch
+                                    checked={userProgress?.receive_updates || false}
+                                    onchange={() => onToggleNotification(game, !(userProgress?.receive_updates || false))}
+                                    ariaLabel={userProgress?.receive_updates ? 'Turn off notifications' : 'Turn on notifications'}
+                                />
                             </div>
                         {/if}
                     </div>
@@ -470,7 +445,6 @@
         </div>
     </div>
 
-    <!-- Edit Form -->
     {#if isEditing && isOwner}
         <div class="border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-700">
             <div class="space-y-4">
@@ -562,7 +536,6 @@
         </div>
     {/if}
 
-    <!-- Move Form -->
     {#if isMoving && isOwner && moveLists.length > 0}
         <div class="border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-700">
             <div class="space-y-4">

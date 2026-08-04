@@ -101,9 +101,7 @@
         class="mb-0"
     />
 
-    <!-- Main review card -->
     <Card variant="outline" padding="lg">
-        <!-- Game info -->
         {#if review.game}
             <Link
                 href={route('games.show', review.game.slug)}
@@ -119,7 +117,6 @@
             </Link>
         {/if}
 
-        <!-- Author and rating -->
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 {#if review.user?.avatar}
@@ -162,7 +159,6 @@
                 </div>
             </div>
 
-            <!-- Star rating -->
             <div class="flex items-center gap-1">
                 {#each Array(5) as _, i (i)}
                     <svg
@@ -272,7 +268,7 @@
                             onclick={() => (spoilerRevealed = true)}
                             class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 transition-colors hover:bg-yellow-100 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/50"
                         >
-                            This review contains spoilers — click to reveal
+                            This review contains spoilers. Click to reveal.
                         </Button>
                     {:else if review.review}
                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -281,7 +277,7 @@
                 </div>
             {/if}
             {#if !review.review}
-                <p class="mt-4 text-gray-500 italic dark:text-gray-400">Rating only — no written review.</p>
+                <p class="mt-4 text-gray-500 italic dark:text-gray-400">Rating only, no written review.</p>
             {/if}
             {#if isOwnReview && review.game}
                 <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">

@@ -35,22 +35,18 @@ beforeEach(function () {
 });
 
 test('process screenshots command', function () {
-    // Create a test image with specific dimensions
     $imageWidth = 800;
     $imageHeight = 400;
 
-    // Create a test PNG image
     $image = imagecreatetruecolor($imageWidth, $imageHeight);
     imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
 
-    // Save the image to a temporary file
     $tempFile = tempnam(sys_get_temp_dir(), 'test_image_');
     imagepng($image, $tempFile);
 
     // Read the image data
     $imageData = file_get_contents($tempFile);
 
-    // Create a mock HTTP client that returns our test image
     $mock = new MockHandler([
         new Response(200, ['Content-Type' => 'image/png'], $imageData),
     ]);
@@ -58,7 +54,6 @@ test('process screenshots command', function () {
     $handlerStack = HandlerStack::create($mock);
     $client = new Client(['handler' => $handlerStack]);
 
-    // Create a game with a screenshot
     $game = Game::factory()->create([
         'is_visible' => true,
         'screenshots' => [
@@ -68,7 +63,6 @@ test('process screenshots command', function () {
         ],
     ]);
 
-    // Create and run the command with our mocked client and image processing service
     $imageProcessingService = $this->app->make(ImageProcessingService::class);
     $command = new ProcessGameScreenshots($client, $imageProcessingService, new ImageDownloadUrlValidator);
     $this->app->instance(ProcessGameScreenshots::class, $command);
@@ -81,7 +75,6 @@ test('process screenshots command', function () {
     // Refresh the game from the database
     $game->refresh();
 
-    // Check that the screenshots were processed
     expect($game->screenshots[0])->toHaveKey('optimized');
 
     // Debug the structure
@@ -89,7 +82,6 @@ test('process screenshots command', function () {
 
     // Verify that all variants were created
     foreach (array_keys(VARIANTS) as $variant) {
-        // Check if the variant exists in the optimized array
         expect(isset($optimized[$variant]))->toBeTrue("Variant {$variant} was not created");
 
         $data = $optimized[$variant];

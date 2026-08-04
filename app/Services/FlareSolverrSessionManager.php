@@ -35,7 +35,7 @@ class FlareSolverrSessionManager
                 ]);
                 $this->flareSolverr->destroySession($this->activeSessionId);
             } catch (Exception $e) {
-                // Silently fail in destructor
+                report($e);
             }
         }
     }
@@ -66,7 +66,6 @@ class FlareSolverrSessionManager
                 'command' => $commandName,
             ]);
 
-            // Use command name as session ID to prevent cross-talk
             $sessionId = $this->normalizeSessionId($commandName);
             $this->activeSessionId = $this->flareSolverr->createSession($sessionId);
             $this->sessionActive = true;

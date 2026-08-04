@@ -26,29 +26,21 @@ class EditGameVersion extends EditRecord
         ];
     }
 
-    /**
-     * Load the supported languages into the form data
-     */
     protected function mutateFormDataBeforeFill(array $data): array
     {
         /** @var GameVersion $gameVersion */
         $gameVersion = $this->record;
 
-        // Load supported languages
         $data['supported_languages'] = $this->loadSupportedLanguages($gameVersion);
 
         return $data;
     }
 
-    /**
-     * Handle the supported languages after the record is saved
-     */
     protected function afterSave(): void
     {
         /** @var GameVersion $gameVersion */
         $gameVersion = $this->record;
 
-        // Save the supported languages
         if (isset($this->data['supported_languages']) && is_array($this->data['supported_languages'])) {
             $this->saveSupportedLanguages($gameVersion, $this->data['supported_languages']);
         }

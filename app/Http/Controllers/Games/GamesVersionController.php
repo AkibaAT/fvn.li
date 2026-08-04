@@ -44,9 +44,6 @@ class GamesVersionController extends Controller
         return response()->json($cachedResult);
     }
 
-    /**
-     * Get all versions for a game
-     */
     public function getGameVersions(Request $request, $gameId): JsonResponse
     {
         $game = Game::findOrFail($gameId);
@@ -95,7 +92,6 @@ class GamesVersionController extends Controller
             }
         }
 
-        // Filter out placeholder 'q' codes and null language relationships to prevent frontend errors
         $versions->getCollection()->transform(function ($version) use ($routeDataVersionIds) {
             $version->supportedLanguages = $version->supportedLanguages
                 ->filter(fn ($sl) => $sl->language !== null && ! str_starts_with($sl->iso_code, 'q'))
@@ -116,16 +112,12 @@ class GamesVersionController extends Controller
         ]);
     }
 
-    /**
-     * Get character statistics for a specific game version
-     */
     public function getVersionCharacterStats(Game $game, GameVersion $version): JsonResponse
     {
         if ($version->game_id !== $game->id) {
             return response()->json(['error' => 'Version does not belong to this game'], 400);
         }
 
-        // Get available language codes for this version
         $availableLanguages = $version->supportedLanguages()
             ->where('is_available', true)
             ->pluck('iso_code')
@@ -140,17 +132,13 @@ class GamesVersionController extends Controller
                 && $stat->character?->character_id !== 'alt' // Exclude alt text from word counts
                 && in_array($stat->iso_code, $availableLanguages)); // Only include available languages
 
-        // Group by language
         $groupedByLanguage = $characterStats->groupBy('iso_code');
 
-        // Extract unique character names (ordered alphabetically by English display name)
-        // Use English as the primary language for character names
         $characterIdToName = []; // Map character IDs to their English display names
 
         foreach ($characterStats as $stat) {
             $characterId = $stat->character_id;
 
-            // Get the character's display name in English (or fallback to character_id)
             if (! isset($characterIdToName[$characterId])) {
                 $characterIdToName[$characterId] = $stat->character->getDisplayName('eng')
                     ?? $stat->character->character_id
@@ -158,14 +146,11 @@ class GamesVersionController extends Controller
             }
         }
 
-        // Get unique character names and sort alphabetically (case-insensitive)
         $characters = array_unique(array_values($characterIdToName));
         sort($characters, SORT_STRING | SORT_FLAG_CASE);
 
-        // Extract languages and sort (English first, then alphabetically by ISO code)
         $languages = $groupedByLanguage->map(function ($stats, $isoCode) {
             $language = $stats->first()->language;
-            // Skip if language relationship is null
             if ($language === null) {
                 return null;
             }
@@ -180,7 +165,6 @@ class GamesVersionController extends Controller
             return $language['id'] === 'eng' ? '0' : '1' . $language['id'];
         })->values()->toArray();
 
-        // Build word counts matrix: character -> language -> word count
         // Sum word counts for characters with the same display name (e.g., 'f' and 'f2' both named "Fred")
         $wordCounts = [];
         foreach ($characterStats as $stat) {
@@ -193,7 +177,6 @@ class GamesVersionController extends Controller
             $wordCounts[$characterName][$isoCode] = ($wordCounts[$characterName][$isoCode] ?? 0) + $stat->words;
         }
 
-        // Calculate language totals
         $languageTotals = [];
         foreach ($groupedByLanguage as $isoCode => $stats) {
             $languageTotals[$isoCode] = $stats->sum('words');
@@ -210,9 +193,6 @@ class GamesVersionController extends Controller
         ]);
     }
 
-    /**
-     * Get file statistics for a specific game version
-     */
     public function getVersionFileStats(Game $game, GameVersion $version): JsonResponse
     {
         if ($version->game_id !== $game->id) {
@@ -263,9 +243,6 @@ class GamesVersionController extends Controller
         }
     }
 
-    /**
-     * Generate version comparison data
-     */
     private function generateVersionComparison(Game $game, $fromVersionId, $toVersionId): array
     {
         $versions = GameVersion::query()

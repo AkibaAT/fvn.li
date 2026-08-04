@@ -53,13 +53,11 @@ beforeEach(function () {
         ]);
     }
 
-    // Create a test game
     $this->game = Game::factory()->create([
         'name' => 'Test Visual Novel',
         'slug' => 'test-visual-novel',
     ]);
 
-    // Create a test version
     $this->version = GameVersion::factory()->for($this->game)->latest()->create([
         'version' => '1.0.0',
         'published_at' => now(),
@@ -117,7 +115,6 @@ describe('character stats endpoint', function () {
     });
 
     test('returns character stats with correct structure', function () {
-        // Create test characters
         $character1 = Character::create([
             'game_id' => $this->game->id,
             'character_id' => 'protagonist',
@@ -130,7 +127,6 @@ describe('character stats endpoint', function () {
             'display_names' => ['eng' => 'Narrator', 'fra' => 'Narrateur'],
         ]);
 
-        // Create character stats
         VersionCharacterStats::create([
             'game_version_id' => $this->version->id,
             'character_id' => $character1->id,
@@ -184,7 +180,6 @@ describe('character stats endpoint', function () {
     });
 
     test('sorts characters alphabetically case-insensitive', function () {
-        // Create characters with mixed case names
         $charA = Character::create([
             'game_id' => $this->game->id,
             'character_id' => 'char_a',
@@ -203,7 +198,6 @@ describe('character stats endpoint', function () {
             'display_names' => ['eng' => 'Charlie'],
         ]);
 
-        // Create stats
         foreach ([$charA, $charB, $charC] as $char) {
             VersionCharacterStats::create([
                 'game_version_id' => $this->version->id,
@@ -226,14 +220,12 @@ describe('character stats endpoint', function () {
     });
 
     test('ensures english language appears first', function () {
-        // Create a character with multiple languages
         $character = Character::create([
             'game_id' => $this->game->id,
             'character_id' => 'test_char',
             'display_names' => ['eng' => 'Test', 'fra' => 'Test'],
         ]);
 
-        // Create stats for French first (alphabetically before English)
         VersionCharacterStats::create([
             'game_version_id' => $this->version->id,
             'character_id' => $character->id,
@@ -320,7 +312,6 @@ describe('file stats endpoint', function () {
     });
 
     test('returns file stats with correct structure', function () {
-        // Create file categories
         $imageCategory = VersionFileCategory::create([
             'game_version_id' => $this->version->id,
             'category' => 'image',
@@ -335,7 +326,6 @@ describe('file stats endpoint', function () {
             'total_size' => 75000000, // 75 MB
         ]);
 
-        // Create file types for image category
         VersionFileType::create([
             'version_file_category_id' => $imageCategory->id,
             'extension' => 'webp',
@@ -350,7 +340,6 @@ describe('file stats endpoint', function () {
             'size' => 20000000,
         ]);
 
-        // Create file types for audio category
         VersionFileType::create([
             'version_file_category_id' => $audioCategory->id,
             'extension' => 'ogg',
@@ -383,14 +372,12 @@ describe('file stats endpoint', function () {
         // Verify we have both categories
         expect($data['file_categories'])->toHaveCount(2);
 
-        // Find image category
         $imageData = collect($data['file_categories'])->firstWhere('category', 'image');
         expect($imageData)->not->toBeNull();
         expect($imageData['total_count'])->toBe(150);
         expect($imageData['total_size'])->toBe(50000000);
         expect($imageData['file_types'])->toHaveCount(2);
 
-        // Find audio category
         $audioData = collect($data['file_categories'])->firstWhere('category', 'audio');
         expect($audioData)->not->toBeNull();
         expect($audioData['total_count'])->toBe(25);
@@ -437,7 +424,6 @@ describe('file stats endpoint', function () {
     });
 
     test('handles all file categories correctly', function () {
-        // Create all possible categories
         $categories = ['image', 'audio', 'video', 'other'];
 
         foreach ($categories as $index => $categoryName) {
@@ -478,7 +464,6 @@ describe('file stats endpoint', function () {
             'total_size' => 100000000,
         ]);
 
-        // Create multiple file types
         VersionFileType::create([
             'version_file_category_id' => $category->id,
             'extension' => 'webp',

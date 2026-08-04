@@ -77,57 +77,6 @@ You can manually trigger the deployment workflow:
 2. Add the page to the navigation in `in.tree`
 3. Use Writerside markup for enhanced formatting
 
-### Writerside Features
-
-The documentation uses advanced Writerside features:
-
-- **Tables** with proper formatting
-- **Tabs** for multiple examples
-- **Code blocks** with syntax highlighting
-- **Procedures** for step-by-step instructions
-- **Definition lists** for options and concepts
-- **Cross-references** between pages
-
-### Example Markup
-
-```markdown
-# Page Title
-
-## Section with Tabs
-
-<tabs>
-<tab title="Example 1">
-<code-block lang="bash">
-php artisan command --option
-</code-block>
-</tab>
-<tab title="Example 2">
-<code-block lang="bash">
-php artisan command --other-option
-</code-block>
-</tab>
-</tabs>
-
-## Procedure Example
-
-<procedure title="How to do something">
-<step>First step description</step>
-<step>Second step description</step>
-<step>Final step description</step>
-</procedure>
-
-## Definition List
-
-<deflist>
-<def title="Term 1">
-Definition of the first term
-</def>
-<def title="Term 2">
-Definition of the second term
-</def>
-</deflist>
-```
-
 ## Configuration
 
 ### Build Profiles

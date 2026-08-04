@@ -29,13 +29,9 @@ class ProcessAuditLog implements ShouldQueue
      */
     public int $timeout = 60;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(
         public readonly array $auditData
     ) {
-        // Set queue name from config
         $this->onQueue(config('audit.queue_name', 'audit'));
     }
 
@@ -45,7 +41,6 @@ class ProcessAuditLog implements ShouldQueue
     public function handle(): void
     {
         try {
-            // First attempt as-is
             ChangeLog::create($this->auditData);
         } catch (Throwable $e) {
             Log::warning('Audit log creation failed on attempt ' . $this->attempts(), [
@@ -94,9 +89,6 @@ class ProcessAuditLog implements ShouldQueue
         }
     }
 
-    /**
-     * Handle a job failure.
-     */
     public function failed(?Throwable $exception): void
     {
         Log::error('Audit log job failed permanently', [
@@ -106,9 +98,6 @@ class ProcessAuditLog implements ShouldQueue
         ]);
     }
 
-    /**
-     * Determine the time at which the job should timeout.
-     */
     public function retryUntil(): DateTime
     {
         return now()->addMinutes(10);

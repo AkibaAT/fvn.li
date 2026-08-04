@@ -1,7 +1,6 @@
 import type { BadgeTone } from './Badge.svelte';
-import type { CardTone } from './Card.svelte';
 
-export const listTypeTones = {
+const listTypeTones = {
     reading: 'primary',
     completed: 'success',
     plan_to_read: 'warning',
@@ -9,7 +8,7 @@ export const listTypeTones = {
     dropped: 'danger',
 } as const satisfies Record<string, BadgeTone>;
 
-export const listTypeBorderClasses = {
+const listTypeBorderClasses = {
     reading: 'border-blue-500',
     completed: 'border-green-500',
     plan_to_read: 'border-amber-500',
@@ -18,7 +17,7 @@ export const listTypeBorderClasses = {
     default: 'border-gray-500',
 } as const;
 
-export const listTypeDotClasses = {
+const listTypeDotClasses = {
     reading: 'bg-blue-500',
     completed: 'bg-green-500',
     plan_to_read: 'bg-amber-500',
@@ -30,12 +29,6 @@ export const listTypeDotClasses = {
 export function listTypeTone(type: string | undefined): BadgeTone {
     if (!type) return 'neutral';
     return listTypeTones[type as keyof typeof listTypeTones] ?? 'neutral';
-}
-
-export function listTypeCardTone(type: string | undefined): CardTone {
-    const tone = listTypeTone(type);
-    if (tone === 'orange' || tone === 'purple') return 'warning';
-    return tone;
 }
 
 export function listTypeBorderClass(type: string | undefined): string {

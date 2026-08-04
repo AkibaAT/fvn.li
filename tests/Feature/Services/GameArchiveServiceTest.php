@@ -19,7 +19,6 @@ beforeEach(function () {
     $statsService = $this->createMock(GameStatsService::class);
     $this->archiveService = new GameArchiveService($statsService);
 
-    // Set up the storage facade to use the 'testing' disk
     Storage::fake('local');
 });
 
@@ -53,6 +52,10 @@ function checkFileNotExists(int $gameId, int $versionId, string $filename): void
 
 function invokeGameArchiveServiceMethod(GameArchiveService $service, string $method, array $arguments = []): mixed
 {
+    if (! method_exists($service, $method)) {
+        return app(ItchDownloadUrlResolver::class)->{$method}(...$arguments);
+    }
+
     $reflection = new ReflectionClass($service);
     $methodReflection = $reflection->getMethod($method);
     $methodReflection->setAccessible(true);
@@ -61,10 +64,8 @@ function invokeGameArchiveServiceMethod(GameArchiveService $service, string $met
 }
 
 test('cleanup old version downloads', function () {
-    // Create a game with multiple versions
     $game = Game::factory()->create();
 
-    // Create three versions for the game
     $version1 = GameVersion::factory()->create([
         'game_id' => $game->id,
         'version' => '1.0',
@@ -86,7 +87,6 @@ test('cleanup old version downloads', function () {
         'is_latest' => true,
     ]);
 
-    // Create test files for each version
     createTestFile($game->id, $version1->id, 'game_v1.zip');
     createTestFile($game->id, $version2->id, 'game_v2.zip');
     createTestFile($game->id, $version3->id, 'game_v3.zip');
@@ -106,11 +106,9 @@ test('cleanup old version downloads', function () {
 });
 
 test('cleanup all old version downloads', function () {
-    // Create two games with multiple versions each
     $game1 = Game::factory()->create();
     $game2 = Game::factory()->create();
 
-    // Create versions for game 1
     $game1v1 = GameVersion::factory()->create([
         'game_id' => $game1->id,
         'version' => '1.0',
@@ -125,7 +123,6 @@ test('cleanup all old version downloads', function () {
         'is_latest' => true,
     ]);
 
-    // Create versions for game 2
     $game2v1 = GameVersion::factory()->create([
         'game_id' => $game2->id,
         'version' => '1.0',
@@ -140,7 +137,6 @@ test('cleanup all old version downloads', function () {
         'is_latest' => true,
     ]);
 
-    // Create test files for each version
     createTestFile($game1->id, $game1v1->id, 'game1_v1.zip');
     createTestFile($game1->id, $game1v2->id, 'game1_v2.zip');
     createTestFile($game2->id, $game2v1->id, 'game2_v1.zip');

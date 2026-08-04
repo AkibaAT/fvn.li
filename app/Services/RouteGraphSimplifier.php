@@ -10,7 +10,7 @@ class RouteGraphSimplifier
 {
     public function build(Collection $labels, Collection $edges, array $wordCounts = []): array
     {
-        // Pre-index edges for O(1) lookup instead of O(n) per label
+        // Edge indexes keep label traversal linear in the graph size.
         $outgoing = [];
         $incoming = [];
         foreach ($labels as $label) {

@@ -35,17 +35,11 @@ class DiscordServerConfig extends Model
         'update_embed' => 'array',
     ];
 
-    /**
-     * Get the Discord server this config belongs to.
-     */
     public function server(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
     }
 
-    /**
-     * Get the notification template for this server.
-     */
     public function getNotificationTemplate(): string
     {
         if ($this->notification_format === 'custom' && $this->custom_template) {
@@ -74,17 +68,11 @@ class DiscordServerConfig extends Model
         return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
 
-    /**
-     * Check if config is valid.
-     */
     public function isValid(): bool
     {
         return $this->notification_channel_id !== null;
     }
 
-    /**
-     * Get default template for a format.
-     */
     private function getDefaultTemplate(string $format): string
     {
         return match ($format) {

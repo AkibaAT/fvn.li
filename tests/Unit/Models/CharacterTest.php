@@ -124,17 +124,14 @@ test('character has dialogue lines relationship', function () {
 });
 
 test('countUniqueCharactersInLanguage excludes narrator and menu_choice', function () {
-    // Create narrator character (should be excluded)
     $narrator = Character::factory()->for($this->game)->create([
         'character_id' => 'narrator',
     ]);
 
-    // Create menu choice character (should be excluded)
     $menuChoice = Character::factory()->for($this->game)->create([
         'character_id' => 'menu_choice',
     ]);
 
-    // Create version stats for all characters
     VersionCharacterStats::factory()
         ->for($this->character)
         ->for($this->version, 'gameVersion')
@@ -190,7 +187,6 @@ test('countUniqueCharactersInLanguage filters by version', function () {
 });
 
 test('countUniqueCharactersInLanguage counts unique display names', function () {
-    // Create two characters with same display name (but first character has correction)
     $character2 = Character::factory()->for($this->game)->create([
         'character_id' => 'character_2',
         'display_names' => [

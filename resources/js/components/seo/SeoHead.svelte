@@ -221,18 +221,14 @@
         <title>{finalBrowserTitle}</title>
     {/if}
 
-    <!-- Basic Meta Tags -->
     {#if description}<meta name="description" content={description} />{/if}
     {#if keywords}<meta name="keywords" content={keywords} />{/if}
     {#if author}<meta name="author" content={author} />{/if}
 
-    <!-- Robots Directive -->
     {#if noindex}<meta name="robots" content="noindex" />{/if}
 
-    <!-- Canonical URL -->
     {#if canonical}<link rel="canonical" href={canonical} />{/if}
 
-    <!-- Open Graph / Facebook -->
     {#if finalSocialTitle}<meta property="og:title" content={finalSocialTitle} />{/if}
     {#if description}<meta property="og:description" content={description} />{/if}
     {#if image}<meta property="og:image" content={image} />{/if}
@@ -250,20 +246,17 @@
         {/each}
     {/if}
 
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content={twitterCard} />
     {#if finalSocialTitle}<meta name="twitter:title" content={finalSocialTitle} />{/if}
     {#if description}<meta name="twitter:description" content={description} />{/if}
     {#if image}<meta name="twitter:image" content={image} />{/if}
     {#if url}<meta name="twitter:url" content={url} />{/if}
 
-    <!-- Structured Data -->
     {#if structuredDataScript}
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html structuredDataScript}
     {/if}
 
-    <!-- Additional custom meta tags -->
     {#if children}
         {@render children()}
     {/if}

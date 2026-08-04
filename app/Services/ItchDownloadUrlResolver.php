@@ -161,7 +161,9 @@ class ItchDownloadUrlResolver
     {
         try {
             $document = HTMLDocument::createFromString($html, LIBXML_NOERROR | LIBXML_COMPACT);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            report($exception);
+
             return null;
         }
 

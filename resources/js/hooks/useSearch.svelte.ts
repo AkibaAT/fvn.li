@@ -65,7 +65,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         lastSearchQuery = searchTerm.trim();
     };
 
-    // Get search term from URL if on games index page
     const initializeSearchFromUrl = () => {
         syncSearchTermFromCurrentRoute();
     };
@@ -167,7 +166,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         }, debounceMs);
     };
 
-    // Handle search form submission
     const handleSearchSubmit = (e: Event) => {
         e.preventDefault();
 
@@ -182,7 +180,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         router.visit(gamesIndexUrl(params));
     };
 
-    // Handle search input change with live search
     const handleSearchChange = (e: Event) => {
         const value = (e.target as HTMLInputElement).value;
         searchTerm = value;
@@ -192,7 +189,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         performLiveSearch(value);
     };
 
-    // Handle search clear
     const handleSearchClear = () => {
         searchTerm = '';
         lastSearchQuery = '';

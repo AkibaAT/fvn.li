@@ -31,25 +31,16 @@ class NotificationQueue extends Model
         'meta_data' => 'array',
     ];
 
-    /**
-     * Get the user this notification is for.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the game this notification is for.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Get the game version this notification is for.
-     */
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);

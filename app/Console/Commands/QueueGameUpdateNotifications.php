@@ -38,9 +38,6 @@ class QueueGameUpdateNotifications extends Command
      */
     protected NotificationService $notificationService;
 
-    /**
-     * Create a new command instance.
-     */
     public function __construct(NotificationService $notificationService)
     {
         parent::__construct();
@@ -66,7 +63,6 @@ class QueueGameUpdateNotifications extends Command
         $this->info("Checking for games updated in the last {$days} days...");
 
         try {
-            // Find games that have been updated in the specified period
             $latestDate = Carbon::now()->subDays($days);
 
             // Quick check if there's any work to do (performance optimization)
@@ -81,7 +77,6 @@ class QueueGameUpdateNotifications extends Command
             if (! $hasRecentUpdates) {
                 $this->info('No recently updated games found, skipping notification processing');
 
-                // Log performance metrics for early exit
                 $this->logPerformanceMetrics(
                     startTime: $startTime,
                     startMemory: $startMemory,
@@ -112,7 +107,6 @@ class QueueGameUpdateNotifications extends Command
             foreach ($recentlyUpdatedGames as $game) {
                 $this->info("Processing notifications for game: {$game->name}");
 
-                // Skip if no latest version
                 if (! $game->latestVersion) {
                     $this->warn("No latest version found for game {$game->name}, skipping...");
 
@@ -127,7 +121,6 @@ class QueueGameUpdateNotifications extends Command
                     'updated_at' => now(),
                 ]);
 
-                // Find users who follow this game and should receive updates
                 $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
 
                 $this->info('Found ' . count($usersToNotify) . " users to notify for {$game->name}");
@@ -147,8 +140,6 @@ class QueueGameUpdateNotifications extends Command
                     if ((bool) $user->discord_notifications_enabled && (bool) $user->has_discord_account) {
                         $channelsToNotify[] = 'discord';
                     }
-
-                    // Add more channels here as needed
 
                     foreach ($channelsToNotify as $channel) {
                         // Database unique constraint will prevent duplicates more reliably
@@ -179,7 +170,6 @@ class QueueGameUpdateNotifications extends Command
 
             $this->info("Successfully queued {$notificationCount} notifications");
 
-            // Log performance metrics for successful run
             $this->logPerformanceMetrics(
                 startTime: $startTime,
                 startMemory: $startMemory,
@@ -202,17 +192,8 @@ class QueueGameUpdateNotifications extends Command
         }
     }
 
-    /**
-     * Get users who should be notified about a game update.
-     *
-     * IMPORTANT: This method was fixed to handle users who enable notifications
-     * without adding games to their reading lists. Previously, it required users
-     * to have the game in a VN list, but users can enable notifications independently
-     * via the notification toggle on game pages.
-     */
     protected function getUsersToNotify(int $gameId, int $gameVersionId): array
     {
-        // Get all users who have receive_updates=true for this game in user_game_progress
         // This includes users who enabled notifications without adding the game to a list
         return DB::table('user_game_progress')
             ->select([
@@ -220,7 +201,6 @@ class QueueGameUpdateNotifications extends Command
                 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled',
                 'user_notification_preferences.notification_digest',
-                // Check if user has Discord account in a single query (performance optimization)
                 DB::raw('EXISTS(SELECT 1 FROM social_accounts WHERE social_accounts.user_id = users.id AND social_accounts.provider_name = \'discord\') as has_discord_account'),
             ])
             ->join('users', 'user_game_progress.user_id', '=', 'users.id')
@@ -235,7 +215,6 @@ class QueueGameUpdateNotifications extends Command
             ->where('user_game_progress.receive_updates', '=', true)
             ->where('games.is_paid', '=', false)
             ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
-            // Ensure user has at least one notification channel enabled
             ->where(function ($query) {
                 $query->where('user_notification_preferences.browser_notifications_enabled', '=', true)
                     ->orWhere('user_notification_preferences.discord_notifications_enabled', '=', true);
@@ -258,10 +237,8 @@ class QueueGameUpdateNotifications extends Command
         string $digestType,
         Game $game
     ): void {
-        // Calculate when this notification should be sent based on digest setting
         $scheduledAt = $this->calculateScheduledTime($digestType);
 
-        // Prepare notification payload
         $payload = [
             'title' => $game->name . ' - New Update Available',
             'body' => 'Version ' . $game->latestVersion->version . ' is now available.',
@@ -286,24 +263,18 @@ class QueueGameUpdateNotifications extends Command
         ]);
     }
 
-    /**
-     * Calculate when the notification should be scheduled based on digest type.
-     */
     protected function calculateScheduledTime(string $digestType): Carbon
     {
         $now = Carbon::now();
 
         switch ($digestType) {
             case 'asap':
-                // Send immediately
                 return $now;
 
             case 'daily':
-                // Send at 9 AM the next day
                 return $now->copy()->addDay()->setHour(9)->setMinute(0)->setSecond(0);
 
             case 'weekly':
-                // Send at 9 AM on Sunday
                 $daysUntilSunday = 7 - $now->dayOfWeek;
                 if ($daysUntilSunday === 0) {
                     $daysUntilSunday = 7; // If today is Sunday, schedule for next Sunday
@@ -344,7 +315,6 @@ class QueueGameUpdateNotifications extends Command
             'early_exit' => $earlyExit,
         ];
 
-        // Log to Laravel log
         Log::info('QueueGameUpdateNotifications performance', $metrics);
 
         // Output summary to console

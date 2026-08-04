@@ -29,9 +29,6 @@ class FixIncrementalPlatformSupport extends Command
 
     private int $gamesWithIssues = 0;
 
-    /**
-     * Get the console command help text.
-     */
     public function getHelp(): string
     {
         return <<<'HELP'
@@ -128,14 +125,12 @@ HELP;
                 'is_web' => $version->is_web,
             ];
 
-            // Update cumulative platforms (once a platform is supported, it stays supported)
             foreach ($this->platforms as $platform) {
                 if ($currentPlatforms[$platform]) {
                     $cumulativePlatforms[$platform] = true;
                 }
             }
 
-            // Check if current version has fewer platforms than it should
             $missingPlatforms = [];
             foreach ($this->platforms as $platform) {
                 if ($cumulativePlatforms[$platform] && ! $currentPlatforms[$platform]) {
@@ -143,7 +138,6 @@ HELP;
                 }
             }
 
-            // Store version info for table display
             $versionIssues[] = [
                 'version' => $version->version,
                 'is_latest' => $version->is_latest,
@@ -217,7 +211,7 @@ HELP;
         $this->info("Games with platform issues: {$this->gamesWithIssues}");
 
         if ($this->gamesWithIssues === 0) {
-            $this->info('<fg=green>No platform support inconsistencies found!</fg=green>');
+            $this->info('<fg=green>No platform support inconsistencies found.</fg=green>');
         } else {
             $this->warn("Found platform support inconsistencies in {$this->gamesWithIssues} games.");
             $this->line('');
