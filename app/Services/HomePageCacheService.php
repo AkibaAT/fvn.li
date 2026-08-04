@@ -36,7 +36,6 @@ class HomePageCacheService
      */
     public static function clearTeasers(): void
     {
-        // Clear all teaser caches by using cache tags (if available) or pattern matching
         // For now, we'll use a simple prefix-based approach
 
         // Since we can't easily clear all pattern-based keys without tags,
@@ -46,9 +45,6 @@ class HomePageCacheService
         Log::debug('Invalidated all home.teasers caches');
     }
 
-    /**
-     * Get the current teaser cache version.
-     */
     public static function getTeaserVersion(): int
     {
         return (int) Cache::get('home.teasers.version', 1);

@@ -21,9 +21,6 @@ class PushSubscription extends Model
         'subscription_data' => 'array',
     ];
 
-    /**
-     * Get the user this push subscription belongs to.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

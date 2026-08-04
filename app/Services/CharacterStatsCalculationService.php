@@ -23,10 +23,6 @@ class CharacterStatsCalculationService
 
     public const DATA_LEVEL_FULL_DETAIL = 'full_detail';
 
-    /**
-     * Check if we can safely create missing character stats for a version.
-     * This is more permissive than updates - we can create if we have dialogue lines.
-     */
     public function canCreateCharacterStats(int $versionId): bool
     {
         $dataLevel = $this->getVersionDataLevel($versionId);
@@ -34,19 +30,13 @@ class CharacterStatsCalculationService
         return in_array($dataLevel, [self::DATA_LEVEL_FULL_DETAIL]);
     }
 
-    /**
-     * Determine the data completeness level for a version.
-     * This tells us what kind of updates are safe to perform.
-     */
     public function getVersionDataLevel(int $versionId): string
     {
-        // Check if we have full dialogue line details
         $hasDialogueLines = DB::table('version_dialogue_lines')
             ->where('game_version_id', $versionId)
             ->exists();
 
         if ($hasDialogueLines) {
-            // Check if dialogue lines have text_id references to unique_dialogue_texts
             $hasTextDetails = DB::table('version_dialogue_lines')
                 ->where('game_version_id', $versionId)
                 ->whereNotNull('text_id')
@@ -57,7 +47,6 @@ class CharacterStatsCalculationService
             }
         }
 
-        // Check if we have character-level stats
         $hasCharacterStats = DB::table('version_character_stats')
             ->where('game_version_id', $versionId)
             ->exists();
@@ -66,7 +55,6 @@ class CharacterStatsCalculationService
             return self::DATA_LEVEL_CHARACTER_STATS;
         }
 
-        // Check if we have language-level stats
         $hasLanguageStats = DB::table('version_language_stats')
             ->where('game_version_id', $versionId)
             ->exists();
@@ -78,11 +66,6 @@ class CharacterStatsCalculationService
         return self::DATA_LEVEL_NONE;
     }
 
-    /**
-     * Calculate and save character stats for a specific game version with data completeness protection
-     * This method provides consistent calculation logic used by both
-     * stats import and fix commands
-     */
     public function calculateAndSaveStatsForVersionSafe(int $versionId): int
     {
         $dataLevel = $this->getVersionDataLevel($versionId);
@@ -96,18 +79,11 @@ class CharacterStatsCalculationService
         return $this->calculateAndSaveStatsForVersion($versionId);
     }
 
-    /**
-     * Check if a version is safe to update character statistics.
-     * Only versions with full detail level can have their character stats recalculated.
-     */
     public function isVersionSafeToUpdate(int $versionId): bool
     {
         return $this->getVersionDataLevel($versionId) === self::DATA_LEVEL_FULL_DETAIL;
     }
 
-    /**
-     * Get a human-readable description of the data level.
-     */
     public function getDataLevelDescription(string $dataLevel): string
     {
         return match ($dataLevel) {
@@ -119,17 +95,10 @@ class CharacterStatsCalculationService
         };
     }
 
-    /**
-     * Calculate and save character stats for a specific game version
-     * This method provides consistent calculation logic used by both
-     * stats import and fix commands
-     * WARNING: This method does not check for legacy data protection
-     */
     public function calculateAndSaveStatsForVersion(int $versionId): int
     {
         Log::info("Calculating character stats for version {$versionId}");
 
-        // Check for any dialogue lines with null character_id and warn about them
         $nullCharacterCount = DialogueLine::where('game_version_id', $versionId)
             ->whereNull('character_id')
             ->count();
@@ -138,9 +107,6 @@ class CharacterStatsCalculationService
             Log::warning("Found {$nullCharacterCount} dialogue lines with null character_id for version {$versionId}. These will be skipped during stats calculation. Consider running fix:characters command to resolve this.");
         }
 
-        // Get all dialogue lines for this version grouped by character and language
-        // Use sophisticated SQL that matches Python's text.split() behavior
-        // Filter out any dialogue lines with null character_id to prevent constraint violations
         $dialogueStats = DialogueLine::where('game_version_id', $versionId)
             ->whereNotNull('character_id')
             ->join('unique_dialogue_texts', 'version_dialogue_lines.text_id', '=', 'unique_dialogue_texts.id')
@@ -164,7 +130,6 @@ class CharacterStatsCalculationService
         $statsUpdated = 0;
 
         foreach ($dialogueStats as $stats) {
-            // Update or create character stats
             VersionCharacterStats::updateOrCreate(
                 [
                     'game_version_id' => $versionId,
@@ -188,10 +153,6 @@ class CharacterStatsCalculationService
         return $statsUpdated;
     }
 
-    /**
-     * Calculate stats for multiple character/version/language combinations
-     * Used for bulk recalculation in fix commands
-     */
     public function calculateStatsForMultiple(array $statsToUpdate): array
     {
         $results = [];
@@ -212,10 +173,6 @@ class CharacterStatsCalculationService
         return $results;
     }
 
-    /**
-     * Calculate stats for a specific character/version/language combination
-     * Used by fix commands for targeted recalculation
-     */
     public function calculateStatsForCharacter(int $versionId, int $characterId, string $isoCode): array
     {
         $dialogueStats = DialogueLine::where('game_version_id', $versionId)
@@ -253,10 +210,6 @@ class CharacterStatsCalculationService
         });
     }
 
-    /**
-     * Update character stats with calculated values with data completeness protection
-     * Used by fix commands to apply the calculated stats
-     */
     public function updateCharacterStatsSafe(array $calculatedResults, bool $dryRun = false): int
     {
         $statsUpdated = 0;
@@ -266,7 +219,6 @@ class CharacterStatsCalculationService
             $stat = $result['stat'];
             $calculated = $result['calculated'];
 
-            // Check if this stat is safe to update based on data completeness
             $dataLevel = $this->getVersionDataLevel($stat->game_version_id);
             if (! $this->isVersionSafeToUpdate($stat->game_version_id)) {
                 $statsSkipped++;
@@ -303,11 +255,6 @@ class CharacterStatsCalculationService
         return $statsUpdated;
     }
 
-    /**
-     * Update character stats with calculated values
-     * Used by fix commands to apply the calculated stats
-     * WARNING: This method does not check for legacy data protection
-     */
     public function updateCharacterStats(array $calculatedResults, bool $dryRun = false): int
     {
         $statsUpdated = 0;
@@ -330,9 +277,6 @@ class CharacterStatsCalculationService
         return $statsUpdated;
     }
 
-    /**
-     * Get character stats that have issues (narrator characters, zero stats, and special characters)
-     */
     public function getStatsWithIssues(?int $gameId = null)
     {
         $query = VersionCharacterStats::query()
@@ -342,7 +286,6 @@ class CharacterStatsCalculationService
             $query->where('characters.game_id', $gameId);
         }
 
-        // Get narrator characters, entries with zero blocks/words, and special characters
         $query->where(function ($q) {
             $q->where('characters.character_id', 'narrator')
                 ->orWhere('version_character_stats.blocks', 0)
@@ -361,7 +304,6 @@ class CharacterStatsCalculationService
      */
     private function recalculateLanguageStats(int $versionId): int
     {
-        // Get language totals by summing character stats, excluding 'alt' characters
         // 'alt' contains alt text for images, not actual narrative content
         $languageTotals = DB::table('version_character_stats')
             ->join('characters', 'version_character_stats.character_id', '=', 'characters.id')
@@ -390,7 +332,6 @@ class CharacterStatsCalculationService
 
         foreach ($languageCodes as $isoCode) {
             $langTotal = $languageTotalsByCode->get($isoCode);
-            // Update or create language stats, preserving menus and options if they exist
             $existingLanguageStats = $existingStats->get($isoCode);
 
             VersionLanguageStats::updateOrCreate(
@@ -417,7 +358,6 @@ class CharacterStatsCalculationService
      */
     private function recalculateLanguageStatsForAffectedVersions(array $calculatedResults): void
     {
-        // Get unique version IDs from the calculated results
         $affectedVersions = collect($calculatedResults)
             ->pluck('stat.game_version_id')
             ->unique()

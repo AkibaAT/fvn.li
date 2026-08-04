@@ -13,8 +13,11 @@ use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\EditorUploadController;
 use App\Http\Controllers\GameContentController;
+use App\Http\Controllers\Games\GamesDisplayController;
+use App\Http\Controllers\Games\GamesReviewController;
+use App\Http\Controllers\Games\GamesSearchController;
+use App\Http\Controllers\Games\GamesVersionController;
 use App\Http\Controllers\Games\RouteMapController;
-use App\Http\Controllers\GamesController;
 use App\Http\Controllers\MyGamesController;
 use App\Http\Controllers\ReviewReportController;
 use App\Http\Controllers\UserReviewController;
@@ -44,8 +47,6 @@ Route::middleware(['web'])->group(function () {
     Route::get('dialogue/search', [DialogueController::class, 'searchDialogue'])
         ->middleware('throttle:60,1')
         ->name('browser-api.dialogue.search');
-    Route::get('dialogue/search-enhanced', [DialogueController::class, 'searchDialogueEnhanced'])
-        ->name('browser-api.dialogue.search-enhanced');
     Route::get('dialogue/duplicates', [DialogueController::class, 'duplicateDialogue'])
         ->name('browser-api.dialogue.duplicates');
     Route::get('dialogue/version-stats', [DialogueController::class, 'versionStats'])
@@ -54,23 +55,23 @@ Route::middleware(['web'])->group(function () {
         ->middleware('throttle:20,1')
         ->name('browser-api.dialogue.word-frequency');
 
-    // Game search/filter and details (keep legacy api.* names)
-    Route::get('games/search', [GamesController::class, 'searchGames'])->name('api.games.search');
-    Route::get('games/search-enhanced', [GamesController::class, 'searchGamesEnhanced'])->name('api.games.search-enhanced');
-    Route::get('search/global', [GamesController::class, 'globalSearch'])->name('api.search.global');
-    Route::get('games/{game:slug}/details', [GamesController::class, 'gameDetails'])->name('api.games.details');
+    // Route names use the api.* prefix; the frontend resolves them via Ziggy.
+    Route::get('games/search', [GamesSearchController::class, 'searchGames'])->name('api.games.search');
+    Route::get('games/search-enhanced', [GamesSearchController::class, 'searchGamesWithFilters'])->name('api.games.search-enhanced');
+    Route::get('search/global', [GamesSearchController::class, 'globalSearch'])->name('api.search.global');
+    Route::get('games/{game:slug}/details', [GamesDisplayController::class, 'details'])->name('api.games.details');
     Route::get('games/{game:id}/compare-versions',
-        [GamesController::class, 'compareGameVersions'])
+        [GamesVersionController::class, 'compareVersions'])
         ->whereNumber('game')
         ->name('api.games.compare-versions');
 
     // Reviews and version stats
-    Route::get('games/{game}/reviews', [GamesController::class, 'getGameReviews'])->name('browser-api.games.reviews');
-    Route::get('games/{game}/versions', [GamesController::class, 'getGameVersions'])->name('browser-api.games.versions');
+    Route::get('games/{game}/reviews', [GamesReviewController::class, 'getGameReviews'])->name('browser-api.games.reviews');
+    Route::get('games/{game}/versions', [GamesVersionController::class, 'getGameVersions'])->name('browser-api.games.versions');
     Route::get('games/{game:slug}/versions/{version}/character-stats',
-        [GamesController::class, 'getVersionCharacterStats'])->name('browser-api.games.version.character-stats');
+        [GamesVersionController::class, 'getVersionCharacterStats'])->name('browser-api.games.version.character-stats');
     Route::get('games/{game:slug}/versions/{version}/file-stats',
-        [GamesController::class, 'getVersionFileStats'])->name('browser-api.games.version.file-stats');
+        [GamesVersionController::class, 'getVersionFileStats'])->name('browser-api.games.version.file-stats');
     Route::get('games/{game:slug}/versions/{version}/route-graph',
         [RouteMapController::class, 'getRouteGraph'])->name('browser-api.games.version.route-graph');
     Route::post('games/{game:slug}/versions/{version}/parse-save',
@@ -112,25 +113,22 @@ Route::middleware(['web'])->group(function () {
         // User data export
         Route::get('user/export', [UserDataExportController::class, 'exportUserData'])->name('browser-api.user.export');
 
-        // My Games update
-        Route::put('my-games/{game:slug}',
-            [MyGamesController::class, 'myGamesUpdate'])->name('browser-api.my-games.update');
+        Route::middleware(CanEditGame::class)->group(function () {
+            Route::put('my-games/{game:slug}',
+                [MyGamesController::class, 'myGamesUpdate'])->name('browser-api.my-games.update');
+            Route::post('my-games/{game:slug}/thumbnail',
+                [MyGamesController::class, 'updateThumbnail'])->name('browser-api.my-games.thumbnail.update');
+            Route::delete('my-games/{game:slug}/thumbnail',
+                [MyGamesController::class, 'deleteThumbnail'])->name('browser-api.my-games.thumbnail.delete');
+            Route::post('my-games/{game:slug}/screenshots',
+                [MyGamesController::class, 'uploadScreenshots'])->name('browser-api.my-games.screenshots.upload');
+            Route::delete('my-games/{game:slug}/screenshots',
+                [MyGamesController::class, 'deleteScreenshot'])->name('browser-api.my-games.screenshots.delete');
+            Route::post('my-games/{game:slug}/screenshots/reorder',
+                [MyGamesController::class, 'reorderScreenshots'])->name('browser-api.my-games.screenshots.reorder');
+        });
 
-        // Thumbnail management
-        Route::post('my-games/{game:slug}/thumbnail',
-            [MyGamesController::class, 'updateThumbnail'])->name('browser-api.my-games.thumbnail.update');
-        Route::delete('my-games/{game:slug}/thumbnail',
-            [MyGamesController::class, 'deleteThumbnail'])->name('browser-api.my-games.thumbnail.delete');
-
-        // Screenshot management
-        Route::post('my-games/{game:slug}/screenshots',
-            [MyGamesController::class, 'uploadScreenshots'])->name('browser-api.my-games.screenshots.upload');
-        Route::delete('my-games/{game:slug}/screenshots',
-            [MyGamesController::class, 'deleteScreenshot'])->name('browser-api.my-games.screenshots.delete');
-        Route::post('my-games/{game:slug}/screenshots/reorder',
-            [MyGamesController::class, 'reorderScreenshots'])->name('browser-api.my-games.screenshots.reorder');
-
-        // VN Lists (CRUD) - keep api.* names used in frontend
+        // VN Lists (CRUD)
         Route::post('vn-lists', [VnListCrudController::class, 'storeVnList'])->name('api.vn-lists.store');
         Route::put('vn-lists/{vnList}', [VnListCrudController::class, 'updateVnList'])->name('api.vn-lists.update');
         Route::delete('vn-lists/{vnList}', [VnListCrudController::class, 'destroyVnList'])->name('api.vn-lists.destroy');

@@ -187,7 +187,6 @@ class AdditionRequestResource extends Resource
                         }
 
                         try {
-                            // Create the game
                             $game = new Game;
                             $game->platform = $record->platform;
                             $game->setUrlForPlatform($record->platform, $record->game_url);
@@ -462,13 +461,8 @@ class AdditionRequestResource extends Resource
         return $count > 0 ? (string) $count : null;
     }
 
-    /**
-     * Extract a readable identifier from a game URL for display purposes.
-     * Works with itch.io, Steam, and other platforms.
-     */
     private static function extractUrlIdentifier(string $url): string
     {
-        // Parse the URL to extract subdomain and path
         $parsed = parse_url($url);
 
         if (! $parsed || ! isset($parsed['host'])) {
@@ -478,7 +472,6 @@ class AdditionRequestResource extends Resource
         $host = $parsed['host'];
         $path = $parsed['path'] ?? '';
 
-        // Extract subdomain from itch.io URLs
         if (str_ends_with($host, '.itch.io')) {
             $subdomain = str_replace('.itch.io', '', $host);
             $gameSlug = trim($path, '/');
@@ -490,7 +483,6 @@ class AdditionRequestResource extends Resource
             return $subdomain . '.itch.io';
         }
 
-        // Extract Steam App ID from Steam URLs
         if (str_contains($host, 'steampowered.com') || str_contains($host, 'store.steampowered.com')) {
             if (preg_match('/\/app\/(\d+)/', $path, $matches)) {
                 return 'Steam App ' . $matches[1];

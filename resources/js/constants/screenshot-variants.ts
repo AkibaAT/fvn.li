@@ -8,12 +8,10 @@ export const SCREENSHOT_VARIANTS = {
     LARGE: 'large',
 } as const;
 
-export type ScreenshotVariant = (typeof SCREENSHOT_VARIANTS)[keyof typeof SCREENSHOT_VARIANTS];
-
 /**
  * Single optimized variant data
  */
-export interface OptimizedScreenshotVariant {
+interface OptimizedScreenshotVariant {
     path: string;
     width?: number;
     height?: number;

@@ -73,7 +73,6 @@ class Upload
 
     public static function sort(Collection $uploads): Collection
     {
-        // Filter out non-processable uploads first, then sort the remainder
         return $uploads->filter(fn (self $upload) => $upload->isProcessable())
             ->sort(fn (self $a, self $b) => $a->compareTo($b));
     }
@@ -293,7 +292,6 @@ class Upload
         $matchedA = preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $a, $matchesA);
         $matchedB = preg_match('/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/', $b, $matchesB);
 
-        // Log if either version didn't match the pattern (this shouldn't happen normally)
         if (! $matchedA || ! $matchedB) {
             Log::warning('Version string did not match expected pattern', [
                 'version_a' => $a,
@@ -342,7 +340,6 @@ class Upload
     private function getVersion(): ?string
     {
         if ($this->extractedVersion === null) {
-            // Create a temporary Game instance to use its version extraction logic
             $game = new Game;
             $this->extractedVersion = $game->extractVersion([
                 'filename' => $this->filename,

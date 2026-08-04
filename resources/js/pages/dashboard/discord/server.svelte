@@ -1,10 +1,13 @@
 <script lang="ts">
-    import { apiFetch } from '@/hooks/api/client';
+    import { apiFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
     import RuleBuilder from './components/rule-builder.svelte';
     import EmbedEditor from './components/embed-editor.svelte';
     import VnOverrideManager from './components/vn-override-manager.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import { Alert, Badge, Card, Switch } from '@/components/ui';
+    import type { BadgeTone } from '@/components/ui/Badge.svelte';
+    import ChannelPicker from './components/ChannelPicker.svelte';
 
     interface DiscordChannel {
         id: string;
@@ -116,12 +119,6 @@
     let error = $state<string | null>(null);
     let saving = $state(false);
     let sendingTest = $state(false);
-    let channelPickerOpen = $state(false);
-    let channelSearch = $state('');
-    let channelPickerEl: HTMLDivElement | undefined = $state();
-    let rolePickerOpen = $state(false);
-    let roleSearch = $state('');
-    let rolePickerEl: HTMLDivElement | undefined = $state();
     let ruleFieldMetadata = $state<Record<string, RuleFieldMetadata>>({});
 
     let config = $state<ServerConfig>({
@@ -255,47 +252,26 @@
         return new Date(dateStr).toLocaleString();
     }
 
-    function getSelectedChannelName(): string {
-        if (!config.notification_channel_id) return '';
-        return channels.find((channel) => channel.id === config.notification_channel_id)?.name ?? config.notification_channel_id;
-    }
-
-    function getSelectedChannel(): DiscordChannel | undefined {
-        if (!config.notification_channel_id) return undefined;
-
-        return channels.find((channel) => channel.id === config.notification_channel_id);
-    }
-
     function selectNotificationChannel(channelId: string | null) {
         handleConfigChange('notification_channel_id', channelId);
         saveConfig({ notification_channel_id: channelId } as Partial<ServerConfig>);
-        channelPickerOpen = false;
-        channelSearch = '';
-    }
-
-    function getSelectedRoleName(): string {
-        if (!config.ping_role_id) return '';
-
-        return roles.find((role) => role.id === config.ping_role_id)?.name ?? config.ping_role_id;
     }
 
     function selectPingRole(roleId: string | null) {
         handleConfigChange('ping_role_id', roleId);
         saveConfig({ ping_role_id: roleId } as Partial<ServerConfig>);
-        rolePickerOpen = false;
-        roleSearch = '';
     }
 
-    function getStatusColor(status: string): string {
+    function getStatusTone(status: string): BadgeTone {
         switch (status) {
             case 'sent':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+                return 'success';
             case 'failed':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+                return 'danger';
             case 'pending':
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+                return 'warning';
             default:
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
+                return 'neutral';
         }
     }
 
@@ -307,44 +283,6 @@
         { id: 'embeds', label: 'Embeds' },
         { id: 'history', label: 'History' },
     ];
-
-    const filteredChannels = $derived(
-        channelSearch.trim() ? channels.filter((channel) => channel.name.toLowerCase().includes(channelSearch.trim().toLowerCase())) : channels,
-    );
-
-    const filteredRoles = $derived(
-        roleSearch.trim() ? roles.filter((role) => role.name.toLowerCase().includes(roleSearch.trim().toLowerCase())) : roles,
-    );
-
-    $effect(() => {
-        if (!channelPickerOpen) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (channelPickerEl && !channelPickerEl.contains(event.target as Node)) {
-                channelPickerOpen = false;
-                channelSearch = '';
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    });
-
-    $effect(() => {
-        if (!rolePickerOpen) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (rolePickerEl && !rolePickerEl.contains(event.target as Node)) {
-                rolePickerOpen = false;
-                roleSearch = '';
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    });
 </script>
 
 <svelte:head>
@@ -404,12 +342,14 @@
             </svg>
         </div>
     {:else if error}
-        <div class="rounded-xl border border-red-200/50 bg-red-50/80 p-6 backdrop-blur-xl dark:border-red-800/50 dark:bg-red-900/20">
-            <p class="text-red-700 dark:text-red-400">{error}</p>
-            <button onclick={() => window.location.reload()} class="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
-                >Retry</button
-            >
-        </div>
+        <Alert title="Failed to load server" tone="danger">
+            <p>{error}</p>
+            {#snippet actions()}
+                <button onclick={() => window.location.reload()} class="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
+                    Retry
+                </button>
+            {/snippet}
+        </Alert>
     {:else}
         <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
             <nav class="-mb-px flex space-x-6" aria-label="Server config tabs">
@@ -427,7 +367,7 @@
         </div>
 
         {#if activeTab === 'general'}
-            <div class="rounded-xl border border-gray-200/50 bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+            <Card variant="glass" padding="lg">
                 <h2 class="mb-6 text-lg font-semibold text-gray-900 dark:text-white">General Settings</h2>
                 <div class="space-y-6">
                     <div class="flex items-center justify-between">
@@ -435,32 +375,26 @@
                             <div class="font-medium text-gray-700 dark:text-gray-300">Server Active</div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Enable or disable notifications for this server</div>
                         </div>
-                        <label class="relative inline-flex cursor-pointer items-center">
-                            <input
-                                type="checkbox"
-                                class="peer sr-only"
-                                checked={server?.is_active}
-                                onchange={async () => {
-                                    if (!server) return;
+                        <Switch
+                            checked={Boolean(server?.is_active)}
+                            ariaLabel="Enable server notifications"
+                            onchange={async () => {
+                                if (!server) return;
+                                server = { ...server, is_active: !server.is_active };
+                                try {
+                                    await apiFetch(route('browser-api.discord.servers.config', { server: serverId }), {
+                                        method: 'PUT',
+                                        body: JSON.stringify({
+                                            is_active: server.is_active,
+                                        }),
+                                    });
+                                    toast.success(server.is_active ? 'Server activated' : 'Server deactivated');
+                                } catch {
                                     server = { ...server, is_active: !server.is_active };
-                                    try {
-                                        await apiFetch(route('browser-api.discord.servers.config', { server: serverId }), {
-                                            method: 'PUT',
-                                            body: JSON.stringify({
-                                                is_active: server.is_active,
-                                            }),
-                                        });
-                                        toast.success(server.is_active ? 'Server activated' : 'Server deactivated');
-                                    } catch {
-                                        server = { ...server, is_active: !server.is_active };
-                                        toast.error('Failed to toggle server status');
-                                    }
-                                }}
-                            />
-                            <div
-                                class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600 dark:bg-gray-700"
-                            ></div>
-                        </label>
+                                    toast.error('Failed to toggle server status');
+                                }
+                            }}
+                        />
                     </div>
 
                     <div>
@@ -469,116 +403,17 @@
                         >
                         <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Select the channel where notifications will be sent by default</p>
                         {#if channels.length > 0}
-                            <div class="relative mt-1" bind:this={channelPickerEl}>
-                                <button
-                                    id="notification-channel"
-                                    type="button"
-                                    onclick={() => {
-                                        channelPickerOpen = !channelPickerOpen;
-                                        if (!channelPickerOpen) channelSearch = '';
-                                    }}
-                                    class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                    aria-expanded={channelPickerOpen}
-                                    aria-haspopup="listbox"
-                                >
-                                    <span class="flex min-w-0 items-center gap-2">
-                                        <span
-                                            class="{config.notification_channel_id
-                                                ? 'text-gray-900 dark:text-white'
-                                                : 'text-gray-500 dark:text-gray-400'} truncate"
-                                        >
-                                            {config.notification_channel_id ? `#${getSelectedChannelName()}` : 'Select a channel...'}
-                                        </span>
-                                        {#if getSelectedChannel()?.nsfw}
-                                            <span
-                                                class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                            >
-                                                NSFW
-                                            </span>
-                                        {/if}
-                                    </span>
-                                    <svg
-                                        class="h-4 w-4 shrink-0 transition-transform {channelPickerOpen ? 'rotate-180' : ''}"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                    >
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-
-                                {#if channelPickerOpen}
-                                    <div
-                                        class="absolute z-20 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                                    >
-                                        <div class="p-2">
-                                            <input
-                                                type="text"
-                                                bind:value={channelSearch}
-                                                aria-label="Filter channels"
-                                                placeholder="Type to filter channels..."
-                                                class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            />
-                                        </div>
-
-                                        <div class="max-h-60 overflow-y-auto py-1" role="listbox">
-                                            <button
-                                                type="button"
-                                                onclick={() => selectNotificationChannel(null)}
-                                                class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                            >
-                                                <span>Default / none</span>
-                                                {#if !config.notification_channel_id}
-                                                    <svg
-                                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor"
-                                                        stroke-width="2"
-                                                    >
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                {/if}
-                                            </button>
-
-                                            {#if filteredChannels.length === 0}
-                                                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No channels found</div>
-                                            {:else}
-                                                {#each filteredChannels as ch (ch.id)}
-                                                    <button
-                                                        type="button"
-                                                        onclick={() => selectNotificationChannel(ch.id)}
-                                                        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                    >
-                                                        <span class="flex min-w-0 items-center gap-2">
-                                                            <span class="truncate">#{ch.name}</span>
-                                                            {#if ch.nsfw}
-                                                                <span
-                                                                    class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                                                >
-                                                                    NSFW
-                                                                </span>
-                                                            {/if}
-                                                        </span>
-                                                        {#if config.notification_channel_id === ch.id}
-                                                            <svg
-                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                                fill="none"
-                                                                viewBox="0 0 24 24"
-                                                                stroke="currentColor"
-                                                                stroke-width="2"
-                                                            >
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        {/if}
-                                                    </button>
-                                                {/each}
-                                            {/if}
-                                        </div>
-                                    </div>
-                                {/if}
-                            </div>
+                            <ChannelPicker
+                                id="notification-channel"
+                                items={channels}
+                                value={config.notification_channel_id}
+                                placeholder="Select a channel..."
+                                searchPlaceholder="Type to filter channels..."
+                                emptyLabel="No channels found"
+                                allowNone
+                                noneLabel="Default / none"
+                                onselect={selectNotificationChannel}
+                            />
                         {:else}
                             <input
                                 id="notification-channel"
@@ -602,96 +437,18 @@
                         <label for="ping-role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ping Role ID</label>
                         <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Role to ping when notifications are sent (optional)</p>
                         {#if roles.length > 0}
-                            <div class="relative" bind:this={rolePickerEl}>
-                                <button
-                                    id="ping-role"
-                                    type="button"
-                                    onclick={() => {
-                                        rolePickerOpen = !rolePickerOpen;
-                                        if (!rolePickerOpen) roleSearch = '';
-                                    }}
-                                    class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                    aria-expanded={rolePickerOpen}
-                                    aria-haspopup="listbox"
-                                >
-                                    <span
-                                        class="{config.ping_role_id ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'} truncate"
-                                    >
-                                        {config.ping_role_id ? `@${getSelectedRoleName()}` : 'Select a role...'}
-                                    </span>
-                                    <svg
-                                        class="h-4 w-4 shrink-0 transition-transform {rolePickerOpen ? 'rotate-180' : ''}"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                    >
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-
-                                {#if rolePickerOpen}
-                                    <div
-                                        class="absolute z-20 mt-1 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                                    >
-                                        <div class="p-2">
-                                            <input
-                                                type="text"
-                                                bind:value={roleSearch}
-                                                aria-label="Filter roles"
-                                                placeholder="Type to filter roles..."
-                                                class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            />
-                                        </div>
-
-                                        <div class="max-h-60 overflow-y-auto py-1" role="listbox">
-                                            <button
-                                                type="button"
-                                                onclick={() => selectPingRole(null)}
-                                                class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                            >
-                                                <span>No ping role</span>
-                                                {#if !config.ping_role_id}
-                                                    <svg
-                                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor"
-                                                        stroke-width="2"
-                                                    >
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                {/if}
-                                            </button>
-
-                                            {#if filteredRoles.length === 0}
-                                                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No roles found</div>
-                                            {:else}
-                                                {#each filteredRoles as role (role.id)}
-                                                    <button
-                                                        type="button"
-                                                        onclick={() => selectPingRole(role.id)}
-                                                        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                                                    >
-                                                        <span class="truncate">@{role.name}</span>
-                                                        {#if config.ping_role_id === role.id}
-                                                            <svg
-                                                                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                                                fill="none"
-                                                                viewBox="0 0 24 24"
-                                                                stroke="currentColor"
-                                                                stroke-width="2"
-                                                            >
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        {/if}
-                                                    </button>
-                                                {/each}
-                                            {/if}
-                                        </div>
-                                    </div>
-                                {/if}
-                            </div>
+                            <ChannelPicker
+                                id="ping-role"
+                                items={roles}
+                                value={config.ping_role_id}
+                                placeholder="Select a role..."
+                                searchPlaceholder="Type to filter roles..."
+                                emptyLabel="No roles found"
+                                prefix="@"
+                                allowNone
+                                noneLabel="No ping role"
+                                onselect={selectPingRole}
+                            />
                         {:else}
                             <input
                                 id="ping-role"
@@ -716,20 +473,14 @@
                             <div class="font-medium text-gray-700 dark:text-gray-300">Include Game Description</div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Include the game description in notifications</div>
                         </div>
-                        <label class="relative inline-flex cursor-pointer items-center">
-                            <input
-                                type="checkbox"
-                                class="peer sr-only"
-                                checked={config.include_game_description}
-                                onchange={() => {
-                                    handleConfigChange('include_game_description', !config.include_game_description);
-                                    saveConfig({ include_game_description: !config.include_game_description } as Partial<ServerConfig>);
-                                }}
-                            />
-                            <div
-                                class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600 dark:bg-gray-700"
-                            ></div>
-                        </label>
+                        <Switch
+                            checked={config.include_game_description}
+                            ariaLabel="Include game description"
+                            onchange={() => {
+                                handleConfigChange('include_game_description', !config.include_game_description);
+                                saveConfig({ include_game_description: !config.include_game_description } as Partial<ServerConfig>);
+                            }}
+                        />
                     </div>
 
                     <div class="flex items-center justify-between">
@@ -737,20 +488,14 @@
                             <div class="font-medium text-gray-700 dark:text-gray-300">Include Thumbnail</div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Include the game thumbnail in notifications</div>
                         </div>
-                        <label class="relative inline-flex cursor-pointer items-center">
-                            <input
-                                type="checkbox"
-                                class="peer sr-only"
-                                checked={config.include_thumbnail}
-                                onchange={() => {
-                                    handleConfigChange('include_thumbnail', !config.include_thumbnail);
-                                    saveConfig({ include_thumbnail: !config.include_thumbnail } as Partial<ServerConfig>);
-                                }}
-                            />
-                            <div
-                                class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600 dark:bg-gray-700"
-                            ></div>
-                        </label>
+                        <Switch
+                            checked={config.include_thumbnail}
+                            ariaLabel="Include thumbnail"
+                            onchange={() => {
+                                handleConfigChange('include_thumbnail', !config.include_thumbnail);
+                                saveConfig({ include_thumbnail: !config.include_thumbnail } as Partial<ServerConfig>);
+                            }}
+                        />
                     </div>
 
                     <div class="flex items-center justify-between">
@@ -758,23 +503,17 @@
                             <div class="font-medium text-gray-700 dark:text-gray-300">Include Ratings</div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Include game ratings in notifications</div>
                         </div>
-                        <label class="relative inline-flex cursor-pointer items-center">
-                            <input
-                                type="checkbox"
-                                class="peer sr-only"
-                                checked={config.include_ratings}
-                                onchange={() => {
-                                    handleConfigChange('include_ratings', !config.include_ratings);
-                                    saveConfig({ include_ratings: !config.include_ratings } as Partial<ServerConfig>);
-                                }}
-                            />
-                            <div
-                                class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600 dark:bg-gray-700"
-                            ></div>
-                        </label>
+                        <Switch
+                            checked={config.include_ratings}
+                            ariaLabel="Include ratings"
+                            onchange={() => {
+                                handleConfigChange('include_ratings', !config.include_ratings);
+                                saveConfig({ include_ratings: !config.include_ratings } as Partial<ServerConfig>);
+                            }}
+                        />
                     </div>
                 </div>
-            </div>
+            </Card>
         {/if}
 
         {#if activeTab === 'routing'}
@@ -791,23 +530,19 @@
 
         {#if activeTab === 'embeds'}
             <div class="space-y-6">
-                <div
-                    class="rounded-xl border border-gray-200/50 bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70"
-                >
+                <Card variant="glass" padding="lg">
                     <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">New Game Embed</h2>
                     <EmbedEditor template={config.new_game_embed || {}} notificationType="new_game" {serverId} onchange={handleNewGameEmbedChange} />
-                </div>
-                <div
-                    class="rounded-xl border border-gray-200/50 bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70"
-                >
+                </Card>
+                <Card variant="glass" padding="lg">
                     <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Update Embed</h2>
                     <EmbedEditor template={config.update_embed || {}} notificationType="update" {serverId} onchange={handleUpdateEmbedChange} />
-                </div>
+                </Card>
             </div>
         {/if}
 
         {#if activeTab === 'history'}
-            <div class="rounded-xl border border-gray-200/50 bg-white/70 p-6 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-800/70">
+            <Card variant="glass" padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification History</h2>
                 {#if server?.notificationHistory && server.notificationHistory.length > 0}
                     <div class="overflow-x-auto">
@@ -841,13 +576,9 @@
                                             {entry.notification_type?.replace('_', ' ')}
                                         </td>
                                         <td class="px-4 py-3 text-sm">
-                                            <span
-                                                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {getStatusColor(
-                                                    entry.delivery_status,
-                                                )}"
-                                            >
+                                            <Badge tone={getStatusTone(entry.delivery_status)} size="sm">
                                                 {entry.delivery_status}
-                                            </span>
+                                            </Badge>
                                             {#if entry.error_message}
                                                 <div class="mt-1 text-xs text-red-500">{entry.error_message}</div>
                                             {/if}
@@ -866,7 +597,7 @@
                 {:else}
                     <div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No notification history yet</div>
                 {/if}
-            </div>
+            </Card>
         {/if}
     {/if}
 </div>

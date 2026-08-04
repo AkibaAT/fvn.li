@@ -31,7 +31,7 @@ export interface MenuChoice {
     translations?: Record<string, string>;
 }
 
-export interface VariableChange {
+interface VariableChange {
     variable: string;
     operation: string;
     value: string | null;
@@ -64,14 +64,14 @@ export interface RoutePreference {
     value: string | null;
 }
 
-export interface RouteLayoutPosition {
+interface RouteLayoutPosition {
     x: number;
     y: number;
     width: number;
     height: number;
 }
 
-export interface RouteGraphLayout {
+interface RouteGraphLayout {
     engine: string;
     revision: number;
     width: number;

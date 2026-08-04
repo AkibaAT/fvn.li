@@ -7,8 +7,6 @@ Cleans up old game version downloads, keeping only the latest version to save st
 This command removes outdated game download files from storage while preserving the most recent version of each game. It
 helps manage disk space by removing files that are no longer needed for analysis or processing.
 
-**Key Features**: Selective cleanup, storage optimization, safety checks, comprehensive logging.
-
 ## Usage
 
 ```bash
@@ -146,15 +144,6 @@ The command can target different scopes:
 - Maximum storage savings
 - Longest execution time
 - Highest system impact
-
-## Monitoring
-
-During cleanup, monitor:
-
-- **Storage space freed** - Primary benefit metric
-- **Files processed** - Progress indicator
-- **Errors encountered** - File access issues
-- **Database updates** - Metadata consistency
 
 ## Recovery
 

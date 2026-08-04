@@ -9,7 +9,6 @@ use App\Models\GameVersion;
 use App\Support\Stats\StatsPayload;
 use Exception;
 use GuzzleHttp\Client;
-use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\File;
@@ -37,9 +36,6 @@ class GameArchiveService
         $this->lastProcessingError = null;
     }
 
-    /**
-     * Get the stored archive path for a game version
-     */
     public function getStoredArchive(int $gameId, int $versionId): ?string
     {
         $this->lastArchiveLookupError = null;
@@ -136,7 +132,6 @@ class GameArchiveService
         Log::info('GameArchive: Cleaning up old downloads', ['game_id' => $gameId]);
         $this->cleanupOldVersionDownloads($gameId, $versionId);
 
-        // Process the archive - stats may be null if extraction failed but shouldn't be treated as an error
         Log::info('GameArchive: Starting archive processing', [
             'game_id' => $gameId,
             'archive_path' => $archivePath,
@@ -147,13 +142,11 @@ class GameArchiveService
             'has_stats' => $stats !== null,
         ]);
 
-        // Delete the archive after processing if requested
         if ($deleteAfterProcessing && File::exists($archivePath)) {
             try {
                 File::delete($archivePath);
                 $archivePath = null;
             } catch (Exception $e) {
-                // Log the error but don't fail - stats are already processed
                 Log::warning('Failed to delete archive after processing', [
                     'archive_path' => $archivePath,
                     'error' => $e->getMessage(),
@@ -234,7 +227,6 @@ class GameArchiveService
                 'file_size_mb' => round($fileSize / 1024 / 1024, 2),
             ]);
 
-            // Process the archive to get stats
             Log::info('GameArchive: Starting archive processing from temp', [
                 'game_id' => $gameId,
                 'archive_path' => $tempFile,
@@ -280,7 +272,6 @@ class GameArchiveService
 
         $filename = $this->sanitizeDownloadFilename($filename);
 
-        // Get storage path and prepare directory
         $storagePath = $this->getStoragePath($gameId, $versionId);
 
         Log::info('GameArchive: Moving file from temp to storage', [
@@ -337,7 +328,6 @@ class GameArchiveService
             'cdn_url' => parse_url($downloadUrl, PHP_URL_HOST),
         ]);
 
-        // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'game_');
         if ($tempFile === false) {
             throw new RuntimeException('Could not create temporary file');
@@ -349,9 +339,7 @@ class GameArchiveService
                 'temp_file' => $tempFile,
             ]);
 
-            // Create a new client for downloading the file
             // The download URL is typically from a CDN, not itch.io directly
-            // Use longer timeouts for potentially large game downloads (10 minutes)
             $downloadClient = new Client([
                 'timeout' => 600,  // 10 minutes for the full download
                 'connect_timeout' => 30,  // 30 seconds to establish connection
@@ -373,14 +361,12 @@ class GameArchiveService
                 'file_size_mb' => round($fileSize / 1024 / 1024, 2),
             ]);
 
-            // Get storage path and prepare directory
             $storagePath = $this->getStoragePath($gameId, $versionId);
 
             // If force is true or the file exists but with a different name,
             // clear the directory first
             if ($force || ($this->archiveExists($gameId, $versionId) &&
                     ! $this->archiveExists($gameId, $versionId, $downloadFilename))) {
-                // Delete all files in the directory
                 foreach (Storage::files($storagePath) as $file) {
                     Storage::delete($file);
                 }
@@ -407,9 +393,6 @@ class GameArchiveService
         }
     }
 
-    /**
-     * Check if an archive exists for the specified game version
-     */
     public function archiveExists(int $gameId, int $versionId, ?string $filename = null): bool
     {
         $storagePath = $this->getStoragePath($gameId, $versionId);
@@ -451,22 +434,17 @@ class GameArchiveService
             $latestVersionId = $latestVersion->id;
         }
 
-        // Get all version IDs for this game except the latest
         $oldVersionIds = GameVersion::where('game_id', $gameId)
             ->where('id', '!=', $latestVersionId)
             ->pluck('id')
             ->toArray();
 
-        // Delete archives for old versions
         foreach ($oldVersionIds as $versionId) {
             $storagePath = $this->getStoragePath($gameId, $versionId);
 
-            // Check if directory exists
             if (Storage::exists($storagePath)) {
-                // Get all files in the directory
                 $files = Storage::files($storagePath);
 
-                // Delete each file
                 foreach ($files as $file) {
                     Storage::delete($file);
                     Log::info('Deleted old game version archive', [
@@ -476,7 +454,6 @@ class GameArchiveService
                     ]);
                 }
 
-                // Remove the directory if it's empty
                 if (empty(Storage::files($storagePath))) {
                     Storage::deleteDirectory($storagePath);
                 }
@@ -566,97 +543,11 @@ class GameArchiveService
     }
 
     /**
-     * Resolve an itch.io CDN URL for a specific upload.
-     *
-     * Free name-your-own-price games may reject the legacy direct /file/{id}
-     * request until a session has visited the generated download page.
-     *
-     * @throws GuzzleException
-     * @throws RuntimeException
-     * @throws BindingResolutionException
-     */
-    private function resolveItchDownloadUrl(string $gameUrl, int $uploadId, int $gameId): string
-    {
-        return app(ItchDownloadUrlResolver::class)->resolve($gameUrl, $uploadId, $gameId);
-    }
-
-    /**
      * @return array{url: string, options: array<string, mixed>}
      */
     private function resolveItchDownloadRequest(string $gameUrl, int $uploadId, int $gameId): array
     {
         return app(ItchDownloadUrlResolver::class)->resolveRequest($gameUrl, $uploadId, $gameId);
-    }
-
-    /**
-     * @param  array<string, mixed>  $postData
-     * @return array{status?: int, headers?: array<string, mixed>, cookies?: array<int, mixed>, userAgent?: string|null, response?: string}
-     *
-     * @throws Exception
-     */
-    private function flareSolverrDownloadRequest(
-        FlareSolverrClient $flareSolverr,
-        string $method,
-        string $url,
-        array $postData = [],
-        ?CookieJar $cookieJar = null
-    ): array {
-        return app(ItchDownloadUrlResolver::class)
-            ->flareSolverrDownloadRequest($flareSolverr, $method, $url, $postData, $cookieJar);
-    }
-
-    private function createBrowserSessionHttpClient(CookieJar $cookieJar, ?string $userAgent): Client
-    {
-        return app(ItchDownloadUrlResolver::class)->createBrowserSessionHttpClient($cookieJar, $userAgent);
-    }
-
-    private function uploadDownloadEndpoint(string $gameUrl, int $uploadId): string
-    {
-        return app(ItchDownloadUrlResolver::class)->uploadDownloadEndpoint($gameUrl, $uploadId);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function decodeDownloadInfo(string $body): array
-    {
-        return app(ItchDownloadUrlResolver::class)->decodeDownloadInfo($body);
-    }
-
-    private function extractCsrfToken(string $html): ?string
-    {
-        return app(ItchDownloadUrlResolver::class)->extractCsrfToken($html);
-    }
-
-    private function extractDownloadUrlEndpoint(string $html): ?string
-    {
-        return app(ItchDownloadUrlResolver::class)->extractDownloadUrlEndpoint($html);
-    }
-
-    private function validateItchControlUrl(string $url, string $gameUrl, string $description): string
-    {
-        return app(ItchDownloadUrlResolver::class)->validateItchControlUrl($url, $gameUrl, $description);
-    }
-
-    private function validateItchFileDownloadUrl(string $url, string $gameUrl, string $description): string
-    {
-        return app(ItchDownloadUrlResolver::class)->validateItchFileDownloadUrl($url, $gameUrl, $description);
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function jsonRequestHeaders(string $referer): array
-    {
-        return app(ItchDownloadUrlResolver::class)->jsonRequestHeaders($referer);
-    }
-
-    /**
-     * @param  array<string, mixed>  $downloadInfo
-     */
-    private function downloadUrlErrorMessage(string $message, array $downloadInfo): string
-    {
-        return app(ItchDownloadUrlResolver::class)->downloadUrlErrorMessage($message, $downloadInfo);
     }
 
     private function getStoragePath(int $gameId, int $versionId): string
@@ -682,11 +573,6 @@ class GameArchiveService
     private function tempPathForDownloadFilename(string $tempDir, string $filename): string
     {
         return app(ArchiveDownloadPathService::class)->tempPathForFilename($tempDir, $filename);
-    }
-
-    private function ensurePathIsInsideDirectory(string $path, string $directory): void
-    {
-        app(ArchiveDownloadPathService::class)->ensurePathIsInsideDirectory($path, $directory);
     }
 
     private function getDownloadFilename(ResponseInterface $response, string $fallbackFilename): string

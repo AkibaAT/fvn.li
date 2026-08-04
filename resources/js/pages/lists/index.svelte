@@ -7,7 +7,7 @@
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { toast } from '@/utils/toast';
-    import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
+    import { authenticatedFetch, readJsonResponse } from '@/utils/http';
     import { Card } from '@/components/ui';
 
     interface Props {
@@ -89,13 +89,7 @@
         localCounts = newCounts;
 
         try {
-            const response = await fetch(route('api.vn-lists.toggle-visibility', list.id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-            });
+            const response = await authenticatedFetch(route('api.vn-lists.toggle-visibility', list.id), { method: 'POST' });
             if (!response.ok) throw new Error('Failed to toggle visibility');
             const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
             toast.success(data.message || 'List visibility updated successfully.');

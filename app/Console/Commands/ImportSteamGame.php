@@ -48,14 +48,12 @@ class ImportSteamGame extends Command
         $this->info('Starting Steam game import...');
         $this->info("URL: {$url}");
 
-        // Validate it's a Steam URL
         if (! str_contains($url, 'steampowered.com')) {
             $this->error('Invalid Steam URL. Must be a store.steampowered.com URL.');
 
             return 1;
         }
 
-        // Extract Steam App ID
         $appId = $this->platformService->extractSteamAppId($url);
         if (! $appId) {
             $this->error('Could not extract Steam App ID from URL. Expected format: https://store.steampowered.com/app/123456/Game_Name/');
@@ -65,7 +63,6 @@ class ImportSteamGame extends Command
 
         $this->info("Steam App ID: {$appId}");
 
-        // Check if game already exists
         $existingGame = Game::where('steam_app_id', $appId)->first();
         if ($existingGame) {
             $this->error("Game already exists: {$existingGame->name} (ID: {$existingGame->id})");
@@ -85,7 +82,6 @@ class ImportSteamGame extends Command
             return 1;
         }
 
-        // Validate content type
         if (! $contentType) {
             $this->error('Invalid content type: ' . $this->option('content-type') . '. Valid options: visual_novel, adjacent, other (aliases: adjacent_game, other_content)');
 
@@ -97,7 +93,6 @@ class ImportSteamGame extends Command
 
             $this->info('Creating new game record...');
 
-            // Create minimal game record
             $game = Game::create([
                 'name' => 'Importing...', // Will be updated by Steam sync
                 'url' => ['steam' => $url], // JSONB field with platform-specific URLs
@@ -110,11 +105,9 @@ class ImportSteamGame extends Command
 
             $this->info("Game record created (ID: {$game->id})");
 
-            // Fetch full details from Steam
             $this->info('Fetching game data from Steam...');
             $this->steamDataService->loadFullDetails($game);
 
-            // Clear the temporary slug so it regenerates based on the real game name
             $game->slug = null;
             $game->save();
 
@@ -173,7 +166,7 @@ class ImportSteamGame extends Command
             }
 
             $this->newLine();
-            $this->info('Import complete!');
+            $this->info('Import complete.');
 
             if ($isVisible) {
                 $this->info('Game is now visible in the game list.');

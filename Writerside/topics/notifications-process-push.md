@@ -7,8 +7,6 @@ Processes pending browser push notifications and delivers them to users.
 This command handles the delivery of queued browser push notifications to users. It processes notifications in batches,
 handles delivery failures, and manages retry logic for reliable notification delivery.
 
-**Key Features**: Batch processing, failure handling, delivery tracking, rate limiting.
-
 ## Usage
 
 ```bash
@@ -127,24 +125,6 @@ The command tracks various delivery outcomes:
 - **Temporary Failures**: Automatic retry with exponential backoff
 - **Permanent Failures**: Mark as failed, no further retries
 - **Rate Limiting**: Respect service limits and retry later
-
-## Performance Monitoring
-
-Monitor these metrics during processing:
-
-- **Delivery Rate**: Percentage of successful deliveries
-- **Processing Speed**: Notifications processed per minute
-- **Error Rate**: Failed deliveries requiring attention
-- **Queue Depth**: Pending notifications awaiting processing
-
-## Error Handling
-
-The command handles various error conditions:
-
-- **Network Failures**: Retry with backoff for temporary issues
-- **Invalid Subscriptions**: Remove expired or invalid subscriptions
-- **Service Limits**: Respect rate limits and adjust batch sizes
-- **Malformed Data**: Log errors and skip problematic notifications
 
 ## Push Service Integration
 

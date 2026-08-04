@@ -7,8 +7,6 @@ Marks or unmarks a rater as suspicious for moderation purposes.
 This command allows administrators to flag users whose rating behavior appears suspicious or problematic. It supports
 both marking users as suspicious with documented reasons and unmarking them if the suspicion is unfounded.
 
-**Key Features**: Reason documentation, reversible actions, audit trail, moderation support.
-
 ## Usage
 
 ```bash

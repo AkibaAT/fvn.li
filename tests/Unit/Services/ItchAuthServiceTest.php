@@ -146,7 +146,6 @@ describe('ItchAuthService authentication', function () {
     });
 
     test('uses cached cookies when available', function () {
-        // Set up cached cookies
         $cachedCookies = [
             [
                 'Name' => 'itchio',
@@ -180,7 +179,6 @@ describe('ItchAuthService authentication', function () {
     });
 
     test('clears invalid cached cookies and re-authenticates', function () {
-        // Set up invalid cached cookies
         $cachedCookies = [
             [
                 'Name' => 'itchio',

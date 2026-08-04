@@ -8,8 +8,6 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DialogueSearchService;
 use App\Services\DialogueWordFrequencyService;
-use App\Services\MeilisearchService;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -52,7 +50,7 @@ class DialogueController extends Controller
 
         return Inertia::render('dialogue/browser', [
             'initial' => $initial,
-            'metaTags' => ['title' => 'Dialogue Browser - ' . $game->name],
+            'metaTags' => ['title' => 'Dialogue Browser - '.$game->name],
         ]);
     }
 
@@ -158,7 +156,7 @@ class DialogueController extends Controller
 
         $itemsQuery = clone $base;
         if ($q !== '') {
-            $like = '%' . str_replace('%', '\\%', $q) . '%';
+            $like = '%'.str_replace('%', '\\%', $q).'%';
             $driver = DB::getDriverName();
             if ($driver === 'pgsql') {
                 // Search within JSON display_names and character_id for Postgres
@@ -401,7 +399,6 @@ class DialogueController extends Controller
 
         // Transform DialogueLine results to include full context information
         $transformedData = collect($paginator->items())->map(function ($line) use ($filters) {
-            // Get character display name
             $characterName = null;
             if ($line->character) {
                 $language = $filters['language'] ?? 'eng';
@@ -448,9 +445,6 @@ class DialogueController extends Controller
         ]);
     }
 
-    /**
-     * Get top duplicate lines similar to production behavior.
-     */
     public function duplicateDialogue(Request $request, DialogueSearchService $service): JsonResponse
     {
         $request->validate([
@@ -494,58 +488,6 @@ class DialogueController extends Controller
         return response()->json(['success' => true, 'data' => $stats]);
     }
 
-    /**
-     * Enhanced search using Meilisearch for better performance and features.
-     */
-    public function searchDialogueEnhanced(Request $request, MeilisearchService $service): JsonResponse
-    {
-        $request->validate([
-            'q' => 'required|string|min:1',
-            'language' => 'nullable|string|size:3',
-            'gameNames' => 'nullable|array',
-            'gameNames.*' => 'string',
-            'characterNames' => 'nullable|array',
-            'characterNames.*' => 'string',
-            'perPage' => 'nullable|integer|min:1|max:100',
-            'page' => 'nullable|integer|min:1',
-        ]);
-
-        $filters = array_filter([
-            'language' => $request->input('language'),
-            'game_names' => $request->input('gameNames'),
-            'character_names' => $request->input('characterNames'),
-        ]);
-
-        $perPage = min(100, max(1, (int) $request->input('perPage', 20)));
-        $page = max(1, (int) $request->input('page', 1));
-
-        try {
-            $paginator = $service->searchDialogue($request->input('q'), $filters, $perPage, $page);
-
-            return response()->json([
-                'success' => true,
-                'data' => $paginator->items(),
-                'pagination' => [
-                    'current_page' => $paginator->currentPage(),
-                    'last_page' => $paginator->lastPage(),
-                    'per_page' => $paginator->perPage(),
-                    'total' => $paginator->total(),
-                ],
-                'search_engine' => 'meilisearch',
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Search failed',
-                'message' => config('app.debug') ? $e->getMessage() : 'An error occurred while searching',
-            ], 500);
-        }
-    }
-
-    /**
-     * Get word frequency data for a word cloud visualization.
-     * Returns the most common words and phrases used in dialogue.
-     */
     public function getWordFrequency(Request $request, DialogueWordFrequencyService $service): JsonResponse
     {
         $request->validate([

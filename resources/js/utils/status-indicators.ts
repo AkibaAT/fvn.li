@@ -51,19 +51,6 @@ export const listStatusConfig: Record<string, StatusConfig> = {
     },
 };
 
-export const notificationStatusConfig = {
-    enabled: {
-        color: 'blue' as const,
-        icon: 'icon-bell',
-        label: 'Notifications enabled',
-    },
-    disabled: {
-        color: 'gray' as const,
-        icon: 'icon-bell',
-        label: 'Notifications disabled',
-    },
-};
-
 export const gameStatusConfig = {
     nsfw: {
         color: 'red' as const,
@@ -92,29 +79,6 @@ export const gameStatusConfig = {
         label: 'Update Available',
         pattern: 'solid' as const,
         shape: 'rounded' as const,
-    },
-};
-
-export const alertStatusConfig = {
-    success: {
-        color: 'green' as const,
-        icon: 'icon-check-circle',
-        label: 'Success',
-    },
-    error: {
-        color: 'red' as const,
-        icon: 'icon-cross-circle',
-        label: 'Error',
-    },
-    warning: {
-        color: 'yellow' as const,
-        icon: 'icon-alert',
-        label: 'Warning',
-    },
-    info: {
-        color: 'blue' as const,
-        icon: 'icon-info',
-        label: 'Information',
     },
 };
 
@@ -150,7 +114,6 @@ export const getStatusClasses = (config: StatusConfig) => {
     return `${colorClasses[color]} ${patternClasses[pattern || 'solid']} ${shapeClasses[shape || 'rounded']} px-2 py-1 text-xs font-semibold inline-flex items-center gap-1`;
 };
 
-// Pure function to get badge configuration (replaces the legacy StatusBadge component)
 export interface StatusBadgeConfig {
     classes: string;
     icon: string;
@@ -182,7 +145,6 @@ export const getStatusBadgeConfig = (
     };
 };
 
-// Enhanced getListTypeColor function with accessibility
 export const getListTypeColor = (type: string): string => {
     return listStatusConfig[type]?.color || 'gray';
 };

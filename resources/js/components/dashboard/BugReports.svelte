@@ -1,7 +1,8 @@
 <script lang="ts">
     import { notify } from '@/components/Toast.svelte';
-    import { Button, Dialog, Textarea } from '@/components/ui';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { Badge, Button, Dialog, Textarea } from '@/components/ui';
+    import type { BadgeTone } from '@/components/ui/Badge.svelte';
+    import { authenticatedFetch } from '@/utils/http';
     import { untrack } from 'svelte';
 
     interface BugReport {
@@ -55,18 +56,18 @@
     let closingTicket = $state(false);
     let bugReportModalOpen = $state(false);
 
-    function getStatusBadgeClasses(color: string): string {
+    function getStatusBadgeTone(color: string): BadgeTone {
         switch (color) {
             case 'warning':
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+                return 'warning';
             case 'info':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+                return 'primary';
             case 'success':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+                return 'success';
             case 'danger':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+                return 'danger';
             default:
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+                return 'neutral';
         }
     }
 
@@ -148,7 +149,6 @@
         }
     }
 
-    // Handle openReportId prop (from notification links)
     $effect(() => {
         if (openReportId) {
             openBugReport(openReportId);
@@ -165,9 +165,9 @@
                 <h2 class="text-lg font-semibold text-amber-800 dark:text-amber-300">
                     Your Bug Reports
                     {#if totalUnread > 0}
-                        <span class="ml-2 inline-flex items-center justify-center rounded-full bg-red-700 px-2 py-0.5 text-xs font-medium text-white">
+                        <Badge tone="danger" variant="solid" size="sm" class="ml-2">
                             {totalUnread} new
-                        </span>
+                        </Badge>
                     {/if}
                 </h2>
                 <span class="text-sm text-amber-700 dark:text-amber-300">
@@ -187,19 +187,13 @@
                         <div class="flex items-start justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="mb-2 flex items-center gap-2">
-                                    <span
-                                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(
-                                            report.status_color,
-                                        )}"
-                                    >
+                                    <Badge tone={getStatusBadgeTone(report.status_color)} size="sm">
                                         {report.status_label}
-                                    </span>
+                                    </Badge>
                                     {#if report.unread_count > 0}
-                                        <span
-                                            class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                        >
+                                        <Badge tone="danger" size="sm">
                                             {report.unread_count} new {report.unread_count === 1 ? 'reply' : 'replies'}
-                                        </span>
+                                        </Badge>
                                     {/if}
                                 </div>
                                 <p class="line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
@@ -235,16 +229,11 @@
             </svg>
         </div>
     {:else if selectedBugReport}
-        <!-- Report Details -->
         <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
             <div class="mb-3 flex items-center gap-2">
-                <span
-                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {getStatusBadgeClasses(
-                        selectedBugReport.status_color,
-                    )}"
-                >
+                <Badge tone={getStatusBadgeTone(selectedBugReport.status_color)} size="sm">
                     {selectedBugReport.status_label}
-                </span>
+                </Badge>
                 <span class="text-xs text-gray-500 dark:text-gray-400">
                     Submitted {new Date(selectedBugReport.created_at).toLocaleDateString()}
                 </span>
@@ -262,7 +251,6 @@
             </div>
         </div>
 
-        <!-- Comments Section -->
         <div class="mb-6">
             <h4 class="mb-3 font-medium text-gray-900 dark:text-white">
                 Conversation ({bugReportComments.length})
@@ -287,11 +275,7 @@
                                     {comment.user.name}
                                 </span>
                                 {#if comment.is_from_admin}
-                                    <span
-                                        class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                    >
-                                        Staff
-                                    </span>
+                                    <Badge tone="primary" size="sm">Staff</Badge>
                                 {/if}
                                 <span
                                     class="text-xs {comment.is_from_admin ? 'text-gray-600 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}"
@@ -311,7 +295,6 @@
             {/if}
         </div>
 
-        <!-- Add Comment Form -->
         {#if !selectedBugReport.is_closed}
             <div>
                 <Textarea

@@ -15,27 +15,21 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <!-- Canonical URL -->
     <link rel="canonical" href="{{ canonical() }}"/>
 
-    <!-- Favicon -->
     <link rel="icon" href="{{ asset('favicon.ico') }}?v={{ $iconVersion }}" sizes="any">
     <link rel="icon" href="{{ asset('icon-192.png') }}?v={{ $iconVersion }}" type="image/png" sizes="192x192">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v={{ $iconVersion }}">
 
-    <!-- PWA Manifest -->
     <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ $iconVersion }}">
 
-    <!-- RSS Feeds -->
     <link rel="alternate" type="application/rss+xml" title="FVN.li - New Visual Novels" href="{{ route('feed.new') }}">
     <link rel="alternate" type="application/rss+xml" title="FVN.li - Updated Visual Novels" href="{{ route('feed.updates') }}">
 
-    <!-- Robots meta tag for non-production environments -->
     @if (!app()->environment('production'))
         <meta name="robots" content="noindex, nofollow">
     @endif
 
-    <!-- Essential Meta Tags - Dynamic content provided by Inertia Head -->
     <meta name="theme-color" content="#3B82F6">
     <meta name="msapplication-TileColor" content="#3B82F6">
     <meta name="application-name" content="FVN.li">
@@ -43,10 +37,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="FVN.li">
 
-    <!-- Dynamic SEO Tags -->
     @inertiaHead
 
-    <!-- Server-side rendered meta tags for SEO -->
     @php
         $metaTags = $page['props']['metaTags'] ?? [];
         $seoTitle = $metaTags['browserTitle'] ?? $metaTags['title'] ?? null;
@@ -69,7 +61,6 @@
         <meta name="robots" content="noindex">
     @endif
 
-    <!-- Open Graph / Facebook -->
     @if ($socialTitle)
         <meta property="og:title" content="{{ $socialTitle }}">
     @endif
@@ -104,7 +95,6 @@
         @endforeach
     @endif
 
-    <!-- Twitter Cards -->
     <meta name="twitter:card" content="{{ $metaTags['twitterCard'] ?? 'summary_large_image' }}">
     @if ($socialTitle)
         <meta name="twitter:title" content="{{ $socialTitle }}">
@@ -119,7 +109,6 @@
         <meta name="twitter:url" content="{{ $metaTags['url'] }}">
     @endif
 
-    <!-- Structured Data (JSON-LD) -->
     @if (!empty($metaTags['structuredData']))
         @php
             $structuredDataJson = json_encode(

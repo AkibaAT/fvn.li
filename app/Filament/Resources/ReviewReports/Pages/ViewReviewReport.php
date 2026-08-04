@@ -131,7 +131,7 @@ class ViewReviewReport extends ViewRecord
                             'status' => 'actioned',
                             'reviewed_by' => Auth::id(),
                             'reviewed_at' => now(),
-                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes . "\n" : '') . 'User banned from reviewing.',
+                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes."\n" : '').'User banned from reviewing.',
                         ]);
                     }
 
@@ -164,7 +164,7 @@ class ViewReviewReport extends ViewRecord
                             'status' => 'actioned',
                             'reviewed_by' => Auth::id(),
                             'reviewed_at' => now(),
-                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes . "\n" : '') . 'Rater banned from reviewing.',
+                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes."\n" : '').'Rater banned from reviewing.',
                         ]);
                     }
 
@@ -180,7 +180,7 @@ class ViewReviewReport extends ViewRecord
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color('warning')
                 ->requiresConfirmation()
-                ->modalDescription('This will flag this external rater as a suspected bot account. This does NOT ban them — use "Ban Rater" to hide their reviews.')
+                ->modalDescription('This will flag this external rater as a suspected bot account. This does NOT ban them; use "Ban Rater" to hide their reviews.')
                 ->visible(fn (): bool => $this->record->rating?->rater !== null
                     && $this->record->rating?->user_id === null
                     && ! $this->record->rating->rater->is_suspicious)
@@ -210,7 +210,7 @@ class ViewReviewReport extends ViewRecord
                     $this->record->rating->user->update(['is_review_banned' => false]);
 
                     Notification::make()
-                        ->title('User unbanned — they can submit reviews again')
+                        ->title('User unbanned; they can submit reviews again')
                         ->success()
                         ->send();
                 }),
@@ -228,7 +228,7 @@ class ViewReviewReport extends ViewRecord
                     $this->record->rating->rater->update(['is_review_banned' => false]);
 
                     Notification::make()
-                        ->title('Rater unbanned — future imports will be visible')
+                        ->title('Rater unbanned; future imports will be visible')
                         ->success()
                         ->send();
                 }),

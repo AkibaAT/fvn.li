@@ -14,11 +14,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TrackPageViews
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request):Response  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
@@ -37,20 +32,16 @@ class TrackPageViews
     private function trackPageView(Request $request): void
     {
         try {
-            // Extract game from route parameters
             $game = $request->route('game');
 
             if (! $game instanceof Game) {
                 return;
             }
 
-            // Get session ID for deduplication
             $sessionId = $request->session()->getId();
 
-            // Get authenticated user ID if logged in
             $userId = $request->user()?->id;
 
-            // Get additional tracking data
             $ipAddress = $request->ip();
             $userAgent = $request->userAgent();
             $referrer = $request->header('referer');
@@ -67,7 +58,6 @@ class TrackPageViews
                 referrer: $referrer
             );
         } catch (Exception $e) {
-            // Log the error but don't break the request
             Log::warning('Failed to track page view', [
                 'error' => $e->getMessage(),
                 'url' => $request->url(),

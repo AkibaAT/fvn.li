@@ -43,14 +43,11 @@ class BackfillRatings extends Command
 
     public function handle(): int
     {
-        // Use sync mode for Scout indexing in CLI to avoid queueing ratings
         Config::set('scout.queue', false);
 
         try {
-            // Get authenticated client
             $this->client = $this->authService->getClient();
 
-            // Get the import state
             $importState = ImportState::firstWhere('type', self::IMPORT_STATE_TYPE);
 
             // If we have a stored last_processed_id, start from there
@@ -145,20 +142,16 @@ class BackfillRatings extends Command
         $doc = HTMLDocument::createFromString($events['content'], LIBXML_NOERROR);
         $newRatingsCount = 0;
 
-        // Process each review
         foreach ($doc->querySelectorAll('div.event_row') as $review) {
             try {
-                // Extract event ID first so we can update the import state
                 $eventTime = $review->querySelector('a.event_time');
                 $eventId = (int) basename($eventTime->getAttribute('href'));
 
-                // Update the last processed ID for every event we process
                 ImportState::updateOrCreate(
                     ['type' => self::IMPORT_STATE_TYPE],
                     ['last_processed_id' => $eventId]
                 );
 
-                // Skip if we already have this event, but continue processing
                 if (Rating::where('event_id', $eventId)->exists()) {
                     $this->output->write('.');
 
@@ -167,24 +160,20 @@ class BackfillRatings extends Command
 
                 DB::beginTransaction();
 
-                // Extract user ID from script
                 $script = $review->querySelector('script[type="text/javascript"]');
                 preg_match('/user_id.*:(\d+)/', $script->textContent, $matches);
                 $userId = (int) $matches[1];
 
-                // Get user info
                 $userLink = $review->querySelector('a.event_source_user');
                 $userName = $userLink->textContent;
                 $userUsername = basename(explode('.', $userLink->getAttribute('href'))[0]);
 
                 $updatedAt = new DateTime($eventTime->getAttribute('title'));
 
-                // Get game info
                 $gameLink = $review->querySelector('a.object_title');
                 $gameName = $gameLink->textContent;
                 $gameUrl = $gameLink->getAttribute('href');
 
-                // Get game ID (either from game cell or by fetching)
                 $gameCell = $review->querySelector('div.game_cell');
                 $gameId = $gameCell
                     ? (int) $gameCell->getAttribute('data-game_id')
@@ -193,7 +182,6 @@ class BackfillRatings extends Command
                 // Count star rating (exact class match)
                 $rating = count($review->querySelectorAll('span.icon-star'));
 
-                // Get review text if present
                 $ratingBlurb = $review->querySelector('div.rating_blurb');
                 $reviewText = $ratingBlurb ? $this->sanitizeReview($ratingBlurb->ownerDocument->saveHTML($ratingBlurb)) : '';
 
@@ -251,7 +239,6 @@ class BackfillRatings extends Command
     ): void {
         $reviewText = $this->sanitizeReview($reviewText);
 
-        // Get or create rater
         $rater = Rater::firstOrNew(['itch_id' => $userId]);
         if (! $rater->exists || $rater->name !== $userName || $rater->username !== $userUsername || $rater->external_platform !== 'itch_io') {
             $rater->name = $userName;
@@ -260,7 +247,6 @@ class BackfillRatings extends Command
             $rater->save();
         }
 
-        // Get or create game
         $game = Game::firstOrNew(['itch_id' => $gameId]);
         if (! $game->exists) {
             $game->fill([
@@ -276,7 +262,6 @@ class BackfillRatings extends Command
             $game->save();
         }
 
-        // Mark previous ratings as not visible (using Eloquent to trigger search index updates)
         Rating::where('game_id', $game->id)
             ->where('rater_id', $rater->id)
             ->get()
@@ -284,7 +269,6 @@ class BackfillRatings extends Command
                 $rating->update(['is_visible' => false]);
             });
 
-        // Create new rating (auto-hide if rater is banned from reviewing)
         Rating::create([
             'event_id' => $eventId,
             'published_at' => $updatedAt,

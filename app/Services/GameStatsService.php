@@ -10,6 +10,7 @@ use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use App\Models\VersionSupportedLanguage;
+use App\Services\Concerns\ReportsProgress;
 use App\Support\Stats\ArrayStatsPayload;
 use App\Support\Stats\StatsPayload;
 use Illuminate\Support\Collection;
@@ -24,9 +25,9 @@ use Throwable;
 /**
  * Service for extracting and processing game script statistics
  */
-readonly class GameStatsService
+class GameStatsService
 {
-    private const MAX_DIALOGUE_TEXT_BYTES = 65536;
+    use ReportsProgress;
 
     private LanguageMappingService $languageMappingService;
 
@@ -60,9 +61,6 @@ readonly class GameStatsService
         $this->dialoguePersister = $dialoguePersister ?? app(GameStatsDialoguePersister::class);
     }
 
-    /**
-     * Store a processed game file permanently
-     */
     public function storeProcessedFile(string $tempFile, string $filename, int $gameId, int $versionId): void
     {
         if (! File::exists($tempFile)) {
@@ -81,12 +79,6 @@ readonly class GameStatsService
         }
     }
 
-    /**
-     * Check whether an archive yields usable stats, without materializing them.
-     *
-     * Validates derived archives. Only the aggregate records at the head of the
-     * document are read, so this costs the same for a huge game as a tiny one.
-     */
     public function canExtractStats(string $archivePath): bool
     {
         $payload = $this->extractGameStats($archivePath);
@@ -102,9 +94,6 @@ readonly class GameStatsService
         }
     }
 
-    /**
-     * Extract statistics from a game archive
-     */
     public function extractGameStats(string $archivePath): ?StatsPayload
     {
         $mode = config('services.renpy.analysis_mode', 'sandbox');
@@ -125,7 +114,7 @@ readonly class GameStatsService
             return null;
         }
 
-        return $this->extractGameStatsLocally($archivePath);
+        return $this->localExtractor->extract($archivePath);
     }
 
     public function getLastExtractionError(): ?string
@@ -149,7 +138,7 @@ readonly class GameStatsService
         string $defaultLanguage = 'eng',
         ?Game $game = null
     ): void {
-        echo "    [Stats] Starting saveVersionStats\n";
+        $this->progress("    [Stats] Starting saveVersionStats\n");
         $payload = $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats);
 
         // If game is not explicitly provided, get it from the version
@@ -158,29 +147,25 @@ readonly class GameStatsService
         $this->clearVersionAggregateStats($version);
 
         // Track all languages found in the stats to update supported languages
-        echo "    [Stats] Processing language stats\n";
+        $this->progress("    [Stats] Processing language stats\n");
         $foundLanguages = $this->saveLanguageAndCharacterStats($version, $payload, $defaultLanguage, $game);
 
-        // Create essential characters with all found languages before processing dialogue lines
-        echo "    [Stats] Creating essential characters\n";
+        $this->progress("    [Stats] Creating essential characters\n");
         $this->essentialCharacterService->createEssentialCharactersWithLanguages(
             $version->game_id,
             $foundLanguages,
             $defaultLanguage
         );
-        echo "    [Stats] Essential characters created\n";
+        $this->progress("    [Stats] Essential characters created\n");
 
-        // Update supported languages for this version
-        // First, add all languages found in the stats
-        echo "    [Stats] Adding supported languages\n";
+        $this->progress("    [Stats] Adding supported languages\n");
         foreach ($foundLanguages as $isoCode) {
             if (! LanguageMappingService::isPlaceholderLanguageCode($isoCode)) {
                 $version->addSupportedLanguage($isoCode);
             }
         }
-        echo "    [Stats] Supported languages added\n";
+        $this->progress("    [Stats] Supported languages added\n");
 
-        // Find the previous version to copy language availability settings from
         $previousVersion = GameVersion::where('game_id', $version->game_id)
             ->where('id', '!=', $version->id)
             ->whereHas('supportedLanguages', function ($query) {
@@ -194,53 +179,47 @@ readonly class GameStatsService
             VersionSupportedLanguage::copyAvailabilitySettings($previousVersion->id, $version->id);
         }
 
-        // Save file statistics
         $fileStatistics = $payload->fileStatistics();
         if ($fileStatistics !== null) {
-            echo "    [Stats] Saving file statistics\n";
+            $this->progress("    [Stats] Saving file statistics\n");
             $version->saveFileStats($fileStatistics);
-            echo "    [Stats] File statistics saved\n";
+            $this->progress("    [Stats] File statistics saved\n");
         }
 
-        // Save route graph data
-        echo "    [Stats] Saving route graph data\n";
-        $hasRouteData = $this->saveRouteGraph($version, $payload) > 0;
-        echo '    [Stats] Route graph data saved (present: ' . ($hasRouteData ? 'yes' : 'no') . ")\n";
+        $this->progress("    [Stats] Saving route graph data\n");
+        $hasRouteData = $this->routeGraphPersister->save($version, $payload) > 0;
+        $this->progress('    [Stats] Route graph data saved (present: ' . ($hasRouteData ? 'yes' : 'no') . ")\n");
 
-        // Process dialogue lines
-        echo "    [Stats] Saving dialogue lines\n";
-        $dialogueLineCount = $this->saveDialogueLines($version, $payload, $defaultLanguage, $game, $foundLanguages);
-        echo "    [Stats] Dialogue lines saved ({$dialogueLineCount} lines)\n";
+        $this->progress("    [Stats] Saving dialogue lines\n");
+        $dialogueLineCount = $this->dialoguePersister->save($version, $payload, $defaultLanguage, $game, $foundLanguages);
+        $this->progress("    [Stats] Dialogue lines saved ({$dialogueLineCount} lines)\n");
 
         if ($dialogueLineCount > 0) {
-            // Apply special character assignment fixes after importing dialogue lines
-            echo "    [Stats] Applying character assignment fixes\n";
-            $this->applySpecialCharacterAssignments($version);
-            echo "    [Stats] Character assignments fixed\n";
+            $this->progress("    [Stats] Applying character assignment fixes\n");
+            $this->dialoguePersister->applySpecialCharacterAssignments($version);
+            $this->progress("    [Stats] Character assignments fixed\n");
 
-            // Calculate character stats from the imported dialogue lines and compare with the payload
-            echo "    [Stats] Calculating stats and checking discrepancies\n";
-            $this->calculateStatsAndReportDiscrepancies($version, $payload, $defaultLanguage, $game);
-            echo "    [Stats] Stats calculated\n";
+            $this->progress("    [Stats] Calculating stats and checking discrepancies\n");
+            $this->dialoguePersister->calculateStatsAndReportDiscrepancies($version, $payload, $defaultLanguage, $game);
+            $this->progress("    [Stats] Stats calculated\n");
 
             // Queue word frequency calculation for all languages in this version
-            echo "    [Stats] Queueing word frequency calculations\n";
-            $this->queueWordFrequencyCalculations($version->id);
-            echo "    [Stats] Word frequency calculations queued\n";
+            $this->progress("    [Stats] Queueing word frequency calculations\n");
+            $this->dialoguePersister->queueWordFrequencyCalculations($version->id);
+            $this->progress("    [Stats] Word frequency calculations queued\n");
         }
 
-        // Calculate route paths and pre-build graph after both route graph and dialogue lines are saved
         if ($hasRouteData) {
             // The precomputed graph and paths are derived views of data that is
             // already stored. They are rebuildable, so a failure here is
             // reported and left for a later pass rather than discarding the
             // extraction that produced them.
             try {
-                echo "    [Stats] Pre-computing route graph\n";
+                $this->progress("    [Stats] Pre-computing route graph\n");
                 app(RouteGraphService::class)->computeAndStore($version);
-                echo "    [Stats] Route graph computed and stored\n";
+                $this->progress("    [Stats] Route graph computed and stored\n");
             } catch (Throwable $throwable) {
-                echo "    [Stats] Route graph precompute skipped: {$throwable->getMessage()}\n";
+                $this->progress("    [Stats] Route graph precompute skipped: {$throwable->getMessage()}\n");
                 Log::warning('Route graph precompute failed', [
                     'game_version_id' => $version->id,
                     'error' => $throwable->getMessage(),
@@ -248,11 +227,11 @@ readonly class GameStatsService
             }
 
             try {
-                echo "    [Stats] Calculating route paths\n";
+                $this->progress("    [Stats] Calculating route paths\n");
                 app(RoutePathCalculator::class)->calculateAndStore($version);
-                echo "    [Stats] Route paths calculated and stored\n";
+                $this->progress("    [Stats] Route paths calculated and stored\n");
             } catch (Throwable $throwable) {
-                echo "    [Stats] Route path calculation skipped: {$throwable->getMessage()}\n";
+                $this->progress("    [Stats] Route path calculation skipped: {$throwable->getMessage()}\n");
                 Log::warning('Route path calculation failed', [
                     'game_version_id' => $version->id,
                     'error' => $throwable->getMessage(),
@@ -262,121 +241,7 @@ readonly class GameStatsService
 
         Cache::forget('dialogue.games_list');
         GameSearchRefreshService::refreshForLatestVersion($version, 'version_stats_saved');
-        echo "    [Stats] Version stats processing complete\n";
-    }
-
-    /**
-     * Save route graph data (labels, edges, menu choices) for a game version
-     *
-     * @return int the number of route entries written
-     */
-    protected function saveRouteGraph(GameVersion $version, StatsPayload|array $stats): int
-    {
-        return $this->routeGraphPersister->save(
-            $version,
-            $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats)
-        );
-    }
-
-    /**
-     * Save dialogue lines for a game version with text de-duplication
-     * Updated to handle character display_names properly and ensure menu_choice character exists
-     */
-    protected function saveDialogueLines(
-        GameVersion $version,
-        StatsPayload|array $dialogueLines,
-        string $defaultLanguage = 'eng',
-        ?Game $game = null,
-        array $foundLanguages = []
-    ): int {
-        $payload = $dialogueLines instanceof StatsPayload
-            ? $dialogueLines
-            : new ArrayStatsPayload(['dialogue_lines' => $dialogueLines]);
-
-        return $this->dialoguePersister->save($version, $payload, $defaultLanguage, $game, $foundLanguages);
-    }
-
-    /**
-     * Process the text:
-     * - If it's Zalgo text (excessive diacritics), strip diacritical marks.
-     * - Otherwise, normalize to NFC to preserve diacritical marks.
-     *
-     * @param  string  $text  The input text.
-     * @return string The processed text.
-     */
-    protected function processText(string $text): string
-    {
-        return $this->dialoguePersister->processText($text);
-    }
-
-    /**
-     * Check if the given text is likely Zalgo text.
-     *
-     * @param  string  $text  The input text.
-     * @param  float  $threshold  The ratio of diacritics to total characters to trigger stripping.
-     * @return bool Returns true if the text is considered Zalgo.
-     */
-    protected function isZalgo(string $text, float $threshold = 0.9): bool
-    {
-        return $this->dialoguePersister->isZalgo($text, $threshold);
-    }
-
-    /**
-     * Strip all diacritical marks from text.
-     *
-     * @param  string  $text  The input text.
-     * @return string The text with diacritical marks removed.
-     */
-    protected function stripDiacritics(string $text): string
-    {
-        return $this->dialoguePersister->stripDiacritics($text);
-    }
-
-    /**
-     * Create or get a character with proper multi-language support
-     * This is the single function that handles all character creation logic
-     */
-    protected function createCharacter(
-        int $gameId,
-        string $characterId,
-        array $foundLanguages,
-        string $defaultLanguage
-    ): Character {
-        return $this->dialoguePersister->createCharacter($gameId, $characterId, $foundLanguages, $defaultLanguage);
-    }
-
-    /**
-     * Apply special character assignment fixes after importing dialogue lines
-     */
-    protected function applySpecialCharacterAssignments(GameVersion $version): void
-    {
-        $this->dialoguePersister->applySpecialCharacterAssignments($version);
-    }
-
-    /**
-     * Calculate character stats and report discrepancies with JSON stats
-     */
-    protected function calculateStatsAndReportDiscrepancies(
-        GameVersion $version,
-        StatsPayload|array $stats,
-        string $defaultLanguage = 'eng',
-        ?Game $game = null
-    ): void {
-        $this->dialoguePersister->calculateStatsAndReportDiscrepancies(
-            $version,
-            $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats),
-            $defaultLanguage,
-            $game
-        );
-    }
-
-    /**
-     * Queue word frequency calculations for all languages in a game version.
-     * This is called after dialogue import to pre-calculate word frequencies.
-     */
-    protected function queueWordFrequencyCalculations(int $versionId): void
-    {
-        $this->dialoguePersister->queueWordFrequencyCalculations($versionId);
+        $this->progress("    [Stats] Version stats processing complete\n");
     }
 
     /**
@@ -535,60 +400,11 @@ readonly class GameStatsService
         return $filename;
     }
 
-    /**
-     * Extract statistics locally. This mode is intended only for trusted local
-     * fixtures and explicit development fallback, never untrusted production input.
-     */
-    private function extractGameStatsLocally(string $archivePath): ?StatsPayload
-    {
-        return $this->localExtractor->extract($archivePath);
-    }
-
     private function clearVersionAggregateStats(GameVersion $version): void
     {
-        echo "    [Stats] Clearing previous aggregate stats\n";
+        $this->progress("    [Stats] Clearing previous aggregate stats\n");
         $version->languageStats()->delete();
         $version->characterStats()->delete();
         $version->supportedLanguages()->delete();
-    }
-
-    /**
-     * Extract a game archive to the specified directory
-     *
-     * @throws RuntimeException If extraction fails
-     */
-    private function extractArchive(string $archivePath, string $extractPath): void
-    {
-        $this->localExtractor->extractArchive($archivePath, $extractPath);
-    }
-
-    private function detectArchiveFormat(string $archivePath): string
-    {
-        return $this->localExtractor->detectArchiveFormat($archivePath);
-    }
-
-    /**
-     * Find the game directory containing the Ren'Py game files
-     */
-    private function findGameDirectory(string $basePath): ?string
-    {
-        return $this->localExtractor->findGameDirectory($basePath);
-    }
-
-    private function hasTranslationTree(string $gameDir): bool
-    {
-        return $this->localExtractor->hasTranslationTree($gameDir);
-    }
-
-    /**
-     * Extract statistics using the Ren'Py SDK
-     *
-     * @return array|null Stats array or null if extraction failed but shouldn't be treated as an error
-     *
-     * @throws RuntimeException Only if stats file doesn't exist or is invalid after successful process execution
-     */
-    private function extractStatsWithSdk(string $gameDir, string $sdkPath): ?StatsPayload
-    {
-        return $this->localExtractor->extractStatsWithSdk($gameDir, $sdkPath);
     }
 }

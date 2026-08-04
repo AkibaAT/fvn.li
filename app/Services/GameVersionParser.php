@@ -21,7 +21,6 @@ class GameVersionParser
      */
     public function parseSemanticVersion(string $version): ?array
     {
-        // Remove leading 'v' or 'version'
         $version = preg_replace('/^[vV]ersion\s*/', '', $version);
         $version = preg_replace('/^[vV]\s*/', '', $version);
 
@@ -35,14 +34,13 @@ class GameVersionParser
             $suffix = $matches[2] ?? '';
 
             return [$parts, $suffix];
-        } catch (Exception) {
+        } catch (Exception $exception) {
+            report($exception);
+
             return null;
         }
     }
 
-    /**
-     * Check if a string looks like a probable version number.
-     */
     public function isProbableVersion(string $version): bool
     {
         if (empty($version)) {
@@ -73,15 +71,11 @@ class GameVersionParser
         return true;
     }
 
-    /**
-     * Extract version from upload data with various fallback strategies.
-     */
     public function extractVersion(array $upload, bool $allowDateFallback = false): ?string
     {
         // Collect version candidates with source and priority
         $candidates = [];
 
-        // Check build.user_version first (highest priority)
         if (! empty($upload['build']['user_version'])) {
             $version = $upload['build']['user_version'];
             if ($this->isProbableVersion($version)) {
@@ -96,7 +90,6 @@ class GameVersionParser
             }
         }
 
-        // Check display_name (high priority)
         if (! empty($upload['display_name'])) {
             // Look for version in parentheses first (highest priority for display name)
             if (preg_match('/\(([0-9]+(?:\.[0-9]+)*(?:[a-zA-Z]*)?)\)/', $upload['display_name'], $matches)) {
@@ -112,7 +105,6 @@ class GameVersionParser
                 $matches
             );
 
-            // Find the highest semantic version
             $highestVersion = null;
             foreach ($matches[1] as $version) {
                 if ($this->isProbableVersion($version)) {
@@ -141,7 +133,6 @@ class GameVersionParser
             }
         }
 
-        // Check filename (lowest priority)
         $filename = $upload['filename'] ?? '';
         $cleanedFilename = preg_replace('/\.(zip|tar\.bz2|tar\.gz)$/', '', $filename);
 
@@ -162,7 +153,6 @@ class GameVersionParser
         }
 
         if (! empty($candidates)) {
-            // Sort by priority (desc) then version string
             usort($candidates, fn ($a, $b) => $b[1] <=> $a[1] ?: strcmp($a[0], $b[0]));
 
             return $candidates[0][0];

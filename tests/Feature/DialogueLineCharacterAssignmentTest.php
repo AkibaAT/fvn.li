@@ -9,7 +9,6 @@ use App\Models\GameVersion;
 use App\Services\GameStatsService;
 
 test('it assigns narrator character id for narrator dialogue', function () {
-    // Create a game and version
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
 
@@ -34,7 +33,6 @@ test('it assigns narrator character id for narrator dialogue', function () {
         ],
     ];
 
-    // Process the dialogue lines
     $gameStatsService = app(GameStatsService::class);
     $gameStatsService->saveVersionStats($version, $dialogueData);
 
@@ -55,7 +53,6 @@ test('it assigns narrator character id for narrator dialogue', function () {
 });
 
 test('it assigns correct character id for menu choice dialogue', function () {
-    // Create a game and version
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
 
@@ -80,7 +77,6 @@ test('it assigns correct character id for menu choice dialogue', function () {
         ],
     ];
 
-    // Process the dialogue lines
     $gameStatsService = app(GameStatsService::class);
     $gameStatsService->saveVersionStats($version, $dialogueData);
 
@@ -101,7 +97,6 @@ test('it assigns correct character id for menu choice dialogue', function () {
 });
 
 test('it assigns correct character id for regular character dialogue', function () {
-    // Create a game and version
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
 
@@ -126,7 +121,6 @@ test('it assigns correct character id for regular character dialogue', function 
         ],
     ];
 
-    // Process the dialogue lines
     $gameStatsService = app(GameStatsService::class);
     $gameStatsService->saveVersionStats($version, $dialogueData);
 
@@ -147,7 +141,6 @@ test('it assigns correct character id for regular character dialogue', function 
 });
 
 test('it handles mixed character types correctly', function () {
-    // Create a game and version
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
 
@@ -186,7 +179,6 @@ test('it handles mixed character types correctly', function () {
         ],
     ];
 
-    // Process the dialogue lines
     $gameStatsService = app(GameStatsService::class);
     $gameStatsService->saveVersionStats($version, $dialogueData);
 
@@ -232,7 +224,6 @@ test('it handles mixed character types correctly', function () {
 });
 
 test('it assigns extend dialogue to the previous character', function () {
-    // Create a game and version
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
 
@@ -279,7 +270,6 @@ test('it assigns extend dialogue to the previous character', function () {
         ],
     ];
 
-    // Process the dialogue lines
     $gameStatsService = app(GameStatsService::class);
     $gameStatsService->saveVersionStats($version, $dialogueData);
 
@@ -323,7 +313,6 @@ test('it assigns extend dialogue to the previous character', function () {
 });
 
 test('it assigns extend dialogue to narrator when no previous character exists', function () {
-    // Create a game and version
     $game = Game::factory()->create();
     $version = GameVersion::factory()->create(['game_id' => $game->id]);
 
@@ -349,7 +338,6 @@ test('it assigns extend dialogue to narrator when no previous character exists',
         ],
     ];
 
-    // Process the dialogue lines
     $gameStatsService = app(GameStatsService::class);
     $gameStatsService->saveVersionStats($version, $dialogueData);
 

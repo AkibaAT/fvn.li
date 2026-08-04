@@ -11,7 +11,6 @@ use App\Services\AdditionRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Response;
 
 class DashboardAdditionRequestController extends Controller
 {
@@ -24,7 +23,6 @@ class DashboardAdditionRequestController extends Controller
         $user = User::findOrFail($authId);
         $service = new AdditionRequestService;
 
-        // Parse URLs from the request
         $urls = $service->parseUrls((string) $request->input('urls', ''));
 
         if (empty($urls)) {
@@ -39,7 +37,6 @@ class DashboardAdditionRequestController extends Controller
 
         $result = $service->submitRequests($user, $urls);
 
-        // Format the result to include success key
         $success = $result['success_count'] > 0;
         $message = $success
             ? "Successfully submitted {$result['success_count']} request(s)."
@@ -77,15 +74,12 @@ class DashboardAdditionRequestController extends Controller
         }
         $user = User::findOrFail($authId);
 
-        // Get status from request, default to null for all statuses
         $status = $request->input('status');
 
-        // Map 'processing' and 'completed' to 'approved' for compatibility
         if ($status === 'processing' || $status === 'completed') {
             $status = 'approved';
         }
 
-        // Use the relationship directly to avoid the service method that might be causing issues
         $query = $user->additionRequests();
 
         if ($status && in_array($status, AdditionRequest::getStatuses())) {
@@ -94,7 +88,6 @@ class DashboardAdditionRequestController extends Controller
 
         $requests = $query->with(['game', 'reviewer'])->orderBy('addition_request_users.created_at', 'desc')->get();
 
-        // Format the response to match what the frontend expects
         return response()->json([
             'success' => true,
             'requests' => $requests->map(function ($request) {

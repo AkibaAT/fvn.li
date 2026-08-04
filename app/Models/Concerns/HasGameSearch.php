@@ -8,26 +8,13 @@ use App\Models\ClickStat;
 
 trait HasGameSearch
 {
-    /**
-     * Get the trending score for this game based on recent unique visitors.
-     *
-     * Uses exponential decay with a 7-day half-life so recent visits count more
-     * than older ones. A visit from 7 days ago is worth 50% of one today,
-     * 14 days ago is worth 25%, etc.
-     *
-     * Formula: score = Σ(e^(-λ × age_days)) where λ = ln(2)/7 ≈ 0.099
-     */
     public function getTrendingScore(): int
     {
         return (int) ClickStat::trendingScores([$this->id])->get($this->id, 0);
     }
 
-    /**
-     * Get the indexable data array for the model.
-     */
     public function toSearchableArray(): array
     {
-        // Load relationships if not already loaded
         if (! $this->relationLoaded('tags')) {
             $this->load('tags');
         }
@@ -35,26 +22,22 @@ trait HasGameSearch
             $this->load('gameJams');
         }
 
-        // Get latest version data for platforms and supported languages
         $latestVersion = $this->gameVersions()->where('is_latest', true)->first();
         $supportedLanguages = [];
         $englishWordCount = null;
         $primaryWordCount = null;
 
         if ($latestVersion) {
-            // Get supported languages from the latest version
             $supportedLanguages = $latestVersion->supportedLanguages()
                 ->where('is_available', true)
                 ->pluck('iso_code')
                 ->toArray();
 
-            // Get English word count
             $englishStats = $latestVersion->languageStats()
                 ->where('iso_code', 'eng')
                 ->first();
             $englishWordCount = $englishStats?->words;
 
-            // Get primary language word count
             $sourceLanguageId = $this->source_language_id ?? 'eng';
             if ($sourceLanguageId !== 'eng') {
                 $primaryStats = $latestVersion->languageStats()
@@ -109,7 +92,6 @@ trait HasGameSearch
             'primary_word_count' => $primaryWordCount,
             'source_language_id' => $this->source_language_id,
 
-            // Store platform (where game is hosted)
             'platform' => $this->platform,
 
             // Platform support (from latest version - where game runs)
@@ -137,17 +119,11 @@ trait HasGameSearch
         ];
     }
 
-    /**
-     * Get the name of the index associated with the model.
-     */
     public function searchableAs(): string
     {
         return 'games';
     }
 
-    /**
-     * Determine if the model should be searchable.
-     */
     public function shouldBeSearchable(): bool
     {
         // Only index visible games with names
@@ -182,7 +158,6 @@ trait HasGameSearch
             return $text;
         }
 
-        // Remove URLs (http, https, www, and basic domain patterns)
         $patterns = [
             // Full URLs with protocol
             '/https?:\/\/[^\s\]]+/i',

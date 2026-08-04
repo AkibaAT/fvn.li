@@ -7,6 +7,7 @@ use App\Models\GameVersion;
 use App\Models\Tag;
 use App\Services\ImageProcessingService;
 use App\Services\SteamDataSyncService;
+use App\Services\SteamImageSyncService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -269,19 +270,19 @@ it('syncs Steam genres and user tags to local tags without duplicate case varian
 });
 
 it('compares screenshot changes by source URLs only', function () {
-    $service = makeSteamService();
+    $service = new SteamImageSyncService;
 
-    expect(invokeSteamMethod($service, 'screenshotUrlsChanged', [
+    expect($service->screenshotUrlsChanged([
         ['url' => 'https://cdn.example/1.jpg', 'optimized' => ['ignored' => true]],
     ], [
         ['url' => 'https://cdn.example/1.jpg'],
     ]))->toBeFalse()
-        ->and(invokeSteamMethod($service, 'screenshotUrlsChanged', [
+        ->and($service->screenshotUrlsChanged([
             ['url' => 'https://cdn.example/1.jpg'],
         ], [
             ['url' => 'https://cdn.example/2.jpg'],
         ]))->toBeTrue()
-        ->and(invokeSteamMethod($service, 'extractScreenshotUrls', null))->toBe([]);
+        ->and($service->extractScreenshotUrls(null))->toBe([]);
 });
 
 it('fails load full details when a game has no Steam URL and records the error', function () {
@@ -301,7 +302,7 @@ it('fails load full details when a game has no Steam URL and records the error',
 });
 
 it('processes changed Steam images through the image processing service', function () {
-    $service = makeSteamService();
+    $service = new SteamImageSyncService;
     $game = Game::factory()->create([
         'thumb_url' => 'https://cdn.example/new-header.jpg',
         'screenshots' => [
@@ -315,13 +316,13 @@ it('processes changed Steam images through the image processing service', functi
     $imageService->shouldReceive('processGameThumbnail')->once()->with($game);
     $this->app->instance(ImageProcessingService::class, $imageService);
 
-    invokeSteamMethod($service, 'processImages', $game, 'https://cdn.example/old-header.jpg', [
+    $service->processImages($game, 'https://cdn.example/old-header.jpg', [
         ['url' => 'https://cdn.example/old-shot.jpg'],
     ]);
 });
 
 it('retries Steam screenshot processing when optimized variants are missing', function () {
-    $service = makeSteamService();
+    $service = new SteamImageSyncService;
     $game = Game::factory()->create([
         'thumb_url' => null,
         'screenshots' => [
@@ -334,7 +335,7 @@ it('retries Steam screenshot processing when optimized variants are missing', fu
     $imageService->shouldReceive('processGameThumbnail')->never();
     $this->app->instance(ImageProcessingService::class, $imageService);
 
-    invokeSteamMethod($service, 'processImages', $game, null, [
+    $service->processImages($game, null, [
         ['url' => 'https://cdn.example/shot.jpg'],
     ]);
 });

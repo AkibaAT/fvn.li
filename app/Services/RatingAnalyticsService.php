@@ -9,11 +9,17 @@ use Illuminate\Support\Facades\DB;
 class RatingAnalyticsService
 {
     private const int PHRASES_CACHE_VERSION = 2;
+
     private const int MAX_REVIEWS = 80;
+
     private const int MAX_REVIEW_CHARS = 5000;
+
     private const int MAX_TOTAL_WORDS = 12000;
+
     private const int MAX_SENTENCES = 20;
+
     private const int MAX_CANDIDATES = 750;
+
     private const int COMPARISON_LIMIT = 75;
 
     public function globalStats(): array

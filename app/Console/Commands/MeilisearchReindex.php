@@ -39,13 +39,9 @@ class MeilisearchReindex extends Command
             return $this->handleFullReindex($searchService);
         }
 
-        // Handle specific type reindexing with progress bar
         return $this->handleTypeReindex($type, $searchService);
     }
 
-    /**
-     * Handle full reindex of all content types.
-     */
     protected function handleFullReindex(SearchIndexService $searchService): int
     {
         $this->info('Performing full maintenance reindex...');
@@ -76,25 +72,21 @@ class MeilisearchReindex extends Command
         if (! empty($stats['errors'])) {
             $this->error('Errors occurred during reindexing:');
             foreach ($stats['errors'] as $error) {
-                $this->line("  • {$error}");
+                $this->line("  - {$error}");
             }
 
             return Command::FAILURE;
         }
 
-        $this->info('Maintenance reindex completed successfully!');
+        $this->info('Maintenance reindex completed successfully.');
 
         return Command::SUCCESS;
     }
 
-    /**
-     * Handle reindexing of a specific content type.
-     */
     protected function handleTypeReindex(string $type, SearchIndexService $searchService): int
     {
         $this->info("Reindexing {$type}...");
 
-        // Create progress callback
         $progressCallback = function ($count) {
             if (! isset($this->bar)) {
                 $this->bar = $this->output->createProgressBar($count);
@@ -122,13 +114,13 @@ class MeilisearchReindex extends Command
         if (! empty($stats['errors'])) {
             $this->error('Errors occurred during reindexing:');
             foreach ($stats['errors'] as $error) {
-                $this->line("  • {$error}");
+                $this->line("  - {$error}");
             }
 
             return Command::FAILURE;
         }
 
-        $this->info('Reindex completed successfully!');
+        $this->info('Reindex completed successfully.');
 
         return Command::SUCCESS;
     }

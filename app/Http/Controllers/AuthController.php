@@ -7,7 +7,6 @@ namespace App\Http\Controllers;
 use App\Support\SafeRedirectUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
 use Inertia\Response;
 
 class AuthController extends Controller
@@ -23,18 +22,7 @@ class AuthController extends Controller
             session()->put('url.intended', $previousUrl);
         }
 
-        return Inertia::render('auth/login', [
-            'metaTags' => [
-                'title' => 'Log in',
-                'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
-                'structuredData' => [
-                    '@type' => 'WebPage',
-                    'name' => 'Log in',
-                    'description' => 'Log in to your FVN.li account to track your visual novel progress',
-                    'url' => route('login'),
-                ],
-            ],
-        ]);
+        return $this->loginResponse();
     }
 
     public function logout(Request $request)

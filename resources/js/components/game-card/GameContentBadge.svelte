@@ -27,84 +27,73 @@
         onSaleToggle?: () => void;
         onDelistedToggle?: () => void;
     } = $props();
+
+    const badges = $derived([
+        {
+            visible: game.is_nsfw,
+            label: 'NSFW',
+            icon: 'icon-shield',
+            active: Boolean(nsfw),
+            onToggle: onNsfwToggle,
+            ariaLabel: 'Filter by NSFW content',
+            classes: 'border-red-300 bg-red-200 text-red-800 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-300',
+            activeClasses: 'border-2 ring-1 ring-red-300 dark:ring-red-300',
+        },
+        {
+            visible: Boolean((game as Record<string, unknown>).is_on_sale),
+            label: 'Sale',
+            icon: 'icon-bookmark',
+            active: Boolean(showSale),
+            onToggle: onSaleToggle,
+            ariaLabel: 'Filter by games on sale',
+            classes: 'border-rose-300 bg-rose-200 text-rose-800 dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-300',
+            activeClasses: 'border-2 ring-1 ring-rose-300 dark:ring-rose-300',
+        },
+        {
+            visible: game.is_paid,
+            label: 'Paid',
+            icon: 'icon-currency-circle-dollar',
+            active: Boolean(showPaid),
+            onToggle: onPaidToggle,
+            ariaLabel: 'Filter by paid games',
+            classes: 'border-amber-300 bg-amber-200 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-300',
+            activeClasses: 'border-2 ring-1 ring-amber-300 dark:ring-amber-300',
+        },
+        {
+            visible: game.has_demo,
+            label: 'Demo',
+            icon: 'icon-gamepad-2',
+            active: Boolean(showDemo),
+            onToggle: onDemoToggle,
+            ariaLabel: 'Filter by has demo',
+            classes: 'border-sky-300 bg-sky-200 text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/40 dark:text-sky-300',
+            activeClasses: 'border-2 ring-1 ring-sky-300 dark:ring-sky-300',
+        },
+        {
+            visible: game.is_delisted,
+            label: 'Delisted',
+            icon: '',
+            active: Boolean(showDelisted),
+            onToggle: onDelistedToggle,
+            ariaLabel: 'Filter by delisted games',
+            classes: 'border-yellow-300 bg-yellow-200 text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300',
+            activeClasses: 'border-2 ring-1 ring-yellow-300 dark:ring-yellow-300',
+        },
+    ]);
 </script>
 
-{#if game.is_nsfw}
-    <Button
-        type="button"
-        variant="outline"
-        tone="danger"
-        onclick={onNsfwToggle}
-        class="cursor-pointer rounded-full border border-red-300 bg-red-200 px-3 py-1.5 text-xs font-bold text-red-800 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-300 {nsfw
-            ? 'border-2 ring-1 ring-red-300 dark:ring-red-300'
-            : ''}"
-        ariaLabel="Filter by NSFW content"
-        title="Filter by NSFW content"
-    >
-        <i class="icon-shield inline" aria-hidden="true"></i> NSFW
-    </Button>
-{/if}
-
-{#if Boolean((game as Record<string, unknown>).is_on_sale)}
-    <Button
-        type="button"
-        variant="outline"
-        tone="danger"
-        onclick={onSaleToggle}
-        class="cursor-pointer rounded-full border border-rose-300 bg-rose-200 px-3 py-1.5 text-xs font-bold text-rose-800 dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-300 {showSale
-            ? 'border-2 ring-1 ring-rose-300 dark:ring-rose-300'
-            : ''}"
-        ariaLabel="Filter by games on sale"
-        title="Filter by games on sale"
-    >
-        <i class="icon-bookmark inline" aria-hidden="true"></i> Sale
-    </Button>
-{/if}
-
-{#if game.is_paid}
-    <Button
-        type="button"
-        variant="outline"
-        tone="warning"
-        onclick={onPaidToggle}
-        class="cursor-pointer rounded-full border border-amber-300 bg-amber-200 px-3 py-1.5 text-xs font-bold text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-300 {showPaid
-            ? 'border-2 ring-1 ring-amber-300 dark:ring-amber-300'
-            : ''}"
-        ariaLabel="Filter by paid games"
-        title="Filter by paid games"
-    >
-        <i class="icon-currency-circle-dollar inline" aria-hidden="true"></i> Paid
-    </Button>
-{/if}
-
-{#if game.has_demo}
-    <Button
-        type="button"
-        variant="outline"
-        tone="info"
-        onclick={onDemoToggle}
-        class="cursor-pointer rounded-full border border-sky-300 bg-sky-200 px-3 py-1.5 text-xs font-bold text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/40 dark:text-sky-300 {showDemo
-            ? 'border-2 ring-1 ring-sky-300 dark:ring-sky-300'
-            : ''}"
-        ariaLabel="Filter by has demo"
-        title="Filter by has demo"
-    >
-        <i class="icon-gamepad-2 inline" aria-hidden="true"></i> Demo
-    </Button>
-{/if}
-
-{#if game.is_delisted}
-    <Button
-        type="button"
-        variant="outline"
-        tone="warning"
-        onclick={onDelistedToggle}
-        class="cursor-pointer rounded-full border border-yellow-300 bg-yellow-200 px-3 py-1.5 text-xs font-bold text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300 {showDelisted
-            ? 'border-2 ring-1 ring-yellow-300 dark:ring-yellow-300'
-            : ''}"
-        ariaLabel="Filter by delisted games"
-        title="Filter by delisted games"
-    >
-        Delisted
-    </Button>
-{/if}
+{#each badges as badge (badge.label)}
+    {#if badge.visible}
+        <Button
+            type="button"
+            variant="outline"
+            onclick={badge.onToggle}
+            class="cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold {badge.classes} {badge.active ? badge.activeClasses : ''}"
+            ariaLabel={badge.ariaLabel}
+            title={badge.ariaLabel}
+        >
+            {#if badge.icon}<i class="{badge.icon} inline" aria-hidden="true"></i>{/if}
+            {badge.label}
+        </Button>
+    {/if}
+{/each}

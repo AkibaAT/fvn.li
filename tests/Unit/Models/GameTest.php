@@ -13,37 +13,8 @@ beforeEach(function () {
     // Make protected methods accessible
     $reflection = new ReflectionClass($this->game);
 
-    $this->parseSemanticVersion = $reflection->getMethod('parseSemanticVersion');
-
-    $this->isProbableVersion = $reflection->getMethod('isProbableVersion');
-
     $this->extractVersion = $reflection->getMethod('extractVersion');
 });
-
-dataset('semantic versions', [
-    'simple version' => ['1.0', [[1, 0], '']],
-    'three components' => ['1.2.3', [[1, 2, 3], '']],
-    'with v prefix' => ['v2.0.0', [[2, 0, 0], '']],
-    'with version prefix' => ['version1.0', [[1, 0], '']],
-    'with letter suffix' => ['1.0a', [[1, 0], 'a']],
-    'many components' => ['1.2.3.4.5', [[1, 2, 3, 4, 5], '']],
-    'invalid format' => ['abc', null],
-    'empty string' => ['', null],
-    'mixed characters' => ['1.0.abc', null],
-]);
-
-dataset('probable versions', [
-    'standard version' => ['1.0', true],
-    'three components' => ['1.2.3', true],
-    'with letter suffix' => ['1.0a', true],
-    'reasonable large version' => ['99.99.99', true],
-    'year-like first number' => ['2024.1', false],
-    'too large first number' => ['3000.1', false],
-    'too large component' => ['1.999999.1', false],
-    'invalid format' => ['abc', false],
-    'empty string' => ['', false],
-    'mixed characters' => ['1.0.abc', false],
-]);
 
 dataset('version extractions', [
     'from build user_version' => [
@@ -210,16 +181,6 @@ dataset('version extractions', [
     ],
 ]);
 
-test('parse semantic version', function (string $input, ?array $expected) {
-    $result = $this->parseSemanticVersion->invoke($this->game, $input);
-    expect($result)->toBe($expected);
-})->with('semantic versions');
-
-test('is probable version', function (string $input, bool $expected) {
-    $result = $this->isProbableVersion->invoke($this->game, $input);
-    expect($result)->toBe($expected);
-})->with('probable versions');
-
 test('extract version with date fallback', function (array $upload, string $expected) {
     $result = $this->extractVersion->invoke($this->game, $upload, true);
     expect($result)->toBe($expected);
@@ -231,7 +192,6 @@ test('extract version without date fallback', function (array $upload, string $_
 })->with('version extractions');
 
 test('platform flags are updated on latest version when no new version is created', function () {
-    // Create a game with a version
     $game = Game::factory()->create([
         'itch_id' => 12345,
         'uploads' => [
@@ -292,7 +252,6 @@ test('platform flags are updated on latest version when no new version is create
     // Refresh the version from database
     $version->refresh();
 
-    // Assert that Linux support was added without creating a new version
     expect($version->is_windows)->toBeTrue()
         ->and($version->is_linux)->toBeTrue()
         ->and($version->is_mac)->toBeFalse()

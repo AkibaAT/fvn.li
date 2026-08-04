@@ -26,17 +26,11 @@ class DiscordServerMember extends Model
         'joined_at' => 'datetime',
     ];
 
-    /**
-     * Get the Discord server.
-     */
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
     }
 
-    /**
-     * Get the associated fvn.li user.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

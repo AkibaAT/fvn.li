@@ -51,7 +51,6 @@
 
     {#if hasData}
         <div class="space-y-6">
-            <!-- Summary -->
             <div>
                 <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
                     Version {fileStatsData?.version?.version}
@@ -73,7 +72,6 @@
                 </div>
             </div>
 
-            <!-- Detailed Breakdown -->
             <div class="space-y-6">
                 {#each nonEmptyCategories as category, index (index)}
                     <div>

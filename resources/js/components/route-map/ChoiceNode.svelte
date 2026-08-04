@@ -1,30 +1,17 @@
 <script lang="ts">
-    import { Handle, Position } from '@xyflow/svelte';
+    import RouteMapNodeShell from './RouteMapNodeShell.svelte';
 
     let { data }: { data: any } = $props();
 </script>
 
-<div class="choice-node">
-    <Handle type="target" position={Position.Top} />
+<RouteMapNodeShell variant="choice">
     <div class="choice-text">{data.choice_text}</div>
     {#if data.var_summary}
         <div class="var-changes">{data.var_summary}</div>
     {/if}
-    <Handle type="source" position={Position.Bottom} />
-</div>
+</RouteMapNodeShell>
 
 <style>
-    .choice-node {
-        padding: 6px 12px;
-        text-align: center;
-        line-height: 1.3;
-        width: 184px;
-        box-sizing: border-box;
-        white-space: normal;
-        word-wrap: break-word;
-        position: relative;
-    }
-
     .choice-text {
         font-size: 12px;
         font-weight: 600;

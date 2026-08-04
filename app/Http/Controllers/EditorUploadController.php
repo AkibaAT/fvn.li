@@ -12,9 +12,6 @@ use Illuminate\Support\Facades\Storage;
 
 class EditorUploadController extends Controller
 {
-    /**
-     * Handle TinyMCE editor image uploads
-     */
     public function uploadEditorImage(Request $request): JsonResponse
     {
         // Auth required
@@ -26,7 +23,6 @@ class EditorUploadController extends Controller
             ], 401);
         }
 
-        // Validate input
         $validated = $request->validate([
             'file' => 'required|image|max:8192', // 8MB
             'game_id' => 'required|integer|exists:games,id',

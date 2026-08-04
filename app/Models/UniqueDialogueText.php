@@ -29,9 +29,6 @@ class UniqueDialogueText extends Model
      */
     protected $appends = [];
 
-    /**
-     * Get all dialogue lines using this text.
-     */
     public function dialogueLines(): HasMany
     {
         return $this->hasMany(DialogueLine::class, 'text_id');
@@ -50,9 +47,6 @@ class UniqueDialogueText extends Model
         );
     }
 
-    /**
-     * Generate highlighted search results for a given search term.
-     */
     public function getHighlightedText(string $searchTerm, ?string $language = null): string
     {
         $langConfig = $this->getLanguageConfig($language);
@@ -72,10 +66,6 @@ class UniqueDialogueText extends Model
 
     // Meilisearch indexing removed - we only index DialogueLine, not UniqueDialogueText
 
-    /**
-     * Get metadata from Meilisearch results or return null.
-     * These accessors allow the controller to access metadata that was stored in Meilisearch.
-     */
     public function getUsageCountAttribute($value)
     {
         return $this->searchMetadata['usage_count'] ?? $value ?? null;
@@ -116,9 +106,6 @@ class UniqueDialogueText extends Model
         return $this->searchMetadata['languages'] ?? $value ?? null;
     }
 
-    /**
-     * Get the tsvector column name for the given language.
-     */
     protected function getTsvectorColumnForLanguage(?string $language = null): string
     {
         if ($language && in_array($language, ['japanese', 'spanish', 'french', 'german'])) {
@@ -128,9 +115,6 @@ class UniqueDialogueText extends Model
         return 'search_vector';
     }
 
-    /**
-     * Get the PostgreSQL language configuration name.
-     */
     protected function getLanguageConfig(?string $language = null): string
     {
         return match ($language) {

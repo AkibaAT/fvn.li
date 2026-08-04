@@ -17,7 +17,7 @@
     import { formatLocalDate } from '@/utils/date-formatting';
     import { escapeStyleElementText } from '@/utils/style-html';
     import { formatBytes, getGamePlatforms, getPublicListColors } from '@/utils/game-show';
-    import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail, fetchVersionComparison } from '@/hooks/api';
+    import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail, fetchVersionComparison } from '@/api';
     import type { GameShowProps, Screenshot } from '@/types/game-show';
 
     let {
@@ -134,7 +134,6 @@
         },
     );
 
-    // Fetch reviews when params change (skip initial if SSR data matches)
     let reviewsInitial = true;
     $effect(() => {
         // Track all reactive deps
@@ -171,7 +170,6 @@
         },
     );
 
-    // Fetch versions when page changes (skip initial if SSR data matches)
     let versionsInitial = true;
     $effect(() => {
         // Track reactive deps
@@ -196,7 +194,6 @@
             .catch(() => {});
     });
 
-    // Fetch character stats on demand
     $effect(() => {
         if (showCharacterStats === null) return;
         fetchCharacterStats(game.slug, showCharacterStats)
@@ -208,7 +205,6 @@
             });
     });
 
-    // Fetch file stats on demand
     $effect(() => {
         if (showFileStats === null) return;
         fetchFileStats(game.slug, showFileStats)
@@ -220,7 +216,6 @@
             });
     });
 
-    // Fetch version comparison on demand
     $effect(() => {
         if (!showVersionComparison || !compareFromVersionId || !compareToVersionId) return;
         fetchVersionComparison({ gameId: game.id, fromVersionId: compareFromVersionId, toVersionId: compareToVersionId })
@@ -493,7 +488,6 @@
     {@html customCssStyleHtml}
 {/if}
 
-<!-- Sticky Navigation -->
 <div
     class="sticky top-[4.5rem] z-40 mb-5 flex flex-col gap-3 border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900"
 >

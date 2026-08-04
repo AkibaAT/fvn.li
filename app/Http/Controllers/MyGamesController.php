@@ -10,6 +10,7 @@ use App\Models\GameVersion;
 use App\Models\User;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameMediaEditorService;
+use App\Services\OwnedGameSummaryService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -28,49 +29,14 @@ class MyGamesController extends Controller
     {
         $authId = Auth::id();
         if (! $authId) {
-            return Inertia::render('auth/login', [
-                'metaTags' => [
-                    'title' => 'Log in',
-                    'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
-                    'structuredData' => [
-                        '@type' => 'WebPage',
-                        'name' => 'Log in',
-                        'description' => 'Log in to your FVN.li account to track your visual novel progress',
-                        'url' => route('login'),
-                    ],
-                ],
-            ]);
+            return $this->loginResponse();
         }
         $user = User::findOrFail($authId);
 
-        $itchioAccount = $user->socialAccounts()->where('provider_name', 'itchio')->first();
-        $itchioUsername = $itchioAccount?->provider_data['username'] ?? (method_exists($user,
-            'getItchioUsername') ? $user->getItchioUsername() : null);
-
-        $games = collect();
-        $clickStats = [];
-        if ($itchioUsername && method_exists($user, 'getOwnedGames')) {
-            $games = $user->getOwnedGames()->map(function ($g) {
-                return [
-                    'id' => $g->id,
-                    'name' => $g->name,
-                    'slug' => $g->slug,
-                    'thumb_url' => method_exists($g, 'getThumbnailUrl') ? $g->getThumbnailUrl() : $g->thumb_url,
-                    'has_additional_links' => method_exists($g,
-                        'hasAdditionalLinks') ? $g->hasAdditionalLinks() : ! empty($g->additional_links),
-                ];
-            })->values();
-
-            if (class_exists(ClickStat::class) && $games->isNotEmpty()) {
-                $gameIds = $games->pluck('id')->toArray();
-                try {
-                    $since = now()->subDays(30);
-                    $clickStats = ClickStat::getMultipleGameStats($gameIds, $since);
-                } catch (Throwable $e) {
-                    $clickStats = [];
-                }
-            }
-        }
+        $ownedGames = app(OwnedGameSummaryService::class);
+        $itchioUsername = $ownedGames->username($user);
+        $games = $ownedGames->games($user);
+        $clickStats = $ownedGames->clickStats($games);
 
         return Inertia::render('my-games/index', [
             'itchio' => [
@@ -99,48 +65,28 @@ class MyGamesController extends Controller
     {
         $authId = Auth::id();
         if (! $authId) {
-            return Inertia::render('auth/login', [
-                'metaTags' => [
-                    'title' => 'Log in',
-                    'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
-                    'structuredData' => [
-                        '@type' => 'WebPage',
-                        'name' => 'Log in',
-                        'description' => 'Log in to your FVN.li account to track your visual novel progress',
-                        'url' => route('login'),
-                    ],
-                ],
-            ]);
+            return $this->loginResponse();
         }
         $user = User::findOrFail($authId);
 
-        if (! $this->canEditGameMedia($user, $game)) {
+        if (! $game->canUserEdit($user)) {
             abort(403, 'You do not have permission to edit this game.');
         }
 
         $clickStats = [];
         $dailyStats = [];
         $linkStats = [];
-        if (class_exists(ClickStat::class)) {
-            try {
-                $since = now()->subDays(30);
-                $clickStats = ClickStat::getGameStats($game->id, $since);
-                $dailyStats = ClickStat::getDailyStats($game->id, 30);
-                $linkStats = ClickStat::getLinkStats($game->id, 30);
-            } catch (Throwable $e) {
-                $clickStats = [];
-                $dailyStats = [];
-                $linkStats = [];
-            }
+        try {
+            $since = now()->subDays(30);
+            $clickStats = ClickStat::getGameStats($game->id, $since);
+            $dailyStats = ClickStat::getDailyStats($game->id, 30);
+            $linkStats = ClickStat::getLinkStats($game->id, 30);
+        } catch (Throwable $exception) {
+            report($exception);
         }
 
-        $platforms = method_exists($game, 'getAvailablePlatforms')
-            ? array_keys(Game::getAvailablePlatforms())
-            : ['windows', 'linux', 'mac', 'android', 'web'];
-
-        $editableLinks = method_exists($game, 'getAllAdditionalLinks')
-            ? $game->getAllAdditionalLinks()
-            : ($game->additional_links ?? []);
+        $platforms = array_keys(Game::getAvailablePlatforms());
+        $editableLinks = $game->getAllAdditionalLinks();
 
         return Inertia::render('my-games/edit', [
             'game' => [
@@ -156,7 +102,7 @@ class MyGamesController extends Controller
             'metaTags' => [
                 'title' => "Edit {$game->name}",
                 'description' => "Edit download links and platforms for {$game->name}. Manage additional download links for different platforms to help players find the right version.",
-                'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
+                'image' => $game->getThumbnailUrl('default'),
                 'structuredData' => [
                     '@type' => 'WebPage',
                     'name' => "Edit {$game->name}",
@@ -166,7 +112,7 @@ class MyGamesController extends Controller
                         '@type' => 'SoftwareApplication',
                         'name' => $game->name,
                         'url' => route('games.show', $game->slug),
-                        'image' => method_exists($game, 'getThumbnailUrl') ? $game->getThumbnailUrl('default') : $game->thumb_url,
+                        'image' => $game->getThumbnailUrl('default'),
                     ],
                 ],
             ],
@@ -175,16 +121,6 @@ class MyGamesController extends Controller
 
     public function myGamesUpdate(Request $request, Game $game): JsonResponse
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-        $user = User::findOrFail($authId);
-
-        if (! $this->canEditGameMedia($user, $game)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
-
         $request->validate([
             'links' => 'nullable|array|max:15',
             'links.*.name' => 'required|string|max:100',
@@ -259,9 +195,7 @@ class MyGamesController extends Controller
         // Debug: Log the incoming links data
 
         $processedLinks = [];
-        $existingLinks = method_exists($game, 'getAllAdditionalLinks')
-            ? $game->getAllAdditionalLinks()
-            : ($game->additional_links ?? []);
+        $existingLinks = $game->getAllAdditionalLinks();
         $existingLinksById = collect($existingLinks)->keyBy('id');
 
         foreach ($links as $index => $link) {
@@ -273,18 +207,15 @@ class MyGamesController extends Controller
             $existingLink = $existingLinksById->get($linkId);
             $url = $this->sanitizeAdditionalLinkUrl($link['url']);
 
-            // Handle release_at datetime - convert from user's local time to UTC
             $releaseAt = null;
             if (! empty($link['release_at'])) {
                 try {
                     // The user submits their local time (e.g., "2025-10-10T12:54")
                     // We need to convert this to UTC for storage
 
-                    // Parse the input as if it's in UTC first
                     $inputTime = Carbon::parse($link['release_at']);
 
                     // Since the user meant this as their local time, we need to subtract their timezone offset to get UTC
-                    // Get user timezone offset from the form
                     $timezoneOffset = (int) ($request->input('timezone_offset', 0));
 
                     // Subtract the offset to convert local time to UTC
@@ -303,7 +234,6 @@ class MyGamesController extends Controller
                 }
             }
 
-            // Check if the link has been modified
             $hasChanged = ! $existingLink ||
                 $existingLink['name'] !== trim($link['name']) ||
                 $existingLink['url'] !== $url ||
@@ -337,15 +267,8 @@ class MyGamesController extends Controller
      */
     public function updateThumbnail(Request $request, Game $game): JsonResponse
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-        $user = User::findOrFail($authId);
-
-        if (! $this->canEditGameMedia($user, $game)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        /** @var User $user */
+        $user = $request->user();
 
         try {
             $request->validate([
@@ -354,7 +277,7 @@ class MyGamesController extends Controller
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed: ' . $e->getMessage(),
+                'message' => 'Validation failed.',
                 'errors' => $e->errors(),
             ], 422);
         }
@@ -374,32 +297,24 @@ class MyGamesController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload thumbnail: ' . $e->getMessage(),
+                'message' => $this->failureMessage('Failed to upload thumbnail.', $e),
             ], 500);
         }
     }
 
-    /**
-     * Delete game thumbnail
-     */
     public function deleteThumbnail(Request $request, Game $game): JsonResponse
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-        $user = User::findOrFail($authId);
-
-        if (! $this->canEditGameMedia($user, $game)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        /** @var User $user */
+        $user = $request->user();
 
         try {
             return response()->json(app(GameMediaEditorService::class)->deleteThumbnail($game, $user));
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete thumbnail: ' . $e->getMessage(),
+                'message' => $this->failureMessage('Failed to delete thumbnail.', $e),
             ], 500);
         }
     }
@@ -409,15 +324,8 @@ class MyGamesController extends Controller
      */
     public function uploadScreenshots(Request $request, Game $game): JsonResponse
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-        $user = User::findOrFail($authId);
-
-        if (! $this->canEditGameMedia($user, $game)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        /** @var User $user */
+        $user = $request->user();
 
         $request->validate([
             'screenshots' => 'required|array|min:1|max:20',
@@ -431,27 +339,19 @@ class MyGamesController extends Controller
                 $request->file('screenshots')
             ));
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload screenshots: ' . $e->getMessage(),
+                'message' => $this->failureMessage('Failed to upload screenshots.', $e),
             ], 500);
         }
     }
 
-    /**
-     * Delete a screenshot
-     */
     public function deleteScreenshot(Request $request, Game $game): JsonResponse
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-        $user = User::findOrFail($authId);
-
-        if (! $this->canEditGameMedia($user, $game)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        /** @var User $user */
+        $user = $request->user();
 
         $request->validate([
             'index' => 'required|integer|min:0',
@@ -469,9 +369,11 @@ class MyGamesController extends Controller
                     'message' => 'Screenshot not found.',
                 ], 404);
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete screenshot: ' . $e->getMessage(),
+                'message' => $this->failureMessage('Failed to delete screenshot.', $e),
             ], 500);
         }
     }
@@ -481,15 +383,8 @@ class MyGamesController extends Controller
      */
     public function reorderScreenshots(Request $request, Game $game): JsonResponse
     {
-        $authId = Auth::id();
-        if (! $authId) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-        $user = User::findOrFail($authId);
-
-        if (! $this->canEditGameMedia($user, $game)) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
+        /** @var User $user */
+        $user = $request->user();
 
         $request->validate([
             'ordered_indices' => 'required|array|min:0',
@@ -503,9 +398,11 @@ class MyGamesController extends Controller
                 $request->input('ordered_indices')
             ));
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reorder screenshots: ' . $e->getMessage(),
+                'message' => $this->failureMessage('Failed to reorder screenshots.', $e),
             ], 500);
         }
     }
@@ -525,7 +422,7 @@ class MyGamesController extends Controller
             abort(404);
         }
 
-        if (! $this->canEditGameMedia($user, $game)) {
+        if (! $game->canUserEdit($user)) {
             abort(403, 'You are not allowed to download this game archive.');
         }
 
@@ -547,11 +444,8 @@ class MyGamesController extends Controller
         return filter_var(trim($url), FILTER_SANITIZE_URL);
     }
 
-    /**
-     * Check if user can edit game media (owner or admin)
-     */
-    private function canEditGameMedia(User $user, Game $game): bool
+    private function failureMessage(string $message, Exception $exception): string
     {
-        return $user->is_admin || (method_exists($user, 'ownsGame') && $user->ownsGame($game));
+        return config('app.debug') ? "{$message} {$exception->getMessage()}" : $message;
     }
 }

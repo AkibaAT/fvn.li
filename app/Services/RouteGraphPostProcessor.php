@@ -337,15 +337,14 @@ class RouteGraphPostProcessor
             }
 
             if (count($visited) > count($nodes) * 0.95) {
-                break; // Good enough
+                break;
             }
 
-            // Find unreachable label nodes (not choice/hub/ending sub-nodes) that have outgoing edges
-            // These are likely game entry points we can't see
+            // Unreachable labels may be runtime entry points absent from the static graph.
             $bestBridge = null;
             $bestOutgoing = 0;
 
-            // Pre-index incoming edges by target for O(1) lookup instead of O(edges) per node
+            // The target index avoids rescanning every edge for every node.
             $unreachableIncoming = [];
             foreach ($edges as $e) {
                 if (! isset($visited[$e['target']])) {
@@ -397,7 +396,6 @@ class RouteGraphPostProcessor
 
     public function inferElseConditions(array $edges): array
     {
-        // Group edges by source
         $bySource = [];
         foreach ($edges as $i => $edge) {
             $bySource[$edge['source']][] = $i;
@@ -408,7 +406,6 @@ class RouteGraphPostProcessor
                 continue;
             }
 
-            // Find conditions on conditional edges from this source
             $conditions = [];
             $unconditionalFlowIndices = [];
             foreach ($indices as $i) {
@@ -425,7 +422,6 @@ class RouteGraphPostProcessor
                 continue;
             }
 
-            // Remove unconditional flow edges that duplicate conditional edges
             // only when the conditionals do not actually branch to another
             // target. If conditionals branch elsewhere, the fall-through edge
             // is the implicit else path and must remain visible.

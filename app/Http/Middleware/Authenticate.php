@@ -11,16 +11,12 @@ use Illuminate\Support\Facades\Log;
 
 class Authenticate extends Middleware
 {
-    /**
-     * Get the path the user should be redirected to when they are not authenticated.
-     */
     protected function redirectTo(Request $request): ?string
     {
         if ($request->expectsJson()) {
             return null;
         }
 
-        // Store the current URL as the intended URL
         $fullUrl = SafeRedirectUrl::intended($request->fullUrl(), $request);
 
         // Don't redirect to login page itself

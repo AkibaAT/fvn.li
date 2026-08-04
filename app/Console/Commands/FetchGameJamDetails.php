@@ -85,7 +85,6 @@ class FetchGameJamDetails extends Command
             $this->info(sprintf("\nProcessing game jam %d/%d: %s", $i + 1, $count, $gameJam->name));
 
             try {
-                // Fetch details from the game jam page with retry logic
                 $this->info('Fetching details for game jam: ' . $gameJam->name . ' (ID: ' . $gameJam->id . ')');
 
                 // Configure the ItchHttpClientService with the command options
@@ -106,11 +105,9 @@ class FetchGameJamDetails extends Command
                 if ($success && $forceResults) {
                     $this->info('Fetching rankings for game jam: ' . $gameJam->name . ' (ID: ' . $gameJam->id . ')');
 
-                    // Get retry settings from command options
                     $maxRetries = (int) $this->option('max-retries');
                     $retryCooldown = (int) $this->option('retry-cooldown');
 
-                    // Fetch rankings directly with the configured retry settings
                     try {
                         $rankingsSuccess = $gameJam->fetchResultsPage($maxRetries, $retryCooldown);
                     } catch (Exception $e) {
@@ -124,7 +121,6 @@ class FetchGameJamDetails extends Command
                         $this->warn('No rankings found for this game jam');
                     }
 
-                    // Add a longer delay after processing results to ensure DB transactions are completed
                     if ($i < $count - 1) {
                         $this->info('Waiting 5 seconds before processing next game jam...');
                         sleep(5);
@@ -150,7 +146,6 @@ class FetchGameJamDetails extends Command
                 $failCount++;
             }
 
-            // Add small delay between requests
             if ($i < $count - 1) {
                 usleep(250000); // 250ms
             }

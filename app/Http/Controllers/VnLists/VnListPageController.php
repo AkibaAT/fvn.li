@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\VnLists;
 
 use App\Http\Controllers\Controller;
-use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
 use Illuminate\Http\Request;
@@ -20,16 +19,13 @@ class VnListPageController extends Controller
     {
         $authId = Auth::id();
         if (! $authId) {
-            return Inertia::render('auth/login', [
-                'metaTags' => ['title' => 'Log in'],
-            ]);
+            return $this->loginResponse();
         }
         $user = User::findOrFail($authId);
 
         $perPage = $request->input('per_page', 8);
         $visibility = $request->input('visibility', 'all');
 
-        // Get counts for each tab with a single query using conditional aggregation
         $counts = VnList::where('user_id', $user->id)
             ->selectRaw('COUNT(*) as all_count')
             ->selectRaw('SUM(CASE WHEN is_public = true THEN 1 ELSE 0 END) as public_count')
@@ -61,7 +57,6 @@ class VnListPageController extends Controller
             ])
             ->where('user_id', $user->id);
 
-        // Apply visibility filter if provided
         if ($visibility !== 'all') {
             if ($visibility === 'public') {
                 $listsQuery->where('is_public', true);
@@ -70,7 +65,6 @@ class VnListPageController extends Controller
             }
         }
 
-        // Sort by type priority first, then by creation date
         $lists = $listsQuery->orderByRaw("
             CASE type
                 WHEN 'reading' THEN 1
@@ -82,7 +76,6 @@ class VnListPageController extends Controller
             END, created_at DESC
         ")->paginate($perPage);
 
-        // Ensure thumbnails prefer optimized versions in the serialized payload
         $lists->getCollection()->each(function ($list) {
             $list->entries->each(function ($entry) {
                 if ($entry->game) {
@@ -161,7 +154,6 @@ class VnListPageController extends Controller
                                 },
                             ]);
                         }
-                        // Load the list owner's review for each game
                         $q->with([
                             'ratings' => function ($rQuery) use ($listOwnerId) {
                                 $rQuery->where('user_id', $listOwnerId)

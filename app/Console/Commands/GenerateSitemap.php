@@ -17,10 +17,8 @@ class GenerateSitemap extends Command
 
     public function handle(): void
     {
-        // Create new sitemap
         $sitemap = Sitemap::create();
 
-        // Add homepage
         $sitemap->add(
             Url::create('/')
                 ->setPriority(1.0)
@@ -28,12 +26,10 @@ class GenerateSitemap extends Command
                 ->setLastModificationDate(now())
         );
 
-        // Add game list pages
         $gamesPerPage = 9; // Default games per page from GameList component
         $totalGames = Game::where('is_visible', true)->count();
         $totalPages = ceil($totalGames / $gamesPerPage);
 
-        // Add first page of games (homepage)
         $sitemap->add(
             Url::create(route('games.index'))
                 ->setPriority(0.9)
@@ -41,7 +37,6 @@ class GenerateSitemap extends Command
                 ->setLastModificationDate(now())
         );
 
-        // Add subsequent pages
         for ($page = 2; $page <= $totalPages; $page++) {
             $sitemap->add(
                 Url::create(route('games.index', ['page' => $page]))
@@ -51,7 +46,6 @@ class GenerateSitemap extends Command
             );
         }
 
-        // Add individual game pages
         $games = Game::where('is_visible', true)
             ->whereNotNull('slug')
             ->select(['slug', 'updated_at'])
@@ -69,6 +63,6 @@ class GenerateSitemap extends Command
         // Write sitemap to public directory
         $sitemap->writeToFile(public_path('sitemap.xml'));
 
-        $this->info('Sitemap generated successfully!');
+        $this->info('Sitemap generated successfully.');
     }
 }

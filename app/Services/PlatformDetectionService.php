@@ -129,17 +129,11 @@ class PlatformDetectionService
         return ['itch_io', 'steam', 'other'];
     }
 
-    /**
-     * Check if URL is an itch.io URL
-     */
     private function isItchioUrl(string $url): bool
     {
         return str_contains($url, 'itch.io');
     }
 
-    /**
-     * Check if URL is a Steam URL
-     */
     private function isSteamUrl(string $url): bool
     {
         return str_contains($url, 'steampowered.com');

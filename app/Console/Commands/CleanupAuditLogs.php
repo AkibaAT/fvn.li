@@ -48,7 +48,6 @@ class CleanupAuditLogs extends Command
             $this->warn('DRY RUN MODE - No data will be deleted');
         }
 
-        // Get retention periods from config
         $generalRetentionDays = Config::get('audit.retention.days', 2555);
         $sensitiveRetentionDays = Config::get('audit.retention.sensitive_data_retention_days', 90);
         $ipRetentionDays = Config::get('audit.retention.ip_address_retention_days', 365);
@@ -116,7 +115,6 @@ class CleanupAuditLogs extends Command
             return $affectedCount;
         }
 
-        // Use a batch update to anonymize IP addresses
         $batchSize = 1000;
         $processed = 0;
 
@@ -136,7 +134,6 @@ class CleanupAuditLogs extends Command
             $lastId = (int) $logs->last()->id;
             $ids = $logs->pluck('id')->toArray();
 
-            // Update the context to remove IP addresses
             DB::table('change_logs')
                 ->whereIn('id', $ids)
                 ->update([
@@ -163,7 +160,6 @@ class CleanupAuditLogs extends Command
 
         $this->info("Cleaning up sensitive model data older than {$retentionDays} days (before {$cutoffDate->format('Y-m-d')})...");
 
-        // Find models marked as sensitive
         $sensitiveModels = [];
         foreach ($modelSettings as $modelClass => $settings) {
             if ($settings['sensitive'] ?? false) {
@@ -202,7 +198,6 @@ class CleanupAuditLogs extends Command
             return $affectedCount;
         }
 
-        // Delete sensitive model audit logs
         $deleted = ChangeLog::where('timestamp', '<', $cutoffDate)
             ->whereIn('entity_type', $sensitiveModels)
             ->delete();
@@ -243,7 +238,6 @@ class CleanupAuditLogs extends Command
             return $affectedCount;
         }
 
-        // Delete old audit logs in batches to avoid memory issues
         $deleted = 0;
         $batchSize = 1000;
 

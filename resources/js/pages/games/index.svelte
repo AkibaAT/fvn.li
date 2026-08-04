@@ -95,26 +95,22 @@
     let showFilters = $state(false);
     let localIgnoredGameIds = $state<number[]>(untrack(() => ignoredGameIds));
 
-    // Use the custom hook for filter logic
     const { updateFilters, toggleFilter, clearFilters, hasActiveFilters, buildActiveFilterChips } = useGameFilters({
         getCurrentFilters: () => currentFilters,
         getFilters: () => filters,
         onGamesPage: true,
     });
 
-    // Use the platform icons hook
     const { getPlatformIcon: getTypedPlatformIcon } = usePlatformIcons();
     const getPlatformIcon = (platform: string) => {
         return getTypedPlatformIcon(platform as GameCardPlatform);
     };
 
-    // Use the store platform icons hook
     const { getStorePlatformIcon: getTypedStorePlatformIcon } = useStorePlatformIcons();
     const getStorePlatformIcon = (platform: string) => {
         return getTypedStorePlatformIcon(platform as StorePlatform);
     };
 
-    // Handle ignore toggle callback
     const handleIgnoreToggle = (gameId: number, isIgnored: boolean, newIgnoredGameIds: number[]) => {
         localIgnoredGameIds = newIgnoredGameIds;
     };
@@ -137,7 +133,6 @@
         }
     };
 
-    // Normalize pagination meta
     const resolveGamesMeta = () => {
         const rawMeta: PaginationMeta = (games as GamesIndexProps['games'])?.meta || ({} as PaginationMeta);
         const rawTop = games as unknown as {
@@ -170,7 +165,6 @@
 
 <SeoHead {metaTags} />
 
-<!-- Filter Modal -->
 <FilterModal
     isOpen={showFilters}
     onClose={() => {
@@ -184,7 +178,6 @@
 <div class="space-y-8">
     <PageHeader title="Browse Visual Novels" class="mb-0" />
 
-    <!-- Info Bar -->
     <Card variant="glass" padding="none" class="-mt-2 px-4 py-3 shadow-none">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex flex-wrap items-center gap-2 lg:flex-1">
@@ -263,7 +256,6 @@
         </div>
     </Card>
 
-    <!-- Default Language Preferences Info Bar -->
     {#if currentFilters.usingDefaultLanguages}
         <div
             class="flex items-center justify-between rounded-lg border border-indigo-300 bg-indigo-50 p-3 dark:border-indigo-600 dark:bg-indigo-900/30"
@@ -291,7 +283,6 @@
         </div>
     {/if}
 
-    <!-- Ignored Items Info Bar -->
     {#if ignoredCount > 0 && !currentFilters.showIgnored}
         <div class="mb-4 flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
             <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -320,7 +311,6 @@
         </div>
     {/if}
 
-    <!-- Show Ignored Toggle -->
     {#if currentFilters.showIgnored}
         <div class="mb-4 flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 p-3 dark:border-blue-600 dark:bg-blue-900/30">
             <div class="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
@@ -346,7 +336,6 @@
         </div>
     {/if}
 
-    <!-- Games Grid -->
     <GamesGrid
         games={games.data}
         {currentFilters}
@@ -365,6 +354,5 @@
         onIgnoreToggle={handleIgnoreToggle}
     />
 
-    <!-- Pagination Controls -->
     <PaginationControls meta={gamesMeta} {currentFilters} {updateFilters} />
 </div>

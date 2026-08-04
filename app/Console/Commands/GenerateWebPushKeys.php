@@ -34,7 +34,7 @@ class GenerateWebPushKeys extends Command
         try {
             $keysArray = VAPID::createVapidKeys();
 
-            $this->info('VAPID keys generated successfully!');
+            $this->info('VAPID keys generated successfully.');
             $this->newLine();
 
             $this->info('Public Key:');

@@ -45,7 +45,6 @@ class GamesSearchController extends Controller
         $sortDirection = $request->get('direction', 'desc');
         $perPage = min(32, max(8, (int) $request->get('perPage', 8)));
 
-        // Apply default language preferences if no explicit language filter is set
         $usingDefaultLanguages = false;
         if (! $request->has('selectedLanguages') && ! $request->has('noDefaults') && Auth::check()) {
             $userPreferences = Auth::user()->preferences;
@@ -55,7 +54,6 @@ class GamesSearchController extends Controller
             }
         }
 
-        // Apply default excluded tags if no explicit tag exclusion is set
         $usingDefaultExcludedTags = false;
         if (! $request->has('excludedTags') && ! $request->has('noDefaults') && Auth::check()) {
             $userPreferences = $userPreferences ?? Auth::user()->preferences;
@@ -65,10 +63,8 @@ class GamesSearchController extends Controller
             }
         }
 
-        // Build filters
         $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags, $excludedTags, $readingTime);
 
-        // Get ignored game IDs for authenticated users (unless they want to show ignored)
         $allIgnoredGameIds = [];
         $ignoredGameIds = [];
         $ignoredCount = 0;
@@ -84,7 +80,6 @@ class GamesSearchController extends Controller
             }
         }
 
-        // Use Meilisearch for search and filtering
         $requestedPage = (int) $request->get('page', 1);
 
         try {
@@ -112,6 +107,9 @@ class GamesSearchController extends Controller
                 $searchQuery = trim($search ?? '') ?: '*';
                 $games = $service->searchGames($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
             } catch (Exception $e) {
+                Log::warning('Meilisearch game lookup failed; using database fallback', [
+                    'error' => $e->getMessage(),
+                ]);
                 $games = $this->fallbackSearch($search, $perPage, 1, $ignoredGameIds, $request->boolean('delisted'));
             }
         }
@@ -123,7 +121,6 @@ class GamesSearchController extends Controller
             $hydrator->attachUserData($games, Auth::id());
         }
 
-        // Build meta tags with filter information
         $filterOptions = GameFilterService::getOptions();
         $metaTags = app(GamesSearchMetaBuilder::class)->build(
             $request,
@@ -201,7 +198,7 @@ class GamesSearchController extends Controller
     /**
      * Enhanced game search using Meilisearch
      */
-    public function searchGamesEnhanced(Request $request, MeilisearchService $service): JsonResponse
+    public function searchGamesWithFilters(Request $request, MeilisearchService $service): JsonResponse
     {
         $request->validate([
             'q' => 'required|string|min:1',
@@ -222,7 +219,6 @@ class GamesSearchController extends Controller
             'page' => 'nullable|integer|min:1',
         ]);
 
-        // Convert tag IDs to tag names if tags are provided
         $tags = $request->input('tags');
         if ($tags) {
             $tagIds = array_filter(array_map('intval', is_array($tags) ? $tags : explode(',', $tags)));
@@ -232,7 +228,6 @@ class GamesSearchController extends Controller
             $tags = ! empty($tagNames) ? $tagNames : null;
         }
 
-        // Convert game jam IDs to game jam names if game jams are provided
         $gameJams = $request->input('game_jams');
         if ($gameJams) {
             $gameJamIds = array_filter(array_map('intval', is_array($gameJams) ? $gameJams : explode(',', $gameJams)));
@@ -288,9 +283,6 @@ class GamesSearchController extends Controller
         }
     }
 
-    /**
-     * Return a random visible game slug for the "I'm Feeling Lucky" feature
-     */
     public function randomGame(): JsonResponse
     {
         $game = Game::query()
@@ -307,9 +299,6 @@ class GamesSearchController extends Controller
         return response()->json(['slug' => $game->slug]);
     }
 
-    /**
-     * Build search filters from request parameters
-     */
     private function buildFilters(Request $request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags, $excludedTags = null, $readingTime = null): array
     {
         $filters = [];
@@ -337,7 +326,6 @@ class GamesSearchController extends Controller
             }
         }
 
-        // Store platform filters (where the game is hosted)
         if ($selectedStorePlatforms) {
             $storePlatforms = is_array($selectedStorePlatforms) ? $selectedStorePlatforms : explode(',', $selectedStorePlatforms);
             $filters['platform'] = $storePlatforms;
@@ -354,7 +342,6 @@ class GamesSearchController extends Controller
             $tagIds = array_map('intval', is_array($selectedTags) ? $selectedTags : explode(',', $selectedTags));
             $tagIds = array_filter($tagIds);
             if (! empty($tagIds)) {
-                // Convert tag IDs to tag names since search index stores names, not IDs
                 $tagNames = Tag::whereIn('id', $tagIds)
                     ->pluck('name')
                     ->toArray();
@@ -393,7 +380,6 @@ class GamesSearchController extends Controller
             $gameJamIds = array_map('intval', is_array($selectedGameJams) ? $selectedGameJams : explode(',', $selectedGameJams));
             $gameJamIds = array_filter($gameJamIds);
             if (! empty($gameJamIds)) {
-                // Convert game jam IDs to game jam names since search index stores names, not IDs
                 $gameJamNames = GameJam::whereIn('id', $gameJamIds)
                     ->pluck('name')
                     ->toArray();
@@ -448,7 +434,6 @@ class GamesSearchController extends Controller
             ->fromItchio()
             ->where('is_visible', true);
 
-        // Filter to only delisted games if requested
         if ($delistedOnly) {
             $query->where('is_delisted', true);
         }

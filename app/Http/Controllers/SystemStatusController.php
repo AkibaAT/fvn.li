@@ -162,7 +162,6 @@ class SystemStatusController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Use Spatie's scheduler to compute next run like before
         $scheduledTasks = ScheduledTasks::createForSchedule();
         $tasksByName = $scheduledTasks->uniqueTasks()
             ->filter(fn ($t) => $t->isBeingMonitored())

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
     import { Button, Card } from '@/components/ui';
     import { resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';

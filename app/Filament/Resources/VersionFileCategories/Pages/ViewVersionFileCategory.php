@@ -6,13 +6,13 @@ namespace App\Filament\Resources\VersionFileCategories\Pages;
 
 use App\Filament\Resources\VersionFileCategories\VersionFileCategoryResource;
 use App\Models\VersionFileCategory;
-use App\Services\HelperService;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Number;
 
 class ViewVersionFileCategory extends ViewRecord implements HasTable
 {
@@ -37,7 +37,7 @@ class ViewVersionFileCategory extends ViewRecord implements HasTable
                     ->sortable(),
                 TextColumn::make('size')
                     ->label('Size')
-                    ->formatStateUsing(fn (int $state): string => HelperService::formatBytes($state))
+                    ->formatStateUsing(fn (int $state): string => Number::fileSize($state))
                     ->sortable(),
             ])
             ->defaultSort('extension')

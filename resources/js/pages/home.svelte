@@ -78,6 +78,23 @@
             ? `Browse ${stats.totalGames.toLocaleString()} furry visual novels, get notified about updates, explore routes, and organize your reading lists.`
             : 'Browse furry visual novels, get notified about updates, explore routes, and organize your reading lists.',
     );
+    const sections = $derived([
+        {
+            title: 'Recently Added',
+            games: teasers?.recentlyAdded ?? [],
+            href: route('games.index', { sort: 'first_visible_at', direction: 'desc' }),
+        },
+        {
+            title: 'Recently Updated',
+            games: teasers?.recentlyUpdated ?? [],
+            href: route('games.index', { sort: 'latest_version_published_at', direction: 'desc' }),
+        },
+        {
+            title: 'Most Popular',
+            games: teasers?.mostPopular ?? [],
+            href: route('games.index', { sort: 'trending', direction: 'desc' }),
+        },
+    ]);
 </script>
 
 <SeoHead {metaTags} />
@@ -85,75 +102,29 @@
 <div class="home-page space-y-10">
     <PageHeader title="Furry visual novel catalogue" description={catalogueDescription} descriptionWidth="full" class="mb-0" />
 
-    <!-- Main Content -->
     <div class="space-y-10">
-        <!-- Recently Added -->
-        {#if teasers?.recentlyAdded?.length}
-            <section>
-                <div class="mb-6 flex items-center justify-between gap-4">
-                    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Recently Added</h2>
-                    <Link
-                        href={route('games.index', { sort: 'first_visible_at', direction: 'desc' })}
-                        class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 transition-colors hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white"
-                    >
-                        View all
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                            ><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg
+        {#each sections as section (section.title)}
+            {#if section.games.length}
+                <section>
+                    <div class="mb-6 flex items-center justify-between gap-4">
+                        <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{section.title}</h2>
+                        <Link
+                            href={section.href}
+                            class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 transition-colors hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white"
                         >
-                    </Link>
-                </div>
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {#each teasers.recentlyAdded as game (game.id)}
-                        <GameCard {game} {ignoredGameIds} />
-                    {/each}
-                </div>
-            </section>
-        {/if}
-
-        <!-- Recently Updated -->
-        {#if teasers?.recentlyUpdated?.length}
-            <section>
-                <div class="mb-6 flex items-center justify-between gap-4">
-                    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Recently Updated</h2>
-                    <Link
-                        href={route('games.index', { sort: 'latest_version_published_at', direction: 'desc' })}
-                        class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 transition-colors hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white"
-                    >
-                        View all
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                            ><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg
-                        >
-                    </Link>
-                </div>
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {#each teasers.recentlyUpdated as game (game.id)}
-                        <GameCard {game} {ignoredGameIds} />
-                    {/each}
-                </div>
-            </section>
-        {/if}
-
-        <!-- Most Popular -->
-        {#if teasers?.mostPopular?.length}
-            <section>
-                <div class="mb-6 flex items-center justify-between gap-4">
-                    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Most Popular</h2>
-                    <Link
-                        href={route('games.index', { sort: 'trending', direction: 'desc' })}
-                        class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 transition-colors hover:text-gray-950 dark:text-zinc-400 dark:hover:text-white"
-                    >
-                        View all
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                            ><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg
-                        >
-                    </Link>
-                </div>
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {#each teasers.mostPopular as game (game.id)}
-                        <GameCard {game} {ignoredGameIds} />
-                    {/each}
-                </div>
-            </section>
-        {/if}
+                            View all
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                                ><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg
+                            >
+                        </Link>
+                    </div>
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                        {#each section.games as game (game.id)}
+                            <GameCard {game} {ignoredGameIds} />
+                        {/each}
+                    </div>
+                </section>
+            {/if}
+        {/each}
     </div>
 </div>

@@ -1,8 +1,7 @@
 <script lang="ts">
     import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import type { User, VnList } from '@/components/VnListCard.svelte';
-    import VnListCard from '@/components/VnListCard.svelte';
+    import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
 
@@ -84,34 +83,12 @@
         {/snippet}
     </PageHeader>
 
-    <!-- Lists Grid -->
-    {#if lists.data.length > 0}
-        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {#each lists.data as list (list.id)}
-                <VnListCard {list} />
-            {/each}
-        </div>
-    {:else}
-        <div class="py-12 text-center">
-            <h2 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No public lists found</h2>
-            <p class="text-gray-600 dark:text-gray-400">There are no public lists available for this category.</p>
-        </div>
-    {/if}
-
-    <AdvancedPagination
-        meta={{
-            current_page: lists.current_page,
-            last_page: lists.last_page,
-            total: lists.total,
-            from: lists.data.length ? (lists.current_page - 1) * lists.per_page + 1 : 0,
-            to: lists.data.length ? (lists.current_page - 1) * lists.per_page + lists.data.length : 0,
-            per_page: lists.per_page,
-        }}
+    <PublicListResults
+        {lists}
+        emptyMessage="This user has no public lists."
+        {isLoading}
         onPageChange={handlePageChange}
         onPerPageChange={handlePerPageChange}
-        {isLoading}
-        label="results"
-        perPageOptions={[8, 16, 24, 32]}
         {buildPageUrl}
     />
 </div>

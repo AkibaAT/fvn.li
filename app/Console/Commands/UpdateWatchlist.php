@@ -45,7 +45,6 @@ class UpdateWatchlist extends Command
             $client = $this->authService->getClient();
             $collection = $this->option('collection');
 
-            // Process free collection
             if ($collection === 'free' || $collection === 'both') {
                 $collectionId = config('services.itch.free_collection_id');
                 if (! $collectionId) {
@@ -56,7 +55,6 @@ class UpdateWatchlist extends Command
                 }
             }
 
-            // Process paid collection
             if ($collection === 'paid' || $collection === 'both') {
                 $paidCollectionId = config('services.itch.paid_collection_id');
                 if (! $paidCollectionId) {
@@ -72,7 +70,7 @@ class UpdateWatchlist extends Command
             return 0;
 
         } catch (Exception $e) {
-            $this->error('Error updating watchlist: ' . $e->getMessage());
+            $this->error('Error updating watchlist: '.$e->getMessage());
             Log::error('Watchlist update failed', ['exception' => $e]);
 
             return 1;
@@ -109,7 +107,6 @@ class UpdateWatchlist extends Command
      */
     private function processCollectionPage($client, string $collectionId, int $page, bool $isPaid): bool
     {
-        // First get the API data
         $response = $client->get("https://api.itch.io/collections/{$collectionId}/collection-games", [
             'query' => ['page' => $page],
         ]);
@@ -139,18 +136,15 @@ class UpdateWatchlist extends Command
      */
     private function processCollectionGame(array $gameData, bool $isPaid, ?string $blurb = null): void
     {
-        // Log the game being processed
         $this->processedGames++;
         $gameId = $gameData['id'];
 
         $this->info("Processing game {$gameId}: {$gameData['title']}");
 
-        // Parse blurb metadata (e.g. "lang:jpn tag:ai-assets tag:kinetic-novel")
         $sourceLanguageId = 'eng';
         $blurbTags = [];
 
         if ($blurb) {
-            // Parse source language
             if (preg_match('/\blang:([a-z]{3})\b/', $blurb, $matches)) {
                 $langCode = $matches[1];
                 if (! Language::where('id', $langCode)->exists()) {
@@ -168,31 +162,27 @@ class UpdateWatchlist extends Command
                 $this->info("  - Source language from blurb: {$langCode}");
             }
 
-            // Parse custom tags (e.g. "tag:ai-generated" or "tag:\"AI Generated\"")
             if (preg_match_all('/\btag:(?:"([^"]+)"|\'([^\']+)\'|([\w-]+))/i', $blurb, $tagMatches, PREG_SET_ORDER)) {
                 $blurbTags = array_map(
                     fn (array $match) => $match[1] ?: ($match[2] ?: $match[3]),
                     $tagMatches
                 );
-                $this->info('  - Tags from blurb: ' . implode(', ', $blurbTags));
+                $this->info('  - Tags from blurb: '.implode(', ', $blurbTags));
             }
         }
 
-        // Extract price information from collection data if available
         if ($isPaid && isset($gameData['min_price'])) {
-            // Convert from cents to dollars
             $priceInDollars = $gameData['min_price'] / 100;
 
-            // Check for sale status and extract discount percentage
             $isOnSale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
                 isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
             $discountPercent = $isOnSale ? (int) $gameData['sale']['rate'] : null;
             $saleInfo = '';
             if ($isOnSale) {
-                $saleInfo = ' (on sale: ' . $discountPercent . '% off)';
+                $saleInfo = ' (on sale: '.$discountPercent.'% off)';
             }
 
-            $this->info('  - Price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
+            $this->info('  - Price from collection: $'.number_format($priceInDollars, 2).$saleInfo);
         }
 
         DB::beginTransaction();
@@ -204,7 +194,6 @@ class UpdateWatchlist extends Command
             $wasInvisible = $game->exists && ! $game->is_visible;
             $originalThumbUrl = $game->thumb_url;
 
-            // Update if game exists but isn't visible
             if ($game->exists) {
                 if (! $game->is_visible) {
                     $game->updated_at = now();
@@ -214,7 +203,6 @@ class UpdateWatchlist extends Command
                     $shouldRefreshVersion = true;
                 }
 
-                // Update if basic info has changed
                 if ($gameData['title'] !== $game->name ||
                     ($gameData['short_text'] ?? null) !== $game->description ||
                     ($gameData['cover_url'] ?? null) !== $game->thumb_url ||
@@ -227,74 +215,64 @@ class UpdateWatchlist extends Command
                     $game->updated_at = now();
                 }
 
-                // Update initial publish date if missing
                 if (! $game->initially_published_at && isset($gameData['published_at'])) {
                     $game->initially_published_at = $gameData['published_at'];
                     $game->updated_at = now();
                 }
 
-                // Update price information from collection data if available
                 if ($isPaid && isset($gameData['min_price'])) {
                     $priceInDollars = $gameData['min_price'] / 100;
                     $game->min_price = $priceInDollars;
 
-                    // Check for sale status and store discount percentage
                     $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
                         isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
                     $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
 
-                    // Mark that price was set from API data (temporary flag for this request)
                     $game->priceSetFromApi = true;
 
                     $saleInfo = '';
                     if ($game->is_on_sale) {
-                        $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
+                        $saleInfo = ' (on sale: '.$game->sale_discount_percent.'% off)';
                     }
 
-                    $this->info('  - Updated price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
+                    $this->info('  - Updated price from collection: $'.number_format($priceInDollars, 2).$saleInfo);
                 }
             } else {
-                // Create new game - START AS INVISIBLE until all data is loaded
                 $game->fill([
                     'initially_published_at' => $gameData['published_at'] ?? null,
                     'itch_id' => $gameId,
                     'name' => $gameData['title'],
                     'description' => $gameData['short_text'] ?? null,
-                    'platform' => 'itch_io',  // ← Explicitly set platform for itch.io games
+                    'platform' => 'itch_io',
                     'thumb_url' => $gameData['cover_url'] ?? null,
                     'source_language_id' => $sourceLanguageId,
                     'is_paid' => $isPaid,
-                    'is_visible' => false,  // ← Keep invisible until fully loaded
+                    'is_visible' => false,
                 ]);
 
-                // Set URL properly for the platform (url is a JSONB field)
                 $game->setUrlForPlatform('itch_io', $gameData['url']);
 
-                // Set price information from collection data if available
                 if ($isPaid && isset($gameData['min_price'])) {
                     $priceInDollars = $gameData['min_price'] / 100;
                     $game->min_price = $priceInDollars;
 
-                    // Check for sale status and store discount percentage
                     $game->is_on_sale = isset($gameData['sale']) && ! empty($gameData['sale']) &&
                         isset($gameData['sale']['rate']) && $gameData['sale']['rate'] > 0;
                     $game->sale_discount_percent = $game->is_on_sale ? (int) $gameData['sale']['rate'] : null;
 
-                    // Mark that price was set from API data (temporary flag for this request)
                     $game->priceSetFromApi = true;
 
                     $saleInfo = '';
                     if ($game->is_on_sale) {
-                        $saleInfo = ' (on sale: ' . $game->sale_discount_percent . '% off)';
+                        $saleInfo = ' (on sale: '.$game->sale_discount_percent.'% off)';
                     }
 
-                    $this->info('  - Set price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
+                    $this->info('  - Set price from collection: $'.number_format($priceInDollars, 2).$saleInfo);
                 }
 
                 $shouldRefreshVersion = true;
             }
 
-            // Check if we need to do a full refresh
             $needsFullRefresh = $shouldRefreshVersion;
 
             // For paid games, check if we need a full refresh for missing data
@@ -312,7 +290,6 @@ class UpdateWatchlist extends Command
                     $paidStr = $game->is_paid ? 'true' : 'false';
                     $this->info("  - Doing full refresh for paid game (visible: {$visibleStr}, paid: {$paidStr})");
 
-                    // Log the reason for the refresh
                     if (! $game->exists) {
                         $this->info('    - Reason: New game');
                     } elseif (! $game->is_visible) {
@@ -330,10 +307,8 @@ class UpdateWatchlist extends Command
                 }
             }
 
-            // Always set is_paid flag
             $game->is_paid = $isPaid;
 
-            // Save the game first to ensure it has an ID before loading full details
             // This is necessary because loadFullDetails() -> refreshVersion() needs the game ID
             // to create GameVersion records
             // For new games, we save them as invisible first WITHOUT triggering observers
@@ -341,7 +316,6 @@ class UpdateWatchlist extends Command
             if ($needsFullRefresh && ! $game->exists) {
                 $this->info('  - Saving new game (invisible, quietly) before loading full details');
 
-                // Generate slug before saveQuietly() since quiet mode skips model events
                 if (empty($game->slug) && ! empty($game->name)) {
                     $game->slug = $game->generateUniqueSlug($game->name);
                 }
@@ -350,7 +324,6 @@ class UpdateWatchlist extends Command
                 $game->refresh();
             }
 
-            // Load full details if needed
             if ($needsFullRefresh) {
                 $this->info('  - Loading full details');
                 $game->loadFullDetails();
@@ -364,7 +337,6 @@ class UpdateWatchlist extends Command
                     $game->is_paid = true;
                 }
 
-                // Now check for demos in the uploads data after we've loaded the full details
                 if ($isPaid && ! empty($game->uploads)) {
                     $hasDemo = false;
                     foreach ($game->uploads as $uploadData) {
@@ -390,7 +362,7 @@ class UpdateWatchlist extends Command
                     }
                 }
 
-                // NOW make the game visible after all data is loaded
+                // Visibility flips only after all data is loaded, so observers never announce a half-imported game.
                 if (! $game->is_visible) {
                     $this->info('  - Making game visible now that all data is loaded');
                     $game->is_visible = true;
@@ -410,13 +382,11 @@ class UpdateWatchlist extends Command
 
             $game->save();
 
-            // Process any pending associations now that the game is saved
             $game->processPendingGameJams();
             $game->processPendingTags();
 
             DB::commit();
 
-            // Clear home page cache when games are added or made visible
             if ($isNew || $wasInvisible) {
                 HomePageCacheService::clearAll();
                 $this->info('  - Cleared home page cache');
@@ -424,7 +394,7 @@ class UpdateWatchlist extends Command
 
         } catch (Exception $e) {
             DB::rollBack();
-            $this->error("Failed to process game {$gameId}: " . $e->getMessage());
+            $this->error("Failed to process game {$gameId}: ".$e->getMessage());
             Log::error('Failed to process game in watchlist', [
                 'game_id' => $gameId,
                 'error' => $e->getMessage(),
@@ -444,7 +414,9 @@ class UpdateWatchlist extends Command
                 $game->clearOptimizedThumbnails();
             }
 
-            app(ImageProcessingService::class)->processGameThumbnail($game);
+            app(ImageProcessingService::class)
+                ->setProgressReporter(fn (string $message) => $this->line($message))
+                ->processGameThumbnail($game);
             $this->info('  - Thumbnail changed; optimized image reprocessed');
         } catch (Exception $e) {
             Log::error('Failed to process thumbnail after watchlist cover update', [
@@ -453,7 +425,7 @@ class UpdateWatchlist extends Command
                 'new_thumb_url' => $game->thumb_url,
                 'error' => $e->getMessage(),
             ]);
-            $this->warn('  - Thumbnail changed but optimized image processing failed: ' . $e->getMessage());
+            $this->warn('  - Thumbnail changed but optimized image processing failed: '.$e->getMessage());
         }
     }
 

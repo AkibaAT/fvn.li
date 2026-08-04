@@ -28,7 +28,6 @@ class DiscordSubscriptionController extends Controller
 
         $game = Game::findOrFail($validated['game_id']);
 
-        // Check if already subscribed
         $existing = GameDiscordSubscription::where([
             'game_id' => $game->id,
             'discord_server_id' => $server->id,
@@ -77,9 +76,6 @@ class DiscordSubscriptionController extends Controller
         ]);
     }
 
-    /**
-     * Get all subscriptions for a server.
-     */
     public function listSubscriptions(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('view', $server);
@@ -134,9 +130,6 @@ class DiscordSubscriptionController extends Controller
         ]);
     }
 
-    /**
-     * Get all tag subscriptions for a server.
-     */
     public function listTags(DiscordServer $server, Request $request): JsonResponse
     {
         $this->authorize('view', $server);
@@ -192,9 +185,6 @@ class DiscordSubscriptionController extends Controller
         ]);
     }
 
-    /**
-     * Get Discord metadata for a game in a specific server.
-     */
     public function getGameMetadata(DiscordServer $server, Game $game): JsonResponse
     {
         $this->authorize('view', $server);
@@ -222,9 +212,6 @@ class DiscordSubscriptionController extends Controller
         ]);
     }
 
-    /**
-     * Update Discord metadata for a game in a specific server.
-     */
     public function updateGameMetadata(DiscordServer $server, Game $game, Request $request): JsonResponse
     {
         $this->authorize('update', $server);
@@ -281,9 +268,6 @@ class DiscordSubscriptionController extends Controller
         ]);
     }
 
-    /**
-     * Update Discord rating (like/dislike) for a game in a specific server.
-     */
     public function updateGameRating(DiscordServer $server, Game $game, Request $request): JsonResponse
     {
         $this->authorize('update', $server);
@@ -305,11 +289,9 @@ class DiscordSubscriptionController extends Controller
         $likes = $this->decodeJsonArray($metadata->discord_likes);
         $dislikes = $this->decodeJsonArray($metadata->discord_dislikes);
 
-        // Remove user from both arrays first
         $likes = array_filter($likes, fn ($id) => $id !== $userId);
         $dislikes = array_filter($dislikes, fn ($id) => $id !== $userId);
 
-        // Add to appropriate array
         if ($rating === 'like') {
             $likes[] = $userId;
         } elseif ($rating === 'dislike') {

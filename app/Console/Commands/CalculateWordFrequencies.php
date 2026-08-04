@@ -34,7 +34,6 @@ class CalculateWordFrequencies extends Command
         $language = $this->option('language');
         $force = $this->option('force');
 
-        // Get all version+language combinations that have dialogue
         $query = DB::table('version_dialogue_lines as vdl')
             ->select('vdl.game_version_id', 'vdl.iso_code')
             ->distinct()
@@ -65,7 +64,6 @@ class CalculateWordFrequencies extends Command
         $skipped = 0;
 
         foreach ($combinations as $combo) {
-            // Check if already cached and not forcing
             if (! $force) {
                 $exists = DB::table('version_word_frequencies')
                     ->where('game_version_id', $combo->game_version_id)
@@ -96,16 +94,12 @@ class CalculateWordFrequencies extends Command
         return 0;
     }
 
-    /**
-     * Calculate and store word frequencies for a specific version+language combination.
-     */
     private function calculateAndStore(int $versionId, string $language): void
     {
         $limit = 100;
         $includePhrases = true;
         $minWordLength = 3;
 
-        // Fetch all dialogue texts for this version and language
         $dialogueTexts = DB::table('version_dialogue_lines as vdl')
             ->join('unique_dialogue_texts as udt', 'udt.id', '=', 'vdl.text_id')
             ->where('vdl.game_version_id', '=', $versionId)
@@ -120,7 +114,6 @@ class CalculateWordFrequencies extends Command
 
         $wordData = $this->calculateWordFrequency($dialogueTexts, $limit, $includePhrases, $minWordLength);
 
-        // Store or update in database
         $existing = DB::table('version_word_frequencies')
             ->where('game_version_id', $versionId)
             ->where('iso_code', $language)
@@ -159,9 +152,7 @@ class CalculateWordFrequencies extends Command
         $wordCounts = [];
         $phraseCounts = [];
 
-        // Process each dialogue text
         foreach ($dialogueTexts as $text) {
-            // Convert to lowercase and remove special characters, keeping spaces
             $cleaned = strtolower((string) $text);
             $cleaned = preg_replace('/[^\p{L}\p{N}\s\-\']/u', ' ', $cleaned);
             $cleaned = preg_replace('/\s+/', ' ', $cleaned);
@@ -198,7 +189,6 @@ class CalculateWordFrequencies extends Command
             }
         }
 
-        // Sort by frequency and combine words and phrases
         arsort($wordCounts);
         arsort($phraseCounts);
 
@@ -214,17 +204,12 @@ class CalculateWordFrequencies extends Command
             $combined[] = ['text' => $text, 'value' => $count];
         }
 
-        // Sort combined by value descending
         usort($combined, fn ($a, $b) => $b['value'] <=> $a['value']);
 
         // Limit to requested count
         return array_slice($combined, 0, $limit);
     }
 
-    /**
-     * Get the list of stop words.
-     * TODO: Move this to a configuration file or database table for easier updates.
-     */
     private function getStopWords(): array
     {
         return [

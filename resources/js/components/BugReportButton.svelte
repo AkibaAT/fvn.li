@@ -1,5 +1,6 @@
 <script lang="ts">
     import { usePage } from '@inertiajs/svelte';
+    import { getCsrfToken } from '@/utils/http';
     import { notify } from '@/components/Toast.svelte';
     import { Button, Dialog, TextInput, Textarea } from '@/components/ui';
 
@@ -57,7 +58,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
                 body: JSON.stringify({
                     page_url: pageInfo.url,
@@ -89,7 +90,6 @@
     }
 </script>
 
-<!-- Bug Report Button -->
 <Button
     onclick={() => (isOpen = true)}
     variant="ghost"
@@ -104,7 +104,6 @@
     <span>Report a Bug</span>
 </Button>
 
-<!-- Bug Report Dialog -->
 <Dialog open={isOpen} onClose={closeDialog} title="Report a Bug">
     <form onsubmit={handleSubmit}>
         {#if !user}

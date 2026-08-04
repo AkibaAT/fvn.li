@@ -64,11 +64,6 @@ class AdditionRequest extends Model
         ];
     }
 
-    /**
-     * Find or create an addition request for the given URL.
-     * Returns the request and whether it was newly created.
-     * Returns null if the game already exists and is visible.
-     */
     public static function findOrCreateForUrl(string $url, ?string $platform = null): ?array
     {
         // Don't create requests for games that already exist and are visible
@@ -94,9 +89,6 @@ class AdditionRequest extends Model
         return [$request, true];
     }
 
-    /**
-     * Check if a game with the given URL already exists and is visible.
-     */
     public static function gameAlreadyExists(string $url): bool
     {
         $normalizedUrl = self::normalizeUrl($url);
@@ -108,7 +100,6 @@ class AdditionRequest extends Model
 
         $platformKeys = ['itch_io', 'steam', 'other'];
 
-        // Check if a visible game exists with this URL
         return Game::where('is_visible', true)
             ->where(function ($query) use ($platformKeys, $possibleUrls) {
                 $isFirstCondition = true;
@@ -135,13 +126,10 @@ class AdditionRequest extends Model
      */
     public static function normalizeUrl(string $url): string
     {
-        // Remove protocol and www
         $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
 
-        // Remove trailing slashes
         $normalized = rtrim($normalized, '/');
 
-        // Remove query parameters and fragments
         $normalized = strtok($normalized, '?');
         $normalized = strtok($normalized, '#');
 
@@ -166,17 +154,11 @@ class AdditionRequest extends Model
         return array_values(array_unique($variants));
     }
 
-    /**
-     * Get the game that was created from this request (if approved).
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Get the admin user who reviewed this request.
-     */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
@@ -196,9 +178,6 @@ class AdditionRequest extends Model
         return true;
     }
 
-    /**
-     * Get all users who requested this addition.
-     */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'addition_request_users')
@@ -206,10 +185,6 @@ class AdditionRequest extends Model
             ->orderBy('addition_request_users.created_at');
     }
 
-    /**
-     * Remove a user from this request if they are associated with it.
-     * Returns true if the user was removed, false if they weren't associated.
-     */
     public function removeUser(User $user): bool
     {
         if (! $this->users()->where('user_id', $user->id)->exists()) {
@@ -227,33 +202,21 @@ class AdditionRequest extends Model
         return true;
     }
 
-    /**
-     * Check if this request is pending.
-     */
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
     }
 
-    /**
-     * Check if a user can cancel their participation in this request.
-     */
     public function canBeCancelledByUser(User $user): bool
     {
         return $this->isPending() && $this->users()->where('user_id', $user->id)->exists();
     }
 
-    /**
-     * Check if this request is approved.
-     */
     public function isApproved(): bool
     {
         return $this->status === self::STATUS_APPROVED;
     }
 
-    /**
-     * Check if this request is rejected.
-     */
     public function isRejected(): bool
     {
         return $this->status === self::STATUS_REJECTED;
@@ -287,9 +250,6 @@ class AdditionRequest extends Model
         ]);
     }
 
-    /**
-     * Get a human-readable status label.
-     */
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
@@ -300,9 +260,6 @@ class AdditionRequest extends Model
         };
     }
 
-    /**
-     * Get the status color for UI display.
-     */
     public function getStatusColorAttribute(): string
     {
         return match ($this->status) {

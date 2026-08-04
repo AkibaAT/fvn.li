@@ -24,10 +24,8 @@ class GameJamScrapeService
     public function fetchDetails(GameJam $gameJam): bool
     {
         try {
-            // Get the ItchHttpClientService
             $itchClient = App::make(ItchHttpClientService::class);
 
-            // Fetch the game jam page
             Log::info('Fetching game jam details page', [
                 'url' => $gameJam->url,
                 'game_jam_id' => $gameJam->id,
@@ -51,16 +49,13 @@ class GameJamScrapeService
             $html = $response->getBody()->getContents();
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-            // Extract description
             $descriptionElement = $doc->querySelector('.formatted_description');
             if ($descriptionElement) {
                 $gameJam->description = app(HtmlSanitizerService::class)->sanitizeDescription($descriptionElement->innerHTML);
             }
 
-            // Extract dates
             app(GameJamDetailsParser::class)->extractDates($gameJam, $doc);
 
-            // Extract host
             $hostElement = $doc->querySelector('.jam_host_header a, .host_header a');
             if ($hostElement) {
                 $gameJam->host = trim($hostElement->textContent);
@@ -70,12 +65,6 @@ class GameJamScrapeService
             if (! $gameJam->submission_count) {
                 app(GameJamDetailsParser::class)->extractSubmissionCount($gameJam, $doc);
             }
-
-            // We'll skip automatic results fetching here since the command will handle it
-            // This prevents duplicate fetching of results
-            // if ($gameJam->hasEnded()) {
-            //     $gameJam->fetchResultsPage($client);
-            // }
 
             $gameJam->save();
 
@@ -89,7 +78,6 @@ class GameJamScrapeService
 
             return true;
         } catch (Exception $e) {
-            // Log error but don't throw
             Log::error('Error fetching game jam details', [
                 'jam_url' => $gameJam->url,
                 'game_jam_id' => $gameJam->id,
@@ -149,11 +137,9 @@ class GameJamScrapeService
 
                 $pagesProcessed++;
 
-                // Process the results page to extract rankings
                 $pageRankings = $this->extractRankings($gameJam, $pageDoc);
                 $rankingsFound += $pageRankings;
 
-                // Check if there's a next page by looking for the pagination element
                 $nextPageLink = $pageDoc->querySelector('.next_page:not(.disabled)');
                 if (! $nextPageLink) {
                     $hasMorePages = false;
@@ -217,7 +203,6 @@ class GameJamScrapeService
      */
     private function fetchResultsPageNumber(GameJam $gameJam, int $pageNumber, int $maxRetries, int $retryDelay): ?HTMLDocument
     {
-        // Get the ItchHttpClientService
         $itchClient = App::make(ItchHttpClientService::class);
         $itchClient->setMaxRetries($maxRetries);
         $itchClient->setBaseCooldown($retryDelay);
@@ -236,7 +221,6 @@ class GameJamScrapeService
                 'game_jam_name' => $gameJam->name,
             ]);
 
-            // Fetch the results page - the ItchHttpClientService will handle retries for 429 errors
             $response = $itchClient->get($resultsUrl, [
                 'cookies' => false,
                 'allow_redirects' => false,
@@ -268,7 +252,6 @@ class GameJamScrapeService
             return HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
         } catch (Exception $e) {
-            // Log error
             Log::error('Error fetching game jam results', [
                 'jam_url' => $gameJam->url,
                 'page' => $pageNumber,
@@ -293,14 +276,12 @@ class GameJamScrapeService
         // Keep track of how many rankings we found
         $rankingsFound = 0;
 
-        // Find all game rank divs which contain the game entries and rankings
         $gameRankDivs = $doc->querySelectorAll('.game_rank');
 
         // Collect all the ranking data first to avoid partial updates
         $rankingData = [];
 
         foreach ($gameRankDivs as $gameRankDiv) {
-            // Extract the game URL from the link
             $gameLink = $gameRankDiv->querySelector('a.game_cover');
             if (! $gameLink) {
                 Log::info('No game link found in game rank div');
@@ -318,7 +299,6 @@ class GameJamScrapeService
             // Clean URL (remove any query parameters)
             $gameUrl = preg_replace('/\?.*$/', '', $gameUrl);
 
-            // Find the game in our database
             $game = Game::byUrl($gameUrl)->first();
             if (! $game) {
                 Log::info('Game not found in database', ['url' => $gameUrl]);
@@ -326,14 +306,12 @@ class GameJamScrapeService
                 continue;
             }
 
-            // Extract the game title
             $gameTitleElement = $gameRankDiv->querySelector('.game_summary h2 a');
             $gameTitle = $gameTitleElement ? trim($gameTitleElement->textContent) : $game->name;
 
             Log::info('Processing game',
                 ['title' => $gameTitle, 'url' => $gameUrl, 'game_id' => $game->id, 'game_jam_id' => $gameJam->id]);
 
-            // Extract the ranking - it's in a h3 tag with the format "Ranked <strong>Nth</strong> with X ratings..."
             $rankingElement = $gameRankDiv->querySelector('.game_summary h3 .ordinal_rank');
             if (! $rankingElement) {
                 Log::info('No ranking found for game', ['game' => $gameTitle, 'url' => $gameUrl]);
@@ -344,7 +322,6 @@ class GameJamScrapeService
             $ranking = trim($rankingElement->textContent);
             Log::info('Found ranking', ['game' => $gameTitle, 'ranking' => $ranking, 'game_id' => $game->id]);
 
-            // Extract criteria rankings if available
             $criteriaRankings = [];
 
             // The criteria rankings are in a table with columns: Criteria, Rank, Score*, Raw Score
@@ -358,7 +335,6 @@ class GameJamScrapeService
                         $criteriaRank = trim($cells[1]->textContent);
                         $criteriaScore = trim($cells[2]->textContent);
 
-                        // Skip header row or empty rows
                         if (empty($criteriaName) || $criteriaName === 'Criteria') {
                             continue;
                         }
@@ -401,7 +377,6 @@ class GameJamScrapeService
                 }
             }
 
-            // Store the ranking data for later processing
             $rankingData[] = [
                 'game' => $game,
                 'ranking' => $finalRanking,
@@ -409,7 +384,6 @@ class GameJamScrapeService
             ];
         }
 
-        // Now process all the rankings in a single transaction
         if (! empty($rankingData)) {
             Log::info('Starting transaction to update rankings', [
                 'game_jam_id' => $gameJam->id,
@@ -417,7 +391,6 @@ class GameJamScrapeService
                 'rankings_count' => count($rankingData),
             ]);
 
-            // Use a database transaction to ensure all updates are atomic
             $changedGameIds = [];
 
             DB::transaction(function () use ($gameJam, $rankingData, &$rankingsFound, &$changedGameIds) {
@@ -433,9 +406,7 @@ class GameJamScrapeService
                     // Reload the game to ensure we have the latest data
                     $game->refresh();
 
-                    // Check if the game is already associated with this jam
                     if ($game->gameJams()->where('game_jam_id', $gameJam->id)->exists()) {
-                        // Update the existing pivot record
                         $game->gameJams()->updateExistingPivot($gameJam->id, $pivotData);
                         $changedGameIds[] = $game->id;
                         Log::info('Updated existing game jam ranking', [
@@ -448,7 +419,6 @@ class GameJamScrapeService
                             'criteria_count' => $criteriaRankings ? count($criteriaRankings) : 0,
                         ]);
                     } else {
-                        // Create a new association
                         $game->gameJams()->attach($gameJam->id, $pivotData);
                         $changedGameIds[] = $game->id;
                         Log::info('Created new game jam ranking', [

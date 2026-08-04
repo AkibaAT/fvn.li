@@ -28,7 +28,6 @@ class MultiServerNotificationService
         }
 
         try {
-            // Find all servers subscribed to this game
             $servers = $game->discordServers()
                 ->where('discord_servers.is_active', true)
                 ->wherePivot('is_active', true)
@@ -133,14 +132,12 @@ class MultiServerNotificationService
         }
 
         try {
-            // Get game tags
             $gameTags = $game->tags()->pluck('name')->toArray();
 
             if (empty($gameTags)) {
                 return;
             }
 
-            // Find servers subscribed to these tags
             $servers = DiscordServer::whereHas('tagSubscriptions', function ($query) use ($gameTags) {
                 $query->whereIn('tag_name', $gameTags)
                     ->where('is_subscribed', true);
@@ -149,7 +146,6 @@ class MultiServerNotificationService
                 ->get();
 
             foreach ($servers as $server) {
-                // Check if not already subscribed directly
                 if (! $server->games()
                     ->where('games.id', $game->id)
                     ->wherePivot('is_active', true)
@@ -171,9 +167,6 @@ class MultiServerNotificationService
         }
     }
 
-    /**
-     * Get pending notifications for a server.
-     */
     public function getPendingNotifications(DiscordServer $server, int $limit = 50)
     {
         return $server->notificationHistory()
@@ -184,9 +177,6 @@ class MultiServerNotificationService
             ->get();
     }
 
-    /**
-     * Get pending notifications for all servers.
-     */
     public function getAllPendingNotifications(int $limit = 100)
     {
         return DiscordNotificationHistory::pending()
@@ -230,7 +220,7 @@ class MultiServerNotificationService
         $config = $server->config;
 
         if (! $config) {
-            return "{$game->name} has been updated!";
+            return "{$game->name} has been updated.";
         }
 
         return $config->formatNotification($game, $type);

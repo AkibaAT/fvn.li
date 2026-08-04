@@ -84,9 +84,9 @@ test('anonymize click stat ips supports dry runs and forced updates', function (
         ->expectsOutput('Analyzing click statistics with IP addresses...')
         ->expectsOutput('Found 2 click statistics with IP addresses that need anonymization.')
         ->expectsOutput('Starting IP address anonymization...')
-        ->expectsOutput('IP address anonymization completed!')
+        ->expectsOutput('IP address anonymization completed.')
         ->expectsOutput('Successfully processed: 2 records')
-        ->expectsOutput('All IP addresses have been successfully anonymized!')
+        ->expectsOutput('All IP addresses have been successfully anonymized.')
         ->assertExitCode(0);
 
     expect($firstClick->refresh()->ip_address)->toBe('203.0.113.0')
@@ -300,6 +300,7 @@ test('refresh itch games clears cached HTTP responses after every game', functio
     app()->instance(ItchHttpClientService::class, $itchClient);
 
     $syncService = Mockery::mock(GameDataSyncService::class);
+    $syncService->shouldReceive('setProgressReporter')->once()->andReturnSelf();
     foreach ($games as $game) {
         $syncService->shouldReceive('refreshVersion')->once()->with(Mockery::on(
             fn (Game $refreshedGame) => $refreshedGame->id === $game->id

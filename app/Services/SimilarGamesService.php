@@ -38,7 +38,6 @@ class SimilarGamesService
             return collect();
         }
 
-        // Fetch full Eloquent models preserving Meilisearch ranking order
         $games = Game::whereIn('id', $ids)->get()->keyBy('id');
 
         return collect($ids)

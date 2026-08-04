@@ -1931,13 +1931,13 @@ init 10000 python:
                             mark_menus_dead_after(next_stmt)
                             break
                         if isinstance(next_stmt, renpy.ast.Call):
-                            # Calls return — process edge but keep walking
+                            # Calls return; process edge but keep walking
                             add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                         if isinstance(next_stmt, renpy.ast.Label):
                             if is_route_label(next_stmt.name):
                                 add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
                                 break
-                            # Filtered label — skip past it and keep walking
+                            # Filtered label; skip past it and keep walking
                         # Non-terminal control flow: process edges but keep walking
                         if get_call_screen_name(next_stmt) or get_show_screen_name(next_stmt):
                             add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)

@@ -15,9 +15,6 @@ use Illuminate\Support\Facades\Storage;
 
 trait HandlesGameVersionLanguages
 {
-    /**
-     * Get the import stats action for the header
-     */
     protected function getImportStatsAction(): Action
     {
         return Action::make('importStats')
@@ -40,7 +37,6 @@ trait HandlesGameVersionLanguages
                 try {
                     $filePath = $data['stats_file'];
 
-                    // Use the service to import stats
                     $importService = app(GameVersionStatsImportService::class);
                     $importService->importFromStorage($filePath, $this->record);
 
@@ -63,9 +59,6 @@ trait HandlesGameVersionLanguages
             });
     }
 
-    /**
-     * Load the supported languages data
-     */
     protected function loadSupportedLanguages(GameVersion $gameVersion): array
     {
         return $gameVersion->supportedLanguages()
@@ -80,15 +73,10 @@ trait HandlesGameVersionLanguages
             ->toArray();
     }
 
-    /**
-     * Save the supported languages data
-     */
     protected function saveSupportedLanguages(GameVersion $gameVersion, array $languagesData): void
     {
-        // First, remove all existing supported languages
         $gameVersion->supportedLanguages()->delete();
 
-        // Then add the new ones
         if (! empty($languagesData)) {
             foreach ($languagesData as $language) {
                 if (isset($language['iso_code'])) {

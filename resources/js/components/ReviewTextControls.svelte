@@ -140,7 +140,6 @@
         };
     });
 
-    // Save review width
     $effect(() => {
         if (!isUpdatingFromStorage && typeof window !== 'undefined') {
             if (reviewWidth !== null) {
@@ -152,7 +151,6 @@
         }
     });
 
-    // Save review font size
     $effect(() => {
         if (!isUpdatingFromStorage && typeof window !== 'undefined') {
             if (reviewFontSize !== null) {
@@ -164,7 +162,6 @@
         }
     });
 
-    // Save review line height
     $effect(() => {
         if (!isUpdatingFromStorage && typeof window !== 'undefined') {
             if (reviewLineHeight !== null) {
@@ -214,7 +211,6 @@
         </Button>
     </div>
     <div class="grid grid-cols-1 gap-6">
-        <!-- Width Control -->
         <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Width</span>
             <div class="flex items-center gap-3">
@@ -236,7 +232,6 @@
             </div>
         </div>
 
-        <!-- Font Size Control -->
         <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</span>
             <div class="flex items-center gap-3">
@@ -258,7 +253,6 @@
             </div>
         </div>
 
-        <!-- Line Height Control -->
         <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Line Height</span>
             <div class="flex items-center gap-3">

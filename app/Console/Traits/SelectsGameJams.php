@@ -24,7 +24,6 @@ trait SelectsGameJams
     {
         $query = GameJam::query();
 
-        // Apply any additional where clauses
         foreach ($additionalWhere as $column => $value) {
             $query->where($column, $value);
         }
@@ -34,7 +33,6 @@ trait SelectsGameJams
             $query->with($with);
         }
 
-        // Apply game jam selection filters
         $this->applyGameJamSelectionFilters($query);
 
         return $query->get();

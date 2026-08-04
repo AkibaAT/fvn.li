@@ -27,9 +27,6 @@ class ItchHttpClientService
 
     private ItchCloudflareChallengeDetector $challengeDetector;
 
-    /**
-     * Create a new ItchHttpClientService instance.
-     */
     public function __construct(
         private readonly ItchHttpClientFactory $clientFactory,
         private readonly ItchUrlSafetyValidator $urlSafetyValidator,
@@ -61,7 +58,6 @@ class ItchHttpClientService
         $this->urlSafetyValidator->validate($url);
 
         // Route HTML requests through FlareSolverr (Cloudflare-protected)
-        // Skip API requests - they're not Cloudflare-protected
         if ($this->shouldUseFlareSolverr($url)) {
             return $this->sendRequestViaFlareSolverr('GET', $url, $options);
         }
@@ -89,7 +85,6 @@ class ItchHttpClientService
     ): ResponseInterface {
         $this->urlSafetyValidator->validate($url);
 
-        // Set http_errors to false to prevent exceptions for 4xx/5xx responses
         $options['http_errors'] = false;
 
         // Select the appropriate client
@@ -104,7 +99,6 @@ class ItchHttpClientService
                 $response = $client->request($method, $url, $options);
                 $statusCode = $response->getStatusCode();
 
-                // Check for Cloudflare challenge (403 or specific response patterns)
                 if (! $anonymous && ! $cloudflareRetried && $this->challengeDetector->isChallenge($response)) {
                     Log::warning('Cloudflare challenge detected, refreshing authentication', [
                         'url' => $url,
@@ -115,7 +109,6 @@ class ItchHttpClientService
                     $this->invalidateAuthentication();
                     $cloudflareRetried = true;
 
-                    // Get fresh authenticated client (will trigger FlareSolverr)
                     $client = $this->getAuthenticatedClient();
 
                     // Retry the request with fresh cookies
@@ -185,7 +178,6 @@ class ItchHttpClientService
         $this->urlSafetyValidator->validate($url);
 
         // Route HTML requests through FlareSolverr (Cloudflare-protected)
-        // Skip API requests - they're not Cloudflare-protected
         if ($this->shouldUseFlareSolverr($url)) {
             return $this->sendRequestViaFlareSolverr('POST', $url, $options);
         }
@@ -244,7 +236,6 @@ class ItchHttpClientService
             // Execute the callback
             $result = $callback();
 
-            // Log success
             Log::info("Operation '{$operationName}' completed successfully");
 
             // Call success callback if provided
@@ -270,9 +261,6 @@ class ItchHttpClientService
         }
     }
 
-    /**
-     * Set the maximum number of retries.
-     */
     public function setMaxRetries(int $maxRetries): self
     {
         $this->maxRetries = $maxRetries;
@@ -280,9 +268,6 @@ class ItchHttpClientService
         return $this;
     }
 
-    /**
-     * Set the base cooldown time in seconds.
-     */
     public function setBaseCooldown(int $baseCooldown): self
     {
         $this->baseCooldown = $baseCooldown;
@@ -310,10 +295,8 @@ class ItchHttpClientService
      */
     private function invalidateAuthentication(): void
     {
-        // Clear the authenticated client so it will be re-initialized
         $this->authenticatedClient = null;
 
-        // Clear cached cookies
         Cache::forget('itch_cookies');
 
         Log::info('Authentication invalidated, cookies cleared');
@@ -332,7 +315,6 @@ class ItchHttpClientService
             return false;
         }
 
-        // Skip API requests - they're not Cloudflare-protected
         if ($this->isApiRequest($url)) {
             return false;
         }
@@ -392,7 +374,6 @@ class ItchHttpClientService
         }
 
         try {
-            // Check if there's an active session from a command
             $useSession = false;
             $sessionId = null;
             if ($this->sessionManager !== null && $this->sessionManager->isSessionActive()) {
@@ -403,12 +384,10 @@ class ItchHttpClientService
                     'url' => $url,
                 ]);
             } else {
-                // Ensure we have a session (will create one if needed)
                 $this->flareSolverr->ensureSession();
                 $useSession = true;
             }
 
-            // Extract POST data if present
             $postData = [];
             if ($method === 'POST' && isset($options['form_params'])) {
                 $postData = $options['form_params'];
@@ -426,7 +405,6 @@ class ItchHttpClientService
                 $sessionId
             );
 
-            // Convert FlareSolverr response to PSR-7 ResponseInterface
             return new Response(
                 $result['status'],
                 $result['headers'] ?? [],
@@ -488,7 +466,6 @@ class ItchHttpClientService
         $retryAfter = $response->getHeaderLine('Retry-After');
         $cooldownTime = $retryAfter ? (int) $retryAfter : $this->baseCooldown * $retryCount;
 
-        // Ensure minimum cooldown of 30 seconds, but do not let remote Retry-After stall workers indefinitely.
         $cooldownTime = max($cooldownTime, 30 * $retryCount);
 
         return min($cooldownTime, self::MAX_RETRY_COOLDOWN_SECONDS);

@@ -216,9 +216,7 @@
 
 {#if isAuthenticated}
     <div class="border-t border-gray-100 pt-3 dark:border-gray-700/50">
-        <!-- Fixed Top Controls Row -->
         <div class="flex flex-wrap gap-2">
-            <!-- Manage Lists Button -->
             <Button
                 onclick={async () => {
                     showListDialog = true;
@@ -232,7 +230,6 @@
                 {userListsInGame.length > 0 ? 'Manage in Lists' : 'Add to Lists'}
             </Button>
 
-            <!-- User Lists Toggle Button -->
             {#if userListsInGame.length > 0}
                 <Button onclick={() => (showUserLists = !showUserLists)} variant="soft" tone="neutral" size="sm">
                     <span>My Lists</span>
@@ -248,7 +245,6 @@
                 </Button>
             {/if}
 
-            <!-- Notifications Toggle -->
             {#if !isPaid}
                 <label class="flex cursor-pointer items-center gap-2">
                     <input
@@ -276,7 +272,6 @@
             {/if}
         </div>
 
-        <!-- User Lists Section -->
         {#if userListsInGame.length > 0 && showUserLists}
             <div class="mt-3">
                 <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700/50 dark:bg-gray-800/50">
@@ -308,9 +303,7 @@
             </div>
         {/if}
 
-        <!-- Comprehensive List Management Dialog -->
         <Dialog open={showListDialog} onClose={closeListDialog} title={`Manage Lists for "${gameName}"`} size="sm">
-            <!-- Message Area -->
             <div class="mb-4 h-6 text-center text-sm">
                 {#if message}
                     <span class={message.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>

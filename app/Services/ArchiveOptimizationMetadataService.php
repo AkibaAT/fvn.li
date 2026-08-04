@@ -133,7 +133,6 @@ class ArchiveOptimizationMetadataService
             }
 
             foreach ($this->gameRelativeCandidates($path) as $candidate) {
-                // First inventory entry wins.
                 if (! isset($byGameRelativePath[$candidate])) {
                     $byGameRelativePath[$candidate] = $path;
                 }

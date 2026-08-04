@@ -37,7 +37,6 @@ it('returns data level language only when only language stats exist', function (
         'updated_at' => '2024-03-15 10:00:00',
     ]);
 
-    // Add language stats only
     DB::table('version_language_stats')->insert([
         'game_version_id' => $versionId,
         'iso_code' => 'eng',
@@ -55,7 +54,6 @@ it('returns data level language only when only language stats exist', function (
 it('returns data level character stats when character stats exist', function () {
     $game = Game::factory()->create();
 
-    // Create character manually
     $characterId = DB::table('characters')->insertGetId([
         'game_id' => $game->id,
         'character_id' => 'test_character',
@@ -72,7 +70,6 @@ it('returns data level character stats when character stats exist', function () 
         'updated_at' => '2024-03-15 10:00:00',
     ]);
 
-    // Add character stats
     DB::table('version_character_stats')->insert([
         'game_version_id' => $versionId,
         'character_id' => $characterId,
@@ -91,7 +88,6 @@ it('returns data level character stats when character stats exist', function () 
 it('returns data level full detail when dialogue lines with text exist', function () {
     $game = Game::factory()->create();
 
-    // Create character manually
     $characterId = DB::table('characters')->insertGetId([
         'game_id' => $game->id,
         'character_id' => 'test_character',
@@ -108,7 +104,6 @@ it('returns data level full detail when dialogue lines with text exist', functio
         'updated_at' => '2024-03-15 10:00:00',
     ]);
 
-    // Create unique dialogue text
     $textId = DB::table('unique_dialogue_texts')->insertGetId([
         'text_hash' => md5('test text'),
         'text_content' => 'test text',
@@ -116,7 +111,6 @@ it('returns data level full detail when dialogue lines with text exist', functio
         'updated_at' => now(),
     ]);
 
-    // Add dialogue lines with text references
     DB::table('version_dialogue_lines')->insert([
         'game_version_id' => $versionId,
         'character_id' => $characterId,
@@ -161,7 +155,6 @@ it('considers version not safe to update when insufficient data', function () {
 it('considers version safe to update when full detail available', function () {
     $game = Game::factory()->create();
 
-    // Create character manually
     $characterId = DB::table('characters')->insertGetId([
         'game_id' => $game->id,
         'character_id' => 'test_character',
@@ -178,7 +171,6 @@ it('considers version safe to update when full detail available', function () {
         'updated_at' => '2024-03-15 10:00:00',
     ]);
 
-    // Create unique dialogue text
     $textId = DB::table('unique_dialogue_texts')->insertGetId([
         'text_hash' => md5('test text'),
         'text_content' => 'test text',
@@ -186,7 +178,6 @@ it('considers version safe to update when full detail available', function () {
         'updated_at' => now(),
     ]);
 
-    // Add dialogue lines with text references (full detail)
     DB::table('version_dialogue_lines')->insert([
         'game_version_id' => $versionId,
         'character_id' => $characterId,
@@ -231,7 +222,6 @@ it('skips insufficient data when calculating and saving stats safely', function 
 it('recalculates language stats when character stats are updated', function () {
     $game = Game::factory()->create();
 
-    // Create character manually
     $characterId = DB::table('characters')->insertGetId([
         'game_id' => $game->id,
         'character_id' => 'test_character',
@@ -248,7 +238,6 @@ it('recalculates language stats when character stats are updated', function () {
         'updated_at' => '2024-03-15 10:00:00',
     ]);
 
-    // Create unique dialogue text
     $textId = DB::table('unique_dialogue_texts')->insertGetId([
         'text_hash' => md5('test text with multiple words'),
         'text_content' => 'test text with multiple words',
@@ -256,7 +245,6 @@ it('recalculates language stats when character stats are updated', function () {
         'updated_at' => now(),
     ]);
 
-    // Add dialogue lines with text references (full detail)
     DB::table('version_dialogue_lines')->insert([
         'game_version_id' => $versionId,
         'character_id' => $characterId,
@@ -268,7 +256,6 @@ it('recalculates language stats when character stats are updated', function () {
         'updated_at' => now(),
     ]);
 
-    // Calculate and save stats
     $result = $this->service->calculateAndSaveStatsForVersion($versionId);
 
     // Verify character stats were created

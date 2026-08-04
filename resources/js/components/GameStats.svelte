@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { Button, Card } from '@/components/ui';
-    import { formatDateTimeWithTimezone, getUserTimezone } from '@/utils/date-formatting';
 
     type ChartComponentType = typeof import('@/components/charts/Chart.svelte').default;
 
@@ -254,17 +253,6 @@
         })(),
     );
 
-    const insights = $derived(
-        (() => {
-            if (!dailyStats || dailyStats.length === 0) return null;
-            const recentDays = dailyStats.slice(-7);
-            const avgDailyViews = recentDays.reduce((sum, day) => sum + day.page_views_unique, 0) / recentDays.length;
-            const totalViews = dailyStats.reduce((sum, day) => sum + day.page_views_unique, 0);
-            const totalDownloads = dailyStats.reduce((sum, day) => sum + day.custom_links_unique, 0);
-            return { avgDailyViews, totalViews, totalDownloads, userTimezone: getUserTimezone() };
-        })(),
-    );
-
     onMount(() => {
         if (!hasChartData) return;
 
@@ -291,7 +279,6 @@
 </script>
 
 <div class="space-y-6">
-    <!-- Analytics Summary -->
     {#if clickStats}
         <div class="space-y-6">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -313,40 +300,9 @@
                     <div class="text-xs text-gray-500 dark:text-gray-400">{downloadsTotal} total</div>
                 </Card>
             </div>
-
-            <!-- Analytics Insights -->
-            <Card variant="glass" padding="sm" class="shadow-none">
-                <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Insights (Last 30 Days)</h3>
-                <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    {#if insights}
-                        <div>&#8226; Total unique views: <strong>{insights.totalViews}</strong></div>
-                        {#if insights.avgDailyViews > 0}
-                            <div>
-                                &#8226; Averaging <strong>{Math.round(insights.avgDailyViews * 10) / 10}</strong> unique views per day this week
-                            </div>
-                        {/if}
-                        {#if insights.totalDownloads > 0}
-                            <div>&#8226; Total downloads: <strong>{insights.totalDownloads}</strong></div>
-                        {/if}
-                        {#if clickStats.last_page_view}
-                            <div>
-                                &#8226; Last page view: <strong
-                                    >{formatDateTimeWithTimezone(clickStats.last_page_view, false) || clickStats.last_page_view}</strong
-                                >
-                            </div>
-                        {/if}
-                        <div class="mt-3 border-t border-gray-200 pt-2 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-400">
-                            All times shown in your local timezone ({insights.userTimezone})
-                        </div>
-                    {:else}
-                        <div>&#8226; No analytics data available yet. Share your game to start seeing insights!</div>
-                    {/if}
-                </div>
-            </Card>
         </div>
     {/if}
 
-    <!-- Chart Tabs -->
     <Card variant="glass" padding="none" class="shadow-none">
         <div class="border-b border-gray-200 dark:border-gray-700">
             <nav class="flex space-x-8 px-6" aria-label="Tabs">
@@ -375,7 +331,7 @@
                 {/if}
             {:else}
                 <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">
-                    No analytics data available yet. Share your game to start seeing insights!
+                    No analytics data is available yet. Share your game to begin collecting activity.
                 </div>
             {/if}
         </div>

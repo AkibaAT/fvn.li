@@ -22,18 +22,11 @@ trait HasGameTags
 
     public array $pendingTagIds = [];
 
-    /**
-     * Get all tags associated with this game
-     */
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class)->withTimestamps()->orderBy('name');
     }
 
-    /**
-     * Get the game jams this game has participated in.
-     * Default sorting is alphabetical by name.
-     */
     public function gameJams(): BelongsToMany
     {
         return $this->belongsToMany(GameJam::class, 'game_game_jam')
@@ -42,9 +35,6 @@ trait HasGameTags
             ->orderBy('name');
     }
 
-    /**
-     * Get tags as a simple array
-     */
     public function getTagsListAttribute(): array
     {
         // Only load tags if they're already loaded to prevent N+1 queries
@@ -55,9 +45,6 @@ trait HasGameTags
         return [];
     }
 
-    /**
-     * Get tags as a comma-separated string
-     */
     public function getTagsStringAttribute(): string
     {
         // Only load tags if they're already loaded to prevent N+1 queries
@@ -68,9 +55,6 @@ trait HasGameTags
         return '';
     }
 
-    /**
-     * Set custom tags attribute, ensuring it's never null
-     */
     public function setCustomTagsAttribute($value): void
     {
         $this->attributes['custom_tags'] = $value ?? '';
@@ -112,13 +96,8 @@ trait HasGameTags
         }
     }
 
-    /**
-     * Process any pending game jam associations
-     * This should be called after the game is saved
-     */
     public function processPendingGameJams(): void
     {
-        // Check if we have any pending game jam associations
         if (empty($this->pendingGameJamId)) {
             return;
         }
@@ -134,11 +113,8 @@ trait HasGameTags
             return;
         }
 
-        // Process each pending game jam
         foreach ($this->pendingGameJamId as $jamId) {
-            // Check if the association already exists
             if (! $this->gameJams()->where('game_jam_id', $jamId)->exists()) {
-                // Create the association
                 $this->gameJams()->attach($jamId);
 
                 Log::info('Associated game with game jam', [
@@ -155,19 +131,13 @@ trait HasGameTags
             }
         }
 
-        // Clear the pending list
         $this->pendingGameJamId = [];
     }
 
-    /**
-     * Process any pending tag associations
-     * This should be called after the game is saved
-     */
     public function processPendingTags(): void
     {
-        // Check if we have any pending tag associations
         if (empty($this->pendingTagIds)) {
-            // No page tags were parsed — only attach custom tags without
+            // No page tags were parsed; only attach custom tags without
             // removing existing ones
             $customTagIds = $this->getCustomTagIds();
             if (! empty($customTagIds) && $this->exists && $this->id) {
@@ -205,14 +175,9 @@ trait HasGameTags
             'tag_ids' => $this->pendingTagIds,
         ]);
 
-        // Clear the pending list
         $this->pendingTagIds = [];
     }
 
-    /**
-     * Get tag IDs from the custom_tags string field.
-     * Creates Tag records if they don't exist yet.
-     */
     private function getCustomTagIds(): array
     {
         $customTags = $this->custom_tags ?? '';

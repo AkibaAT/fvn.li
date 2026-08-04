@@ -37,9 +37,6 @@ class ProcessPushNotifications extends Command
      */
     protected NotificationService $notificationService;
 
-    /**
-     * Create a new command instance.
-     */
     public function __construct(NotificationService $notificationService)
     {
         parent::__construct();
@@ -62,7 +59,6 @@ class ProcessPushNotifications extends Command
         $this->info("Processing up to {$limit} push notifications in batches of {$batchSize}...");
 
         try {
-            // Get pending notifications that are due to be sent
             $notifications = NotificationQueue::pending()
                 ->forChannel('browser')
                 ->due()
@@ -75,7 +71,6 @@ class ProcessPushNotifications extends Command
             if ($notifications->isEmpty()) {
                 $this->info('No notifications to process');
 
-                // Log performance metrics for early exit
                 $this->logPerformanceMetrics(
                     startTime: $startTime,
                     startMemory: $startMemory,
@@ -87,7 +82,6 @@ class ProcessPushNotifications extends Command
                 return 0;
             }
 
-            // Group notifications by user for digest types
             $notificationsByUser = $notifications->groupBy('user_id');
             $processedCount = 0;
             $successCount = 0;
@@ -97,7 +91,6 @@ class ProcessPushNotifications extends Command
 
             try {
                 foreach ($notificationsByUser as $userId => $userNotifications) {
-                    // Get the user's push subscriptions
                     $subscriptions = PushSubscription::where('user_id', $userId)->get();
 
                     if ($subscriptions->isEmpty()) {
@@ -110,7 +103,6 @@ class ProcessPushNotifications extends Command
                         continue;
                     }
 
-                    // Check if this is a digest notification
                     $firstNotification = $userNotifications->first();
                     $user = $firstNotification->user;
                     $isDigest = $user && $user->notificationPreferences &&
@@ -122,7 +114,6 @@ class ProcessPushNotifications extends Command
                         $processedCount += $userNotifications->count();
                         $successCount += $userNotifications->count();
                     } else {
-                        // Process individual notifications
                         foreach ($userNotifications as $notification) {
                             $result = $this->processIndividualNotification($notification, $subscriptions);
                             $processedCount++;
@@ -141,7 +132,6 @@ class ProcessPushNotifications extends Command
                 $this->info("Successfully processed {$processedCount} notifications");
                 $this->info("Success: {$successCount}, Failed: {$failedCount}");
 
-                // Log performance metrics
                 $this->logPerformanceMetrics(
                     startTime: $startTime,
                     startMemory: $startMemory,
@@ -178,9 +168,6 @@ class ProcessPushNotifications extends Command
         $notification->save();
     }
 
-    /**
-     * Process a digest notification (combining multiple game updates).
-     */
     protected function processDigestNotifications($notifications, $subscriptions): void
     {
         if ($notifications->isEmpty()) {
@@ -191,7 +178,6 @@ class ProcessPushNotifications extends Command
         $user = $firstNotification->user;
         $digestType = $user->notificationPreferences->notification_digest;
 
-        // Build a digest message
         $games = $notifications->map(function ($notification) {
             return [
                 'id' => $notification->game_id,
@@ -220,10 +206,8 @@ class ProcessPushNotifications extends Command
             ],
         ];
 
-        // Send the notification
         $success = $this->notificationService->sendPushNotifications($subscriptions, $payload);
 
-        // Mark all notifications as processed
         foreach ($notifications as $notification) {
             if ($success) {
                 $this->markAsProcessed($notification);
@@ -256,14 +240,10 @@ class ProcessPushNotifications extends Command
         $notification->save();
     }
 
-    /**
-     * Process an individual notification.
-     */
     protected function processIndividualNotification($notification, $subscriptions): bool
     {
         $payload = $notification->payload;
 
-        // Send the notification
         $success = $this->notificationService->sendPushNotifications($subscriptions, $payload);
 
         if ($success) {
@@ -314,7 +294,6 @@ class ProcessPushNotifications extends Command
             'failed_count' => $failedCount,
         ];
 
-        // Log to Laravel log
         Log::info('ProcessPushNotifications performance', $metrics);
 
         // Output summary to console

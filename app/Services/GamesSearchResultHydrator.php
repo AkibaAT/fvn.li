@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 
 class GamesSearchResultHydrator
@@ -14,8 +15,9 @@ class GamesSearchResultHydrator
             return;
         }
 
+        // Meilisearch fallbacks can paginate a base Collection, which cannot eager-load.
         $collection = $games->getCollection();
-        if (method_exists($collection, 'load')) {
+        if ($collection instanceof EloquentCollection) {
             $collection->load([
                 'tags',
                 'sourceLanguage',

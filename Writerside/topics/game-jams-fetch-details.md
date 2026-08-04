@@ -140,18 +140,6 @@ The command includes sophisticated rate limiting handling:
 - **Batch Processing**: Respects API limits with configurable batch sizes
 - **Progress Tracking**: Continues from where it left off after rate limits
 
-## Error Handling
-
-Comprehensive error handling includes:
-
-- **Network Failures**: Automatic retry for temporary issues
-- **Invalid URLs**: Graceful handling of malformed jam URLs
-- **Missing Data**: Continues processing when some fields are unavailable
-- **API Changes**: Robust parsing that adapts to itch.io structure changes
-
-> **Warning**: Using `--all` with a large database may take considerable time and should be run during maintenance
-> windows.
-
 ## Related Commands
 
 - [games:refresh](games-refresh.md) - Refresh games associated with jams

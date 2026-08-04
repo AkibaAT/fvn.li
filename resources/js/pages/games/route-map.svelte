@@ -374,7 +374,6 @@
         return null;
     });
 
-    // Calculate path using Web Worker when navigation target changes
     $effect(() => {
         if (!navigationTarget || !startNodeId) {
             pathRequestSequence++;

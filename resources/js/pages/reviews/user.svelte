@@ -119,7 +119,6 @@
         {/snippet}
     </PageHeader>
 
-    <!-- Sort controls -->
     <div class="flex gap-2">
         <Button
             type="button"
@@ -145,7 +144,6 @@
         </Button>
     </div>
 
-    <!-- Reviews list -->
     {#if localReviews.length === 0}
         <div class="py-12 text-center text-gray-500 dark:text-gray-400">No reviews yet.</div>
     {:else}
@@ -211,7 +209,7 @@
                                             }}
                                             class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-xs text-yellow-800 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200"
                                         >
-                                            Contains spoilers — click to reveal
+                                            Contains spoilers. Click to reveal.
                                         </Button>
                                     {:else if review.review}
                                         {#if review.has_spoilers}

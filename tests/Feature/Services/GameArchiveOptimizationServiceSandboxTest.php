@@ -86,7 +86,7 @@ it('optimizes stored archives through the sandbox runner when configured', funct
 
 function passingSandboxOptimizationStatsService(): GameStatsService
 {
-    return new readonly class extends GameStatsService
+    return new class extends GameStatsService
     {
         public function canExtractStats(string $archivePath): bool
         {

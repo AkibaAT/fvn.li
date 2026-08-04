@@ -53,8 +53,8 @@ namespace {
         $this->artisan('games:check-delisted', ['--all' => true, '--sort' => 'name'])
             ->expectsOutput('Starting delisted check for games')
             ->expectsOutput('Found 2 game(s):')
-            ->expectsOutput('  → Game is now DELISTED')
-            ->expectsOutput('  → Game is no longer delisted')
+            ->expectsOutput('Game is now delisted')
+            ->expectsOutput('Game is no longer delisted')
             ->expectsOutput('Games checked: 2')
             ->expectsOutput('Newly delisted: 1')
             ->expectsOutput('Errors: 0')
@@ -172,7 +172,7 @@ namespace {
             ->expectsOutput('Starting Steam game import...')
             ->expectsOutput('Steam App ID: 987654')
             ->expectsOutput('Game data fetched and saved successfully')
-            ->expectsOutput('Import complete!')
+            ->expectsOutput('Import complete.')
             ->expectsOutput('Game is hidden. To make it visible, edit it in the admin panel or run:')
             ->assertExitCode(0);
 

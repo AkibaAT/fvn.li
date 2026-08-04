@@ -36,7 +36,6 @@ class EditAdditionRequest extends EditRecord
             }
         }
 
-        // Clear review tracking if changing back to pending
         if ($newStatus === AdditionRequest::STATUS_PENDING && $originalStatus !== AdditionRequest::STATUS_PENDING) {
             $data['reviewed_at'] = null;
             $data['reviewed_by'] = null;

@@ -7,8 +7,6 @@ Refreshes game information from itch.io for specific games or all visible games.
 This command updates game information by fetching the latest data from itch.io. It can refresh various aspects of game
 data including basic information, version details, and metadata like tags, ratings, and screenshots.
 
-**Key Features**: Selective refresh options, rate limiting, batch processing, comprehensive error handling.
-
 ## Usage
 
 ```bash
@@ -162,16 +160,6 @@ The command includes comprehensive rate limiting handling:
 - **Exponential Backoff**: Increasing delays between retries
 - **Configurable Retries**: Adjustable retry count and cooldown
 - **Progress Preservation**: Continues from where it left off
-
-## Performance Considerations
-
-- **API Calls**: Each game requires multiple API requests
-- **Network Bandwidth**: Large screenshots and media downloads
-- **Processing Time**: Metadata updates can be time-intensive
-- **Rate Limits**: itch.io API has usage restrictions
-
-> **Warning**: Using `--all` without a limit can process hundreds of games and may take hours to complete. Always use
-`--limit` for large batches.
 
 ## Related Commands
 

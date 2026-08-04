@@ -45,7 +45,6 @@ describe('Home Page Game Cards', function () {
     });
 
     test('game cards include platform information', function () {
-        // Create a game with a latest version that has platform data
         $game = Game::factory()->create([
             'name' => 'Test Game',
             'is_visible' => true,
@@ -60,7 +59,6 @@ describe('Home Page Game Cards', function () {
             'is_web' => false,
         ]);
 
-        // Set as latest version
         $version->is_latest = true;
         $version->save();
 
@@ -68,10 +66,8 @@ describe('Home Page Game Cards', function () {
 
         $response->assertStatus(200);
 
-        // Get the teasers data from Inertia
         $teasers = $response->viewData('page')['props']['teasers'];
 
-        // Check all teaser sections (recentlyAdded, recentlyUpdated, mostPopular)
         foreach (['recentlyAdded', 'recentlyUpdated', 'mostPopular'] as $section) {
             if (isset($teasers[$section]) && count($teasers[$section]) > 0) {
                 $firstGame = $teasers[$section][0];
@@ -98,7 +94,6 @@ describe('Home Page Game Cards', function () {
     });
 
     test('game cards include language information with correct structure', function () {
-        // Create languages with all required fields for ISO 639-3
         DB::table('iso_639_3_languages')->insertOrIgnore([
             'id' => 'eng',
             'scope' => 'I',  // Individual language
@@ -121,7 +116,6 @@ describe('Home Page Game Cards', function () {
             'updated_at' => now(),
         ]);
 
-        // Create a game with a latest version
         $game = Game::factory()->create([
             'name' => 'Multilingual Game',
             'is_visible' => true,
@@ -131,11 +125,9 @@ describe('Home Page Game Cards', function () {
             'game_id' => $game->id,
         ]);
 
-        // Set as latest version
         $version->is_latest = true;
         $version->save();
 
-        // Add supported languages
         VersionSupportedLanguage::create([
             'game_version_id' => $version->id,
             'iso_code' => 'eng',
@@ -148,7 +140,6 @@ describe('Home Page Game Cards', function () {
             'is_available' => true,
         ]);
 
-        // Add English word count
         VersionLanguageStats::create([
             'game_version_id' => $version->id,
             'iso_code' => 'eng',
@@ -159,10 +150,8 @@ describe('Home Page Game Cards', function () {
 
         $response->assertStatus(200);
 
-        // Get the teasers data from Inertia
         $teasers = $response->viewData('page')['props']['teasers'];
 
-        // Check all teaser sections
         foreach (['recentlyAdded', 'recentlyUpdated', 'mostPopular'] as $section) {
             if (isset($teasers[$section]) && count($teasers[$section]) > 0) {
                 $firstGame = $teasers[$section][0];
@@ -196,7 +185,6 @@ describe('Home Page Game Cards', function () {
     });
 
     test('game cards include english word count', function () {
-        // Create a game with English word count
         $game = Game::factory()->create([
             'name' => 'Test Game with Stats',
             'is_visible' => true,
@@ -209,7 +197,6 @@ describe('Home Page Game Cards', function () {
         $version->is_latest = true;
         $version->save();
 
-        // Add English word count
         VersionLanguageStats::create([
             'game_version_id' => $version->id,
             'iso_code' => 'eng',
@@ -220,10 +207,8 @@ describe('Home Page Game Cards', function () {
 
         $response->assertStatus(200);
 
-        // Get the teasers data from Inertia
         $teasers = $response->viewData('page')['props']['teasers'];
 
-        // Check all teaser sections
         foreach (['recentlyAdded', 'recentlyUpdated', 'mostPopular'] as $section) {
             if (isset($teasers[$section]) && count($teasers[$section]) > 0) {
                 $firstGame = $teasers[$section][0];
@@ -240,7 +225,6 @@ describe('Home Page Game Cards', function () {
     });
 
     test('game cards include required GameCard component properties', function () {
-        // Create a complete game with all required data
         $game = Game::factory()->create([
             'name' => 'Complete Test Game',
             'is_visible' => true,
@@ -250,7 +234,6 @@ describe('Home Page Game Cards', function () {
             'platform' => 'itch_io',
         ]);
 
-        // Create a tag directly
         $tag = Tag::create([
             'name' => 'Romance',
             'slug' => 'romance',
@@ -267,10 +250,8 @@ describe('Home Page Game Cards', function () {
 
         $response->assertStatus(200);
 
-        // Get the teasers data from Inertia
         $teasers = $response->viewData('page')['props']['teasers'];
 
-        // Check all teaser sections
         foreach (['recentlyAdded', 'recentlyUpdated', 'mostPopular'] as $section) {
             if (isset($teasers[$section]) && count($teasers[$section]) > 0) {
                 $firstGame = $teasers[$section][0];
@@ -306,7 +287,6 @@ describe('Home Page Game Cards', function () {
     });
 
     test('multiple games in each teaser section have consistent data structure', function () {
-        // Create multiple games to ensure all sections are populated
         for ($i = 1; $i <= 5; $i++) {
             $game = Game::factory()->create([
                 'name' => "Test Game {$i}",
@@ -321,7 +301,6 @@ describe('Home Page Game Cards', function () {
                 'published_at' => now()->subDays($i),
             ]);
 
-            // Create English language if it doesn't exist
             DB::table('iso_639_3_languages')->insertOrIgnore([
                 'id' => 'eng',
                 'scope' => 'I',
@@ -344,13 +323,11 @@ describe('Home Page Game Cards', function () {
 
         $response->assertStatus(200);
 
-        // Get the teasers data from Inertia
         $teasers = $response->viewData('page')['props']['teasers'];
 
         // Verify all sections exist
         expect($teasers)->toHaveKeys(['recentlyAdded', 'recentlyUpdated', 'mostPopular']);
 
-        // Check each section has games with consistent structure
         foreach (['recentlyAdded', 'recentlyUpdated', 'mostPopular'] as $section) {
             expect($teasers[$section])->toBeArray();
 

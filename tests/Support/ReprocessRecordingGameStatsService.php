@@ -9,7 +9,7 @@ use App\Models\GameVersion;
 use App\Services\GameStatsService;
 use App\Support\Stats\StatsPayload;
 
-final readonly class ReprocessRecordingGameStatsService extends GameStatsService
+final class ReprocessRecordingGameStatsService extends GameStatsService
 {
     public function __construct(
         private object $recorder

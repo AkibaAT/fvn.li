@@ -13,13 +13,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RequireSanctumTokenAbility
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request): Response  $next
-     *
-     * @throws AuthenticationException|MissingAbilityException
-     */
     public function handle(Request $request, Closure $next, string ...$abilities): Response
     {
         $user = $request->user();

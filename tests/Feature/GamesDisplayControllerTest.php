@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Games\GamesDisplayController;
+use App\Services\GameSocialMetaBuilder;
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
@@ -40,16 +40,11 @@ test('game social meta tags format numeric string word counts without crashing',
         'is_visible' => true,
     ]);
 
-    $controller = app(GamesDisplayController::class);
-    $method = new ReflectionMethod($controller, 'prepareSocialMetaTags');
-    $method->setAccessible(true);
-
-    $method->invoke($controller, $game, new LengthAwarePaginator([], 0, 5), [
+    $metaTags = app(GameSocialMetaBuilder::class)->build($game, new LengthAwarePaginator([], 0, 5), [
         'words' => '12345',
     ]);
 
-    expect($controller->getMetaTags()['description'])
-        ->toContain('12,345 words');
+    expect($metaTags['description'])->toContain('12,345 words');
 });
 
 test('game show exposes itch screenshots as effective screenshots in original view mode', function () {

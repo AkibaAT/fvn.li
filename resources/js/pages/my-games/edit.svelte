@@ -3,7 +3,7 @@
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { notify } from '@/components/Toast.svelte';
     import { Button, Card } from '@/components/ui';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
     import { formatLocalDateTime } from '@/utils/date-formatting';
     import { untrack } from 'svelte';
 
@@ -154,7 +154,6 @@
         {/snippet}
     </PageHeader>
 
-    <!-- Links Editor -->
     <Card variant="glass">
         <div class="mb-6 flex items-start justify-between">
             <div>
@@ -247,6 +246,5 @@
         </div>
     </Card>
 
-    <!-- Analytics Section -->
     <GameStats {clickStats} {dailyStats} />
 </div>

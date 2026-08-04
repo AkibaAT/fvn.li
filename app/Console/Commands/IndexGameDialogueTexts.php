@@ -75,7 +75,6 @@ class IndexGameDialogueTexts extends Command
     {
         GameDialogueText::deleteAllSearchDocuments();
 
-        // Get all games that have dialogue
         $gameIds = DB::table('version_dialogue_lines as vdl')
             ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
             ->distinct()
@@ -105,7 +104,7 @@ class IndexGameDialogueTexts extends Command
         $bar->finish();
         $this->newLine(2);
 
-        $this->info('Indexing complete!');
+        $this->info('Indexing complete.');
         $this->info("  Total entries indexed: {$totalIndexed}");
 
         if ($errors > 0) {

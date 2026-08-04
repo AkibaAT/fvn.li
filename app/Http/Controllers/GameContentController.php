@@ -16,9 +16,6 @@ use Illuminate\Support\Facades\Storage;
 
 class GameContentController extends Controller
 {
-    /**
-     * Update game custom content
-     */
     public function updateContent(Game $game, Request $request, HtmlSanitizerService $sanitizer): JsonResponse
     {
         if (! $this->canEdit($game)) {
@@ -42,7 +39,6 @@ class GameContentController extends Controller
         // Clean up unused images before updating
         $this->cleanupUnusedImages($game, $validated['content']);
 
-        // Update custom description
         $game->updateCustomPage([
             'description' => $validated['content'],
         ], $user);
@@ -57,9 +53,6 @@ class GameContentController extends Controller
         ]);
     }
 
-    /**
-     * Update game custom name
-     */
     public function updateName(Game $game, Request $request): JsonResponse
     {
         if (! $this->canEdit($game)) {
@@ -80,7 +73,6 @@ class GameContentController extends Controller
             $game->enableCustomPage($user);
         }
 
-        // Update custom name
         $game->updateCustomPage([
             'name' => $validated['name'],
         ], $user);
@@ -99,9 +91,6 @@ class GameContentController extends Controller
         ]);
     }
 
-    /**
-     * Get both custom and original content for view switching
-     */
     public function getContentForView(Game $game, HtmlSanitizerService $sanitizer): JsonResponse
     {
         return response()->json([
@@ -128,9 +117,6 @@ class GameContentController extends Controller
         ]);
     }
 
-    /**
-     * Set the view mode for this game (what all visitors see)
-     */
     public function setViewMode(Game $game, Request $request, HtmlSanitizerService $sanitizer): JsonResponse
     {
         if (! $this->canEdit($game)) {
@@ -242,7 +228,6 @@ class GameContentController extends Controller
             $game->update(['custom_name' => null]);
         }
 
-        // Handle thumbnail revert if requested (special case since there's no custom thumbnail system)
         $thumbnailUrl = null;
         if ($revertThumbnail) {
             $thumbnailUrl = $this->revertThumbnail($game);
@@ -268,9 +253,6 @@ class GameContentController extends Controller
         ]);
     }
 
-    /**
-     * Check if the current user can edit the given game
-     */
     public function canEdit(Game $game): bool
     {
         $user = Auth::user();
@@ -287,7 +269,6 @@ class GameContentController extends Controller
         $gameId = $game->id;
 
         try {
-            // Get all images in the game's editor directory
             $editorPath = "editor/{$gameId}";
             $storage = Storage::disk('public');
 
@@ -300,18 +281,14 @@ class GameContentController extends Controller
                 return in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
             });
 
-            // Extract all image URLs from the new content
             $usedUrls = $this->extractImageUrls($newContent);
 
-            // Convert URLs to file paths
             $usedPaths = [];
             foreach ($usedUrls as $url) {
-                // Convert /storage/editor/123/filename.jpg to editor/123/filename.jpg
                 $path = str_replace('/storage/', '', $url);
                 $usedPaths[] = $path;
             }
 
-            // Delete unused files
             foreach ($imageFiles as $filePath) {
                 if (! in_array($filePath, $usedPaths)) {
                     $storage->delete($filePath);
@@ -347,9 +324,6 @@ class GameContentController extends Controller
         return $deletedCount;
     }
 
-    /**
-     * Extract all image URLs from HTML content
-     */
     private function extractImageUrls(string $content): array
     {
         $urls = [];
@@ -389,7 +363,6 @@ class GameContentController extends Controller
         $files = $storage->allFiles($path);
         $directories = $storage->allDirectories($path);
 
-        // Remove empty directories (check in reverse order)
         foreach (array_reverse($directories) as $directory) {
             if ($directory === 'editor') {
                 continue; // Never remove the main editor directory
@@ -410,18 +383,14 @@ class GameContentController extends Controller
         try {
             $storage = Storage::disk('public');
 
-            // Get original screenshots to compare against
             $originalScreenshots = $game->screenshots ?: [];
             $originalUrls = array_map(fn ($s) => $s['url'], $originalScreenshots);
 
-            // Get custom screenshots
             $customScreenshots = $game->custom_screenshots ?: [];
             $customUrls = array_map(fn ($s) => $s['url'], $customScreenshots);
 
-            // Find and delete custom screenshot files that aren't in original
             foreach ($customUrls as $customUrl) {
                 if (! in_array($customUrl, $originalUrls)) {
-                    // Convert URL to storage path
                     $path = str_replace('/storage/', '', $customUrl);
 
                     if ($storage->exists($path)) {
@@ -468,7 +437,6 @@ class GameContentController extends Controller
             $syncService = app(GameDataSyncService::class);
             $syncService->refreshBaseInfo($game);
 
-            // Clear optimized thumbnails to force regeneration
             $game->clearOptimizedThumbnails();
 
             // Refresh the game model to get the updated thumb_url

@@ -18,7 +18,10 @@ use Illuminate\Support\Facades\Storage;
 
 it('validates thumbnail processing game selection options', function () {
     $this->mock(Client::class);
-    $this->mock(ImageProcessingService::class);
+    $this->mock(ImageProcessingService::class)
+        ->shouldReceive('setProgressReporter')
+        ->once()
+        ->andReturnSelf();
 
     $this->artisan('games:process-thumbnails')
         ->expectsOutput('You must provide either --game-id, --game-name, or --all option')
@@ -152,7 +155,7 @@ it('reimports stored archive statistics and handles missing archives and invalid
     Storage::put("games/{$game->id}/{$latestVersion->id}/archive.zip", 'zip');
     $archivePath = Storage::path("games/{$game->id}/{$latestVersion->id}/archive.zip");
 
-    $statsService = new readonly class extends GameStatsService
+    $statsService = new class extends GameStatsService
     {
         public function extractGameStats(string $archivePath): ?StatsPayload
         {

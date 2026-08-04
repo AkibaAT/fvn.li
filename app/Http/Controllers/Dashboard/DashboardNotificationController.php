@@ -37,7 +37,6 @@ class DashboardNotificationController extends Controller
             ? "https://discord.com/oauth2/authorize?client_id={$discordClientId}&integration_type=1&scope=applications.commands"
             : null;
 
-        // Get the most recent Discord notification status
         $lastDiscordNotification = null;
         if ($hasDiscordAccount) {
             $lastNotification = NotificationQueue::where('user_id', $user->id)

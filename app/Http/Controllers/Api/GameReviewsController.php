@@ -24,10 +24,6 @@ class GameReviewsController extends Controller
         private readonly ItchAuthService $itchAuthService
     ) {}
 
-    /**
-     * Get review data for a game by URL or game ID.
-     * This endpoint is designed for the desktop client to fetch review information.
-     */
     public function getGameReviews(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -40,7 +36,6 @@ class GameReviewsController extends Controller
             return response()->json(['error' => $validator->errors()], 422);
         }
 
-        // Ensure at least one identifier is provided
         if (! $request->filled('url') && ! $request->filled('game_id') && ! $request->filled('itch_game_id')) {
             return response()->json([
                 'error' => 'At least one of url, game_id, or itch_game_id must be provided',
@@ -58,7 +53,6 @@ class GameReviewsController extends Controller
                 ], 404);
             }
 
-            // Check cache first (6 hour cache)
             $cacheKey = sprintf('game_reviews_v%d_%d', self::REVIEW_CACHE_VERSION, $game->id);
             $reviewData = Cache::remember($cacheKey, 6 * 60 * 60, function () use ($game) {
                 return $this->buildReviewData($game);
@@ -91,10 +85,6 @@ class GameReviewsController extends Controller
         }
     }
 
-    /**
-     * Get paginated reviews for a game with filtering options.
-     * This endpoint supports endless scrolling and filtering by rating.
-     */
     public function getPaginatedReviews(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -111,7 +101,6 @@ class GameReviewsController extends Controller
             return response()->json(['error' => $validator->errors()], 422);
         }
 
-        // Ensure at least one identifier is provided
         if (! $request->filled('url') && ! $request->filled('game_id') && ! $request->filled('itch_game_id')) {
             return response()->json([
                 'error' => 'At least one of url, game_id, or itch_game_id must be provided',
@@ -132,17 +121,14 @@ class GameReviewsController extends Controller
             $ratingFilter = $request->input('rating_filter') !== null ? (int) $request->input('rating_filter') : null;
             $showAllRatings = filter_var($request->input('show_all_ratings', false), FILTER_VALIDATE_BOOLEAN);
 
-            // Build the query
             $query = Rating::where('game_id', $game->id)
                 ->where('is_visible', true)
                 ->with(['rater']);
 
-            // Apply rating filter
             if ($ratingFilter !== null) {
                 $query->where('rating', $ratingFilter);
             }
 
-            // Apply review filter (show only reviews vs all ratings)
             if (! $showAllRatings) {
                 $query->where('is_reviewed', true);
             }
@@ -150,12 +136,10 @@ class GameReviewsController extends Controller
             // Order by published date (newest first)
             $query->orderBy('published_at', 'desc');
 
-            // Get paginated results
             $ratings = $query->paginate($perPage, ['*'], 'page', $page);
 
             $sanitizer = app(HtmlSanitizerService::class);
 
-            // Format the reviews
             $reviews = $ratings->map(function ($rating) use ($sanitizer) {
                 return [
                     'id' => $rating->id,
@@ -200,12 +184,8 @@ class GameReviewsController extends Controller
         }
     }
 
-    /**
-     * Find a game based on the provided identifiers.
-     */
     private function findGame(Request $request): ?Game
     {
-        // Try by internal game ID first (most direct)
         if ($request->filled('game_id')) {
             $game = Game::where('id', $request->input('game_id'))
                 ->fromItchio()
@@ -215,7 +195,6 @@ class GameReviewsController extends Controller
             }
         }
 
-        // Try by itch.io game ID
         if ($request->filled('itch_game_id')) {
             $game = Game::where('itch_id', $request->input('itch_game_id'))
                 ->fromItchio()
@@ -225,11 +204,9 @@ class GameReviewsController extends Controller
             }
         }
 
-        // Try by URL (most complex, handles various URL formats)
         if ($request->filled('url')) {
             $url = $request->input('url');
 
-            // First try direct URL match
             $game = Game::byUrl($url)
                 ->fromItchio()
                 ->first();
@@ -237,7 +214,6 @@ class GameReviewsController extends Controller
                 return $game;
             }
 
-            // Try to extract itch.io game ID from URL and find by that.
             // This performs an outbound HTTP request, so keep it restricted to HTTPS itch.io hosts.
             if ($this->isAllowedItchUrl($url)) {
                 try {
@@ -256,7 +232,6 @@ class GameReviewsController extends Controller
                 }
             }
 
-            // Try normalized URL matching (similar to AdditionRequest logic)
             $normalizedUrl = $this->normalizeUrl($url);
             $game = Game::where(function ($query) use ($url, $normalizedUrl) {
                 $query->byUrl($url)
@@ -298,7 +273,6 @@ class GameReviewsController extends Controller
      */
     private function normalizeUrl(string $url): string
     {
-        // Remove protocol, www, trailing slashes, and query parameters
         $normalized = preg_replace('/^https?:\/\/(www\.)?/', '', $url);
         $normalized = strtok($normalized, '?'); // Remove query parameters
         $normalized = rtrim($normalized, '/');
@@ -306,12 +280,8 @@ class GameReviewsController extends Controller
         return strtolower($normalized);
     }
 
-    /**
-     * Build review data for a game.
-     */
     private function buildReviewData(Game $game): array
     {
-        // Get all public ratings for this game. Historical/moderation-hidden rows
         // are exposed only through explicit history flows, not broad review APIs.
         $ratings = Rating::where('game_id', $game->id)
             ->where('is_visible', true)
@@ -330,10 +300,8 @@ class GameReviewsController extends Controller
             ];
         }
 
-        // Calculate average rating
         $averageRating = round($ratings->avg('rating'), 2);
 
-        // Calculate rating distribution
         $distribution = [];
         for ($i = 1; $i <= 5; $i++) {
             $count = $ratings->where('rating', $i)->count();
@@ -343,7 +311,6 @@ class GameReviewsController extends Controller
             ];
         }
 
-        // Get recent reviews (limit to 5 for desktop client)
         $sanitizer = app(HtmlSanitizerService::class);
 
         $recentReviews = $ratings->where('is_reviewed', true)

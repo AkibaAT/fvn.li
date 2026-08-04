@@ -8,15 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVnListRequest;
 use App\Http\Requests\ToggleAllUpdatesRequest;
 use App\Http\Requests\UpdateVnListRequest;
-use App\Models\Game;
-use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\VnListCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 
 class VnListCrudController extends Controller
 {
@@ -42,7 +39,6 @@ class VnListCrudController extends Controller
             ]);
         }
 
-        // Clear cache if this is a public list
         if ($isPublic) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -71,7 +67,6 @@ class VnListCrudController extends Controller
             'is_public' => $request->boolean('is_public', $vnList->is_public),
         ]);
 
-        // Clear cache if this is a public list or was public before
         if ($wasPublic || $vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -94,11 +89,9 @@ class VnListCrudController extends Controller
             ], 422);
         }
 
-        // Check if this is a public list before deleting
         $isPublic = $vnList->is_public;
         $vnList->delete();
 
-        // Clear cache if this was a public list
         if ($isPublic) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }
@@ -116,7 +109,6 @@ class VnListCrudController extends Controller
         $vnList->update(['is_public' => ! $vnList->is_public]);
         $status = $vnList->is_public ? 'public' : 'private';
 
-        // Clear cache since this list's visibility has changed
         app(VnListCacheService::class)->clearPublicListsCache();
 
         return response()->json([
@@ -146,7 +138,6 @@ class VnListCrudController extends Controller
 
         $receiveUpdates = $request->boolean('receive_updates');
 
-        // Update all free games' notification settings
         UserGameProgress::where('user_id', Auth::id())
             ->whereIn('game_id', $freeGameIds)
             ->update(['receive_updates' => $receiveUpdates]);
@@ -175,7 +166,6 @@ class VnListCrudController extends Controller
 
         $status = $receiveUpdates ? 'enabled' : 'disabled';
 
-        // Clear cache if this is a public list
         if ($vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
         }

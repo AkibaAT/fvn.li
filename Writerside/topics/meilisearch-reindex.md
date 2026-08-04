@@ -252,38 +252,6 @@ The following models are automatically indexed:
 4. Run again with specific type
 5. Check Meilisearch index health
 
-## Best Practices
-
-1. **Schedule Maintenance**: Run monthly or quarterly
-2. **Monitor Performance**: Watch search metrics
-3. **Low Traffic Periods**: Run during off-peak hours
-4. **Verify Results**: Test search after reindexing
-5. **Log Output**: Save output for troubleshooting
-6. **Backup First**: Ensure database backups are current
-
-## Monitoring
-
-### Check Index Status
-
-Verify index health after reindexing:
-
-```bash
-curl http://localhost:7700/indexes/games/stats
-```
-
-### Test Search
-
-Verify search works correctly:
-
-```bash
-php artisan tinker
->>> App\Models\Game::search("visual novel")->count()
-```
-
-### Performance Metrics
-
-Monitor search performance in application logs.
-
 ## Related Commands
 
 - [meilisearch:setup](meilisearch-setup.md) - Initial Meilisearch setup

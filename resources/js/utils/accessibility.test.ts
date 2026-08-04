@@ -1,19 +1,12 @@
 import { describe, expect, test, vi } from 'vitest';
 import {
-    KEYS,
-    ROLES,
-    announceComplete,
     announceError,
     announceLoading,
     announceToScreenReader,
-    createAjaxTracker,
-    createLoadingManager,
     createProgressBar,
     generateId,
-    getContrastRatio,
     isVisible,
     setBusy,
-    setExpanded,
     trapFocus,
 } from './accessibility';
 
@@ -53,10 +46,8 @@ describe('accessibility utilities', () => {
         const element = document.createElement('button');
         document.body.appendChild(element);
 
-        setExpanded(element, true);
         setBusy(element, false);
 
-        expect(element.getAttribute('aria-expanded')).toBe('true');
         expect(element.getAttribute('aria-busy')).toBe('false');
         expect(isVisible(element)).toBe(false);
     });
@@ -78,36 +69,11 @@ describe('accessibility utilities', () => {
         expect(container.querySelector('[role="progressbar"]')).toBeNull();
     });
 
-    test('tracks loading and ajax operations', () => {
-        vi.useFakeTimers();
-
-        const manager = createLoadingManager();
-        manager.start('Loading games');
-        expect(manager.isLoading()).toBe(true);
-        manager.update('Still loading');
-        manager.stop('Loaded');
-        expect(manager.isLoading()).toBe(false);
-
-        const tracker = createAjaxTracker();
-        tracker.start('games', 'Fetching games');
-        tracker.update('games', 'Rendering games');
-        tracker.complete('games');
-        tracker.start('reviews', 'Posting review');
-        tracker.error('reviews', 'No text');
-
-        expect(document.body.textContent).toContain('failed');
-        vi.advanceTimersByTime(1000);
-    });
-
-    test('exports stable constants and helpers', () => {
-        expect(KEYS.ENTER).toBe('Enter');
-        expect(ROLES.DIALOG).toBe('dialog');
+    test('exports active announcement and ID helpers', () => {
         expect(generateId('field')).toMatch(/^field-/);
-        expect(getContrastRatio()).toBe(4.5);
 
         announceLoading();
-        announceComplete();
         announceError();
-        expect(document.body.querySelectorAll('[aria-live]')).toHaveLength(3);
+        expect(document.body.querySelectorAll('[aria-live]')).toHaveLength(2);
     });
 });

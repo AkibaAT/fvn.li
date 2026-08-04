@@ -3,7 +3,7 @@
     import { notify } from '@/components/Toast.svelte';
     import ItchioIcon from '@/components/icons/Itchio.svelte';
     import { Button, Card } from '@/components/ui';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
 
     interface GameSummary {
         id: number;

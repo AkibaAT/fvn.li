@@ -40,19 +40,6 @@ class BotDetectionService
      */
     public const string ANONYMISED_SESSION_PREFIX = 'anonymized_';
 
-    /**
-     * Return the reason this hit is automated, or null when it looks human.
-     *
-     * Accepts both raw and subnet-anonymised addresses: the configured
-     * prefixes are /24 or larger, so zeroing the final octet cannot change
-     * the outcome.
-     *
-     * A hit whose session id carries the anonymisation marker belonged to a
-     * signed-in visitor whose account has since been erased, which makes it
-     * human by construction: no automated client holds an account. Its
-     * identifying fields are gone, so the rules below could only ever read
-     * that absence as guilt.
-     */
     public static function detect(?string $userAgent, ?string $ipAddress, ?string $sessionId = null): ?string
     {
         if ($sessionId !== null && str_starts_with($sessionId, self::ANONYMISED_SESSION_PREFIX)) {

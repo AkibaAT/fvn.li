@@ -53,9 +53,6 @@ class User extends Authenticatable
         'is_review_banned' => 'boolean',
     ];
 
-    /**
-     * Get the user's itch.io username if they have an itch.io account connected
-     */
     public function getItchioUsername(): ?string
     {
         $itchioAccount = $this->socialAccounts()
@@ -74,9 +71,6 @@ class User extends Authenticatable
         return $this->hasMany(SocialAccount::class);
     }
 
-    /**
-     * Check if this user owns a specific game based on itch.io API data
-     */
     public function ownsGame(Game $game): bool
     {
         $itchioAccount = $this->socialAccounts()
@@ -87,9 +81,7 @@ class User extends Authenticatable
             return false;
         }
 
-        // First, check if we have API data with game IDs
         if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
-            // Check if the game's itch.io ID is in the user's list of games
             return in_array($game->itch_id, $itchioAccount->itchio_game_ids, true);
         }
 
@@ -101,13 +93,11 @@ class User extends Authenticatable
             return false;
         }
 
-        // Extract the domain from the user's itch.io URL
         $userUrl = parse_url($itchioUrl);
         if (! $userUrl || ! isset($userUrl['host'])) {
             return false;
         }
 
-        // Check if the game URL belongs to this user's itch.io namespace
         $gameUrlString = $game->getUrlForPlatform('itch_io');
         if (! $gameUrlString) {
             return false;
@@ -122,9 +112,6 @@ class User extends Authenticatable
         return strtolower($gameUrl['host']) === strtolower($userUrl['host']);
     }
 
-    /**
-     * Get the user's itch.io URL if they have an itch.io account connected
-     */
     public function getItchioUrl(): ?string
     {
         $itchioAccount = $this->socialAccounts()
@@ -138,9 +125,6 @@ class User extends Authenticatable
         return $itchioAccount->provider_data['url'] ?? null;
     }
 
-    /**
-     * Get all games owned by this user based on itch.io API data
-     */
     public function getOwnedGames()
     {
         $itchioAccount = $this->socialAccounts()
@@ -151,9 +135,7 @@ class User extends Authenticatable
             return collect();
         }
 
-        // First, check if we have API data with game IDs
         if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
-            // Get games by their itch.io game IDs
             return Game::whereIn('itch_id', $itchioAccount->itchio_game_ids)
                 ->fromItchio()
                 ->where('is_visible', true)
@@ -168,13 +150,11 @@ class User extends Authenticatable
             return collect();
         }
 
-        // Extract the domain from the user's itch.io URL
         $userUrl = parse_url($itchioUrl);
         if (! $userUrl || ! isset($userUrl['host'])) {
             return collect();
         }
 
-        // Use the exact domain from the user's itch.io URL
         $expectedDomain = strtolower($userUrl['host']);
 
         return Game::where(function ($query) use ($expectedDomain) {
@@ -186,49 +166,31 @@ class User extends Authenticatable
             ->get();
     }
 
-    /**
-     * Get the user's preferences.
-     */
     public function preferences(): HasOne
     {
         return $this->hasOne(UserPreference::class);
     }
 
-    /**
-     * Get the user's game progress records.
-     */
     public function gameProgress(): HasMany
     {
         return $this->hasMany(UserGameProgress::class);
     }
 
-    /**
-     * Get the user's notification history.
-     */
     public function notificationHistory(): HasMany
     {
         return $this->hasMany(NotificationHistory::class);
     }
 
-    /**
-     * Get the user's notification preferences.
-     */
     public function notificationPreferences(): HasOne
     {
         return $this->hasOne(UserNotificationPreferences::class);
     }
 
-    /**
-     * Get the user's push subscriptions.
-     */
     public function pushSubscriptions(): HasMany
     {
         return $this->hasMany(PushSubscription::class);
     }
 
-    /**
-     * Get the user's addition requests.
-     */
     public function additionRequests(): BelongsToMany
     {
         return $this->belongsToMany(AdditionRequest::class, 'addition_request_users')
@@ -236,9 +198,6 @@ class User extends Authenticatable
             ->orderBy('addition_request_users.created_at', 'desc');
     }
 
-    /**
-     * Get the user's ratings.
-     */
     public function ratings(): HasMany
     {
         return $this->hasMany(Rating::class);
@@ -262,17 +221,11 @@ class User extends Authenticatable
         }
     }
 
-    /**
-     * Get the user's VN lists.
-     */
     public function vnLists(): HasMany
     {
         return $this->hasMany(VnList::class)->orderBy('created_at', 'desc');
     }
 
-    /**
-     * Get the games that this user has ignored.
-     */
     public function ignoredGames(): BelongsToMany
     {
         return $this->belongsToMany(Game::class, 'user_ignored_games', 'user_id', 'game_id')

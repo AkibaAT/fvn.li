@@ -34,7 +34,6 @@ class Character extends Model
         ?string $languageCode = null,
         ?int $versionId = null
     ): int {
-        // Get characters for the specific version, excluding narrator, menu_choice, and alt
         $characters = self::query()
             ->join('version_character_stats', 'characters.id', '=', 'version_character_stats.character_id')
             ->where('characters.game_id', $gameId)
@@ -52,10 +51,8 @@ class Character extends Model
                 'characters.display_name_corrections')
             ->get();
 
-        // Use the provided language code for display names, fallback to English if none provided
         $displayLanguageCode = $languageCode ?? 'eng';
 
-        // Extract display names in the specified language and count unique ones
         $displayNames = $characters->map(function ($character) use ($displayLanguageCode) {
             return $character->getDisplayName($displayLanguageCode) ?? $character->character_id;
         })->unique()->values();
@@ -65,7 +62,6 @@ class Character extends Model
 
     public function getDisplayName(string $isoCode): ?string
     {
-        // First check for a manual correction
         if (isset($this->display_name_corrections[$isoCode])) {
             return $this->display_name_corrections[$isoCode];
         }

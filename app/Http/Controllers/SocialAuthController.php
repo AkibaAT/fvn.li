@@ -70,9 +70,6 @@ class SocialAuthController extends Controller
         }
     }
 
-    /**
-     * Handle provider callback.
-     */
     public function handleProviderCallback(string $provider)
     {
         try {
@@ -85,13 +82,11 @@ class SocialAuthController extends Controller
             } else {
                 // For itch.io, we need to handle the implicit flow response
                 if ($provider === 'itchio') {
-                    // Get the hash fragment from the URL
                     $hash = request('hash');
                     if (! $hash) {
                         throw new Exception('No hash fragment received from itch.io');
                     }
 
-                    // Parse the hash fragment
                     parse_str($hash, $hashParams);
                     $accessToken = $hashParams['access_token'] ?? null;
                     $returnedState = $hashParams['state'] ?? null;
@@ -114,7 +109,6 @@ class SocialAuthController extends Controller
                         'has_access_token' => true,
                     ]);
 
-                    // Create a SocialiteUser instance with the access token
                     $socialiteUser = Socialite::driver($provider)->userFromToken($accessToken);
 
                     Log::info('Received itch.io user profile', [
@@ -130,12 +124,10 @@ class SocialAuthController extends Controller
                 }
             }
 
-            // Check if we're in the process of merging accounts
             if (session()->has('merging_user_id')) {
                 $mergingUserId = session()->pull('merging_user_id');
                 $mergingUser = User::findOrFail($mergingUserId);
 
-                // Check if the social account exists
                 $existingSocialAccount = SocialAccount::where('provider_name', $provider)
                     ->where('provider_id', $socialiteUser->getId())
                     ->first();
@@ -145,12 +137,11 @@ class SocialAuthController extends Controller
                     if ($existingSocialAccount->user_id !== $mergingUser->id) {
                         $otherUser = $existingSocialAccount->user;
 
-                        // Use the AccountMergeService to handle the merge
                         $mergeService = new AccountMergeService;
                         $mergeService->mergeAccounts($mergingUser, $otherUser);
 
                         return redirect()->route('dashboard')
-                            ->with('success', 'Accounts successfully merged!');
+                            ->with('success', 'Accounts successfully merged.');
                     }
 
                     return redirect()->route('dashboard')
@@ -161,12 +152,11 @@ class SocialAuthController extends Controller
                 $this->updateOrCreateSocialAccount($mergingUser, $socialiteUser, $provider);
 
                 return redirect()->route('dashboard')
-                    ->with('success', 'Social account successfully linked!');
+                    ->with('success', 'Social account successfully linked.');
             }
 
             $user = Auth::user() ?? $this->findOrCreateUser($socialiteUser, $provider);
 
-            // Log the user creation/finding process
             Log::info('User lookup/creation result', [
                 'user_id' => $user->id,
                 'provider' => $provider,
@@ -175,7 +165,6 @@ class SocialAuthController extends Controller
             $this->updateOrCreateSocialAccount($user, $socialiteUser, $provider);
             Auth::login($user, remember: (bool) session()->pull('auth.remember', false));
 
-            // Ensure user has default lists (fallback if UserObserver failed)
             if ($user->vnLists()->count() === 0) {
                 try {
                     $user->initializeDefaultLists();
@@ -191,12 +180,10 @@ class SocialAuthController extends Controller
                 }
             }
 
-            // Log the session for debugging
             Log::info('Session data:', [
                 'has_intended' => session()->has('url.intended'),
             ]);
 
-            // Get the intended URL or fall back to games.index
             $redirectTo = SafeRedirectUrl::intendedOrDefault(
                 session()->pull('url.intended'),
                 route('games.index'),
@@ -205,7 +192,6 @@ class SocialAuthController extends Controller
 
             return redirect($redirectTo);
         } catch (Exception $e) {
-            // Log the error for debugging
             Log::error("Social auth error with {$provider}: " . $this->redactSensitiveText($e->getMessage()), [
                 'exception_class' => $e::class,
                 'exception_code' => $e->getCode(),
@@ -230,9 +216,6 @@ class SocialAuthController extends Controller
         return SafeRedirectUrl::intended($intendedUrl, request());
     }
 
-    /**
-     * Update or create a social account for the user.
-     */
     private function updateOrCreateSocialAccount($user, $socialiteUser, string $provider): void
     {
         // Default values for token-related fields
@@ -247,7 +230,6 @@ class SocialAuthController extends Controller
             $tokenData['token_expires_at'] = now()->addSeconds($socialiteUser->expiresIn);
         }
 
-        // Extract provider data (some providers might not include this)
         $providerData = isset($socialiteUser->user) ? $socialiteUser->user : [];
 
         // For Telegram, we might need to construct provider data from available fields
@@ -260,7 +242,6 @@ class SocialAuthController extends Controller
             ];
         }
 
-        // Update the user's information
         $user->update([
             'name' => $this->getProviderSpecificName($socialiteUser, $provider),
             'avatar' => $socialiteUser->getAvatar() ?? $user->avatar,
@@ -276,7 +257,6 @@ class SocialAuthController extends Controller
             'provider_data' => $providerData,
         ]);
 
-        // Add itch.io game IDs if available
         if ($itchioGameIds !== null) {
             $accountData['itchio_game_ids'] = $itchioGameIds;
         }
@@ -324,9 +304,6 @@ class SocialAuthController extends Controller
         }
     }
 
-    /**
-     * Get the appropriate name from the socialite user based on provider.
-     */
     private function getProviderSpecificName($socialiteUser, string $provider): string
     {
         $userData = $socialiteUser->user ?? [];
@@ -351,12 +328,8 @@ class SocialAuthController extends Controller
         }
     }
 
-    /**
-     * Find or create a user based on the socialite user.
-     */
     private function findOrCreateUser($socialiteUser, string $provider): User
     {
-        // First try to find user by their social account
         $socialAccount = SocialAccount::where('provider_name', $provider)
             ->where('provider_id', $socialiteUser->getId())
             ->first();
@@ -371,7 +344,6 @@ class SocialAuthController extends Controller
         }
 
         // For minimal scope authentication, we might not have name or email
-        // Generate placeholder values as needed
         $name = $socialiteUser->getName()
             ?? $socialiteUser->getNickname()
             ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));

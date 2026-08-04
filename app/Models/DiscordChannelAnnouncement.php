@@ -26,17 +26,11 @@ class DiscordChannelAnnouncement extends Model
         'processed_at' => 'datetime',
     ];
 
-    /**
-     * Get the game this announcement is for.
-     */
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Get the game version this announcement is for.
-     */
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);

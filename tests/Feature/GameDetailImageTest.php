@@ -14,7 +14,6 @@ beforeEach(function () {
 });
 
 it('uses optimized thumbnail for social media meta tags', function () {
-    // Create a game with cached thumbnail
     $game = Game::factory()->create([
         'name' => 'Test Game',
         'thumb_url' => 'https://external.com/original.jpg',
@@ -27,10 +26,8 @@ it('uses optimized thumbnail for social media meta tags', function () {
         ],
     ]);
 
-    // Create the cached thumbnail file
     Storage::disk('public')->put('thumbnails/test-game-default.webp', 'cached thumbnail content');
 
-    // Use model fallback logic directly to simulate meta image selection
     $metaTags = [
         'image' => '/storage/' . $game->optimized_thumbnails['default']['path'],
     ];
@@ -41,7 +38,6 @@ it('uses optimized thumbnail for social media meta tags', function () {
 });
 
 it('does not expose external thumbnail when no cache exists', function () {
-    // Create a game without cached thumbnail
     $game = Game::factory()->create([
         'name' => 'Test Game',
         'thumb_url' => 'https://external.com/original.jpg',
@@ -56,7 +52,6 @@ it('does not expose external thumbnail when no cache exists', function () {
 });
 
 it('uses favicon when no thumbnail available', function () {
-    // Create a game without any thumbnail
     $game = Game::factory()->create([
         'name' => 'Test Game',
         'thumb_url' => null,

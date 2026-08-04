@@ -3,12 +3,12 @@
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import { notify } from '@/components/Toast.svelte';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
     import VersionComparisonModal from '@/components/VersionComparisonModal.svelte';
     import { getListTypeConfig, listStatusConfig, getStatusBadgeConfig } from '@/utils/status-indicators';
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Button, Card, Switch } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface GameVersion {
@@ -438,7 +438,6 @@
 </svelte:head>
 
 <div class="space-y-6">
-    <!-- Header Card -->
     <Card padding="lg" class="mb-6 border-l-4 p-4 md:p-6 {borderColorClass}">
         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
@@ -536,7 +535,6 @@
         </div>
     </Card>
 
-    <!-- List Edit Form -->
     {#if isEditingList && isOwner}
         <Card padding="sm" class="mb-4 border-l-4 border-yellow-500 dark:border-yellow-500">
             <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Edit List</h3>
@@ -587,24 +585,19 @@
         </Card>
     {/if}
 
-    <!-- List Stats Card -->
     <Card padding="sm" class="mb-4 md:pr-6 md:pl-7">
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">List Entries ({entries.length})</h2>
             {#if isOwner && freeGames.length > 0}
                 <div class="flex items-center gap-3">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications for all free entries:</span>
-                    <label class="relative inline-flex cursor-pointer items-center">
-                        <input type="checkbox" checked={allFreeGamesReceiveUpdates} onchange={handleToggleAllNotifications} class="peer sr-only" />
-                        <div
-                            class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
-                        ></div>
-                        <span class="sr-only">
-                            {allFreeGamesReceiveUpdates
-                                ? 'Turn off notifications for all free entries'
-                                : 'Turn on notifications for all free entries'}
-                        </span>
-                    </label>
+                    <Switch
+                        checked={allFreeGamesReceiveUpdates}
+                        onchange={handleToggleAllNotifications}
+                        ariaLabel={allFreeGamesReceiveUpdates
+                            ? 'Turn off notifications for all free entries'
+                            : 'Turn on notifications for all free entries'}
+                    />
                 </div>
             {/if}
         </div>
@@ -618,7 +611,6 @@
             {/if}
         </div>
     {:else}
-        <!-- Desktop Table Header -->
         <div class="hidden rounded-t-lg bg-gray-100 p-3 pr-5 text-sm font-medium text-gray-500 uppercase lg:flex dark:bg-gray-700 dark:text-gray-300">
             {#if isOwner}<div class="w-8"></div>{/if}
             <div class="mr-2 w-20"></div>
@@ -634,7 +626,6 @@
             {/if}
         </div>
 
-        <!-- Entry List -->
         {#if isOwner}
             <SortableList
                 items={entries}
@@ -655,7 +646,6 @@
     {/if}
 </div>
 
-<!-- Version Comparison Modal -->
 <VersionComparisonModal
     isOpen={showVersionComparison}
     onClose={handleCloseVersionComparison}

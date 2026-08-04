@@ -44,7 +44,7 @@ it('creates sanitizes and updates the authenticated user review', function () {
         ])
         ->assertOk()
         ->assertJsonPath('success', true)
-        ->assertJsonPath('message', 'Review submitted!')
+        ->assertJsonPath('message', 'Review submitted.')
         ->assertJsonPath('review.rating', 5)
         ->assertJsonPath('review.has_spoilers', true);
 
@@ -63,7 +63,7 @@ it('creates sanitizes and updates the authenticated user review', function () {
             'has_spoilers' => false,
         ])
         ->assertOk()
-        ->assertJsonPath('message', 'Review updated!')
+        ->assertJsonPath('message', 'Review updated.')
         ->assertJsonPath('review.id', $rating->id)
         ->assertJsonPath('review.rating', 3)
         ->assertJsonPath('review.review', 'Updated thoughts.')

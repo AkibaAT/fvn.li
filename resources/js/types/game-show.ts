@@ -1,6 +1,6 @@
 import type { MetaTags } from '@/components/seo/SeoHead.svelte';
 
-export interface Tag {
+interface Tag {
     id: number;
     name: string;
     slug: string;
@@ -9,7 +9,7 @@ export interface Tag {
     pivot: any;
 }
 
-export interface GameJam {
+interface GameJam {
     id: number;
     name: string;
     slug?: string;
@@ -26,7 +26,7 @@ export interface GameJam {
     pivot: any;
 }
 
-export interface Language {
+interface Language {
     id: number;
     iso_code: string;
     ref_name: string;
@@ -39,7 +39,7 @@ export interface SupportedLanguage {
     is_available: boolean;
 }
 
-export interface LanguageStats {
+interface LanguageStats {
     words?: number;
     language: Language;
 }
@@ -66,7 +66,7 @@ export interface Screenshot {
     optimized?: Record<string, { path?: string }>;
 }
 
-export interface AdditionalLink {
+interface AdditionalLink {
     id: number | string;
     name: string;
     url: string;
@@ -74,13 +74,13 @@ export interface AdditionalLink {
     last_edited_at?: string;
 }
 
-export interface Rater {
+interface Rater {
     id: number;
     name: string;
     external_platform?: string;
 }
 
-export interface ReviewUser {
+interface ReviewUser {
     id: number;
     name: string;
     avatar?: string;
@@ -100,7 +100,7 @@ export interface Review {
     user?: ReviewUser | null;
 }
 
-export interface UserReview {
+interface UserReview {
     id: number;
     rating: number;
     review: string;
@@ -109,7 +109,7 @@ export interface UserReview {
     updated_at: string;
 }
 
-export interface Game {
+interface Game {
     id: number;
     name: string;
     slug: string;
@@ -170,7 +170,7 @@ export interface PaginationMeta {
     to: number;
 }
 
-export interface Paginated<T> {
+interface Paginated<T> {
     data: T[];
     meta?: Partial<PaginationMeta>;
     current_page?: number;
@@ -181,7 +181,7 @@ export interface Paginated<T> {
     to?: number;
 }
 
-export interface DailyStats {
+interface DailyStats {
     date: string;
     page_views_unique: number;
     page_views_total: number;
@@ -191,7 +191,7 @@ export interface DailyStats {
     custom_links_total: number;
 }
 
-export interface ClickStats {
+interface ClickStats {
     page_views_total: number;
     page_views_unique: number;
     last_page_view?: string;
@@ -207,14 +207,14 @@ export interface ClickStats {
     }>;
 }
 
-export interface EditPermissions {
+interface EditPermissions {
     canEdit: boolean;
     hasCustomPage: boolean;
     isOwner: boolean;
     isAdmin: boolean;
 }
 
-export interface PublicList {
+interface PublicList {
     id: number;
     name: string;
     description?: string;
@@ -224,7 +224,7 @@ export interface PublicList {
     user: { id: number; name: string; avatar?: string };
 }
 
-export interface SimilarGame {
+interface SimilarGame {
     id: number;
     name: string;
     slug: string;
@@ -236,7 +236,7 @@ export interface SimilarGame {
     status?: string;
 }
 
-export interface EstimatedReadingTime {
+interface EstimatedReadingTime {
     hours: number;
     minutes: number;
     total_minutes: number;

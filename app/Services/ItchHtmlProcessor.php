@@ -10,12 +10,6 @@ use Illuminate\Support\Facades\Log;
 
 class ItchHtmlProcessor
 {
-    /**
-     * Process HTML content from itch.io game pages
-     * - Convert h1 tags to h2 and shift all other headers down one level
-     * - Apply appropriate Tailwind CSS classes to headers
-     * - Apply styling classes to other standard elements
-     */
     public function process(?string $html): ?string
     {
         if (empty($html)) {
@@ -23,20 +17,16 @@ class ItchHtmlProcessor
         }
 
         try {
-            // Create a DOM document from the HTML
             $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
 
-            // Process headers
             $this->processHeaders($doc);
 
-            // Process other elements
             $this->processLists($doc);
             $this->processParagraphs($doc);
             $this->processTables($doc);
             $this->processLinks($doc);
             $this->processImages($doc);
 
-            // Get the body content only
             $body = $doc->querySelector('body');
             if ($body) {
                 return trim($body->innerHTML);
@@ -45,27 +35,20 @@ class ItchHtmlProcessor
             // If no body tag (fragment), get the root content
             return trim($doc->saveHTML());
         } catch (Exception $e) {
-            // Log the error
             Log::error('HTML Processing failed: ' . $e->getMessage(), ['html' => $html]);
 
             return $html; // Return original HTML on error
         }
     }
 
-    /**
-     * Process headers - convert h1 to h2 and shift all other headers down one level
-     */
     private function processHeaders(HTMLDocument $doc): void
     {
-        // Process headers in reverse order (h6 to h1) to avoid issues with changing DOM structure
         for ($level = 6; $level >= 1; $level--) {
             $headers = $doc->querySelectorAll("h{$level}");
 
             foreach ($headers as $header) {
-                // Calculate new header level (h1 -> h2, h2 -> h3, etc.)
                 $newLevel = min($level + 1, 6);
 
-                // Create new header element
                 $newHeader = $doc->createElement("h{$newLevel}");
 
                 // Copy content and attributes
@@ -74,7 +57,6 @@ class ItchHtmlProcessor
                     $newHeader->setAttribute($attribute->name, $attribute->value);
                 }
 
-                // Add appropriate Tailwind classes based on level
                 $this->addHeaderClasses($newHeader, $newLevel);
 
                 // Replace old header with new one
@@ -103,14 +85,12 @@ class ItchHtmlProcessor
             6 => ['text-sm', 'mt-2'],
         ];
 
-        // Add base classes
         foreach ($baseClasses as $class) {
             if (! in_array($class, $classArray)) {
                 $classArray[] = $class;
             }
         }
 
-        // Add level-specific classes
         if (isset($levelClasses[$level])) {
             foreach ($levelClasses[$level] as $class) {
                 if (! in_array($class, $classArray)) {
@@ -119,22 +99,16 @@ class ItchHtmlProcessor
             }
         }
 
-        // Set the updated class attribute
         $header->setAttribute('class', implode(' ', $classArray));
     }
 
-    /**
-     * Process lists (ul, ol)
-     */
     private function processLists(HTMLDocument $doc): void
     {
-        // Process unordered lists
         $ulists = $doc->querySelectorAll('ul');
         foreach ($ulists as $list) {
             $classes = $list->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for unordered lists
             $listClasses = ['list-disc', 'pl-5', 'mb-4', 'text-gray-600', 'dark:text-gray-300'];
 
             foreach ($listClasses as $class) {
@@ -146,13 +120,11 @@ class ItchHtmlProcessor
             $list->setAttribute('class', implode(' ', $classArray));
         }
 
-        // Process ordered lists
         $olists = $doc->querySelectorAll('ol');
         foreach ($olists as $list) {
             $classes = $list->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for ordered lists
             $listClasses = ['list-decimal', 'pl-5', 'mb-4', 'text-gray-600', 'dark:text-gray-300'];
 
             foreach ($listClasses as $class) {
@@ -164,13 +136,11 @@ class ItchHtmlProcessor
             $list->setAttribute('class', implode(' ', $classArray));
         }
 
-        // Process list items
         $items = $doc->querySelectorAll('li');
         foreach ($items as $item) {
             $classes = $item->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for list items
             $itemClasses = ['mb-1'];
 
             foreach ($itemClasses as $class) {
@@ -183,9 +153,6 @@ class ItchHtmlProcessor
         }
     }
 
-    /**
-     * Process paragraphs
-     */
     private function processParagraphs(HTMLDocument $doc): void
     {
         $paragraphs = $doc->querySelectorAll('p');
@@ -194,7 +161,6 @@ class ItchHtmlProcessor
             $classes = $paragraph->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for paragraphs
             $paragraphClasses = ['text-gray-600', 'dark:text-gray-300', 'mb-4'];
 
             foreach ($paragraphClasses as $class) {
@@ -207,9 +173,6 @@ class ItchHtmlProcessor
         }
     }
 
-    /**
-     * Process tables
-     */
     private function processTables(HTMLDocument $doc): void
     {
         $tables = $doc->querySelectorAll('table');
@@ -218,7 +181,6 @@ class ItchHtmlProcessor
             $classes = $table->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for tables
             $tableClasses = ['min-w-full', 'divide-y', 'divide-gray-200', 'dark:divide-gray-700', 'mb-4'];
 
             foreach ($tableClasses as $class) {
@@ -229,7 +191,6 @@ class ItchHtmlProcessor
 
             $table->setAttribute('class', implode(' ', $classArray));
 
-            // Process table headers
             $headers = $table->querySelectorAll('th');
             foreach ($headers as $header) {
                 $headerClasses = $header->getAttribute('class');
@@ -248,7 +209,6 @@ class ItchHtmlProcessor
                 $header->setAttribute('class', implode(' ', $headerClassArray));
             }
 
-            // Process table cells
             $cells = $table->querySelectorAll('td');
             foreach ($cells as $cell) {
                 $cellClasses = $cell->getAttribute('class');
@@ -267,9 +227,6 @@ class ItchHtmlProcessor
         }
     }
 
-    /**
-     * Process links
-     */
     private function processLinks(HTMLDocument $doc): void
     {
         $links = $doc->querySelectorAll('a');
@@ -278,7 +235,6 @@ class ItchHtmlProcessor
             $classes = $link->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for links
             $linkClasses = ['text-blue-600', 'dark:text-blue-400', 'hover:underline'];
 
             foreach ($linkClasses as $class) {
@@ -300,9 +256,6 @@ class ItchHtmlProcessor
         }
     }
 
-    /**
-     * Process images
-     */
     private function processImages(HTMLDocument $doc): void
     {
         $images = $doc->querySelectorAll('img');
@@ -311,10 +264,8 @@ class ItchHtmlProcessor
             $classes = $image->getAttribute('class');
             $classArray = ! empty($classes) ? explode(' ', $classes) : [];
 
-            // Add Tailwind classes for images
             $imageClasses = ['max-w-full', 'rounded-lg', 'my-4'];
 
-            // Handle height attribute
             if ($image->hasAttribute('height')) {
                 // For images with height attribute, add inline style to preserve height
                 // This overrides any CSS that might set height:auto
@@ -356,7 +307,6 @@ class ItchHtmlProcessor
                 $image->setAttribute('alt', 'Game image');
             }
 
-            // Add loading="lazy" for better performance
             if (! $image->hasAttribute('loading')) {
                 $image->setAttribute('loading', 'lazy');
             }

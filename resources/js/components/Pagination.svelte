@@ -220,7 +220,6 @@
             {/if}
         </div>
     {:else}
-        <!-- full variant -->
         <div class={containerClass}>
             <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
                 {#if typeof meta.from === 'number' && typeof meta.to === 'number'}

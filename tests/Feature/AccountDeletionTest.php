@@ -387,7 +387,6 @@ describe('edge cases', function () {
     test('handles deletion of user with extensive data', function () {
         $games = Game::factory()->count(10)->create();
 
-        // Create multiple lists with unique names
         for ($i = 0; $i < 5; $i++) {
             $list = VnList::factory()->for($this->user)->create([
                 'name' => 'Test List ' . $i,
@@ -401,7 +400,6 @@ describe('edge cases', function () {
             }
         }
 
-        // Create game progress
         foreach ($games as $game) {
             UserGameProgress::create([
                 'user_id' => $this->user->id,
@@ -411,7 +409,6 @@ describe('edge cases', function () {
             ]);
         }
 
-        // Create social accounts
         SocialAccount::create([
             'user_id' => $this->user->id,
             'provider_name' => 'itchio',

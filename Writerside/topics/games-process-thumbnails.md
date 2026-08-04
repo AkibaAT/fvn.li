@@ -8,8 +8,6 @@ This command processes game thumbnail images by converting them to optimized for
 responsive display, and ensuring consistent visual presentation. It's essential for maintaining fast page load times and
 consistent user experience.
 
-**Key Features**: Multi-size generation, format optimization, batch processing, responsive image support.
-
 ## Usage
 
 ```bash
@@ -187,15 +185,6 @@ The command balances quality and file size:
 - **Format Selection**: Chooses optimal format for each use case
 - **Quality Settings**: Adjusts quality based on thumbnail size
 - **Progressive Loading**: Supports progressive image loading
-
-## Error Handling
-
-Robust error handling ensures reliable processing:
-
-- **Source Image Issues**: Handles corrupted or missing source images
-- **Processing Failures**: Continues with remaining thumbnails on errors
-- **Storage Problems**: Manages disk space and permission issues
-- **Network Failures**: Retries downloads with exponential backoff
 
 ## Integration
 

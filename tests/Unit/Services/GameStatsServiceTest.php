@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Services\GameStatsService;
+use App\Services\RenpyStatsLocalExtractor;
 use Symfony\Component\Process\Process;
 
 test('extract archive handles tar bz2 payload with misleading zip extension', function () {
@@ -19,9 +19,7 @@ test('extract archive handles tar bz2 payload with misleading zip extension', fu
     $process->mustRun();
 
     try {
-        $service = app(GameStatsService::class);
-        $method = new ReflectionMethod($service, 'extractArchive');
-        $method->invoke($service, $archivePath, $extractPath);
+        app(RenpyStatsLocalExtractor::class)->extractArchive($archivePath, $extractPath);
 
         expect(file_exists("{$extractPath}/game/script.rpy"))->toBeTrue();
     } finally {
@@ -37,10 +35,7 @@ test('translation tree detection ignores RenPy placeholder language directory', 
     mkdir("{$basePath}/game/tl/None", 0755, true);
 
     try {
-        $service = app(GameStatsService::class);
-        $method = new ReflectionMethod($service, 'hasTranslationTree');
-
-        expect($method->invoke($service, $basePath))->toBeFalse();
+        expect(app(RenpyStatsLocalExtractor::class)->hasTranslationTree($basePath))->toBeFalse();
     } finally {
         if (is_dir($basePath)) {
             $cleanup = new Process(['rm', '-rf', $basePath]);
@@ -54,10 +49,7 @@ test('translation tree detection finds real language directories', function () {
     mkdir("{$basePath}/game/tl/spanish", 0755, true);
 
     try {
-        $service = app(GameStatsService::class);
-        $method = new ReflectionMethod($service, 'hasTranslationTree');
-
-        expect($method->invoke($service, $basePath))->toBeTrue();
+        expect(app(RenpyStatsLocalExtractor::class)->hasTranslationTree($basePath))->toBeTrue();
     } finally {
         if (is_dir($basePath)) {
             $cleanup = new Process(['rm', '-rf', $basePath]);

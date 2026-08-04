@@ -12,8 +12,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\FeedController;
+use App\Http\Controllers\Games\GamesDisplayController;
+use App\Http\Controllers\Games\GamesSearchController;
 use App\Http\Controllers\Games\RouteMapController;
-use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
 use App\Http\Controllers\RatingsController;
@@ -38,10 +39,8 @@ use Inertia\Inertia;
 
 Route::get('health', function () {
     try {
-        // Check database connection
         DB::connection()->getPdo();
 
-        // Check Redis connection
         cache()->store('redis')->put('health_check', 'ok', 1);
         cache()->store('redis')->get('health_check');
 
@@ -105,11 +104,11 @@ Route::get('/', [HomeController::class, 'home'])
     ->name('home');
 
 // Games routes
-Route::get('games', [GamesController::class, 'gamesIndex'])
+Route::get('games', [GamesSearchController::class, 'index'])
     ->name('games.index');
-Route::get('games/random', [GamesController::class, 'randomGame'])
+Route::get('games/random', [GamesSearchController::class, 'randomGame'])
     ->name('games.random');
-Route::get('games/{game:slug}', [GamesController::class, 'gameShow'])
+Route::get('games/{game:slug}', [GamesDisplayController::class, 'show'])
     ->name('games.show')
     ->middleware('track.page.views');
 Route::get('games/{game:slug}/route-map', [RouteMapController::class, 'show'])
@@ -261,7 +260,6 @@ Route::middleware(['auth', 'discord.server-bot.enabled'])->group(function () {
     Route::get('discord/{server}', fn ($server) => Inertia::render('dashboard/discord/server', ['server' => (int) $server]))->name('dashboard.discord.server');
 });
 
-// Use slug for these endpoints to match Svelte game page paths
 // Browser API JSON for versions moved to browser-api.php
 
 // JSON list APIs moved to browser-api.php

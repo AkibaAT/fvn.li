@@ -768,7 +768,7 @@ function createArchiveWithMissingRpySources(int $gameId, int $versionId, string 
 
 function passingArchiveOptimizationStatsService(): GameStatsService
 {
-    return new readonly class extends GameStatsService
+    return new class extends GameStatsService
     {
         public function canExtractStats(string $archivePath): bool
         {

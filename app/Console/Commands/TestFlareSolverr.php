@@ -24,7 +24,6 @@ class TestFlareSolverr extends Command
 
         $this->info('FlareSolverr Enabled: Yes');
 
-        // Check service availability
         $this->info('Checking FlareSolverr service availability...');
         $available = $flareSolverr->isAvailable();
 
@@ -90,7 +89,7 @@ class TestFlareSolverr extends Command
         }
 
         $this->newLine();
-        $this->info('All tests passed!');
+        $this->info('All tests passed.');
 
         return 0;
     }

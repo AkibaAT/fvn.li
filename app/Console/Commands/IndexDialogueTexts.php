@@ -35,7 +35,6 @@ class IndexDialogueTexts extends Command
         $processed = 0;
         $errors = [];
 
-        // Process in batches
         UniqueDialogueText::whereRaw("trim(text_content) != ''")
             ->orderBy('id')
             ->chunk($batchSize, function ($texts) use ($bar, &$processed, &$errors, $index) {
@@ -44,7 +43,6 @@ class IndexDialogueTexts extends Command
                     $textIds = $texts->pluck('id')->toArray();
                     $metadata = $this->aggregateMetadata($textIds);
 
-                    // Build documents for Meilisearch
                     $documents = [];
                     foreach ($texts as $text) {
                         $meta = $metadata[$text->id] ?? null;
@@ -66,7 +64,6 @@ class IndexDialogueTexts extends Command
                         ];
                     }
 
-                    // Send to Meilisearch
                     if (! empty($documents)) {
                         $index->addDocuments($documents);
                     }
@@ -85,13 +82,13 @@ class IndexDialogueTexts extends Command
         if (! empty($errors)) {
             $this->error('Errors occurred during indexing:');
             foreach ($errors as $error) {
-                $this->line("  • {$error}");
+                $this->line("  - {$error}");
             }
 
             return Command::FAILURE;
         }
 
-        $this->info("Successfully indexed {$processed} unique dialogue texts!");
+        $this->info("Successfully indexed {$processed} unique dialogue texts.");
 
         return Command::SUCCESS;
     }
@@ -101,7 +98,6 @@ class IndexDialogueTexts extends Command
      */
     private function aggregateMetadata(array $textIds): array
     {
-        // Get aggregated data for games, versions, languages
         $aggregated = DB::select('
             SELECT
                 vdl.text_id,
@@ -117,9 +113,8 @@ class IndexDialogueTexts extends Command
             JOIN games g ON gv.game_id = g.id
             WHERE vdl.text_id = ANY(?)
             GROUP BY vdl.text_id
-        ', ['{' . implode(',', $textIds) . '}']);
+        ', ['{'.implode(',', $textIds).'}']);
 
-        // Get character names for all texts in batch
         $characterNamesByText = DB::table('version_dialogue_lines as vdl')
             ->join('characters as c', 'vdl.character_id', '=', 'c.id')
             ->whereIn('vdl.text_id', $textIds)
@@ -144,7 +139,6 @@ class IndexDialogueTexts extends Command
             })
             ->toArray();
 
-        // Build result array
         $result = [];
         foreach ($aggregated as $row) {
             $result[$row->text_id] = [
@@ -190,7 +184,6 @@ class IndexDialogueTexts extends Command
         if (empty($cleaned)) {
             return [];
         }
-        // Handle quoted strings in PostgreSQL array format
         $parts = [];
         $current = '';
         $inQuotes = false;

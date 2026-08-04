@@ -6,10 +6,10 @@
     import MyGamesTab from '@/components/dashboard/MyGamesTab.svelte';
     import SearchPreferencesTab from '@/components/dashboard/SearchPreferencesTab.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { authenticatedFetch } from '@/utils/csrf';
+    import { authenticatedFetch } from '@/utils/http';
     import { toast } from '@/utils/toast';
     import { Link } from '@inertiajs/svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Button, Card, Switch } from '@/components/ui';
     import type { User, SocialAccount } from '@/types';
     interface NotificationPreferences {
         browser_notifications_enabled: boolean;
@@ -118,7 +118,6 @@
         vapidPublicKey,
     }: DashboardProps = $props();
 
-    // Check for bug_report query parameter from notification links
     const openBugReportId = $derived(() => {
         if (typeof window === 'undefined') return null;
         const params = new URLSearchParams(window.location.search);
@@ -236,7 +235,6 @@
 
 <PageHeader title={metaTags?.title || 'Dashboard'} class="mb-6" />
 
-<!-- Tab Navigation -->
 <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
     <div class="-mb-px flex space-x-6" aria-label="Dashboard tabs" role="tablist">
         {#each tabs as tab (tab.id)}
@@ -257,14 +255,11 @@
     </div>
 </div>
 
-<!-- Bug Reports (shown above all tabs) -->
 <BugReports initialReports={activeBugReports || []} openReportId={openBugReportId()} />
 
-<!-- ==================== Account Tab ==================== -->
 {#if activeTab === 'account'}
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-3">
-            <!-- Profile Information -->
             <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
                 <div class="flex items-center gap-4">
@@ -305,7 +300,6 @@
                 </div>
             </Card>
 
-            <!-- Notification Settings -->
             <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification Settings</h2>
                 <div class="space-y-4">
@@ -333,19 +327,12 @@
                                     Request Permission
                                 </Button>
                             {/if}
-                            <label class="relative inline-flex cursor-pointer items-center">
-                                <input
-                                    class="peer sr-only"
-                                    type="checkbox"
-                                    aria-label="Enable browser notifications"
-                                    checked={notifPrefs.browser_notifications_enabled}
-                                    onchange={toggleBrowser}
-                                    disabled={savingPrefs}
-                                />
-                                <div
-                                    class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 peer-focus:ring-4 peer-focus:ring-indigo-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-indigo-800"
-                                ></div>
-                            </label>
+                            <Switch
+                                checked={notifPrefs.browser_notifications_enabled}
+                                onchange={toggleBrowser}
+                                disabled={savingPrefs}
+                                ariaLabel="Enable browser notifications"
+                            />
                         </div>
                     </div>
 
@@ -358,19 +345,12 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="relative inline-flex cursor-pointer items-center">
-                                    <input
-                                        class="peer sr-only"
-                                        type="checkbox"
-                                        aria-label="Enable Discord notifications"
-                                        checked={notifPrefs.discord_notifications_enabled}
-                                        onchange={toggleDiscord}
-                                        disabled={savingPrefs}
-                                    />
-                                    <div
-                                        class="peer h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-indigo-600 peer-focus:ring-4 peer-focus:ring-indigo-300 after:absolute after:start-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-indigo-800"
-                                    ></div>
-                                </label>
+                                <Switch
+                                    checked={notifPrefs.discord_notifications_enabled}
+                                    onchange={toggleDiscord}
+                                    disabled={savingPrefs}
+                                    ariaLabel="Enable Discord notifications"
+                                />
                             </div>
                         </div>
                         {#if discordInfo.lastNotification}
@@ -432,34 +412,9 @@
         </div>
 
         <div class="space-y-6 lg:col-span-2">
-            <!-- Connected Accounts -->
             <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Connected Accounts</h2>
                 <ConnectedAccounts {user} {connectedProviders} {socialAccounts} />
-            </Card>
-
-            <!-- Danger Zone -->
-            <Card padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-400">Danger Zone</h2>
-                <div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-                    <h3 class="text-sm font-semibold text-red-800 dark:text-red-300">Delete Account</h3>
-                    <p class="mt-1 text-sm text-red-700 dark:text-red-400">
-                        Once you delete your account, there is no going back. Please be certain.
-                    </p>
-                    <Button
-                        type="button"
-                        variant="solid"
-                        tone="danger"
-                        onclick={() => {
-                            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                                // TODO: implement account deletion
-                            }
-                        }}
-                        class="mt-3 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                    >
-                        Delete Account
-                    </Button>
-                </div>
             </Card>
         </div>
     </div>
@@ -468,17 +423,14 @@
 <!-- Tab components stay mounted and are toggled with `hidden` so their local
      state (drafts, saved preferences, ignored games) survives tab switches. -->
 
-<!-- ==================== My Games Tab ==================== -->
 <div hidden={activeTab !== 'my-games'}>
     <MyGamesTab {hasItchio} {itchioData} {myGames} {myGamesClickStats} />
 </div>
 
-<!-- ==================== VN Additions Tab ==================== -->
 <div hidden={activeTab !== 'additions'}>
     <AdditionsTab recentRequests={recentRequestsInitial || []} />
 </div>
 
-<!-- ==================== Search Preferences Tab ==================== -->
 <div hidden={activeTab !== 'search'}>
     <SearchPreferencesTab
         languagePreferences={languagePreferencesInitial || []}

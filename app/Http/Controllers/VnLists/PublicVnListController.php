@@ -53,22 +53,18 @@ class PublicVnListController extends Controller
         $sort = $this->normalizePublicListSort($request->input('sort', 'default'));
         $gameId = $this->normalizePublicListGameId($request->input('game'));
 
-        // Load game if filtering by game
         $filterGame = null;
         if ($gameId) {
             $filterGame = Game::select('id', 'name', 'slug')->find($gameId);
         }
 
-        // Create a unique cache key for this request
         $searchKey = $search ? md5($search) : '';
         $gameKey = $gameId ?: '';
         $cacheKey = "public_lists:{$type}:{$perPage}:{$page}:{$sort}:{$searchKey}:{$gameKey}";
 
-        // Try to get cached data (only cache non-search/non-game-filter queries to keep them responsive)
         if (empty($search) && empty($gameId)) {
             $cachedData = Cache::get($cacheKey);
             if ($cachedData) {
-                // Add current filter values to cached response
                 $cachedData['search'] = $search;
                 $cachedData['sort'] = $sort;
                 $cachedData['filterGame'] = $filterGame;
@@ -77,18 +73,15 @@ class PublicVnListController extends Controller
             }
         }
 
-        // Get counts for each tab with a single query using conditional aggregation
         $countsQuery = VnList::where('is_public', true)
             ->has('entries');
 
-        // Apply game filter to counts
         if ($gameId) {
             $countsQuery->whereHas('entries', function ($q) use ($gameId) {
                 $q->where('game_id', $gameId);
             });
         }
 
-        // Apply search to counts if searching (by user name or game name)
         if (! empty($search)) {
             $countsQuery->where(function ($q) use ($search) {
                 $q->whereHas('user', function ($userQuery) use ($search) {
@@ -117,7 +110,6 @@ class PublicVnListController extends Controller
                     $q->select('id', 'name', 'avatar');
                 },
                 'entries' => function ($query) {
-                    // Load only first 10 entries for carousel with minimal game data
                     $query->select('id', 'vn_list_id', 'game_id', 'sort_order')
                         ->orderBy('sort_order')
                         ->limit(10)
@@ -137,7 +129,6 @@ class PublicVnListController extends Controller
             ->where('is_public', true)
             ->has('entries');
 
-        // Apply search filter (by user name or game name)
         if (! empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->whereHas('user', function ($userQuery) use ($search) {
@@ -148,14 +139,12 @@ class PublicVnListController extends Controller
             });
         }
 
-        // Apply game filter
         if ($gameId) {
             $query->whereHas('entries', function ($q) use ($gameId) {
                 $q->where('game_id', $gameId);
             });
         }
 
-        // Apply type filter if provided
         if ($type !== 'all') {
             if ($type === 'custom') {
                 $query->whereNotIn('type', ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped']);
@@ -164,7 +153,6 @@ class PublicVnListController extends Controller
             }
         }
 
-        // Apply sorting
         switch ($sort) {
             case 'newest':
                 $query->orderBy('created_at', 'desc');
@@ -179,7 +167,6 @@ class PublicVnListController extends Controller
                 $query->orderBy('updated_at', 'desc');
                 break;
             default:
-                // Sort by type priority first, then by creation date
                 $query->orderByRaw("
                     CASE type
                         WHEN 'reading' THEN 1
@@ -195,8 +182,6 @@ class PublicVnListController extends Controller
 
         $lists = $query->paginate($perPage, ['*'], 'page', $page);
 
-        // Get first list for meta tag image using optimized thumbnail helper
-        // Normalize game thumbnails to optimized URLs for client/preload
         $lists->getCollection()->each(function ($list) {
             $list->entries->each(function ($entry) {
                 if ($entry->game) {
@@ -308,7 +293,6 @@ class PublicVnListController extends Controller
             ->where('is_public', true)
             ->has('entries');
 
-        // Apply search filter if provided
         if (! empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
@@ -316,7 +300,6 @@ class PublicVnListController extends Controller
             });
         }
 
-        // Apply type filters if provided
         if (! empty($types)) {
             $typeArray = explode(',', $types);
             $query->where(function ($q) use ($typeArray) {
@@ -330,7 +313,6 @@ class PublicVnListController extends Controller
             });
         }
 
-        // Sort by type priority first, then by creation date
         $lists = $query->orderByRaw("
             CASE type
                 WHEN 'reading' THEN 1
@@ -342,7 +324,6 @@ class PublicVnListController extends Controller
             END, created_at DESC
         ")->paginate($perPage);
 
-        // Normalize game thumbnails to optimized URLs for client/preload
         $lists->getCollection()->each(function ($list) {
             $list->entries->each(function ($entry) {
                 if ($entry->game) {

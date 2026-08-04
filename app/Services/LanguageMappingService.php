@@ -26,7 +26,6 @@ class LanguageMappingService
      */
     public function resolveLanguageCode(string $gameLanguageKey, ?Game $game = null): ?string
     {
-        // First try game-specific mapping if a game is provided
         if ($game !== null) {
             $mapping = LanguageMapping::where('game_language_key', 'ilike', $gameLanguageKey)
                 ->where('game_id', $game->id)
@@ -37,7 +36,6 @@ class LanguageMappingService
             }
         }
 
-        // Then try global mapping
         $mapping = LanguageMapping::where('game_language_key', 'ilike', $gameLanguageKey)
             ->whereNull('game_id')
             ->first();
@@ -46,7 +44,6 @@ class LanguageMappingService
             return $mapping->iso_code;
         }
 
-        // Try to find a matching language
         $language = Language::where('id', 'ilike', $gameLanguageKey)
             ->orWhere('part1', 'ilike', $gameLanguageKey)
             ->orWhere('part2b', 'ilike', $gameLanguageKey)
@@ -54,7 +51,6 @@ class LanguageMappingService
             ->first();
 
         if ($language) {
-            // Create global mapping for future use
             LanguageMapping::create([
                 'game_id' => null,
                 'game_language_key' => $gameLanguageKey,
@@ -64,7 +60,6 @@ class LanguageMappingService
             return $language->id;
         }
 
-        // Generate a new placeholder code in the qaa-qtz range
         $highestPlaceholder = LanguageMapping::whereBetween('iso_code', ['qaa', 'qtz'])
             ->orderBy('iso_code', 'desc')
             ->value('iso_code');
@@ -73,7 +68,6 @@ class LanguageMappingService
             ? $this->generateNextPlaceholderCode($highestPlaceholder)
             : 'qaa';
 
-        // Create mapping with placeholder code (as a global mapping)
         LanguageMapping::create([
             'game_id' => null,
             'game_language_key' => $gameLanguageKey,
@@ -85,9 +79,6 @@ class LanguageMappingService
         return $newCode;
     }
 
-    /**
-     * Generate the next placeholder language code
-     */
     private function generateNextPlaceholderCode(string $current): string
     {
         if ($current >= 'qtz') {

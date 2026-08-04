@@ -45,7 +45,6 @@ class MeilisearchSetup extends Command
     {
         $this->info('Setting up Meilisearch for FVN.li...');
 
-        // Check if Meilisearch is accessible
         if (! $this->checkMeilisearchConnection()) {
             $this->error('Cannot connect to Meilisearch. Please ensure it is running.');
 
@@ -59,9 +58,9 @@ class MeilisearchSetup extends Command
             $this->error('Meilisearch authentication failed. Please check your MEILISEARCH_KEY.');
             $this->newLine();
             $this->warn('Common issues:');
-            $this->line('  • MEILISEARCH_KEY not set in .env');
-            $this->line('  • MEILISEARCH_KEY does not match Meilisearch master key');
-            $this->line('  • Need to run: php artisan config:clear && php artisan config:cache');
+            $this->line('  - MEILISEARCH_KEY not set in .env');
+            $this->line('  - MEILISEARCH_KEY does not match Meilisearch master key');
+            $this->line('  - Need to run: php artisan config:clear && php artisan config:cache');
 
             return Command::FAILURE;
         }
@@ -85,17 +84,17 @@ class MeilisearchSetup extends Command
             return Command::FAILURE;
         }
 
-        $this->info('Meilisearch setup completed successfully!');
+        $this->info('Meilisearch setup completed successfully.');
         $this->newLine();
-        $this->info('Search indexing is now automatic!');
-        $this->line('  • New games and dialogue lines are indexed automatically');
-        $this->line('  • Updates to existing content trigger re-indexing');
-        $this->line('  • No manual intervention needed for normal operations');
+        $this->info('Search indexing is now automatic.');
+        $this->line('  - New games and dialogue lines are indexed automatically');
+        $this->line('  - Updates to existing content trigger re-indexing');
+        $this->line('  - No manual intervention needed for normal operations');
         $this->newLine();
         $this->info('Useful commands:');
-        $this->line('  • Test search: php artisan meilisearch:test "your query"');
-        $this->line('  • Maintenance reindex: php artisan meilisearch:reindex');
-        $this->line('  • Check search health: Use SearchIndexService::healthCheck()');
+        $this->line('  - Test search: php artisan meilisearch:test "your query"');
+        $this->line('  - Maintenance reindex: php artisan meilisearch:reindex');
+        $this->line('  - Check search health: Use SearchIndexService::healthCheck()');
         $this->newLine();
         $this->info('For development testing:');
         $this->line('  php artisan tinker');
@@ -159,13 +158,9 @@ class MeilisearchSetup extends Command
         usleep(self::SEARCH_VERIFICATION_RETRY_DELAY_MICROSECONDS);
     }
 
-    /**
-     * Check if Meilisearch is accessible.
-     */
     private function checkMeilisearchConnection(): bool
     {
         try {
-            // Try to get health status (this endpoint doesn't require authentication)
             $client = app(Client::class);
             $health = $client->health();
 
@@ -177,14 +172,10 @@ class MeilisearchSetup extends Command
         }
     }
 
-    /**
-     * Check if authentication is working by trying an authenticated endpoint.
-     */
     private function checkAuthentication(): bool
     {
         try {
             $client = app(Client::class);
-            // Try to get indexes - this requires authentication
             $client->getIndexes();
 
             return true;
@@ -195,9 +186,6 @@ class MeilisearchSetup extends Command
         }
     }
 
-    /**
-     * Set up Meilisearch indexes with proper settings.
-     */
     private function setupIndexes(): bool
     {
         $this->info('Setting up indexes...');
@@ -222,7 +210,7 @@ class MeilisearchSetup extends Command
 
             return $this->applyEmbedders();
         } catch (Exception $e) {
-            $this->error('    Error setting up indexes: ' . $e->getMessage());
+            $this->error('    Error setting up indexes: '.$e->getMessage());
 
             return false;
         }
@@ -306,7 +294,7 @@ class MeilisearchSetup extends Command
         foreach ($failed as $task) {
             $index = $task['indexUid'] ?? 'unknown';
             $message = $task['error']['message'] ?? 'no error message reported';
-            $this->line("       • {$index}: {$message}");
+            $this->line("       - {$index}: {$message}");
         }
 
         return false;
@@ -347,7 +335,7 @@ class MeilisearchSetup extends Command
             if (! empty($errors)) {
                 $this->error('    Errors importing games:');
                 foreach ($errors as $error) {
-                    $this->line("      • {$error}");
+                    $this->line("      - {$error}");
                 }
 
                 return false;
@@ -356,7 +344,6 @@ class MeilisearchSetup extends Command
             $this->info('    Games imported');
 
             // Import dialogue texts (deduplicated per game)
-            // Get all games that have dialogue
             $gameIds = DB::table('version_dialogue_lines as vdl')
                 ->join('game_versions as gv', 'vdl.game_version_id', '=', 'gv.id')
                 ->distinct()
@@ -389,10 +376,10 @@ class MeilisearchSetup extends Command
             if (! empty($errors)) {
                 $this->warn('    Warning: Some errors occurred:');
                 foreach (array_slice($errors, 0, 5) as $error) {
-                    $this->line("      • {$error}");
+                    $this->line("      - {$error}");
                 }
                 if (count($errors) > 5) {
-                    $this->line('      • ... and ' . (count($errors) - 5) . ' more');
+                    $this->line('      - ... and '.(count($errors) - 5).' more');
                 }
             }
 
@@ -424,7 +411,7 @@ class MeilisearchSetup extends Command
             if (! empty($errors)) {
                 $this->error('    Errors importing tags:');
                 foreach ($errors as $error) {
-                    $this->line("      • {$error}");
+                    $this->line("      - {$error}");
                 }
 
                 return false;

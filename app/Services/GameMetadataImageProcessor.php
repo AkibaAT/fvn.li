@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use App\Services\Concerns\ReportsProgress;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
 class GameMetadataImageProcessor
 {
+    use ReportsProgress;
+
     public function __construct(
         private readonly GameImageIntegrityService $imageIntegrityService,
     ) {}
@@ -20,9 +23,9 @@ class GameMetadataImageProcessor
 
         if ($this->needsScreenshotProcessing($game->screenshots, $originalScreenshots)) {
             try {
-                echo "    [{$logPrefix}] Screenshots need processing before save...\n";
+                $this->progress("    [{$logPrefix}] Screenshots need processing before save...\n");
                 $imageService->processGameScreenshots($game);
-                echo "    [{$logPrefix}] Screenshots processed successfully\n";
+                $this->progress("    [{$logPrefix}] Screenshots processed successfully\n");
             } catch (Exception $e) {
                 Log::error('Failed to process screenshots during metadata refresh', [
                     'game_id' => $game->id,
@@ -77,12 +80,12 @@ class GameMetadataImageProcessor
     private function processThumbnail(Game $game, ImageProcessingService $imageService, string $logPrefix): void
     {
         try {
-            echo "    [{$logPrefix}] Thumbnail needs processing...\n";
+            $this->progress("    [{$logPrefix}] Thumbnail needs processing...\n");
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
             }
             $imageService->processGameThumbnail($game);
-            echo "    [{$logPrefix}] Thumbnail processed successfully\n";
+            $this->progress("    [{$logPrefix}] Thumbnail processed successfully\n");
         } catch (Exception $e) {
             Log::error('Failed to process thumbnail during metadata refresh', [
                 'game_id' => $game->id,
@@ -94,12 +97,12 @@ class GameMetadataImageProcessor
     private function processThumbnailFallback(Game $game, ImageProcessingService $imageService, string $logPrefix): void
     {
         try {
-            echo "    [{$logPrefix}] No thumbnail, processing first screenshot as fallback...\n";
+            $this->progress("    [{$logPrefix}] No thumbnail, processing first screenshot as fallback...\n");
             if ($game->optimized_thumbnails) {
                 $game->clearOptimizedThumbnails();
             }
             $imageService->processGameThumbnail($game);
-            echo "    [{$logPrefix}] Thumbnail fallback processed successfully\n";
+            $this->progress("    [{$logPrefix}] Thumbnail fallback processed successfully\n");
         } catch (Exception $e) {
             Log::error('Failed to process thumbnail fallback during metadata refresh', [
                 'game_id' => $game->id,

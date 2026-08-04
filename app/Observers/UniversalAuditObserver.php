@@ -22,17 +22,11 @@ class UniversalAuditObserver
      */
     private static bool $isProcessing = false;
 
-    /**
-     * Handle the model "created" event.
-     */
     public function created(Model $model): void
     {
         $this->logModelEvent('created', $model);
     }
 
-    /**
-     * Handle the model "updated" event.
-     */
     public function updated(Model $model): void
     {
         // Only log if there are actual changes
@@ -41,17 +35,11 @@ class UniversalAuditObserver
         }
     }
 
-    /**
-     * Handle the model "deleted" event.
-     */
     public function deleted(Model $model): void
     {
         $this->logModelEvent('deleted', $model);
     }
 
-    /**
-     * Handle the model "restored" event.
-     */
     public function restored(Model $model): void
     {
         if ($this->shouldLogEvent('restored')) {
@@ -69,28 +57,23 @@ class UniversalAuditObserver
             return;
         }
 
-        // Check if audit logging is enabled
         if (! Config::get('audit.enabled', true)) {
             return;
         }
 
-        // Check if this model should be excluded (includes ChangeLog)
         if ($this->shouldExcludeModel($model)) {
             return;
         }
 
-        // Check if this event should be excluded
         if (! $this->shouldLogEvent($event)) {
             return;
         }
 
-        // Set processing flag to prevent recursion
         self::$isProcessing = true;
 
         try {
             $auditData = $this->buildAuditData($event, $model);
 
-            // Check payload size to prevent memory exhaustion
             $serializedSize = strlen(serialize($auditData));
             $maxSize = Config::get('audit.performance.skip_large_payloads', true) ? 65536 : PHP_INT_MAX; // 64KB
 
@@ -107,7 +90,6 @@ class UniversalAuditObserver
                 return;
             }
 
-            // Process synchronously or asynchronously based on config
             $asyncEnabled = Config::get('audit.async', true);
             $asyncWithFallback = Config::get('audit.async_with_fallback', true);
 
@@ -132,7 +114,6 @@ class UniversalAuditObserver
                         $redis = app('redis')->connection('default');
                         $redis->ping(); // This will throw if Redis is not available
 
-                        // Check if there are any workers processing this queue by checking queue size growth
                         $queueName = Config::get('audit.queue_name', 'audit');
                         $initialSize = $redis->llen("queues:{$queueName}");
 
@@ -187,7 +168,6 @@ class UniversalAuditObserver
                 ChangeLog::create($auditData);
             }
         } catch (Throwable $e) {
-            // Log the error but don't throw to prevent breaking the original operation
             Log::error('Failed to process audit log', [
                 'model' => get_class($model),
                 'event' => $event,
@@ -199,9 +179,6 @@ class UniversalAuditObserver
         }
     }
 
-    /**
-     * Check if the model should be excluded from audit logging
-     */
     private function shouldExcludeModel(Model $model): bool
     {
         $modelClass = get_class($model);
@@ -219,9 +196,6 @@ class UniversalAuditObserver
             in_array($tableName, $excludeTables);
     }
 
-    /**
-     * Check if the event should be logged
-     */
     private function shouldLogEvent(string $event): bool
     {
         $excludeEvents = Config::get('audit.exclude_events', []);
@@ -229,17 +203,12 @@ class UniversalAuditObserver
         return ! in_array($event, $excludeEvents);
     }
 
-    /**
-     * Build the audit data array
-     */
     private function buildAuditData(string $event, Model $model): array
     {
         $user = Auth::user();
         $contextBuilder = app(AuditContextBuilder::class);
         $context = $contextBuilder->build();
 
-        // Handle special case: user deleting themselves
-        // Use system user ID to avoid foreign key constraint violation
         $userId = $user?->id;
         if ($event === 'deleted' &&
             $model instanceof User &&
@@ -247,7 +216,6 @@ class UniversalAuditObserver
             $user->id === $model->id) {
             $userId = SystemAuditUser::id();
 
-            // Add context about the self-deletion
             $context['self_deletion'] = true;
             $context['original_user_id'] = $user->id;
         }
@@ -266,9 +234,6 @@ class UniversalAuditObserver
         ];
     }
 
-    /**
-     * Get the changes for the model (structured diff for updates only)
-     */
     private function getChanges(string $event, Model $model): array
     {
         // Only provide structured diff for updates - create/delete use old_values/new_values instead
@@ -292,9 +257,6 @@ class UniversalAuditObserver
         return $changes;
     }
 
-    /**
-     * Check if a field should be skipped from audit logging
-     */
     private function shouldSkipField(string $field, Model $model): bool
     {
         // Global excluded fields
@@ -310,9 +272,6 @@ class UniversalAuditObserver
         return in_array($field, $excludedFields);
     }
 
-    /**
-     * Get old values for the model (smart storage approach)
-     */
     private function getOldValues(string $event, Model $model): array
     {
         return match ($event) {
@@ -322,9 +281,6 @@ class UniversalAuditObserver
         };
     }
 
-    /**
-     * Get old values for only the fields that changed
-     */
     private function getChangedFieldsOldValues(Model $model): array
     {
         $changedFields = [];
@@ -338,9 +294,6 @@ class UniversalAuditObserver
         return $changedFields;
     }
 
-    /**
-     * Get filtered model attributes (excluding sensitive fields)
-     */
     private function getFilteredAttributes(Model $model): array
     {
         return array_filter(
@@ -350,9 +303,6 @@ class UniversalAuditObserver
         );
     }
 
-    /**
-     * Get new values for the model (smart storage approach)
-     */
     private function getNewValues(string $event, Model $model): array
     {
         return match ($event) {
@@ -363,9 +313,6 @@ class UniversalAuditObserver
         };
     }
 
-    /**
-     * Get new values for only the fields that changed
-     */
     private function getChangedFieldsNewValues(Model $model): array
     {
         $changedFields = [];
@@ -379,9 +326,6 @@ class UniversalAuditObserver
         return $changedFields;
     }
 
-    /**
-     * Check if the model has significant changes (excluding ignored fields)
-     */
     private function hasSignificantChanges(Model $model): bool
     {
         foreach ($model->getDirty() as $field => $value) {

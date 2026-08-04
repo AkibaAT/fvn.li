@@ -7,8 +7,6 @@ Reimports version statistics from stored game archives.
 This command reprocesses stored game archives to regenerate version statistics and character data. It's useful when
 analysis algorithms have been improved or when data corruption requires regeneration from original source files.
 
-**Key Features**: Archive reprocessing, statistics regeneration, data validation, selective reimport.
-
 ## Usage
 
 ```bash
@@ -110,36 +108,6 @@ The reimport process can regenerate various types of data:
 - **Analysis Confidence**: Reliability of extracted data
 - **Validation Results**: Consistency checks and error detection
 
-## Performance Considerations
-
-<table>
-<tr>
-    <td>Factor</td>
-    <td>Impact</td>
-    <td>Optimization</td>
-</tr>
-<tr>
-    <td>Archive Size</td>
-    <td>Processing time varies</td>
-    <td>Parallel processing</td>
-</tr>
-<tr>
-    <td>Extraction</td>
-    <td>Temporary disk usage</td>
-    <td>Cleanup management</td>
-</tr>
-<tr>
-    <td>Analysis</td>
-    <td>CPU intensive</td>
-    <td>Batch processing</td>
-</tr>
-<tr>
-    <td>Database Updates</td>
-    <td>Transaction overhead</td>
-    <td>Bulk operations</td>
-</tr>
-</table>
-
 ## Data Validation
 
 The reimport process includes comprehensive validation:
@@ -161,22 +129,6 @@ The reimport process includes comprehensive validation:
 - **Database Constraints**: Ensures data meets schema requirements
 - **Referential Integrity**: Maintains proper relationships between records
 - **Quality Thresholds**: Meets minimum quality standards for import
-
-## Error Handling
-
-Robust error handling manages various failure scenarios:
-
-### Archive Issues
-
-- **Missing Archives**: Graceful handling when archives are unavailable
-- **Corruption**: Detection and reporting of corrupted archives
-- **Access Problems**: Permission and storage access issues
-
-### Processing Failures
-
-- **Analysis Errors**: Continues with remaining versions on individual failures
-- **Memory Issues**: Manages memory usage for large games
-- **Timeout Handling**: Manages long-running analysis operations
 
 ## Comparison and Reporting
 

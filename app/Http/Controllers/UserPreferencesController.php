@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Auth;
 
 class UserPreferencesController extends Controller
 {
-    /**
-     * Get the user's language preferences
-     */
     public function getLanguagePreferences(): JsonResponse
     {
         $authId = Auth::id();
@@ -31,9 +28,6 @@ class UserPreferencesController extends Controller
         ]);
     }
 
-    /**
-     * Update the user's language preferences
-     */
     public function updateLanguagePreferences(Request $request): JsonResponse
     {
         $authId = Auth::id();
@@ -59,9 +53,6 @@ class UserPreferencesController extends Controller
         ]);
     }
 
-    /**
-     * Get the user's excluded tags preferences
-     */
     public function getExcludedTags(): JsonResponse
     {
         $authId = Auth::id();
@@ -77,9 +68,6 @@ class UserPreferencesController extends Controller
         ]);
     }
 
-    /**
-     * Update the user's excluded tags preferences
-     */
     public function updateExcludedTags(Request $request): JsonResponse
     {
         $authId = Auth::id();
@@ -105,9 +93,6 @@ class UserPreferencesController extends Controller
         ]);
     }
 
-    /**
-     * Get the list of game IDs that the user has ignored
-     */
     public function getIgnoredGames(): JsonResponse
     {
         $authId = Auth::id();
@@ -147,7 +132,6 @@ class UserPreferencesController extends Controller
         $user = User::findOrFail($authId);
         $game = Game::findOrFail($request->game_id);
 
-        // Check if already ignored
         if ($user->ignoredGames()->where('games.id', $game->id)->exists()) {
             return response()->json([
                 'success' => true,
@@ -156,7 +140,6 @@ class UserPreferencesController extends Controller
             ]);
         }
 
-        // Add to ignored games
         $user->ignoredGames()->attach($game->id);
 
         return response()->json([
@@ -166,9 +149,6 @@ class UserPreferencesController extends Controller
         ]);
     }
 
-    /**
-     * Remove a game from the user's ignore list
-     */
     public function unignoreGame(Request $request): JsonResponse
     {
         $authId = Auth::id();
@@ -186,7 +166,6 @@ class UserPreferencesController extends Controller
         $user = User::findOrFail($authId);
         $game = Game::findOrFail($request->game_id);
 
-        // Remove from ignored games
         $user->ignoredGames()->detach($game->id);
 
         return response()->json([
@@ -216,7 +195,6 @@ class UserPreferencesController extends Controller
         $user = User::findOrFail($authId);
         $game = Game::findOrFail($request->game_id);
 
-        // Check if already ignored
         $isIgnored = $user->ignoredGames()->where('games.id', $game->id)->exists();
 
         if ($isIgnored) {
