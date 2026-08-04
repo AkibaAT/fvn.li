@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import { page } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, Textarea } from '@/components/ui';
+    import http from '@/utils/http';
 
     interface UserReview {
         id: number;
@@ -14,11 +15,12 @@
 
     interface Props {
         gameId: number;
-        gameName: string;
         initialReview?: UserReview | null;
+        onEditingChange?: (editing: boolean) => void;
+        onReviewChange?: (hasReview: boolean) => void;
     }
 
-    let { gameId, gameName, initialReview = null }: Props = $props();
+    let { gameId, initialReview = null, onEditingChange, onReviewChange }: Props = $props();
 
     const auth = $derived((page as any).props?.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
@@ -50,10 +52,12 @@
             hasSpoilers = userReview.has_spoilers;
         }
         isEditing = true;
+        onEditingChange?.(true);
     }
 
     function handleCancel() {
         isEditing = false;
+        onEditingChange?.(false);
         if (userReview) {
             rating = userReview.rating;
             reviewText = userReview.review || '';
@@ -74,13 +78,15 @@
 
         isSubmitting = true;
         try {
-            const response = await (window as any).axios.post(route('browser-api.user-reviews.store', { game: gameId }), {
+            const response = await http.post(route('browser-api.user-reviews.store', { game: gameId }), {
                 rating,
                 review: reviewText,
                 has_spoilers: hasSpoilers,
             });
             userReview = response.data.review;
             isEditing = false;
+            onReviewChange?.(true);
+            onEditingChange?.(false);
             showMessageFn(response.data.message, 'success');
         } catch (error: any) {
             const msg = error?.response?.data?.message || 'Failed to submit review';
@@ -93,13 +99,15 @@
     async function handleDelete() {
         isDeleting = true;
         try {
-            const response = await (window as any).axios.delete(route('browser-api.user-reviews.destroy', { game: gameId }));
+            const response = await http.delete(route('browser-api.user-reviews.destroy', { game: gameId }));
             userReview = null;
             rating = 0;
             reviewText = '';
             hasSpoilers = false;
             isEditing = false;
             showDeleteConfirm = false;
+            onReviewChange?.(false);
+            onEditingChange?.(false);
             showMessageFn(response.data.message, 'success');
         } catch (error: any) {
             const msg = error?.response?.data?.message || 'Failed to delete review';
@@ -177,28 +185,7 @@
             </div>
         {/if}
     </Card>
-{:else if !userReview && !isEditing}
-    <!-- Write review prompt -->
-    <Card variant="outline" padding="sm">
-        <Button
-            type="button"
-            variant="ghost"
-            tone="primary"
-            onclick={handleStartEdit}
-            class="flex w-full items-center gap-2 text-sm text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
-        >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-            </svg>
-            Write a review for {gameName}
-        </Button>
-    </Card>
-{:else}
+{:else if isEditing}
     <!-- Review form -->
     <Card variant="outline" padding="sm">
         <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">

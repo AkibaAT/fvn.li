@@ -6,6 +6,7 @@
     import { useStorePlatformIcons, type StorePlatform } from '@/hooks/useStorePlatformIcons';
     import ActiveFilterChips from '@/components/games/ActiveFilterChips.svelte';
     import SortControls from '@/components/games/SortControls.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import GamesGrid from '@/components/games/GamesGrid.svelte';
     import PaginationControls from '@/components/games/PaginationControls.svelte';
     import type { CurrentFilters, FilterOptions } from '@/types';
@@ -165,47 +166,6 @@
     const getActiveFilterCount = () => {
         return buildActiveFilterChips().length;
     };
-
-    const getChipColorClass = (type?: string) => {
-        switch (type) {
-            case 'search':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-            case 'status':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-            case 'platform':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-            case 'language':
-                return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
-            case 'engine':
-                return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300';
-            case 'tag':
-                return 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300';
-            case 'gameJam':
-                return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-            case 'sfw':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-            case 'nsfw':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-            case 'free':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-            case 'paid':
-                return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
-            case 'demo':
-                return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300';
-            case 'sale':
-                return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
-            case 'excludeTag':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-            case 'readingTime':
-                return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300';
-            case 'delisted':
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-            case 'hidden':
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-            default:
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-        }
-    };
 </script>
 
 <SeoHead {metaTags} />
@@ -222,22 +182,13 @@
 />
 
 <div class="space-y-8">
-    <!-- Page Heading - visually hidden but accessible -->
-    <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0">
-        Browse Visual Novels
-    </h1>
+    <PageHeader title="Browse Visual Novels" class="mb-0" />
 
     <!-- Info Bar -->
     <Card variant="glass" padding="none" class="-mt-2 px-4 py-3 shadow-none">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex flex-wrap items-center gap-2 lg:flex-1">
-                <ActiveFilterChips
-                    chips={buildActiveFilterChips()}
-                    onClearAll={clearFilters}
-                    {getChipColorClass}
-                    {getPlatformIcon}
-                    {getStorePlatformIcon}
-                />
+                <ActiveFilterChips chips={buildActiveFilterChips()} onClearAll={clearFilters} {getPlatformIcon} {getStorePlatformIcon} />
             </div>
 
             <div class="hidden h-6 w-px bg-gray-300 lg:block dark:bg-gray-600"></div>
@@ -334,32 +285,6 @@
                 size="sm"
                 onclick={() => updateFilters({ selectedLanguages: [], noDefaults: true })}
                 class="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-            >
-                Show all
-            </Button>
-        </div>
-    {/if}
-
-    <!-- Default Excluded Tags Info Bar -->
-    {#if currentFilters.usingDefaultExcludedTags}
-        <div class="flex items-center justify-between rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-600 dark:bg-red-900/30">
-            <div class="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        fill-rule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                <span>Hiding games with your excluded tags.</span>
-            </div>
-            <Button
-                type="button"
-                variant="solid"
-                tone="danger"
-                size="sm"
-                onclick={() => updateFilters({ excludedTags: [], noDefaults: true })}
-                class="rounded-md bg-red-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
             >
                 Show all
             </Button>

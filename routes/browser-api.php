@@ -220,7 +220,7 @@ Route::middleware(['web'])->group(function () {
         Route::post('bug-reports/{bugReport}/comments', [BugReportController::class, 'addComment'])->name('browser-api.bug-reports.comments.store');
         Route::post('bug-reports/{bugReport}/close', [BugReportController::class, 'close'])->name('browser-api.bug-reports.close');
 
-        Route::middleware('discord.bot.enabled')->prefix('discord')->group(function () {
+        Route::middleware('discord.server-bot.enabled')->prefix('discord')->group(function () {
             Route::get('guilds', [DiscordConfigController::class, 'guilds'])->name('browser-api.discord.guilds');
             Route::get('rule-metadata', [DiscordConfigController::class, 'ruleMetadata'])->name('browser-api.discord.rule-metadata');
             Route::get('servers', [DiscordConfigController::class, 'servers'])->name('browser-api.discord.servers');

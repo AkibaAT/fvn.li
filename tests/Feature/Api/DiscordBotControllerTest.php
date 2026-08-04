@@ -54,6 +54,14 @@ it('requires a Discord bot token ability for Discord bot routes', function () {
         ->assertForbidden();
 });
 
+it('keeps legacy Discord bot routes available when the server bot is disabled', function () {
+    config(['services.discord.server_bot_enabled' => false]);
+    actAsDiscordBotApiUser();
+
+    $this->postJson('/api/discord/search', ['name' => 'match'])
+        ->assertOk();
+});
+
 it('searches visible itch games for the Discord bot', function () {
     actAsDiscordBotApiUser();
     $game = createDiscordBotGame(['name' => 'Moonlight Match']);

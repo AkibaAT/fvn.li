@@ -235,7 +235,7 @@ class RefreshGames extends Command
                     sleep(10);
                 }
 
-                $this->info("✓ Successfully refreshed {$game->name}");
+                $this->info("Successfully refreshed {$game->name}");
 
             } catch (Exception $exception) {
                 $hadErrors = true;

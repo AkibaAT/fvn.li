@@ -63,7 +63,7 @@ class IndexGameDialogueTexts extends Command
             return 0;
         }
 
-        $this->info("✓ Successfully indexed {$indexed} texts for game {$gameId}");
+        $this->info("Successfully indexed {$indexed} texts for game {$gameId}");
 
         return 0;
     }
@@ -105,7 +105,7 @@ class IndexGameDialogueTexts extends Command
         $bar->finish();
         $this->newLine(2);
 
-        $this->info('✓ Indexing complete!');
+        $this->info('Indexing complete!');
         $this->info("  Total entries indexed: {$totalIndexed}");
 
         if ($errors > 0) {

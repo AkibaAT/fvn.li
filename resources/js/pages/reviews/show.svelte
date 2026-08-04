@@ -4,6 +4,7 @@
     import { Button, Card, Checkbox, Textarea } from '@/components/ui';
     import type { SharedData } from '@/types';
     import http from '@/utils/http';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface ReviewGame {
         id: number;
@@ -93,16 +94,12 @@
 </svelte:head>
 
 <div class="space-y-6">
-    <!-- Breadcrumb -->
-    <nav class="text-sm text-gray-500 dark:text-gray-400">
-        {#if review.game}
-            <Link href={route('games.show', review.game.slug)} class="hover:text-blue-600 dark:hover:text-blue-400">
-                {review.game.name}
-            </Link>
-            <span class="mx-2">/</span>
-        {/if}
-        <span>Review</span>
-    </nav>
+    <PageHeader
+        title={`Review by ${authorName}`}
+        backHref={review.game ? route('games.show', review.game.slug) : route('ratings.index')}
+        backLabel={review.game ? `Back to ${review.game.name}` : 'Back to Ratings'}
+        class="mb-0"
+    />
 
     <!-- Main review card -->
     <Card variant="outline" padding="lg">

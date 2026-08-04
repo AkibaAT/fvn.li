@@ -265,14 +265,7 @@
 
     {#if filteredOverrides.length === 0}
         <div class="py-8 text-center">
-            <svg class="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                />
-            </svg>
-            <p class="mt-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">
                 {filter === 'ignored' ? 'No ignored visual novels' : 'No overrides configured'}
             </p>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Click "Add VN" to search and add games</p>

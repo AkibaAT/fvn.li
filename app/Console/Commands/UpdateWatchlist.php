@@ -154,7 +154,7 @@ class UpdateWatchlist extends Command
             if (preg_match('/\blang:([a-z]{3})\b/', $blurb, $matches)) {
                 $langCode = $matches[1];
                 if (! Language::where('id', $langCode)->exists()) {
-                    $this->error("  ✗ Skipping game {$gameId} ({$gameData['title']}): invalid language code '{$langCode}' in blurb");
+                    $this->error("  Skipping game {$gameId} ({$gameData['title']}): invalid language code '{$langCode}' in blurb");
                     Log::error('UpdateWatchlist: invalid language code in blurb', [
                         'game_id' => $gameId,
                         'title' => $gameData['title'],

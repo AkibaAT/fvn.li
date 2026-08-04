@@ -79,7 +79,7 @@ class RefreshFeedlessGames extends Command
                     $game->error = null;
                     $game->save();
 
-                    $this->info("✓ Successfully refreshed {$game->name}");
+                    $this->info("Successfully refreshed {$game->name}");
                 } catch (Exception $exception) {
                     $this->error("× Error refreshing {$game->name}: {$exception->getMessage()}");
                     Log::error("Feedless game refresh failed for {$game->name}", [

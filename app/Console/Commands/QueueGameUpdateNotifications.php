@@ -52,8 +52,6 @@ class QueueGameUpdateNotifications extends Command
      */
     public function handle(): int
     {
-        $discordBotEnabled = (bool) config('services.discord.bot_enabled');
-
         // Performance tracking
         $startTime = microtime(true);
         $startMemory = memory_get_usage(true);
@@ -121,18 +119,16 @@ class QueueGameUpdateNotifications extends Command
                     continue;
                 }
 
-                if ($discordBotEnabled) {
-                    DiscordChannelAnnouncement::insertOrIgnore([
-                        'game_id' => $game->id,
-                        'game_version_id' => $game->latestVersion->id,
-                        'status' => 'pending',
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
+                DiscordChannelAnnouncement::insertOrIgnore([
+                    'game_id' => $game->id,
+                    'game_version_id' => $game->latestVersion->id,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
                 // Find users who follow this game and should receive updates
-                $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id, $discordBotEnabled);
+                $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
 
                 $this->info('Found ' . count($usersToNotify) . " users to notify for {$game->name}");
                 $totalUsersNotified += count($usersToNotify);
@@ -148,7 +144,7 @@ class QueueGameUpdateNotifications extends Command
                     }
 
                     // Only add discord channel if user has discord notifications enabled AND has a Discord account
-                    if ($discordBotEnabled && (bool) $user->discord_notifications_enabled && (bool) $user->has_discord_account) {
+                    if ((bool) $user->discord_notifications_enabled && (bool) $user->has_discord_account) {
                         $channelsToNotify[] = 'discord';
                     }
 
@@ -214,7 +210,7 @@ class QueueGameUpdateNotifications extends Command
      * to have the game in a VN list, but users can enable notifications independently
      * via the notification toggle on game pages.
      */
-    protected function getUsersToNotify(int $gameId, int $gameVersionId, bool $discordBotEnabled): array
+    protected function getUsersToNotify(int $gameId, int $gameVersionId): array
     {
         // Get all users who have receive_updates=true for this game in user_game_progress
         // This includes users who enabled notifications without adding the game to a list
@@ -240,11 +236,9 @@ class QueueGameUpdateNotifications extends Command
             ->where('games.is_paid', '=', false)
             ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
             // Ensure user has at least one notification channel enabled
-            ->where(function ($query) use ($discordBotEnabled) {
-                $query->where('user_notification_preferences.browser_notifications_enabled', '=', true);
-                if ($discordBotEnabled) {
-                    $query->orWhere('user_notification_preferences.discord_notifications_enabled', '=', true);
-                }
+            ->where(function ($query) {
+                $query->where('user_notification_preferences.browser_notifications_enabled', '=', true)
+                    ->orWhere('user_notification_preferences.discord_notifications_enabled', '=', true);
             })
             ->groupBy('users.id', 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled',

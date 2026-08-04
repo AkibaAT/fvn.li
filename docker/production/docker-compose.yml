@@ -31,7 +31,7 @@ services:
       denkit-stash:
         condition: service_healthy
     environment:
-      - DISCORD_BOT_ENABLED=${DISCORD_BOT_ENABLED:-false}
+      - DISCORD_SERVER_BOT_ENABLED=${DISCORD_SERVER_BOT_ENABLED:-false}
       - RENPY_ANALYSIS_MODE=${RENPY_ANALYSIS_MODE:-sandbox}
       - RENPY_ANALYZER_URL=${RENPY_ANALYZER_URL:-http://stats-runner:8080/api/renpy-analyzer/analyze}
       - RENPY_ANALYZER_TOKEN=${RENPY_ANALYZER_TOKEN}

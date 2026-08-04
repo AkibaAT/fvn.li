@@ -8,7 +8,7 @@ games on the platform. The project is deployed and accessible at [FVN.li](https:
 
 ## Documentation
 
-📚 **[View Documentation](https://akibaat.github.io/fvn.li/)** - Comprehensive documentation built with Writerside and
+**[View Documentation](https://akibaat.github.io/fvn.li/)** - Comprehensive documentation built with Writerside and
 deployed to GitHub Pages.
 
 ## Features

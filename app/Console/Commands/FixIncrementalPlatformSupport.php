@@ -177,7 +177,7 @@ HELP;
 
             $row = [
                 $versionInfo['version'],
-                $versionInfo['is_latest'] ? '✓' : '',
+                $versionInfo['is_latest'] ? 'Latest' : '',
                 $this->formatPlatformCell($platforms['is_windows'], in_array('is_windows', $missingPlatforms)),
                 $this->formatPlatformCell($platforms['is_linux'], in_array('is_linux', $missingPlatforms)),
                 $this->formatPlatformCell($platforms['is_mac'], in_array('is_mac', $missingPlatforms)),
@@ -196,10 +196,10 @@ HELP;
     private function formatPlatformCell(bool $supported, bool $missing): string
     {
         if ($missing) {
-            return '<fg=red>✗</fg=red>';
+            return '<fg=red>Missing</fg=red>';
         }
 
-        return $supported ? '<fg=green>✓</fg=green>' : '';
+        return $supported ? '<fg=green>Yes</fg=green>' : '';
     }
 
     private function formatMissingPlatforms(array $missingPlatforms): string
@@ -222,8 +222,8 @@ HELP;
             $this->warn("Found platform support inconsistencies in {$this->gamesWithIssues} games.");
             $this->line('');
             $this->line('Legend:');
-            $this->line('  <fg=green>✓</fg=green> = Platform supported');
-            $this->line('  <fg=red>✗</fg=red> = Platform should be supported but is missing');
+            $this->line('  Yes = Platform supported');
+            $this->line('  Missing = Platform should be supported but is missing');
             $this->line('  (empty) = Platform not supported');
         }
     }

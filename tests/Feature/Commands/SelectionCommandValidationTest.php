@@ -177,7 +177,7 @@ it('reimports stored archive statistics and handles missing archives and invalid
         ->expectsOutput("Processing version: {$latestVersion->version}")
         ->expectsOutput('Processing game archive...')
         ->expectsOutput('Saving version statistics...')
-        ->expectsOutput('✓ Statistics saved successfully')
+        ->expectsOutput('Statistics saved successfully')
         ->expectsOutputToContain('Reimport process completed')
         ->assertExitCode(0);
 

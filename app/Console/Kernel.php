@@ -96,7 +96,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('notifications:process-push')->everyFiveMinutes()->withoutOverlapping();
         $schedule->command('discord:sync-catalog-messages')
             ->everyFiveMinutes()
-            ->when(fn (): bool => (bool) config('services.discord.bot_enabled'))
+            ->when(fn (): bool => (bool) config('services.discord.server_bot_enabled'))
             ->withoutOverlapping();
 
         // Cleanup commands

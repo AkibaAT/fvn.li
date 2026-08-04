@@ -139,7 +139,7 @@ class RefreshSteamGames extends Command
                     try {
                         $steamDataService->loadFullDetails($game);
                         $game->save();
-                        $this->info('  ✓ Game data updated successfully');
+                        $this->info('  Game data updated successfully');
                     } catch (Exception $e) {
                         $this->error("  × Error updating game data: {$e->getMessage()}");
                         Log::error("Steam game data refresh failed for {$game->name}", [
@@ -164,7 +164,7 @@ class RefreshSteamGames extends Command
                         // Update game rating statistics
                         $steamReviewService->updateGameRatingStats($game);
 
-                        $this->info('  ✓ Reviews synced successfully');
+                        $this->info('  Reviews synced successfully');
                         $this->info("    Fetched: {$stats['fetched']}, Imported: {$stats['imported']}, Updated: {$stats['updated']}, Deleted: {$stats['deleted']}, Skipped: {$stats['skipped']}, Errors: {$stats['errors']}");
                     } catch (Exception $e) {
                         $this->error("  × Error syncing reviews: {$e->getMessage()}");
@@ -180,7 +180,7 @@ class RefreshSteamGames extends Command
                     }
                 }
 
-                $this->info("✓ Successfully refreshed {$game->name}");
+                $this->info("Successfully refreshed {$game->name}");
 
             } catch (Exception $exception) {
                 $this->error("× Error refreshing {$game->name}: {$exception->getMessage()}");

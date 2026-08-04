@@ -103,7 +103,7 @@
                     {#if editPermissions.canEdit}
                         <EditableGameName {game} {previewingVisitorView} previewName={visitorName} {onNameUpdate} />
                     {:else}
-                        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{game.effective_name}</h1>
+                        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{game.effective_name}</h1>
                     {/if}
                 </div>
                 <div class="flex flex-col gap-2 sm:flex-row">

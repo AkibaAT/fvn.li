@@ -9,15 +9,25 @@ use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-it('restricts system status to admins', function () {
-    $this->get(route('system.status'))
-        ->assertRedirect(route('login'));
+it('makes system status public without exposing scheduled task details', function () {
+    $guestResponse = $this->get(route('system.status'));
+
+    $guestResponse->assertOk();
+    $guestPage = $guestResponse->viewData('page');
+
+    expect($guestPage['component'])->toBe('system-status')
+        ->and($guestPage['props'])->not->toHaveKey('monitoredTasks')
+        ->and($guestPage['props'])->not->toHaveKey('healthSummary');
 
     $regularUser = User::factory()->create(['is_admin' => false]);
 
-    $this->actingAs($regularUser)
-        ->get(route('system.status'))
-        ->assertForbidden();
+    $userResponse = $this->actingAs($regularUser)->get(route('system.status'));
+
+    $userResponse->assertOk();
+    $userProps = $userResponse->viewData('page')['props'];
+
+    expect($userProps)->not->toHaveKey('monitoredTasks')
+        ->and($userProps)->not->toHaveKey('healthSummary');
 });
 
 it('renders system status metrics and scheduled task health', function () {
@@ -128,7 +138,6 @@ it('renders system status metrics and scheduled task health', function () {
         ->and($props['healthSummary']['failed'])->toBe(1)
         ->and($props['healthSummary']['never_run'])->toBe(1)
         ->and($props['healthSummary']['monitored_on_oh_dear'])->toBe(1)
-        ->and($props['dateFormat'])->toBe(config('schedule-monitor.date_format'))
         ->and($props['metaTags']['title'])->toBe('System Status');
 
     $tasksByName = collect($props['monitoredTasks'])->keyBy('name');

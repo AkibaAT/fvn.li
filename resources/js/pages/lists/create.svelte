@@ -2,6 +2,7 @@
     import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface Props {
         metaTags?: {
@@ -50,11 +51,7 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
-    <!-- Header -->
-    <div>
-        <h1 class="text-3xl font-bold text-blue-600">Create New List</h1>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">Create a new visual novel list to organize your games</p>
-    </div>
+    <PageHeader title="Create New List" class="mb-0" />
 
     <!-- Form -->
     <Card variant="glass">

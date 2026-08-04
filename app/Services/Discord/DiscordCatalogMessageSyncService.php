@@ -13,7 +13,7 @@ class DiscordCatalogMessageSyncService
 {
     public function queueForGame(Game|int $game): int
     {
-        if (! config('services.discord.bot_enabled')) {
+        if (! config('services.discord.server_bot_enabled')) {
             return 0;
         }
 
@@ -85,7 +85,7 @@ class DiscordCatalogMessageSyncService
 
     public function queueAll(): int
     {
-        if (! config('services.discord.bot_enabled')) {
+        if (! config('services.discord.server_bot_enabled')) {
             return 0;
         }
 

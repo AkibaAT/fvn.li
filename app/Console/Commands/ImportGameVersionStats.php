@@ -102,7 +102,7 @@ class ImportGameVersionStats extends Command
                 $this->info('Importing stats...');
                 $this->importService->importFromLocalFile($statsFile, $version);
 
-                $this->info('✓ Stats imported successfully');
+                $this->info('Stats imported successfully');
 
                 return 0;
             } catch (Exception $e) {

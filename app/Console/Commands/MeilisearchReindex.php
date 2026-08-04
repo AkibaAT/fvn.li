@@ -32,8 +32,8 @@ class MeilisearchReindex extends Command
     {
         $type = $this->option('type');
 
-        $this->info('🔄 Starting Meilisearch maintenance reindex...');
-        $this->line('ℹ️  Note: Normal operations use automatic indexing via Eloquent observers');
+        $this->info('Starting Meilisearch maintenance reindex...');
+        $this->line('Note: Normal operations use automatic indexing via Eloquent observers');
 
         if ($type === 'all') {
             return $this->handleFullReindex($searchService);
@@ -48,7 +48,7 @@ class MeilisearchReindex extends Command
      */
     protected function handleFullReindex(SearchIndexService $searchService): int
     {
-        $this->info('🔄 Performing full maintenance reindex...');
+        $this->info('Performing full maintenance reindex...');
         $stats = $searchService->fullReindex(function ($count) {
             if (! isset($this->bar)) {
                 $this->bar = $this->output->createProgressBar($count);
@@ -74,7 +74,7 @@ class MeilisearchReindex extends Command
         );
 
         if (! empty($stats['errors'])) {
-            $this->error('❌ Errors occurred during reindexing:');
+            $this->error('Errors occurred during reindexing:');
             foreach ($stats['errors'] as $error) {
                 $this->line("  • {$error}");
             }
@@ -82,7 +82,7 @@ class MeilisearchReindex extends Command
             return Command::FAILURE;
         }
 
-        $this->info('🎉 Maintenance reindex completed successfully!');
+        $this->info('Maintenance reindex completed successfully!');
 
         return Command::SUCCESS;
     }
@@ -92,7 +92,7 @@ class MeilisearchReindex extends Command
      */
     protected function handleTypeReindex(string $type, SearchIndexService $searchService): int
     {
-        $this->info("🔄 Reindexing {$type}...");
+        $this->info("Reindexing {$type}...");
 
         // Create progress callback
         $progressCallback = function ($count) {
@@ -117,10 +117,10 @@ class MeilisearchReindex extends Command
             unset($this->bar);
         }
 
-        $this->info("✅ Reindexed {$stats['count']} {$type}");
+        $this->info("Reindexed {$stats['count']} {$type}");
 
         if (! empty($stats['errors'])) {
-            $this->error('❌ Errors occurred during reindexing:');
+            $this->error('Errors occurred during reindexing:');
             foreach ($stats['errors'] as $error) {
                 $this->line("  • {$error}");
             }
@@ -128,7 +128,7 @@ class MeilisearchReindex extends Command
             return Command::FAILURE;
         }
 
-        $this->info('🎉 Reindex completed successfully!');
+        $this->info('Reindex completed successfully!');
 
         return Command::SUCCESS;
     }

@@ -204,7 +204,7 @@ function formatViolationsError(
   violations: AccessibilityViolation[],
   config: ScannerConfig,
 ): string {
-  let message = `\n\n🚨 Accessibility Violations Found on ${results.url}\n`;
+  let message = `\n\nAccessibility Violations Found on ${results.url}\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
   message += `Summary:\n`;
@@ -283,7 +283,7 @@ export function generateHtmlReport(results: AccessibilityScanResult): string {
 </head>
 <body>
   <div class="container">
-    <h1>🔍 Accessibility Report</h1>
+    <h1>Accessibility Report</h1>
     <p><strong>URL:</strong> ${results.url}</p>
     <p><strong>Scanned:</strong> ${new Date(results.timestamp).toLocaleString()}</p>
     
@@ -312,7 +312,7 @@ export function generateHtmlReport(results: AccessibilityScanResult): string {
     
     ${
       results.violations.length === 0
-        ? '<h2>✅ No violations found!</h2>'
+        ? '<h2>No violations found!</h2>'
         : `
       <h2>Violations (${results.violations.length})</h2>
       ${results.violations

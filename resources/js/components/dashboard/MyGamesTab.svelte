@@ -186,16 +186,8 @@
                     <div class="pt-2">
                         <Link
                             href={route('my-games.edit', { game: g.slug })}
-                            class="inline-flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                            class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
                         >
-                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                ><path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                /></svg
-                            >
                             <span>Edit</span>
                         </Link>
                     </div>

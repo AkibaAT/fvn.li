@@ -29,9 +29,9 @@ class TestFlareSolverr extends Command
         $available = $flareSolverr->isAvailable();
 
         if ($available) {
-            $this->info('✓ FlareSolverr service is available');
+            $this->info('FlareSolverr service is available');
         } else {
-            $this->error('✗ FlareSolverr service is not available');
+            $this->error('FlareSolverr service is not available');
             $this->info('Make sure the FlareSolverr container is running');
 
             return 1;
@@ -49,17 +49,17 @@ class TestFlareSolverr extends Command
             $result = $flareSolverr->request('https://itch.io/');
 
             if ($result['status'] === 200) {
-                $this->info('✓ Successfully fetched itch.io homepage');
+                $this->info('Successfully fetched itch.io homepage');
                 $this->info('  Status: ' . $result['status']);
                 $this->info('  User Agent: ' . $result['userAgent']);
                 $this->info('  Cookies: ' . count($result['cookies']));
             } else {
-                $this->error('✗ Unexpected status code: ' . $result['status']);
+                $this->error('Unexpected status code: ' . $result['status']);
 
                 return 1;
             }
         } catch (Exception $e) {
-            $this->error('✗ Request failed: ' . $e->getMessage());
+            $this->error('Request failed: ' . $e->getMessage());
 
             return 1;
         }
@@ -71,19 +71,19 @@ class TestFlareSolverr extends Command
 
             try {
                 $client = $authService->getClient();
-                $this->info('✓ Successfully authenticated with itch.io');
+                $this->info('Successfully authenticated with itch.io');
 
                 // Test accessing dashboard
                 $response = $client->get('https://itch.io/dashboard');
                 if ($response->getStatusCode() === 200) {
-                    $this->info('✓ Successfully accessed dashboard');
+                    $this->info('Successfully accessed dashboard');
                 } else {
-                    $this->error('✗ Failed to access dashboard: ' . $response->getStatusCode());
+                    $this->error('Failed to access dashboard: ' . $response->getStatusCode());
 
                     return 1;
                 }
             } catch (Exception $e) {
-                $this->error('✗ Authentication failed: ' . $e->getMessage());
+                $this->error('Authentication failed: ' . $e->getMessage());
 
                 return 1;
             }

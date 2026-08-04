@@ -4,6 +4,7 @@
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import type { VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
 
@@ -162,19 +163,15 @@
 </svelte:head>
 
 <div class="space-y-8">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-blue-600">Public Visual Novel Lists</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">Discover and explore visual novel lists shared by the community</p>
-        </div>
-        <div class="mt-4 flex space-x-3 sm:mt-0">
+    <PageHeader title="Public Visual Novel Lists" class="mb-0">
+        {#snippet actions()}
             <Link
                 href={route('lists.index')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
                 >My Lists</Link
             >
-        </div>
-    </div>
+        {/snippet}
+    </PageHeader>
 
     <!-- Search and Sort Controls -->
     <div

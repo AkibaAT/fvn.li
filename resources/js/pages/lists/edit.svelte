@@ -3,6 +3,7 @@
     import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import { formatListType } from '@/components/ui/tones';
 
     interface VnList {
@@ -90,11 +91,7 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
-    <!-- Header -->
-    <div>
-        <h1 class="text-3xl font-bold text-blue-600">Edit List</h1>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">Update your visual novel list settings</p>
-    </div>
+    <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" class="mb-0" />
 
     <!-- Form -->
     <Card variant="glass">

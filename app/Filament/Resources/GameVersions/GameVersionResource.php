@@ -197,7 +197,7 @@ class GameVersionResource extends Resource
 
                                 $result = [];
                                 foreach ($languages as $language) {
-                                    $status = $language['is_available'] ? '✅ Available' : '❌ Not Available';
+                                    $status = $language['is_available'] ? 'Available' : 'Not Available';
                                     $result[] = $language['name'] . ' - ' . $status;
                                 }
 

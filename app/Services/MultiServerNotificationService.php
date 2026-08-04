@@ -23,7 +23,7 @@ class MultiServerNotificationService
      */
     public function queueGameUpdate(Game $game, GameVersion $version): void
     {
-        if (! config('services.discord.bot_enabled')) {
+        if (! config('services.discord.server_bot_enabled')) {
             return;
         }
 
@@ -69,7 +69,7 @@ class MultiServerNotificationService
         string $description = '',
         ?GameVersion $gameVersion = null,
     ): void {
-        if (! config('services.discord.bot_enabled')) {
+        if (! config('services.discord.server_bot_enabled')) {
             return;
         }
 
@@ -128,7 +128,7 @@ class MultiServerNotificationService
      */
     public function queueTagBasedNotifications(Game $game, string $type = 'update'): void
     {
-        if (! config('services.discord.bot_enabled')) {
+        if (! config('services.discord.server_bot_enabled')) {
             return;
         }
 

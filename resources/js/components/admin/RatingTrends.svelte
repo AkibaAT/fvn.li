@@ -21,10 +21,8 @@
         tooltipBorder: '',
         tooltipTitle: '',
         tooltipBody: '',
-        warningColor: '',
-        warningBgColor: '',
-        successColor: '',
-        successBgColor: '',
+        primaryColor: '',
+        primaryBgColor: '',
         hoverLineColor: '',
     });
 
@@ -44,10 +42,8 @@
                 tooltipBorder: getComputedStyle(el).getPropertyValue('--color-tooltip-border').trim(),
                 tooltipTitle: getComputedStyle(el).getPropertyValue('--color-tooltip-title').trim(),
                 tooltipBody: getComputedStyle(el).getPropertyValue('--color-tooltip-body').trim(),
-                warningColor: getComputedStyle(el).getPropertyValue('--color-chart-warning').trim(),
-                warningBgColor: getComputedStyle(el).getPropertyValue('--color-chart-warning-bg').trim(),
-                successColor: getComputedStyle(el).getPropertyValue('--color-chart-success').trim(),
-                successBgColor: getComputedStyle(el).getPropertyValue('--color-chart-success-bg').trim(),
+                primaryColor: getComputedStyle(el).getPropertyValue('--color-chart-primary').trim(),
+                primaryBgColor: getComputedStyle(el).getPropertyValue('--color-chart-primary-bg').trim(),
                 hoverLineColor: getComputedStyle(el)
                     .getPropertyValue(isDarkMode ? '--color-chart-grid-line-light' : '--color-chart-axis-line-light')
                     .trim(),
@@ -85,8 +81,8 @@
                 {
                     label: 'All Ratings',
                     data,
-                    borderColor: colors.warningColor,
-                    backgroundColor: colors.warningBgColor,
+                    borderColor: colors.primaryColor,
+                    backgroundColor: colors.primaryBgColor,
                     fill: true,
                     borderWidth: 2,
                     pointRadius: 3,
@@ -114,8 +110,8 @@
                 {
                     label: 'Listed Games Ratings',
                     data,
-                    borderColor: colors.successColor,
-                    backgroundColor: colors.successBgColor,
+                    borderColor: colors.primaryColor,
+                    backgroundColor: colors.primaryBgColor,
                     fill: true,
                     borderWidth: 2,
                     pointRadius: 3,
@@ -216,30 +212,26 @@
     });
 </script>
 
-<!-- All Ratings Trend -->
-<Card padding="lg" class="mb-6">
-    <div class="space-y-8">
-        <div>
-            <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">All Ratings Trend</h2>
+<section class="space-y-6">
+    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Rating history</h2>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Card variant="outline" padding="lg" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
+            <h3 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">All ratings</h3>
             <div class="relative h-[240px] w-full">
                 {#if ChartComponent}
                     <ChartComponent data={allRatingsData} options={chartOptions} plugins={chartPlugins} style="height: 240px; width: 100%" />
                 {/if}
             </div>
-        </div>
-    </div>
-</Card>
+        </Card>
 
-<!-- Listed Games Ratings Trend -->
-<Card padding="lg" class="mb-6">
-    <div class="space-y-8">
-        <div>
-            <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed Games Ratings Trend</h2>
+        <Card variant="outline" padding="lg" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
+            <h3 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed games</h3>
             <div class="relative h-[240px] w-full">
                 {#if ChartComponent}
                     <ChartComponent data={listedGamesData} options={chartOptions} plugins={chartPlugins} style="height: 240px; width: 100%" />
                 {/if}
             </div>
-        </div>
+        </Card>
     </div>
-</Card>
+</section>

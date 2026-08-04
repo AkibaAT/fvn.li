@@ -119,9 +119,9 @@ class FetchGameJamDetails extends Command
                     }
 
                     if ($rankingsSuccess) {
-                        $this->info('✓ Rankings fetched successfully');
+                        $this->info('Rankings fetched successfully');
                     } else {
-                        $this->warn('⚠ No rankings found for this game jam');
+                        $this->warn('No rankings found for this game jam');
                     }
 
                     // Add a longer delay after processing results to ensure DB transactions are completed
@@ -132,12 +132,12 @@ class FetchGameJamDetails extends Command
                 }
 
                 if ($success) {
-                    $this->info('✓ Details fetched successfully');
+                    $this->info('Details fetched successfully');
                     $gameJam->needs_details_fetch = false;
                     $gameJam->save();
                     $successCount++;
                 } else {
-                    $this->warn('⚠ Failed to fetch details');
+                    $this->warn('Failed to fetch details');
                     $failCount++;
                 }
             } catch (Exception $e) {

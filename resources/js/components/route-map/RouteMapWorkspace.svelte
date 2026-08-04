@@ -1,8 +1,8 @@
 <script lang="ts">
     import { SvelteFlow, Background, Controls, MiniMap } from '@xyflow/svelte';
     import '@xyflow/svelte/dist/style.css';
-    import { Link } from '@inertiajs/svelte';
     import { Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import BranchEdge from '@/components/route-map/BranchEdge.svelte';
     import ChoiceNode from '@/components/route-map/ChoiceNode.svelte';
     import ConditionNode from '@/components/route-map/ConditionNode.svelte';
@@ -141,12 +141,7 @@
 </script>
 
 <div class="px-4 py-4 sm:px-6">
-    <div class="mb-6 flex items-center gap-4">
-        <Link href={route('games.show', { game: game.slug })} class="text-sm text-gray-500 transition-colors hover:text-gray-300">
-            &larr; Back to {game.name}
-        </Link>
-        <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">Route Map</h1>
-    </div>
+    <PageHeader title="Route Map" backHref={route('games.show', { game: game.slug })} backLabel={`Back to ${game.name}`} class="mb-6" />
 
     {#if !routeGraph?.has_graph_data}
         <div class="flex flex-col items-center justify-center py-20">

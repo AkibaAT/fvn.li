@@ -113,7 +113,7 @@ class ProcessGameThumbnails extends Command
 
                 try {
                     $this->processGameThumbnail($game);
-                    $this->info('✓ Thumbnail processed successfully');
+                    $this->info('Thumbnail processed successfully');
                 } catch (Exception $e) {
                     $this->error("Error processing thumbnail: {$e->getMessage()}");
                     Log::error('Thumbnail processing failed', [

@@ -149,10 +149,9 @@ class DashboardController extends Controller
         $totalUnreadBugReportReplies = $activeBugReports->sum('unread_count');
 
         // Discord bot installation info
-        $discordBotEnabled = (bool) config('services.discord.bot_enabled');
-        $hasDiscordAccount = $discordBotEnabled && in_array('discord', $connectedProviders);
+        $hasDiscordAccount = in_array('discord', $connectedProviders);
         $discordClientId = config('services.discord.client_id');
-        $discordBotInstallUrl = $discordBotEnabled && $discordClientId
+        $discordBotInstallUrl = $discordClientId
             ? "https://discord.com/oauth2/authorize?client_id={$discordClientId}&integration_type=1&scope=applications.commands"
             : null;
 
@@ -188,11 +187,11 @@ class DashboardController extends Controller
                 'discord_notifications_enabled' => $notificationPreferences->discord_notifications_enabled,
                 'notification_digest' => $notificationPreferences->notification_digest,
             ],
-            'discordInfo' => $discordBotEnabled ? [
+            'discordInfo' => [
                 'hasAccount' => $hasDiscordAccount,
                 'botInstallUrl' => $discordBotInstallUrl,
                 'lastNotification' => $lastDiscordNotification,
-            ] : null,
+            ],
             'recentRequests' => $recentRequests,
             'ignoredGames' => $ignoredGames,
             'ignoredGamesCount' => $ignoredGamesCount,

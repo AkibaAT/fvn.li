@@ -91,6 +91,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             showFree: false,
             showDemo: false,
             showSale: false,
+            delisted: false,
             noDefaults: true,
         });
     };
@@ -112,6 +113,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             showFree,
             showDemo,
             showSale,
+            delisted,
         } = getCurrentFilters();
 
         return Boolean(
@@ -129,7 +131,8 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             showPaid ||
             showFree ||
             showDemo ||
-            showSale,
+            showSale ||
+            delisted,
         );
     };
 
@@ -254,53 +257,19 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
                 label: 'On Sale',
                 onClear: () => updateFilters({ showSale: false }),
             });
+        if (getCurrentFilters().delisted)
+            chips.push({
+                key: 'delisted',
+                type: 'delisted',
+                label: 'Delisted',
+                onClear: () => updateFilters({ delisted: false }),
+            });
 
         return chips;
     };
 
     const getActiveFilterCount = () => {
         return buildActiveFilterChips().length;
-    };
-
-    const getChipColorClass = (type?: string) => {
-        switch (type) {
-            case 'search':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-            case 'status':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-            case 'platform':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-            case 'language':
-                return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
-            case 'engine':
-                return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
-            case 'tag':
-                return 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300';
-            case 'gameJam':
-                return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-            case 'sfw':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-            case 'nsfw':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-            case 'free':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-            case 'paid':
-                return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
-            case 'demo':
-                return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
-            case 'sale':
-                return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
-            case 'excludeTag':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-            case 'readingTime':
-                return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300';
-            case 'delisted':
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-            case 'hidden':
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-            default:
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-        }
     };
 
     return {
@@ -310,6 +279,5 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
         hasActiveFilters,
         buildActiveFilterChips,
         getActiveFilterCount,
-        getChipColorClass,
     };
 }

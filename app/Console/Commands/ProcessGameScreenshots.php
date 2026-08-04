@@ -107,7 +107,7 @@ class ProcessGameScreenshots extends Command
 
                 try {
                     $this->processGameScreenshots($game);
-                    $this->info('✓ Screenshots processed successfully');
+                    $this->info('Screenshots processed successfully');
                 } catch (Exception $e) {
                     $this->error("Error processing screenshots: {$e->getMessage()}");
                     Log::error('Screenshot processing failed', [
@@ -125,7 +125,7 @@ class ProcessGameScreenshots extends Command
 
             return 0;
         } catch (Exception $e) {
-            $this->error("Error: {$e->getMessage()}");
+            $this->error("{$e->getMessage()}");
             Log::error('Screenshot processing command failed', [
                 'error' => $e->getMessage(),
                 'exception' => $e,

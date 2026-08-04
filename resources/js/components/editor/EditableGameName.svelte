@@ -133,7 +133,7 @@
             bind:value={editName}
             onkeydown={handleKeyPress}
             disabled={isSaving}
-            class="min-w-0 flex-1 rounded border-2 border-blue-300 bg-white px-2 py-1 text-2xl font-bold break-words text-gray-900 focus:border-blue-500 focus:outline-none dark:bg-gray-700 dark:text-gray-100"
+            class="min-w-0 flex-1 rounded border-2 border-blue-300 bg-white px-2 py-1 text-3xl font-bold tracking-tight break-words text-gray-900 focus:border-blue-500 focus:outline-none dark:bg-gray-700 dark:text-white"
             use:focusOnMount
             maxlength={255}
         />
@@ -165,7 +165,7 @@
             <span class="text-sm whitespace-nowrap text-red-600">Error</span>
         {/if}
     {:else}
-        <h1 class="min-w-0 text-2xl font-bold break-words text-gray-900 dark:text-gray-100">
+        <h1 class="min-w-0 text-3xl font-bold tracking-tight break-words text-gray-900 dark:text-white">
             {renderedName}
         </h1>
         {#if canEdit && !previewingVisitorView}

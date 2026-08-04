@@ -62,6 +62,10 @@ async function gotoAuthenticatedWithAppearance(page: Page, path: string, appeara
 }
 
 async function scanAndAssert(page: Page, reportName: string) {
+    const pageTitle = page.getByRole('heading', { level: 1 });
+    await expect(pageTitle).toHaveCount(1);
+    await expect(pageTitle).toBeVisible();
+
     await assertStructuredHeadings(page, reportName);
     await assertVisibleImagesHaveAltText(page, reportName);
 
@@ -131,7 +135,7 @@ test.describe('Accessibility Scans @accessibility', () => {
         { name: 'lists-authenticated', path: '/lists' },
         { name: 'lists-create-authenticated', path: '/lists/create' },
         { name: 'my-games-authenticated', path: '/my/games' },
-        { name: 'system-status-authenticated', path: '/system/status' },
+        { name: 'system-status', path: '/system/status' },
     ] as const;
 
     for (const pageInfo of authenticatedPagesToScan) {
@@ -243,13 +247,9 @@ test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
         await expect(mainContent).toBeFocused();
 
         await page.keyboard.press('Tab');
-        await expectStrongFocusIndicator(page.locator('.hero-section a:has-text("Explore Library")'));
-
-        await page.keyboard.press('Tab');
-        await expect(page.locator('.hero-section a:has-text("Log In")')).toBeFocused();
-
-        await page.keyboard.press('Tab');
-        await expect(page.locator('section:has(h2:has-text("Recently Added")) a:has-text("View all")')).toBeFocused();
+        const recentlyAddedViewAll = page.locator('section:has(h2:has-text("Recently Added")) a:has-text("View all")');
+        await expect(recentlyAddedViewAll).toBeFocused();
+        await expectStrongFocusIndicator(recentlyAddedViewAll);
     });
 
     test('Games page keyboard navigation', async ({ page }) => {

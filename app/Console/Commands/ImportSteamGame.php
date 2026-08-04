@@ -108,7 +108,7 @@ class ImportSteamGame extends Command
                 'content_type' => $contentType,
             ]);
 
-            $this->info("✓ Game record created (ID: {$game->id})");
+            $this->info("Game record created (ID: {$game->id})");
 
             // Fetch full details from Steam
             $this->info('Fetching game data from Steam...');
@@ -118,7 +118,7 @@ class ImportSteamGame extends Command
             $game->slug = null;
             $game->save();
 
-            $this->info('✓ Game data fetched and saved successfully');
+            $this->info('Game data fetched and saved successfully');
 
             DB::commit();
 
@@ -151,7 +151,7 @@ class ImportSteamGame extends Command
                     $stats = $this->steamReviewService->syncAllReviews($game);
                     $this->steamReviewService->updateGameRatingStats($game);
 
-                    $this->info('✓ Reviews imported successfully');
+                    $this->info('Reviews imported successfully');
                     $this->table(
                         ['Metric', 'Count'],
                         [

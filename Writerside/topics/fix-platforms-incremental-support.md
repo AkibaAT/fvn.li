@@ -92,16 +92,16 @@ Game: Example Visual Novel (ID: 123)
 ┌─────────┬────────┬─────┬───────┬─────┬─────────┬─────┬───────────┐
 │ Version │ Latest │ Win │ Linux │ Mac │ Android │ Web │ Missing   │
 ├─────────┼────────┼─────┼───────┼─────┼─────────┼─────┼───────────┤
-│ 1.0     │        │ ✓   │ ✓     │     │         │     │           │
-│ 1.1     │        │ ✓   │ ✓     │ ✓   │         │     │           │
-│ 1.2     │ ✓      │ ✓   │ ✗     │ ✓   │ ✓       │     │ Linux     │
+│ 1.0     │        │ Yes │ Yes   │     │         │     │           │
+│ 1.1     │        │ Yes │ Yes   │ Yes │         │     │           │
+│ 1.2     │ Latest │ Yes │ Missing │ Yes │ Yes     │     │ Linux     │
 └─────────┴────────┴─────┴───────┴─────┴─────────┴─────┴───────────┘
 ```
 
 ### Legend
 
-- **✓** - Platform supported
-- **✗** - Platform missing (should be supported based on previous versions)
+- **Yes** - Platform supported
+- **Missing** - Platform missing (should be supported based on previous versions)
 - **Latest** - Indicates the current latest version
 - **Missing** - Lists platforms that should be supported but aren't
 

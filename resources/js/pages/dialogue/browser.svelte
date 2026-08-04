@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import Pagination from '@/components/Pagination.svelte';
     import WordCloud from '@/components/WordCloud.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import {
         fetchDialogueOptions,
         fetchDialogueVersionStats,
@@ -12,7 +13,7 @@
         type DuplicateItem,
     } from '@/hooks/api';
     import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
-    import { Link, page } from '@inertiajs/svelte';
+    import { page } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
 
     type InitialProps = {
@@ -262,25 +263,14 @@
 
 <div class="bg-gray-100 dark:bg-gray-900">
     <div class="mx-auto max-w-7xl">
-        <div class="sticky top-0 z-10 mb-4 flex items-center justify-between bg-gray-100 py-4 dark:bg-gray-900">
-            <Link
-                href={route('games.show', gameSlug)}
-                class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-            >
-                <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to {gameName}
-            </Link>
-        </div>
+        <PageHeader
+            title={`Dialogue Browser - ${gameName}`}
+            backHref={route('games.show', gameSlug)}
+            backLabel={`Back to ${gameName}`}
+            class="mb-6"
+        />
 
         <Card padding="lg" class="mb-6">
-            <div class="mb-4 flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    Dialogue Browser - {gameName}
-                </h1>
-            </div>
-
             <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                     <label for="version-select" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"> Version </label>

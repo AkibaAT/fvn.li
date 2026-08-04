@@ -54,7 +54,7 @@ test.describe('Heading Structure @accessibility', () => {
         { name: 'lists-authenticated', path: '/lists' },
         { name: 'lists-create-authenticated', path: '/lists/create' },
         { name: 'my-games-authenticated', path: '/my/games' },
-        { name: 'system-status-authenticated', path: '/system/status' },
+        { name: 'system-status', path: '/system/status' },
     ] as const;
 
     for (const pageInfo of authenticatedPages) {

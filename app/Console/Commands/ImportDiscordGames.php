@@ -67,7 +67,7 @@ class ImportDiscordGames extends Command
                     $created++;
                 }
 
-                $this->line("✓ Processed: {$data['Name']}");
+                $this->line("Processed: {$data['Name']}");
             } catch (Exception $e) {
                 $this->error("Error processing {$file->getFilename()}: {$e->getMessage()}");
                 $errors++;

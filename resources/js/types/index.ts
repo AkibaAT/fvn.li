@@ -9,7 +9,7 @@ export interface SharedData {
     quote: { message: string; author: string };
     auth: Auth;
     features: {
-        discordBot: boolean;
+        discordServerBot: boolean;
     };
     ziggy: Config & { location: string };
     sidebarOpen: boolean;

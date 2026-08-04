@@ -9,42 +9,42 @@ export interface StatusConfig {
 export const listStatusConfig: Record<string, StatusConfig> = {
     reading: {
         color: 'blue',
-        icon: '📖',
+        icon: 'icon-book',
         label: 'Reading',
         pattern: 'solid',
         shape: 'rounded',
     },
     completed: {
         color: 'green',
-        icon: '✅',
+        icon: 'icon-check-circle',
         label: 'Completed',
         pattern: 'solid',
         shape: 'rounded',
     },
     plan_to_read: {
         color: 'yellow',
-        icon: '📋',
+        icon: 'icon-paste',
         label: 'Plan to Read',
         pattern: 'dashed',
         shape: 'rounded',
     },
     on_hold: {
         color: 'orange',
-        icon: '⏸️',
+        icon: 'icon-bookmark',
         label: 'On Hold',
         pattern: 'dotted',
         shape: 'rounded',
     },
     dropped: {
         color: 'red',
-        icon: '❌',
+        icon: 'icon-cross-circle',
         label: 'Dropped',
         pattern: 'solid',
         shape: 'square',
     },
     custom: {
         color: 'gray',
-        icon: '📝',
+        icon: 'icon-paste',
         label: 'Custom',
         pattern: 'solid',
         shape: 'rounded',
@@ -54,12 +54,12 @@ export const listStatusConfig: Record<string, StatusConfig> = {
 export const notificationStatusConfig = {
     enabled: {
         color: 'blue' as const,
-        icon: '🔔',
+        icon: 'icon-bell',
         label: 'Notifications enabled',
     },
     disabled: {
         color: 'gray' as const,
-        icon: '🔕',
+        icon: 'icon-bell',
         label: 'Notifications disabled',
     },
 };
@@ -67,28 +67,28 @@ export const notificationStatusConfig = {
 export const gameStatusConfig = {
     nsfw: {
         color: 'red' as const,
-        icon: '🔞',
+        icon: 'icon-alert',
         label: 'NSFW Content',
         pattern: 'solid' as const,
         shape: 'pill' as const,
     },
     paid: {
         color: 'indigo' as const,
-        icon: '💰',
+        icon: 'icon-currency-circle-dollar',
         label: 'Paid Game',
         pattern: 'solid' as const,
         shape: 'pill' as const,
     },
     demo: {
         color: 'blue' as const,
-        icon: '🎮',
+        icon: 'icon-gamepad-2',
         label: 'Demo Available',
         pattern: 'dashed' as const,
         shape: 'pill' as const,
     },
     update_available: {
         color: 'yellow' as const,
-        icon: '🆙',
+        icon: 'icon-alert',
         label: 'Update Available',
         pattern: 'solid' as const,
         shape: 'rounded' as const,
@@ -98,22 +98,22 @@ export const gameStatusConfig = {
 export const alertStatusConfig = {
     success: {
         color: 'green' as const,
-        icon: '✅',
+        icon: 'icon-check-circle',
         label: 'Success',
     },
     error: {
         color: 'red' as const,
-        icon: '❌',
+        icon: 'icon-cross-circle',
         label: 'Error',
     },
     warning: {
         color: 'yellow' as const,
-        icon: '⚠️',
+        icon: 'icon-alert',
         label: 'Warning',
     },
     info: {
         color: 'blue' as const,
-        icon: 'ℹ️',
+        icon: 'icon-info',
         label: 'Information',
     },
 };

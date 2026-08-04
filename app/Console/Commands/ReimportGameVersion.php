@@ -161,7 +161,7 @@ class ReimportGameVersion extends Command
                                 // Drop the extracted document before the next version.
                                 $stats->release();
                             }
-                            $this->info('✓ Statistics saved successfully');
+                            $this->info('Statistics saved successfully');
                         } else {
                             $this->warn('No statistics could be extracted from the archive');
                         }

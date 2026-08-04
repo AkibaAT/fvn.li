@@ -2,6 +2,7 @@
     import ItchioIcon from '@/components/icons/Itchio.svelte';
     import { Card } from '@/components/ui';
     import { Link } from '@inertiajs/svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     let error = $state<string | null>(null);
     const title = 'Completing itch.io Login';
@@ -26,9 +27,7 @@
 
 <div class="flex min-h-[60vh] items-center justify-center">
     <Card padding="lg" class="w-full max-w-md text-center shadow-md">
-        <h2 class="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">
-            {title}
-        </h2>
+        <PageHeader {title} align="center" class="mb-6" />
 
         {#if !error}
             <div class="flex flex-col items-center justify-center space-y-4">

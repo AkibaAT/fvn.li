@@ -4,9 +4,9 @@
     import StatsOverview from '@/components/admin/StatsOverview.svelte';
     import TasksList from '@/components/admin/TasksList.svelte';
     import TasksSummary from '@/components/admin/TasksSummary.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
-    import { Link } from '@inertiajs/svelte';
 
     interface GameStats {
         total: number;
@@ -76,8 +76,8 @@
         gameStats: GameStats;
         ratingStats: RatingStats;
         releaseYearStats: ReleaseYearStats;
-        healthSummary: HealthSummary;
-        monitoredTasks: MonitoredTask[];
+        healthSummary?: HealthSummary;
+        monitoredTasks?: MonitoredTask[];
         metaTags?: MetaTags;
     }
 
@@ -90,26 +90,17 @@
     <title>System Status</title>
 </svelte:head>
 
-<div class="bg-gray-100 dark:bg-gray-900">
-    <div class="sticky top-0 z-10 mb-4 flex items-center justify-between bg-gray-100 py-4 dark:bg-gray-900">
-        <Link
-            href={route('games.index')}
-            class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-        >
-            <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Game List
-        </Link>
-    </div>
-
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">System Status</h1>
-    </div>
+<div class="space-y-10">
+    <PageHeader title="System Status" class="mb-0" />
 
     <StatsOverview {gameStats} {ratingStats} />
     <RatingTrends {ratingStats} />
     <ReleaseYearDistribution {releaseYearStats} />
-    <TasksSummary {healthSummary} />
-    <TasksList {monitoredTasks} />
+    {#if healthSummary && monitoredTasks}
+        <section class="space-y-6 border-t border-gray-200 pt-10 dark:border-gray-800">
+            <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Scheduled tasks</h2>
+            <TasksSummary {healthSummary} />
+            <TasksList {monitoredTasks} />
+        </section>
+    {/if}
 </div>

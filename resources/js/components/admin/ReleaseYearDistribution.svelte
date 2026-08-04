@@ -153,15 +153,15 @@
     });
 </script>
 
-<Card class="mb-6">
-    <div class="space-y-8">
-        <div>
-            <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed Games by Release Year</h2>
-            <div class="relative h-[300px] w-full">
-                {#if ChartComponent}
-                    <ChartComponent type="bar" data={chartData} options={chartOptions} style="height: 300px; width: 100%" />
-                {/if}
-            </div>
+<section class="space-y-6">
+    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Release years</h2>
+
+    <Card variant="outline" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
+        <h3 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed games by release year</h3>
+        <div class="relative h-[300px] w-full">
+            {#if ChartComponent}
+                <ChartComponent type="bar" data={chartData} options={chartOptions} style="height: 300px; width: 100%" />
+            {/if}
         </div>
-    </div>
-</Card>
+    </Card>
+</section>

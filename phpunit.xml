@@ -49,7 +49,7 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
         <env name="DB_DATABASE" value="db_test"/>
-        <env name="DISCORD_BOT_ENABLED" value="true"/>
+        <env name="DISCORD_SERVER_BOT_ENABLED" value="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="MEILISEARCH_HOST" value="http://meilisearch-test:7700"/>
         <env name="MEILISEARCH_KEY" value="dev-master-key-change-in-production"/>

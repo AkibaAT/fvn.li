@@ -2,6 +2,7 @@
     import ItchioIcon from '@/components/icons/Itchio.svelte';
     import SteamIcon from '@/components/icons/Steam.svelte';
     import { Link } from '@inertiajs/svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface Props {
         metaTags?: {
@@ -30,10 +31,7 @@
             class="overflow-hidden border border-gray-200/50 bg-white/70 shadow-lg backdrop-blur-xl sm:rounded-2xl dark:border-gray-700/50 dark:bg-gray-800/70"
         >
             <div class="p-6 text-gray-900 dark:text-gray-100">
-                <div class="mb-6 text-center">
-                    <h1 class="mb-2 text-2xl font-bold text-blue-600">Welcome to FVN.li</h1>
-                    <p class="text-gray-600 dark:text-gray-400">Log in to manage your visual novel collections</p>
-                </div>
+                <PageHeader title="Welcome to FVN.li" description="Log in to manage your visual novel collections" align="center" class="mb-6" />
 
                 <div class="space-y-3">
                     <label
@@ -110,7 +108,7 @@
                         href={route('home')}
                         class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     >
-                        &larr; Back to home
+                        Back to home
                     </Link>
                 </div>
             </div>

@@ -5,6 +5,7 @@
     import AdditionsTab from '@/components/dashboard/AdditionsTab.svelte';
     import MyGamesTab from '@/components/dashboard/MyGamesTab.svelte';
     import SearchPreferencesTab from '@/components/dashboard/SearchPreferencesTab.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import { authenticatedFetch } from '@/utils/csrf';
     import { toast } from '@/utils/toast';
     import { Link } from '@inertiajs/svelte';
@@ -65,7 +66,7 @@
     }
 
     interface DashboardProps {
-        features: { discordBot: boolean };
+        features: { discordServerBot: boolean };
         user: User;
         connectedProviders: string[];
         socialAccounts: Record<string, SocialAccount>;
@@ -97,7 +98,6 @@
     }
 
     let {
-        features,
         user,
         connectedProviders,
         socialAccounts,
@@ -129,19 +129,11 @@
     // --- Tab state ---
     type Tab = 'account' | 'my-games' | 'additions' | 'search';
     const hasItchio = $derived(!!itchioData?.username);
-    const allTabs: { id: Tab; label: string; icon: string; condition?: boolean }[] = [
-        { id: 'account', label: 'Account', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-        {
-            id: 'my-games',
-            label: 'My Games',
-            icon: 'M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.657-.663 47.703 47.703 0 00-.31-4.82 48.1 48.1 0 00-5.202.24.64.64 0 01-.657-.643v0z',
-        },
-        { id: 'additions', label: 'VN Additions', icon: 'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z' },
-        {
-            id: 'search',
-            label: 'Search Preferences',
-            icon: 'M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z',
-        },
+    const allTabs: { id: Tab; label: string; condition?: boolean }[] = [
+        { id: 'account', label: 'Account' },
+        { id: 'my-games', label: 'My Games' },
+        { id: 'additions', label: 'VN Additions' },
+        { id: 'search', label: 'Search Preferences' },
     ];
     const tabs = $derived(allTabs.filter((t) => t.condition !== false));
 
@@ -242,9 +234,7 @@
     <title>{metaTags?.title || 'Dashboard'}</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{metaTags?.title || 'Dashboard'}</h1>
-</div>
+<PageHeader title={metaTags?.title || 'Dashboard'} class="mb-6" />
 
 <!-- Tab Navigation -->
 <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
@@ -255,15 +245,12 @@
                 variant="link"
                 tone="info"
                 onclick={() => setTab(tab.id)}
-                class="flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
+                class="border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
                     ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}"
                 aria-selected={activeTab === tab.id}
                 role="tab"
             >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-                    ><path stroke-linecap="round" stroke-linejoin="round" d={tab.icon} /></svg
-                >
                 {tab.label}
             </Button>
         {/each}
@@ -304,30 +291,14 @@
                             variant="solid"
                             tone="primary"
                             onclick={handleExportData}
-                            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                            class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
                         >
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                ><path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                                /></svg
-                            >
                             Export My Data
                         </Button>
                         <Link
                             href={route('users.reviews', user.id)}
-                            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                         >
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                ><path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                                /></svg
-                            >
                             My Reviews
                         </Link>
                     </div>
@@ -378,7 +349,7 @@
                         </div>
                     </div>
 
-                    {#if features.discordBot && discordInfo?.hasAccount}
+                    {#if discordInfo?.hasAccount}
                         <div class="flex items-center gap-4">
                             <div class="flex-grow">
                                 <div class="font-medium text-gray-700 dark:text-gray-300">Discord Notifications</div>
@@ -439,7 +410,7 @@
                         <div class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Notification Frequency</div>
                         <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">Choose how often you'd like to receive update notifications.</div>
                         <div class="grid grid-cols-3 gap-3">
-                            {#each [{ value: 'asap', label: 'As soon as possible', desc: 'Get notified immediately when games are updated', icon: 'icon-bell' }, { value: 'daily', label: 'Daily digest', desc: 'Get a summary of all updates once per day', icon: 'icon-paste' }, { value: 'weekly', label: 'Weekly digest', desc: 'Get a summary of all updates once per week', icon: 'icon-paste' }] as freq (freq.value)}
+                            {#each [{ value: 'asap', label: 'As soon as possible', desc: 'Get notified immediately when games are updated' }, { value: 'daily', label: 'Daily digest', desc: 'Get a summary of all updates once per day' }, { value: 'weekly', label: 'Weekly digest', desc: 'Get a summary of all updates once per week' }] as freq (freq.value)}
                                 <Button
                                     type="button"
                                     variant={notifPrefs.notification_digest === freq.value ? 'outline' : 'outline'}
@@ -450,18 +421,8 @@
                                         ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/20'
                                         : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'}"
                                 >
-                                    <div class="flex w-full items-center justify-between">
-                                        <div>
-                                            <div class="font-medium text-gray-900 dark:text-white">{freq.label}</div>
-                                            <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">{freq.desc}</div>
-                                        </div>
-                                        <i
-                                            class="shrink-0 text-xl {freq.icon} {notifPrefs.notification_digest === freq.value
-                                                ? 'text-indigo-600 dark:text-indigo-400'
-                                                : 'text-gray-400 dark:text-gray-500'}"
-                                            aria-hidden="true"
-                                        ></i>
-                                    </div>
+                                    <div class="font-medium text-gray-900 dark:text-white">{freq.label}</div>
+                                    <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">{freq.desc}</div>
                                 </Button>
                             {/each}
                         </div>

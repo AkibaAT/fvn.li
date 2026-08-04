@@ -52,11 +52,11 @@ export default defineConfig({
         alias: [
             {
                 find: /~(.+)/,
-                replacement: resolve(__dirname, 'node_modules/$1'),
+                replacement: resolve(import.meta.dirname, 'node_modules/$1'),
             },
             {
                 find: 'ziggy-js',
-                replacement: resolve(__dirname, 'vendor/tightenco/ziggy'),
+                replacement: resolve(import.meta.dirname, 'vendor/tightenco/ziggy'),
             },
         ],
     },

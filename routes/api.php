@@ -30,19 +30,19 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 // Discord bot game search
-Route::middleware(['discord.bot.enabled', 'auth:sanctum', 'sanctum.token:discord-bot'])->prefix('discord')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('discord')->group(function () {
     Route::post('search', [DiscordBotController::class, 'searchGames']);
 });
 
 // Bot API routes (for migration and ongoing integration)
-Route::middleware(['discord.bot.enabled', 'auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot')->group(function () {
     Route::post('find-by-url', [DiscordBotController::class, 'findByUrl']);
     Route::post('bulk-find-by-url', [DiscordBotController::class, 'bulkFindByUrl']);
     Route::get('games/{id}', [DiscordBotController::class, 'getGame']);
 });
 
 // Discord notification routes (per-user DMs, channel announcements, admin alerts)
-Route::middleware(['discord.bot.enabled', 'auth:sanctum', 'sanctum.token:discord-notifications'])->prefix('discord-notifications')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-notifications'])->prefix('discord-notifications')->group(function () {
     Route::get('pending', [DiscordNotificationsController::class, 'getPendingNotifications']);
     Route::post('status', [DiscordNotificationsController::class, 'recordDeliveryStatus']);
     Route::get('channel-updates', [DiscordNotificationsController::class, 'getChannelUpdates']);
@@ -60,7 +60,7 @@ Route::middleware(['auth:sanctum', 'sanctum.token:notifications'])->prefix('noti
 // Push notification subscription routes moved to browser-api (session-based)
 
 // Multi-server Discord management routes
-Route::middleware(['discord.bot.enabled', 'auth:sanctum'])->prefix('discord-servers')->group(function () {
+Route::middleware(['discord.server-bot.enabled', 'auth:sanctum'])->prefix('discord-servers')->group(function () {
     // Server management
     Route::post('register', [DiscordServerController::class, 'register']);
     Route::get('', [DiscordServerController::class, 'index']);
@@ -95,7 +95,7 @@ Route::middleware(['discord.bot.enabled', 'auth:sanctum'])->prefix('discord-serv
 });
 
 // Bot-facing server notification delivery
-Route::middleware(['discord.bot.enabled', 'auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot/servers')->group(function () {
+Route::middleware(['discord.server-bot.enabled', 'auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot/servers')->group(function () {
     Route::get('pending-notifications', [DiscordBotServerController::class, 'pendingNotifications']);
     Route::post('notifications/{notification}/delivered', [DiscordBotServerController::class, 'markDelivered']);
     Route::post('notifications/{notification}/failed', [DiscordBotServerController::class, 'markFailed']);

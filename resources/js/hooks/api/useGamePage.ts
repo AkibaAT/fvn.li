@@ -108,6 +108,7 @@ export async function fetchReviews(gameId: number, params: ReviewsParams): Promi
             selectedRating: params.selectedRating,
             perPage: params.perPage,
             page: params.page,
+            _refresh: Date.now(),
         },
     });
 

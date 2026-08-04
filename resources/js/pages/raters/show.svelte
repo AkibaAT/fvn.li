@@ -7,6 +7,7 @@
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
     import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     type Rater = {
         id: number;
@@ -231,20 +232,7 @@
 
 <SeoHead {metaTags} />
 <div class="space-y-6">
-    <!-- Header -->
-    <div class="sticky top-0 z-10 bg-gray-100 py-4 dark:bg-gray-900">
-        <div class="mx-auto max-w-6xl px-4">
-            <Link
-                href={route('ratings.index')}
-                class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-            >
-                <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-            </Link>
-        </div>
-    </div>
+    <PageHeader title={`${rater.name}'s Ratings`} backHref={route('ratings.index')} backLabel="Back to Ratings" class="mb-0" />
 
     <!-- Stats -->
     <Card padding="lg">

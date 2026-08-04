@@ -30,7 +30,7 @@ class MeilisearchDebug extends Command
      */
     public function handle(): int
     {
-        $this->info('🔍 Meilisearch Debug Information');
+        $this->info('  Meilisearch Debug Information');
         $this->newLine();
 
         // 1. Check connection
@@ -57,21 +57,21 @@ class MeilisearchDebug extends Command
 
     private function checkConnection(): void
     {
-        $this->info('1️⃣  Connection Check');
+        $this->info('1.  Connection Check');
         try {
             $client = app(Client::class);
             $health = $client->health();
             $this->line("   Status: {$health['status']}");
-            $this->info('   ✅ Connected');
+            $this->info('   Success: Connected');
         } catch (Exception $e) {
-            $this->error("   ❌ Connection failed: {$e->getMessage()}");
+            $this->error("   Error: Connection failed: {$e->getMessage()}");
         }
         $this->newLine();
     }
 
     private function checkIndexStats(): void
     {
-        $this->info('2️⃣  Index Statistics');
+        $this->info('2.  Index Statistics');
         try {
             $client = app(Client::class);
             $index = $client->index('games');
@@ -81,19 +81,19 @@ class MeilisearchDebug extends Command
             $this->line('   Is indexing: ' . ($stats['isIndexing'] ? 'Yes' : 'No'));
 
             if ($stats['numberOfDocuments'] === 0) {
-                $this->warn('   ⚠️  Index is empty!');
+                $this->warn('   Warning: Index is empty!');
             } else {
-                $this->info('   ✅ Index has documents');
+                $this->info('   Success: Index has documents');
             }
         } catch (Exception $e) {
-            $this->error("   ❌ Failed to get stats: {$e->getMessage()}");
+            $this->error("   Error: Failed to get stats: {$e->getMessage()}");
         }
         $this->newLine();
     }
 
     private function checkIndexSettings(): void
     {
-        $this->info('3️⃣  Index Settings');
+        $this->info('3.  Index Settings');
         try {
             $client = app(Client::class);
             $index = $client->index('games');
@@ -116,16 +116,16 @@ class MeilisearchDebug extends Command
                 $this->line("     • {$attr}");
             }
 
-            $this->info('   ✅ Settings retrieved');
+            $this->info('   Success: Settings retrieved');
         } catch (Exception $e) {
-            $this->error("   ❌ Failed to get settings: {$e->getMessage()}");
+            $this->error("   Error: Failed to get settings: {$e->getMessage()}");
         }
         $this->newLine();
     }
 
     private function checkSampleDocuments(): void
     {
-        $this->info('4️⃣  Sample Documents');
+        $this->info('4.  Sample Documents');
         try {
             $client = app(Client::class);
             $index = $client->index('games');
@@ -135,7 +135,7 @@ class MeilisearchDebug extends Command
             $hits = $results->getHits();
 
             if (empty($hits)) {
-                $this->warn('   ⚠️  No documents found in index');
+                $this->warn('   Warning: No documents found in index');
 
                 return;
             }
@@ -150,16 +150,16 @@ class MeilisearchDebug extends Command
                 $this->newLine();
             }
 
-            $this->info('   ✅ Sample documents retrieved');
+            $this->info('   Success: Sample documents retrieved');
         } catch (Exception $e) {
-            $this->error("   ❌ Failed to get documents: {$e->getMessage()}");
+            $this->error("   Error: Failed to get documents: {$e->getMessage()}");
         }
         $this->newLine();
     }
 
     private function testSearch(string $query): void
     {
-        $this->info("5️⃣  Test Search (query: '{$query}')");
+        $this->info("5.  Test Search (query: '{$query}')");
 
         try {
             // Test via Scout
@@ -188,7 +188,7 @@ class MeilisearchDebug extends Command
                     $this->line("     • {$game->name} (ID: {$game->id})");
                 }
             } else {
-                $this->warn('     ⚠️  No results with is_visible=true filter!');
+                $this->warn('     Warning: No results with is_visible=true filter!');
             }
 
             $this->newLine();
@@ -211,12 +211,12 @@ class MeilisearchDebug extends Command
                     $this->line("     • {$hit['name']} (ID: {$hit['id']})");
                 }
             } else {
-                $this->warn('     ⚠️  No results from direct API call!');
+                $this->warn('     Warning: No results from direct API call!');
             }
 
-            $this->info('   ✅ Search test completed');
+            $this->info('   Success: Search test completed');
         } catch (Exception $e) {
-            $this->error("   ❌ Search failed: {$e->getMessage()}");
+            $this->error("   Error: Search failed: {$e->getMessage()}");
             $this->line("   Trace: {$e->getTraceAsString()}");
         }
         $this->newLine();
@@ -224,7 +224,7 @@ class MeilisearchDebug extends Command
 
     private function compareDatabaseCounts(): void
     {
-        $this->info('6️⃣  Database vs Index Comparison');
+        $this->info('6.  Database vs Index Comparison');
 
         try {
             // Database counts
@@ -254,13 +254,13 @@ class MeilisearchDebug extends Command
 
             $this->newLine();
             if ($dbVisible !== $visibleInIndex->getEstimatedTotalHits()) {
-                $this->warn("   ⚠️  Mismatch! Database has {$dbVisible} visible games but index has {$visibleInIndex->getEstimatedTotalHits()}");
+                $this->warn("   Warning: Mismatch! Database has {$dbVisible} visible games but index has {$visibleInIndex->getEstimatedTotalHits()}");
                 $this->line('   Consider running: php artisan meilisearch:setup --force');
             } else {
-                $this->info('   ✅ Counts match!');
+                $this->info('   Success: Counts match!');
             }
         } catch (Exception $e) {
-            $this->error("   ❌ Comparison failed: {$e->getMessage()}");
+            $this->error("   Error: Comparison failed: {$e->getMessage()}");
         }
     }
 }

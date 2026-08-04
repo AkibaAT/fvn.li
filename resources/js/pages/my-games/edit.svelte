@@ -1,5 +1,6 @@
 <script lang="ts">
     import GameStats from '@/components/GameStats.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import { notify } from '@/components/Toast.svelte';
     import { Button, Card } from '@/components/ui';
     import { authenticatedFetch } from '@/utils/csrf';
@@ -134,19 +135,14 @@
 </svelte:head>
 
 <div class="space-y-8">
-    <!-- Header -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-blue-600">Edit {game.name}</h1>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage download links and view analytics for your game</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <Button href={route('my-games.index')} variant="outline" tone="neutral">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to My Games
-            </Button>
+    <PageHeader
+        title={`Edit ${game.name}`}
+        description="Manage download links and view analytics for your game"
+        backHref={route('my-games.index')}
+        backLabel="Back to My Games"
+        class="mb-0"
+    >
+        {#snippet actions()}
             <Button onclick={save} disabled={saving} loading={saving}>
                 {#if !saving}
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,8 +151,8 @@
                 {/if}
                 {saving ? 'Saving...' : 'Save Changes'}
             </Button>
-        </div>
-    </div>
+        {/snippet}
+    </PageHeader>
 
     <!-- Links Editor -->
     <Card variant="glass">

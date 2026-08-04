@@ -94,14 +94,6 @@
                         href={route('dialogue.browser', { game: gameSlug, versionId: latestVersion.id })}
                         class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
                     >
-                        <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                            />
-                        </svg>
                         Browse Dialogue
                     </a>
                 {/if}
@@ -110,9 +102,6 @@
                         href={route('games.route-map', { game: gameSlug })}
                         class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition hover:bg-gray-50 focus:border-gray-500 focus:ring focus:ring-gray-300 focus:outline-none active:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                     >
-                        <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
                         Route Map
                     </a>
                 {/if}
@@ -231,11 +220,8 @@
                         {#if versionHasRouteData[version.id] === true || version.has_route_data === true}
                             <a
                                 href={route('games.route-map', { game: gameSlug }) + '?version_id=' + version.id}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                                class="inline-flex items-center text-sm text-blue-600 hover:underline dark:text-blue-400"
                             >
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
                                 Route Map
                             </a>
                         {/if}

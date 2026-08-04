@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import { Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface Props {
         metaTags?: {
@@ -45,9 +46,7 @@
 
 <div class="flex min-h-[70vh] items-center justify-center">
     <Card padding="lg" class="w-full max-w-md text-center shadow-md">
-        <h2 class="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">
-            {title}
-        </h2>
+        <PageHeader {title} align="center" class="mb-6" />
 
         <div class="flex justify-center" bind:this={widgetContainer}></div>
 

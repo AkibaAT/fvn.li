@@ -195,7 +195,6 @@ Route::get('lists/{vnList}', [VnListPageController::class, 'listShow'])
 
 // System Status
 Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
-    ->middleware(['auth', 'admin'])
     ->name('system.status');
 
 // Social Authentication Routes
@@ -255,7 +254,7 @@ Route::middleware('auth')->group(function () {
     Route::get('my/games/{game:slug}/versions/{version}/optimized/download', [MyGamesController::class, 'downloadOptimizedArchive'])->name('my-games.optimized-download');
 });
 
-Route::middleware(['auth', 'discord.bot.enabled'])->group(function () {
+Route::middleware(['auth', 'discord.server-bot.enabled'])->group(function () {
     Route::get('discord', fn () => Inertia::render('dashboard/discord/index'))->name('dashboard.discord.index');
     Route::get('discord/install/callback', [DiscordConfigController::class, 'handleBotInstallCallback'])->name('dashboard.discord.install.callback');
     Route::get('discord/install/{guild}', [DiscordConfigController::class, 'redirectToBotInstall'])->name('dashboard.discord.install');

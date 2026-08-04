@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import { Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface NotificationHistory {
         id: number;
@@ -52,26 +53,13 @@
 </svelte:head>
 
 <div class="space-y-8">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-blue-600">Notification Digest</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">
-                Notifications for {formattedDate}
-            </p>
-        </div>
-        <div class="mt-4 sm:mt-0">
-            <Link
-                href={route('dashboard')}
-                class="inline-flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-            >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Back to Dashboard</span>
-            </Link>
-        </div>
-    </div>
+    <PageHeader
+        title="Notification Digest"
+        description={`Notifications for ${formattedDate}`}
+        backHref={route('dashboard')}
+        backLabel="Back to Dashboard"
+        class="mb-0"
+    />
 
     <!-- Notifications Content -->
     <Card variant="glass" padding="lg" class="shadow-none">
@@ -109,15 +97,7 @@
             </div>
         {:else}
             <div class="py-12 text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                    />
-                </svg>
-                <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">No Notifications</h3>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">No Notifications</h3>
                 <p class="mt-1 text-gray-500 dark:text-gray-400">
                     {hasAnyNotifications ? "You don't have any notifications for this date." : 'There are no notifications available for this date.'}
                 </p>

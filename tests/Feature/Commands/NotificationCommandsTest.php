@@ -117,8 +117,8 @@ it('queues browser and Discord notifications for eligible users', function () {
         ->and($notifications->firstWhere('channel', 'discord')->scheduled_at->isFuture())->toBeTrue();
 });
 
-it('does not queue Discord work when the bot switch is off', function () {
-    config(['services.discord.bot_enabled' => false]);
+it('keeps legacy Discord work enabled when the server bot switch is off', function () {
+    config(['services.discord.server_bot_enabled' => false]);
 
     [$game] = queueCommandGame();
     notificationUserFor($game);
@@ -128,11 +128,11 @@ it('does not queue Discord work when the bot switch is off', function () {
     ], withDiscord: true);
 
     $this->artisan('notifications:queue-game-updates --days=1 --limit=5')
-        ->expectsOutput('Successfully queued 1 notifications')
+        ->expectsOutput('Successfully queued 2 notifications')
         ->assertExitCode(0);
 
-    expect(NotificationQueue::query()->pluck('channel')->all())->toBe(['browser'])
-        ->and(DiscordChannelAnnouncement::query()->count())->toBe(0);
+    expect(NotificationQueue::query()->orderBy('channel')->pluck('channel')->all())->toBe(['browser', 'discord'])
+        ->and(DiscordChannelAnnouncement::query()->count())->toBe(1);
 });
 
 it('does not queue duplicate notifications for already notified users', function () {

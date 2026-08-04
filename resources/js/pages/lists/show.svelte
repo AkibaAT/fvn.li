@@ -9,6 +9,7 @@
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
     import { Button, Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface GameVersion {
         id: number;
@@ -441,23 +442,21 @@
     <Card padding="lg" class="mb-6 border-l-4 p-4 md:p-6 {borderColorClass}">
         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-                <h1 class="text-xl font-bold text-gray-900 md:text-2xl dark:text-white">
-                    {isEditingList ? listFormData.name : listData.name}
-                </h1>
-                {#if isEditingList ? listFormData.description : listData.description}
-                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                        {#each (isEditingList ? listFormData.description : listData.description)!.split('\n') as line, i (i)}
-                            {line}{#if i < (isEditingList ? listFormData.description : listData.description)!.split('\n').length - 1}<br />{/if}
-                        {/each}
-                    </p>
-                {/if}
-                {#if !isOwner && vnList?.user?.name}
-                    <div class="mt-2 text-sm text-gray-500">
-                        By <Link href={route('lists.user-public', vnList.user.id)} class="text-blue-600 hover:underline dark:text-blue-400"
-                            >{vnList.user.name}</Link
-                        >
-                    </div>
-                {/if}
+                <PageHeader
+                    title={isEditingList ? listFormData.name : listData.name}
+                    description={isEditingList ? listFormData.description : listData.description}
+                    class="mb-0"
+                >
+                    {#snippet metadata()}
+                        {#if !isOwner && vnList?.user?.name}
+                            <span>
+                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-blue-600 hover:underline dark:text-blue-400"
+                                    >{vnList.user.name}</Link
+                                >
+                            </span>
+                        {/if}
+                    {/snippet}
+                </PageHeader>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
@@ -468,7 +467,7 @@
                             class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium {badge.classes}"
                             aria-label={badge.ariaLabel}
                         >
-                            {#if badge.icon}<span>{badge.icon}</span>{/if}
+                            {#if badge.icon}<i class={badge.icon} aria-hidden="true"></i>{/if}
                             {badge.label}
                         </span>
                     {/if}

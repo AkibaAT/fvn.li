@@ -50,9 +50,9 @@ Progress: 1000/10234 [=====>----------------------] 9%
 Progress: 2000/10234 [==========>-----------------] 19%
 ...
 
-✓ Recalculated ratings for 10,234 games
-✓ Updated 8,456 games with changes
-✓ 1,778 games unchanged
+Recalculated ratings for 10,234 games
+Updated 8,456 games with changes
+1,778 games unchanged
 
 Summary:
   - Total ratings processed: 1,234,567
@@ -83,7 +83,7 @@ Game: "Example Visual Novel"
     2 stars: 23 (5%)
     1 star: 9 (2%)
 
-✓ Ratings recalculated successfully
+Ratings recalculated successfully
 ```
 
 ### DDEV Environment

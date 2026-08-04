@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import axios from 'axios';
 
     interface Game {
@@ -120,14 +120,7 @@
     <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
         <Card padding="none" class="overflow-hidden shadow-sm sm:rounded-lg">
             <div class="p-6">
-                <div class="mb-6 flex items-center justify-between">
-                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Version Comparison Tool</h1>
-                    <Link
-                        href={route('dashboard')}
-                        class="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        >Back to Dashboard</Link
-                    >
-                </div>
+                <PageHeader title="Version Comparison Tool" backHref={route('dashboard')} backLabel="Back to Dashboard" class="mb-6" />
 
                 <div class="mb-8">
                     <form onsubmit={handleSubmit} class="space-y-4">

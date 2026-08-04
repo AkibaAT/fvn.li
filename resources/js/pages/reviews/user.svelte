@@ -3,6 +3,7 @@
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import { Link, router, page } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import type { SharedData } from '@/types';
 
     interface ReviewGame {
@@ -93,30 +94,30 @@
 </svelte:head>
 
 <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
+    <PageHeader title={`${reviewUser.name}'s Reviews`} class="mb-0">
+        {#snippet leading()}
             {#if reviewUser.avatar}
                 <img src={reviewUser.avatar} alt="" aria-hidden="true" class="h-10 w-10 rounded-full" />
             {/if}
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{reviewUser.name}'s Reviews</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {stats.reviewed_count} review{stats.reviewed_count !== 1 ? 's' : ''} across {stats.unique_games} game{stats.unique_games !== 1
-                        ? 's'
-                        : ''}
-                    {#if stats.average_rating > 0}
-                        &middot; avg {stats.average_rating}/5
-                    {/if}
-                </p>
-            </div>
-        </div>
-        <Link
-            href={route('lists.user-public', reviewUser.id)}
-            class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >View Lists</Link
-        >
-    </div>
+        {/snippet}
+        {#snippet metadata()}
+            <span>
+                {stats.reviewed_count} review{stats.reviewed_count !== 1 ? 's' : ''} across {stats.unique_games} game{stats.unique_games !== 1
+                    ? 's'
+                    : ''}
+                {#if stats.average_rating > 0}
+                    &middot; avg {stats.average_rating}/5
+                {/if}
+            </span>
+        {/snippet}
+        {#snippet actions()}
+            <Link
+                href={route('lists.user-public', reviewUser.id)}
+                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                >View Lists</Link
+            >
+        {/snippet}
+    </PageHeader>
 
     <!-- Sort controls -->
     <div class="flex gap-2">

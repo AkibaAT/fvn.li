@@ -1,13 +1,19 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import UserReviewForm from '@/components/games/UserReviewForm.svelte';
     import { Button, Card, PlatformIcon } from '@/components/ui';
+    import { fetchReviews } from '@/hooks/api';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { shouldCollapseReview } from '@/utils/game-show';
     import type { PaginationMeta, Review } from '@/types/game-show';
 
     let {
         reviews,
+        gameId,
+        initialUserReview,
+        isAuthenticated,
         availableRatings,
         selectedRating,
         showAllRatings,
@@ -27,6 +33,16 @@
         onPerPageChange,
     }: {
         reviews: Review[];
+        gameId: number;
+        initialUserReview?: {
+            id: number;
+            rating: number;
+            review: string;
+            has_spoilers: boolean;
+            published_at: string;
+            updated_at: string;
+        } | null;
+        isAuthenticated: boolean;
         availableRatings: number[];
         selectedRating: number | null;
         showAllRatings: boolean;
@@ -46,7 +62,33 @@
         onPerPageChange: (perPage: number) => void;
     } = $props();
 
+    let reviewForm = $state<{ startEditing: () => void } | null>(null);
+    let reviewFormEditing = $state(false);
+    let hasUserReview = $state(untrack(() => Boolean(initialUserReview)));
+    let reviewRefreshLoading = $state(false);
+    const isReviewsLoading = $derived(reviewsLoading || reviewRefreshLoading);
+
     const getReviewAuthorHref = (review: Review) => (review.user ? route('users.reviews', review.user.id) : route('raters.show', review.rater.id));
+
+    async function handleReviewChange(hasReview: boolean) {
+        hasUserReview = hasReview;
+        reviewRefreshLoading = true;
+        try {
+            const refreshed = await fetchReviews(gameId, {
+                showAllRatings,
+                selectedRating,
+                page: pagination.current_page,
+                perPage: pagination.per_page,
+            });
+            reviews = refreshed.reviews;
+            availableRatings = refreshed.availableRatings;
+            pagination = refreshed.pagination;
+        } catch {
+            // Keep the current list if the refresh fails; the saved review remains visible above it.
+        } finally {
+            reviewRefreshLoading = false;
+        }
+    }
 </script>
 
 <Card id="reviews" padding="lg" class="mb-6">
@@ -59,7 +101,7 @@
                     onchange={(event) =>
                         onRatingFilterChange((event.target as HTMLSelectElement).value ? Number((event.target as HTMLSelectElement).value) : null)}
                     class="rounded border border-gray-200 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    disabled={reviewsLoading}
+                    disabled={isReviewsLoading}
                 >
                     <option value="">Any Stars</option>
                     {#each availableRatings as rating (rating)}
@@ -68,20 +110,35 @@
                 </select>
             {/if}
         </div>
-        <Button
-            type="button"
-            variant="link"
-            tone="primary"
-            onclick={onToggleRatingsView}
-            disabled={reviewsLoading}
-            loading={reviewsLoading}
-            class="text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 dark:text-blue-400"
-        >
-            {reviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
-        </Button>
+        <div class="flex flex-wrap items-center justify-end gap-4">
+            {#if isAuthenticated && !hasUserReview && !reviewFormEditing}
+                <Button type="button" variant="link" tone="primary" onclick={() => reviewForm?.startEditing()} class="text-sm">Write a review</Button>
+            {/if}
+            <Button
+                type="button"
+                variant="link"
+                tone="primary"
+                onclick={onToggleRatingsView}
+                disabled={isReviewsLoading}
+                loading={isReviewsLoading}
+                class="text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 dark:text-blue-400"
+            >
+                {isReviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
+            </Button>
+        </div>
     </div>
 
-    {#if reviewsLoading}
+    <div class:mb-4={!isAuthenticated || hasUserReview || reviewFormEditing}>
+        <UserReviewForm
+            bind:this={reviewForm}
+            {gameId}
+            initialReview={initialUserReview}
+            onEditingChange={(editing) => (reviewFormEditing = editing)}
+            onReviewChange={handleReviewChange}
+        />
+    </div>
+
+    {#if isReviewsLoading}
         <div class="flex items-center justify-center py-8">
             <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
             <span class="ml-2 text-gray-600 dark:text-gray-400">Loading reviews...</span>
@@ -247,6 +304,6 @@
     {/if}
 
     <div class="mt-4">
-        <AdvancedPagination meta={pagination} {onPageChange} {onPerPageChange} isLoading={reviewsLoading} label="reviews" />
+        <AdvancedPagination meta={pagination} {onPageChange} {onPerPageChange} isLoading={isReviewsLoading} label="reviews" />
     </div>
 </Card>

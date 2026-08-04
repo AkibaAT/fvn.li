@@ -74,6 +74,15 @@ it('accepts a real bearer token with the discord notification ability', function
         ->assertJsonPath('count', 0);
 });
 
+it('keeps legacy Discord notification routes available when the server bot is disabled', function () {
+    config(['services.discord.server_bot_enabled' => false]);
+    authenticateDiscordBot();
+
+    $this->getJson('/api/discord-notifications/pending')
+        ->assertOk()
+        ->assertJsonPath('notifications', []);
+});
+
 it('claims pending Discord notifications and formats bot payloads', function () {
     authenticateDiscordBot();
     $subscriber = User::factory()->create();

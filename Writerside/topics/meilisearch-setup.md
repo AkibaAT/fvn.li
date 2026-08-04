@@ -68,13 +68,13 @@ ddev artisan meilisearch:setup
 Verifies that Meilisearch is running and accessible:
 
 ```
-🔍 Setting up Meilisearch for FVN.li...
-✅ Meilisearch connection successful
+Setting up Meilisearch for FVN.li...
+Success: Meilisearch connection successful
 ```
 
 If connection fails:
 ```
-❌ Cannot connect to Meilisearch. Please ensure it is running.
+Error: Cannot connect to Meilisearch. Please ensure it is running.
 ```
 
 ### 2. Index Setup
@@ -106,11 +106,11 @@ Creates and configures the following indexes:
 Imports existing data from PostgreSQL:
 
 ```
-📊 Importing data...
-  ✓ Games: 10,234 indexed
-  ✓ Dialogue: 1,234,567 indexed
-  ✓ Reviews: 45,678 indexed
-  ✓ Tags: 456 indexed
+Importing data...
+Games: 10,234 indexed
+Dialogue: 1,234,567 indexed
+Reviews: 45,678 indexed
+Tags: 456 indexed
 ```
 
 ### 4. Success Message
@@ -118,19 +118,19 @@ Imports existing data from PostgreSQL:
 Displays helpful information after successful setup:
 
 ```
-🎉 Meilisearch setup completed successfully!
+Meilisearch setup completed successfully!
 
-✨ Search indexing is now automatic!
+Search indexing is now automatic!
   • New games and dialogue texts are indexed automatically
   • Updates to existing content trigger re-indexing
   • No manual intervention needed for normal operations
 
-💡 Useful commands:
+Useful commands:
   • Test search: php artisan meilisearch:test "your query"
   • Maintenance reindex: php artisan meilisearch:reindex
   • Check search health: Use SearchIndexService::healthCheck()
 
-🔧 For development testing:
+For development testing:
   php artisan tinker
   >>> App\Models\Game::search("your query")->get()
 ```
@@ -268,4 +268,3 @@ No manual intervention needed for normal operations.
 - [Meilisearch Commands Overview](meilisearch-commands-overview.md)
 - [Laravel Scout Documentation](https://laravel.com/docs/scout)
 - [Meilisearch Documentation](https://www.meilisearch.com/docs)
-

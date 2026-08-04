@@ -146,16 +146,16 @@ HELP;
 
     private function displayNullAssignmentResults(array $results): void
     {
-        $this->info("✓ Fixed {$results['lines_updated']} NULL character assignments");
-        $this->info("✓ Created {$results['narrator_characters_created']} narrator characters");
-        $this->info("✓ Processed {$results['games_processed']} games");
+        $this->info("Fixed {$results['lines_updated']} NULL character assignments");
+        $this->info("Created {$results['narrator_characters_created']} narrator characters");
+        $this->info("Processed {$results['games_processed']} games");
     }
 
     private function displaySpecialAssignmentResults(array $results): void
     {
-        $this->info("✓ Reassigned {$results['lines_reassigned']} special character lines");
-        $this->info("✓ Processed {$results['versions_processed']} versions");
-        $this->info("✓ Handled {$results['characters_processed']} special character types");
+        $this->info("Reassigned {$results['lines_reassigned']} special character lines");
+        $this->info("Processed {$results['versions_processed']} versions");
+        $this->info("Handled {$results['characters_processed']} special character types");
     }
 
     private function recalculateStats(?int $gameId, ?int $versionId, bool $dryRun): array
@@ -212,16 +212,16 @@ HELP;
 
     private function displayStatsResults(array $results): void
     {
-        $this->info("✓ Updated {$results['stats_updated']} character statistics");
-        $this->info("✓ Processed {$results['versions_processed']} versions");
+        $this->info("Updated {$results['stats_updated']} character statistics");
+        $this->info("Processed {$results['versions_processed']} versions");
     }
 
     private function displayVersionReferenceResults(array $results): void
     {
-        $this->info("✓ Updated {$results['characters_updated']} character version references");
-        $this->info("✓ Created {$results['stats_entries_created']} missing stats entries");
-        $this->info("✓ Deleted {$results['characters_deleted']} orphaned characters");
-        $this->info("✓ Processed {$results['characters_processed']} characters total");
+        $this->info("Updated {$results['characters_updated']} character version references");
+        $this->info("Created {$results['stats_entries_created']} missing stats entries");
+        $this->info("Deleted {$results['characters_deleted']} orphaned characters");
+        $this->info("Processed {$results['characters_processed']} characters total");
     }
 
     private function displayOverallSummary(array $results, bool $dryRun): void

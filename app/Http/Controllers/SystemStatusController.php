@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Rating;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ use Spatie\ScheduleMonitor\Support\ScheduledTasks\ScheduledTasks;
 
 class SystemStatusController extends Controller
 {
-    public function systemStatus(): Response
+    public function systemStatus(Request $request): Response
     {
         // Cache game stats until end of day
         $gameStats = Cache::remember('system_status.game_stats', now()->endOfDay(), function () {
@@ -141,7 +142,22 @@ class SystemStatusController extends Controller
             return $payload;
         });
 
-        // Build monitored scheduled tasks and health summary (no cache - lightweight queries, real-time is better)
+        $props = [
+            'gameStats' => $gameStats,
+            'ratingStats' => $ratingStats,
+            'releaseYearStats' => $releaseYearStats,
+            'metaTags' => [
+                'title' => 'System Status',
+                'description' => 'Current catalogue, rating, review, and release statistics for FVN.li.',
+                'image' => asset(config('social.images.default')),
+            ],
+        ];
+
+        if (! $request->user()?->is_admin) {
+            return Inertia::render('system-status', $props);
+        }
+
+        // Operational scheduler details are available only to administrators.
         $monitoredTasksModels = MonitoredScheduledTask::query()
             ->orderBy('name')
             ->get();
@@ -257,28 +273,10 @@ class SystemStatusController extends Controller
             ) => (bool) $t['registered_on_oh_dear'])->count(),
         ];
 
-        $dateFormat = config('schedule-monitor.date_format');
-
-        $metaTags = [
-            'title' => 'System Status',
-            'description' => sprintf(
-                'System health and performance metrics for FVN.li. Currently tracking %d games with %d visible listings, %d scheduled tasks, and %d health monitors.',
-                $gameStats['total'],
-                $gameStats['visible'],
-                $healthSummary['total'],
-                $healthSummary['monitored_on_oh_dear']
-            ),
-            'image' => asset(config('social.images.default')),
-        ];
-
         return Inertia::render('system-status', [
-            'gameStats' => $gameStats,
-            'ratingStats' => $ratingStats,
-            'releaseYearStats' => $releaseYearStats,
+            ...$props,
             'monitoredTasks' => $monitoredTasks,
             'healthSummary' => $healthSummary,
-            'dateFormat' => $dateFormat,
-            'metaTags' => $metaTags,
         ]);
     }
 }

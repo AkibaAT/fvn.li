@@ -1,7 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import MultiSelect from '@/components/MultiSelect.svelte';
-    import { Button, Checkbox, Drawer, Radio } from '@/components/ui';
+    import { Button, Drawer, Radio } from '@/components/ui';
     import { useGameFilters } from '@/hooks/useGameFilters.svelte';
     import type { CurrentFilters, FilterOptions } from '@/types';
 
@@ -41,6 +41,37 @@
         medium: 'Medium (10k-50k words)',
         long: 'Long (> 50k words)',
     };
+
+    const contentPricingOptions: Record<string, string> = {
+        sfw: 'Safe for Work',
+        nsfw: 'NSFW Content',
+        showFree: 'Free Games',
+        showPaid: 'Paid Games',
+        showDemo: 'Has Demo',
+        showSale: 'On Sale',
+        delisted: 'Delisted',
+    };
+    const contentPricingKeys = Object.keys(contentPricingOptions) as Array<keyof CurrentFilters>;
+    let selectedContentPricing = $derived(contentPricingKeys.filter((key) => Boolean(currentFilters[key])));
+
+    const toggleContentPricing = (value: string) => {
+        const key = contentPricingKeys.find((candidate) => candidate === value);
+        if (!key) return;
+
+        updateFilters({ [key]: !currentFilters[key] } as Partial<CurrentFilters>);
+    };
+
+    const clearContentPricing = () => {
+        updateFilters({
+            sfw: false,
+            nsfw: false,
+            showFree: false,
+            showPaid: false,
+            showDemo: false,
+            showSale: false,
+            delisted: false,
+        });
+    };
 </script>
 
 {#snippet clearFilterButton(label: string, action: () => void)}
@@ -61,59 +92,24 @@
     <div class="space-y-8 p-6">
         <!-- Content & Pricing -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-blue-500"></span>
-                Content & Pricing
-            </h3>
-            <div class="space-y-3">
-                <Checkbox
-                    label="Safe for Work"
-                    checked={currentFilters.sfw || false}
-                    onchange={(e) => updateFilters({ sfw: e.currentTarget.checked })}
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Content & Pricing</h3>
+            <div class="space-y-2">
+                <MultiSelect
+                    title="Content & Pricing"
+                    items={contentPricingOptions}
+                    selectedItems={selectedContentPricing}
+                    onToggle={toggleContentPricing}
+                    placeholder="Select content and pricing..."
                 />
-                <Checkbox
-                    label="NSFW Content"
-                    checked={currentFilters.nsfw || false}
-                    class="text-red-600 focus:ring-red-500"
-                    onchange={(e) => updateFilters({ nsfw: e.currentTarget.checked })}
-                />
-                <Checkbox
-                    label="Free Games"
-                    checked={currentFilters.showFree || false}
-                    class="text-green-600 focus:ring-green-500"
-                    onchange={(e) => updateFilters({ showFree: e.currentTarget.checked })}
-                />
-                <Checkbox
-                    label="Paid Games"
-                    checked={currentFilters.showPaid || false}
-                    onchange={(e) => updateFilters({ showPaid: e.currentTarget.checked })}
-                />
-                <Checkbox
-                    label="Has Demo"
-                    checked={currentFilters.showDemo || false}
-                    onchange={(e) => updateFilters({ showDemo: e.currentTarget.checked })}
-                />
-                <Checkbox
-                    label="On Sale"
-                    checked={currentFilters.showSale || false}
-                    class="text-rose-600 focus:ring-rose-500"
-                    onchange={(e) => updateFilters({ showSale: e.currentTarget.checked })}
-                />
-                <Checkbox
-                    label="Delisted"
-                    checked={currentFilters.delisted || false}
-                    class="text-yellow-600 focus:ring-yellow-500"
-                    onchange={(e) => updateFilters({ delisted: e.currentTarget.checked })}
-                />
+                {#if selectedContentPricing.length > 0}
+                    {@render clearFilterButton('Clear content and pricing', clearContentPricing)}
+                {/if}
             </div>
         </div>
 
         <!-- Status -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-green-500"></span>
-                Status
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Status</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Status"
@@ -130,10 +126,7 @@
 
         <!-- Platforms -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-blue-500"></span>
-                Platforms
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Platforms</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Platforms"
@@ -150,10 +143,7 @@
 
         <!-- Store Platforms -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-orange-500"></span>
-                Store Platforms
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Store Platforms</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Store Platforms"
@@ -170,10 +160,7 @@
 
         <!-- Languages -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-indigo-500"></span>
-                Languages
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Languages</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Languages"
@@ -190,10 +177,7 @@
 
         <!-- Game Engine -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-cyan-500"></span>
-                Game Engine
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Game Engine</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Game Engines"
@@ -210,10 +194,7 @@
 
         <!-- Tags -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-teal-500"></span>
-                Tags
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Tags</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Tags"
@@ -229,10 +210,7 @@
 
         <!-- Exclude Tags -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-red-500"></span>
-                Exclude Tags
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Exclude Tags</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Exclude Tags"
@@ -249,10 +227,7 @@
 
         <!-- Reading Time -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-violet-500"></span>
-                Reading Time
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Reading Time</h3>
             <div class="space-y-3">
                 {#each Object.entries(filters.readingTimeOptions || readingTimeDefaults) as [value, label] (value)}
                     <Radio
@@ -272,10 +247,7 @@
 
         <!-- Game Jams -->
         <div>
-            <h3 class="mb-4 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="mr-2 h-2 w-2 rounded-full bg-orange-500"></span>
-                Game Jams
-            </h3>
+            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Game Jams</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Game Jams"

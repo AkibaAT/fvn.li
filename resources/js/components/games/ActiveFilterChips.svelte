@@ -15,12 +15,11 @@
     interface Props {
         chips: ActiveChip[];
         onClearAll: () => void;
-        getChipColorClass: (type?: string) => string;
         getPlatformIcon: (platform: string) => { icon: string; color: string } | undefined;
         getStorePlatformIcon?: (platform: string) => { color: string; title: string; label: string } | undefined;
     }
 
-    let { chips, onClearAll, getChipColorClass, getPlatformIcon, getStorePlatformIcon }: Props = $props();
+    let { chips, onClearAll, getPlatformIcon, getStorePlatformIcon }: Props = $props();
 </script>
 
 {#if chips.length === 0}
@@ -28,7 +27,9 @@
 {:else}
     <span class="mr-1 text-sm font-medium text-gray-800 dark:text-gray-200">Active filters:</span>
     {#each chips as chip (chip.key)}
-        <span class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs {getChipColorClass(chip.type)}">
+        <span
+            class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-800 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-100"
+        >
             {#if chip.type === 'language' && chip.flagCode}
                 <span class="fi fi-{chip.flagCode} mr-0.5 rounded-xs"></span>
             {/if}

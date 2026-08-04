@@ -10,7 +10,6 @@
     import GameRecommendationsSection from '@/components/games/GameRecommendationsSection.svelte';
     import GameReviewsSection from '@/components/games/GameReviewsSection.svelte';
     import GameVersionHistory from '@/components/games/GameVersionHistory.svelte';
-    import UserReviewForm from '@/components/games/UserReviewForm.svelte';
     import ReportReviewModal from '@/components/games/ReportReviewModal.svelte';
     import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
     import { Link, page } from '@inertiajs/svelte';
@@ -685,12 +684,11 @@
     <ReviewTextControls />
 </div>
 
-<div id="user-review-form" class="mb-6">
-    <UserReviewForm gameId={game.id} gameName={game.effective_name} initialReview={userReview} />
-</div>
-
 <GameReviewsSection
     reviews={filteredReviews}
+    gameId={game.id}
+    initialUserReview={userReview}
+    {isAuthenticated}
     availableRatings={currentAvailableRatings}
     {selectedRating}
     {showAllRatings}

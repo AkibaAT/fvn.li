@@ -8,11 +8,11 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureDiscordBotEnabled
+class EnsureDiscordServerBotEnabled
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless(config('services.discord.bot_enabled'), 404);
+        abort_unless(config('services.discord.server_bot_enabled'), 404);
 
         return $next($request);
     }

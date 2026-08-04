@@ -3,6 +3,7 @@
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import type { User, VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
 
     interface Props {
@@ -50,15 +51,8 @@
 </svelte:head>
 
 <div class="space-y-8">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-blue-600">{user.name}'s Visual Novel Lists</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">
-                Browse {user.name}'s public visual novel collections
-            </p>
-        </div>
-        <div class="mt-4 flex space-x-3 sm:mt-0">
+    <PageHeader title={`${user.name}'s Visual Novel Lists`} class="mb-0">
+        {#snippet actions()}
             <Link
                 href={route('lists.public')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
@@ -87,8 +81,8 @@
                 </svg>
                 My Lists
             </Link>
-        </div>
-    </div>
+        {/snippet}
+    </PageHeader>
 
     <!-- Lists Grid -->
     {#if lists.data.length > 0}
@@ -99,16 +93,6 @@
         </div>
     {:else}
         <div class="py-12 text-center">
-            <div class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-                <svg class="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                </svg>
-            </div>
             <h2 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No public lists found</h2>
             <p class="text-gray-600 dark:text-gray-400">There are no public lists available for this category.</p>
         </div>

@@ -82,10 +82,10 @@ async function generateScreenshot(browser, page, config) {
       fullPage: false // Only capture viewport
     });
 
-    console.log(`✓ Generated: ${config.output}`);
+    console.log(`Generated: ${config.output}`);
     return true;
   } catch (error) {
-    console.error(`✗ Failed to generate ${config.name}:`, error.message);
+    console.error(`Failed to generate ${config.name}:`, error.message);
     return false;
   }
 }
@@ -136,8 +136,8 @@ async function main() {
 
     console.log('');
     console.log('=== Summary ===');
-    console.log(`✓ Success: ${successCount}`);
-    console.log(`✗ Failed: ${failCount}`);
+    console.log(`Successful: ${successCount}`);
+    console.log(`Failed: ${failCount}`);
     console.log(`Total: ${successCount + failCount}`);
 
     if (failCount > 0) {

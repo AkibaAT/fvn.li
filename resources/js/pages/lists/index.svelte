@@ -4,6 +4,7 @@
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import type { VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { toast } from '@/utils/toast';
     import { authenticatedFetch, readJsonResponse } from '@/utils/csrf';
@@ -137,12 +138,8 @@
 </svelte:head>
 
 <div class="space-y-8">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-blue-600">Your Visual Novel Lists</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">Organize and manage your visual novel collections</p>
-        </div>
-        <div class="mt-4 flex space-x-3 sm:mt-0">
+    <PageHeader title="Your Visual Novel Lists" class="mb-0">
+        {#snippet actions()}
             <Link
                 href={route('lists.public')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
@@ -166,8 +163,8 @@
                 </svg>
                 New List
             </Link>
-        </div>
-    </div>
+        {/snippet}
+    </PageHeader>
 
     <Card variant="glass" padding="lg">
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
@@ -197,16 +194,6 @@
         </div>
     {:else}
         <div class="py-12 text-center">
-            <div class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-                <svg class="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                </svg>
-            </div>
             <h3 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No lists found</h3>
             <p class="mb-6 text-gray-600 dark:text-gray-400">
                 {visibility === 'all' ? "You haven't created any lists yet." : `No ${visibility} lists found.`}

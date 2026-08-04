@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Badge, Card } from '@/components/ui';
+    import { Card } from '@/components/ui';
     interface HealthSummary {
         total: number;
         active: number;
@@ -15,18 +15,7 @@
     };
 </script>
 
-<Card class="mb-6">
-    <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Scheduled Tasks Health</h2>
-        <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-500 dark:text-gray-400"> Task Status: </span>
-            <Badge tone="success" size="sm">Active</Badge>
-            <Badge tone="danger" size="sm">Failed</Badge>
-            <Badge tone="primary" size="sm">Single Server</Badge>
-            <Badge tone="info" size="sm">Maintenance OK</Badge>
-        </div>
-    </div>
-
+<Card variant="outline" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
     <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <div>
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tasks</dt>

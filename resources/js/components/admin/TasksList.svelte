@@ -72,8 +72,7 @@
     };
 </script>
 
-<Card>
-    <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Scheduled Tasks</h2>
+<Card variant="outline" padding="none" class="overflow-hidden border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900/50">

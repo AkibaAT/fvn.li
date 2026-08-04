@@ -240,4 +240,12 @@ describe('Bot server endpoints', function () {
             ->getJson('/api/bot/servers/pending-notifications')
             ->assertForbidden();
     });
+
+    test('server bot endpoints are hidden when the server bot is disabled', function () {
+        config(['services.discord.server_bot_enabled' => false]);
+
+        $this->withToken($this->botToken)
+            ->getJson('/api/bot/servers/pending-notifications')
+            ->assertNotFound();
+    });
 });

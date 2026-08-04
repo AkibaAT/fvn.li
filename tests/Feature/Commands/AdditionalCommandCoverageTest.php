@@ -168,10 +168,10 @@ test('refresh steam games refreshes data and reviews with mocked steam services'
         ->expectsOutput('- Reviews: Yes (upsert available reviews)')
         ->expectsOutput('Found 1 game(s):')
         ->expectsOutput("- {$game->name} (ID: {$game->id}, Status: Released)")
-        ->expectsOutput('  ✓ Game data updated successfully')
-        ->expectsOutput('  ✓ Reviews synced successfully')
+        ->expectsOutput('  Game data updated successfully')
+        ->expectsOutput('  Reviews synced successfully')
         ->expectsOutput('    Fetched: 5, Imported: 3, Updated: 1, Deleted: 0, Skipped: 1, Errors: 0')
-        ->expectsOutput("✓ Successfully refreshed {$game->name}")
+        ->expectsOutput("Successfully refreshed {$game->name}")
         ->assertExitCode(0);
 
     expect(Config::get('scout.queue'))->toBeFalse();
@@ -203,7 +203,7 @@ test('refresh steam games records service errors but continues processing', func
         ->artisan("games:refresh-steam --game-id={$game->id} --update-data --sleep=0")
         ->expectsOutput("Starting refresh for game with ID: {$game->id}")
         ->expectsOutput('  × Error updating game data: Steam data exploded')
-        ->expectsOutput("✓ Successfully refreshed {$game->name}")
+        ->expectsOutput("Successfully refreshed {$game->name}")
         ->assertExitCode(0);
 
     Log::shouldHaveReceived('error')
@@ -359,7 +359,7 @@ test('fetch game jam details processes pending jams through the itch retry clien
         ->expectsOutput("- {$jam->name} (ID: {$jam->id})")
         ->expectsOutput('Processing 1 game jams...')
         ->expectsOutput('  Game jam details processed successfully')
-        ->expectsOutput('✓ Details fetched successfully')
+        ->expectsOutput('Details fetched successfully')
         ->expectsOutputToContain('Processing complete: 1 succeeded, 0 failed')
         ->assertExitCode(0);
 
@@ -392,7 +392,7 @@ test('fetch game jam details rejects unsafe queued jam URLs before HTTP requests
         ->artisan('game-jams:fetch-details --retry-cooldown=0')
         ->expectsOutput('Found 1 game jam(s):')
         ->expectsOutput("- {$jam->name} (ID: {$jam->id})")
-        ->expectsOutput('⚠ Failed to fetch details')
+        ->expectsOutput('Failed to fetch details')
         ->expectsOutputToContain('Processing complete: 0 succeeded, 1 failed')
         ->assertExitCode(1);
 

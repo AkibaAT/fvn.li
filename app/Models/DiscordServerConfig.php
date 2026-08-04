@@ -89,7 +89,7 @@ class DiscordServerConfig extends Model
     {
         return match ($format) {
             'compact' => "**{game_name}** has been updated!\n{game_url}",
-            'detailed' => "📢 **{game_name}** Update\n\n{game_description}\n\n⭐ Rating: {game_rating}\n🔗 {game_url}",
+            'detailed' => "**{game_name}** Update\n\n{game_description}\n\nRating: {game_rating}\n{game_url}",
             default => "**{game_name}** has been updated!\n{game_url}",
         };
     }

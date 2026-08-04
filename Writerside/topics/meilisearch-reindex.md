@@ -54,16 +54,16 @@ php artisan meilisearch:reindex
 
 Output:
 ```
-🔄 Starting Meilisearch maintenance reindex...
-ℹ️  Note: Normal operations use automatic indexing via Eloquent observers
+Starting Meilisearch maintenance reindex...
+Note: Normal operations use automatic indexing via Eloquent observers
 
-📊 Reindexing all content...
-  ✓ Games: 10,234 reindexed
-  ✓ Dialogue: 1,234,567 reindexed
-  ✓ Reviews: 45,678 reindexed
-  ✓ Tags: 456 reindexed
+Reindexing all content...
+Games: 10,234 reindexed
+Dialogue: 1,234,567 reindexed
+Reviews: 45,678 reindexed
+Tags: 456 reindexed
 
-✅ Reindexing completed successfully!
+Reindexing completed successfully!
 ```
 
 ### Partial Reindex
@@ -76,13 +76,13 @@ php artisan meilisearch:reindex --type=games
 
 Output:
 ```
-🔄 Starting Meilisearch maintenance reindex...
-ℹ️  Note: Normal operations use automatic indexing via Eloquent observers
+Starting Meilisearch maintenance reindex...
+Note: Normal operations use automatic indexing via Eloquent observers
 
-📊 Reindexing games...
-  ✓ Games: 10,234 reindexed
+Reindexing games...
+Games: 10,234 reindexed
 
-✅ Reindexing completed successfully!
+Reindexing completed successfully!
 ```
 
 ### DDEV Environment
@@ -110,11 +110,11 @@ Use `meilisearch:reindex` when:
 
 Don't use for normal operations:
 
-- ❌ Creating new games (automatic)
-- ❌ Updating game information (automatic)
-- ❌ Adding dialogue (automatic)
-- ❌ Creating reviews (automatic)
-- ❌ Modifying tags (automatic)
+- Creating new games (automatic)
+- Updating game information (automatic)
+- Adding dialogue (automatic)
+- Creating reviews (automatic)
+- Modifying tags (automatic)
 
 ## Performance
 
@@ -165,11 +165,11 @@ Game::chunk(500, function ($games) {
 Displays progress during reindexing:
 
 ```
-📊 Reindexing games...
+  Reindexing games...
   Processing batch 1/21 (500 records)
   Processing batch 2/21 (500 records)
   ...
-  ✓ Games: 10,234 reindexed
+  Games: 10,234 reindexed
 ```
 
 ### 4. Verification
@@ -294,4 +294,3 @@ Monitor search performance in application logs.
 - [Meilisearch Commands Overview](meilisearch-commands-overview.md)
 - [Laravel Scout Documentation](https://laravel.com/docs/scout)
 - [Meilisearch Documentation](https://www.meilisearch.com/docs)
-

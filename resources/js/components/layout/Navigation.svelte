@@ -18,7 +18,7 @@
             : 'text-gray-700'}"
         aria-current={routes.games.isActive ? 'page' : undefined}
     >
-        <i class="icon-gamepad-2 mr-1 inline" aria-hidden="true"></i>Games
+        Games
     </a>
     <a
         href={routes.lists.path}
@@ -32,7 +32,7 @@
             : 'text-gray-700'}"
         aria-current={routes.lists.isActive ? 'page' : undefined}
     >
-        <i class="icon-paste mr-1 inline" aria-hidden="true"></i>Lists
+        Lists
     </a>
     <a
         href={routes.ratings.path}
@@ -45,6 +45,6 @@
             ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
             : 'text-gray-700'}"
     >
-        <i class="icon-star mr-1 inline" aria-hidden="true"></i>Ratings
+        Ratings
     </a>
 </nav>

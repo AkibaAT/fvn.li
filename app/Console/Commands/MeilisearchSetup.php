@@ -43,22 +43,22 @@ class MeilisearchSetup extends Command
      */
     public function handle(): int
     {
-        $this->info('🔍 Setting up Meilisearch for FVN.li...');
+        $this->info('Setting up Meilisearch for FVN.li...');
 
         // Check if Meilisearch is accessible
         if (! $this->checkMeilisearchConnection()) {
-            $this->error('❌ Cannot connect to Meilisearch. Please ensure it is running.');
+            $this->error('Cannot connect to Meilisearch. Please ensure it is running.');
 
             return Command::FAILURE;
         }
 
-        $this->info('✅ Meilisearch connection successful (health endpoint)');
+        $this->info('Meilisearch connection successful (health endpoint)');
 
         // Verify authentication works
         if (! $this->checkAuthentication()) {
-            $this->error('❌ Meilisearch authentication failed. Please check your MEILISEARCH_KEY.');
+            $this->error('Meilisearch authentication failed. Please check your MEILISEARCH_KEY.');
             $this->newLine();
-            $this->warn('💡 Common issues:');
+            $this->warn('Common issues:');
             $this->line('  • MEILISEARCH_KEY not set in .env');
             $this->line('  • MEILISEARCH_KEY does not match Meilisearch master key');
             $this->line('  • Need to run: php artisan config:clear && php artisan config:cache');
@@ -66,7 +66,7 @@ class MeilisearchSetup extends Command
             return Command::FAILURE;
         }
 
-        $this->info('✅ Meilisearch authentication successful');
+        $this->info('Meilisearch authentication successful');
 
         // Setup indexes
         if (! $this->setupIndexes()) {
@@ -80,24 +80,24 @@ class MeilisearchSetup extends Command
 
         // Verify the setup actually worked
         if (! $this->verifySetup()) {
-            $this->error('❌ Setup verification failed. Data may not have been indexed correctly.');
+            $this->error('Setup verification failed. Data may not have been indexed correctly.');
 
             return Command::FAILURE;
         }
 
-        $this->info('🎉 Meilisearch setup completed successfully!');
+        $this->info('Meilisearch setup completed successfully!');
         $this->newLine();
-        $this->info('✨ Search indexing is now automatic!');
+        $this->info('Search indexing is now automatic!');
         $this->line('  • New games and dialogue lines are indexed automatically');
         $this->line('  • Updates to existing content trigger re-indexing');
         $this->line('  • No manual intervention needed for normal operations');
         $this->newLine();
-        $this->info('💡 Useful commands:');
+        $this->info('Useful commands:');
         $this->line('  • Test search: php artisan meilisearch:test "your query"');
         $this->line('  • Maintenance reindex: php artisan meilisearch:reindex');
         $this->line('  • Check search health: Use SearchIndexService::healthCheck()');
         $this->newLine();
-        $this->info('🔧 For development testing:');
+        $this->info('For development testing:');
         $this->line('  php artisan tinker');
         $this->line('  >>> App\\Models\\Game::search("your query")->get()');
 
@@ -110,11 +110,11 @@ class MeilisearchSetup extends Command
     protected function verifySetup(): bool
     {
         try {
-            $this->info('🔍 Verifying setup...');
+            $this->info('Verifying setup...');
 
             $gameCount = $this->visibleGameCount();
             if ($gameCount === 0) {
-                $this->info('    ✅ Search verification successful');
+                $this->info('    Search verification successful');
 
                 return true;
             }
@@ -123,7 +123,7 @@ class MeilisearchSetup extends Command
             // tasks a short window to become searchable before failing setup.
             for ($attempt = 1; $attempt <= self::SEARCH_VERIFICATION_ATTEMPTS; $attempt++) {
                 if ($this->hasSearchableGameResult()) {
-                    $this->info('    ✅ Search verification successful');
+                    $this->info('    Search verification successful');
 
                     return true;
                 }
@@ -134,11 +134,11 @@ class MeilisearchSetup extends Command
                 }
             }
 
-            $this->warn("    ⚠️  Search returned no results but database has {$gameCount} visible game(s). Index may still be processing.");
+            $this->warn("    Search returned no results but database has {$gameCount} visible game(s). Index may still be processing.");
 
             return false;
         } catch (Exception $e) {
-            $this->error("    ❌ Verification failed: {$e->getMessage()}");
+            $this->error("    Error: Verification failed: {$e->getMessage()}");
 
             return false;
         }
@@ -200,7 +200,7 @@ class MeilisearchSetup extends Command
      */
     private function setupIndexes(): bool
     {
-        $this->info('📋 Setting up indexes...');
+        $this->info('Setting up indexes...');
 
         try {
             // Sync all index settings at once
@@ -209,7 +209,7 @@ class MeilisearchSetup extends Command
             $exitCode = Artisan::call('scout:sync-index-settings');
 
             if ($exitCode !== 0) {
-                $this->error('    ❌ Failed to sync index settings');
+                $this->error('    Error: Failed to sync index settings');
 
                 return false;
             }
@@ -218,11 +218,11 @@ class MeilisearchSetup extends Command
                 return false;
             }
 
-            $this->info('    ✅ All indexes configured');
+            $this->info('    All indexes configured');
 
             return $this->applyEmbedders();
         } catch (Exception $e) {
-            $this->error('    ❌ Error setting up indexes: ' . $e->getMessage());
+            $this->error('    Error setting up indexes: ' . $e->getMessage());
 
             return false;
         }
@@ -277,7 +277,7 @@ class MeilisearchSetup extends Command
             }
 
             if (time() >= $deadline) {
-                $this->error('    ❌ Timed out waiting for index settings to be applied');
+                $this->error('    Error: Timed out waiting for index settings to be applied');
                 $this->line('       Settings that configure an embedder download the model on first use.');
 
                 return false;
@@ -302,7 +302,7 @@ class MeilisearchSetup extends Command
             return true;
         }
 
-        $this->error('    ❌ Meilisearch rejected the index settings; the indexes are unconfigured');
+        $this->error('    Error: Meilisearch rejected the index settings; the indexes are unconfigured');
         foreach ($failed as $task) {
             $index = $task['indexUid'] ?? 'unknown';
             $message = $task['error']['message'] ?? 'no error message reported';
@@ -317,7 +317,7 @@ class MeilisearchSetup extends Command
      */
     private function importData(): bool
     {
-        $this->info('📦 Importing existing data...');
+        $this->info('Importing existing data...');
 
         try {
             // Import games
@@ -345,7 +345,7 @@ class MeilisearchSetup extends Command
             $this->newLine();
 
             if (! empty($errors)) {
-                $this->error('    ❌ Errors importing games:');
+                $this->error('    Errors importing games:');
                 foreach ($errors as $error) {
                     $this->line("      • {$error}");
                 }
@@ -353,7 +353,7 @@ class MeilisearchSetup extends Command
                 return false;
             }
 
-            $this->info('    ✅ Games imported');
+            $this->info('    Games imported');
 
             // Import dialogue texts (deduplicated per game)
             // Get all games that have dialogue
@@ -387,7 +387,7 @@ class MeilisearchSetup extends Command
             $this->newLine();
 
             if (! empty($errors)) {
-                $this->warn('    ⚠️  Some errors occurred:');
+                $this->warn('    Warning: Some errors occurred:');
                 foreach (array_slice($errors, 0, 5) as $error) {
                     $this->line("      • {$error}");
                 }
@@ -396,7 +396,7 @@ class MeilisearchSetup extends Command
                 }
             }
 
-            $this->info("    ✅ Dialogue texts imported ({$totalIndexed} entries)");
+            $this->info("    Success: Dialogue texts imported ({$totalIndexed} entries)");
 
             // Import tags
             $tagCount = Tag::whereRaw("trim(name) != ''")->count();
@@ -422,7 +422,7 @@ class MeilisearchSetup extends Command
             $this->newLine();
 
             if (! empty($errors)) {
-                $this->error('    ❌ Errors importing tags:');
+                $this->error('    Errors importing tags:');
                 foreach ($errors as $error) {
                     $this->line("      • {$error}");
                 }
@@ -430,11 +430,11 @@ class MeilisearchSetup extends Command
                 return false;
             }
 
-            $this->info('    ✅ Tags imported');
+            $this->info('    Success: Tags imported');
 
             return true;
         } catch (Exception $e) {
-            $this->error("❌ Fatal error during import: {$e->getMessage()}");
+            $this->error("Fatal error during import: {$e->getMessage()}");
             $this->line("Stack trace: {$e->getTraceAsString()}");
 
             return false;

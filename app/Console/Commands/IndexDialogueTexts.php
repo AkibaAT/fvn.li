@@ -18,13 +18,13 @@ class IndexDialogueTexts extends Command
 
     public function handle(): int
     {
-        $this->info('🔄 Indexing unique dialogue texts to Meilisearch...');
+        $this->info('  Indexing unique dialogue texts to Meilisearch...');
 
         $batchSize = (int) $this->option('batch-size');
         $totalTexts = UniqueDialogueText::whereRaw("trim(text_content) != ''")->count();
 
-        $this->line("📊 Total unique texts to index: {$totalTexts}");
-        $this->line("📦 Batch size: {$batchSize}");
+        $this->line("  Total unique texts to index: {$totalTexts}");
+        $this->line("  Batch size: {$batchSize}");
 
         $bar = $this->output->createProgressBar($totalTexts);
         $bar->start();
@@ -83,7 +83,7 @@ class IndexDialogueTexts extends Command
         $this->newLine();
 
         if (! empty($errors)) {
-            $this->error('❌ Errors occurred during indexing:');
+            $this->error('Errors occurred during indexing:');
             foreach ($errors as $error) {
                 $this->line("  • {$error}");
             }
@@ -91,7 +91,7 @@ class IndexDialogueTexts extends Command
             return Command::FAILURE;
         }
 
-        $this->info("✅ Successfully indexed {$processed} unique dialogue texts!");
+        $this->info("Successfully indexed {$processed} unique dialogue texts!");
 
         return Command::SUCCESS;
     }

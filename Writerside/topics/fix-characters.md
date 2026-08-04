@@ -143,24 +143,24 @@ Processing only game ID: 138
 Data completeness protection: Only versions with full dialogue line details will be updated
 
 === Step 1: Fixing NULL Character Assignments ===
-✓ Fixed 115765 NULL character assignments
-✓ Created 0 narrator characters
-✓ Processed 1 games
+Fixed 115765 NULL character assignments
+Created 0 narrator characters
+Processed 1 games
 
 === Step 2: Fixing Special Character Assignments ===
-✓ Reassigned 42 special character lines
-✓ Processed 8 versions
-✓ Handled 2 special character types
+Reassigned 42 special character lines
+Processed 8 versions
+Handled 2 special character types
 
 === Step 3: Recalculating Character Statistics ===
-✓ Updated 156 character statistics
-✓ Processed 12 versions
+Updated 156 character statistics
+Processed 12 versions
 
 === Step 4: Fixing Version References and Cleanup ===
-✓ Updated 144 character version references
-✓ Created 89 missing stats entries
-✓ Deleted 319 orphaned characters
-✓ Processed 205 characters total
+Updated 144 character version references
+Created 89 missing stats entries
+Deleted 319 orphaned characters
+Processed 205 characters total
 
 === Overall Summary ===
 Successfully processed:

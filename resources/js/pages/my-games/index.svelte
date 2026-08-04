@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import { Badge, Button, Card } from '@/components/ui';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface GameSummary {
         id: number;
@@ -40,22 +41,11 @@
 </svelte:head>
 
 <div class="space-y-8">
-    <div class="flex items-center justify-between">
-        <h1 class="text-3xl font-bold text-blue-600">Manage My Games</h1>
-        <Button href={route('dashboard')} variant="outline" tone="neutral">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-            </svg>
-            Back to Dashboard
-        </Button>
-    </div>
+    <PageHeader title="Manage My Games" backHref={route('dashboard')} backLabel="Back to Dashboard" class="mb-0" />
 
     {#if !hasItchio}
         <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
             <div class="flex items-center space-x-3">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500">
-                    <span class="text-sm text-white">🎮</span>
-                </div>
                 <div class="flex-1">
                     <div class="font-medium text-yellow-800 dark:text-yellow-300">Connect your itch.io account to manage your games</div>
                     <div class="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
@@ -72,9 +62,6 @@
     {#if hasItchio}
         <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
             <div class="flex items-center space-x-3">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500">
-                    <span class="text-sm text-white">🎮</span>
-                </div>
                 <div class="flex-1">
                     <div class="text-blue-800 dark:text-blue-300">Connected: {itchio.username}.itch.io</div>
                     <div class="mt-0.5 text-xs text-blue-700 dark:text-blue-400">{games.length} {games.length === 1 ? 'game' : 'games'} found</div>
@@ -104,7 +91,7 @@
                             class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                         >
                             <div class="text-center">
-                                <div class="mb-2 text-3xl opacity-50">🎮</div>
+                                <i class="icon-gamepad-2 mb-2 text-3xl opacity-50" aria-hidden="true"></i>
                                 <div class="text-sm font-medium">No Image</div>
                             </div>
                         </div>

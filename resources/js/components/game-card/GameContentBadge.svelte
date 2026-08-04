@@ -57,7 +57,7 @@
         ariaLabel="Filter by games on sale"
         title="Filter by games on sale"
     >
-        🔖 Sale
+        <i class="icon-bookmark inline" aria-hidden="true"></i> Sale
     </Button>
 {/if}
 

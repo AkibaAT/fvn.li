@@ -5,6 +5,7 @@
     import { Card, Checkbox, PlatformIcon, Select, Stars } from '@/components/ui';
     import { Link, router } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
     import type { MetaTags } from '@/components/seo/SeoHead.svelte';
     import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
 
@@ -162,9 +163,7 @@
 
 <SeoHead {metaTags} />
 <div class="space-y-4">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{pageTitle}</h1>
-    </div>
+    <PageHeader title={pageTitle} class="mb-6" />
 
     <!-- Stats header -->
     <Card padding="lg" class="shadow">

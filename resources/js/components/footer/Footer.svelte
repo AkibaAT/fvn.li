@@ -4,61 +4,31 @@
     import { Link } from '@inertiajs/svelte';
 
     const currentYear = new Date().getFullYear();
+    const footerLinkClass =
+        'text-gray-600 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-zinc-400 dark:hover:text-zinc-100';
+    const footerContactLinkClass = `flex items-center gap-2 ${footerLinkClass}`;
 </script>
 
 <footer class="border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#0a0f1e]">
     <Container class="py-8">
         <h2 class="sr-only">Site information</h2>
 
-        <div class="grid gap-6 border-b border-gray-200 pb-6 md:grid-cols-3 dark:border-zinc-800">
-            <!-- Mission Statement -->
-            <div class="text-xs leading-5 text-gray-500 dark:text-zinc-400">
-                <h3 class="mb-1.5 text-sm font-semibold text-gray-900 dark:text-zinc-100">Neutral catalog</h3>
-                <p>
-                    FVN.li is an independent, neutral catalog of furry visual novels. Listings are records, not endorsements, recommendations, or
-                    statements of the site operator's personal views.
-                </p>
-            </div>
-            <div class="text-xs leading-5 text-gray-500 dark:text-zinc-400">
-                <h3 class="mb-1.5 text-sm font-semibold text-gray-900 dark:text-zinc-100">Independent decisions</h3>
-                <p>
-                    FVN.li is operated independently of any FVN community. Community disputes and controversies have no impact on visual novel
-                    listings. Listings may still be moderated for spam, illegal content, broken data, or site abuse.
-                </p>
-            </div>
-            <div class="text-xs leading-5 text-gray-500 dark:text-zinc-400">
-                <h3 class="mb-1.5 text-sm font-semibold text-gray-900 dark:text-zinc-100">Personal control</h3>
-                <p>
-                    Users can hide visual novels with their own excluded tags and filters. FVN.li provides user-level controls instead of site-wide
-                    opinion enforcement.
-                </p>
-            </div>
-        </div>
-
-        <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
             <!-- Navigation -->
             <div>
                 <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-zinc-100">Navigation</h3>
                 <ul class="space-y-2 text-sm">
                     <li>
-                        <Link
-                            href={route('home')}
-                            class="text-gray-600 transition-colors hover:text-purple-600 dark:text-zinc-400 dark:hover:text-purple-400">Home</Link
-                        >
+                        <Link href={route('home')} class={footerLinkClass}>Home</Link>
                     </li>
                     <li>
-                        <Link
-                            href={route('games.index')}
-                            class="text-gray-600 transition-colors hover:text-purple-600 dark:text-zinc-400 dark:hover:text-purple-400"
-                            >Browse Games</Link
-                        >
+                        <Link href={route('games.index')} class={footerLinkClass}>Browse Games</Link>
                     </li>
                     <li>
-                        <Link
-                            href={route('lists.public')}
-                            class="text-gray-600 transition-colors hover:text-purple-600 dark:text-zinc-400 dark:hover:text-purple-400"
-                            >Public Lists</Link
-                        >
+                        <Link href={route('lists.public')} class={footerLinkClass}>Public Lists</Link>
+                    </li>
+                    <li>
+                        <Link href={route('ratings.index')} class={footerLinkClass}>Ratings</Link>
                     </li>
                 </ul>
             </div>
@@ -73,20 +43,20 @@
                         class="inline-flex items-center rounded bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                         title="Drag to bookmarks bar"
                     >
-                        <i class="icon-bookmark inline" aria-hidden="true"></i><span>FVN Ratings Link</span>
+                        FVN Ratings Link
                     </a>
                     <p class="text-xs text-gray-600 dark:text-zinc-400">Works on pages with URLs like "creator.itch.io/project-name"</p>
                 </div>
             </div>
 
             <!-- Contact -->
-            <div>
+            <div class="md:justify-self-end">
                 <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-zinc-100">Contact</h3>
                 <ul class="space-y-2 text-sm">
                     <li>
                         <a
                             href="https://github.com/AkibaAT/fvn.li"
-                            class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                            class={footerContactLinkClass}
                             target="_blank"
                             rel="noopener"
                             title="View on GitHub"
@@ -102,7 +72,7 @@
                     <li>
                         <a
                             href="https://bsky.app/profile/akiba.at"
-                            class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                            class={footerContactLinkClass}
                             target="_blank"
                             rel="noopener"
                             title="Contact on Bluesky"
@@ -114,7 +84,7 @@
                     <li>
                         <a
                             href="https://discord.com/users/akiba.at"
-                            class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                            class={footerContactLinkClass}
                             target="_blank"
                             rel="noopener"
                             title="Contact on Discord"
@@ -124,13 +94,7 @@
                         </a>
                     </li>
                     <li>
-                        <a
-                            href="https://t.me/AkibaAT"
-                            class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-300"
-                            target="_blank"
-                            rel="noopener"
-                            title="Contact on Telegram"
-                        >
+                        <a href="https://t.me/AkibaAT" class={footerContactLinkClass} target="_blank" rel="noopener" title="Contact on Telegram">
                             <i class="icon-telegram w-5 text-center"></i>
                             <span>@AkibaAT</span>
                         </a>
@@ -148,10 +112,7 @@
                 <div class="flex items-center space-x-4 text-sm">
                     <BugReportButton />
                     <span class="text-gray-300 dark:text-zinc-600">|</span>
-                    <Link
-                        href={route('system.status')}
-                        class="text-gray-500 transition-colors hover:text-purple-600 dark:text-zinc-400 dark:hover:text-purple-400">Status Page</Link
-                    >
+                    <Link href={route('system.status')} class={footerLinkClass}>Status Page</Link>
                 </div>
             </div>
         </div>

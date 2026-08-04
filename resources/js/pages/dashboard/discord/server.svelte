@@ -1,10 +1,10 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
     import { apiFetch } from '@/hooks/api/client';
     import { toast } from '@/utils/toast';
     import RuleBuilder from './components/rule-builder.svelte';
     import EmbedEditor from './components/embed-editor.svelte';
     import VnOverrideManager from './components/vn-override-manager.svelte';
+    import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface DiscordChannel {
         id: string;
@@ -352,22 +352,14 @@
 </svelte:head>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <Link
-                href={route('dashboard.discord.index')}
-                class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-            >
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-            </Link>
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{server?.discord_server_name || 'Loading...'}</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Discord server configuration</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-2">
+    <PageHeader
+        title={server?.discord_server_name || 'Loading...'}
+        description="Discord server configuration"
+        backHref={route('dashboard.discord.index')}
+        backLabel="Back to Discord Servers"
+        class="mb-0"
+    >
+        {#snippet actions()}
             <button
                 onclick={sendTestNotification}
                 disabled={sendingTest || !config.notification_channel_id}
@@ -397,8 +389,8 @@
                     Save All
                 {/if}
             </button>
-        </div>
-    </div>
+        {/snippet}
+    </PageHeader>
 
     {#if loading}
         <div class="flex items-center justify-center py-20">

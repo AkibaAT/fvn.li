@@ -171,7 +171,7 @@ namespace {
         ])
             ->expectsOutput('Starting Steam game import...')
             ->expectsOutput('Steam App ID: 987654')
-            ->expectsOutput('✓ Game data fetched and saved successfully')
+            ->expectsOutput('Game data fetched and saved successfully')
             ->expectsOutput('Import complete!')
             ->expectsOutput('Game is hidden. To make it visible, edit it in the admin panel or run:')
             ->assertExitCode(0);
