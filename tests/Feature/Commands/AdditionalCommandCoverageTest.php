@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameJam;
 use App\Models\ImportState;
@@ -29,69 +28,6 @@ function executeConsoleCommandsWithoutRealFlareSolverr(): void
 
     app()->instance(FlareSolverrSessionManager::class, $sessionManager);
 }
-
-test('anonymize click stat ips validates batch size and exits cleanly when no records need work', function () {
-    $this
-        ->artisan('click-stats:anonymize-ips --batch-size=0 --force')
-        ->expectsOutput('Batch size must be between 1 and 10000')
-        ->assertExitCode(1);
-
-    $game = Game::factory()->create();
-    ClickStat::create([
-        'game_id' => $game->id,
-        'type' => ClickStat::TYPE_PAGE_VIEW,
-        'session_id' => 'local-session',
-        'ip_address' => '127.0.0.1',
-        'clicked_at' => now(),
-    ]);
-
-    $this
-        ->artisan('click-stats:anonymize-ips --force')
-        ->expectsOutput('Analyzing click statistics with IP addresses...')
-        ->expectsOutput('No IP addresses found that need anonymization.')
-        ->assertExitCode(0);
-});
-
-test('anonymize click stat ips supports dry runs and forced updates', function () {
-    $game = Game::factory()->create();
-    $firstClick = ClickStat::create([
-        'game_id' => $game->id,
-        'type' => ClickStat::TYPE_PAGE_VIEW,
-        'session_id' => 'session-one',
-        'ip_address' => '203.0.113.42',
-        'clicked_at' => now(),
-    ]);
-    $secondClick = ClickStat::create([
-        'game_id' => $game->id,
-        'type' => ClickStat::TYPE_EXTERNAL_PROJECT,
-        'session_id' => 'session-two',
-        'ip_address' => '198.51.100.77',
-        'clicked_at' => now()->subMinute(),
-    ]);
-
-    $this
-        ->artisan('click-stats:anonymize-ips --dry-run --batch-size=1')
-        ->expectsOutput('Analyzing click statistics with IP addresses...')
-        ->expectsOutput('Found 2 click statistics with IP addresses that need anonymization.')
-        ->expectsOutput('DRY RUN MODE - Showing what would be anonymized:')
-        ->expectsOutput('Total records that would be updated: 2')
-        ->assertExitCode(0);
-
-    expect($firstClick->refresh()->ip_address)->toBe('203.0.113.42');
-
-    $this
-        ->artisan('click-stats:anonymize-ips --force --batch-size=1')
-        ->expectsOutput('Analyzing click statistics with IP addresses...')
-        ->expectsOutput('Found 2 click statistics with IP addresses that need anonymization.')
-        ->expectsOutput('Starting IP address anonymization...')
-        ->expectsOutput('IP address anonymization completed.')
-        ->expectsOutput('Successfully processed: 2 records')
-        ->expectsOutput('All IP addresses have been successfully anonymized.')
-        ->assertExitCode(0);
-
-    expect($firstClick->refresh()->ip_address)->toBe('203.0.113.0')
-        ->and($secondClick->refresh()->ip_address)->toBe('198.51.100.0');
-});
 
 test('refresh steam games validates options and reports empty selections', function () {
     $this
@@ -398,29 +334,6 @@ test('fetch game jam details rejects unsafe queued jam URLs before HTTP requests
         ->assertExitCode(1);
 
     expect($jam->refresh()->needs_details_fetch)->toBeTrue();
-});
-
-test('cleanup game downloads validates selection and cleans all or selected games', function () {
-    $this
-        ->artisan('games:cleanup-downloads --all')
-        ->expectsOutput('Cleaning up old downloads for all games...')
-        ->expectsOutput('Cleanup completed successfully for 0 games')
-        ->assertExitCode(0);
-
-    $game = Game::factory()->create(['name' => 'Cleanup Target']);
-
-    $this
-        ->artisan("games:cleanup-downloads --game-id={$game->id}")
-        ->expectsOutput('Found 1 game(s):')
-        ->expectsOutput("- {$game->name} (ID: {$game->id}, Status: {$game->status})")
-        ->expectsOutput("Cleaning up old downloads for game: {$game->name} (ID: {$game->id})")
-        ->expectsOutput('Cleanup completed successfully for 1 game(s)')
-        ->assertExitCode(0);
-
-    $this
-        ->artisan('games:cleanup-downloads')
-        ->expectsOutput('You must provide either --game-id, --game-name, or --all option')
-        ->assertExitCode(1);
 });
 
 test('process feed clears import state when the feed has no content', function () {

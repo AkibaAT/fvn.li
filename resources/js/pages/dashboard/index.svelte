@@ -1,4 +1,7 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import CheckIcon from '@/components/icons/Check.svelte';
+    import XMarkIcon from '@/components/icons/XMark.svelte';
     import { untrack } from 'svelte';
     import BugReports from '@/components/dashboard/BugReports.svelte';
     import ConnectedAccounts from '@/components/dashboard/ConnectedAccounts.svelte';
@@ -6,16 +9,12 @@
     import MyGamesTab from '@/components/dashboard/MyGamesTab.svelte';
     import SearchPreferencesTab from '@/components/dashboard/SearchPreferencesTab.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { authenticatedFetch } from '@/utils/http';
+    import { updateNotificationPreferences, type NotificationPreferences } from '@/api/user-preferences';
+    import { httpValidationErrors } from '@/utils/http';
     import { toast } from '@/utils/toast';
     import { Link } from '@inertiajs/svelte';
-    import { Button, Card, Switch } from '@/components/ui';
+    import { Alert, Button, Card, Switch } from '@/components/ui';
     import type { User, SocialAccount } from '@/types';
-    interface NotificationPreferences {
-        browser_notifications_enabled: boolean;
-        discord_notifications_enabled: boolean;
-        notification_digest: string;
-    }
     interface AdditionRequest {
         id: number;
         game_url: string;
@@ -166,19 +165,19 @@
     let notifPrefs = $state(untrack(() => notificationPreferencesInitial));
     let savingPrefs = $state(false);
 
-    async function jsonPost<T>(url: string, payload: unknown): Promise<T> {
-        const res = await authenticatedFetch(url, { method: 'POST', body: JSON.stringify(payload) });
-        const data = await res.json();
-        if (!res.ok || data?.success === false) {
-            if (data?.errors && typeof data.errors === 'object') {
-                Object.values<string | string[]>(data.errors)
+    async function saveNotificationPreferences(payload: NotificationPreferences): Promise<void> {
+        try {
+            await updateNotificationPreferences(payload);
+        } catch (error) {
+            const validationErrors = httpValidationErrors(error);
+            if (validationErrors) {
+                Object.values(validationErrors)
                     .flat()
                     .forEach((m) => toast.error(String(m)));
             }
-            if (data?.message) toast.error(String(data.message));
-            throw new Error(data?.message || 'Request failed');
+            toast.error(error instanceof Error ? error.message : 'Request failed');
+            throw error;
         }
-        return data;
     }
 
     const toggleBrowser = async () => {
@@ -186,7 +185,7 @@
         notifPrefs = next;
         savingPrefs = true;
         try {
-            await jsonPost(route('browser-api.dashboard.notifications.update'), next);
+            await saveNotificationPreferences(next);
         } catch {
             notifPrefs = { ...notifPrefs, browser_notifications_enabled: !next.browser_notifications_enabled };
         } finally {
@@ -199,7 +198,7 @@
         notifPrefs = next;
         savingPrefs = true;
         try {
-            await jsonPost(route('browser-api.dashboard.notifications.update'), next);
+            await saveNotificationPreferences(next);
         } catch {
             notifPrefs = { ...notifPrefs, discord_notifications_enabled: !next.discord_notifications_enabled };
         } finally {
@@ -213,7 +212,7 @@
         notifPrefs = { ...notifPrefs, notification_digest: value };
         savingPrefs = true;
         try {
-            await jsonPost(route('browser-api.dashboard.notifications.update'), {
+            await saveNotificationPreferences({
                 ...notifPrefs,
                 notification_digest: value,
             });
@@ -229,9 +228,7 @@
     };
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || 'Dashboard'}</title>
-</svelte:head>
+<SeoHead {metaTags} title="Dashboard" />
 
 <PageHeader title={metaTags?.title || 'Dashboard'} class="mb-6" />
 
@@ -281,15 +278,7 @@
                 </div>
                 <div class="mt-4">
                     <div class="flex gap-3">
-                        <Button
-                            type="button"
-                            variant="solid"
-                            tone="primary"
-                            onclick={handleExportData}
-                            class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-                        >
-                            Export My Data
-                        </Button>
+                        <Button type="button" variant="solid" tone="primary" onclick={handleExportData}>Export My Data</Button>
                         <Link
                             href={route('users.reviews', user.id)}
                             class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
@@ -356,32 +345,21 @@
                         {#if discordInfo.lastNotification}
                             {@const lastNotif = discordInfo.lastNotification}
                             {#if lastNotif.status === 'sent'}
-                                <div class="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
-                                    <div class="flex items-center gap-2">
-                                        <svg class="h-4 w-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                            ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg
-                                        >
-                                        <p class="text-sm text-green-700 dark:text-green-400">
-                                            Discord notifications are working! Last notification sent successfully{#if lastNotif.processedAt}<span
-                                                    class="text-green-600 dark:text-green-500"
-                                                >
-                                                    on {new Date(lastNotif.processedAt).toLocaleDateString()}</span
-                                                >{/if}
-                                        </p>
-                                    </div>
-                                </div>
+                                <Alert tone="success" layout="inline" role="status" class="mt-3">
+                                    Discord notifications are working! Last notification sent successfully{#if lastNotif.processedAt}
+                                        on {new Date(lastNotif.processedAt).toLocaleDateString()}{/if}
+                                    {#snippet icon()}
+                                        <CheckIcon class="h-4 w-4" />
+                                    {/snippet}
+                                </Alert>
                             {:else if lastNotif.status === 'failed'}
-                                <div class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-                                    <div class="flex items-center gap-2">
-                                        <svg class="h-4 w-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                            ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg
-                                        >
-                                        <p class="text-sm text-red-700 dark:text-red-400">
-                                            Last Discord notification failed.{#if lastNotif.error}
-                                                Error: {lastNotif.error}{/if}
-                                        </p>
-                                    </div>
-                                </div>
+                                <Alert tone="danger" layout="inline" class="mt-3">
+                                    Last Discord notification failed.{#if lastNotif.error}
+                                        Error: {lastNotif.error}{/if}
+                                    {#snippet icon()}
+                                        <XMarkIcon class="h-4 w-4" />
+                                    {/snippet}
+                                </Alert>
                             {/if}
                         {/if}
                     {/if}
@@ -393,13 +371,12 @@
                             {#each [{ value: 'asap', label: 'As soon as possible', desc: 'Get notified immediately when games are updated' }, { value: 'daily', label: 'Daily digest', desc: 'Get a summary of all updates once per day' }, { value: 'weekly', label: 'Weekly digest', desc: 'Get a summary of all updates once per week' }] as freq (freq.value)}
                                 <Button
                                     type="button"
-                                    variant={notifPrefs.notification_digest === freq.value ? 'outline' : 'outline'}
-                                    tone="info"
+                                    variant={notifPrefs.notification_digest === freq.value ? 'soft' : 'outline'}
+                                    tone={notifPrefs.notification_digest === freq.value ? 'info' : 'neutral'}
+                                    aria-pressed={notifPrefs.notification_digest === freq.value}
                                     onclick={() => updateDigest(freq.value)}
                                     disabled={savingPrefs}
-                                    class="rounded-lg border-2 p-3 text-left text-sm transition-colors {notifPrefs.notification_digest === freq.value
-                                        ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/20'
-                                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'}"
+                                    class="h-auto flex-col items-start rounded-lg p-3 text-left text-sm"
                                 >
                                     <div class="font-medium text-gray-900 dark:text-white">{freq.label}</div>
                                     <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">{freq.desc}</div>

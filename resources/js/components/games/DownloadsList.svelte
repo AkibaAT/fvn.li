@@ -1,7 +1,9 @@
 <script lang="ts">
+    import ArrowLongRightIcon from '@/components/icons/ArrowLongRight.svelte';
+    import ExternalLinkIcon from '@/components/icons/ExternalLink.svelte';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { Card } from '@/components/ui';
-    import type { Snippet } from 'svelte';
+    import { usePlatformIcons, type GameCardPlatform } from '@/hooks/usePlatformIcons';
 
     export interface AdditionalLink {
         id: number | string;
@@ -14,10 +16,17 @@
     interface Props {
         gameId: number;
         links: AdditionalLink[];
-        getPlatformIcon: (platform: string) => Snippet | string;
     }
 
-    let { gameId, links, getPlatformIcon }: Props = $props();
+    let { gameId, links }: Props = $props();
+    const { getPlatformIcon } = usePlatformIcons();
+
+    const platformIcon = (platform?: string | null) => {
+        if (platform && ['windows', 'linux', 'mac', 'android', 'web'].includes(platform)) {
+            return getPlatformIcon(platform as GameCardPlatform);
+        }
+        return { icon: ExternalLinkIcon, color: 'text-gray-600 dark:text-gray-400', title: 'External link' };
+    };
 </script>
 
 {#if links && links.length > 0}
@@ -25,7 +34,8 @@
         <h2 class="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">Downloads</h2>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {#each links as link (link.id)}
-                {@const icon = getPlatformIcon(link.platform || 'external')}
+                {@const iconMeta = platformIcon(link.platform)}
+                {@const Icon = iconMeta.icon}
                 <a
                     href={route('track.custom-link', { game_id: gameId, link_id: link.id, url: link.url })}
                     target="_blank"
@@ -34,12 +44,7 @@
                 >
                     <div class="flex-shrink-0">
                         <div class="rounded-lg bg-gray-50 p-2 text-xl dark:bg-gray-700">
-                            {#if typeof icon === 'string'}
-                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                {@html icon}
-                            {:else}
-                                {@render icon()}
-                            {/if}
+                            <Icon class="h-5 w-5 {iconMeta.color}" />
                         </div>
                     </div>
                     <div class="min-w-0 flex-1">
@@ -57,14 +62,9 @@
                         </div>
                     </div>
                     <div class="flex-shrink-0">
-                        <svg
+                        <ArrowLongRightIcon
                             class="h-5 w-5 text-gray-400 transition-colors group-hover:text-blue-500 dark:group-hover:text-blue-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        </svg>
+                        />
                     </div>
                 </a>
             {/each}

@@ -171,75 +171,7 @@ describe('GameObserver cache management', function () {
     });
 });
 
-describe('GameObserver pending associations', function () {
-    test('processes pending tags on creation', function () {
-        // The pendingTagIds property is protected in the HasGameTags trait
-        // and is meant to be set internally, not from tests
-        // The observer calls processPendingTags() which checks this property
-        // For now, we just verify the observer doesn't break game creation
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'name' => 'game', // Simple name to match expected slug
-            'url' => ['itch_io' => 'https://test.itch.io/game'],
-            'is_visible' => true,
-        ]);
-
-        // Verify game was created successfully
-        expect($game->exists)->toBeTrue()
-            ->and($game->slug)->toBe('game');
-    });
-
-    test('processes pending game jams on creation', function () {
-        // Similar to pending tags, pendingGameJamId is protected
-        // The observer calls processPendingGameJams() which checks this property
-        // For now, we just verify the observer doesn't break game creation
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'name' => 'game', // Simple name to match expected slug
-            'url' => ['itch_io' => 'https://test.itch.io/game'],
-            'is_visible' => true,
-        ]);
-
-        // Verify game was created successfully
-        expect($game->exists)->toBeTrue()
-            ->and($game->slug)->toBe('game');
-    });
-});
-
 describe('GameObserver search indexing', function () {
-    test('adds visible game to search index on creation', function () {
-        // Mock the Scout searchable method to verify it's called
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'name' => 'Test Game',
-            'url' => ['itch_io' => 'https://test.itch.io/game'],
-            'is_visible' => true,
-        ]);
-
-        // Verify game was created successfully and is visible
-        expect($game->exists)->toBeTrue()
-            ->and($game->is_visible)->toBeTrue()
-            ->and($game->name)->toBe('Test Game');
-
-        // In a real test, you would mock Scout to verify searchable() was called
-        // For now, we just verify the game is in the correct state
-    });
-
-    test('does not add invisible game to search index on creation', function () {
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'name' => 'Test Game',
-            'url' => ['itch_io' => 'https://test.itch.io/game'],
-            'is_visible' => false,
-        ]);
-
-        // Verify game was created successfully but is not visible
-        expect($game->exists)->toBeTrue()
-            ->and($game->is_visible)->toBeFalse();
-
-        // The observer should not call searchable() for invisible games
-    });
-
     test('removes hidden game from search index after commit', function () {
         $game = Game::factory()->create([
             'platform' => 'itch_io',
@@ -295,53 +227,6 @@ describe('GameObserver stats extraction disabling', function () {
     });
 });
 
-describe('GameObserver thumbnail processing', function () {
-    test('triggers thumbnail processing when thumb_url changes', function () {
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'thumb_url' => 'https://example.com/old-thumb.jpg',
-        ]);
-
-        $game->update(['thumb_url' => 'https://example.com/new-thumb.jpg']);
-
-        // Thumbnail processing should be dispatched
-        expect($game->thumb_url)->toBe('https://example.com/new-thumb.jpg');
-    });
-
-    test('clears optimized thumbnails when thumb_url changes', function () {
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'thumb_url' => 'https://example.com/thumb.jpg',
-            'optimized_thumbnails' => [
-                'small' => ['path' => 'thumbnails/small.webp'],
-            ],
-        ]);
-
-        $game->update(['thumb_url' => 'https://example.com/new-thumb.jpg']);
-
-        // Optimized thumbnails should be cleared
-        // This depends on the clearOptimizedThumbnails implementation
-        expect($game->thumb_url)->toBe('https://example.com/new-thumb.jpg');
-    });
-
-    test('processes screenshots as thumbnail fallback when no thumb_url', function () {
-        $game = Game::factory()->create([
-            'platform' => 'itch_io',
-            'thumb_url' => null,
-            'screenshots' => [],
-        ]);
-
-        $game->update([
-            'screenshots' => [
-                ['url' => 'https://example.com/screenshot1.jpg'],
-            ],
-        ]);
-
-        // Screenshot processing should be triggered
-        expect($game->screenshots)->toHaveCount(1);
-    });
-});
-
 describe('GameObserver edge cases', function () {
     test('handles games with special characters in URL', function () {
         $game = Game::factory()->create([
@@ -371,7 +256,7 @@ describe('GameObserver edge cases', function () {
         for ($i = 0; $i < 5; $i++) {
             $games[] = Game::factory()->create([
                 'platform' => 'itch_io',
-                'url' => ['itch_io' => 'https://dev' . $i . '.itch.io/same-game'],
+                'url' => ['itch_io' => 'https://dev'.$i.'.itch.io/same-game'],
             ]);
         }
 

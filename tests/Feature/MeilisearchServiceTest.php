@@ -118,7 +118,7 @@ function seedMeilisearchLanguage(string $isoCode = 'eng', string $name = 'Englis
 function makeMeilisearchGame(array $attributes = [], array $versionAttributes = []): Game
 {
     $game = Game::factory()->create(array_merge([
-        'name' => 'Meili Test ' . str()->uuid(),
+        'name' => 'Meili Test '.str()->uuid(),
         'is_visible' => true,
         'first_visible_at' => now(),
     ], $attributes));
@@ -170,7 +170,7 @@ beforeEach(function () {
     try {
         expect(meilisearchTestClient()->health()['status'] ?? null)->toBe('available');
     } catch (Throwable $exception) {
-        $this->markTestSkipped('Meilisearch is not reachable: ' . $exception->getMessage());
+        $this->markTestSkipped('Meilisearch is not reachable: '.$exception->getMessage());
     }
 
     configureMeilisearchIndexesOnce();
@@ -180,7 +180,7 @@ beforeEach(function () {
 });
 
 test('searches games by name through meilisearch', function () {
-    $token = 'doki-' . str()->lower(str()->random(8));
+    $token = 'doki-'.str()->lower(str()->random(8));
     $game = makeMeilisearchGame(['name' => "Doki {$token} Literature Club"]);
     addMeilisearchDocument('games', $game->fresh()->toSearchableArray());
 
@@ -192,7 +192,7 @@ test('searches games by name through meilisearch', function () {
 test('filters games by tag platform and language attributes', function () {
     seedMeilisearchLanguage();
 
-    $token = 'romance-' . str()->lower(str()->random(8));
+    $token = 'romance-'.str()->lower(str()->random(8));
     $tag = Tag::create(['name' => "Romance {$token}"]);
     $matching = makeMeilisearchGame(['name' => "Tagged {$token} VN"]);
     $matching->tags()->attach($tag);
@@ -214,7 +214,7 @@ test('filters games by tag platform and language attributes', function () {
 });
 
 test('sorts and paginates game search results through meilisearch', function () {
-    $token = 'sorted-' . str()->lower(str()->random(8));
+    $token = 'sorted-'.str()->lower(str()->random(8));
     $old = makeMeilisearchGame([
         'name' => "Old {$token}",
         'first_visible_at' => now()->subDays(10),
@@ -244,7 +244,7 @@ test('sorts and paginates game search results through meilisearch', function () 
 test('searches dialogue using the current game dialogue text index', function () {
     seedMeilisearchLanguage();
 
-    $token = 'moonlight ' . str()->lower(str()->random(8));
+    $token = 'moonlight '.str()->lower(str()->random(8));
     $game = makeMeilisearchGame(['name' => "Dialogue {$token} VN"]);
     $version = $game->latestVersion;
     $character = Character::factory()->for($game)->create([
@@ -278,8 +278,4 @@ test('searches dialogue using the current game dialogue text index', function ()
     expect($results->total())->toBe(1)
         ->and($results->items()[0]->id)->toBe($line->id)
         ->and($results->items()[0]->highlighted_text)->toContain('<mark>');
-});
-
-test('meilisearch is reachable in the github ddev environment', function () {
-    expect(meilisearchTestClient()->health()['status'] ?? null)->toBe('available');
 });

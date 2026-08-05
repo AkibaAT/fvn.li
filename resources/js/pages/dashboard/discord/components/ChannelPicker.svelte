@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import { onMount } from 'svelte';
 
     export type PickerItem = { id: string; name: string; nsfw?: boolean; color?: number };
@@ -61,9 +62,7 @@
         aria-haspopup="listbox"
     >
         <span class="truncate">{selected ? `${prefix}${selected.name}` : placeholder}</span>
-        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg
-        >
+        <ChevronDownIcon class="h-4 w-4 text-gray-400" />
     </button>
     {#if open}
         <div class="absolute z-30 mt-1 w-full rounded-lg border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-600 dark:bg-gray-800">

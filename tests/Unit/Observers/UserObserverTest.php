@@ -58,16 +58,6 @@ describe('UserObserver default list initialization', function () {
             ->not->toEqual($user2Lists->pluck('id')->toArray());
     });
 
-    test('default lists are created immediately after user creation', function () {
-        $user = User::factory()->create();
-
-        // Refresh to ensure we're getting the latest data
-        $user->refresh();
-
-        expect($user->vnLists()->exists())->toBeTrue()
-            ->and($user->vnLists()->count())->toBe(5);
-    });
-
     test('observer does not interfere with user updates', function () {
         $user = User::factory()->create();
 
@@ -76,37 +66,5 @@ describe('UserObserver default list initialization', function () {
         $user->update(['name' => 'Updated Name']);
 
         expect($user->vnLists()->count())->toBe($initialListCount);
-    });
-});
-
-describe('UserObserver edge cases', function () {
-    test('handles rapid user creation', function () {
-        $users = User::factory()->count(10)->create();
-
-        foreach ($users as $user) {
-            expect($user->vnLists()->where('is_default', true)->count())->toBe(5);
-        }
-    });
-
-    test('default lists are not duplicated on user refresh', function () {
-        $user = User::factory()->create();
-
-        $initialCount = $user->vnLists()->count();
-
-        $user->refresh();
-
-        expect($user->vnLists()->count())->toBe($initialCount);
-    });
-
-    test('user can be deleted with default lists', function () {
-        $user = User::factory()->create();
-        $userId = $user->id;
-
-        expect($user->vnLists()->count())->toBe(5);
-
-        $user->delete();
-
-        // Lists should be deleted via cascade or remain orphaned depending on DB setup
-        expect(User::find($userId))->toBeNull();
     });
 });

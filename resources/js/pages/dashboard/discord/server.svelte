@@ -1,107 +1,30 @@
 <script lang="ts">
-    import { apiFetch } from '@/utils/http';
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import CheckIcon from '@/components/icons/Check.svelte';
+    import {
+        fetchDiscordServer,
+        fetchDiscordServerChannels,
+        fetchDiscordServerRoles,
+        fetchRuleMetadata,
+        sendTestNotification as sendTestNotificationRequest,
+        updateDiscordServerConfig,
+        type DiscordChannel,
+        type DiscordRole,
+        type DiscordServer,
+        type GameOverride,
+        type RoutingRule,
+        type RuleFieldMetadata,
+        type ServerConfig,
+    } from '@/api/discord';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { toast } from '@/utils/toast';
-    import RuleBuilder from './components/rule-builder.svelte';
-    import EmbedEditor from './components/embed-editor.svelte';
-    import VnOverrideManager from './components/vn-override-manager.svelte';
+    import RuleBuilder from './components/RuleBuilder.svelte';
+    import EmbedEditor from './components/EmbedEditor.svelte';
+    import VnOverrideManager from './components/VnOverrideManager.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Alert, Badge, Card, Switch } from '@/components/ui';
+    import { Alert, Badge, Button, Card, Switch } from '@/components/ui';
     import type { BadgeTone } from '@/components/ui/Badge.svelte';
     import ChannelPicker from './components/ChannelPicker.svelte';
-
-    interface DiscordChannel {
-        id: string;
-        name: string;
-        type?: number;
-        nsfw?: boolean;
-    }
-
-    interface DiscordRole {
-        id: string;
-        name: string;
-        color?: number;
-        mentionable?: boolean;
-        position?: number;
-    }
-
-    interface GameOverride {
-        id: number;
-        game_id: number;
-        is_ignored: boolean;
-        channel_id: string | null;
-        new_game_embed: Record<string, unknown> | null;
-        update_embed: Record<string, unknown> | null;
-        game: { id: number; name: string; slug: string; thumb_url?: string };
-    }
-
-    interface NotificationHistoryEntry {
-        id: number;
-        game_id: number;
-        notification_type: string;
-        channel_id: string;
-        delivery_status: string;
-        error_message: string | null;
-        sent_at: string;
-        game?: { id: number; name: string; slug: string };
-    }
-
-    interface ServerConfig {
-        id?: number;
-        discord_server_id?: number;
-        notification_channel_id: string | null;
-        notification_format: string;
-        custom_template: string | null;
-        include_game_description: boolean;
-        include_thumbnail: boolean;
-        include_ratings: boolean;
-        ping_role_id: string | null;
-        routing_rules: RoutingRule[];
-        new_game_embed: Record<string, unknown> | null;
-        update_embed: Record<string, unknown> | null;
-    }
-
-    interface RoutingRule {
-        id: string;
-        name: string;
-        enabled: boolean;
-        priority: number;
-        conditions: RuleCondition[];
-        action: { type: 'ignore' | 'route'; channel_id?: string };
-    }
-
-    interface RuleCondition {
-        field: string;
-        operator: string;
-        value: string | string[] | boolean;
-    }
-
-    interface RuleOption {
-        value: string | boolean;
-        label: string;
-    }
-
-    interface RuleFieldMetadata {
-        type: 'enum' | 'multi_enum' | 'boolean';
-        operators: string[];
-        options: RuleOption[];
-    }
-
-    interface RuleMetadataResponse {
-        fields: Record<string, RuleFieldMetadata>;
-    }
-
-    interface DiscordServer {
-        id: number;
-        discord_server_id: string;
-        discord_server_name: string;
-        is_active: boolean;
-        bot_joined_at: string | null;
-        available_channels: DiscordChannel[];
-        channels_synced_at: string | null;
-        config: ServerConfig | null;
-        gameOverrides: GameOverride[];
-        notificationHistory: NotificationHistoryEntry[];
-    }
 
     interface Props {
         server: number;
@@ -141,12 +64,12 @@
             loading = true;
             error = null;
             try {
-                const data = await apiFetch<{ server: DiscordServer }>(route('browser-api.discord.servers.show', { server: serverId }));
-                server = data.server;
-                if (data.server.config) {
-                    config = { ...config, ...data.server.config };
+                const data = await fetchDiscordServer(serverId);
+                server = data;
+                if (data.config) {
+                    config = { ...config, ...data.config };
                 }
-                overrides = data.server.gameOverrides || [];
+                overrides = data.gameOverrides || [];
             } catch (e) {
                 error = e instanceof Error ? e.message : 'Failed to load server configuration';
             } finally {
@@ -159,8 +82,7 @@
         if (!server) return;
         (async () => {
             try {
-                const data = await apiFetch<{ channels: DiscordChannel[] }>(route('browser-api.discord.servers.channels', { server: serverId }));
-                channels = data.channels;
+                channels = await fetchDiscordServerChannels(serverId);
             } catch {
                 channels = server?.available_channels || [];
             }
@@ -171,8 +93,7 @@
         if (!server) return;
         (async () => {
             try {
-                const data = await apiFetch<{ roles: DiscordRole[] }>(route('browser-api.discord.servers.roles', { server: serverId }));
-                roles = data.roles;
+                roles = await fetchDiscordServerRoles(serverId);
             } catch {
                 roles = [];
             }
@@ -182,8 +103,7 @@
     $effect(() => {
         (async () => {
             try {
-                const data = await apiFetch<RuleMetadataResponse>(route('browser-api.discord.rule-metadata'));
-                ruleFieldMetadata = data.fields;
+                ruleFieldMetadata = await fetchRuleMetadata();
             } catch {
                 ruleFieldMetadata = {};
             }
@@ -196,10 +116,7 @@
         try {
             const payload = partial ? { ...config, ...partial } : config;
             config = { ...config, ...partial };
-            await apiFetch(route('browser-api.discord.servers.config', { server: serverId }), {
-                method: 'PUT',
-                body: JSON.stringify(payload),
-            });
+            await updateDiscordServerConfig(serverId, payload);
             toast.success('Configuration saved');
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Failed to save configuration');
@@ -213,11 +130,8 @@
 
         sendingTest = true;
         try {
-            const data = await apiFetch<{ message: string }>(route('browser-api.discord.servers.test-notification', { server: serverId }), {
-                method: 'POST',
-                body: JSON.stringify({}),
-            });
-            toast.success(data.message);
+            const message = await sendTestNotificationRequest(serverId);
+            toast.success(message);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Failed to queue test notification');
         } finally {
@@ -285,9 +199,7 @@
     ];
 </script>
 
-<svelte:head>
-    <title>{server?.discord_server_name || 'Server'} - Discord Configuration</title>
-</svelte:head>
+<SeoHead title={`${server?.discord_server_name || 'Server'} - Discord Configuration`} />
 
 <div class="space-y-6">
     <PageHeader
@@ -311,19 +223,10 @@
                 class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
             >
                 {#if saving}
-                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                    </svg>
+                    <LoadingSpinner size="sm" currentColor isBusy={false} />
                     Saving...
                 {:else}
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <CheckIcon class="h-4 w-4" />
                     Save All
                 {/if}
             </button>
@@ -332,22 +235,13 @@
 
     {#if loading}
         <div class="flex items-center justify-center py-20">
-            <svg class="h-8 w-8 animate-spin text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-            </svg>
+            <LoadingSpinner size="lg" class="text-indigo-600 dark:text-indigo-400" currentColor label="Loading Discord server settings" />
         </div>
     {:else if error}
         <Alert title="Failed to load server" tone="danger">
             <p>{error}</p>
             {#snippet actions()}
-                <button onclick={() => window.location.reload()} class="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
-                    Retry
-                </button>
+                <Button type="button" tone="danger" size="sm" onclick={() => window.location.reload()}>Retry</Button>
             {/snippet}
         </Alert>
     {:else}
@@ -382,12 +276,7 @@
                                 if (!server) return;
                                 server = { ...server, is_active: !server.is_active };
                                 try {
-                                    await apiFetch(route('browser-api.discord.servers.config', { server: serverId }), {
-                                        method: 'PUT',
-                                        body: JSON.stringify({
-                                            is_active: server.is_active,
-                                        }),
-                                    });
+                                    await updateDiscordServerConfig(serverId, { is_active: server.is_active });
                                     toast.success(server.is_active ? 'Server activated' : 'Server deactivated');
                                 } catch {
                                     server = { ...server, is_active: !server.is_active };

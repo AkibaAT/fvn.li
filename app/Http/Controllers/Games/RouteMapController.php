@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\RenpySaveParser;
 use App\Services\RouteGraphService;
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -76,10 +77,10 @@ class RouteMapController extends Controller
             'includeUnreachable' => $includeUnreachable,
             'availableLanguages' => $availableLanguages,
             'currentLanguage' => $currentLanguage,
-            'metaTags' => [
-                'title' => $game->name . ' - Route Map - FVN.li',
-                'description' => 'Interactive route map and branching visualization for ' . $game->name,
-            ],
+            'metaTags' => new MetaTags(
+                title: $game->name.' - Route Map',
+                description: 'Interactive route map and branching visualization for '.$game->name,
+            )->toArray(),
         ]);
     }
 
@@ -99,7 +100,7 @@ class RouteMapController extends Controller
     public function parseSaveFile(Game $game, GameVersion $version, Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:' . RenpySaveParser::MAX_UPLOAD_KIB],
+            'file' => ['required', 'file', 'max:'.RenpySaveParser::MAX_UPLOAD_KIB],
         ]);
 
         $knownLabels = $version->routeLabels()->pluck('name')->toArray();

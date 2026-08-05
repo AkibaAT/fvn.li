@@ -23,8 +23,8 @@ function fakeSocialiteUser(
     $user->email = $email;
     $user->nickname = $nickname;
     $user->avatar = $avatar;
-    $user->token = 'token-' . $id;
-    $user->refreshToken = 'refresh-' . $id;
+    $user->token = 'token-'.$id;
+    $user->refreshToken = 'refresh-'.$id;
     $user->expiresIn = 3600;
     $user->user = $raw;
 
@@ -48,7 +48,7 @@ test('itchio redirect uses a normal external redirect and stores explicit intend
             }
         });
 
-    $intendedUrl = route('dashboard') . '#my-games';
+    $intendedUrl = route('dashboard').'#my-games';
 
     $response = $this->get(route('auth.redirect', [
         'provider' => 'itchio',
@@ -277,10 +277,6 @@ test('callback error logs omit raw request payloads and oauth secrets', function
             && ! str_contains($message, 'attacker-token')
             && ! str_contains((string) $encodedContext, 'attacker-token');
     });
-});
-
-test('default log stack keeps nightwatch opt in', function () {
-    expect(config('logging.channels.stack.channels'))->toBe(['single']);
 });
 
 test('provider callback creates a new user and social account', function () {

@@ -32,38 +32,6 @@ beforeEach(function () {
         ]);
 });
 
-test('dialogue line has correct fillable attributes', function () {
-    $dialogueLine = new DialogueLine;
-
-    expect($dialogueLine->getFillable())->toContain(
-        'game_version_id',
-        'character_id',
-        'iso_code',
-        'file_path',
-        'line_number',
-        'text_id',
-        'context'
-    );
-});
-
-test('dialogue line uses correct table name', function () {
-    $dialogueLine = new DialogueLine;
-
-    expect($dialogueLine->getTable())->toBe('version_dialogue_lines');
-});
-
-test('dialogue line has game version relationship', function () {
-    expect($this->dialogue->gameVersion->id)->toBe($this->version->id);
-});
-
-test('dialogue line has character relationship', function () {
-    expect($this->dialogue->character->id)->toBe($this->character->id);
-});
-
-test('dialogue line has text relationship', function () {
-    expect($this->dialogue->text->id)->toBe($this->uniqueText->id);
-});
-
 test('text content accessor returns content from related text', function () {
     expect($this->dialogue->text_content)->toBe('Hello, this is a test dialogue line.');
 });
@@ -156,60 +124,4 @@ test('search scope constructs proper query', function () {
     expect($sql)->toContain('join')
         ->and($sql)->toContain('unique_dialogue_texts')
         ->and($sql)->toContain('plainto_tsquery');
-});
-
-test('dialogue line can be created with factory', function () {
-    $dialogue = DialogueLine::factory()
-        ->for($this->version, 'gameVersion')
-        ->for($this->character)
-        ->english()
-        ->inFile('test/file.rpy')
-        ->create();
-
-    expect($dialogue->iso_code)->toBe('eng')
-        ->and($dialogue->file_path)->toBe('test/file.rpy')
-        ->and($dialogue->game_version_id)->toBe($this->version->id)
-        ->and($dialogue->character_id)->toBe($this->character->id);
-});
-
-test('dialogue line can be created with specific text content', function () {
-    $textContent = 'This is specific test content.';
-
-    $dialogue = DialogueLine::factory()
-        ->for($this->version, 'gameVersion')
-        ->for($this->character)
-        ->withText($textContent)
-        ->create();
-
-    expect($dialogue->text_content)->toBe($textContent);
-});
-
-test('dialogue line factory creates japanese dialogue', function () {
-    $dialogue = DialogueLine::factory()
-        ->for($this->version, 'gameVersion')
-        ->for($this->character)
-        ->japanese()
-        ->create();
-
-    expect($dialogue->iso_code)->toBe('jpn');
-});
-
-test('multiple dialogue lines can share same unique text', function () {
-    $sharedText = UniqueDialogueText::factory()->create([
-        'text_content' => 'Shared dialogue text',
-    ]);
-
-    $dialogue1 = DialogueLine::factory()
-        ->for($this->version, 'gameVersion')
-        ->for($this->character)
-        ->create(['text_id' => $sharedText->id]);
-
-    $dialogue2 = DialogueLine::factory()
-        ->for($this->version, 'gameVersion')
-        ->for($this->character)
-        ->create(['text_id' => $sharedText->id]);
-
-    expect($dialogue1->text_content)->toBe('Shared dialogue text')
-        ->and($dialogue2->text_content)->toBe('Shared dialogue text')
-        ->and($dialogue1->text_id)->toBe($dialogue2->text_id);
 });

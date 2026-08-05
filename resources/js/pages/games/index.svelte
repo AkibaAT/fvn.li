@@ -1,19 +1,25 @@
 <script lang="ts">
+    import ArrowPathIcon from '@/components/icons/ArrowPath.svelte';
+    import FunnelIcon from '@/components/icons/Funnel.svelte';
+    import InformationCircleIcon from '@/components/icons/InformationCircle.svelte';
+    import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
     import { untrack } from 'svelte';
     import FilterModal from '@/components/FilterModal.svelte';
     import { useGameFilters } from '@/hooks/useGameFilters.svelte';
     import { usePlatformIcons, type GameCardPlatform } from '@/hooks/usePlatformIcons';
+    import { fetchRandomGameSlug } from '@/api';
     import { useStorePlatformIcons, type StorePlatform } from '@/hooks/useStorePlatformIcons';
     import ActiveFilterChips from '@/components/games/ActiveFilterChips.svelte';
     import SortControls from '@/components/games/SortControls.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import GamesGrid from '@/components/games/GamesGrid.svelte';
-    import PaginationControls from '@/components/games/PaginationControls.svelte';
+    import Pagination from '@/components/Pagination.svelte';
+    import type { PaginationMeta } from '@/components/Pagination.svelte';
     import type { CurrentFilters, FilterOptions } from '@/types';
     import SeoHead from '@/components/seo/SeoHead.svelte';
-    import type { MetaTags as SeoMetaTags } from '@/components/seo/SeoHead.svelte';
+    import type { MetaTags as SeoMetaTags } from '@/types/meta-tags';
     import { router } from '@inertiajs/svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Alert, Button, Card } from '@/components/ui';
 
     interface GamesIndexGame {
         id: number;
@@ -67,16 +73,6 @@
         next?: string | null;
     }
 
-    interface PaginationMeta {
-        current_page: number;
-        from?: number;
-        last_page: number;
-        path?: string;
-        per_page: number;
-        to?: number;
-        total: number;
-    }
-
     interface GamesIndexProps {
         games: {
             data: GamesIndexGame[];
@@ -95,7 +91,7 @@
     let showFilters = $state(false);
     let localIgnoredGameIds = $state<number[]>(untrack(() => ignoredGameIds));
 
-    const { updateFilters, toggleFilter, clearFilters, hasActiveFilters, buildActiveFilterChips } = useGameFilters({
+    const { updateFilters, toggleFilter, clearFilters, hasActiveFilters, buildActiveFilterChips, buildPageUrl } = useGameFilters({
         getCurrentFilters: () => currentFilters,
         getFilters: () => filters,
         onGamesPage: true,
@@ -121,10 +117,9 @@
     const handleRandomGame = async () => {
         isRandomLoading = true;
         try {
-            const response = await fetch(route('games.random'));
-            const data = await response.json();
-            if (data.slug) {
-                router.visit(route('games.show', { game: data.slug }));
+            const slug = await fetchRandomGameSlug();
+            if (slug) {
+                router.visit(route('games.show', { game: slug }));
             }
         } catch {
             // Silently fail
@@ -206,22 +201,10 @@
                     onclick={handleRandomGame}
                     disabled={isRandomLoading}
                     loading={isRandomLoading}
-                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-sm text-amber-800 transition-colors hover:bg-amber-100 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
                 >
-                    <svg
-                        class="h-3.5 w-3.5 {isRandomLoading ? 'animate-spin' : ''}"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width={2}
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                    </svg>
+                    {#if !isRandomLoading}
+                        <ArrowPathIcon class="h-3.5 w-3.5" />
+                    {/if}
                     {isRandomLoading ? 'Loading...' : "I'm Feeling Lucky"}
                 </Button>
 
@@ -233,18 +216,10 @@
                     onclick={() => {
                         showFilters = !showFilters;
                     }}
-                    class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                     aria-expanded={showFilters}
                     aria-controls="filter-modal"
                 >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width={2}
-                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                        />
-                    </svg>
+                    <FunnelIcon class="h-4 w-4" />
                     Filters
                     {#if hasActiveFilters()}
                         <span class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
@@ -257,83 +232,46 @@
     </Card>
 
     {#if currentFilters.usingDefaultLanguages}
-        <div
-            class="flex items-center justify-between rounded-lg border border-indigo-300 bg-indigo-50 p-3 dark:border-indigo-600 dark:bg-indigo-900/30"
-        >
-            <div class="flex items-center gap-2 text-sm text-indigo-700 dark:text-indigo-300">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        fill-rule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                <span>Showing games in your preferred languages.</span>
-            </div>
-            <Button
-                type="button"
-                variant="solid"
-                tone="info"
-                size="sm"
-                onclick={() => updateFilters({ selectedLanguages: [], noDefaults: true })}
-                class="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-            >
-                Show all
-            </Button>
-        </div>
+        <Alert tone="note" layout="inline" role="status">
+            {#snippet icon()}<InformationCircleIcon class="h-5 w-5" />{/snippet}
+            Showing games in your preferred languages.
+            {#snippet actions()}
+                <Button
+                    type="button"
+                    variant="solid"
+                    tone="info"
+                    size="sm"
+                    onclick={() => updateFilters({ selectedLanguages: [], noDefaults: true })}
+                >
+                    Show all
+                </Button>
+            {/snippet}
+        </Alert>
     {/if}
 
     {#if ignoredCount > 0 && !currentFilters.showIgnored}
-        <div class="mb-4 flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
-            <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <svg class="h-5 w-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        fill-rule="evenodd"
-                        d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                <span>
-                    <strong>{ignoredCount}</strong>
-                    {ignoredCount === 1 ? 'game' : 'games'} hidden from results
-                </span>
-            </div>
-            <Button
-                type="button"
-                variant="solid"
-                tone="primary"
-                size="sm"
-                onclick={() => updateFilters({ showIgnored: true })}
-                class="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-            >
-                Show Ignored
-            </Button>
-        </div>
+        <Alert tone="neutral" layout="inline" role="status" class="mb-4">
+            {#snippet icon()}<NoSymbolIcon class="h-5 w-5" />{/snippet}
+            <strong>{ignoredCount}</strong>
+            {ignoredCount === 1 ? 'game' : 'games'} hidden from results
+            {#snippet actions()}
+                <Button type="button" variant="solid" tone="primary" size="sm" onclick={() => updateFilters({ showIgnored: true })}
+                    >Show Ignored</Button
+                >
+            {/snippet}
+        </Alert>
     {/if}
 
     {#if currentFilters.showIgnored}
-        <div class="mb-4 flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 p-3 dark:border-blue-600 dark:bg-blue-900/30">
-            <div class="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        fill-rule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                <span>Showing ignored games</span>
-            </div>
-            <Button
-                type="button"
-                variant="solid"
-                tone="neutral"
-                size="sm"
-                onclick={() => updateFilters({ showIgnored: false })}
-                class="rounded-md bg-gray-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600"
-            >
-                Hide Ignored
-            </Button>
-        </div>
+        <Alert tone="info" layout="inline" role="status" class="mb-4">
+            {#snippet icon()}<InformationCircleIcon class="h-5 w-5" />{/snippet}
+            Showing ignored games
+            {#snippet actions()}
+                <Button type="button" variant="solid" tone="neutral" size="sm" onclick={() => updateFilters({ showIgnored: false })}
+                    >Hide Ignored</Button
+                >
+            {/snippet}
+        </Alert>
     {/if}
 
     <GamesGrid
@@ -354,5 +292,13 @@
         onIgnoreToggle={handleIgnoreToggle}
     />
 
-    <PaginationControls meta={gamesMeta} {currentFilters} {updateFilters} />
+    <Pagination
+        layout="full"
+        meta={gamesMeta}
+        label="results"
+        onChange={(page) => updateFilters({ page })}
+        onPerPageChange={(perPage) => updateFilters({ perPage })}
+        perPageOptions={[8, 16, 24, 32]}
+        {buildPageUrl}
+    />
 </div>

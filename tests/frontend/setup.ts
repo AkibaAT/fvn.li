@@ -6,6 +6,9 @@ afterEach(() => {
     cleanup();
     vi.useRealTimers();
     vi.restoreAllMocks();
-    document.head.innerHTML = '';
-    document.body.innerHTML = '';
+    // Node-environment suites (SSR rendering) have no DOM to reset.
+    if (typeof document !== 'undefined') {
+        document.head.innerHTML = '';
+        document.body.innerHTML = '';
+    }
 });

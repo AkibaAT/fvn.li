@@ -17,6 +17,38 @@ const setCookie = (name: string, value: string, days = 365) => {
     document.cookie = `${name}=${value};path=/;max-age=${maxAge};SameSite=Lax`;
 };
 
+const getCookie = (name: string) => {
+    if (typeof document === 'undefined') {
+        return null;
+    }
+
+    const prefix = `${name}=`;
+    const cookie = document.cookie.split('; ').find((entry) => entry.startsWith(prefix));
+
+    return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
+};
+
+const isAppearance = (value: string | null): value is Appearance => value === 'light' || value === 'dark' || value === 'system';
+
+const readAppearance = (): Appearance => {
+    const cookieAppearance = getCookie('appearance');
+    if (isAppearance(cookieAppearance)) {
+        return cookieAppearance;
+    }
+
+    const storedAppearance = typeof localStorage !== 'undefined' ? localStorage.getItem('appearance') : null;
+    if (isAppearance(storedAppearance)) {
+        setCookie('appearance', storedAppearance);
+
+        return storedAppearance;
+    }
+
+    // An unreadable cookie is rewritten so the server stops seeing the stale value.
+    setCookie('appearance', 'system');
+
+    return 'system';
+};
+
 const applyTheme = (appearance: Appearance) => {
     if (typeof document === 'undefined') {
         return;
@@ -36,29 +68,17 @@ const mediaQuery = () => {
 };
 
 const handleSystemThemeChange = () => {
-    if (typeof localStorage === 'undefined') {
-        return;
-    }
-
-    const currentAppearance = localStorage.getItem('appearance') as Appearance;
-    applyTheme(currentAppearance || 'system');
+    applyTheme(readAppearance());
 };
 
 export function initializeAppearance() {
-    if (typeof localStorage === 'undefined') {
-        return;
-    }
-
-    const savedAppearance = (localStorage.getItem('appearance') as Appearance) || 'system';
-
-    applyTheme(savedAppearance);
+    applyTheme(readAppearance());
 
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
 export function useAppearance() {
-    const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem('appearance') as Appearance | null) : null;
-    let appearance = $state<Appearance>(saved || 'system');
+    let appearance = $state<Appearance>(readAppearance());
 
     const updateAppearance = (mode: Appearance) => {
         appearance = mode;

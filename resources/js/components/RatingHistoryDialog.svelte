@@ -1,14 +1,7 @@
 <script lang="ts">
-    import { Button, Dialog, Stars } from '@/components/ui';
-
-    type HistoryRating = {
-        id: number;
-        rating: number;
-        published_at: string | null;
-        review?: string | null;
-        event_id?: number | null;
-        is_visible: boolean;
-    };
+    import { fetchRaterGameHistory, type RatingHistoryEntry } from '@/api';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
+    import { Alert, Button, Dialog, Stars } from '@/components/ui';
 
     let {
         open,
@@ -26,7 +19,7 @@
         onClose: () => void;
     } = $props();
 
-    let ratings = $state<HistoryRating[]>([]);
+    let ratings = $state<RatingHistoryEntry[]>([]);
     let error = $state<string | null>(null);
     let loading = $state(false);
 
@@ -41,16 +34,7 @@
         ratings = [];
         error = null;
         try {
-            const res = await fetch(route('raters.games.history', { rater, game }), {
-                headers: {
-                    Accept: 'application/json',
-                },
-            });
-            if (!res.ok) {
-                throw new Error(`Rating history request failed with ${res.status}`);
-            }
-            const json = await res.json();
-            ratings = json.ratings ?? [];
+            ratings = await fetchRaterGameHistory(rater, game);
         } catch (err) {
             console.error('Failed to load rating history', err);
             error = 'Unable to load rating history.';
@@ -64,13 +48,11 @@
     <div class="space-y-6">
         {#if loading}
             <div class="flex items-center justify-center py-8">
-                <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                <LoadingSpinner size="lg" label="Loading history" />
                 <span class="ml-2 text-gray-600 dark:text-gray-400">Loading history...</span>
             </div>
         {:else if error}
-            <div class="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
-                {error}
-            </div>
+            <Alert tone="danger">{error}</Alert>
         {:else if ratings.length > 0}
             {#each ratings as hr, idx (hr.id)}
                 <div class={idx < ratings.length - 1 ? 'border-b border-gray-200 pb-6 dark:border-gray-700' : ''}>

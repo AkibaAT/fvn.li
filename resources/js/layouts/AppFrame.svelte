@@ -11,33 +11,15 @@
 
     interface Props {
         children: Snippet;
-        title?: string;
     }
 
-    let { children, title }: Props = $props();
+    let { children }: Props = $props();
 
     const FULL_WIDTH_PAGES = new Set(['games/route-map']);
     let isFullWidth = $derived(FULL_WIDTH_PAGES.has((page as any).component as string));
     const flash = $derived(((page.props as any)?.flash ?? {}) as { message?: string; error?: string });
 
     useRouteAccessibility();
-
-    const SITE_SUFFIX = ' - FVN.li';
-    onMount(() => {
-        const ensureSuffix = () => {
-            if (document.title && !document.title.endsWith(SITE_SUFFIX)) {
-                document.title = `${document.title}${SITE_SUFFIX}`;
-            }
-        };
-        ensureSuffix();
-
-        const observer = new MutationObserver(ensureSuffix);
-        const titleEl = document.querySelector('title');
-        if (titleEl) {
-            observer.observe(titleEl, { childList: true, characterData: true, subtree: true });
-        }
-        return () => observer.disconnect();
-    });
 
     $effect(() => {
         if (flash?.message) notify(String(flash.message), 'success');
@@ -118,12 +100,6 @@
         };
     });
 </script>
-
-<svelte:head>
-    {#if title}
-        <title>{title}</title>
-    {/if}
-</svelte:head>
 
 <a
     href="#main-content"

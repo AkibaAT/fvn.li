@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import { tick } from 'svelte';
     import { Button, Checkbox, TextInput } from '@/components/ui';
     import type { Snippet } from 'svelte';
@@ -175,15 +176,7 @@
                 </span>
             {/if}
         </span>
-        <svg
-            class="ml-2 h-4 w-4 flex-shrink-0 transition-transform {isOpen ? 'rotate-180' : ''}"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-        >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDownIcon class="ml-2 h-4 w-4 flex-shrink-0 transition-transform {isOpen ? 'rotate-180' : ''}" />
     </div>
 
     {#if isOpen}

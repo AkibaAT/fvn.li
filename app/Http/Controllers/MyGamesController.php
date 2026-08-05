@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameMediaEditorService;
 use App\Services\OwnedGameSummaryService;
+use App\Support\Seo\MetaTags;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -44,12 +45,12 @@ class MyGamesController extends Controller
             ],
             'games' => $games,
             'clickStats' => $clickStats,
-            'metaTags' => [
-                'title' => 'Manage My Games',
-                'description' => $itchioUsername
+            'metaTags' => new MetaTags(
+                title: 'Manage My Games',
+                description: $itchioUsername
                     ? "Manage your itch.io games linked to FVN.li. Currently tracking {$games->count()} games from your itch.io account."
                     : 'Connect your itch.io account to manage and track your visual novel games on FVN.li.',
-                'structuredData' => [
+                structuredData: [
                     '@type' => 'WebPage',
                     'name' => 'Manage My Games',
                     'description' => $itchioUsername
@@ -57,7 +58,7 @@ class MyGamesController extends Controller
                         : 'Connect your itch.io account to manage your visual novel games',
                     'url' => route('my-games.index'),
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 
@@ -99,11 +100,11 @@ class MyGamesController extends Controller
             'clickStats' => $clickStats,
             'dailyStats' => $dailyStats,
             'linkStats' => $linkStats,
-            'metaTags' => [
-                'title' => "Edit {$game->name}",
-                'description' => "Edit download links and platforms for {$game->name}. Manage additional download links for different platforms to help players find the right version.",
-                'image' => $game->getThumbnailUrl('default'),
-                'structuredData' => [
+            'metaTags' => new MetaTags(
+                title: "Edit {$game->name}",
+                description: "Edit download links and platforms for {$game->name}. Manage additional download links for different platforms to help players find the right version.",
+                image: $game->getThumbnailUrl('default'),
+                structuredData: [
                     '@type' => 'WebPage',
                     'name' => "Edit {$game->name}",
                     'description' => "Edit download links and platforms for {$game->name}",
@@ -115,7 +116,7 @@ class MyGamesController extends Controller
                         'image' => $game->getThumbnailUrl('default'),
                     ],
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 
@@ -159,7 +160,7 @@ class MyGamesController extends Controller
                     }
                 },
             ],
-            'links.*.platform' => 'nullable|string|in:' . implode(',', array_keys(Game::getAvailablePlatforms())),
+            'links.*.platform' => 'nullable|string|in:'.implode(',', array_keys(Game::getAvailablePlatforms())),
             'links.*.release_at' => [
                 'nullable',
                 'date',

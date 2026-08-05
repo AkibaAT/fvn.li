@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import GamepadIcon from '@/components/icons/Gamepad.svelte';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
     import { gameCoverAltText } from '@/utils/imageAltText';
 
@@ -31,7 +32,7 @@
         {:else}
             <div class="flex h-full w-full items-center justify-center text-gray-700 dark:text-gray-200">
                 <div class="text-center">
-                    <i class="icon-gamepad-2 mb-3 text-5xl opacity-50" aria-hidden="true"></i>
+                    <GamepadIcon class="mx-auto mb-3 h-12 w-12 opacity-50" />
                     <div class="text-sm font-medium">No Image Available</div>
                 </div>
             </div>

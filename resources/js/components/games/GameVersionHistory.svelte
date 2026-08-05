@@ -1,5 +1,11 @@
 <script lang="ts">
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import ArrowDownTrayIcon from '@/components/icons/ArrowDownTray.svelte';
+    import AndroidIcon from '@/components/icons/Android.svelte';
+    import AppleIcon from '@/components/icons/Apple.svelte';
+    import LinuxIcon from '@/components/icons/Linux.svelte';
+    import WebIcon from '@/components/icons/Web.svelte';
+    import WindowsIcon from '@/components/icons/Windows.svelte';
+    import Pagination from '@/components/Pagination.svelte';
     import CharacterStatsModal from '@/components/CharacterStatsModal.svelte';
     import FileStatsModal from '@/components/FileStatsModal.svelte';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
@@ -150,7 +156,6 @@
                         tone="primary"
                         onclick={onCompare}
                         disabled={!compareFromVersionId || !compareToVersionId || compareFromVersionId === compareToVersionId}
-                        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         COMPARE
                     </Button>
@@ -185,11 +190,23 @@
                             </div>
                             <div class="flex w-full items-center">
                                 <div class="flex gap-2 text-lg">
-                                    {#if version.is_windows}<i class="icon-windows text-platform-windows" title="Windows"></i>{/if}
-                                    {#if version.is_linux}<i class="icon-linux text-platform-linux" title="Linux"></i>{/if}
-                                    {#if version.is_mac}<i class="icon-apple text-platform-mac" title="Mac"></i>{/if}
-                                    {#if version.is_android}<i class="icon-android text-platform-android" title="Android"></i>{/if}
-                                    {#if version.is_web}<i class="icon-web text-platform-web" title="Web"></i>{/if}
+                                    {#if version.is_windows}<WindowsIcon
+                                            class="text-platform-windows h-5 w-5"
+                                            aria-hidden={false}
+                                            aria-label="Windows"
+                                        />{/if}
+                                    {#if version.is_linux}<LinuxIcon
+                                            class="text-platform-linux h-5 w-5"
+                                            aria-hidden={false}
+                                            aria-label="Linux"
+                                        />{/if}
+                                    {#if version.is_mac}<AppleIcon class="text-platform-mac h-5 w-5" aria-hidden={false} aria-label="Mac" />{/if}
+                                    {#if version.is_android}<AndroidIcon
+                                            class="text-platform-android h-5 w-5"
+                                            aria-hidden={false}
+                                            aria-label="Android"
+                                        />{/if}
+                                    {#if version.is_web}<WebIcon class="text-platform-web h-5 w-5" aria-hidden={false} aria-label="Web" />{/if}
                                 </div>
                             </div>
                             <div class="flex w-full items-center text-sm whitespace-nowrap sm:w-auto">
@@ -248,9 +265,7 @@
                                 href={route('my-games.optimized-download', { game: gameSlug, version: version.id })}
                                 class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
                             >
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4m-4 8h16" />
-                                </svg>
+                                <ArrowDownTrayIcon class="h-4 w-4" />
                                 Download archive
                             </a>
                         {/if}
@@ -277,7 +292,7 @@
         </div>
 
         <div class="mt-4">
-            <AdvancedPagination meta={pagination} {onPageChange} {onPerPageChange} isLoading={versionsLoading} label="versions" />
+            <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={versionsLoading} label="versions" />
         </div>
     </Card>
 {/if}

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
+    import XLinesIcon from '@/components/icons/XLines.svelte';
     import { Button } from '@/components/ui';
     import { gameScreenshotAltText, gameScreenshotThumbnailAltText } from '@/utils/imageAltText';
     import { untrack } from 'svelte';
@@ -101,10 +103,7 @@
                 class="bg-opacity-90 hover:bg-opacity-100 cursor-pointer rounded-full bg-white p-2 text-black transition-colors"
                 ariaLabel="Close lightbox"
             >
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+                <XLinesIcon class="h-6 w-6" />
             </Button>
         </div>
 
@@ -123,9 +122,7 @@
                     style="top: 50%; transform: translateY(-50%)"
                     ariaLabel="Previous screenshot"
                 >
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <polyline points="15 18 9 12 15 6"></polyline>
-                    </svg>
+                    <ChevronLeftIcon class="h-6 w-6" />
                 </Button>
             {/if}
 
@@ -169,9 +166,7 @@
                     style="top: 50%; transform: translateY(-50%)"
                     ariaLabel="Next screenshot"
                 >
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
+                    <ChevronLeftIcon class="h-6 w-6" />
                 </Button>
             {/if}
         </div>

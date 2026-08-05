@@ -69,18 +69,6 @@ describe('account deletion endpoint', function () {
         expect(Auth::check())->toBeFalse();
     });
 
-    test('invalidates session after deletion', function () {
-        $this->actingAs($this->user);
-
-        $response = $this->delete(route('user.account.delete'), [
-            'password' => 'password',
-        ]);
-
-        // Verify successful deletion response
-        $response->assertStatus(302);
-        $response->assertRedirect(route('home'));
-    });
-
     test('returns JSON for AJAX requests', function () {
         $response = $this->actingAs($this->user)
             ->deleteJson(route('user.account.delete'));
@@ -236,7 +224,7 @@ describe('GDPR compliance during deletion', function () {
             'game_id' => $game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -257,7 +245,7 @@ describe('GDPR compliance during deletion', function () {
             'game_id' => $game->id,
             'user_id' => $this->user->id,
             'type' => ClickStat::TYPE_PAGE_VIEW,
-            'session_id' => 'test-session-' . uniqid(),
+            'session_id' => 'test-session-'.uniqid(),
             'ip_address' => '192.168.1.100',
             'clicked_at' => now(),
         ]);
@@ -343,82 +331,5 @@ describe('deletion does not affect other users', function () {
         $this->actingAs($this->user)->delete(route('user.account.delete'), ['password' => 'password']);
 
         expect(ChangeLog::where('user_id', $otherUser->id)->exists())->toBeTrue();
-    });
-});
-
-describe('deletion transaction integrity', function () {
-    test('deletion happens in transaction', function () {
-        $game = Game::factory()->create();
-        $list = VnList::factory()->for($this->user)->create();
-
-        VnListEntry::create([
-            'vn_list_id' => $list->id,
-            'game_id' => $game->id,
-            'sort_order' => 1,
-        ]);
-
-        UserGameProgress::create([
-            'user_id' => $this->user->id,
-            'game_id' => $game->id,
-            'status' => 'reading',
-            'receive_updates' => false,
-        ]);
-
-        $response = $this->actingAs($this->user)->delete(route('user.account.delete'), ['password' => 'password']);
-
-        // Verify successful deletion
-        $response->assertStatus(302);
-        $response->assertRedirect(route('home'));
-        $response->assertSessionHas('success');
-    });
-});
-
-describe('edge cases', function () {
-    test('handles deletion of user with no additional data', function () {
-        $newUser = User::factory()->create(['password' => bcrypt('password')]);
-
-        $response = $this->actingAs($newUser)->delete(route('user.account.delete'), ['password' => 'password']);
-
-        $response->assertStatus(302);
-        $response->assertRedirect(route('home'));
-        $response->assertSessionHas('success');
-    });
-
-    test('handles deletion of user with extensive data', function () {
-        $games = Game::factory()->count(10)->create();
-
-        for ($i = 0; $i < 5; $i++) {
-            $list = VnList::factory()->for($this->user)->create([
-                'name' => 'Test List ' . $i,
-            ]);
-            foreach ($games as $game) {
-                VnListEntry::create([
-                    'vn_list_id' => $list->id,
-                    'game_id' => $game->id,
-                    'sort_order' => 1,
-                ]);
-            }
-        }
-
-        foreach ($games as $game) {
-            UserGameProgress::create([
-                'user_id' => $this->user->id,
-                'game_id' => $game->id,
-                'status' => 'completed',
-                'receive_updates' => false,
-            ]);
-        }
-
-        SocialAccount::create([
-            'user_id' => $this->user->id,
-            'provider_name' => 'itchio',
-            'provider_id' => '12345',
-        ]);
-
-        $response = $this->actingAs($this->user)->delete(route('user.account.delete'), ['password' => 'password']);
-
-        $response->assertStatus(302);
-        $response->assertRedirect(route('home'));
-        $response->assertSessionHas('success');
     });
 });

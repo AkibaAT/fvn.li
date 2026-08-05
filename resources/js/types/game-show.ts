@@ -1,4 +1,4 @@
-import type { MetaTags } from '@/components/seo/SeoHead.svelte';
+import type { MetaTags } from '@/types/meta-tags';
 
 interface Tag {
     id: number;

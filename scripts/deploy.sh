@@ -170,6 +170,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   # Run Laravel commands
   artisan storage:link
   artisan config:cache
+  artisan cache:forget app.icon-version
   artisan migrate --force
   artisan meilisearch:embedders
 
@@ -223,6 +224,7 @@ else
     # Run Laravel commands
     artisan storage:link
     artisan config:cache
+    artisan cache:forget app.icon-version
     artisan migrate --force
     artisan meilisearch:embedders
 

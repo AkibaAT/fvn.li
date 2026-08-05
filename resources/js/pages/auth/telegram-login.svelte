@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import { Card } from '@/components/ui';
@@ -40,9 +41,7 @@
     });
 </script>
 
-<svelte:head>
-    <title>{title}</title>
-</svelte:head>
+<SeoHead {title} />
 
 <div class="flex min-h-[70vh] items-center justify-center">
     <Card padding="lg" class="w-full max-w-md text-center shadow-md">

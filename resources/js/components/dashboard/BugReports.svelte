@@ -1,53 +1,20 @@
 <script lang="ts">
+    import ChevronRightIcon from '@/components/icons/ChevronRight.svelte';
+    import { addBugReportComment, closeBugReport, fetchBugReport, type BugReportComment, type BugReportDetail, type BugReportSummary } from '@/api';
     import { notify } from '@/components/Toast.svelte';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { Badge, Button, Dialog, Textarea } from '@/components/ui';
     import type { BadgeTone } from '@/components/ui/Badge.svelte';
-    import { authenticatedFetch } from '@/utils/http';
     import { untrack } from 'svelte';
 
-    interface BugReport {
-        id: number;
-        page_title?: string;
-        description: string;
-        status: string;
-        status_label: string;
-        status_color: string;
-        unread_count: number;
-        created_at: string;
-    }
-
-    interface BugReportComment {
-        id: number;
-        message: string;
-        is_from_admin: boolean;
-        user: {
-            id: number;
-            name: string;
-        };
-        created_at: string;
-    }
-
-    interface BugReportDetail {
-        id: number;
-        page_url: string;
-        page_title?: string;
-        description: string;
-        status: string;
-        status_label: string;
-        status_color: string;
-        is_closed: boolean;
-        created_at: string;
-        resolved_at?: string;
-    }
-
     interface Props {
-        initialReports: BugReport[];
+        initialReports: BugReportSummary[];
         openReportId?: number | null;
     }
 
     let { initialReports, openReportId = null }: Props = $props();
 
-    let bugReports = $state<BugReport[]>(untrack(() => initialReports || []));
+    let bugReports = $state<BugReportSummary[]>(untrack(() => initialReports || []));
     let selectedBugReport = $state<BugReportDetail | null>(null);
     let bugReportComments = $state<BugReportComment[]>([]);
     let loadingBugReport = $state(false);
@@ -75,20 +42,12 @@
         loadingBugReport = true;
         bugReportModalOpen = true;
         try {
-            const response = await fetch(route('browser-api.bug-reports.show', { bugReport: reportId }), {
-                credentials: 'same-origin',
-            });
-            const data = await response.json();
-            if (data.success) {
-                selectedBugReport = data.report;
-                bugReportComments = data.comments;
-                bugReports = bugReports.map((r) => (r.id === reportId ? { ...r, unread_count: 0 } : r));
-            } else {
-                notify(data.message || 'Failed to load bug report', 'error');
-                bugReportModalOpen = false;
-            }
-        } catch {
-            notify('Failed to load bug report', 'error');
+            const data = await fetchBugReport(reportId);
+            selectedBugReport = data.report;
+            bugReportComments = data.comments;
+            bugReports = bugReports.map((r) => (r.id === reportId ? { ...r, unread_count: 0 } : r));
+        } catch (error) {
+            notify(error instanceof Error ? error.message : 'Failed to load bug report', 'error');
             bugReportModalOpen = false;
         } finally {
             loadingBugReport = false;
@@ -107,20 +66,12 @@
 
         submittingComment = true;
         try {
-            const response = await authenticatedFetch(route('browser-api.bug-reports.comments.store', { bugReport: selectedBugReport.id }), {
-                method: 'POST',
-                body: JSON.stringify({ message: newComment.trim() }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                bugReportComments = [...bugReportComments, data.comment];
-                newComment = '';
-                notify('Comment added', 'success');
-            } else {
-                notify(data.message || 'Failed to add comment', 'error');
-            }
-        } catch {
-            notify('Failed to add comment', 'error');
+            const comment = await addBugReportComment(selectedBugReport.id, newComment.trim());
+            bugReportComments = [...bugReportComments, comment];
+            newComment = '';
+            notify('Comment added', 'success');
+        } catch (error) {
+            notify(error instanceof Error ? error.message : 'Failed to add comment', 'error');
         } finally {
             submittingComment = false;
         }
@@ -131,19 +82,12 @@
 
         closingTicket = true;
         try {
-            const response = await authenticatedFetch(route('browser-api.bug-reports.close', { bugReport: selectedBugReport.id }), {
-                method: 'POST',
-            });
-            const data = await response.json();
-            if (data.success) {
-                bugReports = bugReports.filter((r) => r.id !== selectedBugReport!.id);
-                closeBugReportModal();
-                notify('Ticket closed', 'success');
-            } else {
-                notify(data.message || 'Failed to close ticket', 'error');
-            }
-        } catch {
-            notify('Failed to close ticket', 'error');
+            await closeBugReport(selectedBugReport.id);
+            bugReports = bugReports.filter((r) => r.id !== selectedBugReport!.id);
+            closeBugReportModal();
+            notify('Ticket closed', 'success');
+        } catch (error) {
+            notify(error instanceof Error ? error.message : 'Failed to close ticket', 'error');
         } finally {
             closingTicket = false;
         }
@@ -181,7 +125,7 @@
                         type="button"
                         variant="outline"
                         tone="warning"
-                        class="w-full justify-start border-amber-200 bg-white p-4 text-left hover:border-amber-400 dark:border-amber-800 dark:bg-gray-800 dark:hover:border-amber-600"
+                        class="w-full justify-start p-4 text-left"
                         onclick={() => openBugReport(report.id)}
                     >
                         <div class="flex items-start justify-between">
@@ -203,9 +147,7 @@
                                     Reported {new Date(report.created_at).toLocaleDateString()}
                                 </p>
                             </div>
-                            <svg class="ml-2 h-5 w-5 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
+                            <ChevronRightIcon class="ml-2 h-5 w-5 flex-shrink-0 text-gray-400" />
                         </div>
                     </Button>
                 {/each}
@@ -223,10 +165,7 @@
 >
     {#if loadingBugReport}
         <div class="flex items-center justify-center py-8">
-            <svg class="h-8 w-8 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
+            <LoadingSpinner size="lg" class="text-blue-500" currentColor label="Loading bug report" />
         </div>
     {:else if selectedBugReport}
         <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">

@@ -1,13 +1,16 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
+    import UsersIcon from '@/components/icons/Users.svelte';
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import Pagination from '@/components/Pagination.svelte';
     import type { VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { toast } from '@/utils/toast';
-    import { authenticatedFetch, readJsonResponse } from '@/utils/http';
+    import { destroyVnList, toggleVnListVisibility } from '@/api/lists';
     import { Card } from '@/components/ui';
 
     interface Props {
@@ -89,14 +92,12 @@
         localCounts = newCounts;
 
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.toggle-visibility', list.id), { method: 'POST' });
-            if (!response.ok) throw new Error('Failed to toggle visibility');
-            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
+            const data = await toggleVnListVisibility(list.id);
             toast.success(data.message || 'List visibility updated successfully.');
-        } catch {
+        } catch (error) {
             localLists = lists.data;
             localCounts = counts;
-            toast.error('Failed to update list visibility');
+            toast.error(error instanceof Error ? error.message : 'Failed to update list visibility');
         }
     }
 
@@ -109,14 +110,12 @@
         localCounts = newCounts;
 
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.destroy', list.id), { method: 'DELETE' });
-            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
-            if (data.success) toast.success(data.message || 'List deleted successfully.');
-            else throw new Error(data.message || 'Failed to delete list');
-        } catch {
+            await destroyVnList(list.id);
+            toast.success('List deleted successfully.');
+        } catch (error) {
             localLists = lists.data;
             localCounts = counts;
-            toast.error('Failed to delete list');
+            toast.error(error instanceof Error ? error.message : 'Failed to delete list');
         }
     }
 
@@ -127,9 +126,7 @@
     ];
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || 'Your Visual Novel Lists'}</title>
-</svelte:head>
+<SeoHead {metaTags} title="Your Visual Novel Lists" />
 
 <div class="space-y-8">
     <PageHeader title="Your Visual Novel Lists" class="mb-0">
@@ -138,23 +135,14 @@
                 href={route('lists.public')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
             >
-                <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                </svg>
+                <UsersIcon class="mr-2 h-5 w-5" />
                 Public Lists
             </Link>
             <Link
                 href={route('lists.create')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
             >
-                <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <PlusCircleIcon class="mr-2 h-5 w-5" />
                 New List
             </Link>
         {/snippet}
@@ -200,7 +188,8 @@
         </div>
     {/if}
 
-    <AdvancedPagination
+    <Pagination
+        layout="full"
         meta={{
             current_page: lists.current_page,
             last_page: lists.last_page,
@@ -209,9 +198,9 @@
             to: lists.data.length ? (lists.current_page - 1) * lists.per_page + lists.data.length : 0,
             per_page: lists.per_page,
         }}
-        onPageChange={handlePageChange}
+        onChange={handlePageChange}
         onPerPageChange={handlePerPageChange}
-        {isLoading}
+        loading={isLoading}
         label="results"
         perPageOptions={[8, 16, 24, 32]}
         {buildPageUrl}

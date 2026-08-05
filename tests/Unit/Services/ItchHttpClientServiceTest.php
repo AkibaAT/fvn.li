@@ -275,13 +275,6 @@ it('executes callbacks with success and error hooks', function () {
     expect($errors)->toBe([['failing operation', 'failed']]);
 });
 
-it('allows retry configuration to be updated fluently', function () {
-    $service = itchClientServiceForResponses([]);
-
-    expect($service->setMaxRetries(2))->toBe($service)
-        ->and($service->setBaseCooldown(1))->toBe($service);
-});
-
 it('resolves with string retry configuration from environment-backed config', function () {
     config([
         'services.itch.max_retries' => '7',

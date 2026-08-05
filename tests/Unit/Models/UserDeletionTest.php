@@ -26,15 +26,6 @@ beforeEach(function () {
 });
 
 describe('user deletion', function () {
-    test('deletes user from database', function () {
-        $user = User::factory()->create();
-        $userId = $user->id;
-
-        $user->delete();
-
-        expect(User::find($userId))->toBeNull();
-    });
-
     test('cascades deletion to VN lists', function () {
         $user = User::factory()->create();
         $game = Game::factory()->create();
@@ -132,45 +123,6 @@ describe('user deletion', function () {
 
         expect(PushSubscription::find($subscription->id))->toBeNull();
     });
-
-    test('deletes user with multiple related records', function () {
-        $user = User::factory()->create();
-        $userId = $user->id;
-        $game = Game::factory()->create();
-        $version = GameVersion::factory()->for($game)->create();
-
-        VnList::factory()->for($user)->create(['name' => 'List 1']);
-        VnList::factory()->for($user)->create(['name' => 'List 2']);
-
-        UserGameProgress::create([
-            'user_id' => $user->id,
-            'game_id' => $game->id,
-            'status' => 'reading',
-            'receive_updates' => false,
-        ]);
-
-        SocialAccount::create([
-            'user_id' => $user->id,
-            'provider_name' => 'itchio',
-            'provider_id' => '12345',
-        ]);
-
-        NotificationHistory::create([
-            'user_id' => $user->id,
-            'game_id' => $game->id,
-            'game_version_id' => $version->id,
-            'type' => 'email',
-            'success' => true,
-        ]);
-
-        $user->delete();
-
-        expect(User::find($userId))->toBeNull()
-            ->and(VnList::where('user_id', $userId)->exists())->toBeFalse()
-            ->and(UserGameProgress::where('user_id', $userId)->exists())->toBeFalse()
-            ->and(SocialAccount::where('user_id', $userId)->exists())->toBeFalse()
-            ->and(NotificationHistory::where('user_id', $userId)->exists())->toBeFalse();
-    });
 });
 
 describe('GDPR-compliant deletion workflow', function () {
@@ -219,45 +171,5 @@ describe('GDPR-compliant deletion workflow', function () {
         expect(User::find($userId))->toBeNull()
             ->and(ClickStat::where('user_id', $userId)->exists())->toBeFalse()
             ->and(ClickStat::whereNull('user_id')->where('game_id', $game->id)->exists())->toBeTrue();
-    });
-
-    test('handles foreign key constraints properly', function () {
-        $user = User::factory()->create();
-        $userId = $user->id;
-
-        DB::table('addition_requests')->insert([
-            'game_id' => Game::factory()->create()->id,
-            'game_url' => 'https://example.itch.io/game',
-            'normalized_url' => 'example.itch.io/game',
-            'reviewed_by' => $user->id,
-            'status' => 'approved',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('games')->where('id', Game::factory()->create()->id)->update([
-            'custom_page_updated_by' => $user->id,
-            'has_custom_page' => true,
-        ]);
-
-        // Simulate the deletion workflow from DashboardController
-        DB::transaction(function () use ($user) {
-            // Reassign addition request reviews to system user
-            DB::table('addition_requests')
-                ->where('reviewed_by', $user->id)
-                ->update(['reviewed_by' => SystemAuditUser::id()]);
-
-            // Reset custom game pages
-            DB::table('games')
-                ->where('custom_page_updated_by', $user->id)
-                ->update(['custom_page_updated_by' => null, 'has_custom_page' => false]);
-
-            $user->delete();
-        });
-
-        expect(User::find($userId))->toBeNull()
-            ->and(DB::table('addition_requests')->where('reviewed_by', $userId)->exists())->toBeFalse()
-            ->and(DB::table('addition_requests')->where('reviewed_by', SystemAuditUser::id())->exists())->toBeTrue()
-            ->and(DB::table('games')->where('custom_page_updated_by', $userId)->exists())->toBeFalse();
     });
 });

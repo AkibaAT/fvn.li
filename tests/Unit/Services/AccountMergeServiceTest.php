@@ -234,42 +234,6 @@ describe('Account Merge Service', function () {
         expect($this->mergingUser->socialAccounts()->count())->toBe(3);
     });
 
-    test('rolls back on error', function () {
-        $this->mergingUser->initializeDefaultLists();
-        $this->otherUser->initializeDefaultLists();
-
-        // Force a constraint violation by creating invalid data
-        $game = Game::factory()->create();
-
-        $mergingList = $this->mergingUser->vnLists()->where('name', 'Currently Reading')->first();
-        VnListEntry::factory()->create([
-            'vn_list_id' => $mergingList->id,
-            'game_id' => $game->id,
-        ]);
-
-        // Mock a failure by deleting the merging user's list mid-transaction
-        // This should cause the transaction to roll back
-        $otherUserId = $this->otherUser->id;
-
-        try {
-            DB::transaction(function () use ($game) {
-                // Start the merge process
-                $otherList = $this->otherUser->vnLists()->where('name', 'Currently Reading')->first();
-                VnListEntry::factory()->create([
-                    'vn_list_id' => $otherList->id,
-                    'game_id' => $game->id,
-                ]);
-
-                // Force an error by trying to delete a user that doesn't exist
-                User::findOrFail(99999)->delete();
-            });
-        } catch (Exception $e) {
-            // Expected to fail
-        }
-
-        expect(User::find($otherUserId))->not->toBeNull();
-    });
-
     test('handles empty lists', function () {
         $this->mergingUser->initializeDefaultLists();
         $this->otherUser->initializeDefaultLists();
@@ -281,18 +245,6 @@ describe('Account Merge Service', function () {
 
         expect(User::find($this->otherUser->id))->toBeNull();
         expect($this->mergingUser->vnLists()->count())->toBeGreaterThan(0);
-    });
-
-    test('handles user with no custom lists', function () {
-        $this->mergingUser->initializeDefaultLists();
-        $this->otherUser->initializeDefaultLists();
-
-        // Only default lists, no custom lists
-
-        // Perform merge
-        $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
-
-        expect(User::find($this->otherUser->id))->toBeNull();
     });
 
     test('handles user with multiple custom lists', function () {

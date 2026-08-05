@@ -1,14 +1,20 @@
 <script lang="ts">
+    import InformationCircleIcon from '@/components/icons/InformationCircle.svelte';
+    import type { RatingHistoryEntry } from '@/api';
     import { untrack } from 'svelte';
-    import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
     import RatingHistoryDialog from '@/components/RatingHistoryDialog.svelte';
-    import { Button, Card, Checkbox, Dialog, Select, Stars } from '@/components/ui';
-    import { Link, router } from '@inertiajs/svelte';
+    import Pagination from '@/components/Pagination.svelte';
+    import RatingFilterBar from '@/components/ratings/RatingFilterBar.svelte';
+    import RatingRow from '@/components/ratings/RatingRow.svelte';
+    import RatingStatsCard from '@/components/ratings/RatingStatsCard.svelte';
+    import { emptyStats, type GlobalStats, type RatingRowData } from '@/components/ratings/types';
+    import { Button, Card, Dialog } from '@/components/ui';
+    import { Link } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
-    import type { MetaTags } from '@/components/seo/SeoHead.svelte';
+    import type { MetaTags } from '@/types/meta-tags';
     import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
 
     type Rater = {
         id: number;
@@ -20,39 +26,7 @@
         average_score?: number | null;
     };
 
-    type RaterRating = {
-        id: number;
-        rating: number;
-        published_at: string | null;
-        is_reviewed: boolean;
-        review?: string | null;
-        event_id?: number | null;
-        is_visible: boolean;
-        game: { id: number; name: string; slug: string; primary_url?: string | null; platform?: string; is_visible?: boolean };
-    };
-
-    type RatingDistribution = { [key: number]: number };
-
-    type Stats = {
-        first_rating?: string;
-        latest_rating?: string;
-        all_games: {
-            total_ratings: number;
-            reviewed_count: number;
-            review_percentage: number;
-            average_rating: number;
-            unique_games: number;
-            rating_distribution: RatingDistribution;
-        };
-        visible_games: {
-            total_ratings: number;
-            reviewed_count: number;
-            review_percentage: number;
-            average_rating: number;
-            unique_games: number;
-            rating_distribution: RatingDistribution;
-        };
-    };
+    type RaterRating = RatingHistoryEntry;
 
     type PhraseContext = {
         slug: string;
@@ -80,7 +54,7 @@
             per_page: number;
             total: number;
         };
-        stats?: Stats;
+        stats?: GlobalStats;
         phrases?: Phrases;
         previousRatingCounts?: Record<number, number>;
         filters?: {
@@ -96,27 +70,7 @@
 
     let { rater, ratings, stats, phrases, previousRatingCounts = {}, filters, metaTags }: RaterShowProps = $props();
 
-    const defaultStats: Stats = {
-        first_rating: undefined,
-        latest_rating: undefined,
-        all_games: {
-            total_ratings: 0,
-            reviewed_count: 0,
-            review_percentage: 0,
-            average_rating: 0,
-            unique_games: 0,
-            rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        },
-        visible_games: {
-            total_ratings: 0,
-            reviewed_count: 0,
-            review_percentage: 0,
-            average_rating: 0,
-            unique_games: 0,
-            rating_distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        },
-    };
-    const safeStats = $derived(stats ?? defaultStats);
+    const safeStats = $derived(stats ?? emptyStats());
     const safePhrases: Phrases = $derived(phrases ?? {});
     let selectedPhrase = $state<string | null>(null);
     let showContext = $state(false);
@@ -126,7 +80,6 @@
     let sortDirection = $state<'asc' | 'desc'>(untrack(() => filters?.sortDirection ?? 'desc'));
     let page = $state<number>(untrack(() => filters?.page ?? 1));
     let perPage = $state<number>(untrack(() => filters?.perPage ?? 10));
-    let isLoading = $state(false);
     let historyModal = $state<{ gameId: number | null; gameName: string; open: boolean }>({
         gameId: null,
         gameName: '',
@@ -137,44 +90,10 @@
         `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
     );
 
-    let didMount = false;
-    $effect(() => {
-        // Track all filter dependencies
-        void page;
-        void perPage;
-        void showOnlyReviews;
-        void showOnlyVisibleGames;
-        void sortField;
-        void sortDirection;
-
-        if (!didMount) {
-            didMount = true;
-            return;
-        }
-
-        const desired = new URLSearchParams({
-            page: String(page),
-            perPage: String(perPage),
-            showOnlyReviews: String(showOnlyReviews),
-            showOnlyVisibleGames: String(showOnlyVisibleGames),
-            sortField,
-            sortDirection,
-        });
-
-        if (typeof window === 'undefined') return;
-        const current = new URLSearchParams(window.location.search);
-        if (desired.toString() === current.toString()) return;
-
-        isLoading = true;
-        router.get(route('raters.show', rater.id), Object.fromEntries(desired.entries()), {
-            preserveScroll: true,
-            preserveState: true,
-            replace: true,
-            only: ['ratings', 'previousRatingCounts', 'filters'],
-            onFinish: () => {
-                isLoading = false;
-            },
-        });
+    const filterSync = useUrlSyncedFilters({
+        route: untrack(() => route('raters.show', rater.id)),
+        only: ['ratings', 'previousRatingCounts', 'filters'],
+        getParams: () => ({ page, perPage, showOnlyReviews, showOnlyVisibleGames, sortField, sortDirection }),
     });
 
     const ratingMeta = $derived(
@@ -183,17 +102,6 @@
             : { current_page: 1, last_page: 0, per_page: perPage, total: 0 },
     );
 
-    const buildPageUrl = (pageNum: number): string => {
-        const params = new SvelteURLSearchParams();
-        params.set('page', pageNum.toString());
-        params.set('perPage', perPage.toString());
-        params.set('showOnlyReviews', String(showOnlyReviews));
-        params.set('showOnlyVisibleGames', String(showOnlyVisibleGames));
-        params.set('sortField', sortField);
-        params.set('sortDirection', sortDirection);
-        return `/raters/${rater.id}?${params.toString()}`;
-    };
-
     const openHistory = (gameId: number, gameName: string) => {
         historyModal = { gameId, gameName, open: true };
     };
@@ -201,6 +109,24 @@
     const closeHistory = () => {
         historyModal = { ...historyModal, open: false };
     };
+
+    const rows = $derived(
+        (ratings?.data ?? []).map((rating): RatingRowData => ({
+            id: rating.id,
+            score: rating.rating,
+            date: rating.published_at,
+            review: rating.review,
+            eventId: rating.event_id,
+            game: {
+                id: rating.game.id,
+                name: rating.game.name,
+                slug: rating.game.slug,
+                primaryUrl: rating.game.primary_url,
+            },
+            previousRatingCount: previousRatingCounts[rating.game.id],
+            onOpenHistory: () => openHistory(rating.game.id, rating.game.name),
+        })),
+    );
 
     const colorForAvg = (avg: number) => {
         if (avg >= 4) return 'bg-green-50 dark:bg-green-900 text-green-900 dark:text-green-100';
@@ -217,73 +143,7 @@
 <div class="space-y-6">
     <PageHeader title={`${rater.name}'s Ratings`} backHref={route('ratings.index')} backLabel="Back to Ratings" class="mb-0" />
 
-    <Card padding="lg">
-        <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{rater.name}'s Rating Statistics</h2>
-        </div>
-
-        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Games Rated</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{safeStats.all_games.unique_games.toLocaleString()}</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">{safeStats.visible_games.unique_games.toLocaleString()} listed</div>
-            </div>
-            <div>
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Average Rating</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                    {Number(safeStats.all_games.average_rating ?? 0).toFixed(1)}
-                </div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">
-                    {Number(safeStats.visible_games.average_rating ?? 0).toFixed(1)} for listed games
-                </div>
-            </div>
-            <div>
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Review Rate</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{Math.round(safeStats.all_games.review_percentage)}%</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">{Math.round(safeStats.visible_games.review_percentage)}% for listed games</div>
-            </div>
-            <div>
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Rating Period</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                    {safeStats.first_rating
-                        ? new Date(safeStats.first_rating).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                        : '\u2014'}
-                </div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">
-                    to {safeStats.latest_rating
-                        ? new Date(safeStats.latest_rating).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                        : '\u2014'}
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-            {#each [['All Games', safeStats.all_games], ['Listed Games', safeStats.visible_games]] as [title, block] (title)}
-                {@const statsBlock = block as Stats['all_games']}
-                <div>
-                    <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">{title} Rating Distribution</h3>
-                    <div class="space-y-2">
-                        {#each Object.entries(statsBlock.rating_distribution) as [ratingKey, count] (ratingKey)}
-                            {@const percentage = statsBlock.total_ratings > 0 ? (Number(count) / statsBlock.total_ratings) * 100 : 0}
-                            <div>
-                                <div class="flex items-center">
-                                    <span class="w-16 text-sm font-medium text-gray-500 dark:text-gray-400">{Number(ratingKey)} Stars</span>
-                                    <div class="mx-2 flex-1">
-                                        <div class="h-4 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                                            <div class="h-full bg-yellow-400 dark:bg-yellow-500" style="width: {percentage}%"></div>
-                                        </div>
-                                    </div>
-                                    <span class="w-20 text-right text-sm text-gray-500 dark:text-gray-400">
-                                        {Number(count).toLocaleString()} ({percentage.toFixed(1)}%)
-                                    </span>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/each}
-        </div>
-    </Card>
+    <RatingStatsCard stats={safeStats} heading={`${rater.name}'s Rating Statistics`} />
 
     <Card padding="lg" class="shadow">
         <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Common Phrases in Reviews</h2>
@@ -312,14 +172,7 @@
                                     title="Show contexts"
                                     ariaLabel="Show contexts"
                                 >
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                    </svg>
+                                    <InformationCircleIcon class="h-4 w-4" />
                                 </Button>
                             </div>
                         </div>
@@ -349,126 +202,39 @@
                     </div>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-4">
-                    <Checkbox
-                        label="Reviews only"
-                        bind:checked={showOnlyReviews}
-                        onchange={() => {
-                            page = 1;
-                        }}
-                    />
-
-                    <Checkbox
-                        label="Listed games only"
-                        bind:checked={showOnlyVisibleGames}
-                        onchange={() => {
-                            page = 1;
-                        }}
-                    />
-
-                    <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <span>Sort by:</span>
-                        <Select
-                            value={`${sortField}:${sortDirection}`}
-                            onchange={(e) => {
-                                const [field, direction] = (e.target as HTMLSelectElement).value.split(':');
-                                sortField = field as 'published_at' | 'rating';
-                                sortDirection = direction as 'asc' | 'desc';
-                                page = 1;
-                            }}
-                        >
-                            <option value="published_at:desc">Newest</option>
-                            <option value="published_at:asc">Oldest</option>
-                            <option value="rating:desc">Rating: High to Low</option>
-                            <option value="rating:asc">Rating: Low to High</option>
-                        </Select>
-                    </div>
-                </div>
+                <RatingFilterBar
+                    bind:showOnlyReviews
+                    bind:showOnlyVisibleGames
+                    bind:sortField
+                    bind:sortDirection
+                    onFilterChange={() => (page = 1)}
+                    embedded
+                />
             </div>
         </div>
 
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#if !ratings || ratings.data.length === 0}
+            {#if rows.length === 0}
                 <div class="p-6 text-gray-500 dark:text-gray-400">No ratings</div>
             {:else}
-                {#each ratings.data as row (row.id)}
-                    <div class="p-6">
-                        <div class="mb-2 flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <Link
-                                    href={route('games.show', { game: row.game.slug })}
-                                    class="text-lg font-medium text-blue-600 hover:underline dark:text-blue-400"
-                                >
-                                    {row.game.name}
-                                </Link>
-                                {#if previousRatingCounts[row.game.id]}
-                                    <span class="text-sm text-gray-500 dark:text-gray-400">
-                                        <Button type="button" variant="link" tone="neutral" onclick={() => openHistory(row.game.id, row.game.name)}>
-                                            ({previousRatingCounts[row.game.id]} previous
-                                            {previousRatingCounts[row.game.id] > 1 ? ' ratings' : ' rating'})
-                                        </Button>
-                                    </span>
-                                {/if}
-                                {#if row.game.primary_url}
-                                    <a
-                                        href={route('track.external-project', { game_id: row.game.id, url: row.game.primary_url })}
-                                        target="_blank"
-                                        rel="noopener"
-                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                                        title="Open on external platform"
-                                    >
-                                        <i class="icon-external-link"></i>
-                                    </a>
-                                {/if}
-                            </div>
-                            <div class="flex items-center gap-4">
-                                <Stars rating={row.rating} />
-                                <span class="text-sm text-gray-500 dark:text-gray-400">
-                                    {row.published_at
-                                        ? new Date(row.published_at).toLocaleDateString(undefined, {
-                                              month: 'short',
-                                              day: 'numeric',
-                                              year: 'numeric',
-                                          })
-                                        : ''}
-                                </span>
-                                {#if row.event_id}
-                                    <a
-                                        href={`https://itch.io/event/${row.event_id}`}
-                                        target="_blank"
-                                        rel="noopener"
-                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                                        title="View on itch.io"
-                                    >
-                                        <i class="icon-external-link"></i>
-                                    </a>
-                                {/if}
-                            </div>
-                        </div>
-                        {#if row.review}
-                            <div class="mx-auto prose mt-2 text-gray-600 dark:text-gray-300 dark:prose-invert" style={reviewStyles}>
-                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                {@html row.review}
-                            </div>
-                        {/if}
-                    </div>
-                {/each}
+                {#each rows as row (row.id)}<RatingRow {row} reviewStyle={reviewStyles} />{/each}
             {/if}
         </div>
 
         <div class="p-4">
-            <AdvancedPagination
+            <Pagination
+                layout="full"
                 meta={ratingMeta}
-                onPageChange={(p) => {
+                onChange={(p) => {
                     page = p;
                 }}
                 onPerPageChange={(pp) => {
                     perPage = pp;
                     page = 1;
                 }}
-                {isLoading}
+                loading={filterSync.isLoading}
                 label="ratings"
-                {buildPageUrl}
+                buildPageUrl={filterSync.buildPageUrl}
             />
         </div>
     </Card>

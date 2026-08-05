@@ -1,5 +1,5 @@
 <script lang="ts">
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import Pagination from '@/components/Pagination.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
     import type { VnList } from '@/components/VnListCard.svelte';
 
@@ -35,7 +35,8 @@
     </div>
 {/if}
 
-<AdvancedPagination
+<Pagination
+    layout="full"
     meta={{
         current_page: lists.current_page,
         last_page: lists.last_page,
@@ -44,9 +45,9 @@
         to: lists.data.length ? (lists.current_page - 1) * lists.per_page + lists.data.length : 0,
         per_page: lists.per_page,
     }}
-    {onPageChange}
+    onChange={onPageChange}
     {onPerPageChange}
-    {isLoading}
+    loading={isLoading}
     label="results"
     perPageOptions={[8, 16, 24, 32]}
     {buildPageUrl}

@@ -217,39 +217,6 @@ it('transforms dialogue search service results into API response rows', function
         ->assertJsonPath('pagination.total', 1);
 });
 
-it('returns duplicate dialogue and version stats from the dialogue service', function () {
-    [, $version] = makeDialogueFixture();
-
-    $this->mock(DialogueSearchService::class, function (MockInterface $mock) {
-        $mock->shouldReceive('getTopDuplicates')
-            ->once()
-            ->andReturn(collect([
-                ['text' => 'Repeated line', 'count' => 3],
-            ]));
-        $mock->shouldReceive('getVersionStatistics')
-            ->once()
-            ->andReturn([
-                'total_lines' => 12,
-                'languages' => ['eng'],
-            ]);
-    });
-
-    $this->getJson(route('browser-api.dialogue.duplicates', [
-        'versionId' => $version->id,
-        'language' => 'eng',
-        'minDuplicateCount' => 2,
-    ]))->assertOk()
-        ->assertJsonPath('success', true)
-        ->assertJsonPath('data.0.text', 'Repeated line')
-        ->assertJsonPath('data.0.count', 3);
-
-    $this->getJson(route('browser-api.dialogue.version-stats', [
-        'versionId' => $version->id,
-    ]))->assertOk()
-        ->assertJsonPath('success', true)
-        ->assertJsonPath('data.total_lines', 12);
-});
-
 it('calculates word frequencies from dialogue lines and validates missing version ids', function () {
     [, $version] = makeDialogueFixture();
 

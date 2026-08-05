@@ -1,24 +1,9 @@
 <script lang="ts">
     import { untrack } from 'svelte';
-    import { SvelteURLSearchParams } from 'svelte/reactivity';
     import { Link } from '@inertiajs/svelte';
-    import { authenticatedFetch } from '@/utils/http';
+    import { cancelAdditionRequest, fetchAdditionRequests, submitAdditionRequests, type AdditionRequest, type AdditionSubmissionResult } from '@/api';
     import { toast } from '@/utils/toast';
-    import { Button, Card } from '@/components/ui';
-
-    interface AdditionRequest {
-        id: number;
-        game_url: string;
-        platform?: string;
-        status: string;
-        status_label: string;
-        status_color: string;
-        created_at: string;
-        reviewed_at?: string;
-        rejection_reason?: string;
-        game?: { id: number; name: string; slug: string };
-        reviewer?: { name: string };
-    }
+    import { Alert, Button, Card } from '@/components/ui';
 
     interface AdditionsTabProps {
         recentRequests: AdditionRequest[];
@@ -27,47 +12,21 @@
     let { recentRequests: recentRequestsInitial }: AdditionsTabProps = $props();
 
     let requestText = $state('');
-    type SubmissionResult = {
-        success_count: number;
-        duplicate_count: number;
-        invalid_count: number;
-        already_exists_count?: number;
-        errors: string[];
-    };
     let requests = $state<AdditionRequest[]>(untrack(() => recentRequestsInitial || []));
     let _requestsLoading = $state(false);
-    let _requestResults: SubmissionResult | null = $state(null);
+    let _requestResults: AdditionSubmissionResult | null = $state(null);
     let _showRequestSuccess = $state(false);
     let requestSearch = $state('');
     let requestStatus = $state<'all' | 'pending' | 'processing' | 'approved' | 'rejected'>('all');
     let submittingRequest = $state(false);
 
-    async function jsonGet<T>(url: string): Promise<T> {
-        const res = await fetch(url, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error(`GET ${url} failed (${res.status})`);
-        return res.json();
-    }
-
-    async function jsonPost<T>(url: string, payload: unknown): Promise<T> {
-        const res = await authenticatedFetch(url, { method: 'POST', body: JSON.stringify(payload) });
-        const data = await res.json();
-        if (!res.ok || data?.success === false) {
-            if (data?.message) toast.error(String(data.message));
-            throw new Error(data?.message || 'Request failed');
-        }
-        return data;
-    }
-
     const loadRequests = async (opts?: { status?: string; search?: string }) => {
         _requestsLoading = true;
         try {
-            const params = new SvelteURLSearchParams();
-            params.set('status', (opts?.status ?? requestStatus) as string);
-            if ((opts?.search ?? requestSearch).trim() !== '') params.set('search', (opts?.search ?? requestSearch).trim());
-            const res = await jsonGet<{ success: boolean; requests: AdditionRequest[] }>(
-                `${route('browser-api.dashboard.addition-requests.index')}?${params.toString()}`,
-            );
-            if (res.success) requests = res.requests;
+            requests = await fetchAdditionRequests({
+                status: opts?.status ?? requestStatus,
+                search: (opts?.search ?? requestSearch).trim() || undefined,
+            });
         } catch {
             /* ignore */
         } finally {
@@ -80,13 +39,9 @@
         if (!trimmed) return;
         submittingRequest = true;
         try {
-            const res = await authenticatedFetch(route('browser-api.dashboard.addition-requests.submit'), {
-                method: 'POST',
-                body: JSON.stringify({ urls: trimmed }),
-            });
-            const data = await res.json();
-            if (res.ok && data?.success) {
-                const result: SubmissionResult = data.result;
+            const data = await submitAdditionRequests(trimmed);
+            if (data.success) {
+                const result: AdditionSubmissionResult = data.result;
                 _requestResults = result;
                 _showRequestSuccess = result?.success_count > 0;
                 if (result?.success_count > 0) {
@@ -107,10 +62,10 @@
 
     const cancelRequest = async (id: number) => {
         try {
-            await jsonPost(route('browser-api.dashboard.addition-requests.cancel', { request: id }), {});
+            await cancelAdditionRequest(id);
             await loadRequests({ status: requestStatus, search: requestSearch });
-        } catch {
-            /* noop */
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to cancel addition request.');
         }
     };
 
@@ -183,31 +138,21 @@
                         onclick={submitRequest}
                         disabled={submittingRequest || !requestText.trim()}
                         loading={submittingRequest}
-                        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                     >
                         {submittingRequest ? 'Submitting...' : 'Submit Requests'}
                     </Button>
-                    <Button
-                        type="button"
-                        variant="soft"
-                        tone="neutral"
-                        onclick={() => (requestText = '')}
-                        class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
-                    >
-                        Clear
-                    </Button>
+                    <Button type="button" variant="soft" tone="neutral" onclick={() => (requestText = '')}>Clear</Button>
                 </div>
             </div>
-            <div class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-                <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-300">Guidelines:</h3>
-                <ul class="mt-2 list-inside list-disc space-y-1 text-sm text-blue-700 dark:text-blue-400">
+            <Alert title="Guidelines" tone="info" role="status" class="mt-4">
+                <ul class="list-inside list-disc space-y-1">
                     <li>Supported platforms: itch.io, Steam, and other game storefronts</li>
                     <li>Submit one URL per line for bulk requests</li>
                     <li>Maximum 50 URLs per submission</li>
                     <li>Games already on the site will be automatically filtered out</li>
                     <li>Duplicate requests are automatically handled</li>
                 </ul>
-            </div>
+            </Alert>
         </Card>
     </div>
 

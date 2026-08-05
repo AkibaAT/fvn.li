@@ -19,13 +19,7 @@
 
         <div class="flex flex-wrap gap-1">
             {#each endings as ending (ending)}
-                <Button
-                    type="button"
-                    variant="soft"
-                    tone="danger"
-                    class="rounded bg-red-50 px-2 py-1 text-xs text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
-                    onclick={() => onSelectEnding(ending)}
-                >
+                <Button type="button" variant="soft" tone="danger" size="xs" onclick={() => onSelectEnding(ending)}>
                     {ending}
                 </Button>
             {/each}

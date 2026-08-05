@@ -43,6 +43,14 @@ async function gotoWithAppearance(page: Page, path: string, appearance: Appearan
     await expect
         .poll(() => page.evaluate((mode) => document.documentElement.classList.contains('dark') === (mode === 'dark'), appearance))
         .toBe(true);
+    await page.evaluate(() =>
+        Promise.all(
+            document
+                .getAnimations()
+                .filter((animation) => animation.constructor.name === 'CSSTransition')
+                .map((animation) => animation.finished.catch(() => undefined)),
+        ),
+    );
     await expect(page.locator('#main-content')).toBeVisible();
 }
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import ArrowRightOnRectangleIcon from '@/components/icons/ArrowRightOnRectangle.svelte';
+    import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import { Link, router, usePage } from '@inertiajs/svelte';
     import { Button } from '@/components/ui';
 
@@ -70,14 +72,7 @@
             <span class="hidden text-sm font-medium text-gray-700 sm:inline dark:text-gray-300">
                 {user.name}
             </span>
-            <svg
-                class="h-4 w-4 text-gray-500 transition-transform duration-200 {showUserMenu ? 'rotate-180' : ''}"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            <ChevronDownIcon class="h-4 w-4 text-gray-500 transition-transform duration-200 {showUserMenu ? 'rotate-180' : ''}" />
         </Button>
 
         {#if showUserMenu}
@@ -139,22 +134,8 @@
                         </Link>
                     {/if}
 
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        tone="danger"
-                        class="mt-1 w-full justify-start rounded-md px-3 py-2 text-sm"
-                        onclick={handleLogout}
-                        role="menuitem"
-                    >
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                            />
-                        </svg>
+                    <Button type="button" variant="ghost" tone="danger" class="mt-1 w-full justify-start" onclick={handleLogout} role="menuitem">
+                        <ArrowRightOnRectangleIcon class="h-4 w-4" />
                         <span>Sign Out</span>
                     </Button>
                 </div>

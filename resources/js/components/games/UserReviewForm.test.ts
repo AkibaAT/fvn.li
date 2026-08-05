@@ -2,9 +2,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const httpMock = vi.hoisted(() => ({
-    post: vi.fn(),
-    delete: vi.fn(),
+const api = vi.hoisted(() => ({
+    submitUserReview: vi.fn(),
+    deleteUserReview: vi.fn(),
 }));
 
 vi.mock('@inertiajs/svelte', () => ({
@@ -17,16 +17,14 @@ vi.mock('@inertiajs/svelte', () => ({
     },
 }));
 
-vi.mock('@/utils/http', () => ({
-    default: httpMock,
-}));
+vi.mock('@/api/user-reviews', () => api);
 
 import UserReviewForm from './UserReviewForm.svelte';
 
 describe('UserReviewForm', () => {
     beforeEach(() => {
-        httpMock.post.mockReset();
-        httpMock.delete.mockReset();
+        api.submitUserReview.mockReset();
+        api.deleteUserReview.mockReset();
         vi.stubGlobal(
             'route',
             vi.fn((name: string, params: { game: number }) => `/${name}/${params.game}`),
@@ -49,7 +47,7 @@ describe('UserReviewForm', () => {
         expect(container.querySelector('form')).toBeTruthy();
     });
 
-    test('submits and updates a review through the shared HTTP client', async () => {
+    test('submits and updates a review through the typed API module', async () => {
         const onReviewChange = vi.fn();
         const submittedReview = {
             id: 7,
@@ -60,9 +58,9 @@ describe('UserReviewForm', () => {
             updated_at: '2026-08-04T12:00:00Z',
         };
         const updatedReview = { ...submittedReview, rating: 3, review: 'Still good.' };
-        httpMock.post
-            .mockResolvedValueOnce({ data: { message: 'Review submitted!', review: submittedReview } })
-            .mockResolvedValueOnce({ data: { message: 'Review updated!', review: updatedReview } });
+        api.submitUserReview
+            .mockResolvedValueOnce({ message: 'Review submitted!', review: submittedReview })
+            .mockResolvedValueOnce({ message: 'Review updated!', review: updatedReview });
 
         const { component } = render(UserReviewForm, { props: { gameId: 42, onReviewChange } });
         component.startEditing();
@@ -72,8 +70,8 @@ describe('UserReviewForm', () => {
         await fireEvent.input(screen.getByLabelText('Review (optional)'), { target: { value: 'Excellent route.' } });
         await fireEvent.click(screen.getByRole('button', { name: 'Submit Review' }));
 
-        await waitFor(() => expect(httpMock.post).toHaveBeenCalledTimes(1));
-        expect(httpMock.post).toHaveBeenCalledWith('/browser-api.user-reviews.store/42', {
+        await waitFor(() => expect(api.submitUserReview).toHaveBeenCalledTimes(1));
+        expect(api.submitUserReview).toHaveBeenCalledWith(42, {
             rating: 5,
             review: 'Excellent route.',
             has_spoilers: false,
@@ -86,17 +84,17 @@ describe('UserReviewForm', () => {
         await fireEvent.input(screen.getByLabelText('Review (optional)'), { target: { value: 'Still good.' } });
         await fireEvent.click(screen.getByRole('button', { name: 'Update Review' }));
 
-        await waitFor(() => expect(httpMock.post).toHaveBeenCalledTimes(2));
-        expect(httpMock.post).toHaveBeenLastCalledWith('/browser-api.user-reviews.store/42', {
+        await waitFor(() => expect(api.submitUserReview).toHaveBeenCalledTimes(2));
+        expect(api.submitUserReview).toHaveBeenLastCalledWith(42, {
             rating: 3,
             review: 'Still good.',
             has_spoilers: false,
         });
     });
 
-    test('deletes a saved review through the shared HTTP client', async () => {
+    test('deletes a saved review through the typed API module', async () => {
         const onReviewChange = vi.fn();
-        httpMock.delete.mockResolvedValue({ data: { message: 'Review deleted.' } });
+        api.deleteUserReview.mockResolvedValue('Review deleted.');
 
         render(UserReviewForm, {
             props: {
@@ -116,13 +114,13 @@ describe('UserReviewForm', () => {
         await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
         await fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
-        await waitFor(() => expect(httpMock.delete).toHaveBeenCalledWith('/browser-api.user-reviews.destroy/42'));
+        await waitFor(() => expect(api.deleteUserReview).toHaveBeenCalledWith(42));
         expect(onReviewChange).toHaveBeenCalledWith(false);
         expect(screen.queryByText('Your Review')).toBeNull();
     });
 
     test('shows the server error when submission is rejected', async () => {
-        httpMock.post.mockRejectedValue({ response: { data: { message: 'You are not allowed to submit reviews.' } } });
+        api.submitUserReview.mockRejectedValue(new Error('You are not allowed to submit reviews.'));
 
         const { component } = render(UserReviewForm, { props: { gameId: 42 } });
         component.startEditing();

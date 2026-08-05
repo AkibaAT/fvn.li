@@ -1,5 +1,12 @@
 <script lang="ts">
+    import ArrowUpTrayIcon from '@/components/icons/ArrowUpTray.svelte';
+    import AndroidIcon from '@/components/icons/Android.svelte';
+    import AppleIcon from '@/components/icons/Apple.svelte';
+    import LinuxIcon from '@/components/icons/Linux.svelte';
+    import WebIcon from '@/components/icons/Web.svelte';
+    import WindowsIcon from '@/components/icons/Windows.svelte';
     import { Link } from '@inertiajs/svelte';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import EditableGameContent from '@/components/editor/EditableGameContent.svelte';
     import EditableGameName from '@/components/editor/EditableGameName.svelte';
     import GameCardUserSection from '@/components/GameCardUserSection.svelte';
@@ -63,23 +70,9 @@
                         class="absolute top-2 right-2 cursor-pointer rounded-full bg-blue-600 p-2 text-white shadow-lg transition-colors hover:bg-blue-700"
                     >
                         {#if isUploadingThumbnail}
-                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M4 4v5h.582M20 20v-5h-.581M5.8 9A7 7 0 0118 7.38M18.2 15A7 7 0 016 16.62"
-                                />
-                            </svg>
+                            <LoadingSpinner size="sm" currentColor isBusy={false} />
                         {:else}
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                                />
-                            </svg>
+                            <ArrowUpTrayIcon class="h-4 w-4" />
                         {/if}
                         <input
                             type="file"
@@ -122,11 +115,19 @@
                 <div class="flex flex-wrap items-center gap-3">
                     {#if Object.values(activePlatforms).some(Boolean)}
                         <div class="flex items-center gap-2 text-lg">
-                            {#if activePlatforms.windows}<i class="icon-windows text-platform-windows" title="Windows"></i>{/if}
-                            {#if activePlatforms.linux}<i class="icon-linux text-platform-linux" title="Linux"></i>{/if}
-                            {#if activePlatforms.mac}<i class="icon-apple text-platform-mac" title="Mac"></i>{/if}
-                            {#if activePlatforms.android}<i class="icon-android text-platform-android" title="Android"></i>{/if}
-                            {#if activePlatforms.web}<i class="icon-web text-platform-web" title="Web"></i>{/if}
+                            {#if activePlatforms.windows}<WindowsIcon
+                                    class="text-platform-windows h-5 w-5"
+                                    aria-hidden={false}
+                                    aria-label="Windows"
+                                />{/if}
+                            {#if activePlatforms.linux}<LinuxIcon class="text-platform-linux h-5 w-5" aria-hidden={false} aria-label="Linux" />{/if}
+                            {#if activePlatforms.mac}<AppleIcon class="text-platform-mac h-5 w-5" aria-hidden={false} aria-label="Mac" />{/if}
+                            {#if activePlatforms.android}<AndroidIcon
+                                    class="text-platform-android h-5 w-5"
+                                    aria-hidden={false}
+                                    aria-label="Android"
+                                />{/if}
+                            {#if activePlatforms.web}<WebIcon class="text-platform-web h-5 w-5" aria-hidden={false} aria-label="Web" />{/if}
                         </div>
                     {/if}
 

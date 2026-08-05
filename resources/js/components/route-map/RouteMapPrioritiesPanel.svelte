@@ -49,7 +49,6 @@
                             variant="ghost"
                             tone="neutral"
                             size="icon-sm"
-                            class="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                             onclick={() => onMovePreference(index, index - 1)}
                             title="Increase priority"
                         >
@@ -60,7 +59,6 @@
                             variant="ghost"
                             tone="neutral"
                             size="icon-sm"
-                            class="rounded px-1 py-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                             onclick={() => onMovePreference(index, index + 1)}
                             title="Decrease priority"
                         >
@@ -71,7 +69,6 @@
                             variant="ghost"
                             tone="danger"
                             size="icon-sm"
-                            class="rounded px-1 py-0.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300"
                             onclick={() => onRemovePreference(index)}
                             title="Remove priority"
                         >
@@ -120,7 +117,8 @@
                 type="button"
                 variant="solid"
                 tone="success"
-                class="flex-1 rounded bg-emerald-500 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                size="xs"
+                class="flex-1"
                 onclick={onAddPreference}
                 disabled={!preferenceVariable.trim() || (preferenceMode === 'equals' && !preferenceValue.trim())}
             >
@@ -128,15 +126,7 @@
             </Button>
 
             {#if routePreferences.length > 0}
-                <Button
-                    type="button"
-                    variant="outline"
-                    tone="neutral"
-                    class="rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                    onclick={onClearPreferences}
-                >
-                    Clear
-                </Button>
+                <Button type="button" variant="outline" tone="neutral" size="xs" onclick={onClearPreferences}>Clear</Button>
             {/if}
         </div>
     </div>

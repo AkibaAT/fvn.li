@@ -7,6 +7,7 @@
     import { twMerge } from 'tailwind-merge';
     import type { Snippet } from 'svelte';
     import Button from './Button.svelte';
+    import XMarkIcon from '@/components/icons/XMark.svelte';
     import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
@@ -99,7 +100,7 @@
         <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 id={titleId} class="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
             <Button variant="ghost" tone="neutral" size="icon-sm" onclick={close} ariaLabel={closeLabel}>
-                <span aria-hidden="true">&times;</span>
+                <XMarkIcon class="h-4 w-4" />
             </Button>
         </div>
     {/if}

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\NotificationHistory;
+use App\Support\Seo\MetaTags;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Auth;
@@ -40,13 +41,13 @@ class DigestNotificationController extends Controller
                 'notifications' => [],
                 'hasNotifications' => false,
                 'hasAnyNotifications' => $hasAnyNotifications,
-                'metaTags' => [
-                    'title' => "Notification Digest - {$carbonDate->format('F j, Y')}",
-                    'description' => $notifications->isNotEmpty()
-                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. " .
+                'metaTags' => new MetaTags(
+                    title: "Notification Digest - {$carbonDate->format('F j, Y')}",
+                    description: $notifications->isNotEmpty()
+                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. ".
                           "Contains {$notifications->count()} notifications about your tracked visual novels."
                         : "No notifications found for {$carbonDate->format('F j, Y')}.",
-                    'structuredData' => [
+                    structuredData: [
                         '@type' => 'WebPage',
                         'name' => "Notification Digest - {$carbonDate->format('F j, Y')}",
                         'description' => $notifications->isNotEmpty()
@@ -54,7 +55,7 @@ class DigestNotificationController extends Controller
                             : "No notifications for {$carbonDate->format('F j, Y')}",
                         'url' => route('user.notifications.digest', $date),
                     ],
-                ],
+                )->toArray(),
             ]);
         }
 
@@ -64,9 +65,9 @@ class DigestNotificationController extends Controller
             'notifications' => $notifications,
             'hasNotifications' => true,
             'hasAnyNotifications' => true,
-            'metaTags' => [
-                'title' => "Notification Digest - {$carbonDate->format('F j, Y')}",
-            ],
+            'metaTags' => new MetaTags(
+                title: "Notification Digest - {$carbonDate->format('F j, Y')}",
+            )->toArray(),
         ]);
     }
 }

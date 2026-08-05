@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\Character;
-use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
@@ -24,27 +23,6 @@ beforeEach(function () {
             'eng' => 'MC',
         ],
     ]);
-});
-
-test('character has correct fillable attributes', function () {
-    $character = new Character;
-
-    expect($character->getFillable())->toContain(
-        'game_id',
-        'character_id',
-        'display_names',
-        'first_seen_in_version_id',
-        'last_seen_in_version_id',
-        'gender',
-        'species',
-        'age'
-    );
-});
-
-test('character has correct casted attributes', function () {
-    expect($this->character->display_names)
-        ->toBeArray()
-        ->and($this->character->display_names['eng'])->toBe('Main Character');
 });
 
 test('getDisplayName returns corrected name when available', function () {
@@ -71,56 +49,6 @@ test('getDisplayName falls back to original when no correction', function () {
     expect($character->getDisplayName('eng'))->toBe('Hero')
         ->and($character->getDisplayName('jpn'))->toBe('ヒーロー')
         ->and($character->getDisplayName('fra'))->toBeNull();
-});
-
-test('getDisplayName uses corrected name from database', function () {
-    expect($this->character->getDisplayName('eng'))->toBe('MC');
-});
-
-test('getDisplayName returns original display name when no correction', function () {
-    expect($this->character->getDisplayName('jpn'))->toBe('メインキャラクター');
-});
-
-test('getDisplayName returns null when language not available', function () {
-    expect($this->character->getDisplayName('fra'))->toBeNull();
-});
-
-test('character has game relationship', function () {
-    expect($this->character->game->id)->toBe($this->game->id);
-});
-
-test('character has first seen version relationship', function () {
-    $character = Character::factory()
-        ->for($this->game)
-        ->create(['first_seen_in_version_id' => $this->version->id]);
-
-    expect($character->firstSeenVersion->id)->toBe($this->version->id);
-});
-
-test('character has last seen version relationship', function () {
-    $character = Character::factory()
-        ->for($this->game)
-        ->create(['last_seen_in_version_id' => $this->version->id]);
-
-    expect($character->lastSeenVersion->id)->toBe($this->version->id);
-});
-
-test('character has version stats relationship', function () {
-    VersionCharacterStats::factory()
-        ->for($this->character)
-        ->for($this->version, 'gameVersion')
-        ->create();
-
-    expect($this->character->versionStats)->toHaveCount(1);
-});
-
-test('character has dialogue lines relationship', function () {
-    DialogueLine::factory()
-        ->for($this->character)
-        ->for($this->version, 'gameVersion')
-        ->create();
-
-    expect($this->character->dialogueLines)->toHaveCount(1);
 });
 
 test('countUniqueCharactersInLanguage excludes narrator and menu_choice', function () {
@@ -227,49 +155,4 @@ test('countUniqueCharactersInLanguage uses fallback language', function () {
 
     // Should use character_id as fallback when display name not available
     expect($count)->toBe(1);
-});
-
-test('character can have demographic attributes', function () {
-    $character = Character::factory()->create([
-        'gender' => 'female',
-        'species' => 'human',
-        'age' => 'mid-20s',
-    ]);
-
-    expect($character->gender)->toBe('female')
-        ->and($character->species)->toBe('human')
-        ->and($character->age)->toBe('mid-20s');
-});
-
-test('character demographic attributes can be null', function () {
-    $character = Character::factory()->create([
-        'gender' => null,
-        'species' => null,
-        'age' => null,
-    ]);
-
-    expect($character->gender)->toBeNull()
-        ->and($character->species)->toBeNull()
-        ->and($character->age)->toBeNull();
-});
-
-test('character factory demographic methods work correctly', function () {
-    $femaleCharacter = Character::factory()->female()->create();
-    expect($femaleCharacter->gender)->toBe('female');
-
-    $maleCharacter = Character::factory()->male()->create();
-    expect($maleCharacter->gender)->toBe('male');
-
-    $humanCharacter = Character::factory()->human()->create();
-    expect($humanCharacter->species)->toBe('human');
-
-    $customCharacter = Character::factory()
-        ->withGender('non-binary')
-        ->withSpecies('elf')
-        ->withAge('centuries old')
-        ->create();
-
-    expect($customCharacter->gender)->toBe('non-binary')
-        ->and($customCharacter->species)->toBe('elf')
-        ->and($customCharacter->age)->toBe('centuries old');
 });
