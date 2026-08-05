@@ -1,6 +1,5 @@
 <?php
 
-use App\Services\GameSocialMetaBuilder;
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
@@ -15,6 +14,7 @@ use App\Models\VersionSupportedLanguage;
 use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\DenKitStashPersistenceService;
+use App\Services\GameSocialMetaBuilder;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -44,7 +44,7 @@ test('game social meta tags format numeric string word counts without crashing',
         'words' => '12345',
     ]);
 
-    expect($metaTags['description'])->toContain('12,345 words');
+    expect($metaTags->description)->toContain('12,345 words');
 });
 
 test('game show exposes itch screenshots as effective screenshots in original view mode', function () {
@@ -58,34 +58,6 @@ test('game show exposes itch screenshots as effective screenshots in original vi
         ],
         'custom_screenshots' => [
             ['url' => 'https://custom.example/custom-a.jpg'],
-        ],
-    ]);
-
-    $response = $this
-        ->withHeaders(gameShowInertiaHeaders())
-        ->get(route('games.show', $game));
-
-    $response->assertOk();
-
-    $gameProps = $response->json('props.game');
-
-    expect($response->json('component'))->toBe('games/show')
-        ->and($gameProps['screenshots'])->toHaveCount(0)
-        ->and($gameProps['custom_screenshots'])->toHaveCount(0)
-        ->and($gameProps['effective_screenshots'])->toHaveCount(0);
-});
-
-test('game show exposes custom screenshots as effective screenshots in custom view mode', function () {
-    $game = Game::factory()->create([
-        'is_visible' => true,
-        'has_custom_page' => true,
-        'view_mode' => 'custom',
-        'screenshots' => [
-            ['url' => 'https://itch.example/original-a.jpg'],
-        ],
-        'custom_screenshots' => [
-            ['url' => 'https://custom.example/custom-a.jpg'],
-            ['url' => 'https://custom.example/custom-b.jpg'],
         ],
     ]);
 

@@ -1,9 +1,13 @@
 <script lang="ts">
     import { Link, router } from '@inertiajs/svelte';
     import { notify } from '@/components/Toast.svelte';
+    import ArrowTopRightIcon from '@/components/icons/ArrowTopRight.svelte';
+    import DocumentArrowDownIcon from '@/components/icons/DocumentArrowDown.svelte';
+    import EyeIcon from '@/components/icons/Eye.svelte';
     import ItchioIcon from '@/components/icons/Itchio.svelte';
-    import { Button, Card } from '@/components/ui';
-    import { authenticatedFetch } from '@/utils/http';
+    import PhotoIcon from '@/components/icons/Photo.svelte';
+    import { Alert, Button, Card } from '@/components/ui';
+    import { syncItchioGames } from '@/api/my-games';
 
     interface GameSummary {
         id: number;
@@ -37,14 +41,8 @@
         syncingGames = true;
 
         try {
-            const response = await authenticatedFetch(route('user.itchio-games.sync'), { method: 'POST' });
-            const data = await response.json();
-
-            if (!response.ok || data.success === false) {
-                throw new Error(data.message || 'Could not sync your itch.io games.');
-            }
-
-            notify(data.message, 'success');
+            const message = await syncItchioGames();
+            notify(message, 'success');
             router.reload({ only: ['myGames', 'myGamesClickStats'] });
         } catch (error) {
             notify(error instanceof Error ? error.message : 'Could not sync your itch.io games.', 'error');
@@ -56,21 +54,15 @@
 
 <div class="space-y-6">
     {#if !hasItchio}
-        <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
-            <div class="flex items-center space-x-3">
-                <ItchioIcon class="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                <div class="flex-1">
-                    <div class="font-medium text-yellow-800 dark:text-yellow-300">Connect your itch.io account to manage your games</div>
-                    <div class="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
-                        After connecting, we'll show your owned games here for quick editing and analytics.
-                    </div>
-                </div>
-                <a
-                    href={route('auth.redirect', { provider: 'itchio', intended: `${route('dashboard')}#my-games` })}
-                    class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">Connect itch.io</a
+        <Alert title="Connect your itch.io account to manage your games" layout="inline" role="status">
+            After connecting, we'll show your owned games here for quick editing and analytics.
+            {#snippet icon()}<ItchioIcon class="h-5 w-5" />{/snippet}
+            {#snippet actions()}
+                <Button href={route('auth.redirect', { provider: 'itchio', intended: `${route('dashboard')}#my-games` })} inertia={false} size="sm"
+                    >Connect itch.io</Button
                 >
-            </div>
-        </div>
+            {/snippet}
+        </Alert>
     {/if}
 
     {#if hasItchio}
@@ -110,14 +102,7 @@
                             class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                         >
                             <div class="text-center">
-                                <svg class="mx-auto mb-1 h-8 w-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    ><path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="1.5"
-                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                    /></svg
-                                >
+                                <PhotoIcon class="mx-auto mb-1 h-8 w-8 opacity-50" stroke-width="1.5" />
                                 <div class="text-sm font-medium">No Image</div>
                             </div>
                         </div>
@@ -137,45 +122,19 @@
                             <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400">
                                 {#if totalViews > 0}
                                     <div class="flex items-center gap-1">
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                            ><path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                            /><path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                            /></svg
-                                        >
+                                        <EyeIcon class="h-3 w-3" />
                                         <span>{totalViews}</span>
                                     </div>
                                 {/if}
                                 {#if totalDownloads > 0}
                                     <div class="flex items-center gap-1">
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                            ><path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                            /></svg
-                                        >
+                                        <DocumentArrowDownIcon class="h-3 w-3" />
                                         <span>{totalDownloads}</span>
                                     </div>
                                 {/if}
                                 {#if itchioVisits > 0}
                                     <div class="flex items-center gap-1">
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                            ><path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                            /></svg
-                                        >
+                                        <ArrowTopRightIcon class="h-3 w-3" />
                                         <span>{itchioVisits}</span>
                                     </div>
                                 {/if}

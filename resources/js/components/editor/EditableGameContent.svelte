@@ -2,7 +2,7 @@
     import { onMount, untrack } from 'svelte';
     import TinyMCEEditor from './TinyMCEEditor.svelte';
     import { Button } from '@/components/ui';
-    import http from '@/utils/http';
+    import { fetchGameContentView, revertGameContent, updateGameContent, updateGameViewMode } from '@/api/game-content';
 
     interface Game {
         id: number;
@@ -101,10 +101,8 @@
 
     async function fetchViewMode() {
         try {
-            const response = await http.get(route('browser-api.games.content.view', { game: gameId }));
-            if (response.data.success) {
-                viewMode = response.data.data.current_view_mode || 'original';
-            }
+            const data = await fetchGameContentView(gameId);
+            viewMode = data.current_view_mode || 'original';
         } catch (error) {
             console.error('Failed to fetch view mode:', error);
         } finally {
@@ -114,14 +112,9 @@
 
     async function handleViewModeChange(newMode: 'custom' | 'original') {
         try {
-            const response = await http.put(route('browser-api.games.content.view-mode', { game: gameId }), {
-                view_mode: newMode,
-            });
-
-            if (response.data.success) {
-                viewMode = newMode;
-                onViewModeUpdate?.(response.data.data || {});
-            }
+            const data = await updateGameViewMode(gameId, newMode);
+            viewMode = newMode;
+            onViewModeUpdate?.(data);
         } catch (error) {
             console.error('Failed to update view mode:', error);
             alert('Failed to update view mode. Please try again.');
@@ -148,26 +141,20 @@
         saveStatus = 'saving';
 
         try {
-            const response = await http.put(route('browser-api.games.content.update', { game: gameId }), {
-                content: editContent,
-            });
+            const data = await updateGameContent(gameId, editContent);
 
-            if (response.data.success) {
-                isEditing = false;
-                saveStatus = 'saved';
-                const savedContent = response.data.data?.content ?? editContent;
-                displayContent = savedContent;
+            isEditing = false;
+            saveStatus = 'saved';
+            const savedContent = data.content ?? editContent;
+            displayContent = savedContent;
 
-                if (onContentUpdate) {
-                    onContentUpdate(savedContent);
-                }
-
-                setTimeout(() => {
-                    saveStatus = 'idle';
-                }, 3000);
-            } else {
-                throw new Error(response.data.message || 'Failed to save');
+            if (onContentUpdate) {
+                onContentUpdate(savedContent);
             }
+
+            setTimeout(() => {
+                saveStatus = 'idle';
+            }, 3000);
         } catch (error) {
             console.error('Save error:', error);
             saveStatus = 'error';
@@ -203,55 +190,51 @@
         saveStatus = 'saving';
 
         try {
-            const response = await http.post(route('browser-api.games.content.revert', { game: gameId }), {
+            const data = await revertGameContent(gameId, {
                 revert_name: name,
                 revert_screenshots: screenshots,
                 revert_thumbnail: thumbnail,
             });
 
-            if (response.data.success) {
-                saveStatus = 'saved';
+            saveStatus = 'saved';
 
-                // Full revert disables the custom page entirely; reload to reflect the new state
-                if (response.data.data.has_custom_page === false) {
-                    window.location.reload();
-                    return;
-                }
-
-                const revertedContent = response.data.data.content;
-                displayContent = revertedContent;
-                editContent = revertedContent;
-                isEditing = false;
-
-                if (onContentUpdate) {
-                    onContentUpdate(revertedContent);
-                }
-
-                if (name && response.data.data.effective_name) {
-                    const event = new CustomEvent('name-reverted', {
-                        detail: { effectiveName: response.data.data.effective_name },
-                    });
-                    window.dispatchEvent(event);
-                }
-
-                if (screenshots && response.data.data.screenshots) {
-                    window.location.reload();
-                }
-
-                if (thumbnail && response.data.data.thumbnail_url) {
-                    const event = new CustomEvent('thumbnail-reverted', {
-                        detail: { thumbnailUrl: response.data.data.thumbnail_url },
-                    });
-                    window.dispatchEvent(event);
-                    setTimeout(() => window.location.reload(), 1000);
-                }
-
-                setTimeout(() => {
-                    saveStatus = 'idle';
-                }, 3000);
-            } else {
-                throw new Error(response.data.message || 'Failed to revert');
+            // Full revert disables the custom page entirely; reload to reflect the new state
+            if (data.has_custom_page === false) {
+                window.location.reload();
+                return;
             }
+
+            const revertedContent = data.content;
+            displayContent = revertedContent;
+            editContent = revertedContent;
+            isEditing = false;
+
+            if (onContentUpdate) {
+                onContentUpdate(revertedContent);
+            }
+
+            if (name && data.effective_name) {
+                const event = new CustomEvent('name-reverted', {
+                    detail: { effectiveName: data.effective_name },
+                });
+                window.dispatchEvent(event);
+            }
+
+            if (screenshots && data.screenshots) {
+                window.location.reload();
+            }
+
+            if (thumbnail && data.thumbnail_url) {
+                const event = new CustomEvent('thumbnail-reverted', {
+                    detail: { thumbnailUrl: data.thumbnail_url },
+                });
+                window.dispatchEvent(event);
+                setTimeout(() => window.location.reload(), 1000);
+            }
+
+            setTimeout(() => {
+                saveStatus = 'idle';
+            }, 3000);
         } catch (error) {
             console.error('Revert error:', error);
             saveStatus = 'error';
@@ -326,7 +309,6 @@
                         }}
                         disabled={isReverting}
                         loading={isReverting}
-                        class="rounded bg-orange-700 px-2 py-1 text-xs text-white shadow-md hover:bg-orange-800 disabled:opacity-50 dark:bg-orange-700 dark:text-white dark:hover:bg-orange-600"
                         title="Revert to original itch.io content"
                     >
                         {isReverting ? 'Reverting...' : 'Revert'}
@@ -402,16 +384,7 @@
                 </div>
             {/if}
             {#if !previewingVisitorView}
-                <Button
-                    type="button"
-                    variant="solid"
-                    tone="primary"
-                    size="xs"
-                    onclick={handleEdit}
-                    class="rounded bg-blue-600 px-2 py-1 text-xs text-white shadow-md hover:bg-blue-700"
-                >
-                    Edit
-                </Button>
+                <Button type="button" variant="solid" tone="primary" size="xs" onclick={handleEdit} class="shadow-md">Edit</Button>
             {/if}
         </div>
     {/if}
@@ -446,28 +419,11 @@
 
     {#if isEditing}
         <div class="mt-4 flex items-center gap-2">
-            <Button
-                type="button"
-                variant="solid"
-                tone="success"
-                onclick={handleSave}
-                disabled={isSaving || isReverting}
-                loading={isSaving}
-                class="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
-            >
+            <Button type="button" variant="solid" tone="success" onclick={handleSave} disabled={isSaving || isReverting} loading={isSaving}>
                 {isSaving ? 'Saving...' : 'Save'}
             </Button>
 
-            <Button
-                type="button"
-                variant="solid"
-                tone="neutral"
-                onclick={handleCancel}
-                disabled={isSaving || isReverting}
-                class="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-50 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-            >
-                Cancel
-            </Button>
+            <Button type="button" variant="solid" tone="neutral" onclick={handleCancel} disabled={isSaving || isReverting}>Cancel</Button>
 
             <Button
                 type="button"
@@ -476,7 +432,6 @@
                 onclick={() => handleRevert({ name: true, screenshots: true, thumbnail: true })}
                 disabled={isSaving || isReverting}
                 loading={isReverting}
-                class="rounded bg-orange-700 px-4 py-2 text-white hover:bg-orange-800 disabled:opacity-50 dark:bg-orange-700 dark:text-white dark:hover:bg-orange-600"
                 title="Revert everything to original itch.io content"
             >
                 {isReverting ? 'Reverting...' : 'Revert All'}

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import ChevronRightIcon from '@/components/icons/ChevronRight.svelte';
+    import StarIcon from '@/components/icons/Star.svelte';
     import type { Attachment } from 'svelte/attachments';
     import { Link } from '@inertiajs/svelte';
     import DragHandle from '@/components/drag-drop/DragHandle.svelte';
@@ -155,11 +157,7 @@
                         class="inline-flex items-center gap-0.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800"
                         title={game.ratings[0].is_reviewed ? 'View review' : 'View rating'}
                     >
-                        <svg class="h-3 w-3 fill-current" viewBox="0 0 20 20">
-                            <path
-                                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                            />
-                        </svg>
+                        <StarIcon class="h-3 w-3 fill-current" />
                         {game.ratings[0].rating}
                     </Link>
                 {/if}
@@ -194,12 +192,10 @@
                                 variant="link"
                                 tone="primary"
                                 size="xs"
-                                class="mt-1 inline-flex cursor-pointer items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                class="mt-1"
                                 onclick={() => onCompareVersions(game.id, currentVersion.id, game.latest_version!.id)}
                             >
-                                <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                </svg>
+                                <ChevronRightIcon class="mr-1 h-3 w-3" />
                                 Compare changes
                             </Button>
                         {/if}
@@ -308,11 +304,7 @@
                             class="inline-flex items-center gap-0.5 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:hover:bg-yellow-800"
                             title={game.ratings[0].is_reviewed ? 'View review' : 'View rating'}
                         >
-                            <svg class="h-3 w-3 fill-current" viewBox="0 0 20 20">
-                                <path
-                                    d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                                />
-                            </svg>
+                            <StarIcon class="h-3 w-3 fill-current" />
                             {game.ratings[0].rating}
                         </Link>
                     {/if}
@@ -359,12 +351,10 @@
                                     variant="link"
                                     tone="primary"
                                     size="xs"
-                                    class="ml-2 inline-flex cursor-pointer items-center text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                    class="ml-2"
                                     onclick={() => onCompareVersions(game.id, currentVersion.id, game.latest_version!.id)}
                                 >
-                                    <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                    </svg>
+                                    <ChevronRightIcon class="mr-1 h-3 w-3" />
                                     Compare changes
                                 </Button>
                             {/if}
@@ -515,21 +505,19 @@
                         type="button"
                         variant="outline"
                         tone="neutral"
+                        size="sm"
                         onclick={() => {
                             onCancelEditing();
-                        }}
-                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >Cancel</Button
+                        }}>Cancel</Button
                     >
                     <Button
                         type="button"
                         variant="solid"
                         tone="primary"
+                        size="sm"
                         onclick={() => onSaveEntry(entry.id)}
                         disabled={entryFormLoading}
-                        loading={entryFormLoading}
-                        class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                        >Save Changes</Button
+                        loading={entryFormLoading}>Save Changes</Button
                     >
                 </div>
             </div>
@@ -558,21 +546,19 @@
                         type="button"
                         variant="outline"
                         tone="neutral"
+                        size="sm"
                         onclick={() => {
                             onCancelMoving();
-                        }}
-                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >Cancel</Button
+                        }}>Cancel</Button
                     >
                     <Button
                         type="button"
                         variant="solid"
                         tone="warning"
+                        size="sm"
                         onclick={() => onMoveEntry(entry.id)}
                         disabled={entryFormLoading || !entryFormData.target_list_id}
-                        loading={entryFormLoading}
-                        class="inline-flex items-center rounded-md border border-transparent bg-yellow-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-700 disabled:opacity-50"
-                        >Move to List</Button
+                        loading={entryFormLoading}>Move to List</Button
                     >
                 </div>
             </div>

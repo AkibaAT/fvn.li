@@ -5,37 +5,8 @@ declare(strict_types=1);
 // Legacy Livewire GameDetail removed
 use App\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
-
-beforeEach(function () {
-    Storage::fake('public');
-});
-
-it('uses optimized thumbnail for social media meta tags', function () {
-    $game = Game::factory()->create([
-        'name' => 'Test Game',
-        'thumb_url' => 'https://external.com/original.jpg',
-        'optimized_thumbnails' => [
-            'default' => [
-                'path' => 'thumbnails/test-game-default.webp',
-                'width' => 300,
-                'height' => 200,
-            ],
-        ],
-    ]);
-
-    Storage::disk('public')->put('thumbnails/test-game-default.webp', 'cached thumbnail content');
-
-    $metaTags = [
-        'image' => '/storage/' . $game->optimized_thumbnails['default']['path'],
-    ];
-
-    // Should use the cached thumbnail URL, not the external one
-    expect($metaTags['image'])->toContain('/storage/thumbnails/test-game-default.webp');
-    expect($metaTags['image'])->not->toContain('external.com');
-});
 
 it('does not expose external thumbnail when no cache exists', function () {
     $game = Game::factory()->create([
@@ -49,22 +20,6 @@ it('does not expose external thumbnail when no cache exists', function () {
     ];
 
     expect($metaTags['image'])->toBeNull();
-});
-
-it('uses favicon when no thumbnail available', function () {
-    $game = Game::factory()->create([
-        'name' => 'Test Game',
-        'thumb_url' => null,
-        'optimized_thumbnails' => null,
-        'screenshots' => [],
-    ]);
-
-    $metaTags = [
-        'image' => asset('favicon.ico'),
-    ];
-
-    // Should fall back to favicon
-    expect($metaTags['image'])->toContain('favicon.ico');
 });
 
 it('does not expose unoptimized screenshots for frontend display', function () {

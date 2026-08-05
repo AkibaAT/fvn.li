@@ -1,6 +1,7 @@
 <script lang="ts">
     import GameStats from '@/components/GameStats.svelte';
-    import GameVersionComparisonModal from '@/components/GameVersionComparisonModal.svelte';
+    import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
+    import VersionComparisonModal from '@/components/VersionComparisonModal.svelte';
     import GameHeader from '@/components/games/GameHeader.svelte';
     import ScreenshotsGallery from '@/components/games/ScreenshotsGallery.svelte';
     import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox.svelte';
@@ -13,11 +14,11 @@
     import ReportReviewModal from '@/components/games/ReportReviewModal.svelte';
     import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
     import { Link, page } from '@inertiajs/svelte';
-    import SeoHead, { createGameMetaTags } from '@/components/seo/SeoHead.svelte';
+    import SeoHead from '@/components/seo/SeoHead.svelte';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { escapeStyleElementText } from '@/utils/style-html';
-    import { formatBytes, getGamePlatforms, getPublicListColors } from '@/utils/game-show';
-    import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail, fetchVersionComparison } from '@/api';
+    import { getGamePlatforms, getPublicListColors } from '@/utils/game-show';
+    import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail } from '@/api';
     import type { GameShowProps, Screenshot } from '@/types/game-show';
 
     let {
@@ -73,7 +74,6 @@
     let showCharacterStats = $state<number | null>(null);
     let showFileStats = $state<number | null>(null);
     let showVersionComparison = $state(false);
-    let activeComparisonTab = $state<'character' | 'file'>('character');
     let characterStatsLoading = $state<number | null>(null);
     let fileStatsLoading = $state<number | null>(null);
     let isLightboxOpen = $state(false);
@@ -114,7 +114,6 @@
     // Async data state
     let characterStatsData = $state<any>(null);
     let fileStatsData = $state<any>(null);
-    let versionComparisonData = $state<any>(null);
 
     // Reviews state
     let reviewsPage = $state(1);
@@ -216,17 +215,6 @@
             });
     });
 
-    $effect(() => {
-        if (!showVersionComparison || !compareFromVersionId || !compareToVersionId) return;
-        fetchVersionComparison({ gameId: game.id, fromVersionId: compareFromVersionId, toVersionId: compareToVersionId })
-            .then((data) => {
-                versionComparisonData = data;
-            })
-            .catch(() => {
-                versionComparisonData = null;
-            });
-    });
-
     const activePlatforms = $derived(getGamePlatforms(platforms, game.latest_version));
 
     const detailItems = $derived([
@@ -297,10 +285,6 @@
     let reviewsLoading = $state(false);
     let versionsLoading = $state(false);
 
-    // Meta tags
-    const frontendMetaTags = $derived(createGameMetaTags(game));
-    const gameMetaTags = $derived(metaTags || frontendMetaTags);
-
     // Lightbox
     const openLightbox = (index: number) => {
         if (currentScreenshots?.[index]) {
@@ -360,12 +344,6 @@
     const compareVersions = () => {
         if (!compareFromVersionId || !compareToVersionId) return;
         showVersionComparison = true;
-    };
-    const closeVersionComparisonDialog = () => {
-        const dialog = document.getElementById('version-comparison-dialog') as HTMLDialogElement;
-        if (dialog) dialog.close();
-        showVersionComparison = false;
-        activeComparisonTab = 'character';
     };
 
     const handleMediaUpdate = (newThumbnail: string | null, newScreenshots: any[]) => {
@@ -451,15 +429,6 @@
         }
     });
 
-    $effect(() => {
-        if (showVersionComparison) {
-            setTimeout(() => {
-                const dialog = document.getElementById('version-comparison-dialog') as HTMLDialogElement;
-                if (dialog) dialog.showModal();
-            }, 0);
-        }
-    });
-
     // Scroll to review anchor on mount
     $effect(() => {
         if (typeof window === 'undefined') return;
@@ -481,7 +450,7 @@
     );
 </script>
 
-<SeoHead metaTags={gameMetaTags} />
+<SeoHead {metaTags} />
 
 {#if customCssStyleHtml}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -492,9 +461,7 @@
     class="sticky top-[4.5rem] z-40 mb-5 flex flex-col gap-3 border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900"
 >
     <Link href={route('games.index')} class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
-        <svg class="mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg
-        >
+        <ChevronLeftIcon class="mr-1 h-5 w-5" />
         Back to Game List
     </Link>
     <nav class="flex w-full flex-wrap gap-x-4 gap-y-2 whitespace-nowrap sm:w-auto sm:flex-nowrap">
@@ -566,24 +533,7 @@
 {/if}
 
 {#if game.additional_links && game.additional_links.length > 0}
-    <DownloadsList
-        gameId={game.id}
-        links={game.additional_links}
-        getPlatformIcon={(platform) =>
-            `<i class="${
-                platform === 'windows'
-                    ? 'icon-windows text-platform-windows'
-                    : platform === 'linux'
-                      ? 'icon-linux text-platform-linux'
-                      : platform === 'mac'
-                        ? 'icon-apple text-platform-mac'
-                        : platform === 'android'
-                          ? 'icon-android text-platform-android'
-                          : platform === 'web'
-                            ? 'icon-web text-platform-web'
-                            : 'icon-external-link text-gray-600 dark:text-gray-400'
-            }"></i>`}
-    />
+    <DownloadsList gameId={game.id} links={game.additional_links} />
 {/if}
 
 {#if publicLists && publicLists.length > 0}
@@ -730,14 +680,10 @@
     />
 {/if}
 
-<GameVersionComparisonModal
-    {showVersionComparison}
-    {versionComparisonData}
-    isLoadingComparison={showVersionComparison && !versionComparisonData}
-    {activeComparisonTab}
-    setActiveComparisonTab={(tab) => {
-        activeComparisonTab = tab;
-    }}
-    {closeVersionComparisonDialog}
-    {formatBytes}
+<VersionComparisonModal
+    isOpen={showVersionComparison}
+    onClose={() => (showVersionComparison = false)}
+    gameId={game.id}
+    fromVersionId={compareFromVersionId ?? undefined}
+    toVersionId={compareToVersionId ?? undefined}
 />

@@ -1,8 +1,9 @@
 <script lang="ts">
+    import ExclamationCircleIcon from '@/components/icons/ExclamationCircle.svelte';
+    import { submitBugReport } from '@/api';
     import { usePage } from '@inertiajs/svelte';
-    import { getCsrfToken } from '@/utils/http';
     import { notify } from '@/components/Toast.svelte';
-    import { Button, Dialog, TextInput, Textarea } from '@/components/ui';
+    import { Alert, Button, Dialog, TextInput, Textarea } from '@/components/ui';
 
     interface User {
         id: number;
@@ -54,31 +55,17 @@
         isSubmitting = true;
 
         try {
-            const response = await fetch(route('browser-api.bug-reports.store'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
-                },
-                body: JSON.stringify({
-                    page_url: pageInfo.url,
-                    page_title: pageInfo.title,
-                    description: description.trim(),
-                    request_parameters: pageInfo.params,
-                }),
+            const message = await submitBugReport({
+                page_url: pageInfo.url,
+                page_title: pageInfo.title,
+                description: description.trim(),
+                request_parameters: pageInfo.params,
             });
-
-            const data = await response.json();
-
-            if (data.success) {
-                notify(data.message, 'success');
-                description = '';
-                isOpen = false;
-            } else {
-                notify(data.message || 'Failed to submit bug report.', 'error');
-            }
-        } catch {
-            notify('An error occurred while submitting the bug report.', 'error');
+            notify(message, 'success');
+            description = '';
+            isOpen = false;
+        } catch (error) {
+            notify(error instanceof Error ? error.message : 'An error occurred while submitting the bug report.', 'error');
         } finally {
             isSubmitting = false;
         }
@@ -98,22 +85,18 @@
     aria-label="Report a bug"
     title="Report a bug"
 >
-    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
+    <ExclamationCircleIcon class="h-5 w-5" />
     <span>Report a Bug</span>
 </Button>
 
 <Dialog open={isOpen} onClose={closeDialog} title="Report a Bug">
     <form onsubmit={handleSubmit}>
         {#if !user}
-            <div class="mb-4 rounded-lg bg-amber-50 p-4 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-                <p class="text-sm">
-                    You must be logged in to submit a bug report. Please
-                    <a href={route('login')} class="font-medium underline hover:no-underline"> log in </a>
-                    to continue.
-                </p>
-            </div>
+            <Alert class="mb-4" role="status">
+                You must be logged in to submit a bug report. Please
+                <a href={route('login')} class="font-medium underline hover:no-underline"> log in </a>
+                to continue.
+            </Alert>
         {/if}
 
         <TextInput

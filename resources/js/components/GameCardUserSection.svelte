@@ -1,7 +1,16 @@
 <script lang="ts">
+    import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
+    import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
     import { page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
-    import http from '@/utils/http';
+    import {
+        addGameToCustomList,
+        addGameToDefaultList,
+        fetchGameListMemberships,
+        fetchUserLists,
+        storeVnList,
+        toggleUserProgressUpdates,
+    } from '@/api/lists';
     import { Badge, Button, Dialog, TextInput, Checkbox } from '@/components/ui';
     import { formatListType, listTypeDotClass, listTypeTone } from '@/components/ui/tones';
 
@@ -58,23 +67,16 @@
     const loadUserListsForDialog = async () => {
         if (!isAuthenticated) return;
         try {
-            const [listsResponse, membershipsResponse] = await Promise.all([
-                http.get('/browser-api/user/lists'),
-                http.get(`/browser-api/games/${gameId}/lists`),
-            ]);
+            const [lists, currentListIds] = await Promise.all([fetchUserLists(), fetchGameListMemberships(gameId)]);
 
-            if (listsResponse.data?.success) {
-                const lists = listsResponse.data.lists || [];
-                allLists = lists;
-                userLists = lists.filter((list: VnList) => list.user?.id === auth?.user?.id);
+            allLists = lists;
+            userLists = lists.filter((list: VnList) => list.user?.id === auth?.user?.id);
 
-                const currentListIds = membershipsResponse.data?.list_ids || [];
-                const initialStates: Record<number, boolean> = {};
-                lists.forEach((list: VnList) => {
-                    initialStates[list.id] = currentListIds.includes(list.id);
-                });
-                listStates = initialStates;
-            }
+            const initialStates: Record<number, boolean> = {};
+            lists.forEach((list: VnList) => {
+                initialStates[list.id] = currentListIds.includes(list.id);
+            });
+            listStates = initialStates;
         } catch (error) {
             console.error('Failed to load user lists:', error);
             showMessage('Failed to load user lists', 'error');
@@ -87,27 +89,25 @@
 
         loadingStates = { ...loadingStates, [listId]: true };
         try {
-            const response = await http.post(`/browser-api/games/${gameId}/add-to-list`, { list_type: listType });
+            const message = await addGameToDefaultList(gameId, listType);
 
-            if (response.data?.success) {
-                const isRemoved = response.data.message.includes('removed');
-                if (!isRemoved) {
-                    const newStates: Record<number, boolean> = {};
-                    allLists.forEach((list) => {
-                        if (list.type && ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'].includes(list.type)) {
-                            newStates[list.id] = list.type === listType;
-                        } else {
-                            newStates[list.id] = listStates[list.id] || false;
-                        }
-                    });
-                    listStates = newStates;
-                } else {
-                    listStates = { ...listStates, [listId]: false };
-                }
-                showMessage(response.data.message, 'success');
+            const isRemoved = message.includes('removed');
+            if (!isRemoved) {
+                const newStates: Record<number, boolean> = {};
+                allLists.forEach((list) => {
+                    if (list.type && ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'].includes(list.type)) {
+                        newStates[list.id] = list.type === listType;
+                    } else {
+                        newStates[list.id] = listStates[list.id] || false;
+                    }
+                });
+                listStates = newStates;
+            } else {
+                listStates = { ...listStates, [listId]: false };
             }
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || 'Failed to update list';
+            showMessage(message, 'success');
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Failed to update list';
             showMessage(msg, 'error');
         } finally {
             loadingStates = { ...loadingStates, [listId]: false };
@@ -117,14 +117,12 @@
     const handleCustomListToggle = async (listId: number) => {
         loadingStates = { ...loadingStates, [listId]: true };
         try {
-            const response = await http.post(`/browser-api/lists/${listId}/add-game`, { game_id: gameId });
-            if (response.data?.success) {
-                const isRemoved = response.data.message.includes('removed');
-                listStates = { ...listStates, [listId]: !isRemoved };
-                showMessage(response.data.message, 'success');
-            }
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || 'Failed to update list';
+            const message = await addGameToCustomList(listId, gameId);
+            const isRemoved = message.includes('removed');
+            listStates = { ...listStates, [listId]: !isRemoved };
+            showMessage(message, 'success');
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Failed to update list';
             showMessage(msg, 'error');
         } finally {
             loadingStates = { ...loadingStates, [listId]: false };
@@ -137,22 +135,20 @@
 
         isCreatingList = true;
         try {
-            const response = await http.post('/browser-api/vn-lists', {
+            const data = await storeVnList({
                 name: newListName.trim(),
                 is_public: newListIsPublic,
                 game_id: gameId,
             });
-            if (response.data?.success) {
-                const newList = response.data.list;
-                allLists = [...allLists, newList];
-                userLists = [...userLists, newList];
-                listStates = { ...listStates, [newList.id]: true };
-                newListName = '';
-                newListIsPublic = false;
-                showMessage(response.data.message, 'success');
-            }
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || 'Failed to create list';
+            const newList = data.list;
+            allLists = [...allLists, newList];
+            userLists = [...userLists, newList];
+            listStates = { ...listStates, [newList.id]: true };
+            newListName = '';
+            newListIsPublic = false;
+            showMessage(data.message, 'success');
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Failed to create list';
             showMessage(msg, 'error');
         } finally {
             isCreatingList = false;
@@ -165,22 +161,18 @@
         isTogglingNotifications = true;
         try {
             const newStatus = !notificationStatus;
-            const response = await http.patch(`/browser-api/user-progress/${gameId}/toggle-updates`, {
-                receive_updates: newStatus,
-            });
-            if (response.data?.success) {
-                notificationStatus = response.data.receive_updates;
-                document.dispatchEvent(
-                    new CustomEvent('show-toast', {
-                        detail: {
-                            message: `Notifications ${response.data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`,
-                            type: 'success',
-                        },
-                    }),
-                );
-            }
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || error?.message || 'Failed to toggle notifications';
+            const data = await toggleUserProgressUpdates(gameId, newStatus);
+            notificationStatus = data.receive_updates;
+            document.dispatchEvent(
+                new CustomEvent('show-toast', {
+                    detail: {
+                        message: `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`,
+                        type: 'success',
+                    },
+                }),
+            );
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Failed to toggle notifications';
             document.dispatchEvent(
                 new CustomEvent('show-toast', {
                     detail: { message: msg, type: 'error' },
@@ -224,9 +216,7 @@
                 }}
                 size="sm"
             >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <PlusCircleIcon class="h-4 w-4" />
                 {userListsInGame.length > 0 ? 'Manage in Lists' : 'Add to Lists'}
             </Button>
 
@@ -234,14 +224,7 @@
                 <Button onclick={() => (showUserLists = !showUserLists)} variant="soft" tone="neutral" size="sm">
                     <span>My Lists</span>
                     <Badge tone={badgeTone} size="sm">{userListsInGame.length}</Badge>
-                    <svg
-                        class="h-4 w-4 transition-transform {showUserLists ? 'rotate-180' : ''}"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <ChevronDownIcon class="h-4 w-4 transition-transform {showUserLists ? 'rotate-180' : ''}" />
                 </Button>
             {/if}
 

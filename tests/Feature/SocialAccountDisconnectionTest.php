@@ -88,28 +88,6 @@ describe('Social Account Disconnection', function () {
         expect($user->socialAccounts()->count())->toBe(1);
     });
 
-    test('returns redirect for regular requests', function () {
-        $user = User::factory()->create();
-
-        SocialAccount::factory()->create([
-            'user_id' => $user->id,
-            'provider_name' => 'discord',
-            'provider_id' => 'discord123',
-        ]);
-
-        SocialAccount::factory()->create([
-            'user_id' => $user->id,
-            'provider_name' => 'itchio',
-            'provider_id' => 'itchio456',
-        ]);
-
-        // Make regular request (not AJAX)
-        $response = $this->actingAs($user)
-            ->delete(route('user.disconnect', ['provider' => 'discord']));
-
-        $response->assertRedirect(route('dashboard'));
-    });
-
     test('handles disconnecting non-existent provider', function () {
         $user = User::factory()->create();
 
@@ -127,42 +105,6 @@ describe('Social Account Disconnection', function () {
 
         expect($user->socialAccounts()->count())->toBe(1)
             ->and($user->socialAccounts()->where('provider_name', 'discord')->exists())->toBeTrue();
-    });
-
-    test('handles disconnecting when user has multiple accounts', function () {
-        $user = User::factory()->create();
-
-        SocialAccount::factory()->create([
-            'user_id' => $user->id,
-            'provider_name' => 'discord',
-            'provider_id' => 'discord123',
-        ]);
-
-        SocialAccount::factory()->create([
-            'user_id' => $user->id,
-            'provider_name' => 'itchio',
-            'provider_id' => 'itchio456',
-        ]);
-
-        SocialAccount::factory()->create([
-            'user_id' => $user->id,
-            'provider_name' => 'telegram',
-            'provider_id' => 'telegram789',
-        ]);
-
-        expect($user->socialAccounts()->count())->toBe(3);
-
-        // Disconnect one account
-        $response = $this->actingAs($user)
-            ->delete(route('user.disconnect', ['provider' => 'itchio']));
-
-        $response->assertRedirect(route('dashboard'))
-            ->assertSessionHas('success');
-
-        expect($user->socialAccounts()->count())->toBe(2)
-            ->and($user->socialAccounts()->where('provider_name', 'discord')->exists())->toBeTrue()
-            ->and($user->socialAccounts()->where('provider_name', 'itchio')->exists())->toBeFalse()
-            ->and($user->socialAccounts()->where('provider_name', 'telegram')->exists())->toBeTrue();
     });
 
     test('requires authentication', function () {

@@ -1,6 +1,7 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
     import { untrack } from 'svelte';
-    import { authenticatedFetch, readJsonResponse } from '@/utils/http';
+    import { destroyVnList, updateVnList } from '@/api/lists';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -40,21 +41,11 @@
         isLoading = true;
 
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.update', vnList.id), {
-                method: 'PUT',
-                body: JSON.stringify(formData),
-            });
-
-            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
-
-            if (data.success) {
-                router.visit(route('lists.show', vnList.id));
-            } else {
-                alert(data.message || 'Failed to update list');
-            }
+            await updateVnList(vnList.id, formData);
+            router.visit(route('lists.show', vnList.id));
         } catch (error) {
             console.error('Error updating list:', error);
-            alert('An error occurred while updating the list');
+            alert(error instanceof Error ? error.message : 'Failed to update list');
         } finally {
             isLoading = false;
         }
@@ -68,27 +59,18 @@
         isDeleting = true;
 
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.destroy', vnList.id), { method: 'DELETE' });
-
-            const data = await readJsonResponse<{ success: boolean; message?: string }>(response);
-
-            if (data.success) {
-                router.visit(route('lists.index'));
-            } else {
-                alert(data.message || 'Failed to delete list');
-            }
+            await destroyVnList(vnList.id);
+            router.visit(route('lists.index'));
         } catch (error) {
             console.error('Error deleting list:', error);
-            alert('An error occurred while deleting the list');
+            alert(error instanceof Error ? error.message : 'Failed to delete list');
         } finally {
             isDeleting = false;
         }
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || `Edit List - ${vnList.name}`}</title>
-</svelte:head>
+<SeoHead {metaTags} title={`Edit List - ${vnList.name}`} />
 
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" class="mb-0" />

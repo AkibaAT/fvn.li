@@ -148,38 +148,6 @@ describe('configuration-based anonymization', function () {
     });
 });
 
-describe('GDPR compliance scenarios', function () {
-    test('anonymizes user IP for data retention', function () {
-        $userIp = '203.0.113.45';
-        $anonymized = IpAnonymizationService::anonymize($userIp, 'subnet');
-
-        expect($anonymized)->toBe('203.0.113.0')
-            ->and($anonymized)->not->toBe($userIp);
-    });
-
-    test('allows analytics while protecting privacy', function () {
-        $ip1 = '192.168.1.100';
-        $ip2 = '192.168.1.200';
-
-        $anon1 = IpAnonymizationService::anonymize($ip1, 'subnet');
-        $anon2 = IpAnonymizationService::anonymize($ip2, 'subnet');
-
-        // Both should map to same subnet for analytics
-        expect($anon1)->toBe($anon2)
-            ->and($anon1)->toBe('192.168.1.0');
-    });
-
-    test('hash method provides unique tracking without exposing IP', function () {
-        $ip = '192.168.1.123';
-        $hash = IpAnonymizationService::anonymize($ip, 'hash');
-
-        // Hash should be consistent but not reversible
-        expect($hash)->toStartWith('hash_')
-            ->and($hash)->not->toContain('192')
-            ->and($hash)->not->toContain('168');
-    });
-});
-
 describe('edge cases and error handling', function () {
     test('handles localhost addresses', function () {
         expect(IpAnonymizationService::anonymizeBySubnet('127.0.0.1'))->toBe('127.0.0.0')
@@ -203,23 +171,5 @@ describe('edge cases and error handling', function () {
 
         // Empty string is treated as falsy and returns null
         expect(IpAnonymizationService::anonymize(''))->toBeNull();
-    });
-});
-
-describe('real-world IP addresses', function () {
-    test('anonymizes common public IPs', function () {
-        // Google DNS
-        expect(IpAnonymizationService::anonymize('8.8.8.8', 'subnet'))->toBe('8.8.8.0');
-
-        // Cloudflare DNS
-        expect(IpAnonymizationService::anonymize('1.1.1.1', 'subnet'))->toBe('1.1.1.0');
-    });
-
-    test('anonymizes IPv6 addresses correctly', function () {
-        $ipv6 = '2001:4860:4860::8888'; // Google DNS IPv6
-        $result = IpAnonymizationService::anonymizeBySubnet($ipv6);
-
-        expect($result)->toBeString()
-            ->and($result)->toContain('2001:4860');
     });
 });

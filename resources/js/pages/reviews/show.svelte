@@ -1,9 +1,12 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import PencilIcon from '@/components/icons/Pencil.svelte';
+    import StarIcon from '@/components/icons/Star.svelte';
     import { untrack } from 'svelte';
     import { Link, page } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, Textarea } from '@/components/ui';
     import type { SharedData } from '@/types';
-    import http from '@/utils/http';
+    import { submitUserReview } from '@/api/user-reviews';
     import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface ReviewGame {
@@ -68,30 +71,28 @@
         editIsSubmitting = true;
         editError = null;
         try {
-            const response = await http.post(route('browser-api.user-reviews.store', { game: review.game.id }), {
+            const { review: savedReview } = await submitUserReview(review.game.id, {
                 rating: editRating,
                 review: editReviewText,
                 has_spoilers: editHasSpoilers,
             });
             review = {
                 ...review,
-                rating: response.data.review.rating,
-                review: response.data.review.review,
-                has_spoilers: response.data.review.has_spoilers,
-                is_reviewed: Boolean(response.data.review.review?.replace(/<[^>]*>/g, '').trim()),
+                rating: savedReview.rating,
+                review: savedReview.review,
+                has_spoilers: savedReview.has_spoilers,
+                is_reviewed: Boolean(savedReview.review?.replace(/<[^>]*>/g, '').trim()),
             };
             isEditing = false;
-        } catch (err: any) {
-            editError = err?.response?.data?.message || 'Failed to update review';
+        } catch (err) {
+            editError = err instanceof Error ? err.message : 'Failed to update review';
         } finally {
             editIsSubmitting = false;
         }
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || `Review by ${authorName}`}</title>
-</svelte:head>
+<SeoHead {metaTags} title={`Review by ${authorName}`} />
 
 <div class="space-y-6">
     <PageHeader
@@ -161,17 +162,11 @@
 
             <div class="flex items-center gap-1">
                 {#each Array(5) as _, i (i)}
-                    <svg
+                    <StarIcon
                         class="h-6 w-6 {i < review.rating
                             ? 'fill-yellow-400 text-yellow-400'
                             : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                        viewBox="0 0 20 20"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                        />
-                    </svg>
+                    />
                 {/each}
                 <span class="ml-1 text-lg font-medium text-gray-700 dark:text-gray-300">{review.rating}/5</span>
             </div>
@@ -196,17 +191,11 @@
                                 class="focus:outline-none"
                                 ariaLabel="{starValue} star{starValue !== 1 ? 's' : ''}"
                             >
-                                <svg
+                                <StarIcon
                                     class="h-7 w-7 cursor-pointer transition-colors {isActive
                                         ? 'fill-yellow-400 text-yellow-400'
                                         : 'fill-gray-300 text-gray-300 hover:fill-yellow-200 hover:text-yellow-200 dark:fill-gray-600 dark:text-gray-600'}"
-                                    viewBox="0 0 20 20"
-                                >
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                                    />
-                                </svg>
+                                />
                             </Button>
                         {/each}
                         {#if editRating > 0}
@@ -231,23 +220,15 @@
                     <div class="text-sm text-red-600 dark:text-red-400">{editError}</div>
                 {/if}
                 <div class="flex items-center gap-2">
-                    <Button
-                        type="submit"
-                        variant="solid"
-                        tone="primary"
-                        disabled={editRating === 0 || editIsSubmitting}
-                        loading={editIsSubmitting}
-                        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
+                    <Button type="submit" variant="solid" tone="primary" disabled={editRating === 0 || editIsSubmitting} loading={editIsSubmitting}>
                         {editIsSubmitting ? 'Saving...' : 'Update Review'}
                     </Button>
                     <Button
                         type="button"
                         variant="soft"
                         tone="neutral"
-                        onclick={() => (isEditing = false)}
-                        class="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >Cancel</Button
+                        size="sm"
+                        onclick={() => (isEditing = false)}>Cancel</Button
                     >
                 </div>
             </form>
@@ -265,8 +246,8 @@
                             type="button"
                             variant="outline"
                             tone="warning"
+                            size="sm"
                             onclick={() => (spoilerRevealed = true)}
-                            class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 transition-colors hover:bg-yellow-100 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/50"
                         >
                             This review contains spoilers. Click to reveal.
                         </Button>
@@ -285,17 +266,11 @@
                         type="button"
                         variant="link"
                         tone="primary"
+                        size="sm"
                         onclick={() => (isEditing = true)}
-                        class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        class="gap-1.5"
                     >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                        </svg>
+                        <PencilIcon class="h-4 w-4" />
                         Edit this review
                     </Button>
                 </div>

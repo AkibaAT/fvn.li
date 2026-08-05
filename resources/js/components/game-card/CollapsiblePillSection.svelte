@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import type { Snippet } from 'svelte';
 
     let {
@@ -33,17 +34,11 @@
                 title={toggleLabel}
                 aria-label={toggleLabel}
             >
-                <svg
+                <ChevronDownIcon
                     class="h-4 w-4 text-gray-400 transition-all duration-200 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 {expanded
                         ? 'rotate-180'
                         : 'rotate-0'}"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                >
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
+                />
             </button>
         {/if}
     </div>

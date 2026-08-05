@@ -3,6 +3,7 @@
     import { twMerge } from 'tailwind-merge';
     import type { Snippet } from 'svelte';
     import Button from './Button.svelte';
+    import XMarkIcon from '@/components/icons/XMark.svelte';
 
     interface Props {
         open: boolean;
@@ -82,7 +83,7 @@
             <div class="flex items-center gap-2">
                 {@render actions?.()}
                 <Button variant="ghost" tone="neutral" size="icon-sm" onclick={close} ariaLabel={closeLabel}>
-                    <i class="icon-x" aria-hidden="true"></i>
+                    <XMarkIcon class="h-4 w-4" />
                 </Button>
             </div>
         </div>

@@ -1,9 +1,14 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import CheckIcon from '@/components/icons/Check.svelte';
+    import PlusIcon from '@/components/icons/Plus.svelte';
+    import XMarkIcon from '@/components/icons/XMark.svelte';
     import GameStats from '@/components/GameStats.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { notify } from '@/components/Toast.svelte';
     import { Button, Card } from '@/components/ui';
-    import { authenticatedFetch } from '@/utils/http';
+    import { updateMyGameLinks } from '@/api/my-games';
+    import { httpValidationErrors } from '@/utils/http';
     import { formatLocalDateTime } from '@/utils/date-formatting';
     import { untrack } from 'svelte';
 
@@ -105,34 +110,27 @@
         saving = true;
         try {
             const timezoneOffset = -new Date().getTimezoneOffset() / 60;
-            const res = await authenticatedFetch(route('browser-api.my-games.update', { game: game.slug }), {
-                method: 'PUT',
-                body: JSON.stringify({ links: sortedLinks, timezone_offset: timezoneOffset }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data?.success === false) {
-                if (data?.errors) {
-                    Object.entries(data.errors as Record<string, unknown>).forEach(([key, val]) => {
-                        formErrors[key] = Array.isArray(val) ? String(val[0]) : String(val);
-                    });
-                }
-                notify(data?.message || 'Failed to save changes', 'error');
-                return;
-            }
+            await updateMyGameLinks(game.slug, sortedLinks, timezoneOffset);
             notify('Changes saved successfully', 'success');
         } catch (e: unknown) {
-            const errorMessage = e instanceof Error ? e.message : 'Request failed';
-            formErrors['links'] = errorMessage;
-            notify(errorMessage, 'error');
+            const validationErrors = httpValidationErrors(e);
+            if (validationErrors) {
+                Object.entries(validationErrors).forEach(([key, val]) => {
+                    formErrors[key] = Array.isArray(val) ? String(val[0]) : String(val);
+                });
+                notify(e instanceof Error ? e.message : 'Failed to save changes', 'error');
+            } else {
+                const errorMessage = e instanceof Error ? e.message : 'Request failed';
+                formErrors['links'] = errorMessage;
+                notify(errorMessage, 'error');
+            }
         } finally {
             saving = false;
         }
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || `Edit ${game.name}`}</title>
-</svelte:head>
+<SeoHead {metaTags} title={`Edit ${game.name}`} />
 
 <div class="space-y-8">
     <PageHeader
@@ -145,9 +143,7 @@
         {#snippet actions()}
             <Button onclick={save} disabled={saving} loading={saving}>
                 {#if !saving}
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <CheckIcon class="h-4 w-4" />
                 {/if}
                 {saving ? 'Saving...' : 'Save Changes'}
             </Button>
@@ -161,9 +157,7 @@
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Add download links for your game. {sortedLinks.length} of 15 links used.</p>
             </div>
             <Button onclick={addLink} disabled={saving || sortedLinks.length >= 15} tone="success">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
+                <PlusIcon class="h-4 w-4" />
                 <span>{sortedLinks.length >= 15 ? 'Limit Reached' : 'Add Link'}</span>
             </Button>
         </div>
@@ -209,9 +203,7 @@
                     </div>
                     <div class="col-span-1 flex items-center justify-end gap-1">
                         <Button onclick={() => removeLink(index)} tone="danger" size="icon-sm" aria-label="Remove link" disabled={saving}>
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <XMarkIcon class="h-4 w-4" />
                         </Button>
                     </div>
                     <div class="col-span-12 mt-2">

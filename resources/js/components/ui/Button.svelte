@@ -6,6 +6,7 @@
 
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import clsx from 'clsx';
     import { twMerge } from 'tailwind-merge';
     import type { Snippet } from 'svelte';
@@ -16,7 +17,7 @@
     type ButtonAction = (node: HTMLElement) => void | { destroy?: () => void };
 
     interface Props extends ButtonLikeProps {
-        variant?: ButtonVariant | 'primary' | 'secondary' | 'danger' | 'success';
+        variant?: ButtonVariant;
         tone?: ButtonTone;
         size?: ButtonSize;
         loading?: boolean;
@@ -35,7 +36,7 @@
 
     let {
         variant = 'solid',
-        tone,
+        tone = 'primary',
         size = 'md',
         loading = false,
         icon,
@@ -52,15 +53,6 @@
         action,
         ...restProps
     }: Props = $props();
-
-    const normalizedVariant = $derived(
-        variant === 'primary' || variant === 'danger' || variant === 'success'
-            ? 'solid'
-            : variant === 'secondary'
-              ? 'soft'
-              : variant,
-    );
-    const normalizedTone = $derived(tone ?? (variant === 'danger' || variant === 'success' ? variant : variant === 'secondary' ? 'neutral' : 'primary'));
 
     const baseClasses =
         'inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 dark:focus:ring-offset-gray-900';
@@ -99,7 +91,7 @@
             link: 'rounded-none p-0 text-green-600 hover:text-green-700 hover:underline focus:ring-green-500 dark:text-green-400 dark:hover:text-green-300',
         },
         warning: {
-            solid: 'bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-500 dark:bg-amber-600 dark:hover:bg-amber-500',
+            solid: 'bg-amber-700 text-white hover:bg-amber-800 focus:ring-amber-500 dark:bg-amber-700 dark:hover:bg-amber-600',
             soft: 'bg-amber-50 text-amber-800 hover:bg-amber-100 focus:ring-amber-500 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-900/60',
             outline:
                 'border border-amber-200 bg-white text-amber-800 hover:bg-amber-50 focus:ring-amber-500 dark:border-amber-700/60 dark:bg-gray-900 dark:text-amber-300 dark:hover:bg-amber-950/50',
@@ -127,7 +119,7 @@
     };
 
     let isDisabled = $derived(disabled || loading);
-    let classes = $derived(twMerge(clsx(baseClasses, toneClasses[normalizedTone][normalizedVariant], sizeClasses[size], className)));
+    let classes = $derived(twMerge(clsx(baseClasses, toneClasses[tone][variant], sizeClasses[size], className)));
     let linkProps = $derived(restProps as any);
 
     $effect(() => {
@@ -139,15 +131,7 @@
 
 {#snippet content()}
     {#if loading}
-        <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-        </svg>
-        <span class="sr-only">Loading...</span>
+        <LoadingSpinner size="sm" currentColor isBusy={false} />
     {/if}
     {#if !loading && icon && iconPosition === 'left'}
         <span aria-hidden="true">{@render icon()}</span>

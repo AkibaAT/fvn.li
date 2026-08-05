@@ -1,10 +1,13 @@
 <script lang="ts">
+    import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
+    import NoSymbolSolidIcon from '@/components/icons/NoSymbolSolid.svelte';
     import { untrack } from 'svelte';
     import GameCardUserSection from './GameCardUserSection.svelte';
     import GameImage from './game-card/GameImage.svelte';
     import GameTitle from './game-card/GameTitle.svelte';
     import GameMetadata from './game-card/GameMetadata.svelte';
     import GamePlatformPill from './game-card/GamePlatformPill.svelte';
+    import { toggleIgnoredGame } from '@/api';
     import GameLanguageSection from './game-card/GameLanguageSection.svelte';
     import GameTagSection from './game-card/GameTagSection.svelte';
     import GameStatusBadge from './game-card/GameStatusBadge.svelte';
@@ -16,7 +19,6 @@
     import { useStorePlatformIcons } from '@/hooks/useStorePlatformIcons';
     import type { Game } from '@/types';
     import { page } from '@inertiajs/svelte';
-    import axios from 'axios';
 
     let props: GameCardProps = $props();
 
@@ -73,15 +75,10 @@
 
         isTogglingIgnore = true;
         try {
-            const response = await axios.post(route('user.ignored-games.toggle'), {
-                game_id: game.id,
-            });
-
-            if (response.data.success) {
-                isIgnored = response.data.is_ignored;
-                if (onIgnoreToggle) {
-                    onIgnoreToggle(game.id, response.data.is_ignored, response.data.ignored_game_ids);
-                }
+            const result = await toggleIgnoredGame(game.id);
+            isIgnored = result.isIgnored;
+            if (onIgnoreToggle) {
+                onIgnoreToggle(game.id, result.isIgnored, result.ignoredGameIds);
             }
         } catch (error) {
             console.error('Failed to toggle ignore status:', error);
@@ -115,22 +112,9 @@
             aria-label={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
         >
             {#if isIgnored}
-                <svg class="h-5 w-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        fill-rule="evenodd"
-                        d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
+                <NoSymbolSolidIcon class="h-5 w-5 text-red-600 dark:text-red-400" />
             {:else}
-                <svg class="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                    />
-                </svg>
+                <NoSymbolIcon class="h-5 w-5 text-gray-600 dark:text-gray-400" />
             {/if}
         </Button>
     {/if}

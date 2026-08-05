@@ -6,7 +6,7 @@
     import TasksSummary from '@/components/admin/TasksSummary.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
-    import type { MetaTags } from '@/components/seo/SeoHead.svelte';
+    import type { MetaTags } from '@/types/meta-tags';
 
     interface GameStats {
         total: number;
@@ -85,10 +85,6 @@
 </script>
 
 <SeoHead {metaTags} />
-
-<svelte:head>
-    <title>System Status</title>
-</svelte:head>
 
 <div class="space-y-10">
     <PageHeader title="System Status" class="mb-0" />

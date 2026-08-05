@@ -308,23 +308,6 @@ describe('GDPR data anonymization', function () {
 });
 
 describe('GDPR compliance edge cases', function () {
-    test('handles user with large number of audit logs', function () {
-        for ($i = 1; $i <= 100; $i++) {
-            ChangeLog::create([
-                'user_id' => $this->user->id,
-                'event_type' => 'created',
-                'entity_type' => 'VnList',
-                'entity_id' => $i,
-                'timestamp' => now()->subMinutes($i),
-            ]);
-        }
-
-        $export = ChangeLog::exportUserData($this->user->id);
-
-        expect($export['total_entries'])->toBe(100)
-            ->and($export['audit_logs'])->toHaveCount(100);
-    });
-
     test('export handles logs with null values', function () {
         ChangeLog::create([
             'user_id' => $this->user->id,

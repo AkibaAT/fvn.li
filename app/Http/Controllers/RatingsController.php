@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\RatingAnalyticsService;
 use App\Services\RatingPresenter;
 use App\Services\RatingStatsCacheService;
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -140,13 +141,13 @@ class RatingsController extends Controller
                 'page' => $page,
                 'perPage' => $perPage,
             ],
-            'metaTags' => [
-                'title' => 'Game Ratings & Reviews',
-                'description' => 'Browse community ratings and reviews for furry visual novels. ' .
-                    "Currently featuring {$total} ratings" .
-                    ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('score') ?: 0, 1) . ' stars' : '') .
+            'metaTags' => new MetaTags(
+                title: 'Game Ratings & Reviews',
+                description: 'Browse community ratings and reviews for furry visual novels. '.
+                    "Currently featuring {$total} ratings".
+                    ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('score') ?: 0, 1).' stars' : '').
                     '. Filter by star rating, review status, and sort by date or rating.',
-                'structuredData' => [
+                structuredData: [
                     '@type' => 'CollectionPage',
                     'name' => 'Game Ratings & Reviews',
                     'description' => 'Browse community ratings and reviews for furry visual novels',
@@ -180,7 +181,7 @@ class RatingsController extends Controller
                         })->toArray(),
                     ],
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 
@@ -223,7 +224,7 @@ class RatingsController extends Controller
             'name' => $r->name,
             'joined_at' => isset($r->created_at) ? (string) $r->created_at : null,
         ];
-        $metaTitle = $r->name . ' - Rater';
+        $metaTitle = $r->name.' - Rater';
 
         // Ratings list (visible ratings by default)
         $ratingsBase = DB::table('ratings')
@@ -305,16 +306,16 @@ class RatingsController extends Controller
                 'page' => $page,
                 'perPage' => $perPage,
             ],
-            'metaTags' => [
-                'title' => $metaTitle,
-                'description' => isset($raterPayload)
-                    ? "View ratings and reviews by {$raterPayload['name']}. " .
-                      "Currently showing {$total} ratings" .
-                      ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('rating') ?: 0, 1) . ' stars' : '') .
+            'metaTags' => new MetaTags(
+                title: $metaTitle,
+                description: isset($raterPayload)
+                    ? "View ratings and reviews by {$raterPayload['name']}. ".
+                      "Currently showing {$total} ratings".
+                      ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('rating') ?: 0, 1).' stars' : '').
                       ' for various furry visual novels.'
                     : 'View rater profile and ratings.',
-                'noindex' => true, // Set noindex for all rater pages
-                'structuredData' => isset($raterPayload) ? [
+                noindex: true,
+                structuredData: isset($raterPayload) ? [
                     '@type' => 'ProfilePage',
                     'name' => $metaTitle,
                     'description' => "Ratings and reviews by {$raterPayload['name']}",
@@ -356,7 +357,7 @@ class RatingsController extends Controller
                     'description' => 'View rater profile and ratings',
                     'url' => route('raters.show', $rater),
                 ],
-            ],
+            )->toArray(),
         ];
 
         if ($includeRaterProp) {
@@ -387,10 +388,10 @@ class RatingsController extends Controller
 
         return Inertia::render('reviews/show', [
             'review' => $reviewData,
-            'metaTags' => [
-                'title' => "{$authorName}'s review of {$gameName}",
-                'description' => $excerpt ?? "{$authorName} rated {$gameName} {$review->rating}/5 stars.",
-                'structuredData' => [
+            'metaTags' => new MetaTags(
+                title: "{$authorName}'s review of {$gameName}",
+                description: $excerpt ?? "{$authorName} rated {$gameName} {$review->rating}/5 stars.",
+                structuredData: [
                     '@type' => 'Review',
                     'itemReviewed' => [
                         '@type' => 'SoftwareApplication',
@@ -410,7 +411,7 @@ class RatingsController extends Controller
                     'datePublished' => $review->published_at?->toISOString(),
                     'reviewBody' => $excerpt,
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 
@@ -479,10 +480,10 @@ class RatingsController extends Controller
                 'page' => $page,
                 'perPage' => $perPage,
             ],
-            'metaTags' => [
-                'title' => "{$user->name}'s Reviews",
-                'description' => "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of " . round((float) ($stats->average_rating ?? 0), 1) . '/5.',
-            ],
+            'metaTags' => new MetaTags(
+                title: "{$user->name}'s Reviews",
+                description: "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of ".round((float) ($stats->average_rating ?? 0), 1).'/5.',
+            )->toArray(),
         ]);
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Support\Seo\MetaTags;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
@@ -17,16 +18,16 @@ class Controller extends BaseController
     protected function loginResponse(): Response
     {
         return Inertia::render('auth/login', [
-            'metaTags' => [
-                'title' => 'Log in',
-                'description' => 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
-                'structuredData' => [
+            'metaTags' => new MetaTags(
+                title: 'Log in',
+                description: 'Log in to your FVN.li account to track your visual novel progress, create reading lists, and connect with the community.',
+                structuredData: [
                     '@type' => 'WebPage',
                     'name' => 'Log in',
                     'description' => 'Log in to your FVN.li account to track your visual novel progress',
                     'url' => route('login'),
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 }

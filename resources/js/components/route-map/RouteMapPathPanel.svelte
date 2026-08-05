@@ -1,4 +1,5 @@
 <script lang="ts">
+    import XMarkIcon from '@/components/icons/XMark.svelte';
     import { Button } from '@/components/ui';
     import { formatReadingTime, formatRoutePreference } from '@/utils/route-map';
     import type { NavigationStep, RoutePreference } from '@/types/route-graph';
@@ -35,18 +36,8 @@
         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Path to <span class="font-mono text-xs">{navigationTarget}</span>
         </h3>
-        <Button
-            type="button"
-            variant="ghost"
-            tone="neutral"
-            size="icon-sm"
-            onclick={onClearPath}
-            class="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-            title="Clear path"
-        >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
+        <Button type="button" variant="ghost" tone="neutral" size="icon-sm" onclick={onClearPath} title="Clear path">
+            <XMarkIcon class="h-4 w-4" />
         </Button>
     </div>
 
@@ -76,7 +67,8 @@
                 type="button"
                 variant="ghost"
                 tone="neutral"
-                class="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+                size="xs"
+                class="w-full justify-start text-left"
                 onclick={() => onSelectNode(startNodeId)}
             >
                 <span
@@ -95,9 +87,8 @@
                         type="button"
                         variant="ghost"
                         tone={step.isChoice ? 'primary' : 'neutral'}
-                        class="flex-1 rounded px-2 py-1 text-left text-xs transition-colors {step.isChoice
-                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50'
-                            : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}"
+                        size="xs"
+                        class="flex-1 justify-start text-left"
                         onclick={() => onSelectNode(step.nodeId)}
                     >
                         {#if step.isChoice && step.choiceText}

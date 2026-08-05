@@ -27,5 +27,6 @@
     aria-label={iconMeta.title}
     aria-pressed={isActive}
 >
-    <i class="{iconMeta.icon} {iconMeta.color}" aria-hidden="true"></i>
+    {@const Icon = iconMeta.icon}
+    <Icon class="h-4 w-4 {iconMeta.color}" />
 </Button>

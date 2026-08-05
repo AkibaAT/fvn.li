@@ -10,6 +10,7 @@
     "@tailwindcss/typography",
     "flag-icons",
     "svelte-check",
+    "tailwindcss",
     "tinymce",
     "ziggy-js"
   ],

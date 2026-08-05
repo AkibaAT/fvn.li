@@ -2,25 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Http\Requests\AddGameToCustomListRequest;
-use App\Http\Requests\ToggleAllUpdatesRequest;
-use App\Models\DiscordServerMember;
-use App\Models\DiscordServerTag;
 use App\Models\Game;
 use App\Models\LanguageMapping;
-use App\Models\NotificationHistory;
-use App\Models\ProcessedEvent;
-use App\Models\PushSubscription;
 use App\Models\UniqueDialogueText;
-use App\Models\UserNotificationPreferences;
-use App\Models\UserPreference;
-use App\Models\VersionFileType;
-use App\Models\VersionRouteEdge;
-use App\Models\VersionRouteLabel;
-use App\Models\VersionRouteMenuChoice;
-use App\Models\VersionRoutePath;
-use App\Models\VersionRouteVariable;
-use App\Models\VersionRouteVariableChange;
 use App\Traits\SortsVnLists;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -34,17 +18,6 @@ function invokeSmokeMethod(object $object, string $method, array $arguments = []
 
     return $methodReflection->invokeArgs($object, $arguments);
 }
-
-it('covers request validation helpers and byte formatting utilities', function () {
-    expect((new AddGameToCustomListRequest)->authorize())->toBeTrue()
-        ->and((new AddGameToCustomListRequest)->rules())->toBe([
-            'game_id' => ['required', 'exists:games,id'],
-        ])
-        ->and((new ToggleAllUpdatesRequest)->authorize())->toBeTrue()
-        ->and((new ToggleAllUpdatesRequest)->rules())->toBe([
-            'receive_updates' => ['required', 'boolean'],
-        ]);
-});
 
 it('covers VN list sorting for collections and paginators', function () {
     $sorter = new class
@@ -68,43 +41,6 @@ it('covers VN list sorting for collections and paginators', function () {
 
     $paginator = new LengthAwarePaginator($lists, 4, 10);
     expect($sorter->sort($paginator)->getCollection()->pluck('name')->all())->toBe(['Reading', 'Completed', 'Alpha', 'Zeta']);
-});
-
-it('covers simple relation models and query scopes without database writes', function () {
-    expect((new DiscordServerMember)->discordServer())->toBeInstanceOf(BelongsTo::class)
-        ->and((new DiscordServerMember)->user())->toBeInstanceOf(BelongsTo::class)
-        ->and(DiscordServerMember::admins()->toRawSql())->toContain('"is_admin" = 1')
-        ->and(DiscordServerMember::nonAdmins()->toRawSql())->toContain('"is_admin" = 0')
-        ->and(DiscordServerMember::linked()->toRawSql())->toContain('"user_id" is not null')
-        ->and(DiscordServerMember::unlinked()->toRawSql())->toContain('"user_id" is null')
-        ->and((new DiscordServerTag)->discordServer())->toBeInstanceOf(BelongsTo::class)
-        ->and(DiscordServerTag::subscribed()->toRawSql())->toContain('"is_subscribed" = 1')
-        ->and(DiscordServerTag::unsubscribed()->toRawSql())->toContain('"is_subscribed" = 0')
-        ->and((new NotificationHistory)->user())->toBeInstanceOf(BelongsTo::class)
-        ->and((new NotificationHistory)->game())->toBeInstanceOf(BelongsTo::class)
-        ->and((new NotificationHistory)->gameVersion())->toBeInstanceOf(BelongsTo::class)
-        ->and((new ProcessedEvent)->game())->toBeInstanceOf(BelongsTo::class)
-        ->and((new PushSubscription)->user())->toBeInstanceOf(BelongsTo::class)
-        ->and((new UserNotificationPreferences)->user())->toBeInstanceOf(BelongsTo::class)
-        ->and((new UserPreference)->user())->toBeInstanceOf(BelongsTo::class)
-        ->and((new VersionFileType)->category())->toBeInstanceOf(BelongsTo::class);
-});
-
-it('covers route graph relation models and casts', function () {
-    expect((new VersionRouteEdge)->gameVersion())->toBeInstanceOf(BelongsTo::class)
-        ->and((new VersionRouteLabel(['is_ending' => true, 'returns_to_caller' => false]))->is_ending)->toBeTrue()
-        ->and((new VersionRouteLabel)->gameVersion())->toBeInstanceOf(BelongsTo::class)
-        ->and((new VersionRouteMenuChoice([
-            'translations' => ['en' => 'Go'],
-            'prompt_translations' => ['en' => 'Choose'],
-            'menu_condition_stack' => ['seen_intro'],
-        ]))->translations)->toBe(['en' => 'Go'])
-        ->and((new VersionRouteMenuChoice)->gameVersion())->toBeInstanceOf(BelongsTo::class)
-        ->and((new VersionRoutePath(['path_labels' => ['start'], 'choices' => [['text' => 'Go']]]))->path_labels)->toBe(['start'])
-        ->and((new VersionRoutePath)->gameVersion())->toBeInstanceOf(BelongsTo::class)
-        ->and((new VersionRouteVariable)->gameVersion())->toBeInstanceOf(BelongsTo::class)
-        ->and((new VersionRouteVariableChange(['condition_stack' => ['a', 'b']]))->condition_stack)->toBe(['a', 'b'])
-        ->and((new VersionRouteVariableChange)->gameVersion())->toBeInstanceOf(BelongsTo::class);
 });
 
 it('covers language mapping lookup precedence and unique dialogue text metadata accessors', function () {

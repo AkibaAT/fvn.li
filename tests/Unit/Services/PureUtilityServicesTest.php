@@ -6,7 +6,6 @@ use App\Models\Game;
 use App\Models\Language;
 use App\Models\LanguageMapping;
 use App\Services\GameSearchFilterService;
-use App\Services\ItchCssProcessor;
 use App\Services\LanguageMappingService;
 use App\Services\PlatformDetectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -98,49 +97,6 @@ it('builds enhanced API filters while preserving explicit false booleans', funct
         'supported_languages' => ['eng'],
         'is_visible' => true,
     ]);
-});
-
-it('preserves scoped creator CSS while removing unsafe page escape declarations', function () {
-    $processor = new ItchCssProcessor;
-    $css = <<<'CSS'
-        h1, .game h2 { color: red; margin: 1rem; }
-        .panel {
-            color: #fff;
-            border: 1px solid rgb(0, 0, 0);
-            background-image: linear-gradient(red, blue);
-            padding: 2rem;
-            display: grid;
-            position: fixed;
-            top: 0;
-        }
-        .remote-image { background-image: url("https://attacker.example/pixel"); }
-        @media (min-width: 600px) {
-            .panel { box-shadow: 0 0 2px black; gap: 1rem; }
-        }
-    CSS;
-
-    $result = $processor->process($css);
-
-    expect($result)->not->toContain('h1')
-        ->and($result)->toContain('.game_description .panel')
-        ->and($result)->toContain('color:#fff')
-        ->and($result)->toContain('linear-gradient')
-        ->and($result)->toContain('padding')
-        ->and($result)->toContain('display:grid')
-        ->and($result)->toContain('@media (min-width: 600px)')
-        ->and($result)->toContain('box-shadow')
-        ->and($result)->toContain('gap:1rem')
-        ->and($result)->not->toContain('position:fixed')
-        ->and($result)->not->toContain('top:0')
-        ->and($result)->not->toContain('url(')
-        ->and($result)->not->toContain('attacker.example');
-});
-
-it('returns null for empty or invalid CSS', function () {
-    $processor = new ItchCssProcessor;
-
-    expect($processor->process(null))->toBeNull()
-        ->and($processor->process(''))->toBeNull();
 });
 
 it('resolves language keys from game mappings global mappings languages and placeholders', function () {

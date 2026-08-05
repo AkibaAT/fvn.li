@@ -26,8 +26,6 @@ use Throwable;
 
 class GamesDisplayController extends Controller
 {
-    private array $metaTags = [];
-
     /**
      * Display a single game page
      */
@@ -168,7 +166,7 @@ class GamesDisplayController extends Controller
             $game->user_progress = $userProgress ? [$userProgress] : [];
         }
 
-        $this->metaTags = app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats);
+        $metaTags = app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats);
 
         // Character counts are fetched together to avoid per-version queries.
         $versionCharacterCounts = [];
@@ -441,7 +439,7 @@ class GamesDisplayController extends Controller
             'similarGames' => $similarGames,
             'developerGames' => $developerGames,
             'estimatedReadingTime' => $estimatedReadingTime,
-            'metaTags' => $this->metaTags,
+            'metaTags' => $metaTags->toArray(),
         ]);
     }
 

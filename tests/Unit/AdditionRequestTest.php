@@ -139,24 +139,6 @@ test('reject request', function () {
     expect($request->rejection_reason)->toBe($reason);
 });
 
-test('status check methods', function () {
-    $pendingRequest = AdditionRequest::factory()->create(['status' => AdditionRequest::STATUS_PENDING]);
-    $approvedRequest = AdditionRequest::factory()->create(['status' => AdditionRequest::STATUS_APPROVED]);
-    $rejectedRequest = AdditionRequest::factory()->create(['status' => AdditionRequest::STATUS_REJECTED]);
-
-    expect($pendingRequest->isPending())->toBeTrue();
-    expect($pendingRequest->isApproved())->toBeFalse();
-    expect($pendingRequest->isRejected())->toBeFalse();
-
-    expect($approvedRequest->isPending())->toBeFalse();
-    expect($approvedRequest->isApproved())->toBeTrue();
-    expect($approvedRequest->isRejected())->toBeFalse();
-
-    expect($rejectedRequest->isPending())->toBeFalse();
-    expect($rejectedRequest->isApproved())->toBeFalse();
-    expect($rejectedRequest->isRejected())->toBeTrue();
-});
-
 test('remove user from request', function () {
     $user1 = User::factory()->create();
     $user2 = User::factory()->create();

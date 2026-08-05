@@ -199,16 +199,7 @@
 <Card padding="lg" class={className}>
     <div class="mb-6 flex items-center justify-between">
         <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Review Text Controls</h3>
-        <Button
-            type="button"
-            variant="ghost"
-            tone="neutral"
-            size="sm"
-            onclick={resetToDefault}
-            class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-        >
-            Reset to Default
-        </Button>
+        <Button type="button" variant="ghost" tone="neutral" size="sm" onclick={resetToDefault}>Reset to Default</Button>
     </div>
     <div class="grid grid-cols-1 gap-6">
         <div class="flex items-center justify-between">

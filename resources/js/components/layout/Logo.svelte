@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import BookIcon from '@/components/icons/Book.svelte';
 </script>
 
 <Link
@@ -11,7 +12,7 @@
         class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-lg transition-all duration-200 group-hover:scale-105 group-hover:shadow-xl"
         aria-hidden="true"
     >
-        <i class="icon-book text-white" aria-hidden="true"></i>
+        <BookIcon class="h-5 w-5 text-white" />
     </div>
     <div>
         <div class="text-xl font-bold text-blue-600 dark:text-blue-400">FVN.li</div>

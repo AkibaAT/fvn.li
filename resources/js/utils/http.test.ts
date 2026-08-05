@@ -1,64 +1,36 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { AxiosError, type AxiosRequestConfig } from 'axios';
+import { beforeEach, describe, expect, test } from 'vitest';
+import http from './http';
 
-describe('csrf utilities', () => {
+function failingAdapter(status: number, data: unknown) {
+    return async (config: AxiosRequestConfig) => {
+        const response = { data, status, statusText: '', headers: {}, config: config as never };
+        throw new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_REQUEST, config as never, null, response as never);
+    };
+}
+
+describe('http error normalization', () => {
     beforeEach(() => {
-        vi.resetModules();
-        document.head.innerHTML = '<meta name="csrf-token" content="initial-token">';
+        document.head.innerHTML = '<meta name="csrf-token" content="token">';
     });
 
-    test('reads csrf tokens and builds authenticated headers', async () => {
-        const { getAuthHeaders, getCsrfToken } = await import('./http');
+    test('surfaces the server message on non-2xx responses', async () => {
+        http.defaults.adapter = failingAdapter(422, { success: false, message: 'You have already reported this review.' });
 
-        expect(getCsrfToken()).toBe('initial-token');
-        expect(getAuthHeaders()).toMatchObject({
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': 'initial-token',
-        });
+        await expect(http.post('/browser-api/review-reports/1')).rejects.toThrow('You have already reported this review.');
     });
 
-    test('refreshes csrf tokens into meta and axios defaults', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                json: () => Promise.resolve({ token: 'fresh-token' }),
-            }),
-        );
+    test('keeps the response payload available to callers', async () => {
+        http.defaults.adapter = failingAdapter(401, { message: 'You must be logged in.' });
 
-        const { default: http, refreshCsrfToken } = await import('./http');
-
-        await expect(refreshCsrfToken()).resolves.toBe('fresh-token');
-        expect(document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')).toBe('fresh-token');
-        expect(http.defaults.headers.common['X-CSRF-TOKEN']).toBe('fresh-token');
+        const error = await http.get('/browser-api/bug-reports/1').catch((e: AxiosError<{ message: string }>) => e);
+        expect(error).toBeInstanceOf(AxiosError);
+        expect((error as AxiosError<{ message: string }>).response?.data.message).toBe('You must be logged in.');
     });
 
-    test('retries authenticated fetch after csrf mismatch', async () => {
-        const firstResponse = new Response('expired', { status: 419 });
-        const secondResponse = new Response('ok', { status: 200 });
-        const fetchMock = vi
-            .fn()
-            .mockResolvedValueOnce(firstResponse)
-            .mockResolvedValueOnce({
-                json: () => Promise.resolve({ token: 'fresh-token' }),
-            })
-            .mockResolvedValueOnce(secondResponse);
-        vi.stubGlobal('fetch', fetchMock);
+    test('falls back to the axios message when the body has none', async () => {
+        http.defaults.adapter = failingAdapter(500, '<html>error</html>');
 
-        const { authenticatedFetch } = await import('./http');
-
-        await expect(authenticatedFetch('/browser-api/test', { headers: { Accept: 'application/json' } })).resolves.toBe(secondResponse);
-        expect(fetchMock).toHaveBeenCalledTimes(3);
-        expect(fetchMock.mock.calls[2][1].headers['X-CSRF-TOKEN']).toBe('fresh-token');
-    });
-
-    test('keeps form data content type browser-managed', async () => {
-        const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
-        vi.stubGlobal('fetch', fetchMock);
-        const body = new FormData();
-
-        const { authenticatedFetch } = await import('./http');
-        await authenticatedFetch('/upload', { body });
-
-        expect(fetchMock.mock.calls[0][1].headers['Content-Type']).toBeUndefined();
+        await expect(http.get('/browser-api/bug-reports')).rejects.toThrow('Request failed with status code 500');
     });
 });

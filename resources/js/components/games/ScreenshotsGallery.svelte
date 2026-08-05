@@ -1,7 +1,10 @@
 <script lang="ts">
-    import { authenticatedFetch } from '@/utils/http';
+    import PlusIcon from '@/components/icons/Plus.svelte';
+    import TrashIcon from '@/components/icons/Trash.svelte';
+    import { deleteMyGameScreenshot, uploadMyGameScreenshots } from '@/api/my-games';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { toast } from '@/utils/toast';
-    import { Button, Card } from '@/components/ui';
+    import { Alert, Button, Card } from '@/components/ui';
     import { resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';
     import { gameScreenshotAltText } from '@/utils/imageAltText';
 
@@ -36,19 +39,9 @@
         }
 
         uploadingScreenshots = true;
-        const formData = new FormData();
-        imageFiles.forEach((file) => formData.append('screenshots[]', file));
 
         try {
-            const res = await authenticatedFetch(route('browser-api.my-games.screenshots.upload', { game: gameSlug }), {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data?.success === false) {
-                toast.error(data?.message || 'Failed to upload screenshots');
-                return;
-            }
+            const data = await uploadMyGameScreenshots(gameSlug, imageFiles);
             const updatedScreenshots = resolveUploadedScreenshots(displayedScreenshots, data.screenshots, data.new_screenshots);
             displayedScreenshots = updatedScreenshots;
             onUpdate?.(null, updatedScreenshots);
@@ -68,15 +61,7 @@
 
         deletingScreenshotIndex = index;
         try {
-            const res = await authenticatedFetch(route('browser-api.my-games.screenshots.delete', { game: gameSlug }), {
-                method: 'DELETE',
-                body: JSON.stringify({ index }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data?.success === false) {
-                toast.error(data?.message || 'Failed to delete screenshot');
-                return;
-            }
+            const data = await deleteMyGameScreenshot(gameSlug, index);
             const updatedScreenshots = resolveDeletedScreenshots(displayedScreenshots, index, data.screenshots);
             displayedScreenshots = updatedScreenshots;
             onUpdate?.(null, updatedScreenshots);
@@ -102,19 +87,10 @@
                         : 'cursor-pointer bg-blue-600 hover:bg-blue-700'}"
                 >
                     {#if uploadingScreenshots}
-                        <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path
-                                class="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                        </svg>
+                        <LoadingSpinner size="sm" currentColor isBusy={false} />
                         <span>Uploading...</span>
                     {:else}
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
+                        <PlusIcon class="h-4 w-4" />
                         <span>Add Screenshots</span>
                     {/if}
                     <input
@@ -134,21 +110,9 @@
         </div>
 
         {#if shouldBlur}
-            <div class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/30">
-                <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Content Warning</h3>
-                        <div class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-                            <p>Screenshots are blurred as they may contain sensitive or NSFW content. Click on any screenshot to view it in full.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <Alert title="Content Warning" role="status" class="mb-4">
+                Screenshots are blurred as they may contain sensitive or NSFW content. Click on any screenshot to view it in full.
+            </Alert>
         {/if}
 
         {#if displayedScreenshots && displayedScreenshots.length > 0}
@@ -180,27 +144,13 @@
                                 disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
                                 tone="danger"
                                 size="icon-sm"
-                                class="absolute top-2 right-2 z-10 rounded-full bg-red-600 p-2 text-white shadow-lg transition-colors hover:bg-red-700 disabled:cursor-wait disabled:opacity-70"
+                                class="absolute top-2 right-2 z-10 rounded-full shadow-lg"
                                 aria-label="Delete screenshot"
                             >
                                 {#if deletingScreenshotIndex === index}
-                                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path
-                                            class="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                    </svg>
+                                    <LoadingSpinner size="sm" currentColor isBusy={false} />
                                 {:else}
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                    </svg>
+                                    <TrashIcon class="h-4 w-4" />
                                 {/if}
                             </Button>
                         {/if}

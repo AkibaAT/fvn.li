@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClickTrackingController;
-use App\Http\Controllers\Dashboard\DashboardVersionComparisonController;
 use App\Http\Controllers\Dashboard\DigestNotificationController;
 use App\Http\Controllers\Dashboard\ItchioGameOwnershipController;
 use App\Http\Controllers\Dashboard\UserAccountController;
@@ -25,6 +24,7 @@ use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VnLists\PublicVnListController;
 use App\Http\Controllers\VnLists\VnListPageController;
 use App\Models\Game;
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -136,8 +136,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('user.disconnect');
     Route::get('user/notifications/digest/{date}', [DigestNotificationController::class, 'showDigestNotifications'])
         ->name('user.notifications.digest');
-    Route::post('users/dashboard/version-comparison', [DashboardVersionComparisonController::class, 'getVersionComparison'])
-        ->name('users.dashboard.version-comparison');
     Route::put('user-progress/{game:id}', [UserGameProgressController::class, 'update'])
         ->name('user-progress.update');
     Route::post('user/itchio-games/sync', [ItchioGameOwnershipController::class, 'sync'])
@@ -199,7 +197,7 @@ Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
 // Social Authentication Routes
 Route::get('auth/telegram', function () {
     return Inertia::render('auth/telegram-login', [
-        'metaTags' => ['title' => 'Login with Telegram'],
+        'metaTags' => MetaTags::page(title: 'Login with Telegram')->toArray(),
     ]);
 })->name('auth.telegram');
 
@@ -209,7 +207,7 @@ Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirectTo
 // Special routes for itch.io
 Route::get('auth/itchio/callback', function () {
     return Inertia::render('auth/itchio-callback', [
-        'metaTags' => ['title' => 'Completing itch.io Login'],
+        'metaTags' => MetaTags::page(title: 'Completing itch.io Login')->toArray(),
     ]);
 })->name('auth.itchio.callback');
 

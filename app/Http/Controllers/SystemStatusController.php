@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Rating;
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -93,7 +94,7 @@ class SystemStatusController extends Controller
             }
 
             $monthlyTrend = (clone $visibleRatingsQuery)
-                ->selectRaw($monthExpr . ' as month, COUNT(*) as count')
+                ->selectRaw($monthExpr.' as month, COUNT(*) as count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get()
@@ -104,7 +105,7 @@ class SystemStatusController extends Controller
                 ->all();
 
             $visibleGamesMonthlyTrend = (clone $visibleGameRatingsQuery)
-                ->selectRaw($monthExpr . ' as month, COUNT(*) as count')
+                ->selectRaw($monthExpr.' as month, COUNT(*) as count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get()
@@ -146,11 +147,11 @@ class SystemStatusController extends Controller
             'gameStats' => $gameStats,
             'ratingStats' => $ratingStats,
             'releaseYearStats' => $releaseYearStats,
-            'metaTags' => [
-                'title' => 'System Status',
-                'description' => 'Current catalogue, rating, review, and release statistics for FVN.li.',
-                'image' => asset(config('social.images.default')),
-            ],
+            'metaTags' => new MetaTags(
+                title: 'System Status',
+                description: 'Current catalogue, rating, review, and release statistics for FVN.li.',
+                image: asset(config('social.images.default')),
+            )->toArray(),
         ];
 
         if (! $request->user()?->is_admin) {

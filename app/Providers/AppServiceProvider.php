@@ -29,12 +29,14 @@ use App\Services\ItchIoProvider;
 use App\Services\ItchUrlSafetyValidator;
 use App\Services\LanguageMappingService;
 use App\Support\Diagnostics\DiagnosticLogManager;
+use App\Support\IconVersion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use ReflectionClass;
 use SocialiteProviders\Discord\Provider;
@@ -86,6 +88,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::share('iconVersion', IconVersion::get());
+
         // Register specific model observers for search index updates
         Game::observe(GameObserver::class);
         GameJam::observe(GameJamObserver::class);
@@ -111,14 +115,6 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('steam', \SocialiteProviders\Steam\Provider::class);
             $event->extendSocialite('itchio', ItchIoProvider::class);
         });
-
-        // Register new top level views
-        $this->loadViewsFrom(resource_path('views/games'), 'games');
-        $this->loadViewsFrom(resource_path('views/lists'), 'lists');
-        $this->loadViewsFrom(resource_path('views/ratings'), 'ratings');
-        $this->loadViewsFrom(resource_path('views/users'), 'users');
-        $this->loadViewsFrom(resource_path('views/admin'), 'admin');
-        $this->loadViewsFrom(resource_path('views/dialogue'), 'dialogue');
 
         $this->registerSlowQueryLogging();
     }
@@ -148,7 +144,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $modelFiles = glob($modelPath . '/*.php');
+        $modelFiles = glob($modelPath.'/*.php');
 
         foreach ($modelFiles as $file) {
             $fileName = basename($file, '.php');

@@ -1,14 +1,25 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { Attachment } from 'svelte/attachments';
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import { notify } from '@/components/Toast.svelte';
-    import { authenticatedFetch } from '@/utils/http';
+    import {
+        destroyListEntry,
+        destroyVnList,
+        moveListEntry,
+        reorderListEntries,
+        toggleAllListUpdates,
+        toggleUserProgressUpdates,
+        toggleVnListVisibility,
+        updateListEntry,
+        updateVnList,
+    } from '@/api/lists';
     import VersionComparisonModal from '@/components/VersionComparisonModal.svelte';
-    import { getListTypeConfig, listStatusConfig, getStatusBadgeConfig } from '@/utils/status-indicators';
+    import { listTypeBorderClass, listTypeIcon, listTypeLabel, listTypeTone } from '@/components/ui/tones';
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
-    import { Button, Card, Switch } from '@/components/ui';
+    import { Badge, Button, Card, Switch } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface GameVersion {
@@ -96,9 +107,6 @@
 
     let { vnList, isOwner, availableLists = [], metaTags, versionHasCharacterStats = {} }: ListShowProps = $props();
 
-    const statusConfig = $derived(getListTypeConfig(vnList?.type || 'custom'));
-    const color = $derived(statusConfig.color);
-
     let entries = $state<VnListEntry[]>(untrack(() => vnList.entries));
     let isPublic = $state<boolean>(untrack(() => vnList.is_public));
     let listData = $state(untrack(() => ({ name: vnList.name, description: vnList.description })));
@@ -133,25 +141,17 @@
     const handleSaveList = async () => {
         isListSaveLoading = true;
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.update', vnList.id), {
-                method: 'PUT',
-                body: JSON.stringify({ ...listFormData, is_public: isPublic }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                isEditingList = false;
-                if (data.vnList) {
-                    listData = { name: data.vnList.name, description: data.vnList.description };
-                    isPublic = data.vnList.is_public;
-                }
-                document.title = `${listFormData.name} - ${document.title.split(' - ').slice(1).join(' - ')}`;
-                notify('List updated successfully', 'success');
-            } else {
-                throw new Error('Failed to update list');
+            const data = await updateVnList(vnList.id, { ...listFormData, is_public: isPublic });
+            isEditingList = false;
+            if (data.vnList) {
+                listData = { name: data.vnList.name, description: data.vnList.description };
+                isPublic = data.vnList.is_public;
             }
+            document.title = `${listFormData.name} - ${document.title.split(' - ').slice(1).join(' - ')}`;
+            notify('List updated successfully', 'success');
         } catch (error) {
             console.error('Error updating list:', error);
-            notify('Failed to update list', 'error');
+            notify(error instanceof Error ? error.message : 'Failed to update list', 'error');
         } finally {
             isListSaveLoading = false;
         }
@@ -166,16 +166,12 @@
         if (!confirm('Are you sure you want to delete this list? This action cannot be undone.')) return;
         isListDeleteLoading = true;
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.destroy', vnList.id), { method: 'DELETE' });
-            if (response.ok) {
-                notify('List deleted successfully', 'success');
-                window.location.href = route('lists.index');
-            } else {
-                throw new Error('Failed to delete list');
-            }
+            await destroyVnList(vnList.id);
+            notify('List deleted successfully', 'success');
+            window.location.href = route('lists.index');
         } catch (error) {
             console.error('Error deleting list:', error);
-            notify('Failed to delete list', 'error');
+            notify(error instanceof Error ? error.message : 'Failed to delete list', 'error');
         } finally {
             isListDeleteLoading = false;
         }
@@ -184,17 +180,12 @@
     const handleToggleVisibility = async () => {
         isToggleVisibilityLoading = true;
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.toggle-visibility', vnList.id), { method: 'POST' });
-            if (response.ok) {
-                const data = await response.json();
-                isPublic = data.is_public;
-                notify(data.message || 'List visibility updated', 'success');
-            } else {
-                throw new Error('Failed to toggle visibility');
-            }
+            const data = await toggleVnListVisibility(vnList.id);
+            isPublic = data.is_public;
+            notify(data.message || 'List visibility updated', 'success');
         } catch (error) {
             console.error('Error toggling visibility:', error);
-            notify('Failed to update visibility', 'error');
+            notify(error instanceof Error ? error.message : 'Failed to update visibility', 'error');
         } finally {
             isToggleVisibilityLoading = false;
         }
@@ -212,10 +203,8 @@
     const handleEntryRemove = async (entryId: number) => {
         if (!confirm('Are you sure you want to remove this game from the list?')) return;
         try {
-            const response = await authenticatedFetch(route('api.list-entries.destroy', entryId), { method: 'DELETE' });
-            if (response.ok) {
-                entries = entries.filter((e) => e.id !== entryId);
-            }
+            await destroyListEntry(entryId);
+            entries = entries.filter((e) => e.id !== entryId);
         } catch (error) {
             console.error('Error removing entry:', error);
         }
@@ -270,15 +259,9 @@
     const handleSaveEntry = async (entryId: number) => {
         entryFormLoading = true;
         try {
-            const response = await authenticatedFetch(route('api.list-entries.update', entryId), {
-                method: 'PUT',
-                body: JSON.stringify(entryFormData),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                editingEntryId = null;
-                handleEntryUpdate(entryId, data);
-            }
+            const data = await updateListEntry<Partial<VnListEntry>, Partial<UserGameProgress>>(entryId, entryFormData);
+            editingEntryId = null;
+            handleEntryUpdate(entryId, data);
         } catch (error) {
             console.error('Error updating entry:', error);
         } finally {
@@ -296,15 +279,10 @@
         if (!entryFormData.target_list_id) return;
         entryFormLoading = true;
         try {
-            const response = await authenticatedFetch(route('api.list-entries.move', entryId), {
-                method: 'POST',
-                body: JSON.stringify({ target_list_id: entryFormData.target_list_id }),
-            });
-            if (response.ok) {
-                entries = entries.filter((e) => e.id !== entryId);
-                movingEntryId = null;
-                notify('Entry moved successfully', 'success');
-            }
+            await moveListEntry(entryId, entryFormData.target_list_id);
+            entries = entries.filter((e) => e.id !== entryId);
+            movingEntryId = null;
+            notify('Entry moved successfully', 'success');
         } catch (error) {
             console.error('Error moving entry:', error);
         } finally {
@@ -314,14 +292,38 @@
 
     const handleToggleNotification = async (game: Game, newStatus: boolean) => {
         try {
-            const response = await authenticatedFetch(route('api.user-progress.toggle-updates', game.id), {
-                method: 'PATCH',
-                body: JSON.stringify({ receive_updates: newStatus }),
+            const data = await toggleUserProgressUpdates(game.id, newStatus);
+            entries = entries.map((entry) => {
+                if (entry.game.id === game.id) {
+                    return {
+                        ...entry,
+                        game: {
+                            ...entry.game,
+                            user_progress:
+                                entry.game.user_progress && entry.game.user_progress.length > 0
+                                    ? entry.game.user_progress.map((p) => ({ ...p, receive_updates: data.receive_updates }))
+                                    : [{ id: 0, user_id: 0, game_id: game.id, receive_updates: data.receive_updates }],
+                        },
+                    };
+                }
+                return entry;
             });
-            if (response.ok) {
-                const data = await response.json();
+            notify(data.message || `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
+        } catch (error) {
+            console.error('Error toggling notifications:', error);
+            notify(error instanceof Error ? error.message : 'Failed to update notifications', 'error');
+        }
+    };
+
+    const handleToggleAllNotifications = async () => {
+        const newStatus = !allFreeGamesReceiveUpdates;
+        try {
+            const data = await toggleAllListUpdates(vnList.id, newStatus);
+            notify(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`, 'success');
+            if (data.updated_game_ids && Array.isArray(data.updated_game_ids)) {
+                const updatedGameIds = data.updated_game_ids;
                 entries = entries.map((entry) => {
-                    if (entry.game.id === game.id) {
+                    if (updatedGameIds.includes(entry.game.id)) {
                         return {
                             ...entry,
                             game: {
@@ -329,54 +331,16 @@
                                 user_progress:
                                     entry.game.user_progress && entry.game.user_progress.length > 0
                                         ? entry.game.user_progress.map((p) => ({ ...p, receive_updates: data.receive_updates }))
-                                        : [{ id: 0, user_id: 0, game_id: game.id, receive_updates: data.receive_updates }],
+                                        : [{ id: 0, user_id: 0, game_id: entry.game.id, receive_updates: data.receive_updates }],
                             },
                         };
                     }
                     return entry;
                 });
-                notify(data.message || `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to toggle notifications');
-            }
-        } catch (error) {
-            console.error('Error toggling notifications:', error);
-            notify('Failed to update notifications', 'error');
-        }
-    };
-
-    const handleToggleAllNotifications = async () => {
-        const newStatus = !allFreeGamesReceiveUpdates;
-        try {
-            const response = await authenticatedFetch(route('api.vn-lists.toggle-all-updates', vnList.id), {
-                method: 'PATCH',
-                body: JSON.stringify({ receive_updates: newStatus }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                notify(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`, 'success');
-                if (data.updated_game_ids && Array.isArray(data.updated_game_ids)) {
-                    entries = entries.map((entry) => {
-                        if (data.updated_game_ids.includes(entry.game.id)) {
-                            return {
-                                ...entry,
-                                game: {
-                                    ...entry.game,
-                                    user_progress:
-                                        entry.game.user_progress && entry.game.user_progress.length > 0
-                                            ? entry.game.user_progress.map((p) => ({ ...p, receive_updates: data.receive_updates }))
-                                            : [{ id: 0, user_id: 0, game_id: entry.game.id, receive_updates: data.receive_updates }],
-                                },
-                            };
-                        }
-                        return entry;
-                    });
-                }
             }
         } catch (error) {
             console.error('Error toggling all notifications:', error);
-            notify('Failed to update notifications', 'error');
+            notify(error instanceof Error ? error.message : 'Failed to update notifications', 'error');
         }
     };
 
@@ -384,39 +348,21 @@
         const originalEntries = [...entries];
         entries = newEntries;
         try {
-            const response = await authenticatedFetch(route('api.lists.reorder', vnList.id), {
-                method: 'POST',
-                body: JSON.stringify({ entry_ids: newEntries.map((e) => e.id) }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                notify(data.message || 'List order updated', 'success');
-            } else {
-                entries = originalEntries;
-                throw new Error('Failed to update order');
-            }
+            const data = await reorderListEntries(
+                vnList.id,
+                newEntries.map((e) => e.id),
+            );
+            notify(data.message || 'List order updated', 'success');
         } catch (error) {
             console.error('Error updating order:', error);
             entries = originalEntries;
-            notify('Failed to update order', 'error');
+            notify(error instanceof Error ? error.message : 'Failed to update order', 'error');
         }
     };
 
     const availableListsForMove = (currentListId: number) => availableLists.filter((list) => list.id !== currentListId);
 
-    const borderColorClass = $derived(
-        color === 'blue'
-            ? 'border-blue-500 dark:border-blue-500'
-            : color === 'green'
-              ? 'border-green-500 dark:border-green-500'
-              : color === 'yellow'
-                ? 'border-yellow-500 dark:border-yellow-500'
-                : color === 'orange'
-                  ? 'border-orange-500 dark:border-orange-500'
-                  : color === 'red'
-                    ? 'border-red-500 dark:border-red-500'
-                    : 'border-gray-500 dark:border-gray-500',
-    );
+    const borderColorClass = $derived(listTypeBorderClass(vnList?.type));
 
     $effect(() => {
         if (typeof window === 'undefined') return;
@@ -433,9 +379,7 @@
     });
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || (isEditingList ? listFormData.name : listData.name)}</title>
-</svelte:head>
+<SeoHead {metaTags} title={isEditingList ? listFormData.name : listData.name} />
 
 <div class="space-y-6">
     <Card padding="lg" class="mb-6 border-l-4 p-4 md:p-6 {borderColorClass}">
@@ -460,21 +404,14 @@
 
             <div class="flex flex-wrap items-center gap-2">
                 {#if !vnList.is_default}
-                    {@const badge = getStatusBadgeConfig(vnList.type, listStatusConfig)}
-                    {#if badge}
-                        <span
-                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium {badge.classes}"
-                            aria-label={badge.ariaLabel}
-                        >
-                            {#if badge.icon}<i class={badge.icon} aria-hidden="true"></i>{/if}
-                            {badge.label}
-                        </span>
-                    {/if}
+                    {@const ListTypeIcon = listTypeIcon(vnList.type)}
+                    <Badge tone={listTypeTone(vnList.type)} size="lg" class="gap-1.5 py-1">
+                        <ListTypeIcon class="h-4 w-4" />
+                        {listTypeLabel(vnList.type)}
+                    </Badge>
                 {/if}
                 {#if isPublic}
-                    <span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                        >Public</span
-                    >
+                    <Badge tone="primary" size="sm">Public</Badge>
                 {/if}
                 {#if isOwner}
                     <div class="flex gap-2">
@@ -491,9 +428,6 @@
                             onclick={handleToggleVisibility}
                             disabled={isToggleVisibilityLoading}
                             loading={isToggleVisibilityLoading}
-                            class="inline-flex items-center rounded-md border border-transparent px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase disabled:opacity-50 {isPublic
-                                ? 'bg-blue-500 hover:bg-blue-400'
-                                : 'bg-gray-500 hover:bg-gray-400'}"
                         >
                             {isPublic ? 'Make Private' : 'Make Public'}
                         </Button>
@@ -505,7 +439,6 @@
                             onclick={() => {
                                 isEditingList = !isEditingList;
                             }}
-                            class="inline-flex items-center rounded-md border border-transparent bg-yellow-500 px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase hover:bg-yellow-400"
                         >
                             {isEditingList ? 'Cancel Edit' : 'Edit List'}
                         </Button>
@@ -518,7 +451,6 @@
                                 onclick={handleDeleteList}
                                 disabled={isListDeleteLoading}
                                 loading={isListDeleteLoading}
-                                class="inline-flex items-center rounded-md border border-transparent bg-red-600 px-3 py-1 text-xs font-semibold tracking-widest text-white uppercase hover:bg-red-700 disabled:opacity-50"
                             >
                                 {isListDeleteLoading ? 'Deleting...' : 'Delete List'}
                             </Button>
@@ -561,14 +493,7 @@
                         placeholder="Enter list description"></textarea>
                 </div>
                 <div class="flex justify-end space-x-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        tone="neutral"
-                        onclick={handleCancelListEdit}
-                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        >Cancel</Button
-                    >
+                    <Button type="button" variant="outline" tone="neutral" onclick={handleCancelListEdit}>Cancel</Button>
                     <Button
                         type="button"
                         variant="solid"
@@ -576,7 +501,6 @@
                         onclick={handleSaveList}
                         disabled={isListSaveLoading || !listFormData.name.trim()}
                         loading={isListSaveLoading}
-                        class="inline-flex items-center rounded-md border border-transparent bg-yellow-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-700 disabled:opacity-50"
                     >
                         {isListSaveLoading ? 'Saving...' : 'Save Changes'}
                     </Button>

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\VnLists;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\VnList;
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -87,15 +88,15 @@ class VnListPageController extends Controller
             });
         });
 
-        $metaTags = [
-            'title' => 'Your Visual Novel Lists',
-            'description' => 'Manage your ' . ($visibility === 'all' ? '' : $visibility . ' ') .
-                'visual novel lists. ' .
-                "Currently managing {$lists->total()} lists" .
-                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
-                    return "{$list->name} (" . $list->entries->count() . ' games)';
+        $metaTags = new MetaTags(
+            title: 'Your Visual Novel Lists',
+            description: 'Manage your '.($visibility === 'all' ? '' : $visibility.' ').
+                'visual novel lists. '.
+                "Currently managing {$lists->total()} lists".
+                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
+                    return "{$list->name} (".$list->entries->count().' games)';
                 })->implode(', ') : ''),
-            'structuredData' => [
+            structuredData: [
                 '@type' => 'WebPage',
                 'name' => 'Your Visual Novel Lists',
                 'description' => 'Manage your personal visual novel reading lists and track your progress',
@@ -118,12 +119,12 @@ class VnListPageController extends Controller
                     })->toArray(),
                 ],
             ],
-        ];
+        );
 
         return Inertia::render('lists/index', [
             'lists' => $lists,
             'visibility' => $visibility,
-            'metaTags' => $metaTags,
+            'metaTags' => $metaTags->toArray(),
             'counts' => [
                 'all' => $counts->all_count,
                 'public' => $counts->public_count,
@@ -195,12 +196,12 @@ class VnListPageController extends Controller
                 ->get();
         }
 
-        $metaTags = [
-            'title' => $vnList->name . ' - Visual Novel List',
-            'description' => $vnList->description ?:
+        $metaTags = new MetaTags(
+            title: $vnList->name.' - Visual Novel List',
+            description: $vnList->description ?:
                 "A visual novel list by {$vnList->user->name} containing {$vnList->entries->count()} games.",
-            'image' => asset(config('social.images.list_detail', config('social.images.default'))),
-            'structuredData' => [
+            image: asset(config('social.images.list_detail', config('social.images.default'))),
+            structuredData: [
                 '@type' => 'ItemList',
                 'name' => $vnList->name,
                 'description' => $vnList->description ?? "A visual novel list by {$vnList->user->name}",
@@ -223,13 +224,13 @@ class VnListPageController extends Controller
                     ];
                 })->toArray(),
             ],
-        ];
+        );
 
         return Inertia::render('lists/show', [
             'vnList' => $vnList,
             'isOwner' => $isOwner,
             'availableLists' => $availableLists,
-            'metaTags' => $metaTags,
+            'metaTags' => $metaTags->toArray(),
             'versionHasCharacterStats' => $versionHasCharacterStats,
         ]);
     }
@@ -237,16 +238,16 @@ class VnListPageController extends Controller
     public function listCreate(): Response
     {
         return Inertia::render('lists/create', [
-            'metaTags' => [
-                'title' => 'Create New Visual Novel List',
-                'description' => 'Create a new custom visual novel list to organize and track your favorite games.',
-                'structuredData' => [
+            'metaTags' => new MetaTags(
+                title: 'Create New Visual Novel List',
+                description: 'Create a new custom visual novel list to organize and track your favorite games.',
+                structuredData: [
                     '@type' => 'WebPage',
                     'name' => 'Create New Visual Novel List',
                     'description' => 'Create a new custom visual novel list to organize and track your favorite games.',
                     'url' => route('lists.create'),
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 
@@ -256,16 +257,16 @@ class VnListPageController extends Controller
 
         return Inertia::render('lists/edit', [
             'vnList' => $vnList,
-            'metaTags' => [
-                'title' => 'Edit List - ' . $vnList->name,
-                'description' => 'Edit your visual novel list: ' . $vnList->name . '. Update the description, visibility, and manage your game entries.',
-                'structuredData' => [
+            'metaTags' => new MetaTags(
+                title: 'Edit List - '.$vnList->name,
+                description: 'Edit your visual novel list: '.$vnList->name.'. Update the description, visibility, and manage your game entries.',
+                structuredData: [
                     '@type' => 'WebPage',
-                    'name' => 'Edit List - ' . $vnList->name,
-                    'description' => 'Edit your visual novel list: ' . $vnList->name,
+                    'name' => 'Edit List - '.$vnList->name,
+                    'description' => 'Edit your visual novel list: '.$vnList->name,
                     'url' => route('lists.edit', $vnList),
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 }

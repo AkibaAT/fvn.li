@@ -1,6 +1,8 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import StarIcon from '@/components/icons/Star.svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import Pagination from '@/components/Pagination.svelte';
     import { Link, router, page } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -89,9 +91,7 @@
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || `${reviewUser.name}'s Reviews`}</title>
-</svelte:head>
+<SeoHead {metaTags} title={`${reviewUser.name}'s Reviews`} />
 
 <div class="space-y-6">
     <PageHeader title={`${reviewUser.name}'s Reviews`} class="mb-0">
@@ -174,17 +174,11 @@
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
                                     {#each Array(5) as _, i (i)}
-                                        <svg
+                                        <StarIcon
                                             class="h-4 w-4 {i < review.rating
                                                 ? 'fill-yellow-400 text-yellow-400'
                                                 : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <path
-                                                fill-rule="evenodd"
-                                                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                                            />
-                                        </svg>
+                                        />
                                     {/each}
                                 </div>
                             </div>
@@ -204,10 +198,10 @@
                                             type="button"
                                             variant="outline"
                                             tone="warning"
+                                            size="xs"
                                             onclick={() => {
                                                 spoilerRevealedIds = new Set([...spoilerRevealedIds, review.id]);
                                             }}
-                                            class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-xs text-yellow-800 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200"
                                         >
                                             Contains spoilers. Click to reveal.
                                         </Button>
@@ -232,7 +226,8 @@
         </div>
     {/if}
 
-    <AdvancedPagination
+    <Pagination
+        layout="full"
         meta={{
             current_page: reviews.current_page,
             last_page: reviews.last_page,
@@ -241,9 +236,9 @@
             to: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + reviews.data.length : 0,
             per_page: reviews.per_page,
         }}
-        onPageChange={handlePageChange}
+        onChange={handlePageChange}
         onPerPageChange={handlePerPageChange}
-        {isLoading}
+        loading={isLoading}
         label="reviews"
         perPageOptions={[10, 25, 50]}
         {buildPageUrl}

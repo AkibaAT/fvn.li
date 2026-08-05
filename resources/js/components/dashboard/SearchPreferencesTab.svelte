@@ -1,7 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
-    import { authenticatedFetch } from '@/utils/http';
+    import { unignoreGame, updateExcludedTags, updateLanguagePreferences } from '@/api/user-preferences';
     import { toast } from '@/utils/toast';
     import { Button, Card } from '@/components/ui';
 
@@ -42,21 +42,13 @@
 
     const handleUnignoreGame = async (gameId: number) => {
         try {
-            const response = await authenticatedFetch(route('user.ignored-games.destroy'), {
-                method: 'DELETE',
-                body: JSON.stringify({ game_id: gameId }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                ignoredGames = ignoredGames.filter((g) => g.id !== gameId);
-                ignoredGamesCount -= 1;
-                toast.success('Game removed from ignore list');
-            } else {
-                toast.error(data.message || 'Failed to remove game from ignore list');
-            }
+            await unignoreGame(gameId);
+            ignoredGames = ignoredGames.filter((g) => g.id !== gameId);
+            ignoredGamesCount -= 1;
+            toast.success('Game removed from ignore list');
         } catch (error) {
             console.error('Failed to unignore game:', error);
-            toast.error('Failed to remove game from ignore list');
+            toast.error(error instanceof Error ? error.message : 'Failed to remove game from ignore list');
         }
     };
 
@@ -67,16 +59,11 @@
     const saveLanguagePreferences = async () => {
         savingLanguages = true;
         try {
-            const response = await authenticatedFetch(route('user.language-preferences.update'), {
-                method: 'PUT',
-                body: JSON.stringify({ preferred_languages: selectedLanguages }),
-            });
-            const data = await response.json();
-            if (data.success) toast.success('Language preferences saved');
-            else toast.error(data.message || 'Failed to save language preferences');
+            await updateLanguagePreferences(selectedLanguages);
+            toast.success('Language preferences saved');
         } catch (error) {
             console.error('Failed to save language preferences:', error);
-            toast.error('Failed to save language preferences');
+            toast.error(error instanceof Error ? error.message : 'Failed to save language preferences');
         } finally {
             savingLanguages = false;
         }
@@ -89,16 +76,11 @@
     const saveExcludedTags = async () => {
         savingExcludedTags = true;
         try {
-            const response = await authenticatedFetch(route('user.excluded-tags.update'), {
-                method: 'PUT',
-                body: JSON.stringify({ excluded_tags: excludedTags }),
-            });
-            const data = await response.json();
-            if (data.success) toast.success('Excluded tags saved');
-            else toast.error(data.message || 'Failed to save excluded tags');
+            await updateExcludedTags(excludedTags);
+            toast.success('Excluded tags saved');
         } catch (error) {
             console.error('Failed to save excluded tags:', error);
-            toast.error('Failed to save excluded tags');
+            toast.error(error instanceof Error ? error.message : 'Failed to save excluded tags');
         } finally {
             savingExcludedTags = false;
         }
@@ -146,7 +128,6 @@
                 onclick={saveLanguagePreferences}
                 disabled={savingLanguages}
                 loading={savingLanguages}
-                class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
                 {savingLanguages ? 'Saving...' : 'Save Preferences'}
             </Button>
@@ -195,7 +176,6 @@
                 onclick={saveExcludedTags}
                 disabled={savingExcludedTags}
                 loading={savingExcludedTags}
-                class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
                 {savingExcludedTags ? 'Saving...' : 'Save Preferences'}
             </Button>
