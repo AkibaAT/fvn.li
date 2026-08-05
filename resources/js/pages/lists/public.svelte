@@ -1,11 +1,14 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import MagnifyingGlassIcon from '@/components/icons/MagnifyingGlass.svelte';
+    import XMarkIcon from '@/components/icons/XMark.svelte';
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import type { VnList } from '@/components/VnListCard.svelte';
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Alert, Button, Card } from '@/components/ui';
 
     interface FilterGame {
         id: number;
@@ -157,9 +160,7 @@
     ]);
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || 'Public Visual Novel Lists'}</title>
-</svelte:head>
+<SeoHead {metaTags} title="Public Visual Novel Lists" />
 
 <div class="space-y-8">
     <PageHeader title="Public Visual Novel Lists" class="mb-0">
@@ -181,9 +182,7 @@
                     placeholder="Search by user or VN name..."
                     class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
                 />
-                <svg class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <MagnifyingGlassIcon class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 {#if currentSearch}
                     <Button
                         type="button"
@@ -191,23 +190,14 @@
                         tone="neutral"
                         size="icon-sm"
                         onclick={clearSearch}
-                        class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        class="absolute top-1/2 right-3 -translate-y-1/2"
                         ariaLabel="Clear search"
                     >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                            ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg
-                        >
+                        <XMarkIcon class="h-4 w-4" />
                     </Button>
                 {/if}
             </div>
-            <Button
-                type="submit"
-                variant="solid"
-                tone="primary"
-                disabled={isLoading}
-                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                >Search</Button
-            >
+            <Button type="submit" variant="solid" tone="primary" disabled={isLoading}>Search</Button>
         </form>
         <div class="flex items-center gap-2">
             <label for="sort" class="text-sm text-gray-600 dark:text-gray-400">Sort by:</label>
@@ -236,25 +226,15 @@
     {/if}
 
     {#if filterGame}
-        <div class="flex items-center gap-2 rounded-lg bg-purple-50 p-3 text-sm dark:bg-purple-900/20">
-            <span class="text-gray-700 dark:text-gray-300">Showing lists containing:</span>
-            <Link href={route('games.show', filterGame.slug)} class="font-medium text-purple-700 hover:underline dark:text-purple-300"
-                >{filterGame.name}</Link
-            >
-            <Button
-                type="button"
-                variant="ghost"
-                tone="primary"
-                size="icon-sm"
-                onclick={clearGameFilter}
-                class="ml-auto rounded-full p-1 text-purple-600 hover:bg-purple-100 dark:text-purple-400"
-                title="Clear filter"
-            >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg
-                >
-            </Button>
-        </div>
+        <Alert tone="note" layout="inline" role="status">
+            Showing lists containing:
+            <Link href={route('games.show', filterGame.slug)} class="font-medium hover:underline">{filterGame.name}</Link>
+            {#snippet actions()}
+                <Button type="button" variant="ghost" tone="info" size="icon-sm" onclick={clearGameFilter} title="Clear filter">
+                    <XMarkIcon class="h-4 w-4" />
+                </Button>
+            {/snippet}
+        </Alert>
     {/if}
 
     <Card variant="glass" padding="lg">

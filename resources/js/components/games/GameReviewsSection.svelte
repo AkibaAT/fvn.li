@@ -1,7 +1,14 @@
 <script lang="ts">
+    import CheckIcon from '@/components/icons/Check.svelte';
+    import EyeSlashIcon from '@/components/icons/EyeSlash.svelte';
+    import ExternalLinkIcon from '@/components/icons/ExternalLink.svelte';
+    import FlagIcon from '@/components/icons/Flag.svelte';
+    import LinkIcon from '@/components/icons/Link.svelte';
+    import StarIcon from '@/components/icons/Star.svelte';
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
-    import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import Pagination from '@/components/Pagination.svelte';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import UserReviewForm from '@/components/games/UserReviewForm.svelte';
     import { Button, Card, PlatformIcon } from '@/components/ui';
     import { fetchReviews } from '@/api';
@@ -121,7 +128,7 @@
                 onclick={onToggleRatingsView}
                 disabled={isReviewsLoading}
                 loading={isReviewsLoading}
-                class="text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 dark:text-blue-400"
+                size="sm"
             >
                 {isReviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
             </Button>
@@ -140,7 +147,7 @@
 
     {#if isReviewsLoading}
         <div class="flex items-center justify-center py-8">
-            <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <LoadingSpinner size="lg" label="Loading reviews" />
             <span class="ml-2 text-gray-600 dark:text-gray-400">Loading reviews...</span>
         </div>
     {:else if reviews.length === 0}
@@ -176,12 +183,7 @@
                         <div class="flex items-center gap-2">
                             <div class="flex items-center gap-1 text-yellow-400">
                                 {#each Array.from({ length: review.rating }) as _, index (index)}
-                                    <svg class="h-5 w-5 fill-current" viewBox="0 0 20 20">
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                                        />
-                                    </svg>
+                                    <StarIcon class="h-5 w-5 fill-current" />
                                 {/each}
                             </div>
                             {#if review.event_id}
@@ -192,7 +194,7 @@
                                     class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                                     title="View on itch.io"
                                 >
-                                    <i class="icon-external-link h-4 w-4"></i>
+                                    <ExternalLinkIcon class="h-4 w-4" />
                                 </a>
                             {/if}
                             {#if review.user}
@@ -206,18 +208,9 @@
                                     title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
                                 >
                                     {#if copiedReviewId === review.id}
-                                        <svg class="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                        </svg>
+                                        <CheckIcon class="h-4 w-4 text-green-500" />
                                     {:else}
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                                            />
-                                        </svg>
+                                        <LinkIcon class="h-4 w-4" />
                                     {/if}
                                 </Button>
                             {/if}
@@ -230,14 +223,7 @@
                                 class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
                                 title="Report review"
                             >
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
-                                    />
-                                </svg>
+                                <FlagIcon class="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
@@ -248,17 +234,10 @@
                                 type="button"
                                 variant="outline"
                                 tone="warning"
+                                size="sm"
                                 onclick={() => onRevealSpoilers(review.id)}
-                                class="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 transition-colors hover:bg-yellow-100 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/50"
                             >
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                                    />
-                                </svg>
+                                <EyeSlashIcon class="h-4 w-4" />
                                 This review contains spoilers. Click to reveal.
                             </Button>
                         {:else}
@@ -304,6 +283,6 @@
     {/if}
 
     <div class="mt-4">
-        <AdvancedPagination meta={pagination} {onPageChange} {onPerPageChange} isLoading={isReviewsLoading} label="reviews" />
+        <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={isReviewsLoading} label="reviews" />
     </div>
 </Card>

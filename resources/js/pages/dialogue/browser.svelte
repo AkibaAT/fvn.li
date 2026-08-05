@@ -1,4 +1,5 @@
 <script lang="ts">
+    import CopyIcon from '@/components/icons/Copy.svelte';
     import { untrack } from 'svelte';
     import Pagination from '@/components/Pagination.svelte';
     import WordCloud from '@/components/WordCloud.svelte';
@@ -14,7 +15,7 @@
     } from '@/api';
     import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
     import { page } from '@inertiajs/svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Alert, Button, Card } from '@/components/ui';
 
     type InitialProps = {
         initial: {
@@ -361,23 +362,16 @@
                 <div class="flex items-center space-x-4">
                     <Button
                         type="button"
-                        variant={showDuplicates ? 'soft' : 'soft'}
+                        variant="soft"
                         tone={showDuplicates ? 'primary' : 'neutral'}
+                        size="sm"
+                        aria-pressed={showDuplicates}
                         onclick={() => {
                             showDuplicates = !showDuplicates;
                         }}
-                        class="flex items-center rounded-lg px-3 py-1 text-sm {showDuplicates
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+                        class="rounded-lg"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                        </svg>
+                        <CopyIcon class="mr-1 h-4 w-4" />
                         {showDuplicates ? 'Hide Duplicates' : 'Show Duplicates'}
                     </Button>
 
@@ -510,11 +504,9 @@
                 {#if showDuplicates}
                     <div class="space-y-6">
                         {#if duplicates.length === 0}
-                            <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
-                                <p class="text-yellow-700 dark:text-yellow-500">
-                                    No duplicate lines found matching your criteria. Try adjusting the minimum line length or duplicate count.
-                                </p>
-                            </div>
+                            <Alert role="status"
+                                >No duplicate lines found matching your criteria. Try adjusting the minimum line length or duplicate count.</Alert
+                            >
                         {:else}
                             {#each duplicates as dupe (dupe.text_id)}
                                 <Card variant="outline" padding="sm">
@@ -568,9 +560,7 @@
                     </div>
 
                     {#if searchResults.length === 0}
-                        <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
-                            <p class="text-yellow-700 dark:text-yellow-500">No results found for "{q}"</p>
-                        </div>
+                        <Alert role="status">No results found for "{q}"</Alert>
                     {:else}
                         <div class="space-y-3">
                             {#each searchResults as line (line.id)}

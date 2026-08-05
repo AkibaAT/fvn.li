@@ -29,7 +29,6 @@ export default defineConfig({
                 'resources/js/utils/date-formatting.ts',
                 'resources/js/utils/dialog.ts',
                 'resources/js/utils/safe-highlight.ts',
-                'resources/js/utils/status-indicators.ts',
                 'resources/js/utils/style-html.ts',
                 'resources/js/utils/toast.ts',
             ],

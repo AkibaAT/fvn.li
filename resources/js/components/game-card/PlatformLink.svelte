@@ -1,4 +1,5 @@
 <script lang="ts">
+    import GlobeIcon from '@/components/icons/Globe.svelte';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
 
@@ -56,19 +57,7 @@
     {:else if platform === 'steam'}
         <Steam class="h-4 w-4" />
     {:else}
-        <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-        >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-        </svg>
+        <GlobeIcon class="h-4 w-4" />
     {/if}
     <span>{label}</span>
 </a>

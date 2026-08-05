@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Game;
 use App\Services\HomePageCacheService;
 use App\Services\MeilisearchService;
+use App\Support\Seo\MetaTags;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ class HomeController extends Controller
         }
 
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
+        $cacheKey = "home.teasers.v{$teaserVersion}.".md5(implode(',', $ignoredGameIds));
 
         $sharedTeasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
             return [
@@ -51,20 +52,20 @@ class HomeController extends Controller
         });
         $teasers = $this->withCurrentUserTeaserData($sharedTeasers);
 
-        $metaTags = [
-            'title' => 'Furry Visual Novel Database',
-            'description' => sprintf(
+        $metaTags = new MetaTags(
+            title: 'Furry Visual Novel Database',
+            description: sprintf(
                 'Discover and rate %d+ furry visual novels with %d+ ratings from our community. Find your next favorite VN with detailed reviews, ratings, and filters.',
                 $stats['totalGames'],
                 $stats['totalRatings']
             ),
-            'image' => asset(config('social.images.home', config('social.images.default'))),
-        ];
+            image: asset(config('social.images.home', config('social.images.default'))),
+        );
 
         return Inertia::render('home', [
             'stats' => $stats,
             'teasers' => $teasers,
-            'metaTags' => $metaTags,
+            'metaTags' => $metaTags->toArray(),
             'ignoredGameIds' => $ignoredGameIds,
         ]);
     }

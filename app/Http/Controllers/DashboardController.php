@@ -9,6 +9,7 @@ use App\Models\NotificationQueue;
 use App\Models\User;
 use App\Services\GameFilterService;
 use App\Services\OwnedGameSummaryService;
+use App\Support\Seo\MetaTags;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -159,17 +160,17 @@ class DashboardController extends Controller
             'activeBugReports' => $activeBugReports,
             'totalUnreadBugReportReplies' => $totalUnreadBugReportReplies,
             'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
-            'metaTags' => [
-                'title' => 'Dashboard',
-                'description' => 'Manage your FVN.li account, track visual novel progress, organize reading lists, and control notification preferences.',
-                'image' => asset(config('social.images.default')),
-                'structuredData' => [
+            'metaTags' => new MetaTags(
+                title: 'Dashboard',
+                description: 'Manage your FVN.li account, track visual novel progress, organize reading lists, and control notification preferences.',
+                image: asset(config('social.images.default')),
+                structuredData: [
                     '@type' => 'WebPage',
                     'name' => 'Dashboard',
                     'description' => 'Manage your FVN.li account and visual novel tracking',
                     'url' => route('dashboard'),
                 ],
-            ],
+            )->toArray(),
         ]);
     }
 
@@ -196,8 +197,8 @@ class DashboardController extends Controller
                         $avatar = $account->provider_data['avatarfull'] ?? null;
                         break;
                     case 'telegram':
-                        $displayName = $account->provider_data['first_name'] .
-                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
+                        $displayName = $account->provider_data['first_name'].
+                            (isset($account->provider_data['last_name']) ? ' '.$account->provider_data['last_name'] : '');
                         $avatar = $account->provider_data['photo_url'] ?? null;
                         break;
                     case 'itchio':

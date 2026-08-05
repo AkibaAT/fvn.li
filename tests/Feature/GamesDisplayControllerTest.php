@@ -1,6 +1,5 @@
 <?php
 
-use App\Services\GameSocialMetaBuilder;
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
@@ -15,6 +14,7 @@ use App\Models\VersionSupportedLanguage;
 use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\DenKitStashPersistenceService;
+use App\Services\GameSocialMetaBuilder;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -44,7 +44,7 @@ test('game social meta tags format numeric string word counts without crashing',
         'words' => '12345',
     ]);
 
-    expect($metaTags['description'])->toContain('12,345 words');
+    expect($metaTags->description)->toContain('12,345 words');
 });
 
 test('game show exposes itch screenshots as effective screenshots in original view mode', function () {

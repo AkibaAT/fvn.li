@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { authenticatedFetch, readJsonResponse } from '@/utils/http';
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import { storeVnList } from '@/api/lists';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -25,30 +26,18 @@
         isLoading = true;
 
         try {
-            const response = await authenticatedFetch(route('api.vn-lists.store'), {
-                method: 'POST',
-                body: JSON.stringify(formData),
-            });
-
-            const data = await readJsonResponse<{ success: boolean; message?: string; list: { id: number } }>(response);
-
-            if (data.success) {
-                router.visit(route('lists.show', data.list.id));
-            } else {
-                alert(data.message || 'Failed to create list');
-            }
+            const data = await storeVnList(formData);
+            router.visit(route('lists.show', data.list.id));
         } catch (error) {
             console.error('Error creating list:', error);
-            alert('An error occurred while creating the list');
+            alert(error instanceof Error ? error.message : 'Failed to create list');
         } finally {
             isLoading = false;
         }
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || 'Create New List'}</title>
-</svelte:head>
+<SeoHead {metaTags} title="Create New List" />
 
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Create New List" class="mb-0" />

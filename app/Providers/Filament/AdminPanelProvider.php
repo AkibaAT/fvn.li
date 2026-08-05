@@ -8,6 +8,7 @@ use App\Filament\Widgets\LatestGames;
 use App\Filament\Widgets\LatestGameVersions;
 use App\Filament\Widgets\StatsOverview;
 use App\Http\Middleware\Authenticate;
+use App\Support\IconVersion;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -40,7 +41,7 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Orange,
             ])
             ->brandName('FVN.li Admin')
-            ->favicon(asset('favicon.ico') . '?v=' . filemtime(public_path('favicon.ico')))
+            ->favicon(asset('favicon.ico').'?v='.IconVersion::get())
             ->authGuard('web')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

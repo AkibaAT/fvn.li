@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from 'svelte';
     import { Button } from '@/components/ui';
-    import http from '@/utils/http';
+    import { updateGameName } from '@/api/game-content';
 
     interface Game {
         id: number;
@@ -80,27 +80,21 @@
         saveStatus = 'saving';
 
         try {
-            const response = await http.put(route('browser-api.games.name.update', { game: gameId }), {
-                name: trimmedName,
-            });
+            const data = await updateGameName(gameId, trimmedName);
 
-            if (response.data.success) {
-                isEditing = false;
-                saveStatus = 'saved';
+            isEditing = false;
+            saveStatus = 'saved';
 
-                const updatedName = response.data.data.name || trimmedName;
-                displayName = updatedName;
+            const updatedName = data.name || trimmedName;
+            displayName = updatedName;
 
-                if (onNameUpdate) {
-                    onNameUpdate(updatedName);
-                }
-
-                setTimeout(() => {
-                    saveStatus = 'idle';
-                }, 3000);
-            } else {
-                throw new Error(response.data.message || 'Failed to save');
+            if (onNameUpdate) {
+                onNameUpdate(updatedName);
             }
+
+            setTimeout(() => {
+                saveStatus = 'idle';
+            }, 3000);
         } catch (error) {
             console.error('Save error:', error);
             saveStatus = 'error';
@@ -143,18 +137,12 @@
             onclick={handleSave}
             disabled={isSaving}
             loading={isSaving}
-            class="rounded bg-green-600 px-3 py-1 text-sm whitespace-nowrap text-white hover:bg-green-700 disabled:opacity-50"
+            size="sm"
+            class="whitespace-nowrap"
         >
             {isSaving ? 'Saving...' : 'Save'}
         </Button>
-        <Button
-            type="button"
-            variant="solid"
-            tone="neutral"
-            onclick={handleCancel}
-            disabled={isSaving}
-            class="rounded bg-gray-600 px-3 py-1 text-sm whitespace-nowrap text-white hover:bg-gray-700 disabled:opacity-50"
-        >
+        <Button type="button" variant="solid" tone="neutral" onclick={handleCancel} disabled={isSaving} size="sm" class="whitespace-nowrap">
             Cancel
         </Button>
         {#if saveStatus === 'saved'}
@@ -174,7 +162,7 @@
                 tone="primary"
                 size="xs"
                 onclick={handleEdit}
-                class="rounded bg-blue-600 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-700"
+                class="whitespace-nowrap opacity-0 shadow-md transition-opacity group-hover:opacity-100"
                 title="Edit name"
             >
                 Edit

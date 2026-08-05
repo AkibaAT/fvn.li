@@ -1,7 +1,14 @@
+import AndroidIcon from '@/components/icons/Android.svelte';
+import AppleIcon from '@/components/icons/Apple.svelte';
+import LinuxIcon from '@/components/icons/Linux.svelte';
+import WebIcon from '@/components/icons/Web.svelte';
+import WindowsIcon from '@/components/icons/Windows.svelte';
+import type { Component } from 'svelte';
+
 export type GameCardPlatform = 'windows' | 'linux' | 'mac' | 'android' | 'web';
 
 export interface PlatformIconMeta {
-    icon: string;
+    icon: Component;
     color: string;
     title: string;
 }
@@ -9,27 +16,27 @@ export interface PlatformIconMeta {
 export function usePlatformIcons() {
     const platformIcons: Record<GameCardPlatform, PlatformIconMeta> = {
         windows: {
-            icon: 'icon-windows',
+            icon: WindowsIcon,
             color: 'text-platform-windows',
             title: 'Windows',
         },
         linux: {
-            icon: 'icon-linux',
+            icon: LinuxIcon,
             color: 'text-platform-linux',
             title: 'Linux',
         },
         mac: {
-            icon: 'icon-apple',
+            icon: AppleIcon,
             color: 'text-platform-mac',
             title: 'Mac',
         },
         android: {
-            icon: 'icon-android',
+            icon: AndroidIcon,
             color: 'text-platform-android',
             title: 'Android',
         },
         web: {
-            icon: 'icon-web',
+            icon: WebIcon,
             color: 'text-platform-web',
             title: 'Web',
         },

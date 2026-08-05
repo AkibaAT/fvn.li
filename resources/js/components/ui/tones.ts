@@ -1,12 +1,19 @@
 import type { BadgeTone } from './Badge.svelte';
+import BookIcon from '@/components/icons/Book.svelte';
+import BookmarkIcon from '@/components/icons/Bookmark.svelte';
+import CheckCircleIcon from '@/components/icons/CheckCircle.svelte';
+import ClipboardIcon from '@/components/icons/Clipboard.svelte';
+import XCircleIcon from '@/components/icons/XCircle.svelte';
+import type { Component } from 'svelte';
 
-const listTypeTones = {
-    reading: 'primary',
-    completed: 'success',
-    plan_to_read: 'warning',
-    on_hold: 'orange',
-    dropped: 'danger',
-} as const satisfies Record<string, BadgeTone>;
+const listTypeMetadata = {
+    reading: { tone: 'primary', label: 'Reading', icon: BookIcon },
+    completed: { tone: 'success', label: 'Completed', icon: CheckCircleIcon },
+    plan_to_read: { tone: 'warning', label: 'Plan to Read', icon: ClipboardIcon },
+    on_hold: { tone: 'orange', label: 'On Hold', icon: BookmarkIcon },
+    dropped: { tone: 'danger', label: 'Dropped', icon: XCircleIcon },
+    custom: { tone: 'neutral', label: 'Custom', icon: ClipboardIcon },
+} as const satisfies Record<string, { tone: BadgeTone; label: string; icon: Component }>;
 
 const listTypeBorderClasses = {
     reading: 'border-blue-500',
@@ -28,7 +35,17 @@ const listTypeDotClasses = {
 
 export function listTypeTone(type: string | undefined): BadgeTone {
     if (!type) return 'neutral';
-    return listTypeTones[type as keyof typeof listTypeTones] ?? 'neutral';
+    return listTypeMetadata[type as keyof typeof listTypeMetadata]?.tone ?? listTypeMetadata.custom.tone;
+}
+
+export function listTypeLabel(type: string | undefined): string {
+    if (!type) return listTypeMetadata.custom.label;
+    return listTypeMetadata[type as keyof typeof listTypeMetadata]?.label ?? listTypeMetadata.custom.label;
+}
+
+export function listTypeIcon(type: string | undefined): Component {
+    if (!type) return listTypeMetadata.custom.icon;
+    return listTypeMetadata[type as keyof typeof listTypeMetadata]?.icon ?? listTypeMetadata.custom.icon;
 }
 
 export function listTypeBorderClass(type: string | undefined): string {

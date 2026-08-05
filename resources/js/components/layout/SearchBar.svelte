@@ -1,5 +1,8 @@
 <script lang="ts">
+    import XMarkIcon from '@/components/icons/XMark.svelte';
+    import MagnifyingGlassIcon from '@/components/icons/MagnifyingGlass.svelte';
     import { Button } from '@/components/ui';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { useSearch } from '@/hooks/useSearch.svelte';
     import { onMount } from 'svelte';
 
@@ -31,9 +34,9 @@
     <div class="group relative">
         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             {#if search.isSearching}
-                <div class="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                <LoadingSpinner size="sm" label="Searching games" />
             {:else}
-                <i class="icon-magnifier text-gray-400" aria-hidden="true"></i>
+                <MagnifyingGlassIcon class="h-4 w-4 text-gray-400" />
             {/if}
         </div>
         <input
@@ -57,22 +60,12 @@
                 tone="neutral"
                 size="icon-sm"
                 onclick={clearSearch}
-                class="absolute top-1/2 right-20 -translate-y-1/2 transform rounded-full p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                class="absolute top-1/2 right-20 -translate-y-1/2 transform"
                 ariaLabel="Clear search"
             >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <XMarkIcon class="h-4 w-4" />
             </Button>
         {/if}
-        <Button
-            type="submit"
-            variant="solid"
-            tone="primary"
-            size="sm"
-            class="absolute top-1/2 right-1 -translate-y-1/2 transform cursor-pointer rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white transition-all duration-200 hover:bg-blue-700"
-        >
-            Search
-        </Button>
+        <Button type="submit" variant="solid" tone="primary" size="sm" class="absolute top-1/2 right-1 -translate-y-1/2 transform">Search</Button>
     </div>
 </form>

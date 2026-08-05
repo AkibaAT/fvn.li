@@ -165,7 +165,7 @@ class GamesSearchController extends Controller
                 'usingDefaultExcludedTags' => $usingDefaultExcludedTags,
             ],
             'filters' => $filterOptions,
-            'metaTags' => $metaTags,
+            'metaTags' => $metaTags->toArray(),
             'ignoredCount' => $ignoredCount,
             'ignoredGameIds' => $allIgnoredGameIds,
         ]);

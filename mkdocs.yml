@@ -1,0 +1,80 @@
+site_name: FVN.li Documentation
+site_url: https://akibaat.github.io/fvn.li/
+repo_url: https://github.com/AkibaAT/fvn.li
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - def_list
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Frontend Architecture: frontend-architecture.md
+  - Development Guide: development-guide.md
+  - Commands:
+      - Overview: commands-overview.md
+      - Fix Commands:
+          - Overview: fix-commands-overview.md
+          - Characters: fix-characters.md
+          - Platform Commands:
+              - Incremental Support: fix-platforms-incremental-support.md
+      - Feed Commands:
+          - Overview: feed-commands-overview.md
+          - Process Feed: feed-process.md
+      - Game Jam Commands:
+          - Overview: game-jams-commands-overview.md
+          - Fetch Details: game-jams-fetch-details.md
+      - Games Commands:
+          - Overview: games-commands-overview.md
+          - Check Delisted: games-check-delisted.md
+          - Cleanup Downloads: games-cleanup-downloads.md
+          - Import Stats: games-import-stats.md
+          - Process Screenshots: games-process-screenshots.md
+          - Process Thumbnails: games-process-thumbnails.md
+          - Refresh Games: games-refresh.md
+          - Refresh Feedless: games-refresh-feedless.md
+          - Reimport Version: games-reimport-version.md
+          - Update Watchlist: games-update-watchlist.md
+      - Notification Commands:
+          - Overview: notifications-commands-overview.md
+          - Process Push: notifications-process-push.md
+          - Queue Game Updates: notifications-queue-game-updates.md
+      - Rater Commands:
+          - Overview: rater-commands-overview.md
+          - Mark Suspicious: rater-mark-suspicious.md
+      - Ratings Commands:
+          - Overview: ratings-commands-overview.md
+          - Backfill Ratings: ratings-backfill.md
+          - Import Ratings: ratings-import.md
+          - Recalculate Ratings: ratings-recalculate.md
+      - Meilisearch Commands:
+          - Overview: meilisearch-commands-overview.md
+          - Setup: meilisearch-setup.md
+          - Reindex: meilisearch-reindex.md
+          - Sync Index Settings: scout-sync-index-settings.md
+      - Sitemap Commands:
+          - Overview: sitemap-commands-overview.md
+          - Generate Sitemap: sitemap-generate.md

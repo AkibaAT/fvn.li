@@ -2,11 +2,6 @@
 @php
     $appearance = request()->cookie('appearance');
     $isDark = $appearance === 'dark';
-    $iconVersion = max(
-        filemtime(public_path('favicon.ico')),
-        filemtime(public_path('icon-192.png')),
-        filemtime(public_path('apple-touch-icon.png')),
-    );
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="{{ $isDark ? 'dark' : '' }}">
 <head>
@@ -124,24 +119,8 @@
         <script type="application/ld+json">{!! $structuredDataJson !!}</script>
     @endif
 
-    <!-- Prevent theme flash: set dark class ASAP based on localStorage/cookie/system -->
-    <script>
-        (function () {
-            try {
-                var doc = document.documentElement;
-                var stored = localStorage.getItem('appearance') || 'system';
-                var isDark = (stored === 'dark') || (stored === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-                if (isDark) {
-                    doc.classList.add('dark');
-                } else {
-                    doc.classList.remove('dark');
-                }
-            } catch (e) {
-                // no-op
-            }
-        })();
-    </script>
+    {{-- Prevent theme flash before the application bundle loads. --}}
+    @include('partials.appearance-script')
 
     @vite('resources/js/app.ts')
     @routes

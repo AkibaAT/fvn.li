@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DialogueSearchService;
 use App\Services\DialogueWordFrequencyService;
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -50,7 +51,7 @@ class DialogueController extends Controller
 
         return Inertia::render('dialogue/browser', [
             'initial' => $initial,
-            'metaTags' => ['title' => 'Dialogue Browser - '.$game->name],
+            'metaTags' => new MetaTags(title: 'Dialogue Browser - '.$game->name)->toArray(),
         ]);
     }
 

@@ -1,4 +1,7 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import ArrowLeftIcon from '@/components/icons/ArrowLeft.svelte';
+    import DynamicPathIcon from '@/components/icons/DynamicPath.svelte';
     import { Link } from '@inertiajs/svelte';
     import { Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -48,9 +51,7 @@
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || 'Notification Digest'}</title>
-</svelte:head>
+<SeoHead {metaTags} title="Notification Digest" />
 
 <div class="space-y-8">
     <PageHeader
@@ -70,9 +71,7 @@
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
                         <div class="flex items-start space-x-3">
                             <div class="mt-0.5 flex-shrink-0">
-                                <svg class="h-5 w-5 {iconInfo.color}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={iconInfo.d} />
-                                </svg>
+                                <DynamicPathIcon class="h-5 w-5 {iconInfo.color}" path={iconInfo.d} />
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between">
@@ -106,9 +105,7 @@
 
     <div class="flex items-center justify-between">
         <Link href={route('dashboard')} class="inline-flex items-center space-x-2 text-blue-600 transition-colors hover:text-blue-700">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+            <ArrowLeftIcon class="h-5 w-5" />
             <span>Back to Dashboard</span>
         </Link>
     </div>

@@ -1,4 +1,7 @@
 <script lang="ts">
+    import SeoHead from '@/components/seo/SeoHead.svelte';
+    import ClipboardIcon from '@/components/icons/Clipboard.svelte';
+    import UsersIcon from '@/components/icons/Users.svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import type { User, VnList } from '@/components/VnListCard.svelte';
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
@@ -45,9 +48,7 @@
     }
 </script>
 
-<svelte:head>
-    <title>{metaTags?.title || `${user.name}'s Visual Novel Lists`}</title>
-</svelte:head>
+<SeoHead {metaTags} title={`${user.name}'s Visual Novel Lists`} />
 
 <div class="space-y-8">
     <PageHeader title={`${user.name}'s Visual Novel Lists`} class="mb-0">
@@ -56,28 +57,14 @@
                 href={route('lists.public')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
             >
-                <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                </svg>
+                <UsersIcon class="mr-2 h-5 w-5" />
                 All Public Lists
             </Link>
             <Link
                 href={route('lists.index')}
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
             >
-                <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                </svg>
+                <ClipboardIcon class="mr-2 h-5 w-5" />
                 My Lists
             </Link>
         {/snippet}

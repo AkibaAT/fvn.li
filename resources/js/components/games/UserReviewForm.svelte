@@ -1,17 +1,9 @@
 <script lang="ts">
+    import StarIcon from '@/components/icons/Star.svelte';
     import { untrack } from 'svelte';
     import { page } from '@inertiajs/svelte';
-    import { Button, Card, Checkbox, Textarea } from '@/components/ui';
-    import http from '@/utils/http';
-
-    interface UserReview {
-        id: number;
-        rating: number;
-        review: string;
-        has_spoilers: boolean;
-        published_at: string;
-        updated_at: string;
-    }
+    import { Alert, Button, Card, Checkbox, Textarea } from '@/components/ui';
+    import { deleteUserReview, submitUserReview, type UserReview } from '@/api/user-reviews';
 
     interface Props {
         gameId: number;
@@ -78,18 +70,18 @@
 
         isSubmitting = true;
         try {
-            const response = await http.post(route('browser-api.user-reviews.store', { game: gameId }), {
+            const { review, message: successMessage } = await submitUserReview(gameId, {
                 rating,
                 review: reviewText,
                 has_spoilers: hasSpoilers,
             });
-            userReview = response.data.review;
+            userReview = review;
             isEditing = false;
             onReviewChange?.(true);
             onEditingChange?.(false);
-            showMessageFn(response.data.message, 'success');
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || 'Failed to submit review';
+            showMessageFn(successMessage, 'success');
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Failed to submit review';
             showMessageFn(msg, 'error');
         } finally {
             isSubmitting = false;
@@ -99,7 +91,7 @@
     async function handleDelete() {
         isDeleting = true;
         try {
-            const response = await http.delete(route('browser-api.user-reviews.destroy', { game: gameId }));
+            const successMessage = await deleteUserReview(gameId);
             userReview = null;
             rating = 0;
             reviewText = '';
@@ -108,9 +100,9 @@
             showDeleteConfirm = false;
             onReviewChange?.(false);
             onEditingChange?.(false);
-            showMessageFn(response.data.message, 'success');
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || 'Failed to delete review';
+            showMessageFn(successMessage, 'success');
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Failed to delete review';
             showMessageFn(msg, 'error');
         } finally {
             isDeleting = false;
@@ -132,17 +124,11 @@
                 <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Your Review</span>
                 <div class="flex items-center gap-0.5">
                     {#each Array(5) as _, i (i)}
-                        <svg
+                        <StarIcon
                             class="h-4 w-4 {i < userReview.rating
                                 ? 'fill-yellow-400 text-yellow-400'
                                 : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                            />
-                        </svg>
+                        />
                     {/each}
                 </div>
             </div>
@@ -153,29 +139,25 @@
         </div>
 
         {#if showDeleteConfirm}
-            <div class="mt-3 flex items-center gap-2 rounded border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-                <span class="text-sm text-red-800 dark:text-red-200">Delete your review?</span>
-                <Button
-                    type="button"
-                    variant="solid"
-                    tone="danger"
-                    onclick={handleDelete}
-                    disabled={isDeleting}
-                    loading={isDeleting}
-                    class="rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                    {isDeleting ? 'Deleting...' : 'Confirm'}
-                </Button>
-                <Button
-                    type="button"
-                    variant="soft"
-                    tone="neutral"
-                    onclick={() => (showDeleteConfirm = false)}
-                    class="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
-                >
-                    Cancel
-                </Button>
-            </div>
+            <Alert tone="danger" layout="inline" class="mt-3"
+                >Delete your review?
+                {#snippet actions()}
+                    <div class="flex gap-2">
+                        <Button
+                            type="button"
+                            variant="solid"
+                            tone="danger"
+                            onclick={handleDelete}
+                            disabled={isDeleting}
+                            loading={isDeleting}
+                            size="xs"
+                        >
+                            {isDeleting ? 'Deleting...' : 'Confirm'}
+                        </Button>
+                        <Button type="button" variant="soft" tone="neutral" size="xs" onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
+                    </div>
+                {/snippet}
+            </Alert>
         {/if}
 
         {#if message}
@@ -208,17 +190,11 @@
                             class="focus:outline-none"
                             ariaLabel="{starValue} star{starValue !== 1 ? 's' : ''}"
                         >
-                            <svg
+                            <StarIcon
                                 class="h-7 w-7 cursor-pointer transition-colors {isActive
                                     ? 'fill-yellow-400 text-yellow-400'
                                     : 'fill-gray-300 text-gray-300 hover:fill-yellow-200 hover:text-yellow-200 dark:fill-gray-600 dark:text-gray-600'}"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                                />
-                            </svg>
+                            />
                         </Button>
                     {/each}
                     {#if rating > 0}
@@ -245,26 +221,11 @@
             {/if}
 
             <div class="flex items-center gap-2">
-                <Button
-                    type="submit"
-                    variant="solid"
-                    tone="primary"
-                    disabled={rating === 0 || isSubmitting}
-                    loading={isSubmitting}
-                    class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
+                <Button type="submit" variant="solid" tone="primary" disabled={rating === 0 || isSubmitting} loading={isSubmitting}>
                     {isSubmitting ? 'Submitting...' : userReview ? 'Update Review' : 'Submit Review'}
                 </Button>
                 {#if isEditing}
-                    <Button
-                        type="button"
-                        variant="soft"
-                        tone="neutral"
-                        onclick={handleCancel}
-                        class="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                    >
-                        Cancel
-                    </Button>
+                    <Button type="button" variant="soft" tone="neutral" onclick={handleCancel}>Cancel</Button>
                 {/if}
             </div>
 

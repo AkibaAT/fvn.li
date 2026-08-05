@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Button, Dialog, Textarea } from '@/components/ui';
+    import { submitReviewReport, type ReviewReportReason } from '@/api';
 
     interface Props {
         ratingId: number;
@@ -30,23 +31,16 @@
 
         isSubmitting = true;
         try {
-            const response = await (window as any).axios.post(route('browser-api.review-reports.store', { rating: ratingId }), {
-                reason,
-                details: details.trim() || null,
-            });
-
-            if (response.data.success) {
-                message = { type: 'success', text: response.data.message };
-                setTimeout(() => {
-                    onClose();
-                    message = null;
-                    reason = '';
-                    details = '';
-                }, 2000);
-            }
-        } catch (error: any) {
-            const msg = error?.response?.data?.message || 'Failed to submit report';
-            message = { type: 'error', text: msg };
+            const responseMessage = await submitReviewReport(ratingId, reason as ReviewReportReason, details.trim() || null);
+            message = { type: 'success', text: responseMessage };
+            setTimeout(() => {
+                onClose();
+                message = null;
+                reason = '';
+                details = '';
+            }, 2000);
+        } catch (error) {
+            message = { type: 'error', text: error instanceof Error ? error.message : 'Failed to submit report' };
         } finally {
             isSubmitting = false;
         }

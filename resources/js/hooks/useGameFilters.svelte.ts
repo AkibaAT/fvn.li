@@ -8,6 +8,20 @@ interface UseGameFiltersProps {
     onGamesPage?: boolean;
 }
 
+export function serializeFilters(filters: CurrentFilters): SvelteURLSearchParams {
+    const searchParams = new SvelteURLSearchParams();
+
+    for (const [key, value] of Object.entries(filters)) {
+        if (Array.isArray(value)) {
+            value.forEach((item) => searchParams.append(`${key}[]`, String(item)));
+        } else if (value !== false && value !== '' && value !== null && value !== undefined) {
+            searchParams.set(key, String(value));
+        }
+    }
+
+    return searchParams;
+}
+
 export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = false }: UseGameFiltersProps) {
     const updateFilters = (newFilters: Partial<CurrentFilters>) => {
         const paginationKeys = ['page', 'perPage', 'sort', 'direction'];
@@ -33,14 +47,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             }
         });
 
-        const searchParams = new SvelteURLSearchParams();
-        for (const [key, value] of Object.entries(params)) {
-            if (Array.isArray(value)) {
-                value.forEach((v) => searchParams.append(`${key}[]`, String(v)));
-            } else if (value !== undefined && value !== null) {
-                searchParams.set(key, String(value));
-            }
-        }
+        const searchParams = serializeFilters(params as CurrentFilters);
 
         const url = `/games?${searchParams.toString()}`;
 
@@ -50,6 +57,8 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             router.visit(url);
         }
     };
+
+    const buildPageUrl = (page: number) => `/games?${serializeFilters({ ...getCurrentFilters(), page }).toString()}`;
 
     const toggleFilter = (type: string, value: string) => {
         const propertyMap: Record<string, keyof CurrentFilters> = {
@@ -278,5 +287,6 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
         hasActiveFilters,
         buildActiveFilterChips,
         getActiveFilterCount,
+        buildPageUrl,
     };
 }

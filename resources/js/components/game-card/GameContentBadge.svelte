@@ -1,5 +1,9 @@
 <script lang="ts">
     import { Button } from '@/components/ui';
+    import BookmarkIcon from '@/components/icons/Bookmark.svelte';
+    import CurrencyCircleDollarIcon from '@/components/icons/CurrencyCircleDollar.svelte';
+    import GamepadIcon from '@/components/icons/Gamepad.svelte';
+    import ShieldIcon from '@/components/icons/Shield.svelte';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 
     let {
@@ -32,7 +36,7 @@
         {
             visible: game.is_nsfw,
             label: 'NSFW',
-            icon: 'icon-shield',
+            icon: ShieldIcon,
             active: Boolean(nsfw),
             onToggle: onNsfwToggle,
             ariaLabel: 'Filter by NSFW content',
@@ -42,7 +46,7 @@
         {
             visible: Boolean((game as Record<string, unknown>).is_on_sale),
             label: 'Sale',
-            icon: 'icon-bookmark',
+            icon: BookmarkIcon,
             active: Boolean(showSale),
             onToggle: onSaleToggle,
             ariaLabel: 'Filter by games on sale',
@@ -52,7 +56,7 @@
         {
             visible: game.is_paid,
             label: 'Paid',
-            icon: 'icon-currency-circle-dollar',
+            icon: CurrencyCircleDollarIcon,
             active: Boolean(showPaid),
             onToggle: onPaidToggle,
             ariaLabel: 'Filter by paid games',
@@ -62,7 +66,7 @@
         {
             visible: game.has_demo,
             label: 'Demo',
-            icon: 'icon-gamepad-2',
+            icon: GamepadIcon,
             active: Boolean(showDemo),
             onToggle: onDemoToggle,
             ariaLabel: 'Filter by has demo',
@@ -72,7 +76,7 @@
         {
             visible: game.is_delisted,
             label: 'Delisted',
-            icon: '',
+            icon: null,
             active: Boolean(showDelisted),
             onToggle: onDelistedToggle,
             ariaLabel: 'Filter by delisted games',
@@ -84,6 +88,7 @@
 
 {#each badges as badge (badge.label)}
     {#if badge.visible}
+        {@const Icon = badge.icon}
         <Button
             type="button"
             variant="outline"
@@ -92,7 +97,7 @@
             ariaLabel={badge.ariaLabel}
             title={badge.ariaLabel}
         >
-            {#if badge.icon}<i class="{badge.icon} inline" aria-hidden="true"></i>{/if}
+            {#if Icon}<Icon class="h-4 w-4" />{/if}
             {badge.label}
         </Button>
     {/if}

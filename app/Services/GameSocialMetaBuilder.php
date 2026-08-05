@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
+use App\Support\Seo\MetaTags;
 
 class GameSocialMetaBuilder
 {
-    public function build(Game $game, $reviews, ?array $englishStats = null): array
+    public function build(Game $game, $reviews, ?array $englishStats = null): MetaTags
     {
         $title = $game->effective_name;
         $description = $game->description ?: "Discover {$game->effective_name} on fvn.li - Visual Novel Database and Analytics";
@@ -16,40 +17,40 @@ class GameSocialMetaBuilder
         $platforms = $this->platforms($game);
         $tags = $game->tags->pluck('name')->toArray();
 
-        return [
-            'title' => $title,
-            'browserTitle' => $title,
-            'socialTitle' => $title,
-            'description' => $this->description($game, $description, $platforms, $reviews, $englishStats),
-            'image' => $image,
-            'url' => route('games.show', $game),
-            'type' => 'article',
-            'siteName' => 'FVN.li',
-            'locale' => 'en_US',
-            'twitterCard' => 'summary_large_image',
-            'author' => $game->authors ? strip_tags($game->authors) : null,
-            'publishedTime' => $game->initially_published_at?->toIso8601String(),
-            'modifiedTime' => $game->latest_version_published_at?->toIso8601String() ?? $game->updated_at->toIso8601String(),
-            'section' => 'Visual Novels',
-            'tags' => $tags,
-            'noindex' => ! $game->is_visible,
-            'structuredData' => $this->structuredData($game, $image, $tags, $platforms),
-        ];
+        return new MetaTags(
+            title: $title,
+            browserTitle: $title,
+            socialTitle: $title,
+            description: $this->description($game, $description, $platforms, $reviews, $englishStats),
+            image: $image,
+            url: route('games.show', $game),
+            type: 'article',
+            noindex: ! $game->is_visible,
+            publishedTime: $game->initially_published_at?->toIso8601String(),
+            modifiedTime: $game->latest_version_published_at?->toIso8601String() ?? $game->updated_at->toIso8601String(),
+            author: $game->authors ? strip_tags($game->authors) : null,
+            section: 'Visual Novels',
+            tags: $tags,
+            structuredData: $this->structuredData($game, $image, $tags, $platforms),
+            twitterCard: 'summary_large_image',
+            siteName: 'FVN.li',
+            locale: 'en_US',
+        );
     }
 
     private function description(Game $game, string $description, array $platforms, $reviews, ?array $englishStats): string
     {
         if ($game->authors) {
-            $description .= ' by ' . strip_tags($game->authors);
+            $description .= ' by '.strip_tags($game->authors);
         }
         if ($game->status) {
             $description .= " ({$game->status})";
         }
         if ($englishStats && isset($englishStats['words']) && is_numeric($englishStats['words']) && (int) $englishStats['words'] > 0) {
-            $description .= ' - ' . number_format((int) $englishStats['words']) . ' words';
+            $description .= ' - '.number_format((int) $englishStats['words']).' words';
         }
         if (! empty($platforms)) {
-            $description .= ' - Available on: ' . implode(', ', $platforms);
+            $description .= ' - Available on: '.implode(', ', $platforms);
         }
         if ($reviews->total() > 0) {
             $description .= " - {$reviews->total()} reviews";

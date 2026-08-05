@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { getCsrfToken } from '@/utils/http';
+    import { uploadEditorImage } from '@/api';
     import { useDarkMode } from '@/hooks';
 
     type TinyBlobInfo = { blob: () => Blob; filename: () => string };
@@ -274,25 +274,8 @@
                         return;
                     }
 
-                    const formData = new FormData();
-                    formData.append('file', blobInfo.blob(), blobInfo.filename());
-                    formData.append('game_id', String(gid));
-
-                    fetch(`/browser-api/upload-editor-image?t=${Date.now()}`, {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRF-TOKEN': getCsrfToken(),
-                        },
-                    })
-                        .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-                        .then((result) => {
-                            if (result?.location) {
-                                resolve(result.location as string);
-                            } else {
-                                reject(result?.error || 'Upload failed - no location returned');
-                            }
-                        })
+                    uploadEditorImage(gid, blobInfo.blob(), blobInfo.filename())
+                        .then(resolve)
                         .catch((err) => {
                             console.error('Upload error:', err);
                             reject(err?.message || 'Upload failed');

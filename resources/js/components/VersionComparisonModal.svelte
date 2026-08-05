@@ -1,4 +1,6 @@
 <script lang="ts">
+    import ArrowRightIcon from '@/components/icons/ArrowRight.svelte';
+    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { Button, Dialog } from '@/components/ui';
     import { formatBytes, formatCount, getDiffColor, formatDiff, formatBytesDiff } from '@/utils/version-comparison';
     import { fetchVersionComparison, type VersionComparisonData } from '@/api/game-data';
@@ -17,24 +19,52 @@
     let comparisonData = $state<VersionComparisonData | null>(null);
     let loading = $state(false);
     let error = $state<string | null>(null);
-
+    let requestSequence = 0;
 
     $effect(() => {
-        if (isOpen && fromVersionId && toVersionId && gameId) {
-            loading = true;
-            error = null;
-            fetchVersionComparison({ gameId, fromVersionId, toVersionId })
-                .then((data) => {
-                    comparisonData = data;
-                })
-                .catch((err) => {
-                    error = err?.message || 'Failed to load comparison data';
-                })
-                .finally(() => {
-                    loading = false;
-                });
-        }
+        if (!isOpen || !fromVersionId || !toVersionId || !gameId) return;
+
+        const requestId = ++requestSequence;
+        activeTab = 'character';
+        comparisonData = null;
+        loading = true;
+        error = null;
+
+        fetchVersionComparison({ gameId, fromVersionId, toVersionId })
+            .then((data) => {
+                if (requestId === requestSequence) comparisonData = data;
+            })
+            .catch((caughtError) => {
+                if (requestId === requestSequence) {
+                    error = caughtError instanceof Error ? caughtError.message : 'Failed to load comparison data';
+                }
+            })
+            .finally(() => {
+                if (requestId === requestSequence) loading = false;
+            });
+
+        return () => {
+            requestSequence++;
+        };
     });
+
+    function fileCategoriesWithTypes(data: VersionComparisonData) {
+        return data.fileCategories.filter((category) => category.fileTypes && Object.keys(category.fileTypes).length > 0);
+    }
+
+    function formatPublishedAt(date: string): string {
+        return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    let characterTabEl = $state<HTMLElement | null>(null);
+    let fileTabEl = $state<HTMLElement | null>(null);
+
+    function handleTabKeydown(event: KeyboardEvent) {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        activeTab = activeTab === 'character' ? 'file' : 'character';
+        (activeTab === 'character' ? characterTabEl : fileTabEl)?.focus();
+    }
 </script>
 
 <Dialog
@@ -48,16 +78,19 @@
 >
     <p id="version-comparison-desc" class="sr-only">Compare character word counts and file statistics across two versions.</p>
     {#if loading}
-        <div class="flex items-center justify-center p-8">
-            <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-100"></div>
+        <div class="flex flex-col items-center justify-center gap-4 py-12">
+            <LoadingSpinner size="lg" />
+            <div class="text-center">
+                <div class="mb-2 text-lg font-medium text-gray-100">Comparing Versions</div>
+                <div class="text-sm text-gray-400">Analyzing character and file differences...</div>
+            </div>
         </div>
-    {/if}
-
-    {#if error}
-        <div class="p-4 text-center text-red-400">Failed to load comparison data. Please try again.</div>
-    {/if}
-
-    {#if comparisonData}
+    {:else if error}
+        <div class="p-4 text-center text-red-400">
+            <p>{error}</p>
+            <p class="mt-1 text-sm text-gray-400">Please try again.</p>
+        </div>
+    {:else if comparisonData}
         <div class="mb-6">
             <div class="flex flex-col items-center justify-between gap-4 rounded-lg bg-gray-700/50 p-4 md:flex-row">
                 <div>
@@ -65,14 +98,12 @@
                     <div class="mt-1 flex items-center gap-2">
                         <div class="font-medium text-gray-100">
                             Version {comparisonData.fromVersion.version}
-                            <span class="text-sm text-gray-400">({new Date(comparisonData.fromVersion.published_at).toLocaleDateString()})</span>
+                            <span class="text-sm text-gray-400">({formatPublishedAt(comparisonData.fromVersion.published_at)})</span>
                         </div>
-                        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
+                        <ArrowRightIcon class="h-4 w-4 text-gray-400" />
                         <div class="font-medium text-gray-100">
                             Version {comparisonData.toVersion.version}
-                            <span class="text-sm text-gray-400">({new Date(comparisonData.toVersion.published_at).toLocaleDateString()})</span>
+                            <span class="text-sm text-gray-400">({formatPublishedAt(comparisonData.toVersion.published_at)})</span>
                         </div>
                     </div>
                 </div>
@@ -80,36 +111,51 @@
         </div>
 
         <div class="mb-8">
-            <ul class="flex border-b border-gray-700 text-sm" role="tablist">
-                <li class="mr-1">
-                    <Button
-                        type="button"
-                        variant="link"
-                        class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'character'
-                            ? 'border-blue-400 text-blue-400'
-                            : 'border-transparent text-gray-400 hover:border-gray-600 hover:text-gray-100'}"
-                        onclick={() => (activeTab = 'character')}
-                    >
-                        Character Stats
-                    </Button>
-                </li>
-                <li class="mr-1">
-                    <Button
-                        type="button"
-                        variant="link"
-                        class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'file'
-                            ? 'border-blue-400 text-blue-400'
-                            : 'border-transparent text-gray-400 hover:border-gray-600 hover:text-gray-100'}"
-                        onclick={() => (activeTab = 'file')}
-                    >
-                        File Stats
-                    </Button>
-                </li>
-            </ul>
+            <div class="flex gap-1 border-b border-gray-700 text-sm" role="tablist" aria-label="Comparison views">
+                <Button
+                    type="button"
+                    variant="link"
+                    id="version-comparison-character-tab"
+                    bind:ref={characterTabEl}
+                    class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'character'
+                        ? 'border-blue-400 text-blue-400'
+                        : 'border-transparent text-gray-400 hover:border-gray-600 hover:text-gray-100'}"
+                    onclick={() => (activeTab = 'character')}
+                    onkeydown={handleTabKeydown}
+                    role="tab"
+                    tabindex={activeTab === 'character' ? 0 : -1}
+                    aria-selected={activeTab === 'character'}
+                    aria-controls="version-comparison-character-panel"
+                >
+                    Character Stats
+                </Button>
+                <Button
+                    type="button"
+                    variant="link"
+                    id="version-comparison-file-tab"
+                    bind:ref={fileTabEl}
+                    class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'file'
+                        ? 'border-blue-400 text-blue-400'
+                        : 'border-transparent text-gray-400 hover:border-gray-600 hover:text-gray-100'}"
+                    onclick={() => (activeTab = 'file')}
+                    onkeydown={handleTabKeydown}
+                    role="tab"
+                    tabindex={activeTab === 'file' ? 0 : -1}
+                    aria-selected={activeTab === 'file'}
+                    aria-controls="version-comparison-file-panel"
+                >
+                    File Stats
+                </Button>
+            </div>
 
-            {#if activeTab === 'character'}
-                <div class="pt-4">
-                    <div class="overflow-hidden rounded-lg bg-gray-700/50">
+            <div
+                id="version-comparison-character-panel"
+                role="tabpanel"
+                aria-labelledby="version-comparison-character-tab"
+                hidden={activeTab !== 'character'}
+                class="pt-4"
+            >
+                    <div class="overflow-x-auto rounded-lg bg-gray-700/50">
                         <table class="min-w-full divide-y divide-gray-600 text-sm">
                             <thead>
                                 <tr>
@@ -175,11 +221,15 @@
                             </tfoot>
                         </table>
                     </div>
-                </div>
-            {/if}
+            </div>
 
-            {#if activeTab === 'file'}
-                <div class="space-y-6 pt-4">
+            <div
+                id="version-comparison-file-panel"
+                role="tabpanel"
+                aria-labelledby="version-comparison-file-tab"
+                hidden={activeTab !== 'file'}
+                class="space-y-6 pt-4"
+            >
                     <div>
                         <h3 class="mb-4 text-lg font-medium text-gray-100">File Summary</h3>
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -214,7 +264,7 @@
                     </div>
 
                     <div class="space-y-6">
-                        {#each comparisonData.fileCategories.filter((c) => Object.keys(c.fileTypes).length > 0) as category (category.category)}
+                        {#each fileCategoriesWithTypes(comparisonData) as category (category.category)}
                             <div>
                                 <h4 class="mb-2 text-base font-medium text-gray-100">
                                     {category.category.charAt(0).toUpperCase() + category.category.slice(1)} Files
@@ -266,7 +316,8 @@
                         {/each}
                     </div>
                 </div>
-            {/if}
-        </div>
+            </div>
+    {:else}
+        <div class="p-4 text-center text-gray-400">No comparison data available.</div>
     {/if}
 </Dialog>

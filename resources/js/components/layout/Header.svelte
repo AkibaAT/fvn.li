@@ -1,4 +1,6 @@
 <script lang="ts">
+    import XMarkIcon from '@/components/icons/XMark.svelte';
+    import MagnifyingGlassIcon from '@/components/icons/MagnifyingGlass.svelte';
     import Container from '@/components/Container.svelte';
     import Logo from '@/components/layout/Logo.svelte';
     import Navigation from '@/components/layout/Navigation.svelte';
@@ -67,11 +69,9 @@
                     class="cursor-pointer rounded-lg bg-gray-100 p-2 text-gray-700 transition-colors duration-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 >
                     {#if showMobileSearch}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <XMarkIcon class="h-5 w-5" />
                     {:else}
-                        <i class="icon-magnifier" aria-hidden="true"></i>
+                        <MagnifyingGlassIcon class="h-4 w-4" />
                     {/if}
                 </button>
             </div>

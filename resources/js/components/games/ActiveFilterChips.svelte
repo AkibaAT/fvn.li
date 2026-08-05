@@ -1,7 +1,9 @@
 <script lang="ts">
+    import GlobeIcon from '@/components/icons/Globe.svelte';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
     import { Button } from '@/components/ui';
+    import type { PlatformIconMeta } from '@/hooks/usePlatformIcons';
 
     interface ActiveChip {
         key: string;
@@ -15,7 +17,7 @@
     interface Props {
         chips: ActiveChip[];
         onClearAll: () => void;
-        getPlatformIcon: (platform: string) => { icon: string; color: string } | undefined;
+        getPlatformIcon: (platform: string) => PlatformIconMeta;
         getStorePlatformIcon?: (platform: string) => { color: string; title: string; label: string } | undefined;
     }
 
@@ -35,7 +37,8 @@
             {/if}
             {#if chip.type === 'platform' && chip.value && getPlatformIcon(chip.value)}
                 {@const iconMeta = getPlatformIcon(chip.value)}
-                <i class="{iconMeta?.icon} {iconMeta?.color} mr-0.5"></i>
+                {@const Icon = iconMeta.icon}
+                <Icon class="mr-0.5 h-4 w-4 {iconMeta.color}" />
             {/if}
             {#if chip.type === 'storePlatform' && chip.value && getStorePlatformIcon?.(chip.value)}
                 {@const iconMeta = getStorePlatformIcon?.(chip.value)}
@@ -44,32 +47,12 @@
                 {:else if chip.value === 'steam'}
                     <Steam class="h-4 w-4 {iconMeta?.color} mr-0.5" />
                 {:else if chip.value === 'other'}
-                    <svg
-                        class="h-4 w-4 {iconMeta?.color} mr-0.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                    >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                    </svg>
+                    <GlobeIcon class="h-4 w-4 {iconMeta?.color} mr-0.5" />
                 {/if}
             {/if}
             {chip.label}
             {#if chip.onClear}
-                <Button
-                    type="button"
-                    variant="link"
-                    tone="neutral"
-                    size="xs"
-                    ariaLabel="Remove {chip.label}"
-                    onclick={chip.onClear}
-                    class="ml-1 hover:opacity-80"
-                >
+                <Button type="button" variant="link" tone="neutral" size="xs" ariaLabel="Remove {chip.label}" onclick={chip.onClear} class="ml-1">
                     &times;
                 </Button>
             {/if}

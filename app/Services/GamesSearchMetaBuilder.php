@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 
 class GamesSearchMetaBuilder
@@ -19,7 +20,7 @@ class GamesSearchMetaBuilder
         int $totalGames,
         array $filterOptions,
         mixed $games
-    ): array {
+    ): MetaTags {
         $titleParts = [];
         $descriptionParts = [];
 
@@ -45,15 +46,15 @@ class GamesSearchMetaBuilder
 
         $description = $this->appendExampleGames($description, $games, $totalGames);
 
-        return [
-            'browserTitle' => 'Visual Novels',
-            'socialTitle' => count($titleParts) > 0
+        return new MetaTags(
+            browserTitle: 'Visual Novels',
+            socialTitle: count($titleParts) > 0
                 ? implode(' - ', array_slice($titleParts, 0, 3)).' Visual Novels'
                 : 'Visual Novels',
-            'description' => $description,
-            'image' => asset(config('social.images.games_list', config('social.images.default'))),
-            'url' => $request->url(),
-        ];
+            description: $description,
+            image: asset(config('social.images.games_list', config('social.images.default'))),
+            url: $request->url(),
+        );
     }
 
     private function appendPlatformParts(mixed $selectedPlatforms, array $filterOptions, array &$titleParts, array &$descriptionParts): void

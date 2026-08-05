@@ -1,24 +1,20 @@
-name: Deploy Writerside Documentation
+name: Deploy Material for MkDocs Documentation
 
 on:
-  # Trigger on pushes to main/development branch that affect documentation
   push:
     branches: [ development, main ]
     paths:
-      - 'Writerside/**'
+      - 'docs/**'
+      - 'mkdocs.yml'
       - '.github/workflows/deploy-docs.yml'
 
-  # Allow manual triggering
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -26,63 +22,32 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      artifact: ${{ steps.define-ids.outputs.artifact }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          fetch-depth: 0
+          python-version: '3.x'
 
-      - name: Define instance id and artifacts
-        id: define-ids
-        run: |
-          INSTANCE="Writerside/in"
-          INSTANCE_ID="${INSTANCE#*/}"
-          INSTANCE_ID_UPPER=$(echo "$INSTANCE_ID" | tr '[:lower:]' '[:upper:]')
-          ARTIFACT="webHelp${INSTANCE_ID_UPPER}2-all.zip"
-          # Print the values
-          echo "INSTANCE_ID_UPPER: $INSTANCE_ID_UPPER"
-          echo "ARTIFACT: $ARTIFACT"
-          # Set the environment variables and outputs
-          echo "INSTANCE_ID_UPPER=$INSTANCE_ID_UPPER" >> $GITHUB_ENV
-          echo "ARTIFACT=$ARTIFACT" >> $GITHUB_ENV
-          echo "artifact=$ARTIFACT" >> $GITHUB_OUTPUT
+      - name: Install Material for MkDocs
+        run: pip install mkdocs-material
 
-      - name: Build Writerside docs using Docker
-        uses: JetBrains/writerside-github-action@738910d7cf197d67188300d0e0f84b2e708db3cf # v4
+      - name: Build documentation
+        run: mkdocs build --strict
+
+      - name: Setup Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Package and upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          instance: 'Writerside/in'
-          docker-version: '243.22562'
-          artifact: ${{ steps.define-ids.outputs.artifact }}
-
-      - name: Upload documentation artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: docs
-          path: artifacts/*
-          retention-days: 7
-
-  # Add quality gate job that depends on the build job
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: docs
-          path: artifacts
-
-      - name: Test documentation
-        uses: JetBrains/writerside-checker-action@79ff89902dcd3d5c5a3f26a79bc35830377f38c5 # v1
-        with:
-          instance: 'Writerside/in'
+          path: site
 
   deploy:
-    needs: [ build, test ]
+    needs: build
     runs-on: ubuntu-latest
 
     environment:
@@ -90,23 +55,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: docs
-          path: artifacts
-
-      - name: Unzip documentation
-        run: unzip -O UTF-8 -qq "artifacts/${{ needs.build.outputs.artifact }}" -d dir
-
-      - name: Setup Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      - name: Package and upload pages artifact
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: dir
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

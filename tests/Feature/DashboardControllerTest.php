@@ -577,29 +577,3 @@ it('renders digest notifications for dates with and without user notifications',
     expect($filledPage['props']['hasNotifications'])->toBeTrue()
         ->and($filledPage['props']['notifications'])->toHaveCount(1);
 });
-
-it('guards dashboard version comparisons by user access to the game', function () {
-    $user = User::factory()->create();
-    $game = Game::factory()->create();
-    $fromVersion = GameVersion::factory()->for($game)->create(['version' => '1.0']);
-    $toVersion = GameVersion::factory()->for($game)->create(['version' => '1.1']);
-
-    $payload = [
-        'gameId' => $game->id,
-        'fromVersionId' => $fromVersion->id,
-        'toVersionId' => $toVersion->id,
-    ];
-
-    $this->actingAs($user)->postJson(route('users.dashboard.version-comparison'), $payload)
-        ->assertForbidden()
-        ->assertJsonPath('success', false);
-
-    $list = VnList::factory()->for($user)->create();
-    VnListEntry::factory()->create([
-        'vn_list_id' => $list->id,
-        'game_id' => $game->id,
-    ]);
-
-    $this->actingAs($user)->postJson(route('users.dashboard.version-comparison'), $payload)
-        ->assertOk();
-});

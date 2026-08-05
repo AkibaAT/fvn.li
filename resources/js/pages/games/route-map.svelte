@@ -12,7 +12,7 @@
         RoutePreference,
     } from '@/types/route-graph';
     import { usePathfinderWorker } from '@/hooks/usePathfinderWorker.svelte';
-    import http from '@/utils/http';
+    import { fetchRouteGraph, parseSaveFile } from '@/api/game-data';
     import { buildRouteLayoutElements, getLayoutPosition } from '@/utils/route-map-layout';
     import {
         appendStyle,
@@ -470,25 +470,21 @@
         isLoading = true;
 
         try {
-            const res = await http.get(
-                route('browser-api.games.version.route-graph', {
-                    game: game.slug,
-                    version: targetVersion,
-                }),
-                {
-                    params: shouldIncludeUnreachable ? { include_unreachable: 1 } : undefined,
-                },
-            );
+            const graph = await fetchRouteGraph({
+                gameSlug: game.slug,
+                versionId: targetVersion,
+                includeUnreachable: shouldIncludeUnreachable,
+            });
 
-            routeGraph = res.data;
+            routeGraph = graph;
             layoutVersion += 1;
-            if (Array.isArray(res.data.available_languages)) {
-                visibleLanguages = res.data.available_languages;
+            if (Array.isArray(graph.available_languages)) {
+                visibleLanguages = graph.available_languages;
                 if (selectedLanguage && !visibleLanguages.includes(selectedLanguage)) {
                     selectedLanguage = null;
                 }
             }
-            includeUnreachable = Boolean(res.data.includes_unreachable);
+            includeUnreachable = Boolean(graph.includes_unreachable);
             selectedVersionId = targetVersion;
             selectedNodeId = null;
             navigationTarget = null;
@@ -530,24 +526,14 @@
         saveUploadError = null;
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await http.post(
-                route('browser-api.games.version.parse-save', {
-                    game: game.slug,
-                    version: selectedVersionId,
-                }),
-                formData,
-                { headers: { 'Content-Type': 'multipart/form-data' } },
-            );
+            const seenLabels = await parseSaveFile(game.slug, selectedVersionId, file);
 
             seenNodeIds.clear();
-            for (const label of res.data.seen_labels) {
+            for (const label of seenLabels) {
                 seenNodeIds.add(label);
             }
-        } catch (e: any) {
-            saveUploadError = e?.response?.data?.message ?? 'Failed to parse save file';
+        } catch (error) {
+            saveUploadError = error instanceof Error ? error.message : 'Failed to parse save file';
         } finally {
             isUploadingSave = false;
         }
