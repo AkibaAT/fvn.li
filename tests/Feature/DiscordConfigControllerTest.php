@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Http;
 
 describe('Discord guild filtering', function () {
     test('empty embed previews use the notification type default', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
         $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
         Game::factory()->create([
             'name' => 'Preview VN',
@@ -34,7 +34,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('test notifications queue a complete routable update payload', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
         $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
         DiscordServerConfig::create([
             'discord_server_id' => $server->id,
@@ -68,7 +68,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('guilds endpoint only returns servers the user can manage', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
 
         $user->socialAccounts()->create([
             'provider_name' => 'discord',
@@ -120,7 +120,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('guilds endpoint records Discord managers as local server admins', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
         $user->socialAccounts()->create([
             'provider_name' => 'discord',
             'provider_id' => 'discord-admin',
@@ -155,7 +155,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('guilds endpoint does not grant local admin from cached guilds when Discord lookup fails', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
         $user->socialAccounts()->create([
             'provider_name' => 'discord',
             'provider_id' => 'stale-discord-admin',
@@ -192,7 +192,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('guilds endpoint revokes local admin when fresh Discord permissions are removed', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
         $user->socialAccounts()->create([
             'provider_name' => 'discord',
             'provider_id' => 'former-discord-admin',
@@ -234,7 +234,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('roles endpoint fetches non-managed guild roles with the bot token', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
         $server = DiscordServer::factory()->create([
             'owner_user_id' => $user->id,
             'discord_server_id' => 'guild-123',
@@ -297,7 +297,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('install callback registers the server and links it to the current user', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
 
         SocialAccount::factory()->discord()->create([
             'user_id' => $user->id,
@@ -350,7 +350,7 @@ describe('Discord guild filtering', function () {
     });
 
     test('install callback does not register a server from cached guild permissions', function () {
-        $user = User::factory()->createQuietly();
+        $user = User::factory()->createQuietly(['is_admin' => true]);
 
         SocialAccount::factory()->discord()->create([
             'user_id' => $user->id,

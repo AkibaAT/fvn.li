@@ -23,17 +23,13 @@ class MultiServerNotificationService
      */
     public function queueGameUpdate(Game $game, GameVersion $version): void
     {
-        if (! config('services.discord.server_bot_enabled')) {
-            return;
-        }
+        $servers = $game->discordServers()
+            ->where('discord_servers.is_active', true)
+            ->wherePivot('is_active', true)
+            ->get();
 
-        try {
-            $servers = $game->discordServers()
-                ->where('discord_servers.is_active', true)
-                ->wherePivot('is_active', true)
-                ->get();
-
-            foreach ($servers as $server) {
+        foreach ($servers as $server) {
+            try {
                 $this->queueServerNotification(
                     $server,
                     $game,
@@ -41,21 +37,21 @@ class MultiServerNotificationService
                     "Game updated: {$game->name}",
                     $version,
                 );
+            } catch (Exception $exception) {
+                Log::error('Error queuing game update notification for server', [
+                    'game_id' => $game->id,
+                    'server_id' => $server->id,
+                    'exception' => $exception,
+                ]);
             }
-
-            // Also check for tag-based subscriptions
-            $this->queueTagBasedNotifications($game, 'update');
-
-            Log::info('Queued game update notifications', [
-                'game_id' => $game->id,
-                'servers_count' => $servers->count(),
-            ]);
-        } catch (Exception $e) {
-            Log::error('Error queuing game update notifications', [
-                'game_id' => $game->id,
-                'error' => $e->getMessage(),
-            ]);
         }
+
+        $this->queueTagBasedNotifications($game, 'update', $version);
+
+        Log::info('Queued game update notifications', [
+            'game_id' => $game->id,
+            'servers_count' => $servers->count(),
+        ]);
     }
 
     /**
@@ -68,69 +64,55 @@ class MultiServerNotificationService
         string $description = '',
         ?GameVersion $gameVersion = null,
     ): void {
-        if (! config('services.discord.server_bot_enabled')) {
+        $config = $server->config;
+        $result = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, $type, $gameVersion);
+        if ($result->shouldSkip) {
+            Log::info('Notification skipped by routing rules', ['server_id' => $server->id, 'game_id' => $game->id]);
+
             return;
         }
 
-        try {
-            $config = $server->config;
-            $result = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, $type, $gameVersion);
-            if ($result->shouldSkip) {
-                Log::info('Notification skipped by routing rules', ['server_id' => $server->id, 'game_id' => $game->id]);
+        $targetChannels = $result->getTargetChannels();
+        if (empty($targetChannels)) {
+            Log::warning('No target channels for notification', ['server_id' => $server->id, 'game_id' => $game->id]);
 
-                return;
+            return;
+        }
+
+        $renderer = app(DiscordEmbedRendererService::class);
+        foreach ($targetChannels as $target) {
+            $template = $target['embed_override']
+                ?? ($type === 'new_game' ? $config?->new_game_embed : $config?->update_embed)
+                ?? ($type === 'new_game' ? $renderer->getDefaultNewGameEmbed() : $renderer->getDefaultUpdateEmbed());
+            $payload = ['embeds' => [$renderer->renderEmbed($template, $game, $type, $gameVersion, $server)]];
+            if ($config?->ping_role_id) {
+                $payload['content'] = "<@&{$config->ping_role_id}>";
             }
 
-            $targetChannels = $result->getTargetChannels();
-            if (empty($targetChannels)) {
-                Log::warning('No target channels for notification', ['server_id' => $server->id, 'game_id' => $game->id]);
-
-                return;
-            }
-
-            $renderer = app(DiscordEmbedRendererService::class);
-            foreach ($targetChannels as $target) {
-                $template = $target['embed_override']
-                    ?? ($type === 'new_game' ? $config?->new_game_embed : $config?->update_embed)
-                    ?? ($type === 'new_game' ? $renderer->getDefaultNewGameEmbed() : $renderer->getDefaultUpdateEmbed());
-                $payload = ['embeds' => [$renderer->renderEmbed($template, $game, $type, $gameVersion, $server)]];
-                if ($config?->ping_role_id) {
-                    $payload['content'] = "<@&{$config->ping_role_id}>";
-                }
-
-                DiscordNotificationHistory::create([
-                    'discord_server_id' => $server->id,
-                    'game_id' => $game->id,
-                    'notification_type' => $type,
-                    'channel_id' => $target['channel_id'],
-                    'delivery_status' => 'pending',
-                    'payload' => $payload,
-                ]);
-            }
-
-            Log::info('Queued server notification', [
-                'server_id' => $server->id,
+            DiscordNotificationHistory::firstOrCreate([
+                'discord_server_id' => $server->id,
                 'game_id' => $game->id,
-                'channels' => count($targetChannels),
-            ]);
-        } catch (Exception $e) {
-            Log::error('Error queuing server notification', [
-                'server_id' => $server->id,
-                'game_id' => $game->id,
-                'error' => $e->getMessage(),
+                'game_version_id' => $gameVersion?->id,
+                'notification_type' => $type,
+                'channel_id' => $target['channel_id'],
+            ], [
+                'delivery_status' => 'pending',
+                'payload' => $payload,
             ]);
         }
+
+        Log::info('Queued server notification', [
+            'server_id' => $server->id,
+            'game_id' => $game->id,
+            'channels' => count($targetChannels),
+        ]);
     }
 
     /**
      * Queue notifications for tag-based subscriptions.
      */
-    public function queueTagBasedNotifications(Game $game, string $type = 'update'): void
+    public function queueTagBasedNotifications(Game $game, string $type = 'update', ?GameVersion $gameVersion = null): void
     {
-        if (! config('services.discord.server_bot_enabled')) {
-            return;
-        }
-
         try {
             $gameTags = $game->tags()->pluck('name')->toArray();
 
@@ -150,7 +132,7 @@ class MultiServerNotificationService
                     ->where('games.id', $game->id)
                     ->wherePivot('is_active', true)
                     ->exists()) {
-                    $this->queueServerNotification($server, $game, $type);
+                    $this->queueServerNotification($server, $game, $type, gameVersion: $gameVersion);
                 }
             }
 

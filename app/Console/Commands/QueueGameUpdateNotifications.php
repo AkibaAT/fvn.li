@@ -7,7 +7,7 @@ namespace App\Console\Commands;
 use App\Models\DiscordChannelAnnouncement;
 use App\Models\Game;
 use App\Models\NotificationQueue;
-use App\Services\NotificationService;
+use App\Services\MultiServerNotificationService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Console\Command;
@@ -32,15 +32,9 @@ class QueueGameUpdateNotifications extends Command
      */
     protected $description = 'Finds recently updated games and queues notifications for users who follow them';
 
-    /**
-     * The notification service instance.
-     */
-    protected NotificationService $notificationService;
-
-    public function __construct(NotificationService $notificationService)
+    public function __construct(protected MultiServerNotificationService $multiServerNotificationService)
     {
         parent::__construct();
-        $this->notificationService = $notificationService;
     }
 
     /**
@@ -95,10 +89,11 @@ class QueueGameUpdateNotifications extends Command
                 ->where('is_paid', false) // Only include free games
                 ->where('is_visible', true)
                 ->with(['latestVersion'])
+                ->orderBy('id')
                 ->limit($limit)
                 ->get();
 
-            $this->info('Found ' . count($recentlyUpdatedGames) . ' recently updated games');
+            $this->info('Found '.count($recentlyUpdatedGames).' recently updated games');
 
             $notificationCount = 0;
             $totalUsersNotified = 0;
@@ -120,9 +115,19 @@ class QueueGameUpdateNotifications extends Command
                     'updated_at' => now(),
                 ]);
 
+                try {
+                    $this->multiServerNotificationService->queueGameUpdate($game, $game->latestVersion);
+                } catch (Exception $exception) {
+                    Log::error('Failed to queue multi-server game update', [
+                        'game_id' => $game->id,
+                        'game_version_id' => $game->latestVersion->id,
+                        'exception' => $exception,
+                    ]);
+                }
+
                 $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
 
-                $this->info('Found ' . count($usersToNotify) . " users to notify for {$game->name}");
+                $this->info('Found '.count($usersToNotify)." users to notify for {$game->name}");
                 $totalUsersNotified += count($usersToNotify);
 
                 // Queue notifications for these users
@@ -131,32 +136,33 @@ class QueueGameUpdateNotifications extends Command
                     $channelsToNotify = [];
 
                     // Only add browser channel if user has browser notifications enabled
-                    if ((bool) $user->browser_notifications_enabled) {
+                    if ((bool) $user->browser_notifications_enabled
+                        && (bool) $user->has_browser_subscription
+                        && ! (bool) $user->has_browser_history) {
                         $channelsToNotify[] = 'browser';
                     }
 
                     // Only add discord channel if user has discord notifications enabled AND has a Discord account
-                    if ((bool) $user->discord_notifications_enabled && (bool) $user->has_discord_account) {
+                    if ((bool) $user->discord_notifications_enabled
+                        && $user->discord_dm_status !== 'undeliverable'
+                        && (bool) $user->has_discord_account
+                        && ! (bool) $user->has_discord_history) {
                         $channelsToNotify[] = 'discord';
                     }
 
                     foreach ($channelsToNotify as $channel) {
-                        $queued = $this->queueNotification(
+                        if ($this->queueNotification(
                             $user->user_id,
                             $game->id,
                             $game->latestVersion->id,
                             $channel,
                             $user->notification_digest,
                             $game
-                        );
-
-                        if ($queued) {
+                        )) {
                             $notificationCount++;
-
-                            continue;
+                        } else {
+                            $this->info("Notification already queued for user {$user->user_id}, game {$game->name}, channel {$channel}");
                         }
-
-                        $this->info("Notification already queued for user {$user->user_id}, game {$game->name}, channel {$channel}");
                     }
                 }
             }
@@ -174,7 +180,7 @@ class QueueGameUpdateNotifications extends Command
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Error queueing game update notifications: ' . $e->getMessage());
+            $this->error('Error queueing game update notifications: '.$e->getMessage());
             Log::error('Error in QueueGameUpdateNotifications command', [
                 'exception' => $e,
                 'message' => $e->getMessage(),
@@ -194,27 +200,22 @@ class QueueGameUpdateNotifications extends Command
                 'user_notification_preferences.browser_notifications_enabled',
                 'user_notification_preferences.discord_notifications_enabled',
                 'user_notification_preferences.notification_digest',
+                'user_notification_preferences.discord_dm_status',
+                DB::raw("EXISTS(SELECT 1 FROM push_subscriptions WHERE push_subscriptions.user_id = users.id AND push_subscriptions.delivery_status != 'invalid') as has_browser_subscription"),
                 DB::raw('EXISTS(SELECT 1 FROM social_accounts WHERE social_accounts.user_id = users.id AND social_accounts.provider_name = \'discord\') as has_discord_account'),
+                DB::raw("EXISTS(SELECT 1 FROM notification_history WHERE notification_history.user_id = users.id AND notification_history.game_id = {$gameId} AND notification_history.game_version_id = {$gameVersionId} AND notification_history.type = 'browser') as has_browser_history"),
+                DB::raw("EXISTS(SELECT 1 FROM notification_history WHERE notification_history.user_id = users.id AND notification_history.game_id = {$gameId} AND notification_history.game_version_id = {$gameVersionId} AND notification_history.type = 'discord') as has_discord_history"),
             ])
             ->join('users', 'user_game_progress.user_id', '=', 'users.id')
             ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
             ->join('games', 'user_game_progress.game_id', '=', 'games.id')
-            ->leftJoin('notification_history', function ($join) use ($gameId, $gameVersionId) {
-                $join->on('notification_history.user_id', '=', 'users.id')
-                    ->where('notification_history.game_id', '=', $gameId)
-                    ->where('notification_history.game_version_id', '=', $gameVersionId);
-            })
             ->where('user_game_progress.game_id', '=', $gameId)
             ->where('user_game_progress.receive_updates', '=', true)
             ->where('games.is_paid', '=', false)
-            ->whereNull('notification_history.id') // Ensure notification hasn't been sent already
             ->where(function ($query) {
                 $query->where('user_notification_preferences.browser_notifications_enabled', '=', true)
                     ->orWhere('user_notification_preferences.discord_notifications_enabled', '=', true);
             })
-            ->groupBy('users.id', 'user_notification_preferences.browser_notifications_enabled',
-                'user_notification_preferences.discord_notifications_enabled',
-                'user_notification_preferences.notification_digest')
             ->get()
             ->toArray();
     }
@@ -233,8 +234,8 @@ class QueueGameUpdateNotifications extends Command
         $scheduledAt = $this->calculateScheduledTime($digestType);
 
         $payload = [
-            'title' => $game->name . ' - New Update Available',
-            'body' => 'Version ' . $game->latestVersion->version . ' is now available.',
+            'title' => $game->name.' - New Update Available',
+            'body' => 'Version '.$game->latestVersion->version.' is now available.',
             'data' => [
                 'url' => route('games.show', $game->slug),
                 'game_id' => $game->id,
@@ -244,21 +245,17 @@ class QueueGameUpdateNotifications extends Command
             'icon' => $game->getThumbnailUrl('small'),
         ];
 
-        $notification = new NotificationQueue([
+        return NotificationQueue::query()->insertOrIgnore([
             'user_id' => $userId,
             'game_id' => $gameId,
             'game_version_id' => $gameVersionId,
             'channel' => $channel,
             'status' => 'pending',
             'scheduled_at' => $scheduledAt,
-            'payload' => $payload,
-        ]);
-
-        $timestamp = $notification->freshTimestamp();
-        $notification->setCreatedAt($timestamp);
-        $notification->setUpdatedAt($timestamp);
-
-        return NotificationQueue::query()->insertOrIgnore($notification->getAttributes()) === 1;
+            'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]) === 1;
     }
 
     protected function calculateScheduledTime(string $digestType): Carbon
@@ -273,12 +270,13 @@ class QueueGameUpdateNotifications extends Command
                 return $now->copy()->addDay()->setHour(9)->setMinute(0)->setSecond(0);
 
             case 'weekly':
-                $daysUntilSunday = 7 - $now->dayOfWeek;
-                if ($daysUntilSunday === 0) {
-                    $daysUntilSunday = 7; // If today is Sunday, schedule for next Sunday
+                $scheduledAt = $now->copy()->startOfDay();
+                if (! $scheduledAt->isSunday()) {
+                    $scheduledAt->next(Carbon::SUNDAY);
                 }
+                $scheduledAt->setTime(9, 0);
 
-                return $now->copy()->addDays($daysUntilSunday)->setHour(9)->setMinute(0)->setSecond(0);
+                return $scheduledAt->lte($now) ? $scheduledAt->addWeek() : $scheduledAt;
 
             default:
                 // Default to immediate
@@ -324,6 +322,6 @@ class QueueGameUpdateNotifications extends Command
         $this->line("  Games Processed: {$gamesProcessed}");
         $this->line("  Users Notified: {$usersNotified}");
         $this->line("  Notifications Queued: {$notificationsQueued}");
-        $this->line('  Early Exit: ' . ($earlyExit ? 'Yes' : 'No'));
+        $this->line('  Early Exit: '.($earlyExit ? 'Yes' : 'No'));
     }
 }

@@ -45,14 +45,15 @@ return [
     'itchio' => [
         'client_id' => env('ITCHIO_CLIENT_ID'),
         'client_secret' => env('ITCHIO_CLIENT_SECRET'),
-        'redirect' => env('APP_URL') . '/auth/itchio/callback',
+        'redirect' => env('APP_URL').'/auth/itchio/callback',
     ],
 
     'discord' => [
-        'server_bot_enabled' => (bool) env('DISCORD_SERVER_BOT_ENABLED', false),
         'client_id' => env('DISCORD_CLIENT_ID'),
         'client_secret' => env('DISCORD_CLIENT_SECRET'),
         'redirect' => env('DISCORD_REDIRECT_URI'),
+        // Verifies Discord's signed application webhook events.
+        'public_key' => env('DISCORD_PUBLIC_KEY'),
         'bot_token' => env('DISCORD_BOT_TOKEN', env('DISCORD_TOKEN')),
 
         'allow_gif_avatars' => (bool) env('DISCORD_AVATAR_GIF', true),

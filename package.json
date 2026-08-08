@@ -2,9 +2,10 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "bun run manifest && vite build",
-        "build:ssr": "bun run manifest && vite build && vite build --ssr",
-        "dev": "vite",
+        "assets:tinymce": "node scripts/sync-tinymce-assets.mjs",
+        "build": "bun run manifest && bun run assets:tinymce && vite build",
+        "build:ssr": "bun run manifest && bun run assets:tinymce && vite build && vite build --ssr",
+        "dev": "bun run assets:tinymce && vite",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "manifest": "node scripts/generate-web-manifest.mjs",

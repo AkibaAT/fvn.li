@@ -67,3 +67,22 @@ it('does not queue an edit when the rendered payload hash is current', function 
 
     expect($sync->queueForGame($game))->toBe(0);
 });
+
+it('bootstraps catalog rows that have a channel but no Discord message', function () {
+    $game = Game::factory()->create(['name' => 'Bootstrap VN', 'slug' => 'bootstrap-vn', 'is_visible' => true]);
+    $server = DiscordServer::factory()->configured()->create();
+    DB::table('discord_server_games')->insert([
+        'discord_server_id' => $server->id,
+        'game_id' => $game->id,
+        'discord_channel_id' => 'channel-1',
+        'discord_message_id' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect(app(DiscordCatalogMessageSyncService::class)->queueForGame($game))->toBe(1);
+    $notification = DiscordNotificationHistory::firstOrFail();
+    expect($notification->notification_type)->toBe('new_game')
+        ->and($notification->delivery_mode)->toBe('send')
+        ->and($notification->message_id)->toBeNull();
+});

@@ -239,6 +239,42 @@ describe('DiscordRoutingService', function () {
         expect($result->getTargetChannels()[0]['channel_id'])->toBe('romance_channel');
     });
 
+    test('coerces scalar values for equals and in rules', function () {
+        $this->server->config->update([
+            'routing_rules' => [[
+                'enabled' => true,
+                'priority' => 1,
+                'conditions' => [
+                    ['field' => 'is_paid', 'operator' => 'equals', 'value' => '1'],
+                    ['field' => 'notification_type', 'operator' => 'in', 'value' => [1, 'update']],
+                ],
+                'action' => ['type' => 'route', 'channel_id' => 'paid_channel'],
+            ]],
+        ]);
+
+        $result = $this->service->evaluateRoutes($this->server, $this->game, 'update');
+        expect(array_column($result->getTargetChannels(), 'channel_id'))->toContain('paid_channel');
+    });
+
+    test('matches contains operators case-insensitively and negated operators on null fields', function () {
+        $this->game->tags()->create(['name' => 'Romance', 'slug' => 'romance-case']);
+        $this->game->load('tags');
+        $this->server->config->update([
+            'routing_rules' => [[
+                'enabled' => true,
+                'priority' => 1,
+                'conditions' => [
+                    ['field' => 'tags', 'operator' => 'contains', 'value' => 'ROMANCE'],
+                    ['field' => 'unknown_field', 'operator' => 'not_equals', 'value' => 'anything'],
+                ],
+                'action' => ['type' => 'route', 'channel_id' => 'romance_channel'],
+            ]],
+        ]);
+
+        $result = $this->service->evaluateRoutes($this->server, $this->game, 'update');
+        expect(array_column($result->getTargetChannels(), 'channel_id'))->toContain('romance_channel');
+    });
+
     test('returns empty when no config exists', function () {
         $newServer = DiscordServer::factory()->create();
         $result = $this->service->evaluateRoutes($newServer, $this->game, 'update');
@@ -331,6 +367,16 @@ describe('DiscordRoutingService', function () {
 
         expect($result->getTargetChannels())->toHaveCount(1)
             ->and($result->getTargetChannels()[0]['channel_id'])->toBe('222222222');
+    });
+
+    test('allows NSFW routing when channel metadata is unavailable', function () {
+        $this->server->update(['available_channels' => null]);
+        $nsfwGame = Game::factory()->create(['is_nsfw' => true]);
+
+        $result = $this->service->evaluateRoutes($this->server->fresh(), $nsfwGame, 'update');
+
+        expect($result->getTargetChannels())->toHaveCount(1)
+            ->and($result->getTargetChannels()[0]['channel_id'])->toBe('111111111');
     });
 
     test('does not route nsfw games to a non-nsfw override channel', function () {

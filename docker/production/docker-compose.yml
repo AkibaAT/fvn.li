@@ -30,8 +30,15 @@ services:
         condition: service_started
       denkit-stash:
         condition: service_healthy
-    environment:
+    environment: &app-environment
+      - QUEUE_CONNECTION=redis
+      - LOG_STACK=daily
+      - DISCORD_BOT_ENABLED=${DISCORD_BOT_ENABLED:-false}
+      - DISCORD_DM_ENABLED=${DISCORD_DM_ENABLED:-false}
       - DISCORD_SERVER_BOT_ENABLED=${DISCORD_SERVER_BOT_ENABLED:-false}
+      - VAPID_SUBJECT=${VAPID_SUBJECT}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - RENPY_ANALYSIS_MODE=${RENPY_ANALYSIS_MODE:-sandbox}
       - RENPY_ANALYZER_URL=${RENPY_ANALYZER_URL:-http://stats-runner:8080/api/renpy-analyzer/analyze}
       - RENPY_ANALYZER_TOKEN=${RENPY_ANALYZER_TOKEN}
@@ -59,7 +66,7 @@ services:
           - laravel-app
       flaresolverr:
       web:
-    volumes:
+    volumes: &app-volumes
       - app_storage:/app/storage
       - caddy_data:/data
       - caddy_config:/config
@@ -75,6 +82,20 @@ services:
       - "traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true"
       - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=https"
+  scheduler:
+    <<: *fvnli
+    restart: unless-stopped
+    working_dir: /app
+    entrypoint: ["php", "artisan", "schedule:work"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *app-environment
+    networks:
+      - fvnli
+    volumes: *app-volumes
   stats-runner:
     <<: *fvnli
     restart: unless-stopped

@@ -20,6 +20,7 @@ class PushSubscriptionController extends Controller
             'subscription.keys' => 'required|array',
             'subscription.keys.p256dh' => 'required|string',
             'subscription.keys.auth' => 'required|string',
+            'reactivate' => 'sometimes|boolean',
         ]);
 
         $user = Auth::user();
@@ -31,24 +32,28 @@ class PushSubscriptionController extends Controller
         $existingSubscription = PushSubscription::where('endpoint', $request->input('subscription.endpoint'))->first();
 
         if ($existingSubscription) {
-            // If the subscription exists but belongs to a different user, update it
-            if ($existingSubscription->user_id !== $user->id) {
-                $existingSubscription->update([
-                    'user_id' => $user->id,
-                    'p256dh' => $request->input('subscription.keys.p256dh'),
-                    'auth' => $request->input('subscription.keys.auth'),
-                    'subscription_data' => $request->input('subscription'),
-                ]);
-
-                return response()->json([
-                    'message' => 'Push subscription updated successfully',
-                    'id' => $existingSubscription->id,
-                ]);
+            $transferred = $existingSubscription->user_id !== $user->id;
+            $keysChanged = $existingSubscription->p256dh !== $request->input('subscription.keys.p256dh')
+                || $existingSubscription->auth !== $request->input('subscription.keys.auth');
+            $updates = [
+                'user_id' => $user->id,
+                'p256dh' => $request->input('subscription.keys.p256dh'),
+                'auth' => $request->input('subscription.keys.auth'),
+                'subscription_data' => $request->input('subscription'),
+            ];
+            if ($transferred || $keysChanged || $request->boolean('reactivate')) {
+                $updates += [
+                    'delivery_status' => PushSubscription::STATUS_UNKNOWN,
+                    'delivery_verified_at' => null,
+                    'delivery_last_failed_at' => null,
+                    'delivery_last_error' => null,
+                ];
             }
+            $existingSubscription->update($updates);
 
-            // If it belongs to the same user, just return success
             return response()->json([
-                'message' => 'Push subscription already exists',
+                'success' => true,
+                'message' => $transferred ? 'Push subscription updated successfully' : 'Push subscription already exists',
                 'id' => $existingSubscription->id,
             ]);
         }
@@ -66,6 +71,7 @@ class PushSubscriptionController extends Controller
         );
 
         return response()->json([
+            'success' => true,
             'message' => 'Push subscription saved successfully',
             'id' => $subscription->id,
         ]);
@@ -88,9 +94,10 @@ class PushSubscriptionController extends Controller
 
         $exists = PushSubscription::where('user_id', $user->id)
             ->where('endpoint', $request->input('endpoint'))
+            ->deliverable()
             ->exists();
 
-        return response()->json(['exists' => $exists]);
+        return response()->json(['success' => true, 'exists' => $exists]);
     }
 
     public function destroy(Request $request): JsonResponse
@@ -111,7 +118,7 @@ class PushSubscriptionController extends Controller
             ->delete();
 
         if ($deleted) {
-            return response()->json(['message' => 'Push subscription removed successfully']);
+            return response()->json(['success' => true, 'message' => 'Push subscription removed successfully']);
         }
 
         return response()->json(['message' => 'Push subscription not found'], 404);

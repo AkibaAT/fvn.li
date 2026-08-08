@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotificationQueue extends Model
 {
+    use MassPrunable;
+
+    public const MAX_ATTEMPTS = 3;
+
+    public const BACKOFF_MINUTES = [15, 60, 240];
+
     protected $table = 'notification_queue';
 
     protected $fillable = [
@@ -22,6 +30,8 @@ class NotificationQueue extends Model
         'payload',
         'error',
         'meta_data',
+        'attempts',
+        'batch_key',
     ];
 
     protected $casts = [
@@ -29,6 +39,7 @@ class NotificationQueue extends Model
         'processed_at' => 'datetime',
         'payload' => 'array',
         'meta_data' => 'array',
+        'attempts' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -68,5 +79,25 @@ class NotificationQueue extends Model
     public function scopeDue($query)
     {
         return $query->where('scheduled_at', '<=', now());
+    }
+
+    public function scopeClaimable(Builder $query, string $channel): Builder
+    {
+        return $query
+            ->where('channel', $channel)
+            ->where(function (Builder $query): void {
+                $query->where(function (Builder $query): void {
+                    $query->where('status', 'pending')->where('scheduled_at', '<=', now());
+                })->orWhere(function (Builder $query): void {
+                    $query->where('status', 'processing')->where('updated_at', '<', now()->subMinutes(15));
+                });
+            })
+            ->orderBy('scheduled_at')
+            ->orderBy('id');
+    }
+
+    public function prunable(): Builder
+    {
+        return static::query()->whereIn('status', ['sent', 'failed'])->where('updated_at', '<=', now()->subDays(30));
     }
 }

@@ -2,113 +2,141 @@
 
 declare(strict_types=1);
 
-use App\Models\Game;
-use App\Models\GameVersion;
-use App\Models\NotificationHistory;
+use App\Exceptions\WebPushConfigurationException;
 use App\Models\PushSubscription;
 use App\Models\User;
 use App\Services\NotificationService;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Collection;
+use Minishlink\WebPush\MessageSentReport;
+use Minishlink\WebPush\WebPush;
 
 uses(RefreshDatabase::class);
 
-function createPushSubscription(User $user, string $endpoint = 'https://push.example/subscription'): PushSubscription
+function configuredWebPush(): void
 {
-    return PushSubscription::create([
-        'user_id' => $user->id,
-        'endpoint' => $endpoint,
-        'p256dh' => 'public-key',
-        'auth' => 'auth-token',
-        'subscription_data' => ['endpoint' => $endpoint],
+    config([
+        'webpush.vapid.subject' => 'mailto:ops@example.test',
+        'webpush.vapid.public_key' => 'public',
+        'webpush.vapid.private_key' => 'private',
     ]);
 }
 
-it('does not send direct or digest notifications without subscriptions', function () {
-    $service = app(NotificationService::class);
-    $user = User::factory()->create();
-    $game = Game::factory()->create();
-    $version = GameVersion::factory()->create(['game_id' => $game->id]);
+it('throws a dedicated configuration error before attempting delivery', function () {
+    config(['webpush.vapid.private_key' => null]);
 
-    expect($service->sendPushToUser($user, $game, $version))->toBeFalse()
-        ->and($service->sendDigestToUser($user, collect([['game' => $game, 'version' => $version]]), 'daily'))->toBeFalse()
-        ->and(NotificationHistory::query()->count())->toBe(0);
+    expect(fn () => app(NotificationService::class)->assertConfigured())
+        ->toThrow(WebPushConfigurationException::class, 'Missing VAPID private_key');
 });
 
-it('records browser notification history when a direct push succeeds', function () {
-    $user = User::factory()->create();
-    $game = Game::factory()->create(['name' => 'Updated VN']);
-    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '2.0']);
-    createPushSubscription($user);
+it('returns a structured no-subscription result', function () {
+    configuredWebPush();
 
-    $service = Mockery::mock(NotificationService::class)->makePartial();
-    $service->shouldReceive('sendPushNotifications')
-        ->once()
-        ->withArgs(function (Collection $subscriptions, array $payload) use ($game, $version) {
-            return $subscriptions->count() === 1
-                && $payload['title'] === 'Updated VN - New Update Available'
-                && $payload['data']['game_id'] === $game->id
-                && $payload['data']['game_version_id'] === $version->id;
-        })
-        ->andReturnTrue();
-
-    expect($service->sendPushToUser($user, $game, $version))->toBeTrue();
-
-    $history = NotificationHistory::query()->first();
-    expect($history)->not->toBeNull()
-        ->and($history->user_id)->toBe($user->id)
-        ->and($history->type)->toBe('browser')
-        ->and($history->success)->toBeTrue()
-        ->and($history->meta_data)->toBe(['digest' => false]);
+    expect(app(NotificationService::class)->sendPushNotifications(collect(), ['title' => 'Test']))->toBe([
+        'sent' => 0,
+        'failed' => 0,
+        'pruned' => 0,
+        'errors' => ['no_push_subscriptions'],
+    ]);
 });
 
-it('does not record direct notification history when sending fails', function () {
+it('reports failures and prunes expired push endpoints', function () {
+    configuredWebPush();
     $user = User::factory()->create();
-    $game = Game::factory()->create();
-    $version = GameVersion::factory()->create(['game_id' => $game->id]);
-    createPushSubscription($user);
+    $subscription = PushSubscription::create([
+        'user_id' => $user->id,
+        'endpoint' => 'https://push.example/expired',
+        'p256dh' => 'key',
+        'auth' => 'auth',
+        'subscription_data' => [],
+    ]);
+    $report = new MessageSentReport(
+        new Request('POST', $subscription->endpoint),
+        new Response(410),
+        false,
+        'Subscription expired',
+    );
+    $webPush = Mockery::mock(WebPush::class);
+    $webPush->shouldReceive('queueNotification')->once();
+    $webPush->shouldReceive('flush')->once()->andReturn((function () use ($report) {
+        yield $report;
+    })());
+    $service = new class($webPush) extends NotificationService
+    {
+        public function __construct(private readonly WebPush $webPush) {}
 
-    $service = Mockery::mock(NotificationService::class)->makePartial();
-    $service->shouldReceive('sendPushNotifications')->once()->andReturnFalse();
+        protected function createWebPush(): WebPush
+        {
+            return $this->webPush;
+        }
+    };
 
-    expect($service->sendPushToUser($user, $game, $version))->toBeFalse()
-        ->and(NotificationHistory::query()->count())->toBe(0);
+    expect($service->sendPushNotifications(collect([$subscription]), ['title' => 'Test']))->toBe([
+        'sent' => 0,
+        'failed' => 1,
+        'pruned' => 1,
+        'errors' => ['Subscription expired'],
+    ])->and(PushSubscription::whereKey($subscription->id)->exists())->toBeFalse();
 });
 
-it('records digest notification history for each game when a digest push succeeds', function () {
-    $user = User::factory()->create();
-    createPushSubscription($user);
-    $firstGame = Game::factory()->create(['name' => 'First VN']);
-    $firstVersion = GameVersion::factory()->create(['game_id' => $firstGame->id, 'version' => '1.1']);
-    $secondGame = Game::factory()->create(['name' => 'Second VN']);
-    $secondVersion = GameVersion::factory()->create(['game_id' => $secondGame->id, 'version' => '2.2']);
+it('verifies subscriptions after a successful delivery', function () {
+    configuredWebPush();
+    $subscription = PushSubscription::create([
+        'user_id' => User::factory()->create()->id,
+        'endpoint' => 'https://push.example/working',
+        'p256dh' => 'key',
+        'auth' => 'auth',
+        'subscription_data' => [],
+    ]);
+    $report = new MessageSentReport(new Request('POST', $subscription->endpoint), new Response(201));
+    $webPush = Mockery::mock(WebPush::class);
+    $webPush->shouldReceive('queueNotification')->once();
+    $webPush->shouldReceive('flush')->once()->andReturn((function () use ($report) {
+        yield $report;
+    })());
+    $service = new class($webPush) extends NotificationService
+    {
+        public function __construct(private readonly WebPush $webPush) {}
 
-    $service = Mockery::mock(NotificationService::class)->makePartial();
-    $service->shouldReceive('sendPushNotifications')
-        ->once()
-        ->withArgs(function (Collection $subscriptions, array $payload) {
-            return $subscriptions->count() === 1
-                && $payload['title'] === 'Weekly Game Updates'
-                && $payload['body'] === '2 games you follow have been updated.'
-                && count($payload['data']['games']) === 2;
-        })
-        ->andReturnTrue();
+        protected function createWebPush(): WebPush
+        {
+            return $this->webPush;
+        }
+    };
 
-    $result = $service->sendDigestToUser($user, collect([
-        ['game' => $firstGame, 'version' => $firstVersion],
-        ['game' => $secondGame, 'version' => $secondVersion],
-    ]), 'weekly');
-
-    expect($result)->toBeTrue()
-        ->and(NotificationHistory::query()->count())->toBe(2)
-        ->and(NotificationHistory::query()->pluck('meta_data')->all())->toBe([
-            ['digest' => true, 'digest_type' => 'weekly'],
-            ['digest' => true, 'digest_type' => 'weekly'],
-        ]);
+    expect($service->sendPushNotifications(collect([$subscription]), ['title' => 'Test'])['sent'])->toBe(1)
+        ->and($subscription->fresh()->delivery_status)->toBe(PushSubscription::STATUS_VERIFIED)
+        ->and($subscription->fresh()->delivery_verified_at)->not->toBeNull();
 });
 
-it('returns false when low level push sending receives no subscriptions or catches an error', function () {
-    $service = app(NotificationService::class);
+it('invalidates endpoints rejected for the current VAPID identity', function () {
+    configuredWebPush();
+    $subscription = PushSubscription::create([
+        'user_id' => User::factory()->create()->id,
+        'endpoint' => 'https://push.example/wrong-vapid',
+        'p256dh' => 'key',
+        'auth' => 'auth',
+        'subscription_data' => [],
+    ]);
+    $report = new MessageSentReport(new Request('POST', $subscription->endpoint), new Response(403), false, 'VAPID credentials rejected');
+    $webPush = Mockery::mock(WebPush::class);
+    $webPush->shouldReceive('queueNotification')->once();
+    $webPush->shouldReceive('flush')->once()->andReturn((function () use ($report) {
+        yield $report;
+    })());
+    $service = new class($webPush) extends NotificationService
+    {
+        public function __construct(private readonly WebPush $webPush) {}
 
-    expect($service->sendPushNotifications(collect(), ['title' => 'Empty']))->toBeFalse();
+        protected function createWebPush(): WebPush
+        {
+            return $this->webPush;
+        }
+    };
+
+    $service->sendPushNotifications(collect([$subscription]), ['title' => 'Test']);
+
+    expect($subscription->fresh()->delivery_status)->toBe(PushSubscription::STATUS_INVALID)
+        ->and($subscription->fresh()->delivery_last_error)->toBe('VAPID credentials rejected');
 });

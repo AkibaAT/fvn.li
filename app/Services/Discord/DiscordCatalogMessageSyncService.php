@@ -13,10 +13,6 @@ class DiscordCatalogMessageSyncService
 {
     public function queueForGame(Game|int $game): int
     {
-        if (! config('services.discord.server_bot_enabled')) {
-            return 0;
-        }
-
         $game = $game instanceof Game ? $game : Game::find($game);
         if (! $game) {
             return 0;
@@ -26,7 +22,6 @@ class DiscordCatalogMessageSyncService
         $metadataRows = DB::table('discord_server_games')
             ->where('game_id', $game->id)
             ->whereNotNull('discord_channel_id')
-            ->whereNotNull('discord_message_id')
             ->get();
 
         $queued = 0;
@@ -51,14 +46,16 @@ class DiscordCatalogMessageSyncService
             $payload = ['embeds' => [$renderer->renderEmbed($template, $game, 'new_game', $game->latestVersion, $server)]];
             $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
-            if ($metadata->discord_payload_hash === $hash) {
+            if ($metadata->discord_message_id && $metadata->discord_payload_hash === $hash) {
                 continue;
             }
+
+            $deliveryMode = $metadata->discord_message_id ? 'edit' : 'send';
 
             $alreadyQueued = DiscordNotificationHistory::query()
                 ->where('discord_server_id', $server->id)
                 ->where('game_id', $game->id)
-                ->where('delivery_mode', 'edit')
+                ->where('delivery_mode', $deliveryMode)
                 ->where('payload_hash', $hash)
                 ->whereIn('delivery_status', ['pending', 'processing'])
                 ->exists();
@@ -69,8 +66,9 @@ class DiscordCatalogMessageSyncService
             DiscordNotificationHistory::create([
                 'discord_server_id' => $server->id,
                 'game_id' => $game->id,
+                'game_version_id' => $game->latestVersion?->id,
                 'notification_type' => 'new_game',
-                'delivery_mode' => 'edit',
+                'delivery_mode' => $deliveryMode,
                 'message_id' => $metadata->discord_message_id,
                 'channel_id' => $metadata->discord_channel_id,
                 'delivery_status' => 'pending',
@@ -85,14 +83,9 @@ class DiscordCatalogMessageSyncService
 
     public function queueAll(): int
     {
-        if (! config('services.discord.server_bot_enabled')) {
-            return 0;
-        }
-
         $queued = 0;
         DB::table('discord_server_games')
             ->whereNotNull('discord_channel_id')
-            ->whereNotNull('discord_message_id')
             ->distinct()
             ->orderBy('game_id')
             ->pluck('game_id')

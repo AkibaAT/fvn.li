@@ -97,6 +97,9 @@ class DiscordNotificationHistoryController extends Controller
         $notification->update([
             'delivery_status' => 'pending',
             'error_message' => null,
+            'sent_at' => null,
+            'batch_key' => null,
+            'attempts' => 0,
         ]);
 
         return response()->json([
@@ -124,6 +127,13 @@ class DiscordNotificationHistoryController extends Controller
             'notification_type' => 'manual',
             'channel_id' => $server->config->notification_channel_id,
             'delivery_status' => 'pending',
+            'payload' => [
+                'embeds' => [[
+                    'title' => 'FVN.li notification test',
+                    'description' => 'Notifications are configured correctly for this channel.',
+                    'color' => 0x5865F2,
+                ]],
+            ],
         ]);
 
         return response()->json([
@@ -142,7 +152,8 @@ class DiscordNotificationHistoryController extends Controller
         $days = (int) $request->get('days', 30);
 
         $deleted = $server->notificationHistory()
-            ->where('sent_at', '<', now()->subDays($days))
+            ->whereIn('delivery_status', ['sent', 'failed'])
+            ->where('created_at', '<', now()->subDays($days))
             ->delete();
 
         return response()->json([

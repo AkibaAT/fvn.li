@@ -12,11 +12,11 @@ use Laravel\Sanctum\Sanctum;
 
 function discordApiOwnerWithServer(array $serverAttributes = []): array
 {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($user);
 
     $server = DiscordServer::create($serverAttributes + [
-        'discord_server_id' => 'guild-api-' . uniqid(),
+        'discord_server_id' => 'guild-api-'.uniqid(),
         'discord_server_name' => 'API Guild',
         'owner_user_id' => $user->id,
         'is_active' => true,
@@ -38,7 +38,7 @@ function discordHistory(DiscordServer $server, Game $game, array $attributes = [
 }
 
 it('registers lists shows updates stats and deletes Discord servers', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($user);
 
     $this->postJson('/api/discord-servers/register', [
@@ -111,8 +111,13 @@ it('filters shows summarizes resends tests and clears Discord notification histo
         'delivery_status' => 'sent',
         'sent_at' => now()->subDays(45),
     ]);
+    $old->timestamps = false;
+    $old->forceFill([
+        'created_at' => now()->subDays(45),
+        'updated_at' => now()->subDays(45),
+    ])->save();
 
-    $this->getJson("/api/discord-servers/{$server->id}/notifications?status=sent&type=new_game&from_date=" . now()->subDays(3)->toDateString())
+    $this->getJson("/api/discord-servers/{$server->id}/notifications?status=sent&type=new_game&from_date=".now()->subDays(3)->toDateString())
         ->assertOk()
         ->assertJsonPath('data.0.id', $sent->id)
         ->assertJsonPath('data.0.game.name', 'History Game');
@@ -127,6 +132,13 @@ it('filters shows summarizes resends tests and clears Discord notification histo
         ->assertJsonPath('sent', 1)
         ->assertJsonPath('failed', 1)
         ->assertJsonPath('pending', 0);
+
+    $oldPending = discordHistory($server, $game, ['delivery_status' => 'pending']);
+    $oldPending->timestamps = false;
+    $oldPending->forceFill([
+        'created_at' => now()->subDays(45),
+        'updated_at' => now()->subDays(45),
+    ])->save();
 
     $this->postJson("/api/discord-servers/{$server->id}/notifications/{$sent->id}/resend")
         ->assertBadRequest()
@@ -149,12 +161,13 @@ it('filters shows summarizes resends tests and clears Discord notification histo
         ->assertJsonPath('deleted_count', 1);
 
     expect(DiscordNotificationHistory::whereKey($old->id)->exists())->toBeFalse();
+    expect(DiscordNotificationHistory::whereKey($oldPending->id)->exists())->toBeTrue();
 });
 
 it('blocks access to notification history records from another server and unconfigured test sends', function () {
     [$user, $server] = discordApiOwnerWithServer();
     $otherServer = DiscordServer::create([
-        'discord_server_id' => 'guild-other-' . uniqid(),
+        'discord_server_id' => 'guild-other-'.uniqid(),
         'discord_server_name' => 'Other Guild',
         'owner_user_id' => $user->id,
         'is_active' => true,

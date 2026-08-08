@@ -1,19 +1,15 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
-    import CheckIcon from '@/components/icons/Check.svelte';
-    import XMarkIcon from '@/components/icons/XMark.svelte';
-    import { untrack } from 'svelte';
     import BugReports from '@/components/dashboard/BugReports.svelte';
     import ConnectedAccounts from '@/components/dashboard/ConnectedAccounts.svelte';
     import AdditionsTab from '@/components/dashboard/AdditionsTab.svelte';
     import MyGamesTab from '@/components/dashboard/MyGamesTab.svelte';
     import SearchPreferencesTab from '@/components/dashboard/SearchPreferencesTab.svelte';
+    import NotificationSettings from '@/components/dashboard/NotificationSettings.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { updateNotificationPreferences, type NotificationPreferences } from '@/api/user-preferences';
-    import { httpValidationErrors } from '@/utils/http';
-    import { toast } from '@/utils/toast';
+    import type { NotificationPreferences } from '@/api/user-preferences';
     import { Link } from '@inertiajs/svelte';
-    import { Alert, Button, Card, Switch } from '@/components/ui';
+    import { Button, Card } from '@/components/ui';
     import type { User, SocialAccount } from '@/types';
     interface AdditionRequest {
         id: number;
@@ -52,20 +48,7 @@
         optimized_thumbnails?: { default?: { path: string; width: number; height: number } };
         platform?: 'itch_io' | 'steam' | 'other';
     }
-    interface DiscordNotificationStatus {
-        status: 'pending' | 'processing' | 'sent' | 'failed';
-        error: string | null;
-        processedAt: string | null;
-        createdAt: string;
-    }
-    interface DiscordInfo {
-        hasAccount: boolean;
-        botInstallUrl: string | null;
-        lastNotification: DiscordNotificationStatus | null;
-    }
-
     interface DashboardProps {
-        features: { discordServerBot: boolean };
         user: User;
         connectedProviders: string[];
         socialAccounts: Record<string, SocialAccount>;
@@ -73,7 +56,6 @@
         myGames: GameSummary[];
         myGamesClickStats: { [gameId: string]: GameClickStats } | null;
         notificationPreferences: NotificationPreferences;
-        discordInfo?: DiscordInfo | null;
         recentRequests: AdditionRequest[];
         ignoredGames: IgnoredGame[];
         ignoredGamesCount: number;
@@ -104,7 +86,6 @@
         myGames,
         myGamesClickStats,
         notificationPreferences: notificationPreferencesInitial,
-        discordInfo,
         recentRequests: recentRequestsInitial,
         ignoredGames: ignoredGamesInitial,
         ignoredGamesCount: ignoredGamesCountInitial,
@@ -160,68 +141,6 @@
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
     });
-
-    // --- Account tab state ---
-    let notifPrefs = $state(untrack(() => notificationPreferencesInitial));
-    let savingPrefs = $state(false);
-
-    async function saveNotificationPreferences(payload: NotificationPreferences): Promise<void> {
-        try {
-            await updateNotificationPreferences(payload);
-        } catch (error) {
-            const validationErrors = httpValidationErrors(error);
-            if (validationErrors) {
-                Object.values(validationErrors)
-                    .flat()
-                    .forEach((m) => toast.error(String(m)));
-            }
-            toast.error(error instanceof Error ? error.message : 'Request failed');
-            throw error;
-        }
-    }
-
-    const toggleBrowser = async () => {
-        const next = { ...notifPrefs, browser_notifications_enabled: !notifPrefs.browser_notifications_enabled };
-        notifPrefs = next;
-        savingPrefs = true;
-        try {
-            await saveNotificationPreferences(next);
-        } catch {
-            notifPrefs = { ...notifPrefs, browser_notifications_enabled: !next.browser_notifications_enabled };
-        } finally {
-            savingPrefs = false;
-        }
-    };
-
-    const toggleDiscord = async () => {
-        const next = { ...notifPrefs, discord_notifications_enabled: !notifPrefs.discord_notifications_enabled };
-        notifPrefs = next;
-        savingPrefs = true;
-        try {
-            await saveNotificationPreferences(next);
-        } catch {
-            notifPrefs = { ...notifPrefs, discord_notifications_enabled: !next.discord_notifications_enabled };
-        } finally {
-            savingPrefs = false;
-        }
-    };
-
-    const updateDigest = async (value: string) => {
-        if (value === notifPrefs.notification_digest) return;
-        const prev = notifPrefs.notification_digest;
-        notifPrefs = { ...notifPrefs, notification_digest: value };
-        savingPrefs = true;
-        try {
-            await saveNotificationPreferences({
-                ...notifPrefs,
-                notification_digest: value,
-            });
-        } catch {
-            notifPrefs = { ...notifPrefs, notification_digest: prev };
-        } finally {
-            savingPrefs = false;
-        }
-    };
 
     const handleExportData = () => {
         if (typeof window !== 'undefined') window.location.href = route('browser-api.user.export');
@@ -289,103 +208,11 @@
                 </div>
             </Card>
 
-            <Card padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification Settings</h2>
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4">
-                        <div class="flex-grow">
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Browser Push Notifications</div>
-                            <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Receive notifications directly in your browser when games are updated.
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            {#if typeof Notification !== 'undefined' && Notification.permission !== 'granted'}
-                                <Button
-                                    type="button"
-                                    variant="solid"
-                                    tone="info"
-                                    onclick={async () => {
-                                        const result = await Notification.requestPermission();
-                                        if (result === 'granted' && vapidPublicKey) {
-                                            // Permission granted
-                                        }
-                                    }}
-                                    class="mr-3 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                                >
-                                    Request Permission
-                                </Button>
-                            {/if}
-                            <Switch
-                                checked={notifPrefs.browser_notifications_enabled}
-                                onchange={toggleBrowser}
-                                disabled={savingPrefs}
-                                ariaLabel="Enable browser notifications"
-                            />
-                        </div>
-                    </div>
-
-                    {#if discordInfo?.hasAccount}
-                        <div class="flex items-center gap-4">
-                            <div class="flex-grow">
-                                <div class="font-medium text-gray-700 dark:text-gray-300">Discord Notifications</div>
-                                <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Receive notifications via Discord when games are updated.
-                                </div>
-                            </div>
-                            <div>
-                                <Switch
-                                    checked={notifPrefs.discord_notifications_enabled}
-                                    onchange={toggleDiscord}
-                                    disabled={savingPrefs}
-                                    ariaLabel="Enable Discord notifications"
-                                />
-                            </div>
-                        </div>
-                        {#if discordInfo.lastNotification}
-                            {@const lastNotif = discordInfo.lastNotification}
-                            {#if lastNotif.status === 'sent'}
-                                <Alert tone="success" layout="inline" role="status" class="mt-3">
-                                    Discord notifications are working! Last notification sent successfully{#if lastNotif.processedAt}
-                                        on {new Date(lastNotif.processedAt).toLocaleDateString()}{/if}
-                                    {#snippet icon()}
-                                        <CheckIcon class="h-4 w-4" />
-                                    {/snippet}
-                                </Alert>
-                            {:else if lastNotif.status === 'failed'}
-                                <Alert tone="danger" layout="inline" class="mt-3">
-                                    Last Discord notification failed.{#if lastNotif.error}
-                                        Error: {lastNotif.error}{/if}
-                                    {#snippet icon()}
-                                        <XMarkIcon class="h-4 w-4" />
-                                    {/snippet}
-                                </Alert>
-                            {/if}
-                        {/if}
-                    {/if}
-
-                    <div>
-                        <div class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Notification Frequency</div>
-                        <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">Choose how often you'd like to receive update notifications.</div>
-                        <div class="grid grid-cols-3 gap-3">
-                            {#each [{ value: 'asap', label: 'As soon as possible', desc: 'Get notified immediately when games are updated' }, { value: 'daily', label: 'Daily digest', desc: 'Get a summary of all updates once per day' }, { value: 'weekly', label: 'Weekly digest', desc: 'Get a summary of all updates once per week' }] as freq (freq.value)}
-                                <Button
-                                    type="button"
-                                    variant={notifPrefs.notification_digest === freq.value ? 'soft' : 'outline'}
-                                    tone={notifPrefs.notification_digest === freq.value ? 'info' : 'neutral'}
-                                    aria-pressed={notifPrefs.notification_digest === freq.value}
-                                    onclick={() => updateDigest(freq.value)}
-                                    disabled={savingPrefs}
-                                    class="h-auto flex-col items-start rounded-lg p-3 text-left text-sm"
-                                >
-                                    <div class="font-medium text-gray-900 dark:text-white">{freq.label}</div>
-                                    <div class="mt-1 text-xs text-gray-700 dark:text-gray-300">{freq.desc}</div>
-                                </Button>
-                            {/each}
-                        </div>
-                    </div>
-                </div>
-            </Card>
+            <NotificationSettings
+                initialPreferences={notificationPreferencesInitial}
+                hasDiscord={connectedProviders.includes('discord')}
+                {vapidPublicKey}
+            />
         </div>
 
         <div class="space-y-6 lg:col-span-2">

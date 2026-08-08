@@ -12,7 +12,7 @@ use Laravel\Sanctum\Sanctum;
 
 function discordSubscriptionOwner(): array
 {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($user);
 
     $server = DiscordServer::create([
@@ -27,7 +27,7 @@ function discordSubscriptionOwner(): array
 
 it('requires ownership for Discord server subscriptions', function () {
     $owner = User::factory()->create();
-    $other = User::factory()->create();
+    $other = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($other);
     $server = DiscordServer::create([
         'discord_server_id' => 'guild-private',
