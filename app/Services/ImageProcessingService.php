@@ -70,11 +70,15 @@ class ImageProcessingService
 
     private readonly ImageManager $imageManager;
 
+    private readonly GameImageIntegrityService $imageIntegrityService;
+
     public function __construct(
         private readonly Client $httpClient,
-        private readonly ImageDownloadUrlValidator $imageUrlValidator
+        private readonly ImageDownloadUrlValidator $imageUrlValidator,
+        ?GameImageIntegrityService $imageIntegrityService = null,
     ) {
         $this->imageManager = new ImageManager(new Driver);
+        $this->imageIntegrityService = $imageIntegrityService ?? new GameImageIntegrityService;
     }
 
     /**
@@ -220,7 +224,7 @@ class ImageProcessingService
 
             try {
                 // Skip if already optimized and not forcing
-                if (! $force && isset($screenshot['optimized']) && ! empty($screenshot['optimized'])) {
+                if (! $force && $this->imageIntegrityService->screenshotIssues([$screenshot]) === []) {
                     echo "    [Images] Screenshot already optimized, skipping\n";
                     $updatedScreenshots[] = $screenshot;
                     $optimizedScreenshots++;
@@ -331,7 +335,7 @@ class ImageProcessingService
         }
 
         // Skip if files exist and not forcing
-        if (! $force && $game->optimized_thumbnails) {
+        if (! $force && $this->imageIntegrityService->thumbnailIssues($game->optimized_thumbnails) === []) {
             echo "    [Images] Thumbnails already exist, skipping\n";
 
             return;

@@ -14,6 +14,7 @@ use App\Services\GameVersionArchiveRepositoryService;
 use App\Services\ItchHttpClientService;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Facades\Storage;
 
 function invokeGameDataSyncMethod(GameDataSyncService $service, string $method, array $arguments = []): mixed
 {
@@ -190,6 +191,7 @@ it('compares screenshot source URLs while ignoring optimized variants', function
 });
 
 it('retries screenshot processing when optimized variants are missing or incomplete', function () {
+    Storage::fake('public');
     $service = app(GameDataSyncService::class);
 
     $completeScreenshots = [
@@ -202,6 +204,10 @@ it('retries screenshot processing when optimized variants are missing or incompl
             ],
         ],
     ];
+
+    foreach ($completeScreenshots[0]['optimized'] as $variant) {
+        Storage::disk('public')->put($variant['path'], 'processed image');
+    }
 
     $missingOptimizedScreenshots = [
         ['url' => 'https://img.example/a.png'],

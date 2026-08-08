@@ -120,7 +120,7 @@ HTML),
         ->and($game->description)->toBe('Safe text');
 });
 
-it('extracts screenshots from multiple itch carousel shapes and cleans optimized files removed from order', function () {
+it('cleans removed screenshot files without deleting retained screenshots that moved position', function () {
     Storage::fake('public');
 
     $extractor = new ItchGameMetadataExtractor;
@@ -134,11 +134,15 @@ it('extracts screenshots from multiple itch carousel shapes and cleans optimized
             [
                 'url' => 'https://img.example/keep.png',
                 'thumbnail_url' => 'https://img.example/keep-thumb.png',
+                'optimized' => [
+                    'default' => ['path' => 'screenshots/keep_default.webp'],
+                ],
             ],
         ],
     ]);
 
     Storage::disk('public')->put("screenshots/{$game->id}_screenshot_0_abcdef12.webp", 'old optimized');
+    Storage::disk('public')->put('screenshots/keep_default.webp', 'kept optimized');
 
     $extractor->extractScreenshots($game, itchMetadataDocument(<<<'HTML'
 <div class="screenshot_list">
@@ -149,10 +153,17 @@ it('extracts screenshots from multiple itch carousel shapes and cleans optimized
 HTML));
 
     expect($game->screenshots)->toBe([
-        ['url' => 'https://img.example/keep.png', 'thumbnail_url' => 'https://img.example/keep-thumb.png'],
+        [
+            'url' => 'https://img.example/keep.png',
+            'thumbnail_url' => 'https://img.example/keep-thumb.png',
+            'optimized' => [
+                'default' => ['path' => 'screenshots/keep_default.webp'],
+            ],
+        ],
         ['url' => 'https://img.example/new.webp', 'thumbnail_url' => 'https://img.example/new.webp'],
     ])
-        ->and(Storage::disk('public')->exists("screenshots/{$game->id}_screenshot_0_abcdef12.webp"))->toBeFalse();
+        ->and(Storage::disk('public')->exists("screenshots/{$game->id}_screenshot_0_abcdef12.webp"))->toBeFalse()
+        ->and(Storage::disk('public')->exists('screenshots/keep_default.webp'))->toBeTrue();
 
     $fallbackGame = Game::factory()->make(['screenshots' => []]);
     $extractor->extractScreenshots($fallbackGame, itchMetadataDocument(<<<'HTML'

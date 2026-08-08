@@ -246,15 +246,12 @@ class ItchGameMetadataExtractor
         if (empty($game->screenshots)) {
             return;
         }
-        $currentUrls = collect($game->screenshots)->pluck('url')->toArray();
         $newUrls = collect($newScreenshots)->pluck('url')->toArray();
         $cleanupScreenshots = [];
         $keptScreenshots = [];
-        foreach ($game->screenshots as $index => $currentScreenshot) {
+        foreach ($game->screenshots as $currentScreenshot) {
             $shouldCleanup = false;
-            if (! in_array($currentScreenshot['url'], $newUrls)) {
-                $shouldCleanup = true;
-            } elseif (isset($newScreenshots[$index]) && $newScreenshots[$index]['url'] !== $currentScreenshot['url']) {
+            if (! in_array($currentScreenshot['url'], $newUrls, true)) {
                 $shouldCleanup = true;
             }
             if ($shouldCleanup) {

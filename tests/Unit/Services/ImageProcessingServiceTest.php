@@ -192,14 +192,21 @@ test('gif conversion failures clean up temporary frame files', function () {
 });
 
 test('process game screenshots creates optimized variants and keeps optimized screenshots when not forced', function () {
+    $existingVariants = [
+        'small' => ['path' => 'screenshots/existing_small.webp'],
+        'default' => ['path' => 'screenshots/existing_default.webp'],
+        'large' => ['path' => 'screenshots/existing_large.webp'],
+    ];
+    foreach ($existingVariants as $variant) {
+        Storage::disk('public')->put($variant['path'], 'existing image');
+    }
+
     $game = Game::factory()->create([
         'screenshots' => [
             ['url' => 'https://img.itch.zone/screenshot-a.png'],
             [
                 'url' => 'https://img.itch.zone/already-optimized.png',
-                'optimized' => [
-                    'large' => ['path' => 'screenshots/existing_large.webp'],
-                ],
+                'optimized' => $existingVariants,
             ],
             ['caption' => 'missing URL'],
         ],
@@ -218,6 +225,29 @@ test('process game screenshots creates optimized variants and keeps optimized sc
         ->and(Storage::disk('public')->exists($game->screenshots[0]['optimized']['small']['path']))->toBeTrue()
         ->and($game->screenshots[1]['url'])->toBe('https://img.itch.zone/already-optimized.png')
         ->and($game->screenshots[1]['optimized']['large']['path'])->toBe('screenshots/existing_large.webp');
+});
+
+test('process game screenshots regenerates stale metadata whose files are missing', function () {
+    $game = Game::factory()->create([
+        'screenshots' => [[
+            'url' => 'https://img.itch.zone/stale.png',
+            'optimized' => [
+                'small' => ['path' => 'screenshots/missing_small.webp'],
+                'default' => ['path' => 'screenshots/missing_default.webp'],
+                'large' => ['path' => 'screenshots/missing_large.webp'],
+            ],
+        ]],
+    ]);
+
+    $service = imageProcessingServiceForResponses([
+        new Response(200, ['Content-Type' => 'image/png'], createImageProcessingPayload()),
+    ]);
+
+    $service->processGameScreenshots($game);
+
+    expect($game->screenshots[0]['optimized'])->toHaveKeys(['small', 'default', 'large'])
+        ->and($game->screenshots[0]['optimized']['small']['path'])->not->toBe('screenshots/missing_small.webp')
+        ->and(Storage::disk('public')->exists($game->screenshots[0]['optimized']['large']['path']))->toBeTrue();
 });
 
 test('process game screenshots keeps original data when the download is not an image', function () {
@@ -260,18 +290,22 @@ test('process game thumbnail creates variants from thumbnail URL', function () {
 });
 
 test('process game thumbnail skips existing optimized thumbnails unless forced', function () {
+    $existingThumbnails = [
+        'small' => ['path' => 'thumbnails/existing_small.webp'],
+        'default' => ['path' => 'thumbnails/existing_default.webp'],
+    ];
+    foreach ($existingThumbnails as $variant) {
+        Storage::disk('public')->put($variant['path'], 'existing image');
+    }
+
     $game = Game::factory()->create([
         'thumb_url' => 'https://img.itch.zone/thumb.png',
-        'optimized_thumbnails' => [
-            'small' => ['path' => 'thumbnails/existing.webp'],
-        ],
+        'optimized_thumbnails' => $existingThumbnails,
     ]);
 
     $this->service->processGameThumbnail($game, force: false);
 
-    expect($game->optimized_thumbnails)->toBe([
-        'small' => ['path' => 'thumbnails/existing.webp'],
-    ]);
+    expect($game->optimized_thumbnails)->toBe($existingThumbnails);
 });
 
 test('process game thumbnail uses first screenshot as fallback and rejects invalid downloads', function () {

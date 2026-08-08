@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 class GameMetadataImageProcessor
 {
+    public function __construct(
+        private readonly GameImageIntegrityService $imageIntegrityService,
+    ) {}
+
     public function process(Game $game, ?string $originalThumbUrl, ?array $originalScreenshots, string $logPrefix): void
     {
         $imageService = app(ImageProcessingService::class);
@@ -17,13 +21,7 @@ class GameMetadataImageProcessor
         if ($this->needsScreenshotProcessing($game->screenshots, $originalScreenshots)) {
             try {
                 echo "    [{$logPrefix}] Screenshots need processing before save...\n";
-                if ($this->screenshotUrlsChanged($game->screenshots, $originalScreenshots)) {
-                    $imageService->processGameScreenshots($game);
-                } elseif ($this->screenshotsHaveOptimizedVariants($game->screenshots)) {
-                    $imageService->processGameScreenshots($game, 80, true);
-                } else {
-                    $imageService->processGameScreenshots($game);
-                }
+                $imageService->processGameScreenshots($game);
                 echo "    [{$logPrefix}] Screenshots processed successfully\n";
             } catch (Exception $e) {
                 Log::error('Failed to process screenshots during metadata refresh', [
@@ -35,7 +33,7 @@ class GameMetadataImageProcessor
 
         $needsThumbnailProcessing = (
             ($game->thumb_url !== $originalThumbUrl && $game->thumb_url) ||
-            ($game->thumb_url && empty($game->optimized_thumbnails))
+            ($game->hasThumbnail() && $this->imageIntegrityService->thumbnailIssues($game->optimized_thumbnails) !== [])
         );
 
         if ($needsThumbnailProcessing) {
@@ -57,7 +55,7 @@ class GameMetadataImageProcessor
         }
 
         return $this->screenshotUrlsChanged($screenshots, $originalScreenshots)
-            || $this->screenshotsMissingOptimizedVariants($screenshots);
+            || $this->imageIntegrityService->screenshotIssues($screenshots) !== [];
     }
 
     public function extractScreenshotUrls(?array $screenshots): array
@@ -108,41 +106,5 @@ class GameMetadataImageProcessor
                 'error' => $e->getMessage(),
             ]);
         }
-    }
-
-    private function screenshotsMissingOptimizedVariants(?array $screenshots): bool
-    {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        foreach ($screenshots as $screenshot) {
-            if (empty($screenshot['url'])) {
-                continue;
-            }
-
-            foreach (['small', 'default', 'large'] as $variant) {
-                if (empty($screenshot['optimized'][$variant]['path'])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private function screenshotsHaveOptimizedVariants(?array $screenshots): bool
-    {
-        if (empty($screenshots)) {
-            return false;
-        }
-
-        foreach ($screenshots as $screenshot) {
-            if (! empty($screenshot['optimized'])) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

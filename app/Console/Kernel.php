@@ -27,6 +27,7 @@ use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGames;
 use App\Console\Commands\RefreshSteamGames;
 use App\Console\Commands\RefreshTrendingScores;
+use App\Console\Commands\RepairGameImages;
 use App\Console\Commands\ReprocessCurrentGameArchive;
 use App\Console\Commands\SanitizeReviewHtml;
 use App\Console\Commands\SyncDiscordCatalogMessages;
@@ -57,6 +58,7 @@ class Kernel extends ConsoleKernel
         ProcessPushNotifications::class,
         QueueGameUpdateNotifications::class,
         RecalculateGameRatings::class,
+        RepairGameImages::class,
         ReprocessCurrentGameArchive::class,
         RefreshFeedlessGames::class,
         RefreshGames::class,
