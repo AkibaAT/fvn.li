@@ -5,3 +5,6 @@ web_extra_daemons:
   - name: "queue-1"
     command: 'while true; do /usr/bin/php -d xdebug.mode=off /var/www/html/artisan queue:work redis --sleep=3 --tries=3 --queue=default,android,audit; sleep 1; done'
     directory: /var/www/html
+  - name: "scheduler-1"
+    command: 'while true; do /usr/bin/php -d xdebug.mode=off /var/www/html/artisan schedule:work; sleep 1; done'
+    directory: /var/www/html

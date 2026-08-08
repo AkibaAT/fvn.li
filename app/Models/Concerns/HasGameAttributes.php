@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Concerns;
 
 use Carbon\Carbon;
-use Exception;
+use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 trait HasGameAttributes
@@ -34,9 +34,7 @@ trait HasGameAttributes
 
             try {
                 return $now->gte(Carbon::parse($link['release_at']));
-            } catch (Exception $exception) {
-                report($exception);
-
+            } catch (InvalidFormatException) {
                 return false;
             }
         }));

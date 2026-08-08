@@ -74,8 +74,7 @@ it('accepts a real bearer token with the discord notification ability', function
         ->assertJsonPath('count', 0);
 });
 
-it('keeps legacy Discord notification routes available when the server bot is disabled', function () {
-    config(['services.discord.server_bot_enabled' => false]);
+it('serves Discord notification routes to an authorized bot token', function () {
     authenticateDiscordBot();
 
     $this->getJson('/api/discord-notifications/pending')
@@ -88,7 +87,7 @@ it('claims pending Discord notifications and formats bot payloads', function () 
     $subscriber = User::factory()->create();
     SocialAccount::factory()->discord()->create([
         'user_id' => $subscriber->id,
-        'provider_id' => 'discord-user-1',
+        'provider_id' => '123456789012345678',
     ]);
     $game = Game::factory()->create(['name' => 'Discord VN']);
     $version = latestGameVersionFor($game, ['version' => '2.0']);
@@ -102,6 +101,8 @@ it('claims pending Discord notifications and formats bot payloads', function () 
         'payload' => ['title' => 'Queued'],
         'meta_data' => ['digest' => true, 'digest_type' => 'daily'],
     ]);
+    $version->forceFill(['is_latest' => false])->save();
+    latestGameVersionFor($game, ['version' => '3.0', 'published_at' => now()->addMinute()]);
     NotificationQueue::create([
         'user_id' => $subscriber->id,
         'game_id' => $game->id,
@@ -111,11 +112,11 @@ it('claims pending Discord notifications and formats bot payloads', function () 
         'scheduled_at' => now()->subMinute(),
     ]);
 
-    $this->getJson('/api/discord-notifications/pending?limit=10&batch_key=batch-1')
+    $response = $this->getJson('/api/discord-notifications/pending?limit=10')
         ->assertOk()
-        ->assertJsonPath('batch_key', 'batch-1')
         ->assertJsonPath('notifications.0.notification_id', $notification->id)
-        ->assertJsonPath('notifications.0.discord_user_id', 'discord-user-1')
+        ->assertJsonPath('notifications.0.discord_user_id', '123456789012345678')
+        ->assertJsonPath('notifications.0.type', 'game_update')
         ->assertJsonPath('notifications.0.game.name', 'Discord VN')
         ->assertJsonPath('notifications.0.game.version', '2.0')
         ->assertJsonPath('notifications.0.is_digest', true)
@@ -123,15 +124,15 @@ it('claims pending Discord notifications and formats bot payloads', function () 
 
     $notification->refresh();
     expect($notification->status)->toBe('processing')
-        ->and($notification->meta_data['batch_key'])->toBe('batch-1');
+        ->and($notification->batch_key)->toBe($response->json('batch_key'));
 });
 
-it('stores SQL-looking batch keys as JSON data when claiming notifications', function () {
+it('recovers stale processing Discord notifications into a new server-generated batch', function () {
     authenticateDiscordBot();
     $subscriber = User::factory()->create();
     SocialAccount::factory()->discord()->create([
         'user_id' => $subscriber->id,
-        'provider_id' => 'discord-user-sql',
+        'provider_id' => '123456789012345679',
     ]);
     $game = Game::factory()->create(['name' => 'SQL Safe VN']);
     $version = latestGameVersionFor($game);
@@ -140,77 +141,53 @@ it('stores SQL-looking batch keys as JSON data when claiming notifications', fun
         'game_id' => $game->id,
         'game_version_id' => $version->id,
         'channel' => 'discord',
-        'status' => 'pending',
+        'status' => 'processing',
         'scheduled_at' => now()->subMinute(),
         'payload' => ['title' => 'Queued'],
         'meta_data' => ['digest' => false],
+        'batch_key' => 'lost-batch',
     ]);
+    NotificationQueue::whereKey($notification->id)->update(['updated_at' => now()->subMinutes(20)]);
 
-    $batchKey = 'poc"\'::jsonb || to_jsonb((SELECT true FROM pg_sleep(5))) || \'"tail';
-
-    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key=' . urlencode($batchKey))
+    $response = $this->getJson('/api/discord-notifications/pending?limit=1')
         ->assertOk()
-        ->assertJsonPath('batch_key', $batchKey)
         ->assertJsonPath('notifications.0.notification_id', $notification->id);
 
     $notification->refresh();
-
     expect($notification->status)->toBe('processing')
-        ->and($notification->meta_data['batch_key'])->toBe($batchKey)
-        ->and($notification->meta_data['digest'])->toBeFalse();
+        ->and($notification->batch_key)->toBe($response->json('batch_key'))
+        ->and($notification->batch_key)->not->toBe('lost-batch');
 });
 
-it('does not let batch keys alter the pending notification update predicate', function () {
+it('returns an empty notification batch when nothing is due', function () {
+    authenticateDiscordBot();
+
+    $this->getJson('/api/discord-notifications/pending')
+        ->assertOk()
+        ->assertJsonPath('notifications', []);
+});
+
+it('fails unmapped Discord rows instead of stranding them in processing', function () {
     authenticateDiscordBot();
     $subscriber = User::factory()->create();
-    SocialAccount::factory()->discord()->create([
-        'user_id' => $subscriber->id,
-        'provider_id' => 'discord-user-predicate',
-    ]);
-    $game = Game::factory()->create(['name' => 'Predicate Safe VN']);
+    $game = Game::factory()->create();
     $version = latestGameVersionFor($game);
-    $otherGame = Game::factory()->create(['name' => 'Other Predicate Safe VN']);
-    $otherVersion = latestGameVersionFor($otherGame);
-
-    NotificationQueue::create([
+    $notification = NotificationQueue::create([
         'user_id' => $subscriber->id,
         'game_id' => $game->id,
         'game_version_id' => $version->id,
         'channel' => 'discord',
         'status' => 'pending',
         'scheduled_at' => now()->subMinute(),
-        'payload' => ['title' => 'First queued'],
-        'meta_data' => ['digest' => false],
-    ]);
-    NotificationQueue::create([
-        'user_id' => $subscriber->id,
-        'game_id' => $otherGame->id,
-        'game_version_id' => $otherVersion->id,
-        'channel' => 'discord',
-        'status' => 'pending',
-        'scheduled_at' => now()->subMinute(),
-        'payload' => ['title' => 'Second queued'],
-        'meta_data' => ['digest' => false],
     ]);
 
-    $batchKey = 'ok"\') WHERE 1=1 --';
-
-    $this->getJson('/api/discord-notifications/pending?limit=1&batch_key=' . urlencode($batchKey))
+    $this->getJson('/api/discord-notifications/pending')
         ->assertOk()
-        ->assertJsonPath('batch_key', $batchKey);
-
-    expect(NotificationQueue::where('status', 'processing')->count())->toBe(1)
-        ->and(NotificationQueue::where('status', 'pending')->count())->toBe(1)
-        ->and(NotificationQueue::where('status', 'processing')->first()->meta_data['batch_key'])->toBe($batchKey);
-});
-
-it('returns an empty notification batch when nothing is due', function () {
-    authenticateDiscordBot();
-
-    $this->getJson('/api/discord-notifications/pending?batch_key=empty-batch')
-        ->assertOk()
-        ->assertJsonPath('batch_key', 'empty-batch')
         ->assertJsonPath('notifications', []);
+
+    expect($notification->fresh()->status)->toBe('failed')
+        ->and($notification->fresh()->error)->toBe('discord_not_linked')
+        ->and($notification->fresh()->batch_key)->toBeNull();
 });
 
 it('records delivery status only for matching notification batches', function () {
@@ -225,7 +202,8 @@ it('records delivery status only for matching notification batches', function ()
         'channel' => 'discord',
         'status' => 'processing',
         'scheduled_at' => now(),
-        'meta_data' => ['batch_key' => 'batch-2', 'digest' => false],
+        'meta_data' => ['digest' => false],
+        'batch_key' => 'batch-2',
     ]);
     $otherBatch = NotificationQueue::create([
         'user_id' => $user->id,
@@ -234,7 +212,7 @@ it('records delivery status only for matching notification batches', function ()
         'channel' => 'browser',
         'status' => 'processing',
         'scheduled_at' => now(),
-        'meta_data' => ['batch_key' => 'other'],
+        'batch_key' => 'other',
     ]);
 
     $this->postJson('/api/discord-notifications/status', [
@@ -253,6 +231,135 @@ it('records delivery status only for matching notification batches', function ()
         ->and($otherBatch->status)->toBe('processing')
         ->and(NotificationHistory::query()->count())->toBe(1)
         ->and(NotificationHistory::query()->first()->type)->toBe('discord');
+});
+
+it('backs off retryable DM failures and fails them at the attempt limit', function () {
+    authenticateDiscordBot();
+    $user = User::factory()->create();
+    $game = Game::factory()->create();
+    $version = latestGameVersionFor($game);
+    $notification = NotificationQueue::create([
+        'user_id' => $user->id,
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'channel' => 'discord',
+        'status' => 'processing',
+        'scheduled_at' => now(),
+        'batch_key' => 'retry-batch',
+        'attempts' => 0,
+    ]);
+
+    $this->postJson('/api/discord-notifications/status', [
+        'batch_key' => 'retry-batch',
+        'notifications' => [[
+            'notification_id' => $notification->id,
+            'success' => false,
+            'error' => 'Discord unavailable',
+            'error_code' => '503',
+            'retryable' => true,
+        ]],
+    ])->assertOk();
+    expect($notification->fresh()->status)->toBe('pending')
+        ->and($notification->fresh()->attempts)->toBe(1)
+        ->and($notification->fresh()->scheduled_at->between(now()->addMinutes(14), now()->addMinutes(16)))->toBeTrue();
+
+    $notification->update(['status' => 'processing', 'batch_key' => 'final-batch', 'attempts' => 2]);
+    $this->postJson('/api/discord-notifications/status', [
+        'batch_key' => 'final-batch',
+        'notifications' => [[
+            'notification_id' => $notification->id,
+            'success' => false,
+            'error' => 'Discord unavailable',
+            'error_code' => '503',
+            'retryable' => true,
+        ]],
+    ])->assertOk();
+    expect($notification->fresh()->status)->toBe('failed')
+        ->and($notification->fresh()->attempts)->toBe(3)
+        ->and(NotificationHistory::query()->where('success', false)->exists())->toBeTrue();
+});
+
+it('marks an undeliverable user and bulk-fails their sibling Discord rows', function () {
+    authenticateDiscordBot();
+    $user = User::factory()->create();
+    $preferences = $user->notificationPreferences()->create([
+        'browser_notifications_enabled' => false,
+        'discord_notifications_enabled' => true,
+        'notification_digest' => 'asap',
+    ]);
+    $game = Game::factory()->create();
+    $version = latestGameVersionFor($game);
+    $notification = NotificationQueue::create([
+        'user_id' => $user->id,
+        'game_id' => $game->id,
+        'game_version_id' => $version->id,
+        'channel' => 'discord',
+        'status' => 'processing',
+        'scheduled_at' => now(),
+        'batch_key' => 'blocked-batch',
+    ]);
+    $siblingGame = Game::factory()->create();
+    $siblingVersion = latestGameVersionFor($siblingGame);
+    $sibling = NotificationQueue::create([
+        'user_id' => $user->id,
+        'game_id' => $siblingGame->id,
+        'game_version_id' => $siblingVersion->id,
+        'channel' => 'discord',
+        'status' => 'pending',
+        'scheduled_at' => now()->addHour(),
+    ]);
+
+    $this->postJson('/api/discord-notifications/status', [
+        'batch_key' => 'blocked-batch',
+        'notifications' => [[
+            'notification_id' => $notification->id,
+            'success' => false,
+            'error' => 'Cannot send messages to this user',
+            'error_code' => 50007,
+            'retryable' => false,
+        ]],
+    ])->assertOk();
+
+    expect($notification->fresh()->status)->toBe('failed')
+        ->and($sibling->fresh()->status)->toBe('failed')
+        ->and($sibling->fresh()->error)->toBe('discord_undeliverable')
+        ->and($preferences->fresh()->discord_dm_status)->toBe('undeliverable')
+        ->and($preferences->fresh()->discord_dm_status_reason)->toBe('cannot_dm');
+});
+
+it('marks a deleted Discord account as missing and stops future queue delivery', function () {
+    authenticateDiscordBot();
+    $user = User::factory()->create();
+    $preferences = $user->notificationPreferences()->create([
+        'browser_notifications_enabled' => false,
+        'discord_notifications_enabled' => true,
+        'notification_digest' => 'asap',
+    ]);
+    $game = Game::factory()->create();
+    $notification = NotificationQueue::create([
+        'user_id' => $user->id,
+        'game_id' => $game->id,
+        'game_version_id' => latestGameVersionFor($game)->id,
+        'channel' => 'discord',
+        'status' => 'processing',
+        'scheduled_at' => now(),
+        'batch_key' => 'missing-account',
+    ]);
+
+    $this->postJson('/api/discord-notifications/status', [
+        'batch_key' => 'missing-account',
+        'notifications' => [[
+            'notification_id' => $notification->id,
+            'success' => false,
+            'error' => 'Unknown User',
+            'error_code' => 10013,
+            'retryable' => false,
+        ]],
+    ])->assertOk();
+
+    expect($notification->fresh()->status)->toBe('failed')
+        ->and($preferences->fresh()->discord_dm_status)->toBe('undeliverable')
+        ->and($preferences->fresh()->discord_dm_status_reason)->toBe('account_missing');
 });
 
 it('validates delivery status payloads', function () {
@@ -283,12 +390,18 @@ it('returns and marks pending addition request notifications', function () {
         ->assertJsonPath('notifications.0.user_count', 1)
         ->assertJsonPath('notifications.0.users.0.name', 'Requester');
 
-    expect($additionRequest->fresh()->discord_notified_at)->not->toBeNull();
+    expect($additionRequest->fresh()->discord_claimed_at)->not->toBeNull()
+        ->and($additionRequest->fresh()->discord_notified_at)->toBeNull();
 
     $this->getJson('/api/discord-notifications/addition-requests')
         ->assertOk()
         ->assertJsonPath('count', 0)
         ->assertJsonPath('notifications', []);
+
+    $this->postJson('/api/discord-notifications/addition-requests/ack', ['ids' => [$additionRequest->id]])
+        ->assertOk()
+        ->assertJsonPath('success', true);
+    expect($additionRequest->fresh()->discord_notified_at)->not->toBeNull();
 });
 
 it('returns and marks pending review report notifications', function () {
@@ -324,6 +437,12 @@ it('returns and marks pending review report notifications', function () {
         ->assertJsonPath('notifications.0.game_name', 'Reported VN')
         ->assertJsonPath('notifications.0.review_excerpt', 'This review has a spoiler.');
 
+    expect($report->fresh()->discord_claimed_at)->not->toBeNull()
+        ->and($report->fresh()->discord_notified_at)->toBeNull();
+
+    $this->postJson('/api/discord-notifications/review-reports/ack', ['ids' => [$report->id]])
+        ->assertOk()
+        ->assertJsonPath('success', true);
     expect($report->fresh()->discord_notified_at)->not->toBeNull();
 });
 

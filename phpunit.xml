@@ -49,6 +49,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
         <env name="DB_DATABASE" value="db_test"/>
+        <env name="DISCORD_BOT_ENABLED" value="true"/>
+        <env name="DISCORD_DM_ENABLED" value="true"/>
         <env name="DISCORD_SERVER_BOT_ENABLED" value="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="MEILISEARCH_HOST" value="http://meilisearch-test:7700"/>
@@ -58,5 +60,8 @@
         <env name="SCOUT_DRIVER" value="null"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="VAPID_SUBJECT" value="mailto:test@example.com"/>
+        <env name="VAPID_PUBLIC_KEY" value="test-public-key"/>
+        <env name="VAPID_PRIVATE_KEY" value="test-private-key"/>
     </php>
 </phpunit>

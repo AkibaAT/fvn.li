@@ -47,7 +47,9 @@ describe('Bot server endpoints', function () {
         $response->assertStatus(200);
         $data = $response->json();
         expect($data['notifications'])->toHaveCount(1)
-            ->and($data['notifications'][0]['payload']['content'])->toBe('Test notification');
+            ->and($data['notifications'][0]['payload']['content'])->toBe('Test notification')
+            ->and($data['batch_key'])->not->toBeEmpty()
+            ->and(DiscordNotificationHistory::first()->batch_key)->toBe($data['batch_key']);
     });
 
     test('mark delivered updates notification', function () {
@@ -57,16 +59,41 @@ describe('Bot server endpoints', function () {
             'notification_type' => 'update',
             'channel_id' => '111111111',
             'delivery_status' => 'processing',
+            'batch_key' => 'delivery-batch',
         ]);
 
         $response = $this->withToken($this->botToken)
             ->postJson("/api/bot/servers/notifications/{$notification->id}/delivered", [
                 'message_id' => '987654321',
+                'batch_key' => 'delivery-batch',
             ]);
 
         $response->assertStatus(200);
         expect($notification->fresh()->delivery_status)->toBe('sent')
             ->and($notification->fresh()->message_id)->toBe('987654321');
+    });
+
+    test('mark delivered enforces the batch and preserves an existing message id when omitted', function () {
+        $notification = DiscordNotificationHistory::create([
+            'discord_server_id' => $this->server->id,
+            'game_id' => $this->game->id,
+            'notification_type' => 'update',
+            'channel_id' => '111111111',
+            'message_id' => 'existing-message',
+            'delivery_status' => 'processing',
+            'batch_key' => 'expected-batch',
+        ]);
+
+        $this->withToken($this->botToken)
+            ->postJson("/api/bot/servers/notifications/{$notification->id}/delivered", ['batch_key' => 'wrong-batch'])
+            ->assertConflict();
+        expect($notification->fresh()->delivery_status)->toBe('processing');
+
+        $this->withToken($this->botToken)
+            ->postJson("/api/bot/servers/notifications/{$notification->id}/delivered", ['batch_key' => 'expected-batch'])
+            ->assertOk();
+        expect($notification->fresh()->delivery_status)->toBe('sent')
+            ->and($notification->fresh()->message_id)->toBe('existing-message');
     });
 
     test('mark delivered records the canonical catalog message and payload hash', function () {
@@ -79,11 +106,13 @@ describe('Bot server endpoints', function () {
             'message_id' => 'old-message',
             'channel_id' => '111111111',
             'delivery_status' => 'processing',
+            'batch_key' => 'catalog-batch',
         ]);
 
         $this->withToken($this->botToken)
             ->postJson("/api/bot/servers/notifications/{$notification->id}/delivered", [
                 'message_id' => 'replacement-message',
+                'batch_key' => 'catalog-batch',
             ])
             ->assertOk();
 
@@ -103,16 +132,49 @@ describe('Bot server endpoints', function () {
             'notification_type' => 'update',
             'channel_id' => '111111111',
             'delivery_status' => 'processing',
+            'batch_key' => 'failure-batch',
         ]);
 
         $response = $this->withToken($this->botToken)
             ->postJson("/api/bot/servers/notifications/{$notification->id}/failed", [
                 'error_message' => 'Channel not found',
+                'batch_key' => 'failure-batch',
             ]);
 
         $response->assertStatus(200);
         expect($notification->fresh()->delivery_status)->toBe('failed')
             ->and($notification->fresh()->error_message)->toBe('Channel not found');
+    });
+
+    test('mark failed requeues retryable work until attempts are exhausted', function () {
+        $notification = DiscordNotificationHistory::create([
+            'discord_server_id' => $this->server->id,
+            'game_id' => $this->game->id,
+            'notification_type' => 'update',
+            'channel_id' => '111111111',
+            'delivery_status' => 'processing',
+            'batch_key' => 'retry-batch',
+            'attempts' => 0,
+        ]);
+
+        $this->withToken($this->botToken)
+            ->postJson("/api/bot/servers/notifications/{$notification->id}/failed", [
+                'batch_key' => 'retry-batch',
+                'retryable' => true,
+                'error_message' => 'Temporary outage',
+            ])->assertOk();
+        expect($notification->fresh()->delivery_status)->toBe('pending')
+            ->and($notification->fresh()->attempts)->toBe(1);
+
+        $notification->update(['delivery_status' => 'processing', 'batch_key' => 'final-batch', 'attempts' => 2]);
+        $this->withToken($this->botToken)
+            ->postJson("/api/bot/servers/notifications/{$notification->id}/failed", [
+                'batch_key' => 'final-batch',
+                'retryable' => true,
+                'error_message' => 'Still down',
+            ])->assertOk();
+        expect($notification->fresh()->delivery_status)->toBe('failed')
+            ->and($notification->fresh()->attempts)->toBe(3);
     });
 
     test('sync channels updates server', function () {
@@ -190,6 +252,15 @@ describe('Bot server endpoints', function () {
             ->and($currentServer->config)->not->toBeNull();
     });
 
+    test('an empty guild reconciliation snapshot is a no-op', function () {
+        $this->withToken($this->botToken)
+            ->postJson('/api/bot/servers/reconcile-guilds', ['guilds' => []])
+            ->assertOk()
+            ->assertJsonPath('count', 0);
+
+        expect($this->server->fresh()->is_active)->toBeTrue();
+    });
+
     test('bot left marks server inactive', function () {
         $response = $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/99999999/bot-left');
@@ -206,26 +277,13 @@ describe('Bot server endpoints', function () {
         $response->assertJson(['message' => 'Server marked as inactive']);
     });
 
-    test('sync members updates member records', function () {
-        $linkedUser = User::factory()->create();
-        SocialAccount::factory()->discord()->create([
-            'user_id' => $linkedUser->id,
-            'provider_id' => '111',
-        ]);
-
-        $response = $this->withToken($this->botToken)
+    test('the retired member-sync endpoint is unavailable', function () {
+        $this->withToken($this->botToken)
             ->postJson('/api/bot/servers/sync-members', [
                 'discord_server_id' => '99999999',
-                'members' => [
-                    ['discord_user_id' => '111', 'discord_username' => 'User1', 'is_admin' => true],
-                    ['discord_user_id' => '222', 'discord_username' => 'User2', 'is_admin' => false],
-                ],
-            ]);
-
-        $response->assertStatus(200);
-        $data = $response->json();
-        expect($data['count'])->toBe(2)
-            ->and($this->server->members()->where('discord_user_id', '111')->value('user_id'))->toBe($linkedUser->id);
+                'members' => [],
+            ])
+            ->assertNotFound();
     });
 
     test('unauthenticated requests are rejected', function () {
@@ -241,11 +299,11 @@ describe('Bot server endpoints', function () {
             ->assertForbidden();
     });
 
-    test('server bot endpoints are hidden when the server bot is disabled', function () {
-        config(['services.discord.server_bot_enabled' => false]);
+    test('server bot endpoints reject tokens without the discord-bot ability', function () {
+        $token = $this->user->createToken('wrong-ability', ['discord-notifications'])->plainTextToken;
 
-        $this->withToken($this->botToken)
+        $this->withToken($token)
             ->getJson('/api/bot/servers/pending-notifications')
-            ->assertNotFound();
+            ->assertForbidden();
     });
 });

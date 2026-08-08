@@ -84,6 +84,12 @@ it('verifies and deletes the current users push subscription', function () {
         ->assertOk()
         ->assertJsonPath('exists', false);
 
+    PushSubscription::where('endpoint', 'https://push.example/current')->update(['delivery_status' => PushSubscription::STATUS_INVALID]);
+    $this->actingAs($user)
+        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://push.example/current'])
+        ->assertOk()
+        ->assertJsonPath('exists', false);
+
     $this->actingAs($user)
         ->deleteJson(route('browser-api.push-subscriptions.destroy'), pushSubscriptionPayload('https://push.example/current'))
         ->assertOk()
@@ -93,4 +99,24 @@ it('verifies and deletes the current users push subscription', function () {
         ->deleteJson(route('browser-api.push-subscriptions.destroy'), pushSubscriptionPayload('https://push.example/current'))
         ->assertNotFound()
         ->assertJsonPath('message', 'Push subscription not found');
+});
+
+it('only reactivates a rejected subscription after an explicit setup action', function () {
+    $user = User::factory()->create();
+    $subscription = PushSubscription::create([
+        'user_id' => $user->id,
+        'endpoint' => 'https://push.example/subscription',
+        'p256dh' => 'p256dh-key',
+        'auth' => 'auth-key',
+        'subscription_data' => [],
+        'delivery_status' => PushSubscription::STATUS_INVALID,
+        'delivery_last_error' => 'VAPID credentials rejected',
+    ]);
+
+    $this->actingAs($user)->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload())->assertOk();
+    expect($subscription->fresh()->delivery_status)->toBe(PushSubscription::STATUS_INVALID);
+
+    $this->actingAs($user)->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload() + ['reactivate' => true])->assertOk();
+    expect($subscription->fresh()->delivery_status)->toBe(PushSubscription::STATUS_UNKNOWN)
+        ->and($subscription->fresh()->delivery_last_error)->toBeNull();
 });

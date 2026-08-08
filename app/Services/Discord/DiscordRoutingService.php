@@ -96,13 +96,13 @@ class DiscordRoutingService
             ->first(fn (mixed $channel): bool => is_array($channel) && (string) ($channel['id'] ?? '') === $channelId);
 
         if (! is_array($channel)) {
-            Log::warning('NSFW game cannot route: channel not found in available channels', [
+            Log::warning('NSFW channel metadata unavailable; allowing route because the channel is not confirmed non-NSFW', [
                 'server_id' => $server->id,
                 'game_id' => $game->id,
                 'channel_id' => $channelId,
             ]);
 
-            return false;
+            return true;
         }
 
         if (! (bool) ($channel['nsfw'] ?? false)) {
@@ -145,17 +145,20 @@ class DiscordRoutingService
         $gameValue = $this->resolveFieldValue($field, $game, $notificationType, $gameVersion);
 
         if ($gameValue === null) {
-            return false;
+            return in_array($operator, ['not_equals', 'not_in', 'not_contains'], true);
         }
 
         return match ($operator) {
-            'equals' => $gameValue === $value,
-            'not_equals' => $gameValue !== $value,
-            'in' => is_array($value) && in_array($gameValue, $value, true),
-            'not_in' => is_array($value) && ! in_array($gameValue, $value, true),
-            'contains' => is_array($gameValue) && in_array($value, $gameValue, true),
-            'not_contains' => is_array($gameValue) && ! in_array($value, $gameValue, true),
-            'contains_any' => is_array($gameValue) && is_array($value) && ! empty(array_intersect($gameValue, $value)),
+            'equals' => (string) $gameValue === (string) $value,
+            'not_equals' => (string) $gameValue !== (string) $value,
+            'in' => is_array($value) && in_array((string) $gameValue, array_map('strval', $value), true),
+            'not_in' => is_array($value) && ! in_array((string) $gameValue, array_map('strval', $value), true),
+            'contains' => is_array($gameValue) && in_array(mb_strtolower((string) $value), array_map(fn ($item): string => mb_strtolower((string) $item), $gameValue), true),
+            'not_contains' => is_array($gameValue) && ! in_array(mb_strtolower((string) $value), array_map(fn ($item): string => mb_strtolower((string) $item), $gameValue), true),
+            'contains_any' => is_array($gameValue) && is_array($value) && ! empty(array_intersect(
+                array_map(fn ($item): string => mb_strtolower((string) $item), $gameValue),
+                array_map(fn ($item): string => mb_strtolower((string) $item), $value),
+            )),
             default => false,
         };
     }

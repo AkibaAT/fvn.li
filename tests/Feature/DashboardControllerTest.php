@@ -8,7 +8,6 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationHistory;
-use App\Models\NotificationQueue;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\SocialAccount;
@@ -57,18 +56,6 @@ it('renders the dashboard with connected account, owned games, ignored games, an
     ]);
     $user->ignoredGames()->attach($ignoredGame->id);
 
-    NotificationQueue::create([
-        'user_id' => $user->id,
-        'game_id' => $ownedGame->id,
-        'game_version_id' => $ownedVersion->id,
-        'channel' => 'discord',
-        'status' => 'failed',
-        'error' => 'Missing permissions',
-        'scheduled_at' => now(),
-        'processed_at' => now(),
-        'payload' => [],
-    ]);
-
     $response = $this->actingAs($user)->get(route('dashboard'));
 
     $response->assertOk();
@@ -81,26 +68,31 @@ it('renders the dashboard with connected account, owned games, ignored games, an
         ->and($props['myGames'][0]['id'])->toBe($ownedGame->id)
         ->and($props['myGames'][0]['has_additional_links'])->toBeTrue()
         ->and($props['notificationPreferences']['notification_digest'])->toBe('daily')
-        ->and($props['discordInfo']['hasAccount'])->toBeTrue()
-        ->and($props['discordInfo']['botInstallUrl'])->toContain('discord-client')
-        ->and($props['discordInfo']['lastNotification']['status'])->toBe('failed')
         ->and($props['ignoredGames'][0]['id'])->toBe($ignoredGame->id)
         ->and($props['ignoredGamesCount'])->toBe(1);
 });
 
-it('hides the Discord server bot while preserving personal Discord notifications when the switch is off', function () {
-    config(['services.discord.server_bot_enabled' => false]);
-
+it('keeps Discord server management admin-only while preserving personal Discord notifications', function () {
     $user = User::factory()->create();
     SocialAccount::factory()->for($user)->discord()->create();
 
     $dashboard = $this->actingAs($user)->get(route('dashboard'));
     $dashboard->assertOk();
 
-    expect($dashboard->viewData('page')['props']['features']['discordServerBot'])->toBeFalse()
-        ->and($dashboard->viewData('page')['props']['discordInfo']['hasAccount'])->toBeTrue();
+    expect($dashboard->viewData('page')['props']['auth']['user']['is_admin'])->toBeFalse();
 
-    $this->get(route('dashboard.discord.index'))->assertNotFound();
+    // Personal DMs are universal, so the toggle stays reachable for a non-admin.
+    $this->postJson(route('browser-api.dashboard.notifications.update'), [
+        'discord_notifications_enabled' => true,
+    ])->assertOk()->assertJsonPath('preferences.discord_notifications_enabled', true);
+
+    $this->get(route('dashboard.discord.index'))->assertForbidden();
+});
+
+it('grants an admin access to Discord server management', function () {
+    $admin = User::factory()->create(['is_admin' => true]);
+
+    $this->actingAs($admin)->get(route('dashboard.discord.index'))->assertOk();
 });
 
 it('syncs editable itch.io game IDs from the dashboard', function () {
@@ -241,7 +233,7 @@ it('formats all linked social account provider metadata for the dashboard', func
         ->and($props['socialAccounts']['itchio']['avatar'])->toBe('https://itch.example/cover.png');
 });
 
-it('creates default notification preferences and exposes discord install metadata', function () {
+it('creates default notification preferences', function () {
     config(['services.discord.client_id' => 'discord-client']);
 
     $user = User::factory()->create();
@@ -253,14 +245,14 @@ it('creates default notification preferences and exposes discord install metadat
         ->assertJsonPath('preferences.browser_notifications_enabled', false)
         ->assertJsonPath('preferences.discord_notifications_enabled', false)
         ->assertJsonPath('preferences.notification_digest', 'asap')
-        ->assertJsonPath('discordInfo.hasAccount', true)
-        ->assertJsonPath('discordInfo.botInstallUrl', 'https://discord.com/oauth2/authorize?client_id=discord-client&integration_type=1&scope=applications.commands');
+        ->assertJsonMissingPath('discordInfo');
 
     expect($user->notificationPreferences()->exists())->toBeTrue();
 });
 
 it('updates notification preferences and rejects invalid digest values', function () {
     $user = User::factory()->create();
+    SocialAccount::factory()->for($user)->discord()->create();
 
     $this->actingAs($user)->postJson(route('browser-api.dashboard.notifications.update'), [
         'browser_notifications_enabled' => true,
@@ -276,6 +268,33 @@ it('updates notification preferences and rejects invalid digest values', functio
         'notification_digest' => 'hourly',
     ])->assertUnprocessable()
         ->assertJsonValidationErrors(['notification_digest']);
+});
+
+it('rejects enabling Discord DMs when the account is unlinked', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->postJson(route('browser-api.dashboard.notifications.update'), [
+        'discord_notifications_enabled' => true,
+    ])->assertUnprocessable()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', 'Link your Discord account before enabling direct messages.');
+});
+
+it('allows unrelated preference changes for a user with the Discord channel already enabled', function () {
+    $user = User::factory()->create();
+    SocialAccount::factory()->discord()->for($user)->create();
+    $user->notificationPreferences()->create([
+        'browser_notifications_enabled' => false,
+        'discord_notifications_enabled' => true,
+        'notification_digest' => 'daily',
+    ]);
+
+    $this->actingAs($user)->postJson(route('browser-api.dashboard.notifications.update'), [
+        'browser_notifications_enabled' => false,
+        'discord_notifications_enabled' => true,
+        'notification_digest' => 'weekly',
+    ])->assertOk()
+        ->assertJsonPath('preferences.notification_digest', 'weekly');
 });
 
 it('submits addition requests and reports empty input as a validation error', function () {

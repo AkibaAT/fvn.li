@@ -17,7 +17,7 @@
 
     const inertiaPage = usePage();
     const user = $derived((inertiaPage.props?.auth?.user ?? null) as User | null);
-    const discordServerBotEnabled = $derived(inertiaPage.props.features?.discordServerBot ?? false);
+    const canManageDiscordServers = $derived(user?.is_admin ?? false);
 
     $effect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -123,7 +123,7 @@
                         My VN Lists
                     </Link>
 
-                    {#if discordServerBotEnabled}
+                    {#if canManageDiscordServers}
                         <Link
                             href={route('dashboard.discord.index')}
                             class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-950 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"

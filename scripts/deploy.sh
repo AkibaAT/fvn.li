@@ -172,6 +172,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   artisan config:cache
   artisan cache:forget app.icon-version
   artisan migrate --force
+  artisan schedule-monitor:sync
   artisan meilisearch:embedders
 
   echo "Full restart completed successfully!"
@@ -197,6 +198,7 @@ else
 
     # Run migrations
     artisan migrate --force
+    artisan schedule-monitor:sync
 
     artisan meilisearch:embedders
 
@@ -224,6 +226,7 @@ else
     artisan config:cache
     artisan cache:forget app.icon-version
     artisan migrate --force
+    artisan schedule-monitor:sync
     artisan meilisearch:embedders
 
     echo "Container started successfully!"

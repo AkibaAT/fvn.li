@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\NotificationHistory;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -62,7 +63,7 @@ class UserNotificationsController extends Controller
 
             return response()->json([
                 'telegram_ids' => $telegramIds,
-                'game' => Game::with('latestVersion')->find($gameId),
+                'game' => $this->gameAtVersion($gameId, $gameVersionId),
             ]);
         } elseif ($notificationType === 'email') {
             $query->whereHas('socialAccounts', function ($query) {
@@ -75,7 +76,7 @@ class UserNotificationsController extends Controller
 
             return response()->json([
                 'emails' => $userEmails,
-                'game' => Game::with('latestVersion')->find($gameId),
+                'game' => $this->gameAtVersion($gameId, $gameVersionId),
             ]);
         } elseif ($notificationType === 'browser') {
             $query->whereHas('notificationPreferences', function ($query) {
@@ -88,7 +89,7 @@ class UserNotificationsController extends Controller
 
         return response()->json([
             'user_ids' => $userIds,
-            'game' => Game::with('latestVersion')->find($gameId),
+            'game' => $this->gameAtVersion($gameId, $gameVersionId),
         ]);
     }
 
@@ -112,7 +113,7 @@ class UserNotificationsController extends Controller
             return response()->json(['error' => $validator->errors()], 422);
         }
 
-        $notificationHistory = NotificationHistory::create([
+        $notificationHistory = NotificationHistory::record([
             'user_id' => $request->input('user_id'),
             'game_id' => $request->input('game_id'),
             'game_version_id' => $request->input('game_version_id'),
@@ -125,5 +126,13 @@ class UserNotificationsController extends Controller
             'message' => 'Notification recorded successfully',
             'notification' => $notificationHistory,
         ]);
+    }
+
+    private function gameAtVersion(int $gameId, int $gameVersionId): ?Game
+    {
+        $game = Game::find($gameId);
+        $version = GameVersion::whereKey($gameVersionId)->where('game_id', $gameId)->first();
+
+        return $game?->setRelation('latestVersion', $version);
     }
 }

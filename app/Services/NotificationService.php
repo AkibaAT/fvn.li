@@ -4,178 +4,101 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Game;
-use App\Models\GameVersion;
-use App\Models\NotificationHistory;
+use App\Exceptions\WebPushConfigurationException;
 use App\Models\PushSubscription;
-use App\Models\User;
-use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
 use Minishlink\WebPush\WebPush;
+use Throwable;
 
 class NotificationService
 {
-    /**
-     * Send a push notification directly to a user.
-     */
-    public function sendPushToUser(User $user, Game $game, GameVersion $gameVersion): bool
+    public function assertConfigured(): void
     {
-        $subscriptions = PushSubscription::where('user_id', $user->id)->get();
-
-        if ($subscriptions->isEmpty()) {
-            return false;
+        foreach (['subject', 'public_key', 'private_key'] as $key) {
+            if (blank(config("webpush.vapid.{$key}"))) {
+                throw new WebPushConfigurationException("Missing VAPID {$key}");
+            }
         }
-
-        $payload = [
-            'title' => $game->name . ' - New Update Available',
-            'body' => 'Version ' . $gameVersion->version . ' is now available.',
-            'data' => [
-                'url' => route('games.show', $game->slug),
-                'game_id' => $game->id,
-                'game_version_id' => $gameVersion->id,
-                'version' => $gameVersion->version,
-            ],
-            'icon' => $game->getThumbnailUrl('small'),
-        ];
-
-        $success = $this->sendPushNotifications($subscriptions, $payload);
-
-        if ($success) {
-            // Record in notification history
-            NotificationHistory::create([
-                'user_id' => $user->id,
-                'game_id' => $game->id,
-                'game_version_id' => $gameVersion->id,
-                'type' => 'browser',
-                'success' => true,
-                'meta_data' => [
-                    'digest' => false,
-                ],
-            ]);
-        }
-
-        return $success;
     }
 
     /**
-     * Send push notifications to a collection of subscriptions.
+     * @return array{sent: int, failed: int, pruned: int, errors: list<string>}
      */
-    public function sendPushNotifications(Collection $subscriptions, array $payload): bool
+    public function sendPushNotifications(Collection $subscriptions, array $payload): array
     {
-        try {
-            if ($subscriptions->isEmpty()) {
-                return false;
-            }
+        $this->assertConfigured();
 
-            $auth = [
-                'VAPID' => [
-                    'subject' => config('webpush.vapid.subject'),
-                    'publicKey' => config('webpush.vapid.public_key'),
-                    'privateKey' => config('webpush.vapid.private_key'),
+        if ($subscriptions->isEmpty()) {
+            return ['sent' => 0, 'failed' => 0, 'pruned' => 0, 'errors' => ['no_push_subscriptions']];
+        }
+
+        $webPush = $this->createWebPush();
+
+        foreach ($subscriptions as $subscription) {
+            $webPush->queueNotification(Subscription::create([
+                'endpoint' => $subscription->endpoint,
+                'keys' => [
+                    'p256dh' => $subscription->p256dh,
+                    'auth' => $subscription->auth,
                 ],
-            ];
+            ]), json_encode($payload, JSON_THROW_ON_ERROR));
+        }
 
-            $webPush = new WebPush($auth);
-            $successCount = 0;
+        $result = ['sent' => 0, 'failed' => 0, 'pruned' => 0, 'errors' => []];
 
-            foreach ($subscriptions as $subscription) {
-                $webPushSubscription = Subscription::create([
-                    'endpoint' => $subscription->endpoint,
-                    'keys' => [
-                        'p256dh' => $subscription->p256dh,
-                        'auth' => $subscription->auth,
-                    ],
-                ]);
-
-                $webPush->queueNotification($webPushSubscription, json_encode($payload));
-            }
-
+        try {
             foreach ($webPush->flush() as $report) {
                 if ($report->isSuccess()) {
-                    $successCount++;
-                } else {
-                    Log::warning('Push notification failed', [
-                        'endpoint' => $report->getRequest()->getUri(),
-                        'reason' => $report->getReason(),
-                    ]);
+                    $result['sent']++;
+                    PushSubscription::where('endpoint', $report->getEndpoint())->first()?->markVerified();
 
-                    // If endpoint expired or invalid, remove it
-                    if ($report->isSubscriptionExpired()) {
-                        $endpoint = (string) $report->getRequest()->getUri();
-                        PushSubscription::where('endpoint', $endpoint)->delete();
-                    }
+                    continue;
+                }
+
+                $reason = $report->getReason();
+                $result['failed']++;
+                $result['errors'][] = $reason;
+
+                Log::warning('Push notification failed', [
+                    'endpoint' => $report->getRequest()->getUri(),
+                    'reason' => $reason,
+                ]);
+
+                $endpoint = $report->getEndpoint();
+                if ($report->isSubscriptionExpired()) {
+                    $result['pruned'] += PushSubscription::where('endpoint', $endpoint)->delete();
+                } else {
+                    $storedSubscription = PushSubscription::where('endpoint', $endpoint)->first();
+                    $status = $report->getResponse()?->getStatusCode();
+                    in_array($status, [401, 403], true)
+                        ? $storedSubscription?->markInvalid($reason)
+                        : $storedSubscription?->recordFailure($reason);
                 }
             }
-
-            return $successCount > 0;
-        } catch (Exception $e) {
+        } catch (Throwable $exception) {
             Log::error('Error sending push notifications', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
             ]);
-
-            return false;
+            $result['failed'] += max(1, $subscriptions->count() - $result['sent']);
+            $result['errors'][] = $exception->getMessage();
         }
+
+        $result['errors'] = array_values(array_unique($result['errors']));
+
+        return $result;
     }
 
-    /**
-     * Send a digest notification to a user.
-     */
-    public function sendDigestToUser(User $user, Collection $games, string $digestType): bool
+    protected function createWebPush(): WebPush
     {
-        $subscriptions = PushSubscription::where('user_id', $user->id)->get();
-
-        if ($subscriptions->isEmpty()) {
-            return false;
-        }
-
-        $title = 'Game Updates Digest';
-        if ($digestType === 'daily') {
-            $title = 'Daily Game Updates';
-        } elseif ($digestType === 'weekly') {
-            $title = 'Weekly Game Updates';
-        }
-
-        $body = count($games) . ' games you follow have been updated.';
-
-        $payload = [
-            'title' => $title,
-            'body' => $body,
-            'data' => [
-                'url' => route('dashboard'),
-                'digest' => true,
-                'games' => $games->map(function ($game) {
-                    return [
-                        'id' => $game['game']->id,
-                        'name' => $game['game']->name,
-                        'version' => $game['version']->version,
-                        'url' => route('games.show', $game['game']->slug),
-                    ];
-                })->toArray(),
+        return new WebPush([
+            'VAPID' => [
+                'subject' => config('webpush.vapid.subject'),
+                'publicKey' => config('webpush.vapid.public_key'),
+                'privateKey' => config('webpush.vapid.private_key'),
             ],
-        ];
-
-        $success = $this->sendPushNotifications($subscriptions, $payload);
-
-        if ($success) {
-            // Record in notification history for each game
-            foreach ($games as $gameData) {
-                NotificationHistory::create([
-                    'user_id' => $user->id,
-                    'game_id' => $gameData['game']->id,
-                    'game_version_id' => $gameData['version']->id,
-                    'type' => 'browser',
-                    'success' => true,
-                    'meta_data' => [
-                        'digest' => true,
-                        'digest_type' => $digestType,
-                    ],
-                ]);
-            }
-        }
-
-        return $success;
+        ]);
     }
 }

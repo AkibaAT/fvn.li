@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DiscordChannelAnnouncement extends Model
 {
+    use MassPrunable;
+
     public const MAX_ATTEMPTS = 3;
 
     protected $fillable = [
@@ -34,5 +38,10 @@ class DiscordChannelAnnouncement extends Model
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
+    }
+
+    public function prunable(): Builder
+    {
+        return static::query()->whereIn('status', ['sent', 'failed'])->where('updated_at', '<=', now()->subDays(90));
     }
 }

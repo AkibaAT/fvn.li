@@ -34,6 +34,10 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
         });
 
+        RateLimiter::for('notification-health-test', function (Request $request) {
+            return Limit::perHour(5)->by((string) ($request->user()?->id ?: $request->ip()));
+        });
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')

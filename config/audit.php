@@ -96,6 +96,10 @@ return [
         'cache',
         'personal_access_tokens', // Laravel Sanctum tokens
         'notifications',          // May contain sensitive notification data
+        'notification_queue',
+        'notification_history',
+        'discord_notification_history',
+        'discord_channel_announcements',
         'password_reset_tokens',  // Password reset tokens
         'password_resets',        // Legacy password reset table
         'telescope_entries',

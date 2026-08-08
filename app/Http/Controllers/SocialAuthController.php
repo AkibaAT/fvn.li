@@ -192,7 +192,7 @@ class SocialAuthController extends Controller
 
             return redirect($redirectTo);
         } catch (Exception $e) {
-            Log::error("Social auth error with {$provider}: " . $this->redactSensitiveText($e->getMessage()), [
+            Log::error("Social auth error with {$provider}: ".$this->redactSensitiveText($e->getMessage()), [
                 'exception_class' => $e::class,
                 'exception_code' => $e->getCode(),
                 'request_keys' => $this->requestInputKeys(),
@@ -200,7 +200,7 @@ class SocialAuthController extends Controller
             ]);
 
             // Flash error message to session
-            session()->flash('error', 'Failed to authenticate with ' . $provider);
+            session()->flash('error', 'Failed to authenticate with '.$provider);
 
             return redirect(route('games.index'));
         }
@@ -275,6 +275,14 @@ class SocialAuthController extends Controller
             ],
             $accountData
         );
+
+        if ($provider === 'discord') {
+            $user->notificationPreferences()->firstOrCreate([], [
+                'browser_notifications_enabled' => false,
+                'discord_notifications_enabled' => false,
+                'notification_digest' => 'asap',
+            ])->markDiscordUnverified();
+        }
     }
 
     private function fetchDiscordGuilds(string $token): ?array
@@ -282,7 +290,7 @@ class SocialAuthController extends Controller
         try {
             $response = (new Client)->get('https://discord.com/api/v10/users/@me/guilds', [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $token,
+                    'Authorization' => 'Bearer '.$token,
                     'Accept' => 'application/json',
                 ],
                 'timeout' => 10,
@@ -313,18 +321,18 @@ class SocialAuthController extends Controller
                 return $userData['given_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
 
             case 'discord':
                 return $userData['global_name']
                     ?? $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
 
             default:
                 return $socialiteUser->getName()
                     ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+                    ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
         }
     }
 
@@ -346,7 +354,7 @@ class SocialAuthController extends Controller
         // For minimal scope authentication, we might not have name or email
         $name = $socialiteUser->getName()
             ?? $socialiteUser->getNickname()
-            ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+            ?? ($provider.' User '.substr($socialiteUser->getId(), 0, 8));
 
         $email = $socialiteUser->getEmail();
         $avatar = $socialiteUser->getAvatar();

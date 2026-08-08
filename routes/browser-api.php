@@ -8,6 +8,7 @@ use App\Http\Controllers\ClickTrackingController;
 use App\Http\Controllers\Dashboard\DashboardAdditionRequestController;
 use App\Http\Controllers\Dashboard\DashboardNotificationController;
 use App\Http\Controllers\Dashboard\DashboardStatsController;
+use App\Http\Controllers\Dashboard\NotificationHealthController;
 use App\Http\Controllers\Dashboard\UserDataExportController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\DiscordConfigController;
@@ -96,6 +97,11 @@ Route::middleware(['web'])->group(function () {
         Route::post('dashboard/notification-preferences', [
             DashboardNotificationController::class, 'updateNotificationPreferences',
         ])->name('browser-api.dashboard.notifications.update');
+        Route::get('dashboard/notification-health', [NotificationHealthController::class, 'show'])
+            ->name('browser-api.dashboard.notification-health.show');
+        Route::post('dashboard/notification-health/test', [NotificationHealthController::class, 'test'])
+            ->middleware('throttle:notification-health-test')
+            ->name('browser-api.dashboard.notification-health.test');
 
         Route::post('dashboard/addition-requests', [
             DashboardAdditionRequestController::class, 'submitAdditionRequest',
@@ -218,7 +224,7 @@ Route::middleware(['web'])->group(function () {
         Route::post('bug-reports/{bugReport}/comments', [BugReportController::class, 'addComment'])->name('browser-api.bug-reports.comments.store');
         Route::post('bug-reports/{bugReport}/close', [BugReportController::class, 'close'])->name('browser-api.bug-reports.close');
 
-        Route::middleware('discord.server-bot.enabled')->prefix('discord')->group(function () {
+        Route::middleware('admin')->prefix('discord')->group(function () {
             Route::get('guilds', [DiscordConfigController::class, 'guilds'])->name('browser-api.discord.guilds');
             Route::get('rule-metadata', [DiscordConfigController::class, 'ruleMetadata'])->name('browser-api.discord.rule-metadata');
             Route::get('servers', [DiscordConfigController::class, 'servers'])->name('browser-api.discord.servers');

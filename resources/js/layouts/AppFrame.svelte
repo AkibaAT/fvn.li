@@ -8,6 +8,7 @@
     import Header from '@/components/layout/Header.svelte';
     import FlashMessages from '@/components/layout/FlashMessages.svelte';
     import { useRouteAccessibility } from '@/hooks/useAccessibility.svelte';
+    import { syncPushSubscription } from '@/utils/push';
 
     interface Props {
         children: Snippet;
@@ -31,9 +32,12 @@
         navigator.serviceWorker
             .getRegistration()
             .then((reg) => {
-                if (!reg) {
-                    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-                }
+                return reg ?? navigator.serviceWorker.register('/service-worker.js');
+            })
+            .then(async () => {
+                if (!(page.props as any)?.auth?.user || sessionStorage.getItem('fvn:push-synced')) return;
+                await syncPushSubscription();
+                sessionStorage.setItem('fvn:push-synced', '1');
             })
             .catch(() => {});
     });

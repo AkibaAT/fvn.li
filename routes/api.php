@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DiscordNotificationHistoryController;
 use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\DiscordServerController;
 use App\Http\Controllers\Api\DiscordSubscriptionController;
+use App\Http\Controllers\Api\DiscordWebhookEventsController;
 use App\Http\Controllers\Api\GameReviewsController;
 use App\Http\Controllers\Api\RenpyAnalyzerController;
 use App\Http\Controllers\Api\UserNotificationsController;
@@ -48,7 +49,11 @@ Route::middleware(['auth:sanctum', 'sanctum.token:discord-notifications'])->pref
     Route::get('channel-updates', [DiscordNotificationsController::class, 'getChannelUpdates']);
     Route::post('channel-status', [DiscordNotificationsController::class, 'recordChannelDeliveryStatus']);
     Route::get('addition-requests', [DiscordNotificationsController::class, 'getPendingAdditionRequests']);
+    Route::post('addition-requests/ack', [DiscordNotificationsController::class, 'acknowledgeAdditionRequests']);
     Route::get('review-reports', [DiscordNotificationsController::class, 'getPendingReviewReports']);
+    Route::post('review-reports/ack', [DiscordNotificationsController::class, 'acknowledgeReviewReports']);
+    Route::post('dm-verify', [DiscordNotificationsController::class, 'verifyDm']);
+    Route::post('heartbeat', [DiscordNotificationsController::class, 'heartbeat']);
 });
 
 // User notification service routes
@@ -60,7 +65,7 @@ Route::middleware(['auth:sanctum', 'sanctum.token:notifications'])->prefix('noti
 // Push notification subscription routes moved to browser-api (session-based)
 
 // Multi-server Discord management routes
-Route::middleware(['discord.server-bot.enabled', 'auth:sanctum'])->prefix('discord-servers')->group(function () {
+Route::middleware(['auth:sanctum', 'admin'])->prefix('discord-servers')->group(function () {
     // Server management
     Route::post('register', [DiscordServerController::class, 'register']);
     Route::get('', [DiscordServerController::class, 'index']);
@@ -95,16 +100,18 @@ Route::middleware(['discord.server-bot.enabled', 'auth:sanctum'])->prefix('disco
 });
 
 // Bot-facing server notification delivery
-Route::middleware(['discord.server-bot.enabled', 'auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot/servers')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('bot/servers')->group(function () {
     Route::get('pending-notifications', [DiscordBotServerController::class, 'pendingNotifications']);
     Route::post('notifications/{notification}/delivered', [DiscordBotServerController::class, 'markDelivered']);
     Route::post('notifications/{notification}/failed', [DiscordBotServerController::class, 'markFailed']);
     Route::post('sync-channels', [DiscordBotServerController::class, 'syncChannels']);
-    Route::post('sync-members', [DiscordBotServerController::class, 'syncMembers']);
     Route::post('reconcile-guilds', [DiscordBotServerController::class, 'reconcileGuilds']);
     Route::post('bot-joined', [DiscordBotServerController::class, 'botJoined']);
     Route::post('{server}/bot-left', [DiscordBotServerController::class, 'botLeft']);
 });
+
+// Discord application webhook events (signature-verified, not token-authenticated)
+Route::post('discord/webhook-events', DiscordWebhookEventsController::class)->name('api.discord.webhook-events');
 
 // Game reviews API for desktop client
 Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);

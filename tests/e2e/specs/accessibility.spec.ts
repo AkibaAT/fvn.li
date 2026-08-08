@@ -188,7 +188,7 @@ test.describe('Accessibility Scans @accessibility', () => {
             await scanAndAssert(page, `bug-report-conversation-${appearance}`);
 
             await page.locator('#new-comment').fill(`Follow-up details from ${appearance} accessibility workflow.`);
-            await page.getByRole('button', { name: 'Send' }).click();
+            await page.getByRole('button', { name: 'Send', exact: true }).click();
             await expect(page.getByText(`Follow-up details from ${appearance} accessibility workflow.`)).toBeVisible();
         });
 

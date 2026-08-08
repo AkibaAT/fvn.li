@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClickTrackingController;
+use App\Http\Controllers\Dashboard\DashboardNotificationController;
 use App\Http\Controllers\Dashboard\DigestNotificationController;
 use App\Http\Controllers\Dashboard\ItchioGameOwnershipController;
 use App\Http\Controllers\Dashboard\UserAccountController;
@@ -25,7 +26,9 @@ use App\Http\Controllers\VnLists\PublicVnListController;
 use App\Http\Controllers\VnLists\VnListPageController;
 use App\Models\Game;
 use App\Support\Seo\MetaTags;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -44,7 +47,38 @@ Route::get('health', function () {
         cache()->store('redis')->put('health_check', 'ok', 1);
         cache()->store('redis')->get('health_check');
 
-        return response()->json(['status' => 'ok'], 200);
+        $pipeline = Cache::remember('health.pipeline', 60, function (): array {
+            $now = CarbonImmutable::now();
+            $heartbeat = Cache::get('scheduler.heartbeat');
+            $heartbeatAt = $heartbeat ? CarbonImmutable::parse($heartbeat) : null;
+            $oldestDue = DB::table('notification_queue')
+                ->where('status', 'pending')
+                ->where('scheduled_at', '<=', $now)
+                ->min('scheduled_at');
+            $oldestDueAt = $oldestDue ? CarbonImmutable::parse($oldestDue) : null;
+
+            return [
+                'scheduler' => [
+                    'heartbeat_at' => $heartbeatAt?->toISOString(),
+                    'age_seconds' => $heartbeatAt ? max(0, (int) $heartbeatAt->diffInSeconds($now)) : null,
+                    'stale' => ! $heartbeatAt || $heartbeatAt->lt($now->subSeconds(300)),
+                ],
+                'notification_queue' => [
+                    'pending_due_count' => DB::table('notification_queue')
+                        ->where('status', 'pending')
+                        ->where('scheduled_at', '<=', $now)
+                        ->count(),
+                    'oldest_due_age_seconds' => $oldestDueAt ? max(0, (int) $oldestDueAt->diffInSeconds($now)) : null,
+                    'stale_processing_count' => DB::table('notification_queue')
+                        ->where('status', 'processing')
+                        ->where('updated_at', '<', $now->subMinutes(15))
+                        ->count(),
+                ],
+                'failed_jobs_count' => DB::table('failed_jobs')->count(),
+            ];
+        });
+
+        return response()->json(['status' => 'ok', ...$pipeline], 200);
     } catch (Exception $e) {
         Log::warning('Health check failed', [
             'error' => $e->getMessage(),
@@ -251,7 +285,14 @@ Route::middleware('auth')->group(function () {
     Route::get('my/games/{game:slug}/versions/{version}/optimized/download', [MyGamesController::class, 'downloadOptimizedArchive'])->name('my-games.optimized-download');
 });
 
-Route::middleware(['auth', 'discord.server-bot.enabled'])->group(function () {
+Route::middleware('auth')->group(function () {
+    Route::get('discord/user-install', [DashboardNotificationController::class, 'redirectToDiscordUserInstall'])
+        ->name('dashboard.discord.user-install');
+    Route::get('discord/user-install/callback', [DashboardNotificationController::class, 'handleDiscordUserInstallCallback'])
+        ->name('dashboard.discord.user-install.callback');
+});
+
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('discord', fn () => Inertia::render('dashboard/discord/index'))->name('dashboard.discord.index');
     Route::get('discord/install/callback', [DiscordConfigController::class, 'handleBotInstallCallback'])->name('dashboard.discord.install.callback');
     Route::get('discord/install/{guild}', [DiscordConfigController::class, 'redirectToBotInstall'])->name('dashboard.discord.install');

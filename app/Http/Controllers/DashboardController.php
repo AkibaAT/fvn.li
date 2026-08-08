@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\BugReport;
-use App\Models\NotificationQueue;
 use App\Models\User;
 use App\Services\GameFilterService;
 use App\Services\OwnedGameSummaryService;
@@ -107,30 +106,6 @@ class DashboardController extends Controller
 
         $totalUnreadBugReportReplies = $activeBugReports->sum('unread_count');
 
-        // Discord bot installation info
-        $hasDiscordAccount = in_array('discord', $connectedProviders);
-        $discordClientId = config('services.discord.client_id');
-        $discordBotInstallUrl = $discordClientId
-            ? "https://discord.com/oauth2/authorize?client_id={$discordClientId}&integration_type=1&scope=applications.commands"
-            : null;
-
-        $lastDiscordNotification = null;
-        if ($hasDiscordAccount) {
-            $lastNotification = NotificationQueue::where('user_id', $user->id)
-                ->where('channel', 'discord')
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            if ($lastNotification) {
-                $lastDiscordNotification = [
-                    'status' => $lastNotification->status,
-                    'error' => $lastNotification->error,
-                    'processedAt' => $lastNotification->processed_at?->toISOString(),
-                    'createdAt' => $lastNotification->created_at->toISOString(),
-                ];
-            }
-        }
-
         return Inertia::render('dashboard/index', [
             'user' => $user,
             'connectedProviders' => $connectedProviders,
@@ -145,11 +120,6 @@ class DashboardController extends Controller
                 'discord_notifications_enabled' => $notificationPreferences->discord_notifications_enabled,
                 'notification_digest' => $notificationPreferences->notification_digest,
             ],
-            'discordInfo' => [
-                'hasAccount' => $hasDiscordAccount,
-                'botInstallUrl' => $discordBotInstallUrl,
-                'lastNotification' => $lastDiscordNotification,
-            ],
             'recentRequests' => $recentRequests,
             'ignoredGames' => $ignoredGames,
             'ignoredGamesCount' => $ignoredGamesCount,
@@ -159,7 +129,7 @@ class DashboardController extends Controller
             'availableTags' => GameFilterService::getOptions()['tags'] ?? [],
             'activeBugReports' => $activeBugReports,
             'totalUnreadBugReportReplies' => $totalUnreadBugReportReplies,
-            'vapidPublicKey' => config('webpush.vapid_public_key') ?? config('webpush.vapid.public_key'),
+            'vapidPublicKey' => config('webpush.vapid.public_key'),
             'metaTags' => new MetaTags(
                 title: 'Dashboard',
                 description: 'Manage your FVN.li account, track visual novel progress, organize reading lists, and control notification preferences.',
