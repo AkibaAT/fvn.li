@@ -23,7 +23,7 @@ services:
 
   denkit-stash:
     container_name: ddev-${DDEV_SITENAME}-denkit-stash
-    image: ${DENKIT_STASH_IMAGE:-ghcr.io/akibaat/denkit-stash:development@sha256:ac71354cd775171f67f86832fe13e5a248c0bde8dbf6d52d569035c6ce38aa10}
+    image: ${DENKIT_STASH_IMAGE:-ghcr.io/akibaat/denkit-stash:development@sha256:1b6808452ce402f9eb4d94c2988df641fc7d0d399835522c090d3204f1466ecf}
     command: ["./denkit-stash", "--port=8081"]
     expose:
       - "8081"
