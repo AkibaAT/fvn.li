@@ -1,7 +1,7 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+  image: postgres:18.4@sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636
 x-flaresolverr: &flaresolverr
   image: flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
 x-meilisearch: &meilisearch
