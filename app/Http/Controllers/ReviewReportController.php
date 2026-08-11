@@ -96,7 +96,7 @@ class ReviewReportController extends Controller
             ->count();
 
         if ($reportCount >= 2) {
-            $rating->update(['is_visible' => false]);
+            $rating->update(['is_visible' => false, 'is_moderation_hidden' => true]);
         }
 
         return response()->json([
@@ -138,7 +138,7 @@ class ReviewReportController extends Controller
 
         // Optionally hide the review
         if ($request->boolean('hide_review') && $report->rating) {
-            $report->rating->update(['is_visible' => false]);
+            $report->rating->update(['is_visible' => false, 'is_moderation_hidden' => true]);
         }
 
         return response()->json([

@@ -142,9 +142,9 @@ class RatingsController extends Controller
             ],
             'metaTags' => [
                 'title' => 'Game Ratings & Reviews',
-                'description' => 'Browse community ratings and reviews for furry visual novels. ' .
-                    "Currently featuring {$total} ratings" .
-                    ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('score') ?: 0, 1) . ' stars' : '') .
+                'description' => 'Browse community ratings and reviews for furry visual novels. '.
+                    "Currently featuring {$total} ratings".
+                    ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('score') ?: 0, 1).' stars' : '').
                     '. Filter by star rating, review status, and sort by date or rating.',
                 'structuredData' => [
                     '@type' => 'CollectionPage',
@@ -223,7 +223,7 @@ class RatingsController extends Controller
             'name' => $r->name,
             'joined_at' => isset($r->created_at) ? (string) $r->created_at : null,
         ];
-        $metaTitle = $r->name . ' - Rater';
+        $metaTitle = $r->name.' - Rater';
 
         // Ratings list (visible ratings by default)
         $ratingsBase = DB::table('ratings')
@@ -279,6 +279,7 @@ class RatingsController extends Controller
             $previousRatingCounts = DB::table('ratings')
                 ->where('rater_id', $rater)
                 ->where('is_visible', false)
+                ->where('is_moderation_hidden', false)
                 ->whereIn('game_id', $pageGameIds)
                 ->selectRaw('game_id, count(*) as count')
                 ->groupBy('game_id')
@@ -308,9 +309,9 @@ class RatingsController extends Controller
             'metaTags' => [
                 'title' => $metaTitle,
                 'description' => isset($raterPayload)
-                    ? "View ratings and reviews by {$raterPayload['name']}. " .
-                      "Currently showing {$total} ratings" .
-                      ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('rating') ?: 0, 1) . ' stars' : '') .
+                    ? "View ratings and reviews by {$raterPayload['name']}. ".
+                      "Currently showing {$total} ratings".
+                      ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('rating') ?: 0, 1).' stars' : '').
                       ' for various furry visual novels.'
                     : 'View rater profile and ratings.',
                 'noindex' => true, // Set noindex for all rater pages
@@ -481,7 +482,7 @@ class RatingsController extends Controller
             ],
             'metaTags' => [
                 'title' => "{$user->name}'s Reviews",
-                'description' => "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of " . round((float) ($stats->average_rating ?? 0), 1) . '/5.',
+                'description' => "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of ".round((float) ($stats->average_rating ?? 0), 1).'/5.',
             ],
         ]);
     }
@@ -495,7 +496,7 @@ class RatingsController extends Controller
         $ratings = DB::table('ratings')
             ->where('rater_id', $rater->id)
             ->where('game_id', $game->id)
-            ->where('is_visible', true)
+            ->where('is_moderation_hidden', false)
             ->orderBy('published_at', 'desc')
             ->select(['id', 'rating', 'published_at', 'is_visible', 'review', 'event_id'])
             ->get()

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Games;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game;
+use App\Models\Rating;
 use App\Services\HtmlSanitizerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,8 +42,11 @@ class GamesReviewController extends Controller
             ->orderBy('published_at', 'desc')
             ->paginate($perPage);
 
-        $reviews->through(function ($rating) use ($sanitizer) {
+        $previousCounts = Rating::previousRatingCountsForGame($game->id, $reviews->getCollection()->pluck('rater_id'));
+
+        $reviews->through(function ($rating) use ($sanitizer, $previousCounts) {
             $rating->review = $sanitizer->sanitizeReview($rating->review);
+            $rating->previous_ratings_count = $rating->rater_id !== null ? (int) ($previousCounts[$rating->rater_id] ?? 0) : 0;
 
             return $rating;
         });

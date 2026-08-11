@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import RatingHistoryDialog from '@/components/RatingHistoryDialog.svelte';
     import UserReviewForm from '@/components/games/UserReviewForm.svelte';
     import { Button, Card, PlatformIcon } from '@/components/ui';
     import { fetchReviews } from '@/hooks/api';
@@ -64,6 +65,7 @@
 
     let reviewForm = $state<{ startEditing: () => void } | null>(null);
     let reviewFormEditing = $state(false);
+    let historyModal = $state<{ raterId: number | null; raterName: string; open: boolean }>({ raterId: null, raterName: '', open: false });
     let hasUserReview = $state(untrack(() => Boolean(initialUserReview)));
     let reviewRefreshLoading = $state(false);
     const isReviewsLoading = $derived(reviewsLoading || reviewRefreshLoading);
@@ -172,6 +174,19 @@
                                 <PlatformIcon platform={review.rater.external_platform} />
                             {/if}
                             <span class="text-sm text-gray-500 dark:text-gray-400">{formatLocalDate(review.published_at)}</span>
+                            {#if !review.user && review.previous_ratings_count}
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    tone="neutral"
+                                    onclick={() => (historyModal = { raterId: review.rater.id, raterName: review.rater.name, open: true })}
+                                    class="text-sm text-gray-500 dark:text-gray-400"
+                                    title="Show this rater's earlier ratings of this game"
+                                >
+                                    ({review.previous_ratings_count} previous
+                                    {review.previous_ratings_count > 1 ? ' ratings' : ' rating'})
+                                </Button>
+                            {/if}
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="flex items-center gap-1 text-yellow-400">
@@ -307,3 +322,12 @@
         <AdvancedPagination meta={pagination} {onPageChange} {onPerPageChange} isLoading={isReviewsLoading} label="reviews" />
     </div>
 </Card>
+
+<RatingHistoryDialog
+    open={historyModal.open}
+    raterId={historyModal.raterId}
+    {gameId}
+    title={historyModal.raterName ? `Rating history: ${historyModal.raterName}` : 'Rating History'}
+    {reviewStyles}
+    onClose={() => (historyModal = { ...historyModal, open: false })}
+/>

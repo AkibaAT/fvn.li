@@ -81,7 +81,9 @@ it('lets users report reviews and auto-hides after multiple pending reports', fu
         ])
         ->assertOk();
 
-    expect($rating->fresh()->is_visible)->toBeFalse();
+    $rating->refresh();
+    expect($rating->is_visible)->toBeFalse()
+        ->and($rating->is_moderation_hidden)->toBeTrue();
 });
 
 it('rejects invalid duplicate and own review reports', function () {
@@ -174,7 +176,8 @@ it('restricts report listing and resolution to admins', function () {
         ->and($report->reviewed_by)->toBe($admin->id)
         ->and($report->reviewed_at)->not->toBeNull()
         ->and($report->admin_notes)->toBe('Hidden after review.')
-        ->and($rating->fresh()->is_visible)->toBeFalse();
+        ->and($rating->fresh()->is_visible)->toBeFalse()
+        ->and($rating->fresh()->is_moderation_hidden)->toBeTrue();
 });
 
 it('validates report resolution payloads', function () {

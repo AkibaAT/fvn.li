@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import AdvancedPagination from '@/components/AdvancedPagination.svelte';
+    import RatingHistoryDialog from '@/components/RatingHistoryDialog.svelte';
     import { Button, Card, Checkbox, Dialog, Select, Stars } from '@/components/ui';
     import { Link, router } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
@@ -126,11 +127,10 @@
     let page = $state<number>(untrack(() => filters?.page ?? 1));
     let perPage = $state<number>(untrack(() => filters?.perPage ?? 10));
     let isLoading = $state(false);
-    let historyModal = $state<{ gameName: string; ratings: RaterRating[]; open: boolean; error: string | null }>({
+    let historyModal = $state<{ gameId: number | null; gameName: string; open: boolean }>({
+        gameId: null,
         gameName: '',
-        ratings: [],
         open: false,
-        error: null,
     });
     const reviewStylesObj = useReviewTextStyles();
     const reviewStyles = $derived(
@@ -194,25 +194,8 @@
         return `/raters/${rater.id}?${params.toString()}`;
     };
 
-    const openHistory = async (gameId: number, gameName: string) => {
-        isLoading = true;
-        try {
-            const res = await fetch(route('raters.games.history', { rater: rater.id, game: gameId }), {
-                headers: {
-                    Accept: 'application/json',
-                },
-            });
-            if (!res.ok) {
-                throw new Error(`Rating history request failed with ${res.status}`);
-            }
-            const json = await res.json();
-            historyModal = { gameName, ratings: json.ratings ?? [], open: true, error: null };
-        } catch (error) {
-            console.error('Failed to load rating history', error);
-            historyModal = { gameName, ratings: [], open: true, error: 'Unable to load rating history.' };
-        } finally {
-            isLoading = false;
-        }
+    const openHistory = (gameId: number, gameName: string) => {
+        historyModal = { gameId, gameName, open: true };
     };
 
     const closeHistory = () => {
@@ -528,55 +511,12 @@
     </Dialog>
 
     <!-- Rating History Dialog -->
-    <Dialog open={historyModal.open} onClose={closeHistory} title={historyModal.gameName || 'Rating History'} size="lg">
-        {#if historyModal.gameName}
-            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Rating history for this game:</p>
-        {/if}
-        <div class="space-y-6">
-            {#if historyModal.error}
-                <div class="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
-                    {historyModal.error}
-                </div>
-            {:else if historyModal.ratings.length > 0}
-                {#each historyModal.ratings as hr, idx (hr.id)}
-                    <div class={idx < historyModal.ratings.length - 1 ? 'border-b border-gray-200 pb-6 dark:border-gray-700' : ''}>
-                        <div class="mb-2 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <Stars rating={hr.rating} />
-                                <span class="text-sm text-gray-500 dark:text-gray-400">
-                                    {hr.published_at
-                                        ? new Date(hr.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                                        : ''}
-                                </span>
-                                {#if hr.is_visible}
-                                    <span class="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                        >Current</span
-                                    >
-                                {/if}
-                            </div>
-                            {#if hr.event_id}
-                                <a
-                                    href={`https://itch.io/event/${hr.event_id}`}
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="text-sm text-blue-600 hover:underline dark:text-blue-400">View on itch.io</a
-                                >
-                            {/if}
-                        </div>
-                        {#if hr.review}
-                            <div class="mx-auto prose text-gray-600 dark:text-gray-300 dark:prose-invert" style={reviewStyles}>
-                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                {@html hr.review}
-                            </div>
-                        {/if}
-                    </div>
-                {/each}
-            {:else}
-                <div class="py-4 text-center text-gray-500 dark:text-gray-400">No rating history found.</div>
-            {/if}
-        </div>
-        {#snippet footer()}
-            <Button type="button" variant="outline" tone="neutral" onclick={closeHistory}>Close</Button>
-        {/snippet}
-    </Dialog>
+    <RatingHistoryDialog
+        open={historyModal.open}
+        raterId={rater.id}
+        gameId={historyModal.gameId}
+        title={historyModal.gameName || 'Rating History'}
+        {reviewStyles}
+        onClose={closeHistory}
+    />
 </div>

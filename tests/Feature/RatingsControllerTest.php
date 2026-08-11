@@ -392,15 +392,24 @@ it('renders user review listings with pagination and aggregate stats', function 
         ->and($props['filters']['sortField'])->toBe('rating');
 });
 
-it('returns chronological visible history for a rater game pair', function () {
+it('returns chronological history for a rater game pair including superseded ratings but not moderated ones', function () {
     $game = Game::factory()->create(['name' => 'History Game']);
     $rater = Rater::factory()->create();
-    $hidden = createRatingRecord([
+    $moderated = createRatingRecord([
+        'game' => $game,
+        'rater' => $rater,
+        'rating' => 1,
+        'is_visible' => false,
+        'is_moderation_hidden' => true,
+        'review' => 'Hidden moderated review.',
+        'published_at' => now()->subDays(3),
+    ]);
+    $superseded = createRatingRecord([
         'game' => $game,
         'rater' => $rater,
         'rating' => 2,
         'is_visible' => false,
-        'review' => 'Hidden moderated review.',
+        'review' => 'Earlier take on the game.',
         'published_at' => now()->subDays(2),
     ]);
     $newer = createRatingRecord([
@@ -417,6 +426,7 @@ it('returns chronological visible history for a rater game pair', function () {
     ]))->assertOk()
         ->assertJsonPath('game.name', 'History Game')
         ->assertJsonPath('ratings.0.id', $newer->id)
-        ->assertJsonCount(1, 'ratings')
+        ->assertJsonPath('ratings.1.id', $superseded->id)
+        ->assertJsonCount(2, 'ratings')
         ->assertJsonMissing(['review' => 'Hidden moderated review.']);
 });

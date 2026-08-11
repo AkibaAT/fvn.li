@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\Rating;
 use App\Models\VnList;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameSocialMetaBuilder;
@@ -50,8 +51,10 @@ class GamesDisplayController extends Controller
             ->paginate(5);
 
         $sanitizer = app(HtmlSanitizerService::class);
-        $reviews->getCollection()->transform(function ($rating) use ($sanitizer) {
+        $previousCounts = Rating::previousRatingCountsForGame($game->id, $reviews->getCollection()->pluck('rater_id'));
+        $reviews->getCollection()->transform(function ($rating) use ($sanitizer, $previousCounts) {
             $rating->review = $sanitizer->sanitizeReview($rating->review);
+            $rating->previous_ratings_count = $rating->rater_id !== null ? (int) ($previousCounts[$rating->rater_id] ?? 0) : 0;
 
             return $rating;
         });
@@ -341,7 +344,7 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
+        $developerCacheKey = "game.{$game->id}.developer.".md5((string) $game->authors).".v{$recommendationCacheVersion}";
         $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
             ->map(fn (Game $g) => [
                 'id' => $g->id,

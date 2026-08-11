@@ -260,6 +260,18 @@ test('game reviews endpoint filters visible reviews, sanitizes text, and exposes
         'event_id' => 3,
         'source_platform' => 'itch_io',
     ]);
+    Rating::create([
+        'game_id' => $game->id,
+        'rater_id' => $rater->id,
+        'rating' => 1,
+        'review' => 'Moderated text',
+        'is_visible' => false,
+        'is_moderation_hidden' => true,
+        'is_reviewed' => true,
+        'published_at' => now()->subDays(3),
+        'event_id' => 4,
+        'source_platform' => 'itch_io',
+    ]);
 
     $this
         ->getJson(route('browser-api.games.reviews', [
@@ -270,6 +282,7 @@ test('game reviews endpoint filters visible reviews, sanitizes text, and exposes
         ->assertJsonPath('success', true)
         ->assertJsonCount(1, 'reviews.data')
         ->assertJsonPath('reviews.data.0.rating', 5)
+        ->assertJsonPath('reviews.data.0.previous_ratings_count', 1)
         ->assertJsonPath('availableRatings', [5])
         ->assertJsonMissing(['review' => '<script>alert("x")</script>']);
 
@@ -283,6 +296,7 @@ test('game reviews endpoint filters visible reviews, sanitizes text, and exposes
         ->assertOk()
         ->assertJsonCount(1, 'reviews.data')
         ->assertJsonPath('reviews.data.0.rating', 3)
+        ->assertJsonPath('reviews.data.0.previous_ratings_count', 0)
         ->assertJsonPath('availableRatings', [3, 5]);
 });
 

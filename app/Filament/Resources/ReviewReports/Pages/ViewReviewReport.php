@@ -67,7 +67,7 @@ class ViewReviewReport extends ViewRecord
                     ]);
 
                     if ($this->record->rating) {
-                        $this->record->rating->update(['is_visible' => false]);
+                        $this->record->rating->update(['is_visible' => false, 'is_moderation_hidden' => true]);
                     }
 
                     Notification::make()
@@ -97,11 +97,11 @@ class ViewReviewReport extends ViewRecord
                     if ($rating->user_id) {
                         $count = Rating::where('user_id', $rating->user_id)
                             ->where('is_visible', true)
-                            ->update(['is_visible' => false]);
+                            ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
                     } else {
                         $count = Rating::where('rater_id', $rating->rater_id)
                             ->where('is_visible', true)
-                            ->update(['is_visible' => false]);
+                            ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
                     }
 
                     Notification::make()
@@ -124,14 +124,14 @@ class ViewReviewReport extends ViewRecord
 
                     $count = Rating::where('user_id', $user->id)
                         ->where('is_visible', true)
-                        ->update(['is_visible' => false]);
+                        ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
 
                     if ($this->record->status === 'pending') {
                         $this->record->update([
                             'status' => 'actioned',
                             'reviewed_by' => Auth::id(),
                             'reviewed_at' => now(),
-                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes . "\n" : '') . 'User banned from reviewing.',
+                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes."\n" : '').'User banned from reviewing.',
                         ]);
                     }
 
@@ -157,14 +157,14 @@ class ViewReviewReport extends ViewRecord
 
                     $count = Rating::where('rater_id', $rater->id)
                         ->where('is_visible', true)
-                        ->update(['is_visible' => false]);
+                        ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
 
                     if ($this->record->status === 'pending') {
                         $this->record->update([
                             'status' => 'actioned',
                             'reviewed_by' => Auth::id(),
                             'reviewed_at' => now(),
-                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes . "\n" : '') . 'Rater banned from reviewing.',
+                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes."\n" : '').'Rater banned from reviewing.',
                         ]);
                     }
 

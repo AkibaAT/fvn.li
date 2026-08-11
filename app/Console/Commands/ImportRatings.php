@@ -99,8 +99,8 @@ class ImportRatings extends Command
             // Return error code if there were any errors
             return ($errorCount > 0 || $individualRatingErrors > 0) ? 1 : 0;
         } catch (Exception $e) {
-            $this->error('Error importing ratings: ' . $e->getMessage());
-            Log::error('Ratings import failed: ' . $e->getMessage(), ['exception' => $e]);
+            $this->error('Error importing ratings: '.$e->getMessage());
+            Log::error('Ratings import failed: '.$e->getMessage(), ['exception' => $e]);
 
             return 1;
         }
@@ -114,7 +114,7 @@ class ImportRatings extends Command
     {
         $url = 'https://itch.io/feed?filter=ratings&format=json';
         if ($fromEventId) {
-            $url .= '&from_event=' . $fromEventId;
+            $url .= '&from_event='.$fromEventId;
         }
 
         $this->info("Fetching ratings from: {$url}");
@@ -278,6 +278,7 @@ class ImportRatings extends Command
             'rating' => $rating,
             'review' => $reviewText,
             'is_visible' => ! $rater->is_review_banned,
+            'is_moderation_hidden' => (bool) $rater->is_review_banned,
             'is_reviewed' => $reviewText !== '',
             'source_platform' => 'itch_io',
         ]);
