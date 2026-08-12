@@ -22,6 +22,10 @@ class SimilarGamesService
      */
     public function findSimilarGames(Game $game, int $limit = 6): Collection
     {
+        if (! $game->shouldBeSearchable()) {
+            return collect();
+        }
+
         $query = new SimilarDocumentsQuery($game->id, 'default');
         $query->setLimit($limit)
             ->setFilter(['is_visible = true']);

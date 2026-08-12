@@ -207,6 +207,8 @@ else
     compose_exec_root supervisorctl restart laravel-queue:*
     compose_exec_root supervisorctl restart inertia-ssr:*
 
+    docker compose restart stats-runner
+
     echo "FrankenPHP and workers hot reload completed successfully!"
   else
     echo "Container is not running, starting it..."

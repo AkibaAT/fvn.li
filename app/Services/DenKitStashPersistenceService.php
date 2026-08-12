@@ -19,7 +19,9 @@ use ZipArchive;
 class DenKitStashPersistenceService
 {
     private const OPTIMIZATION_METADATA_SCHEMA = 'fvn.archive_optimization.v1';
+
     private const DEFAULT_MAX_ARCHIVE_ENTRIES = 20000;
+
     private const DEFAULT_MAX_EXTRACTED_BYTES = 2147483648;
 
     private ?string $lastRestoreDiagnostic = null;

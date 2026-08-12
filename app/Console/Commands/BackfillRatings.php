@@ -113,8 +113,8 @@ class BackfillRatings extends Command
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Error backfilling ratings: '.$e->getMessage());
-            Log::error('Ratings backfill failed: '.$e->getMessage(), ['exception' => $e]);
+            $this->error('Error backfilling ratings: ' . $e->getMessage());
+            Log::error('Ratings backfill failed: ' . $e->getMessage(), ['exception' => $e]);
 
             return 1;
         }
@@ -128,7 +128,7 @@ class BackfillRatings extends Command
     {
         $url = 'https://itch.io/feed?filter=ratings&format=json';
         if ($fromEventId) {
-            $url .= '&from_event='.$fromEventId;
+            $url .= '&from_event=' . $fromEventId;
         }
 
         $this->info("Fetching ratings from: {$url}");

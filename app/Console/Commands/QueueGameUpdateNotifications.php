@@ -11,7 +11,6 @@ use App\Services\NotificationService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -151,28 +150,22 @@ class QueueGameUpdateNotifications extends Command
                     // Add more channels here as needed
 
                     foreach ($channelsToNotify as $channel) {
-                        // Database unique constraint will prevent duplicates more reliably
-                        // than application-level checks, so we can remove the explicit check
-                        try {
-                            $this->queueNotification(
-                                $user->user_id,
-                                $game->id,
-                                $game->latestVersion->id,
-                                $channel,
-                                $user->notification_digest,
-                                $game
-                            );
-                            $notificationCount++;
-                        } catch (QueryException $e) {
-                            // If this is a duplicate key violation, just skip it silently
-                            if (str_contains($e->getMessage(), 'notification_queue_unique_constraint')) {
-                                $this->info("Notification already queued for user {$user->user_id}, game {$game->name}, channel {$channel}");
+                        $queued = $this->queueNotification(
+                            $user->user_id,
+                            $game->id,
+                            $game->latestVersion->id,
+                            $channel,
+                            $user->notification_digest,
+                            $game
+                        );
 
-                                continue;
-                            }
-                            // Re-throw other database exceptions
-                            throw $e;
+                        if ($queued) {
+                            $notificationCount++;
+
+                            continue;
                         }
+
+                        $this->info("Notification already queued for user {$user->user_id}, game {$game->name}, channel {$channel}");
                     }
                 }
             }
@@ -257,7 +250,7 @@ class QueueGameUpdateNotifications extends Command
         string $channel,
         string $digestType,
         Game $game
-    ): void {
+    ): bool {
         // Calculate when this notification should be sent based on digest setting
         $scheduledAt = $this->calculateScheduledTime($digestType);
 
@@ -274,8 +267,7 @@ class QueueGameUpdateNotifications extends Command
             'icon' => $game->getThumbnailUrl('small'),
         ];
 
-        // Queue the notification
-        NotificationQueue::create([
+        $notification = new NotificationQueue([
             'user_id' => $userId,
             'game_id' => $gameId,
             'game_version_id' => $gameVersionId,
@@ -284,6 +276,12 @@ class QueueGameUpdateNotifications extends Command
             'scheduled_at' => $scheduledAt,
             'payload' => $payload,
         ]);
+
+        $timestamp = $notification->freshTimestamp();
+        $notification->setCreatedAt($timestamp);
+        $notification->setUpdatedAt($timestamp);
+
+        return NotificationQueue::query()->insertOrIgnore($notification->getAttributes()) === 1;
     }
 
     /**

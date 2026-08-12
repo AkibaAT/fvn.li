@@ -40,29 +40,6 @@ class Rating extends Model
         'external_metadata' => 'array',
     ];
 
-    public function game(): BelongsTo
-    {
-        return $this->belongsTo(Game::class);
-    }
-
-    public function rater(): BelongsTo
-    {
-        return $this->belongsTo(Rater::class);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Check if this is a user-submitted review (vs imported).
-     */
-    public function isUserReview(): bool
-    {
-        return $this->user_id !== null;
-    }
-
     /**
      * Superseded rating counts for a game keyed by rater id, excluding
      * moderation-hidden rows. A non-zero count means the rater's current
@@ -84,5 +61,28 @@ class Rating extends Model
             ->groupBy('rater_id')
             ->selectRaw('rater_id, count(*) as aggregate')
             ->pluck('aggregate', 'rater_id');
+    }
+
+    public function game(): BelongsTo
+    {
+        return $this->belongsTo(Game::class);
+    }
+
+    public function rater(): BelongsTo
+    {
+        return $this->belongsTo(Rater::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Check if this is a user-submitted review (vs imported).
+     */
+    public function isUserReview(): bool
+    {
+        return $this->user_id !== null;
     }
 }

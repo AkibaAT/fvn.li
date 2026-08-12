@@ -53,6 +53,9 @@ class RenpyStatsSandboxClient
                         : 'No stats could be extracted';
                 } else {
                     $this->lastError = "Sandbox analyzer request failed with HTTP {$response->status()}";
+                    if (is_string($message) && $message !== '') {
+                        $this->lastError .= ': ' . $this->sanitizeDiagnosticOutput($message);
+                    }
                 }
                 Log::warning('GameStats: sandbox analyzer request failed', [
                     'status' => $response->status(),

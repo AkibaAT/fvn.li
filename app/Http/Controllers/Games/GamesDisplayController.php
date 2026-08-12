@@ -344,7 +344,7 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $developerCacheKey = "game.{$game->id}.developer.".md5((string) $game->authors).".v{$recommendationCacheVersion}";
+        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
         $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
             ->map(fn (Game $g) => [
                 'id' => $g->id,

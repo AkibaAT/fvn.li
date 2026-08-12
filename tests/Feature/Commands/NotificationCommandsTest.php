@@ -12,8 +12,10 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Services\NotificationService;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -150,6 +152,31 @@ it('does not queue duplicate notifications for already notified users', function
     $this->artisan('notifications:queue-game-updates --days=1')
         ->expectsOutput('Successfully queued 0 notifications')
         ->assertExitCode(0);
+});
+
+it('ignores a notification that is already queued without creating another row', function () {
+    [$game] = queueCommandGame();
+    $user = notificationUserFor($game);
+
+    $this->artisan('notifications:queue-game-updates --days=1')
+        ->expectsOutput('Successfully queued 1 notifications')
+        ->assertExitCode(0);
+
+    $queries = [];
+    DB::listen(function (QueryExecuted $query) use (&$queries): void {
+        $queries[] = $query->sql;
+    });
+
+    $this->artisan('notifications:queue-game-updates --days=1')
+        ->expectsOutput("Notification already queued for user {$user->id}, game {$game->name}, channel browser")
+        ->expectsOutput('Successfully queued 0 notifications')
+        ->assertExitCode(0);
+
+    expect(NotificationQueue::query()->count())->toBe(1)
+        ->and(collect($queries)->contains(
+            fn (string $query): bool => str_contains($query, /** @lang text */ 'insert into "notification_queue"')
+                && str_contains($query, 'on conflict do nothing')
+        ))->toBeTrue();
 });
 
 it('processes individual browser push notifications and records history', function () {

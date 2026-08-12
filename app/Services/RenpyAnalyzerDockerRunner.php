@@ -8,6 +8,7 @@ use App\Support\Stats\NdjsonStatsPayload;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class RenpyAnalyzerDockerRunner
@@ -50,9 +51,24 @@ class RenpyAnalyzerDockerRunner
         File::copy(resource_path('renpy/json_stats.rpy'), "{$containerJobDir}/input/json_stats.rpy");
 
         try {
+            $timeout = (int) config('services.renpy.analyzer_timeout', 300) + 30;
+            set_time_limit($timeout + 60);
+
             $process = new Process($this->buildDockerRunCommand($jobId, $hostJobDir, $archiveFilename));
-            $process->setTimeout((int) config('services.renpy.analyzer_timeout', 300) + 30);
-            $process->run();
+            $process->setTimeout($timeout);
+
+            try {
+                $process->run();
+            } catch (ProcessTimedOutException) {
+                // Symfony kills the docker client on timeout, but the
+                // container itself keeps running and must be stopped too.
+                (new Process(['docker', 'kill', $jobId]))->run();
+
+                $this->lastError = "Analyzer timed out after {$timeout} seconds";
+                Log::warning('RenPy analyzer container timed out', ['timeout' => $timeout]);
+
+                return false;
+            }
 
             if (! $process->isSuccessful()) {
                 $diagnostic = trim($process->getErrorOutput()) ?: trim($process->getOutput());
